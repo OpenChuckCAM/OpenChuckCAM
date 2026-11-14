@@ -144,6 +144,19 @@ fn blisk(
     }
 }
 
+/// How far each sample is laid out along X from the Makera Z1's reference
+/// point, the headstock face (decision record 0649, the owner's decision 9):
+/// the samples were written with model X 0 at the old reference, 17.99 mm in
+/// front of the face, and keep that physical place. The part, the stock,
+/// the tabs and the work zero all move by it, so the programs do not change.
+const LAYOUT_SHIFT: f64 = 17.99;
+
+/// `x` moved by [`LAYOUT_SHIFT`], to the micrometre, as the committed sample
+/// project holds it.
+fn shifted(x: f64) -> f64 {
+    ((x + LAYOUT_SHIFT) * 1e6).round() / 1e6
+}
+
 fn samples() -> Vec<Sample> {
     let groove = sample_projects::groove();
     let lobed = sample_projects::lobed();
@@ -179,7 +192,8 @@ fn samples() -> Vec<Sample> {
             ..sample("cone_axial_lead", cone(), 10.0)
         },
         // Stock X -12 to 42, diameter 20; held 4 mm and 2 mm; a tab between
-        // each held region and the part (decision record 0035).
+        // each held region and the part (decision record 0035). The tabs are
+        // at X -8 and 30, given here moved by LAYOUT_SHIFT.
         Sample {
             margin: 12.0,
             oversize: 0.0,
@@ -189,9 +203,9 @@ fn samples() -> Vec<Sample> {
                 "--held-end",
                 "2",
                 "--tab",
-                "cylinder=-8,8,20",
+                "cylinder=9.99,8,20",
                 "--tab",
-                "frustum=30,10,10,20",
+                "frustum=47.99,10,10,20",
             ],
             ..sample("cone_held_tabs", cone(), 10.0)
         },
@@ -295,8 +309,9 @@ fn build(sample: &Sample, root: &Path) -> PathBuf {
         "cylinder={},{},{}",
         2.0 * sample.radius + sample.oversize,
         x1 - x0 + 2.0 * sample.margin,
-        x0 - sample.margin
+        shifted(x0 - sample.margin)
     );
+    let zero = shifted(0.0).to_string();
     let mut setup: Vec<OsString> = [
         "setup",
         "",
@@ -308,6 +323,10 @@ fn build(sample: &Sample, root: &Path) -> PathBuf {
         &stock,
         "--material",
         "oak",
+        "--part-offset",
+        &zero,
+        "--work-x",
+        &zero,
     ]
     .iter()
     .map(OsString::from)
@@ -646,17 +665,18 @@ fn build_first_cut(root: &Path) -> PathBuf {
         "--part".as_ref(),
         PART_FILE.as_ref(),
         "--stock".as_ref(),
-        "box=0,-17.5,-17.5,100,17.5,17.5".as_ref(),
+        // The owner's layout, moved by LAYOUT_SHIFT (decision record 0649).
+        "box=17.99,-17.5,-17.5,117.99,17.5,17.5".as_ref(),
         "--material".as_ref(),
         "Plastic".as_ref(),
         "--part-offset".as_ref(),
-        "73".as_ref(),
+        "90.99".as_ref(),
         "--work-x".as_ref(),
-        "0".as_ref(),
+        "17.99".as_ref(),
         "--held-start".as_ref(),
         "68".as_ref(),
         "--tab".as_ref(),
-        "cylinder=68,5,10".as_ref(),
+        "cylinder=85.99,5,10".as_ref(),
         "--held-end".as_ref(),
         "2,10".as_ref(),
     ]);

@@ -4,17 +4,17 @@ order = "V"
 name = "Setup 1"
 part = "249c3373-d6ab-4b7f-bfc0-b49bedab74f1"
 material = "Hardwood"
-part_offset = 0.0
+part_offset = 17.99
 
 [work_offset]
 register = "g54"
-x = 0.0
+x = 17.99
 
 [stock]
 type = "cylinder"
 diameter = 38.0
 length = 46.0
-x_start = -4.0
+x_start = 13.99
 
 [workholding.start]
 length = 6.0
