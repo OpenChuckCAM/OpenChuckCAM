@@ -39,6 +39,7 @@ name = "Makera Z1"
 rotary_axis = "x"
 a_sense = "positive"
 max_tool_number = 1000
+min_spindle_rpm = 4000.0
 max_spindle_rpm = 13000.0
 min_block_ms = 7.0
 block_window = 32

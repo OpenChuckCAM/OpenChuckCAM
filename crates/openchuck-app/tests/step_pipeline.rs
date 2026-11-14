@@ -551,7 +551,10 @@ fn swarf(tag: &str) -> (PathBuf, Application) {
         .iter()
         .map(|[ny, nz]| {
             let pick = picker
-                .pick([HEX_LENGTH / 2.0, 100.0 * ny, 100.0 * nz], [0.0, -ny, -nz])
+                .pick(
+                    [LAYOUT_SHIFT + HEX_LENGTH / 2.0, 100.0 * ny, 100.0 * nz],
+                    [0.0, -ny, -nz],
+                )
                 .unwrap()
                 .expect("the ray meets the flat");
             assert_eq!(pick.model, Some(model));
@@ -653,7 +656,11 @@ fn req_op_07_req_sim_05_the_swarf_reference_job_cuts_the_flats_and_nothing_of_th
     let flats: Vec<f64> = d
         .points
         .iter()
-        .filter(|p| p.normal.x.abs() < 1e-6 && p.point.x > 1.0 && p.point.x < HEX_LENGTH - 1.0)
+        .filter(|p| {
+            // The bar's own X, from its start at LAYOUT_SHIFT.
+            let x = p.point.x - LAYOUT_SHIFT;
+            p.normal.x.abs() < 1e-6 && x > 1.0 && x < HEX_LENGTH - 1.0
+        })
         .map(|p| p.value)
         .collect();
     assert!(!flats.is_empty());
