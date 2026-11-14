@@ -12,8 +12,8 @@
 # feed limits (M203.1), 7 ms (decision 0648), the SP-12 conventions and the
 # axis height, measured the spindle-to-axis distance, the minimum clearance
 # for the supplied chuck, the spindle range and the rotary reference point
-# (the headstock face), and found the soft limits at -1 near home. The far
-# ends of the travel are still unconfirmed.
+# (the headstock face), and measured the travel's soft limits and the G0
+# rates. Every value is confirmed.
 # Machine coordinates are the firmware's (G53): home at 0, travel negative.
 schema = 8
 # Fixed for the built-in profile, so every project copy of it can be compared
@@ -72,13 +72,14 @@ z = -48.6
 [machine.a_range]
 type = "continuous"
 
+# The travel is the firmware's soft limits on 1.1.3, measured by the owner
+# (decision 0649, OI-1292): X -207 to -1, Y -160 to -1 (the rotary module
+# fitted), Z -102 to -1.
 [machine.travel.min]
-x = -200.0
-y = -200.0
-z = -100.0
+x = -207.0
+y = -160.0
+z = -102.0
 
-# The firmware's soft limits on 1.1.3 hold every axis at -1.0 on the home
-# side: a move to -0.9 is refused (decision 0649, OI-1292).
 [machine.travel.max]
 x = -1.0
 y = -1.0
@@ -90,7 +91,7 @@ z = -1.0
 # and the owner's Z1 on firmware 1.1.3 prints "A: 30" (deg/s) for M203.1
 # (decision 0647); it prints X: 20, Y: 20 and Z: 10 (mm/s) for the others
 # (decision 0649). G0 is limited to the same per-axis rates, so rapids equal
-# the feed limits. To check a Z1, send M203.1 in its console: a machine that
+# the feed limits, as the owner's timed G0 moves confirm. To check a Z1, send M203.1 in its console: a machine that
 # prints A: 60 can raise both A limits to 3600 in a copy of this profile.
 [machine.max_feeds]
 linear = 1200.0
@@ -130,12 +131,12 @@ state = "confirmed"
 source = "confirmed by the owner from use of the machine (11 Oct 2026): the A axis is continuous. Consistent with Fusion (no limits, never reset), FreeCAD (+/-1e7, unwound), Mastercam (signed continuous) and the Z1 firmware (no A soft limit). The air cut turned A to 570 and -370 and unwound by `G92.4 A0 S0` with no limit stop. Rechecked by the owner on firmware 1.1.3 (11 to 14 Nov 2026, issue #586 comment 6805176778, decision 0649): the SP-12 conventions hold"
 
 [machine.provenance.travel]
-state = "unconfirmed"
-source = "Near home: -1.0 on X, Y and Z, the firmware's soft limits on 1.1.3: the owner reports the soft limit minimums are all -1.0, and a move to -0.9 is refused (14 Nov 2026, decision 0649); the refusal's text was not recorded. Far ends not checked on the machine: -200, -200 and -100 span 200 x 200 x 100 mm, as FreeCAD Z1 exactly and Fusion Z1 with 10 mm extra on X and Y, firmware soft limits -206/-206/-102 (decision 0013); with the rotary module and soft limits on, the firmware holds Y above -160. Jog each axis to its far end with nothing fitted and read the machine coordinates (G53). Frame is the firmware's G53 with home at 0"
+state = "confirmed"
+source = "the firmware's soft limits on 1.1.3, measured by the owner (14 Nov 2026, decision 0649): X -207 to -1, Y -160 to -1 and Z -102 to -1 in machine coordinates (G53). Near home a move to -0.9 is refused on all three axes; at the far ends the soft limit triggers beyond X -207, Y -160 and Z -102. The refusal's text was not recorded. Y -160 matches the firmware's note that, with the rotary module fitted and soft limits on, Y is held above -160; the published config gives -206/-206/-102 (decision 0013). Frame is the firmware's G53 with home at 0"
 
 [machine.provenance.max_feeds]
 state = "confirmed"
-source = "confirmed by the owner from use of the machine (11 Oct 2026): X and Y 1200 mm/min, Z 600 mm/min (decision 0013). A 1800 deg/min (30 deg/s), confirmed by the owner on firmware 1.1.3 (relayed 14 Nov 2026): M203.1 in the console prints A: 30. The firmware caps A's configured maximum rate (3600 deg/min in the Z1 config) at 1800 deg/min when bit 0 of the factory setting FuncSetting is set (Robot.cpp:295-298, in 1.1.2 and 1.1.3), and in the 0.55.0-rc2 gate 4 run the sphere took 127 s where the estimate at 3600 deg/min was 81 s (decision 0647). Check with M203.1: a Z1 that prints A: 60 can raise A in its own copy. Consistent with the 1200 reported from Makera Studio; the CAM profiles' figures are template values and were not used (decision 0013). How the firmware counts A in the F word was measured by the SP-12 air cut on firmware 1.1.2 (decision 0007, tests T3 and T4); the feed limits are applied to that length (decision 0076). On firmware 1.1.3 M203.1 prints X: 20, Y: 20 and Z: 10 (mm/s), so X and Y 1200 and Z 600 mm/min are confirmed from the controller (owner, 14 Nov 2026, decision 0649). The rapid limits are the same per-axis maximum rates; G0 has not been timed separately"
+source = "confirmed by the owner from use of the machine (11 Oct 2026): X and Y 1200 mm/min, Z 600 mm/min (decision 0013). A 1800 deg/min (30 deg/s), confirmed by the owner on firmware 1.1.3 (relayed 14 Nov 2026): M203.1 in the console prints A: 30. The firmware caps A's configured maximum rate (3600 deg/min in the Z1 config) at 1800 deg/min when bit 0 of the factory setting FuncSetting is set (Robot.cpp:295-298, in 1.1.2 and 1.1.3), and in the 0.55.0-rc2 gate 4 run the sphere took 127 s where the estimate at 3600 deg/min was 81 s (decision 0647). Check with M203.1: a Z1 that prints A: 60 can raise A in its own copy. Consistent with the 1200 reported from Makera Studio; the CAM profiles' figures are template values and were not used (decision 0013). How the firmware counts A in the F word was measured by the SP-12 air cut on firmware 1.1.2 (decision 0007, tests T3 and T4); the feed limits are applied to that length (decision 0076). On firmware 1.1.3 M203.1 prints X: 20, Y: 20 and Z: 10 (mm/s), so X and Y 1200 and Z 600 mm/min are confirmed from the controller (owner, 14 Nov 2026, decision 0649). The rapid limits are the same per-axis maximum rates, confirmed by the owner's timed G0 moves (G53, no tool, 100 %, firmware 1.1.3, 14 Nov 2026): X -10 to -110 (100 mm) took 5.3 s (5.0 s at 1200 mm/min plus acceleration); Z -5 to -55 (50 mm) 5.13 s (5.0 s at 600); A 0 to 360 12.22 s (12.0 s at 1800 deg/min)"
 
 [machine.provenance.clearance]
 state = "confirmed"

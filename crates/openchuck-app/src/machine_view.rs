@@ -337,9 +337,19 @@ mod tests {
             "{}",
             height.tooltip
         );
-        // The travel is not confirmed: the amber triangle, with where it came
-        // from and how to confirm it.
+        // The Z1's travel is confirmed since decision 0649. A travel that is
+        // not confirmed gets the amber triangle, with where it came from and
+        // how to confirm it.
         let travel = values.iter().find(|v| v.label == "Travel").unwrap();
+        assert!(travel.confirmed);
+        let mut changed = z1.clone();
+        changed
+            .provenance
+            .get_mut(&ProfileField::Travel)
+            .unwrap()
+            .state = openchuck_types::machine::Confirmation::Unconfirmed;
+        let values_changed = machine_values(&changed);
+        let travel = values_changed.iter().find(|v| v.label == "Travel").unwrap();
         assert!(!travel.confirmed);
         assert!(travel.tooltip.starts_with("Not confirmed on the machine."));
         assert!(travel.tooltip.contains("Source: "));

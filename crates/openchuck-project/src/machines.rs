@@ -514,14 +514,19 @@ mod tests {
         }
         // The owner confirmed the axis, direction, range and feed limits from
         // use of the machine, the axis height by Makera's probing routine
-        // (decision 0317), and on firmware 1.1.3 every other value but the far
-        // ends of the travel (decision 0649).
-        assert_eq!(z1.unconfirmed_fields(), vec![ProfileField::Travel]);
+        // (decision 0317), and on firmware 1.1.3 every other value, the
+        // travel's soft limits included (decision 0649).
+        assert!(
+            z1.unconfirmed_fields().is_empty(),
+            "{:?}",
+            z1.unconfirmed_fields()
+        );
         for field in [
             ProfileField::RotaryAxis,
             ProfileField::ASense,
             ProfileField::RotaryOrigin,
             ProfileField::ARange,
+            ProfileField::Travel,
             ProfileField::MaxFeeds,
             ProfileField::Clearance,
             ProfileField::MinBlockMs,
@@ -587,9 +592,9 @@ mod tests {
 
     /// The Z1's minimum clearance radius is the owner's measurement for the
     /// supplied chuck with its jaws reversed and fully open, confirmed for
-    /// that setup only; the default clearance clears it, and the travel ends
-    /// near home at the firmware's soft limits, while its far ends are not
-    /// yet checked (decision 0649; OI-1780, OI-1292).
+    /// that setup only; the default clearance clears it, and the travel is
+    /// the firmware's soft limits as the owner measured them (decision 0649;
+    /// OI-1780, OI-1292).
     #[test]
     fn req_set_06_req_set_01_the_z1_minimum_clearance_is_measured_for_the_supplied_chuck() {
         let z1 = builtin(MAKERA_Z1).unwrap().unwrap();
@@ -607,20 +612,26 @@ mod tests {
             assert!(source.contains(fact), "{fact}: {source}");
         }
         assert!(z1.clearance.radius.0 >= 45.0 && z1.clearance.safe_z.0 >= 45.0);
-        // The firmware's soft limits hold every axis at -1.0 near home; the
-        // far ends are untested, so the travel stays unconfirmed.
+        // The firmware's soft limits: -1.0 near home on every axis, and the
+        // far ends X -207, Y -160 (the rotary module fitted) and Z -102.
         assert_eq!(
             (z1.travel.max.x, z1.travel.max.y, z1.travel.max.z),
             (-1.0, -1.0, -1.0)
         );
-        assert!(!z1.is_confirmed(ProfileField::Travel));
+        assert_eq!(
+            (z1.travel.min.x, z1.travel.min.y, z1.travel.min.z),
+            (-207.0, -160.0, -102.0)
+        );
+        assert!(z1.is_confirmed(ProfileField::Travel));
         let travel = &z1.provenance[&ProfileField::Travel].source;
         for fact in [
-            "-1.0",
             "-0.9",
+            "-207",
+            "-160",
+            "-102",
             "soft limit",
             "1.1.3",
-            "Far ends not checked",
+            "0649",
         ] {
             assert!(travel.contains(fact), "{fact}: {travel}");
         }

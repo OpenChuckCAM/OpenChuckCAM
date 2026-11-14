@@ -114,8 +114,8 @@ Recommended minimum safe Z
 | A range | continuous | yes |
 | Axis height (machine Z) | -48.6 mm | yes (48.568 mm measured again on firmware 1.1.3) |
 | Rotary reference X, Y | -198.39 mm, -123.39 mm (the centre of the headstock face next to the chuck) | yes (firmware 1.1.3) |
-| Travel | X -200 to -1, Y -200 to -1, Z -100 to -1 mm | no: the ends near home (-1) are the controller's soft limits on firmware 1.1.3, where a move to -0.9 is refused; the far ends are not checked |
-| X and Y feed, Z feed, A feed | 1200 mm/min, 600 mm/min, 1800 degrees/min | yes (on firmware 1.1.3 `M203.1` prints `X: 20`, `Y: 20`, `Z: 10` and `A: 30`, per second) |
+| Travel | X -207 to -1, Y -160 to -1, Z -102 to -1 mm | yes (the controller's soft limits on firmware 1.1.3, with the rotary module fitted) |
+| X and Y feed, Z feed, A feed | 1200 mm/min, 600 mm/min, 1800 degrees/min, the same for rapids | yes (on firmware 1.1.3 `M203.1` prints `X: 20`, `Y: 20`, `Z: 10` and `A: 30`, per second; rapids timed) |
 | A in the feed word | makera | yes |
 | Safe cylinder radius, Safe Z | 45 mm, 45 mm | yes (set to the minimum clearance radius) |
 | Minimum clearance radius | 45 mm | yes, for the supplied chuck with its jaws reversed and fully open only: set your own on the setup for any other chuck or jaws |
@@ -126,7 +126,7 @@ Recommended minimum safe Z
 | Spindle to axis | 72.0 mm (from the collet face, at the top of the Z travel) | yes |
 | Recommended minimum safe Z | 45 mm | yes (for the supplied chuck with its jaws reversed and fully open) |
 
-The unconfirmed values are the program's best information, not measurements of your machine. Measure them before you rely on them.
+Every value is confirmed on the project owner's machine (firmware 1.1.3, with the supplied chuck), not on yours. Check them on your machine before you rely on them.
 
 ## Make a profile for another machine
 
