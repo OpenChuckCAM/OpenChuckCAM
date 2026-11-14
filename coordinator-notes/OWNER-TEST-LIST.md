@@ -1,6 +1,6 @@
 # Issues for the owner to verify and close on a new build
 
-Updated 26 Oct 2026 for issue #338; earlier nightly sections retain their original build labels. Nightly run 13 was triggered on main at eced9a1 (https://github.com/paulhampson/OpenChuckCAM/actions/runs/39621031609); it contains everything marked "in nightly 13" below. Close each issue yourself once you have checked it; if it is not fixed, reopen it or tell me and it joins the next lane.
+Updated 26 Oct 2026 for issue #338; earlier nightly sections retain their original build labels. Nightly run 13 was triggered on main at eced9a1 (https://github.com/OpenChuckCAM/OpenChuckCAM/actions/runs/39621031609); it contains everything marked "in nightly 13" below. Close each issue yourself once you have checked it; if it is not fixed, reopen it or tell me and it joins the next lane.
 
 ## A. Earlier lanes, verify on the nightly
 
@@ -37,7 +37,7 @@ Updated 26 Oct 2026 for issue #338; earlier nightly sections retain their origin
 
 ## B3. Second nightly (run 14, main f213d19): additionally in this build
 
-https://github.com/paulhampson/OpenChuckCAM/actions/runs/39640543774 (in progress when written)
+https://github.com/OpenChuckCAM/OpenChuckCAM/actions/runs/39640543774 (in progress when written)
 
 | Issue | What to check | PR |
 | --- | --- | --- |
@@ -50,7 +50,7 @@ https://github.com/paulhampson/OpenChuckCAM/actions/runs/39640543774 (in progres
 
 ## B4. Third nightly (run 15, main 452724e): additionally in this build
 
-https://github.com/paulhampson/OpenChuckCAM/actions/runs/39663424881
+https://github.com/OpenChuckCAM/OpenChuckCAM/actions/runs/39663424881
 
 | Issue | What to check | PR |
 | --- | --- | --- |

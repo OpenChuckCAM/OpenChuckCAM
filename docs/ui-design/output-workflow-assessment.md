@@ -1,6 +1,6 @@
 # OUTPUT-1: Post and Export workflow assessment
 
-Issue [#306](https://github.com/paulhampson/OpenChuckCAM/issues/306).
+Issue [#306](https://github.com/OpenChuckCAM/OpenChuckCAM/issues/306).
 Assessed against main `1a904356` and accepted decisions 0071, 0164, 0172,
 0173, 0189, 0192 and 0233. This is an assessment, not a numbered decision
 record or an implementation specification.
@@ -18,7 +18,7 @@ the assessment's initial suggestion of one primary button changing between
 those actions. Neither button bypasses its prerequisites.
 
 The separate build requested by #306 is
-[#322](https://github.com/paulhampson/OpenChuckCAM/issues/322).
+[#322](https://github.com/OpenChuckCAM/OpenChuckCAM/issues/322).
 Its detailed implementation scope, button placement/styling, current-export
 status and stale-state mapping still need agreement before building. The
 workflow rebuild is not part of OUTPUT-1's confirmation and layout fixes.
@@ -178,7 +178,7 @@ No new OI or schema.
 
 ## Released-main integration (24 October 2026)
 
-Merge Manager [released PR 329](https://github.com/paulhampson/OpenChuckCAM/pull/329#issuecomment-6387837764)
+Merge Manager [released PR 329](https://github.com/OpenChuckCAM/OpenChuckCAM/pull/329#issuecomment-6387837764)
 after marking it ready first. Integrated main
 `1687d4f3d69d067bdaf7a61d343bff459e472eef`, including merged BUG-SELSET2,
 TOOLLIB2, OPCREATE2 and SIMUI. Executable sources merged automatically;
