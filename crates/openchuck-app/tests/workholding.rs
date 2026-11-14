@@ -133,7 +133,11 @@ fn build_with_mesh(
     std::fs::create_dir_all(dir.join("models")).unwrap();
     write_stl(&cone().mesh(mesh.0, mesh.1), &dir.join("models/part.stl"));
     let (model, _) = app.add_model(&dir.join("models/part.stl"), None).unwrap();
-    let machine = builtin("makera-z1").unwrap().unwrap();
+    let mut machine = builtin("makera-z1").unwrap().unwrap();
+    // These layouts put model X 0 where the reference jobs put it, 17.99 mm
+    // in front of the Z1's headstock face (decision record 0649), so the
+    // stock behind it stays inside the travel.
+    machine.rotary_origin.x += 17.990_234_375;
     app.execute(Command::SetMachine(Some(Box::new(machine))))
         .unwrap();
     // A coarse cell keeps the debug-build runs short; the checks below allow

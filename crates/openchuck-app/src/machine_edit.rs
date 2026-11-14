@@ -1348,7 +1348,7 @@ mod tests {
                 TRAVEL_MAX_Z,
                 Some(num(-120.0)),
                 "Highest Z",
-                "The lowest Z (-100 mm) must not be above the highest Z (-120 mm).",
+                "The lowest Z (-102 mm) must not be above the highest Z (-120 mm).",
             ),
             (
                 TRAVEL_MIN_X,

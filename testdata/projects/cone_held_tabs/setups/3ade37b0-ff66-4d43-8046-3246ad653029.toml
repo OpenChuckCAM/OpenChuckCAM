@@ -4,17 +4,17 @@ order = "V"
 name = "Setup 1"
 part = "8f3d2c4a-a1ef-49b9-bce5-cc3ed4065356"
 material = "oak"
-part_offset = 17.99
+part_offset = 17.990234375
 
 [work_offset]
 register = "g54"
-x = 17.99
+x = 17.990234375
 
 [stock]
 type = "cylinder"
 diameter = 20.0
 length = 54.0
-x_start = 5.99
+x_start = 5.990234375
 
 [workholding.start]
 length = 4.0
@@ -23,7 +23,7 @@ length = 4.0
 length = 2.0
 
 [[workholding.tabs]]
-x_start = 9.99
+x_start = 9.990234375
 length = 8.0
 
 [workholding.tabs.shape]
@@ -34,7 +34,7 @@ diameter = 20.0
 type = "on_axis"
 
 [[workholding.tabs]]
-x_start = 47.99
+x_start = 47.990234375
 length = 10.0
 
 [workholding.tabs.shape]

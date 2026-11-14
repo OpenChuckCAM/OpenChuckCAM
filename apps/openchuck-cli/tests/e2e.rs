@@ -147,14 +147,15 @@ fn blisk(
 /// How far each sample is laid out along X from the Makera Z1's reference
 /// point, the headstock face (decision record 0649, the owner's decision 9):
 /// the samples were written with model X 0 at the old reference, 17.99 mm in
-/// front of the face, and keep that physical place. The part, the stock,
+/// front of the face, and keep that physical place (17.99 mm, taken as
+/// 17.990234375, the nearest value exact in binary). The part, the stock,
 /// the tabs and the work zero all move by it, so the programs do not change.
-const LAYOUT_SHIFT: f64 = 17.99;
+const LAYOUT_SHIFT: f64 = 17.990_234_375;
 
-/// `x` moved by [`LAYOUT_SHIFT`], to the micrometre, as the committed sample
-/// project holds it.
+/// `x` moved by [`LAYOUT_SHIFT`]. The shift is 17 + 507/512, exact in
+/// binary, so a coordinate moved back comes out to the bit what it was.
 fn shifted(x: f64) -> f64 {
-    ((x + LAYOUT_SHIFT) * 1e6).round() / 1e6
+    x + LAYOUT_SHIFT
 }
 
 fn samples() -> Vec<Sample> {
@@ -203,9 +204,9 @@ fn samples() -> Vec<Sample> {
                 "--held-end",
                 "2",
                 "--tab",
-                "cylinder=9.99,8,20",
+                "cylinder=9.990234375,8,20",
                 "--tab",
-                "frustum=47.99,10,10,20",
+                "frustum=47.990234375,10,10,20",
             ],
             ..sample("cone_held_tabs", cone(), 10.0)
         },
@@ -666,17 +667,17 @@ fn build_first_cut(root: &Path) -> PathBuf {
         PART_FILE.as_ref(),
         "--stock".as_ref(),
         // The owner's layout, moved by LAYOUT_SHIFT (decision record 0649).
-        "box=17.99,-17.5,-17.5,117.99,17.5,17.5".as_ref(),
+        "box=17.990234375,-17.5,-17.5,117.990234375,17.5,17.5".as_ref(),
         "--material".as_ref(),
         "Plastic".as_ref(),
         "--part-offset".as_ref(),
-        "90.99".as_ref(),
+        "90.990234375".as_ref(),
         "--work-x".as_ref(),
-        "17.99".as_ref(),
+        "17.990234375".as_ref(),
         "--held-start".as_ref(),
         "68".as_ref(),
         "--tab".as_ref(),
-        "cylinder=85.99,5,10".as_ref(),
+        "cylinder=85.990234375,5,10".as_ref(),
         "--held-end".as_ref(),
         "2,10".as_ref(),
     ]);
@@ -872,12 +873,14 @@ mod first_cut {
         let project = &write_projects(&root, &[FIRST_CUT.to_owned()]).unwrap()[0];
         let app = Application::open(project, Threads::Exactly(1)).unwrap();
         let html = app.setup_sheet(None).to_html();
+        // The owner's layout, laid out from the Z1's headstock face, 17.99 mm
+        // further along X (decision record 0649).
         for expected in [
-            "box, X 0 to 100, Y -17.5 to 17.5, Z -17.5 to 17.5 mm",
+            "box, X 17.99 to 117.99, Y -17.5 to 17.5, Z -17.5 to 17.5 mm",
             "Plastic",
-            "part moved 73 mm along the rotary axis",
-            "68 mm of the stock, X 0 to 68 mm, at the stock&#39;s own section",
-            "2 mm of the stock, X 98 to 100 mm, at diameter 10 mm",
+            "part moved 90.99 mm along the rotary axis",
+            "68 mm of the stock, X 17.99 to 85.99 mm, at the stock&#39;s own section",
+            "2 mm of the stock, X 115.99 to 117.99 mm, at diameter 10 mm",
             "Z1 O-flute 3.175x25",
             "Z1 ball 3.175x22",
             "tool data: Plastic",

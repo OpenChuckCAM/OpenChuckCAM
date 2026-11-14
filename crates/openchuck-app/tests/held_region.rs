@@ -800,7 +800,10 @@ fn finish_in_rings_starts_on_a_whole_ring_beside_the_chuck(step: &str) {
         // The first ring is a whole turn at one X, not a blend.
         assert!(!along, "{step}: the pass starts with a blend at X {x:.3}");
         // At the edge of the keep-out: the held 8 mm from the stock's start
-        // (X -1) widened by the tool's reach, beyond X 7.
+        // (X -1 in the owner's layout) widened by the tool's reach, beyond X
+        // 7. The example is laid out from the Z1's headstock face, 17.990234375
+        // mm further along X (decision record 0649).
+        let x = x - 17.990_234_375;
         assert!(x > 7.0 && x < 12.0, "{step}: the first ring at X {x:.3}");
         std::fs::remove_dir_all(&dir).unwrap();
     }

@@ -168,17 +168,17 @@ order = "V"
 name = "Setup 1"
 part = "{MODEL_ID}"
 material = "oak"
-part_offset = 17.99
+part_offset = 17.990234375
 
 [work_offset]
 register = "g54"
-x = 17.99
+x = 17.990234375
 
 [stock]
 type = "cylinder"
 diameter = 42.0
 length = 52.0
-x_start = 26.99
+x_start = 26.990234375
 """
 
 

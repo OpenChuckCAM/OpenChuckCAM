@@ -77,8 +77,12 @@ fn build(name: &str, profile: &[(f64, f64)], radius: f64) -> (PathBuf, Applicati
     setup.stock = Some(Stock::Cylinder {
         diameter: Millimetres(2.0 * radius + 2.0),
         length: Millimetres(x1 - x0 + 2.0),
-        x_start: Millimetres(x0 - 1.0),
+        x_start: Millimetres(super::reference_jobs::shifted(x0 - 1.0)),
     });
+    // Laid out from the Z1's headstock face as the reference jobs are
+    // (decision record 0649).
+    setup.frame.part_offset = Millimetres(super::reference_jobs::LAYOUT_SHIFT);
+    setup.frame.work_offset.x = Millimetres(super::reference_jobs::LAYOUT_SHIFT);
     let tool_id = ToolId::new();
     let mut cutting_data = BTreeMap::new();
     cutting_data.insert(

@@ -1582,6 +1582,12 @@ fn req_nfr_15_setup_messages_name_machine_values_in_plain_words() {
         .get_mut(&openchuck_app::setup::ProfileField::RotaryOrigin)
         .unwrap()
         .state = openchuck_app::setup::Confirmation::Unconfirmed;
+    // The built-in travel is confirmed since decision 0649; this copy's is
+    // not, so the message names two values.
+    z1.provenance
+        .get_mut(&openchuck_app::setup::ProfileField::Travel)
+        .unwrap()
+        .state = openchuck_app::setup::Confirmation::Unconfirmed;
     f.app
         .execute(Command::SetMachine(Some(Box::new(z1))))
         .unwrap();

@@ -4,22 +4,22 @@ order = "V"
 name = "Setup 1"
 part = "b3a3df0f-d5c0-496f-bdb7-170092361e3e"
 material = "Plastic"
-part_offset = 90.99
+part_offset = 90.990234375
 
 [work_offset]
 register = "g54"
-x = 17.99
+x = 17.990234375
 
 [stock]
 type = "box"
 
 [stock.bounds.min]
-x = 17.99
+x = 17.990234375
 y = -17.5
 z = -17.5
 
 [stock.bounds.max]
-x = 117.99
+x = 117.990234375
 y = 17.5
 z = 17.5
 
@@ -31,7 +31,7 @@ length = 2.0
 diameter = 10.0
 
 [[workholding.tabs]]
-x_start = 85.99
+x_start = 85.990234375
 length = 5.0
 
 [workholding.tabs.shape]
