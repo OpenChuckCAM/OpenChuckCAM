@@ -305,7 +305,7 @@ mod tests {
         .clearance
         .safe_z
         .0;
-        assert_eq!(safe_z, 45.0);
+        assert!((safe_z - 45.0).abs() < 1e-9, "{safe_z}");
         assert_eq!(spindle_height(&z1, safe_z, minimum, &tool(22.0)), None);
         let found = spindle_height(&z1, safe_z, minimum, &tool(25.0)).unwrap();
         assert_eq!(found.below_minimum, Some(45.0));
