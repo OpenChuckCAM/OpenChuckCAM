@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
-# Form for the Machines and post processors category (slug
+# Form for the Machines & Post Processors category (slug
 # machines-post-processors). Discussion forms take only `body`.
 body:
   - type: markdown

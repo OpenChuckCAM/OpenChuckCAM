@@ -20,7 +20,7 @@ Check [Known limitations](start/limitations.md) and [Troubleshooting](troublesho
 Go to [Discussions](https://github.com/OpenChuckCAM/OpenChuckCAM/discussions) and pick a category; each has a short form.
 
 - **Q&A** for how to do something, or something the guide does not explain.
-- **Machines and post processors** for a machine, its controller and firmware, or a post.
+- **Machines & Post Processors** for a machine, its controller and firmware, or a post.
 - **Ideas** for a feature you would like; an idea the maintainer takes up becomes an enhancement request.
 - **Show and tell** for what you made. Sharing a result does not mean the project has verified the G-code.
 
