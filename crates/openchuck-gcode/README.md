@@ -2,7 +2,7 @@
 
 G-code reader and interpreter: parses G-code with A words back into motion for replay and checks.
 
-Part of [OpenChuckCAM](https://github.com/paulhampson/OpenChuckCAM). Architecture section 5.3 and 9; requirements GC-08, SIM-09.
+Part of [OpenChuckCAM](https://github.com/OpenChuckCAM/OpenChuckCAM). Architecture section 5.3 and 9; requirements GC-08, SIM-09.
 
 It has the in-house reader for the codes the OpenChuckCAM posts emit (`read`, decision record 0005), the modal replay (`replay`), the static checks (`static_check`), the comparison of a replayed program with the toolpath IR (`compare`) and the comparison with a simulator's report (`compare_simulator`).
 

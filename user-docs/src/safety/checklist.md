@@ -3,7 +3,7 @@
 Work through this list before and after every run on a Makera Z1. Stop at the first item you cannot tick.
 
 > [!NOTE]
-> This page adapts the project's checklist for its own machine trials, [`docs/z1-safe-practice-checklist.md`](https://github.com/paulhampson/OpenChuckCAM/blob/main/docs/z1-safe-practice-checklist.md), which the project owner reviewed as the operator of a Z1. That document is the authority: where the two differ, follow it, and tell the project. Most items apply to any rotary machine, but the values given are for the Z1.
+> This page adapts the project's checklist for its own machine trials, [`docs/z1-safe-practice-checklist.md`](https://github.com/OpenChuckCAM/OpenChuckCAM/blob/main/docs/z1-safe-practice-checklist.md), which the project owner reviewed as the operator of a Z1. That document is the authority: where the two differ, follow it, and tell the project. Most items apply to any rotary machine, but the values given are for the Z1.
 
 ## 1. Before every session
 

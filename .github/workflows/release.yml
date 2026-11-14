@@ -186,7 +186,7 @@ jobs:
       packages: read
     env:
       # Built from docker/linuxcnc by the linuxcnc-image workflow (as in CI's gate 3).
-      LINUXCNC_IMAGE: ghcr.io/paulhampson/openchuckcam-linuxcnc:2.9.10
+      LINUXCNC_IMAGE: ghcr.io/openchuckcam/openchuckcam-linuxcnc:2.9.10
     steps:
       - uses: actions/checkout@v7
         with:

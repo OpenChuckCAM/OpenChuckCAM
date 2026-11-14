@@ -7,7 +7,7 @@ OpenChuckCAM has no stable release yet. You can download a development build, or
 
 ## Download a development build
 
-When the program's code changes, the project builds it for three systems and publishes the result as the rolling [`nightly` pre-release](https://github.com/paulhampson/OpenChuckCAM/releases/tag/nightly) on GitHub.
+When the program's code changes, the project builds it for three systems and publishes the result as the rolling [`nightly` pre-release](https://github.com/OpenChuckCAM/OpenChuckCAM/releases/tag/nightly) on GitHub.
 
 | System | Archive | Notes |
 | --- | --- | --- |
@@ -30,7 +30,7 @@ The same page also offers `openchuckcam-...-examples.zip`, the example projects 
 
 To install it:
 
-1. Download the archive for your system from the [`nightly` pre-release](https://github.com/paulhampson/OpenChuckCAM/releases/tag/nightly).
+1. Download the archive for your system from the [`nightly` pre-release](https://github.com/OpenChuckCAM/OpenChuckCAM/releases/tag/nightly).
 2. Unpack it into a folder of its own.
 3. Start `openchuck-ui`, or on macOS open `OpenChuckCAM.app`, as below for the first time.
 
@@ -59,7 +59,7 @@ On Windows, run `openchuck-cli.exe --help`. On macOS, run the `openchuck-cli` th
 The program is written in Rust. The version of Rust it needs is pinned in the repository's `rust-toolchain.toml`, and `rustup` installs it for you.
 
 1. Install Rust with [rustup](https://rustup.rs).
-2. Get the source: `git clone https://github.com/paulhampson/OpenChuckCAM.git`.
+2. Get the source: `git clone https://github.com/OpenChuckCAM/OpenChuckCAM.git`.
 3. In the `OpenChuckCAM` folder, build and start the program:
 
    ```text
@@ -68,7 +68,7 @@ The program is written in Rust. The version of Rust it needs is pinned in the re
 
 4. For the command line, run `cargo run -p openchuck-cli -- --help`.
 
-Reading STEP files needs the OpenCASCADE geometry kernel, which is not built by default and takes a long time to build the first time. The [`openchuck-import` README](https://github.com/paulhampson/OpenChuckCAM/blob/main/crates/openchuck-import/README.md) says how.
+Reading STEP files needs the OpenCASCADE geometry kernel, which is not built by default and takes a long time to build the first time. The [`openchuck-import` README](https://github.com/OpenChuckCAM/OpenChuckCAM/blob/main/crates/openchuck-import/README.md) says how.
 
 ## The first time it opens
 

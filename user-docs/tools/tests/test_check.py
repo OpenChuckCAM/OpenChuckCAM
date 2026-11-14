@@ -59,7 +59,7 @@ class ThirdPartyRequests(unittest.TestCase):
             self.assertIn(url, found)
 
     def test_req_nfr_19_a_link_to_another_site_is_not_a_request(self):
-        html = page('<a href="https://github.com/paulhampson/OpenChuckCAM">repository</a>',
+        html = page('<a href="https://github.com/OpenChuckCAM/OpenChuckCAM">repository</a>',
                     head='<link rel="canonical" href="https://example.org/x">')
         self.assertEqual(check.third_party_requests(html), [])
 

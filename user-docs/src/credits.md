@@ -26,4 +26,4 @@ The ready-made Makera Z1 tools and the Z1 default tool set are written from fact
 
 ## The source code
 
-The source of OpenChuckCAM, and of this guide, is in the project's [GitHub repository](https://github.com/paulhampson/OpenChuckCAM). The commit a download was built from is named in its `README.txt` and in **Help > About**.
+The source of OpenChuckCAM, and of this guide, is in the project's [GitHub repository](https://github.com/OpenChuckCAM/OpenChuckCAM). The commit a download was built from is named in its `README.txt` and in **Help > About**.

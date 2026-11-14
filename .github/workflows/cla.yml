@@ -44,7 +44,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          path-to-document: https://github.com/paulhampson/OpenChuckCAM/blob/main/CLA.md
+          path-to-document: https://github.com/OpenChuckCAM/OpenChuckCAM/blob/main/CLA.md
           path-to-signatures: signatures/cla.json
           branch: cla-signatures
           # The Maintainer and bots do not sign. Organisation signers
@@ -53,9 +53,9 @@ jobs:
           custom-pr-sign-comment: I have read the OpenChuckCAM Individual Contributor Licence Agreement, version 1.0, and I agree to its terms.
           custom-notsigned-prcomment: >-
             Thank you for your contribution. Before it can be merged, please read the
-            [OpenChuckCAM Individual Contributor Licence Agreement](https://github.com/paulhampson/OpenChuckCAM/blob/main/CLA.md)
+            [OpenChuckCAM Individual Contributor Licence Agreement](https://github.com/OpenChuckCAM/OpenChuckCAM/blob/main/CLA.md)
             and sign it by posting the comment below on this pull request. If an employer or other
             organisation holds rights in your work, it also signs the
-            [entity agreement](https://github.com/paulhampson/OpenChuckCAM/blob/main/CLA-ENTITY.md).
+            [entity agreement](https://github.com/OpenChuckCAM/OpenChuckCAM/blob/main/CLA-ENTITY.md).
           custom-allsigned-prcomment: All contributors have signed the OpenChuckCAM CLA. Thank you.
           lock-pullrequest-aftermerge: false

@@ -5,7 +5,7 @@ This example adds a rest machining operation with a 2 mm ball end mill after the
 > [!WARNING]
 > Rest machining works out what is left from the stock simulation, not from your real part. If an earlier operation was changed, skipped or run differently on the machine, the material the rest operation meets is not what it planned for, and a small tool can be overloaded or broken. Check the path in the simulation and run an [air cut](../glossary.md#air-cut) first. Generated G-code must be verified by you before it is run on a machine.
 
-You need the tutorial's finished project, [`testdata/examples/baluster/baluster-project`](https://github.com/paulhampson/OpenChuckCAM/tree/main/testdata/examples/baluster/baluster-project). Copy it to a folder of your own and open the copy with **File > Open project**. The numbers on this page come from that project on the build named in the figures' record; your own part gives other numbers.
+You need the tutorial's finished project, [`testdata/examples/baluster/baluster-project`](https://github.com/OpenChuckCAM/OpenChuckCAM/tree/main/testdata/examples/baluster/baluster-project). Copy it to a folder of your own and open the copy with **File > Open project**. The numbers on this page come from that project on the build named in the figures' record; your own part gives other numbers.
 
 ## What rest machining does
 

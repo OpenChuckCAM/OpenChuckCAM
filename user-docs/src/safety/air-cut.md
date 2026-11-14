@@ -3,7 +3,7 @@
 An [air cut](../glossary.md#air-cut) runs a program on the machine with **no tool fitted and no material in the chuck**, at reduced feed. Every move happens in the air, so you can watch the program and stop it before anything can be damaged. Run one for every new program, and again whenever you change the machine profile, the post or the setup.
 
 > [!NOTE]
-> This page adapts the project's own air-cut procedure, [`docs/z1-air-cut-procedure.md`](https://github.com/paulhampson/OpenChuckCAM/blob/main/docs/z1-air-cut-procedure.md), for any program you make. That document is the authority: where the two differ, follow it, and tell the project.
+> This page adapts the project's own air-cut procedure, [`docs/z1-air-cut-procedure.md`](https://github.com/OpenChuckCAM/OpenChuckCAM/blob/main/docs/z1-air-cut-procedure.md), for any program you make. That document is the authority: where the two differ, follow it, and tell the project.
 
 > [!WARNING]
 > Stay at the machine for the whole run, with the emergency stop within reach of your hand. Any move you did not expect, any alarm or any line the controller rejects ends the air cut: stop, and do not go on to a cut.

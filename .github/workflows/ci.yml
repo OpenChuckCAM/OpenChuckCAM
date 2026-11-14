@@ -264,7 +264,7 @@ jobs:
     env:
       # Built from docker/linuxcnc by the linuxcnc-image workflow; if it has not been
       # published yet (or the Dockerfile changed in this pull request) it is built here.
-      LINUXCNC_IMAGE: ghcr.io/paulhampson/openchuckcam-linuxcnc:2.9.10
+      LINUXCNC_IMAGE: ghcr.io/openchuckcam/openchuckcam-linuxcnc:2.9.10
     steps:
       - uses: actions/checkout@v7
         with:

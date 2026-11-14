@@ -143,8 +143,8 @@ So limiting `docs-release` to release tags does not stop the nightly "latest" fr
 1. Click your profile picture (top right), then **Settings**.
 2. In the left sidebar, click **Developer settings**, then **GitHub Apps**, then **New GitHub App**.
 3. **GitHub App name:** `OpenChuckCAM docs release` (it must be unique on GitHub and at most 34 characters; add your name if it is taken).
-4. **Description:** "Writes the released user guide to the docs-releases branch of paulhampson/OpenChuckCAM. Used only by the release workflow."
-5. **Homepage URL:** `https://github.com/paulhampson/OpenChuckCAM`.
+4. **Description:** "Writes the released user guide to the docs-releases branch of OpenChuckCAM/OpenChuckCAM. Used only by the release workflow."
+5. **Homepage URL:** `https://github.com/OpenChuckCAM/OpenChuckCAM`.
 6. Leave **Callback URL** and **Setup URL** empty; leave **Request user authorization (OAuth) during installation** and **Enable Device Flow** unticked.
 7. Under **Webhook**, untick **Active**. The App receives no events.
 8. Under **Permissions**, **Repository permissions**: set **Contents** to **Read & write**. Leave everything else at **No access** (GitHub adds **Metadata: Read-only** itself).
