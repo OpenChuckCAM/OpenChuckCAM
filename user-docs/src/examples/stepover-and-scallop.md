@@ -5,7 +5,7 @@ This example changes the [stepover](../glossary.md#stepover) of the tutorial's f
 > [!WARNING]
 > The times on this page are programmed times: the sum of the moves at their programmed feeds. They are not the time your machine will take, which also depends on its acceleration, the feed override and the spindle. A finer finish is not a safer one: check every path in the simulation and run an [air cut](../glossary.md#air-cut) first. Generated G-code must be verified by you before it is run on a machine.
 
-You need the tutorial's finished project, [`testdata/examples/baluster/baluster-project`](https://github.com/paulhampson/OpenChuckCAM/tree/main/testdata/examples/baluster/baluster-project). Copy it to a folder of your own and open the copy with **File > Open project**. The numbers on this page come from that project on the build named in the figures' record, with the Makera Z1 post; your own part gives other numbers. [Stepover, stepdown, scallop and stock to leave](../concepts/stepover-and-stock-to-leave.md) explains the terms.
+You need the tutorial's finished project, [`testdata/examples/baluster/baluster-project`](https://github.com/OpenChuckCAM/OpenChuckCAM/tree/main/testdata/examples/baluster/baluster-project). Copy it to a folder of your own and open the copy with **File > Open project**. The numbers on this page come from that project on the build named in the figures' record, with the Makera Z1 post; your own part gives other numbers. [Stepover, stepdown, scallop and stock to leave](../concepts/stepover-and-stock-to-leave.md) explains the terms.
 
 ## The scallop of a ball end mill
 

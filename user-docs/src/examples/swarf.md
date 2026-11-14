@@ -5,7 +5,7 @@ This example cuts one side of one blade of a bladed disk (a blisk) with [swarf](
 > [!WARNING]
 > Swarf checks the faces that share an edge with the blade, and only against the cutting part of the tool: not the shank, the holder or the rest of the part. Generated G-code must be verified by you before it is run on a machine: watch the [simulation](../glossary.md#simulation), read every warning, and run an [air cut](../glossary.md#air-cut) first.
 
-You need the example project [`testdata/examples/blisk-start/blisk-project`](https://github.com/paulhampson/OpenChuckCAM/tree/main/testdata/examples/blisk-start/blisk-project). Copy it to a folder of your own and open the copy with **File > Open project**. Swarf needs a STEP part. The numbers on this page come from OpenChuckCAM 0.55.0 on Linux (main at 55e6348).
+You need the example project [`testdata/examples/blisk-start/blisk-project`](https://github.com/OpenChuckCAM/OpenChuckCAM/tree/main/testdata/examples/blisk-start/blisk-project). Copy it to a folder of your own and open the copy with **File > Open project**. Swarf needs a STEP part. The numbers on this page come from OpenChuckCAM 0.55.0 on Linux (main at 55e6348).
 
 ## How swarf cuts a blade
 
@@ -119,7 +119,7 @@ The Results now say: "Overcut (operation 'Blade swarf'): swarf on face 19 cuts 0
 | Cut into face 1 (outer cylinder), warned | 0.014 mm | 0.014 mm | 0.011 mm | 0.266 mm |
 | Moves | 47 | 46 | 48 | 48 |
 
-These are the same numbers that were measured on this blade when the stop at the ends was built: 0.471 mm and 0.833 mm with a 3 mm flat end mill, 0.471 mm and 2.157 mm with a 3 mm ball, and the floor cut by 0.023 mm and 1.190 mm ([decision 0532](https://github.com/paulhampson/OpenChuckCAM/blob/main/docs/decisions/0532-swarf-keeps-off-the-faces-at-its-ends.md), the rows of blade 7). Other blades of this blisk twist into the disc wall more, and there the pass stops much further short: 6.935 mm with a 3 mm flat end mill on blade 9, in the same table.
+These are the same numbers that were measured on this blade when the stop at the ends was built: 0.471 mm and 0.833 mm with a 3 mm flat end mill, 0.471 mm and 2.157 mm with a 3 mm ball, and the floor cut by 0.023 mm and 1.190 mm ([decision 0532](https://github.com/OpenChuckCAM/OpenChuckCAM/blob/main/docs/decisions/0532-swarf-keeps-off-the-faces-at-its-ends.md), the rows of blade 7). Other blades of this blisk twist into the disc wall more, and there the pass stops much further short: 6.935 mm with a 3 mm flat end mill on blade 9, in the same table.
 
 How to read the lines:
 

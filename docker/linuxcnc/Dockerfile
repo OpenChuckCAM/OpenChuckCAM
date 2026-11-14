@@ -5,8 +5,8 @@
 # that needs LinuxCNC (OI-47). Nothing here is installed from a LinuxCNC package:
 # Ubuntu 24.04 has none.
 #
-#   docker build -t ghcr.io/paulhampson/openchuckcam-linuxcnc:2.9.10 docker/linuxcnc
-#   docker run --rm ghcr.io/paulhampson/openchuckcam-linuxcnc:2.9.10 rs274 --help
+#   docker build -t ghcr.io/openchuckcam/openchuckcam-linuxcnc:2.9.10 docker/linuxcnc
+#   docker run --rm ghcr.io/openchuckcam/openchuckcam-linuxcnc:2.9.10 rs274 --help
 #
 # The image runs as the unprivileged user `cnc`; LinuxCNC's user-space real-time
 # layer needs no privileges for the simulator. Pin a different release with

@@ -56,7 +56,7 @@ Windows, Linux and macOS on Apple silicon. The programs are unsigned, so Windows
 
 The guide for people who use the program is at **<https://openchuck.cam/>**. Its source is in [`user-docs/`](user-docs/README.md).
 
-- [Install and first run](https://openchuck.cam/latest/start/install.html): a development build from the rolling [`nightly` pre-release](https://github.com/paulhampson/OpenChuckCAM/releases/tag/nightly) (Linux, Windows, macOS on Apple silicon; unsigned), or build from source. There is no stable release yet.
+- [Install and first run](https://openchuck.cam/latest/start/install.html): a development build from the rolling [`nightly` pre-release](https://github.com/OpenChuckCAM/OpenChuckCAM/releases/tag/nightly) (Linux, Windows, macOS on Apple silicon; unsigned), or build from source. There is no stable release yet.
 - [Your first project](https://openchuck.cam/latest/tutorial/index.html): one part from a model file to G-code and a setup sheet, with a screenshot of every step. The same pages are in this repository in [`user-docs/src/tutorial/`](user-docs/src/tutorial/index.md); the model is [`testdata/examples/baluster`](testdata/examples/baluster/README.md). The speeds and feeds in the tutorial are an example only, not a tested cutting recipe.
 - [Known limitations](https://openchuck.cam/latest/start/limitations.html): what the program does not do, and what has and has not been run on a machine. Read it before you rely on the program.
 
@@ -64,7 +64,7 @@ In short, you can import an STL or STEP model, describe the machine, the stock a
 
 ## Getting help
 
-Questions, bugs and requests: [GitHub issues](https://github.com/paulhampson/OpenChuckCAM/issues). Say which build you used, what you did and what you expected. The program writes a local log file that never leaves your computer; the guide says [where it is](https://openchuck.cam/latest/start/install.html#where-the-program-keeps-its-log).
+Questions, bugs and requests: [GitHub issues](https://github.com/OpenChuckCAM/OpenChuckCAM/issues). Say which build you used, what you did and what you expected. The program writes a local log file that never leaves your computer; the guide says [where it is](https://openchuck.cam/latest/start/install.html#where-the-program-keeps-its-log).
 
 ## Licence
 

@@ -375,7 +375,7 @@ mod tests {
             publish: true,
             description: Some("Post-processing.".into()),
             license: Some(PROJECT_LICENCE.into()),
-            repository: Some("https://github.com/paulhampson/OpenChuckCAM".into()),
+            repository: Some("https://github.com/OpenChuckCAM/OpenChuckCAM".into()),
             readme: Some(("README.md".into(), true)),
             rust_version: Some("1.97".into()),
             keywords: vec!["cnc".into(), "g-code".into()],

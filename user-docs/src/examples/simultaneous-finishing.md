@@ -5,7 +5,7 @@ This example finishes a part whose section does not surround the rotary axis: a 
 > [!WARNING]
 > In simultaneous finishing the part turns while the tool moves, so the tool can come close to the part, the chuck and the stock from directions you do not expect. The program checks gouging against the part, but it does not check the tool holder, and it does not prove that nothing collides. Watch the whole path in the simulation and run an [air cut](../glossary.md#air-cut) first. Generated G-code must be verified by you before it is run on a machine.
 
-You need the example project [`testdata/examples/crankshaft-simultaneous/crankshaft-project`](https://github.com/paulhampson/OpenChuckCAM/tree/main/testdata/examples/crankshaft-simultaneous/crankshaft-project). Copy it to a folder of your own and open the copy with **File > Open project**. Its part is the public model `testdata/step/valid/crankshaft.step`, and the program needs its STEP reader to open it ([Install](../start/install.md)). The numbers on this page come from that project on the build named in the figures' record; your own part gives other numbers.
+You need the example project [`testdata/examples/crankshaft-simultaneous/crankshaft-project`](https://github.com/OpenChuckCAM/OpenChuckCAM/tree/main/testdata/examples/crankshaft-simultaneous/crankshaft-project). Copy it to a folder of your own and open the copy with **File > Open project**. Its part is the public model `testdata/step/valid/crankshaft.step`, and the program needs its STEP reader to open it ([Install](../start/install.md)). The numbers on this page come from that project on the build named in the figures' record; your own part gives other numbers.
 
 ## When to use simultaneous finishing
 

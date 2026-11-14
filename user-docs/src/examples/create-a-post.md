@@ -1,13 +1,13 @@
 # Create a post-processing template
 
-This example makes a small post-processor of your own, loads it, writes a program with it and checks the result. It uses the example post in the repository, [`testdata/examples/minimal-post`](https://github.com/paulhampson/OpenChuckCAM/tree/main/testdata/examples/minimal-post), and the tutorial's finished project, [`testdata/examples/baluster/baluster-project`](https://github.com/paulhampson/OpenChuckCAM/tree/main/testdata/examples/baluster/baluster-project). [Writing a post-processor](../reference/writing-a-post.md) is the reference for every option, variable and filter used here.
+This example makes a small post-processor of your own, loads it, writes a program with it and checks the result. It uses the example post in the repository, [`testdata/examples/minimal-post`](https://github.com/OpenChuckCAM/OpenChuckCAM/tree/main/testdata/examples/minimal-post), and the tutorial's finished project, [`testdata/examples/baluster/baluster-project`](https://github.com/OpenChuckCAM/OpenChuckCAM/tree/main/testdata/examples/baluster/baluster-project). [Writing a post-processor](../reference/writing-a-post.md) is the reference for every option, variable and filter used here.
 
 > [!WARNING]
 > A post you write is yours to check. The program cannot know your controller: its checks read the program back in the LinuxCNC or Makera Z1 dialect only, and nothing they report makes a post right for your machine. Keep the safety notice on, check every program, and run an [air cut](../glossary.md#air-cut) before anything else; the [Makera Z1 air cut](../safety/air-cut.md) and [safe-practice checklist](../safety/checklist.md) show the kind of steps to follow on any machine. Generated G-code must be verified by you before it is run on a machine.
 
 ## What you need
 
-- OpenChuckCAM, and the example projects: the `-examples.zip` file beside each download on the [`nightly` pre-release](https://github.com/paulhampson/OpenChuckCAM/releases/tag/nightly) and every release, or the repository's `testdata/examples` folder. Both hold `minimal-post` and `baluster`.
+- OpenChuckCAM, and the example projects: the `-examples.zip` file beside each download on the [`nightly` pre-release](https://github.com/OpenChuckCAM/OpenChuckCAM/releases/tag/nightly) and every release, or the repository's `testdata/examples` folder. Both hold `minimal-post` and `baluster`.
 - A text editor.
 
 ## 1. Look at the example post

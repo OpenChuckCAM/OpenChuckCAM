@@ -5,7 +5,7 @@ This example makes a [machine profile](../glossary.md#machine-profile) for a mac
 > [!WARNING]
 > A machine profile you make is yours to check. The program checks every program it writes against the profile, so a wrong value, such as the height of the rotary axis or a travel limit, makes those checks wrong too, without any warning. Measure each value on your machine, confirm it, and run an [air cut](../glossary.md#air-cut) before anything else. Generated G-code must be verified by you before it is run on a machine.
 
-You need the tutorial's finished project, [`testdata/examples/baluster/baluster-project`](https://github.com/paulhampson/OpenChuckCAM/tree/main/testdata/examples/baluster/baluster-project). Copy it to a folder of your own and open the copy with **File > Open project**, so the example in the repository stays as it is.
+You need the tutorial's finished project, [`testdata/examples/baluster/baluster-project`](https://github.com/OpenChuckCAM/OpenChuckCAM/tree/main/testdata/examples/baluster/baluster-project). Copy it to a folder of your own and open the copy with **File > Open project**, so the example in the repository stays as it is.
 
 ## 1. Find the machine section
 

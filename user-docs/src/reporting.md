@@ -1,6 +1,6 @@
 # Reporting a problem or asking for a feature
 
-Use the project's issue forms on GitHub. [Open the issue chooser](https://github.com/paulhampson/OpenChuckCAM/issues/new/choose) and pick **Bug report** for something that does not work, **Enhancement request** for a feature or a change, or **Question** for something the guide does not explain. The maintainer reads every issue and sets its priority; questions are answered when time allows. A request can be accepted, changed or recorded for a later phase; opening one does not promise a date.
+Use the project's issue forms on GitHub. [Open the issue chooser](https://github.com/OpenChuckCAM/OpenChuckCAM/issues/new/choose) and pick **Bug report** for something that does not work, **Enhancement request** for a feature or a change, or **Question** for something the guide does not explain. The maintainer reads every issue and sets its priority; questions are answered when time allows. A request can be accepted, changed or recorded for a later phase; opening one does not promise a date.
 
 Check [Known limitations](start/limitations.md) and [Troubleshooting](troubleshooting.md) first: what you found may already be listed.
 

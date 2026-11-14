@@ -170,7 +170,7 @@ error: 1 check(s) above stop the G-code from being written; nothing was written
 
 ## An example
 
-This takes the finished tutorial project from the repository, [`testdata/examples/baluster/baluster-project`](https://github.com/paulhampson/OpenChuckCAM/tree/main/testdata/examples/baluster/baluster-project), and writes its G-code and setup sheet. Copy it first, so the example stays as it is:
+This takes the finished tutorial project from the repository, [`testdata/examples/baluster/baluster-project`](https://github.com/OpenChuckCAM/OpenChuckCAM/tree/main/testdata/examples/baluster/baluster-project), and writes its G-code and setup sheet. Copy it first, so the example stays as it is:
 
 ```text
 cp -r testdata/examples/baluster/baluster-project baluster
