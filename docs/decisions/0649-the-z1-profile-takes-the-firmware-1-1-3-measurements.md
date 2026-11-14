@@ -1,6 +1,6 @@
 # 0649: The built-in Makera Z1 takes the owner's firmware 1.1.3 measurements (SET-01, SET-06, SET-10, UI-13, GC-14, NFR-12; issues #586 and #793; lane PROFILE-1.1.3)
 
-- **Status:** Proposed by lane PROFILE-1.1.3 on 14 Nov 2026. The owner's decisions 1 to 10 and the confirmations below were relayed by the coordinator the same day (decision 0049); the record itself awaits the owner's acceptance, which the coordinator relays.
+- **Status:** Accepted by the project owner on 14 Nov 2026, in the lane session. Proposed by lane PROFILE-1.1.3 the same day; the owner's decisions 1 to 10 and the confirmations below were relayed by the coordinator (decision 0049).
 - **Date:** 14 Nov 2026.
 - **Evidence:** the owner's tests of 0.55.0-rc2 on the Z1, firmware 1.1.3 and ESP32 1.1.3, 11 to 14 Nov 2026, recorded in issue #586 comment 6805176778, and the owner's measurements of 14 Nov 2026 relayed by the coordinator.
 - **What it amends:**
