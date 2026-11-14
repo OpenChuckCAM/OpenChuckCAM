@@ -61,6 +61,8 @@ Milestone numbers: `2026.1` = 1, `2026.2` = 2, `2026.3` = 3, `2026.4` = 4, `Futu
 | OI-993 | #693 | 2026.2 |
 | OI-1232 | #702 | 2026.2 |
 | OI-1250 | #741 | 2026.4 |
+| OI-1270 | #421 | 2026.2 |
+| OI-1271 | #421 | 2026.2 |
 | OI-1292 | #692 | 2026.2 |
 | OI-1450 | #415 | 2026.4 |
 | OI-1522 | #708 | 2026.2 |
@@ -73,6 +75,7 @@ Milestone numbers: `2026.1` = 1, `2026.2` = 2, `2026.3` = 3, `2026.4` = 4, `Futu
 | OI-2004 | #573 | 2026.4 |
 | OI-2022 | #698 | 2026.2 |
 | OI-2025 | #540 | 2026.3 |
+| OI-2030 | #771 | 2026.2 |
 | OI-2031 | #700 | 2026.2 |
 | OI-2044 | #715 | 2026.3 |
 | OI-2110 | #579 | 2026.2 |
@@ -122,6 +125,8 @@ Dropped by the owner from 2026.2: OI-23 (lawyer review). It has no issue.
 
 Left in 2026.1 (not moved): #687, #660, #641, #642 (and #640, #643, #644, #586, #587, #588, #668, #750).
 
+Added by the triage of 14 Nov 2026 (see README): #800, #801, #774, #685, #658, #608, #632, #676, #645, #574, #797, #581, #766, #767, #609, #775, #621, #589, #624, #771 (OI-2030), #770, #682, #680, #662, #629, #618, #582, #563, #461, #627, #794, #170, #789, #790, #421 (OI-1270, OI-1271). #614 now also covers swarf; #768 is closed as its duplicate.
+
 ### 2026.3 (release 3, "Safe setups")
 
 | Issue | Kind | Requirements | OIs |
@@ -159,6 +164,8 @@ Left in 2026.1 (not moved): #687, #660, #641, #642 (and #640, #643, #644, #586, 
 | #686 | existing request | — | |
 | #683 | existing request | — | OI-1988 |
 
+Added on 14 Nov 2026: #601, #528, #516.
+
 ### 2026.4 (release 4, "Capability and ecosystem")
 
 | Issue | Kind | Requirements | OIs |
@@ -184,6 +191,8 @@ Left in 2026.1 (not moved): #687, #660, #641, #642 (and #640, #643, #644, #586, 
 | #749 | request | — (IMP-08 related) | |
 | #751 | request | — | OI-87 |
 
+Added on 14 Nov 2026: #792.
+
 ### Future (milestone 5, backlog)
 
 | Issue | Kind | Note |
@@ -192,6 +201,8 @@ Left in 2026.1 (not moved): #687, #660, #641, #642 (and #640, #643, #644, #586, 
 | #752 | request | toolpath editing |
 | #756 | request | localisation (groundwork #758 is in 2026.3) |
 | #757 | request | automatic operation planning |
+| #657 | existing | hatch footprint speed on very large meshes |
+| #677 | existing | ring plan computed twice |
 
 ### Closed by triage
 

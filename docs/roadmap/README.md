@@ -118,13 +118,28 @@ The `Future` milestone (number 5) holds backlog work with no release. Triaged is
 
 Requirement IDs for these are added as part of the work on each issue (owner, 9 Nov 2026): the lane proposes the requirement, the owner agrees it, and it is recorded in the same change (CLAUDE.md: do not edit `requirements.md` to fit).
 
+## Triage of issues without a milestone (owner, 14 Nov 2026)
+
+All 42 open issues without a milestone were triaged:
+
+- **`2026.2`** (35 issues):
+  - Correctness bugs: #800 (sev2, Facing refuses STEP parts; this is a gap in P1 requirement OP-23, and the owner chose 2026.2, not 2026.1), #801, #774, #685, #658, #608, #632, #676, #645, #574, #797.
+  - UI and wording: #581, #766, #767, #609, #775, #621, #589, #624 (labels added).
+  - CI and test housekeeping, done alongside related pull requests: #771 (OI-2030), #770, #682, #680, #662, #629, #618, #582, #563, #461.
+  - Nightly trackers: #627 (fix with #628), #794, #170 (closes through #700).
+  - Features: #789 (show or hide toolpath elements), #790 (tool name tooltip), #421 (STEPRAMP, after the ramping review #786).
+- **`2026.3`**: #601 (command line runs the simulation), #528 (cut tabs last), #516 (deviation statistics by area).
+- **`2026.4`**: #792 (2D contouring along edges, with the curve work in #734 and #749; its indexed variant overlaps #746).
+- **`Future`**: #657, #677 (performance nits on very large meshes, not measured).
+- **Duplicate:** #768 was closed as a duplicate of #614, whose title now names face-flow finishing and swarf.
+
+`2026.2` is now heavy, at about 90 issues. If it needs lightening, the agreed candidates to move are #789 and #421 (to `2026.3`) and #461, #629 and #618 (to `Future`).
+
 ## Open points for the next planning session
 
 - OI-313 is settled by the owner's decision to close #755 (no undo in the command line). Move its row to the Closed table of `docs/open-items.md` in the next docs pull request; it is not done on this branch.
 - The suggestions accepted into a release (#744, #745, #747 to #749, #751, #753, #754, #758) get their requirement IDs when work on each issue starts, not in planning (owner, 9 Nov 2026).
-- **Not scheduled** (not in any milestone yet):
-  - the remaining sev3 bugs and housekeeping issues: #685, #682, #680, #677, #676, #662, #658, #657, #645, #632, #629, #624, #621, #618, #609, #608, #589, #582, #581, #574, #563, #461;
-  - #421 STEPRAMP, #516 deviation by area, #528 tab management, #601, #368 (Discussions).
+- Every open issue now has a milestone (triage of 14 Nov 2026, below). Triage new issues as they arrive, using the same themes.
 - **Open-item themes with no ticket yet:**
   - STEP robustness: OI-25, OI-26, OI-73, OI-74, OI-81, OI-960, OI-121, OI-831, OI-1350, OI-1351;
   - post details: OI-89, OI-68, OI-936, OI-937, OI-934, OI-92;
