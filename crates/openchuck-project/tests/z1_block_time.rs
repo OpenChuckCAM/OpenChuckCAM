@@ -85,13 +85,15 @@ fn req_gc_17_off_does_not_add_unconfirmed_machine_warnings_to_older_projects() {
 fn req_gc_17_req_prj_04_published_schema_5_profile_settings_keep_their_meaning() {
     use openchuck_types::machine::{ProfileField, ShortBlockMode};
     // The published schema 5 profile had no spindle-height fields (schema 7,
-    // decision 0317).
+    // decision 0317) and no minimum clearance radius (schema 8, decision
+    // 0495).
     let text: String = include_str!("../machines/makera-z1.toml")
         .lines()
         .filter(|l| {
             !l.starts_with("automatic_tool_length")
                 && !l.starts_with("spindle_to_axis")
                 && !l.starts_with("recommended_min_safe_z")
+                && !l.starts_with("min_clearance_radius")
         })
         .map(|l| format!("{l}\n"))
         .collect();
@@ -114,12 +116,12 @@ fn req_gc_17_req_prj_04_published_schema_5_profile_settings_keep_their_meaning()
     assert_eq!(profile.fields().len(), 10);
     assert_eq!(
         profile.unconfirmed_fields(),
-        // The axis height is confirmed since decision 0317.
+        // The axis height is confirmed since decision 0317, the spindle
+        // range since decision 0649.
         [
             ProfileField::Travel,
             ProfileField::Clearance,
-            ProfileField::BlockWindow,
-            ProfileField::SpindleRange
+            ProfileField::BlockWindow
         ]
     );
     assert!(!profile.fields().contains(&ProfileField::ShortBlockMode));

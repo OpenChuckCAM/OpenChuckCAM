@@ -112,18 +112,19 @@ Recommended minimum safe Z
 | --- | --- | --- |
 | Rotary axis, A+ direction | A about X, positive (at A +90 the top of the part faces the front of the machine) | yes |
 | A range | continuous | yes |
-| Axis height (machine Z) | -48.6 mm | yes |
+| Axis height (machine Z) | -48.6 mm | yes (48.568 mm measured again on firmware 1.1.3) |
 | Rotary reference X, Y | -180.4 mm, -108.8 mm | yes, but the X datum is still being checked |
-| Travel | X -200 to 0, Y -200 to 0, Z -100 to 0 mm | no |
-| X and Y feed, Z feed, A feed | 1200 mm/min, 600 mm/min, 1800 degrees/min | yes (A on firmware 1.1.3: `M203.1` prints `A: 30`, in degrees per second) |
+| Travel | X -200 to 0, Y -200 to 0, Z -100 to -1 mm | no (the top of Z is where the controller's soft limit alert triggers on firmware 1.1.3; the other limits are not checked) |
+| X and Y feed, Z feed, A feed | 1200 mm/min, 600 mm/min, 1800 degrees/min | yes (on firmware 1.1.3 `M203.1` prints `X: 20`, `Y: 20`, `Z: 10` and `A: 30`, per second) |
 | A in the feed word | makera | yes |
-| Safe cylinder radius, Safe Z | 40 mm, 40 mm | no (program defaults, not machine values) |
+| Safe cylinder radius, Safe Z | 45 mm, 45 mm | no (program defaults, set to the minimum clearance radius) |
+| Minimum clearance radius | 45 mm | yes, for the supplied chuck with its jaws reversed and fully open only: set your own on the setup for any other chuck or jaws |
 | Highest tool number | 1000 | not applicable |
-| Highest spindle speed | 13000 rpm | no |
+| Spindle speed | 4000 to 13000 rpm | yes |
 | Minimum block time, Block window, Short moves | 7 ms, 32 blocks, Report | 7 ms yes; the window no; the mode is a program choice |
 | Tool length measurement | Automatic (tool setter) | yes |
-| Spindle to axis | 73.1 mm | no |
-| Recommended minimum safe Z | 30 mm | no |
+| Spindle to axis | 72.0 mm (from the collet face, at the top of the Z travel) | yes |
+| Recommended minimum safe Z | 45 mm | no |
 
 The unconfirmed values are the program's best information, not measurements of your machine. Measure them before you rely on them.
 

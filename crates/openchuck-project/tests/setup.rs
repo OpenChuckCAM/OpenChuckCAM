@@ -655,7 +655,14 @@ fn req_set_06_req_prj_04_clearance_rules_need_project_schema_26() {
     let mut project = project_with(&all_stocks()[..1]);
     let id = SetupId::from_u128(10);
 
-    // An older project: no rules, no machine minimum.
+    // An older project: no rules, no machine minimum (the built-in Z1 now
+    // has one, decision 0649, so its copy here is made without).
+    let mut older = z1();
+    older.min_clearance_radius = None;
+    older
+        .provenance
+        .remove(&openchuck_types::machine::ProfileField::MinClearanceRadius);
+    project.set_machine(Some(older)).unwrap();
     file::save(&project, &dir).unwrap();
     let setup_path = std::fs::read_dir(dir.join("setups"))
         .unwrap()

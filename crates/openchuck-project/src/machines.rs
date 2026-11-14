@@ -488,10 +488,14 @@ mod tests {
         profile.automatic_tool_length = false;
         profile.spindle_to_axis = None;
         profile.recommended_min_safe_z = None;
+        // Schema 8's minimum clearance radius is later still (decision
+        // record 0495).
+        profile.min_clearance_radius = None;
         for field in [
             ProfileField::ToolLengthMeasurement,
             ProfileField::SpindleToAxis,
             ProfileField::RecommendedMinSafeZ,
+            ProfileField::MinClearanceRadius,
         ] {
             profile.provenance.remove(&field);
         }
@@ -503,32 +507,24 @@ mod tests {
         assert_eq!(z1.name, MAKERA_Z1_NAME);
         assert_eq!(z1.rotary_axis, RotaryAxis::X);
         assert_eq!(z1.a_sense, ASense::Positive);
-        // Every field says where it came from, but the minimum clearance
-        // radius, which the Z1 leaves blank until it is measured (decision
-        // 0495, D4; OI-1780).
-        assert_eq!(z1.min_clearance_radius, None);
-        assert!(
-            !z1.provenance
-                .contains_key(&ProfileField::MinClearanceRadius)
-        );
+        // Every field says where it came from, the minimum clearance radius
+        // included since the owner measured it (decision 0649; OI-1780).
         for field in ProfileField::ALL {
-            if field != ProfileField::MinClearanceRadius {
-                assert!(z1.provenance.contains_key(&field), "{field} is not marked");
-            }
+            assert!(z1.provenance.contains_key(&field), "{field} is not marked");
         }
         // The owner confirmed the axis, direction, range and feed limits from
-        // use of the machine, and the axis height by Makera's probing routine
-        // (decision 0317). The travel frame and the default clearance are not
-        // machine-checked values, and the spindle range is Makera's published
-        // figure (decision 0231).
+        // use of the machine, the axis height by Makera's probing routine
+        // (decision 0317), and on firmware 1.1.3 the spindle range, the
+        // spindle-to-axis distance and the minimum clearance radius (decision
+        // 0649). The travel and the block window are not machine-checked
+        // values; the default clearance and the recommended minimum safe Z
+        // are the owner's settings.
         assert_eq!(
             z1.unconfirmed_fields(),
             vec![
                 ProfileField::Travel,
                 ProfileField::Clearance,
                 ProfileField::BlockWindow,
-                ProfileField::SpindleRange,
-                ProfileField::SpindleToAxis,
                 ProfileField::RecommendedMinSafeZ,
             ]
         );
@@ -538,7 +534,11 @@ mod tests {
             ProfileField::RotaryOrigin,
             ProfileField::ARange,
             ProfileField::MaxFeeds,
+            ProfileField::MinBlockMs,
+            ProfileField::SpindleRange,
             ProfileField::ToolLengthMeasurement,
+            ProfileField::SpindleToAxis,
+            ProfileField::MinClearanceRadius,
         ] {
             assert!(z1.is_confirmed(field), "{field}");
         }
@@ -547,8 +547,10 @@ mod tests {
     }
 
     /// The axis height is the owner's probing result, for the probe as the
-    /// reference tool; the default safe Z and safe cylinder are 40 mm, so the
-    /// safe Z is inside the Z travel (decision 0317, OI-60).
+    /// reference tool; the default safe Z and safe cylinder are 45 mm, the
+    /// measured minimum clearance radius, so the safe Z is inside the Z
+    /// travel, whose top is the firmware's soft limit at machine Z -1
+    /// (decisions 0317 and 0649, OI-60).
     #[test]
     fn req_set_01_req_set_06_the_z1_axis_height_is_measured_and_its_safe_z_is_in_the_travel() {
         let z1 = builtin(MAKERA_Z1).unwrap().unwrap();
@@ -559,6 +561,8 @@ mod tests {
         // It says what was measured, with what, and what was not recorded.
         for fact in [
             "-48.6",
+            "48.568",
+            "1.1.3",
             "probe",
             "reference tool",
             "G54",
@@ -568,38 +572,80 @@ mod tests {
         ] {
             assert!(source.contains(fact), "{fact}: {source}");
         }
-        assert_eq!(z1.clearance.radius.0, 40.0);
-        assert_eq!(z1.clearance.safe_z.0, 40.0);
+        assert_eq!(z1.clearance.radius.0, 45.0);
+        assert_eq!(z1.clearance.safe_z.0, 45.0);
+        assert_eq!(z1.travel.max.z, -1.0);
         let safe = z1.rotary_origin.z + z1.clearance.safe_z.0;
-        assert!((safe - -8.6).abs() < 1e-9, "{safe}");
+        assert!((safe - -3.6).abs() < 1e-9, "{safe}");
         assert!(safe <= z1.travel.max.z && safe >= z1.travel.min.z);
         assert!(!z1.is_confirmed(ProfileField::Clearance));
     }
 
-    /// The Z1 measures each tool's length; the distance from the spindle at
-    /// home down to the axis is 73.1 mm, from the owner's probe stick-out
-    /// (decision 0318); the owner recommends a safe Z of at least 30 mm, to
-    /// be checked (decision 0317).
+    /// The Z1's minimum clearance radius is the owner's measurement for the
+    /// supplied chuck with its jaws reversed and fully open, confirmed for
+    /// that setup only; the default clearance clears it, and the top of the
+    /// Z travel is the firmware's soft limit, not confirmed until its alert
+    /// is recorded (decision 0649; OI-1780, OI-1292).
+    #[test]
+    fn req_set_06_req_set_01_the_z1_minimum_clearance_is_measured_for_the_supplied_chuck() {
+        let z1 = builtin(MAKERA_Z1).unwrap().unwrap();
+        assert_eq!(z1.min_clearance_radius.map(|r| r.0), Some(45.0));
+        assert!(z1.is_confirmed(ProfileField::MinClearanceRadius));
+        let source = &z1.provenance[&ProfileField::MinClearanceRadius].source;
+        for fact in [
+            "K02-50",
+            "reverse",
+            "fully open",
+            "60 mm",
+            "other chucks",
+            "0649",
+        ] {
+            assert!(source.contains(fact), "{fact}: {source}");
+        }
+        assert!(z1.clearance.radius.0 >= 45.0 && z1.clearance.safe_z.0 >= 45.0);
+        assert!(!z1.is_confirmed(ProfileField::Travel));
+        let travel = &z1.provenance[&ProfileField::Travel].source;
+        for fact in ["-1", "soft limit", "1.1.3", "OI-1292"] {
+            assert!(travel.contains(fact), "{fact}: {travel}");
+        }
+    }
+
+    /// The Z1 measures each tool's length; the distance from the collet face
+    /// at the top of the Z travel (the soft limit at machine Z -1) down to
+    /// the axis is 72.0 mm, measured on firmware 1.1.3; the owner recommends
+    /// a safe Z of at least 45 mm, to be checked (decisions 0317, 0318 and
+    /// 0649).
     #[test]
     fn req_set_01_req_ui_13_the_z1_measures_tool_lengths_and_gives_its_spindle_to_axis_distance() {
         let z1 = builtin(MAKERA_Z1).unwrap().unwrap();
         assert!(z1.automatic_tool_length);
         assert!(z1.is_confirmed(ProfileField::ToolLengthMeasurement));
-        assert_eq!(z1.spindle_to_axis.map(|d| d.0), Some(73.1));
-        assert!(!z1.is_confirmed(ProfileField::SpindleToAxis), "derived");
-        let derived = &z1.provenance[&ProfileField::SpindleToAxis].source;
-        for fact in ["24.5", "48.6 + 24.5", "#395", "0318"] {
-            assert!(derived.contains(fact), "{fact}: {derived}");
+        assert_eq!(z1.spindle_to_axis.map(|d| d.0), Some(72.0));
+        assert!(z1.is_confirmed(ProfileField::SpindleToAxis), "measured");
+        let measured = &z1.provenance[&ProfileField::SpindleToAxis].source;
+        for fact in [
+            "73.000",
+            "collet face",
+            "-24.433",
+            "-68.180",
+            "1.1.3",
+            "0649",
+        ] {
+            assert!(measured.contains(fact), "{fact}: {measured}");
         }
-        assert_eq!(z1.recommended_min_safe_z.map(|m| m.0), Some(30.0));
+        // At the safe Z the spindle is inside the travel with the probe: the
+        // tip at -48.6 + 45 and the collet face 24.433 mm above it.
+        assert!(z1.spindle_to_axis.unwrap().0 >= z1.clearance.safe_z.0);
+        assert_eq!(z1.recommended_min_safe_z.map(|m| m.0), Some(45.0));
         assert!(!z1.is_confirmed(ProfileField::RecommendedMinSafeZ));
         let advice = &z1.provenance[&ProfileField::RecommendedMinSafeZ].source;
-        assert!(
-            advice.contains(
-                "The recommended minimum is 30 mm. This must be checked before machining."
-            ),
-            "{advice}"
-        );
+        for fact in [
+            "The recommended minimum is 45 mm. This must be checked before machining.",
+            "K02-50",
+            "0649",
+        ] {
+            assert!(advice.contains(fact), "{fact}: {advice}");
+        }
     }
 
     /// A project copy of the Z1 that still has the old placeholder axis
@@ -698,7 +744,14 @@ mod tests {
         );
         assert!(z1.is_confirmed(ProfileField::MinBlockMs));
         let source = &z1.provenance[&ProfileField::MinBlockMs].source;
-        for fact in ["284", "1.1.2", "WiFi", "version not supplied"] {
+        for fact in [
+            "284",
+            "1.1.2",
+            "1.1.3",
+            "0648",
+            "WiFi",
+            "version not supplied",
+        ] {
             assert!(source.contains(fact), "{source}");
         }
         let written = render_profile(&z1).unwrap();
@@ -718,6 +771,7 @@ mod tests {
             "automatic_tool_length",
             "spindle_to_axis",
             "recommended_min_safe_z",
+            "min_clearance_radius",
         ] {
             machine.remove(key);
         }
@@ -763,7 +817,7 @@ mod tests {
                 &z1.replace("linear = 1200.0", "linear = -1.0"),
                 "max_feeds.linear",
             ),
-            (&z1.replace("safe_z = 40.0", "safe_z = 10.0"), "safe Z"),
+            (&z1.replace("safe_z = 45.0", "safe_z = 10.0"), "safe Z"),
             (
                 &z1.replace("a_sense = \"positive\"", "a_sense = \"up\""),
                 "a_sense",
@@ -788,17 +842,21 @@ mod tests {
         }
     }
 
-    /// The built-in Z1 gives Makera's published highest spindle speed,
-    /// unconfirmed; the range needs profile schema 4 (decision 0231).
+    /// The built-in Z1's spindle runs from 4000 to 13000 rpm, both confirmed
+    /// by the owner on firmware 1.1.3 (decision 0649; Makera's published
+    /// figure gave the highest, decision 0231); the range needs profile
+    /// schema 4.
     #[test]
-    fn req_gc_14_req_set_01_the_z1_spindle_range_is_unconfirmed_and_needs_schema_4() {
+    fn req_gc_14_req_set_01_the_z1_spindle_range_is_confirmed_and_needs_schema_4() {
         use openchuck_types::machine::{Confirmation, ProfileField};
         let mut z1 = builtin(MAKERA_Z1).unwrap().unwrap();
         assert_eq!(z1.max_spindle_rpm.map(|s| s.0), Some(13000.0));
-        assert_eq!(z1.min_spindle_rpm, None);
+        assert_eq!(z1.min_spindle_rpm.map(|s| s.0), Some(4000.0));
         let p = &z1.provenance[&ProfileField::SpindleRange];
-        assert_eq!(p.state, Confirmation::Unconfirmed);
-        assert!(p.source.contains("Safety Guidelines"), "{}", p.source);
+        assert_eq!(p.state, Confirmation::Confirmed);
+        for fact in ["Safety Guidelines", "4000", "1.1.3", "0649"] {
+            assert!(p.source.contains(fact), "{fact}: {}", p.source);
+        }
         // A pre-schema-5 fixture cannot contain the later GC-17 fields.
         z1.min_block_ms = 0.0;
         z1.block_window = 1;
@@ -817,13 +875,13 @@ mod tests {
             .unwrap_err()
             .to_string();
         assert!(
-            err.contains("max_spindle_rpm") && err.contains("schema 4"),
+            err.contains("min_spindle_rpm") && err.contains("schema 4"),
             "{err}"
         );
         // Without the range, a schema 3 file reads with none.
         let plain: String = old
             .lines()
-            .filter(|l| !l.starts_with("max_spindle_rpm"))
+            .filter(|l| !l.starts_with("min_spindle_rpm") && !l.starts_with("max_spindle_rpm"))
             .map(|l| format!("{l}\n"))
             .collect();
         assert_eq!(
@@ -854,7 +912,11 @@ mod tests {
         let old: String = z1
             .replace(&format!("schema = {MACHINE_SCHEMA}"), "schema = 1")
             .lines()
-            .filter(|l| !l.starts_with("id = ") && !l.starts_with("max_spindle_rpm"))
+            .filter(|l| {
+                !l.starts_with("id = ")
+                    && !l.starts_with("min_spindle_rpm")
+                    && !l.starts_with("max_spindle_rpm")
+            })
             .map(|l| format!("{l}\n"))
             .collect();
         let entry = parse_profile_entry(Path::new("old.toml"), &old).unwrap();
@@ -926,6 +988,9 @@ mod tests {
     #[test]
     fn req_set_06_req_set_10_the_minimum_clearance_radius_needs_profile_schema_8() {
         let mut z1 = builtin(MAKERA_Z1).unwrap().unwrap();
+        // A schema 7 profile has no minimum (the built-in Z1 now has one).
+        z1.min_clearance_radius = None;
+        z1.provenance.remove(&ProfileField::MinClearanceRadius);
         let text = render_profile(&z1).unwrap();
         let old = text.replace(&format!("schema = {MACHINE_SCHEMA}"), "schema = 7");
         assert_eq!(
