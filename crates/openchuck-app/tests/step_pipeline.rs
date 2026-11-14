@@ -122,6 +122,12 @@ struct Job {
     stock: Stock,
 }
 
+/// How far each job is laid out along X from the Makera Z1's reference
+/// point, the headstock face (decision record 0649): 17.99 mm, taken as
+/// 17.990234375, the nearest value exact in binary, as in the reference jobs
+/// and the committed sample projects.
+const LAYOUT_SHIFT: f64 = 17.990_234_375;
+
 /// The `drilling` job: stock 1 mm over the rod's radius and each end.
 fn drilling_job() -> Job {
     Job {
@@ -180,7 +186,21 @@ fn build_job(
     let mut setup = Setup::new(setup_id, "Setup 1");
     setup.part = Some(model);
     setup.material = Some("oak".into());
-    setup.stock = Some(job.stock);
+    // Laid out from the Z1's headstock face, as the reference jobs are
+    // (decision record 0649): the part, stock and work zero move together,
+    // so the programs do not change.
+    let mut stock = job.stock;
+    match &mut stock {
+        Stock::Cylinder { x_start, .. } => x_start.0 += LAYOUT_SHIFT,
+        Stock::Box { bounds } => {
+            bounds.min.x += LAYOUT_SHIFT;
+            bounds.max.x += LAYOUT_SHIFT;
+        }
+        other => panic!("{other:?}"),
+    }
+    setup.stock = Some(stock);
+    setup.frame.part_offset = Millimetres(LAYOUT_SHIFT);
+    setup.frame.work_offset.x = Millimetres(LAYOUT_SHIFT);
     let tool_id = snapshot.id;
     for item in [
         Item::Setup(setup),
