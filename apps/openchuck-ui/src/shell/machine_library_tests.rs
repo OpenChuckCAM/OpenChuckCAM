@@ -43,15 +43,12 @@ fn text(t: &str) -> Option<ParameterValue> {
 /// The cube project with the built-in Makera Z1 as its machine, recorded
 /// with the built-in profile's ID.
 fn rig_with_z1(name: &str) -> Rig {
+    rig_with(name, z1())
+}
+
+/// A rig whose project has `machine` as the Makera Z1's copy.
+fn rig_with(name: &str, machine: MachineProfile) -> Rig {
     let mut rig = Rig::cube(name, None);
-    // Every value of the built-in Z1 is confirmed (decision record 0649);
-    // the project's copy here has its travel unconfirmed, so both marks show.
-    let mut machine = z1();
-    machine
-        .provenance
-        .get_mut(&ProfileField::Travel)
-        .unwrap()
-        .state = openchuck_app::setup::Confirmation::Unconfirmed;
     rig.shell
         .app
         .as_mut()
@@ -284,7 +281,15 @@ fn req_set_10_delete_asks_first_and_export_then_import_round_trips() {
 
 #[test]
 fn req_set_10_req_ui_13_the_window_draws_every_group_with_its_provenance() {
-    let mut rig = rig_with_z1("machines-draw");
+    // Every value of the built-in Z1 is confirmed (decision record 0649);
+    // this copy's travel is not, so both marks are drawn.
+    let mut machine = z1();
+    machine
+        .provenance
+        .get_mut(&ProfileField::Travel)
+        .unwrap()
+        .state = openchuck_app::setup::Confirmation::Unconfirmed;
+    let mut rig = rig_with("machines-draw", machine);
     rig.shell.machine_library = MachineLibraryWindow::new(Some(folder("draw")), None);
     rig.shell.open_machine_library();
     rig.frame(Vec::new());
@@ -409,7 +414,7 @@ fn req_set_10_every_question_is_drawn_in_plain_words() {
     window.duplicate(None);
     window.set_value(None, fields::NAME, text("My Z1"));
     // A changed value is not confirmed (the built-in Z1 has none left).
-    window.set_value(None, fields::SAFE_Z, num(50.0));
+    window.set_value(None, fields::TRAVEL_MIN_X, num(-200.0));
     window.save();
     // A saved draft reads "Saved in the library".
     rig.shell.machine_library = window;
