@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 560 230" font-family="sans-serif" font-size="12">
+  <title>Makera Z1 rotary reference point, top view (decision 0649)</title>
+  <!-- Top view, machine X to the right; 4 px per mm; x_px = 40 + (X + 210) * 4. The axis at y = 110. -->
+  <defs>
+    <marker id="a" markerWidth="8" markerHeight="8" refX="4" refY="4" orient="auto-start-reverse">
+      <path d="M0,0 L8,4 L0,8 z" fill="#222"/>
+    </marker>
+  </defs>
+  <rect width="560" height="230" fill="#ffffff"/>
+  <!-- headstock body, left of its face at X -198.39 (x 86.4) -->
+  <rect x="20" y="60" width="66.4" height="100" fill="#e3e3e3" stroke="#666"/>
+  <text x="26" y="178" fill="#444">headstock</text>
+  <!-- chuck in front of the face -->
+  <rect x="86.4" y="80" width="40" height="60" fill="#f0f0f0" stroke="#888"/>
+  <text x="90" y="74" fill="#555">chuck</text>
+  <!-- the rotary axis -->
+  <line x1="20" y1="110" x2="545" y2="110" stroke="#555" stroke-dasharray="8 4"/>
+  <text x="440" y="104" fill="#333">rotary axis, Y -123.39</text>
+  <!-- new reference: headstock face centre -->
+  <circle cx="86.4" cy="110" r="5" fill="#2f7d32"/>
+  <text x="40" y="214" fill="#2f7d32">reference point: headstock face, X -198.39 (new)</text>
+  <line x1="86.4" y1="115" x2="86.4" y2="200" stroke="#2f7d32" stroke-dasharray="3 2"/>
+  <!-- old reference -180.4 (x 158.4) -->
+  <circle cx="158.4" cy="110" r="5" fill="none" stroke="#a01818" stroke-width="2"/>
+  <text x="150" y="40" fill="#a01818">old: X -180.4 (published config)</text>
+  <line x1="158.4" y1="105" x2="158.4" y2="46" stroke="#a01818" stroke-dasharray="3 2"/>
+  <!-- owner's work zero -115.34 (x 418.6) -->
+  <circle cx="418.6" cy="110" r="5" fill="#36597f"/>
+  <text x="372" y="150" fill="#36597f">owner's G54 X0, X -115.34</text>
+  <!-- dimension 83.050 -->
+  <line x1="86.4" y1="188" x2="418.6" y2="188" stroke="#222" marker-start="url(#a)" marker-end="url(#a)"/>
+  <text x="225" y="182" fill="#222">83.050 toward +X</text>
+</svg>

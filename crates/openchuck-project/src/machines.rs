@@ -514,34 +514,33 @@ mod tests {
         }
         // The owner confirmed the axis, direction, range and feed limits from
         // use of the machine, the axis height by Makera's probing routine
-        // (decision 0317), and on firmware 1.1.3 the spindle range, the
-        // spindle-to-axis distance and the minimum clearance radius (decision
-        // 0649). The travel and the block window are not machine-checked
-        // values; the default clearance and the recommended minimum safe Z
-        // are the owner's settings.
-        assert_eq!(
-            z1.unconfirmed_fields(),
-            vec![
-                ProfileField::Travel,
-                ProfileField::Clearance,
-                ProfileField::BlockWindow,
-                ProfileField::RecommendedMinSafeZ,
-            ]
-        );
+        // (decision 0317), and on firmware 1.1.3 every other value but the far
+        // ends of the travel (decision 0649).
+        assert_eq!(z1.unconfirmed_fields(), vec![ProfileField::Travel]);
         for field in [
             ProfileField::RotaryAxis,
             ProfileField::ASense,
             ProfileField::RotaryOrigin,
             ProfileField::ARange,
             ProfileField::MaxFeeds,
+            ProfileField::Clearance,
             ProfileField::MinBlockMs,
+            ProfileField::BlockWindow,
             ProfileField::SpindleRange,
             ProfileField::ToolLengthMeasurement,
             ProfileField::SpindleToAxis,
+            ProfileField::RecommendedMinSafeZ,
             ProfileField::MinClearanceRadius,
         ] {
             assert!(z1.is_confirmed(field), "{field}");
         }
+        // Short moves is a software policy, never shown as a machine fact; its
+        // source records the owner's choice from the gate 4 testing.
+        assert!(!z1.is_confirmed(ProfileField::ShortBlockMode));
+        assert_eq!(
+            z1.provenance[&ProfileField::ShortBlockMode].state,
+            openchuck_types::machine::Confirmation::Confirmed
+        );
         assert_eq!(builtin("makera z1").unwrap().unwrap(), z1);
         assert!(builtin("no such machine").is_none());
     }
@@ -555,7 +554,9 @@ mod tests {
     fn req_set_01_req_set_06_the_z1_axis_height_is_measured_and_its_safe_z_is_in_the_travel() {
         let z1 = builtin(MAKERA_Z1).unwrap().unwrap();
         assert_eq!(z1.rotary_origin.z, -48.6);
-        assert_eq!((z1.rotary_origin.x, z1.rotary_origin.y), (-180.4, -108.8));
+        // X and Y: the centre of the headstock face next to the chuck, from
+        // the owner's G54 in 4-axis mode on firmware 1.1.3 (decision 0649).
+        assert_eq!((z1.rotary_origin.x, z1.rotary_origin.y), (-198.39, -123.39));
         assert!(z1.is_confirmed(ProfileField::RotaryOrigin));
         let source = &z1.provenance[&ProfileField::RotaryOrigin].source;
         // It says what was measured, with what, and what was not recorded.
@@ -567,8 +568,11 @@ mod tests {
             "reference tool",
             "G54",
             "tool length offset",
-            "datum",
+            "headstock",
+            "83.050",
+            "-123.39",
             "0317",
+            "0649",
         ] {
             assert!(source.contains(fact), "{fact}: {source}");
         }
@@ -578,14 +582,14 @@ mod tests {
         let safe = z1.rotary_origin.z + z1.clearance.safe_z.0;
         assert!((safe - -3.6).abs() < 1e-9, "{safe}");
         assert!(safe <= z1.travel.max.z && safe >= z1.travel.min.z);
-        assert!(!z1.is_confirmed(ProfileField::Clearance));
+        assert!(z1.is_confirmed(ProfileField::Clearance));
     }
 
     /// The Z1's minimum clearance radius is the owner's measurement for the
     /// supplied chuck with its jaws reversed and fully open, confirmed for
-    /// that setup only; the default clearance clears it, and the top of the
-    /// Z travel is the firmware's soft limit, not confirmed until its alert
-    /// is recorded (decision 0649; OI-1780, OI-1292).
+    /// that setup only; the default clearance clears it, and the travel ends
+    /// near home at the firmware's soft limits, while its far ends are not
+    /// yet checked (decision 0649; OI-1780, OI-1292).
     #[test]
     fn req_set_06_req_set_01_the_z1_minimum_clearance_is_measured_for_the_supplied_chuck() {
         let z1 = builtin(MAKERA_Z1).unwrap().unwrap();
@@ -603,9 +607,21 @@ mod tests {
             assert!(source.contains(fact), "{fact}: {source}");
         }
         assert!(z1.clearance.radius.0 >= 45.0 && z1.clearance.safe_z.0 >= 45.0);
+        // The firmware's soft limits hold every axis at -1.0 near home; the
+        // far ends are untested, so the travel stays unconfirmed.
+        assert_eq!(
+            (z1.travel.max.x, z1.travel.max.y, z1.travel.max.z),
+            (-1.0, -1.0, -1.0)
+        );
         assert!(!z1.is_confirmed(ProfileField::Travel));
         let travel = &z1.provenance[&ProfileField::Travel].source;
-        for fact in ["-1", "soft limit", "1.1.3", "OI-1292"] {
+        for fact in [
+            "-1.0",
+            "-0.9",
+            "soft limit",
+            "1.1.3",
+            "Far ends not checked",
+        ] {
             assert!(travel.contains(fact), "{fact}: {travel}");
         }
     }
@@ -637,7 +653,7 @@ mod tests {
         // tip at -48.6 + 45 and the collet face 24.433 mm above it.
         assert!(z1.spindle_to_axis.unwrap().0 >= z1.clearance.safe_z.0);
         assert_eq!(z1.recommended_min_safe_z.map(|m| m.0), Some(45.0));
-        assert!(!z1.is_confirmed(ProfileField::RecommendedMinSafeZ));
+        assert!(z1.is_confirmed(ProfileField::RecommendedMinSafeZ));
         let advice = &z1.provenance[&ProfileField::RecommendedMinSafeZ].source;
         for fact in [
             "The recommended minimum is 45 mm. This must be checked before machining.",

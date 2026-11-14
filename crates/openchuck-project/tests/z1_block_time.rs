@@ -117,12 +117,8 @@ fn req_gc_17_req_prj_04_published_schema_5_profile_settings_keep_their_meaning()
     assert_eq!(
         profile.unconfirmed_fields(),
         // The axis height is confirmed since decision 0317, the spindle
-        // range since decision 0649.
-        [
-            ProfileField::Travel,
-            ProfileField::Clearance,
-            ProfileField::BlockWindow
-        ]
+        // range, clearance and block window since decision 0649.
+        [ProfileField::Travel]
     );
     assert!(!profile.fields().contains(&ProfileField::ShortBlockMode));
 }

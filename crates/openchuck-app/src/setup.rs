@@ -263,12 +263,62 @@ mod tests {
         }
     }
 
-    /// The Makera Z1 as the owner measured it: the axis at -48.6 for the
-    /// probe, the probe sticking out 24.5 mm, so D = 73.1 (decision 0318).
-    fn z1() -> MachineProfile {
+    /// The built-in Makera Z1.
+    fn builtin_z1() -> MachineProfile {
         builtin(MAKERA_Z1)
             .and_then(Result::ok)
             .unwrap_or_else(MachineProfile::example_x_rotary)
+    }
+
+    /// The Makera Z1 as decision 0318 worked its cases: the axis at -48.6
+    /// for the probe, the probe sticking out 24.5 mm, so D = 73.1, the safe
+    /// Z 40, the recommended minimum 30 and no minimum clearance. The
+    /// built-in Z1 has since taken the owner's firmware 1.1.3 measurements
+    /// (decision 0649); these cases test the check's rule, not those values.
+    fn z1() -> MachineProfile {
+        let mut z1 = builtin_z1();
+        z1.spindle_to_axis = Some(Millimetres(73.1));
+        z1.recommended_min_safe_z = Some(Millimetres(30.0));
+        z1.min_clearance_radius = None;
+        z1.clearance = openchuck_types::machine::Clearance {
+            radius: Millimetres(40.0),
+            safe_z: Millimetres(40.0),
+        };
+        z1
+    }
+
+    /// The built-in Z1 on firmware 1.1.3 (decision 0649): D = 72.0 and a
+    /// 45 mm minimum, so tool 204 (flute 22) just fits at the default safe
+    /// Z 45, and tool 104 (flute 25), the tutorial's O-flute, rises only to
+    /// 42.0 and warns that it may be too long to clear the workholding
+    /// (SET-06, NFR-12, decision 0495 item 6b).
+    #[test]
+    fn req_set_06_req_nfr_12_the_builtin_z1_warns_a_tool_too_long_for_its_measured_minimum() {
+        let z1 = builtin_z1();
+        let minimum = z1.min_clearance_radius.map(|m| m.0);
+        assert_eq!(minimum, Some(45.0));
+        let safe_z = effective_clearance(
+            &z1,
+            &openchuck_project::Setup::new(SetupId::from_u128(1), "S"),
+            None,
+        )
+        .clearance
+        .safe_z
+        .0;
+        assert_eq!(safe_z, 45.0);
+        assert_eq!(spindle_height(&z1, safe_z, minimum, &tool(22.0)), None);
+        let found = spindle_height(&z1, safe_z, minimum, &tool(25.0)).unwrap();
+        assert_eq!(found.below_minimum, Some(45.0));
+        assert!((found.highest_tip - 42.0).abs() < 1e-9, "{found:?}");
+        let text = spindle_height_text(104, &found);
+        for words in [
+            "too long to clear the workholding within the Z travel",
+            "42.000 mm",
+            "45.000 mm",
+            "The recommended minimum is 45 mm. This must be checked before machining.",
+        ] {
+            assert!(text.contains(words), "{words}: {text}");
+        }
     }
 
     /// The owner's worked cases at the safe Z 40: tool 104 (flute 25) and 204

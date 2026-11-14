@@ -803,6 +803,9 @@ mod tests {
         let mut z1 = crate::setup::builtin(crate::setup::MAKERA_Z1)
             .unwrap()
             .unwrap();
+        // Start from a machine without a minimum; the built-in Z1 gives 45
+        // (decision 0649), set again below.
+        z1.min_clearance_radius = None;
         let labels = |s: &Setup, m: &MachineProfile| -> Vec<&'static str> {
             clearance_rows(s, Some(m)).iter().map(|r| r.label).collect()
         };
@@ -833,7 +836,7 @@ mod tests {
         assert!(!clearance_from_stock(&s));
         assert_eq!(
             clearance_in_use(&s, Some(&z1), None).unwrap(),
-            "In use: safe radius 40.000 mm, safe Z 40.000 mm"
+            "In use: safe radius 45.000 mm, safe Z 45.000 mm"
         );
         let on = with_clearance_from_stock(&s, true);
         assert!(clearance_from_stock(&on));

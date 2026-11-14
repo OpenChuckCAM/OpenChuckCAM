@@ -300,30 +300,31 @@ mod tests {
             ]
         );
         // The Z1 measures tool lengths; the spindle-to-axis distance is
-        // derived from the owner's probe stick-out (decision 0318), and the
-        // recommended minimum is the owner's (decision 0317).
+        // measured from the collet face, and the recommended minimum is the
+        // owner's, both confirmed on firmware 1.1.3 (decision 0649).
         let find = |label: &str| values.iter().find(|v| v.label == label).unwrap();
         let measuring = find("Tool length measurement");
         assert_eq!(measuring.value, "Automatic (tool setter)");
         assert!(measuring.confirmed);
         let distance = find("Spindle to axis");
-        assert_eq!(distance.value, "73.100 mm");
-        assert!(!distance.confirmed);
-        assert!(distance.tooltip.contains("24.5"), "{}", distance.tooltip);
+        assert_eq!(distance.value, "72.000 mm");
+        assert!(distance.confirmed);
+        assert!(
+            distance.tooltip.contains("collet face"),
+            "{}",
+            distance.tooltip
+        );
         let minimum = find("Recommended minimum safe Z");
-        assert_eq!(minimum.value, "30.000 mm");
-        assert!(!minimum.confirmed);
+        assert_eq!(minimum.value, "45.000 mm");
+        assert!(minimum.confirmed);
         assert!(
             minimum.tooltip.contains("must be checked before machining"),
             "{}",
             minimum.tooltip
         );
         let spindle = values.iter().find(|v| v.label == "Spindle speed").unwrap();
-        assert_eq!(spindle.value, "Up to 13000 rpm");
-        assert!(
-            !spindle.confirmed,
-            "from Makera's documents, not the machine"
-        );
+        assert_eq!(spindle.value, "4000 to 13000 rpm");
+        assert!(spindle.confirmed, "the owner's, firmware 1.1.3");
         // The Z1's axis height is the owner's probing result: the tick, and
         // the source says it holds for the probe as the reference tool
         // (decision 0317).
