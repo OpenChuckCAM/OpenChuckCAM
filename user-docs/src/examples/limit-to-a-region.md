@@ -7,6 +7,9 @@ This example saves the ball of the baluster's finial as a selection set, then ru
 
 You need the tutorial's finished project, [`testdata/examples/baluster/baluster-project`](https://github.com/OpenChuckCAM/OpenChuckCAM/tree/main/testdata/examples/baluster/baluster-project). Copy it to a folder of your own and open the copy with **File > Open project**. The numbers on this page come from that project on the build named in the figures' record; your own part gives other numbers.
 
+> [!NOTE]
+> The example project places the part 17.99 mm from the headstock face (**Offset along X** and **Zero at X** in the setup), the length of the project owner's supplied chuck. It is not a value for your machine: for your own parts, measure the distance from the face of the headstock body to the face of your chuck where the stock starts, with your jaws fitted and gripping as you will grip, and use that number. See [Set up the stock](../tutorial/04-stock.md).
+
 ## What a region is
 
 A selection set is a named group of the model's surfaces. On an STL model, such as the baluster, it is a group of triangles; on a STEP model it is a group of faces. Each operation has four places to put sets, under **Geometry** in the Inspector. The program describes each one in its tooltip:

@@ -7,6 +7,9 @@ This example adds a rest machining operation with a 2 mm ball end mill after the
 
 You need the tutorial's finished project, [`testdata/examples/baluster/baluster-project`](https://github.com/OpenChuckCAM/OpenChuckCAM/tree/main/testdata/examples/baluster/baluster-project). Copy it to a folder of your own and open the copy with **File > Open project**. The numbers on this page come from that project on the build named in the figures' record; your own part gives other numbers.
 
+> [!NOTE]
+> The example project places the part 17.99 mm from the headstock face (**Offset along X** and **Zero at X** in the setup), the length of the project owner's supplied chuck. It is not a value for your machine: for your own parts, measure the distance from the face of the headstock body to the face of your chuck where the stock starts, with your jaws fitted and gripping as you will grip, and use that number. See [Set up the stock](../tutorial/04-stock.md).
+
 ## What rest machining does
 
 A tool cannot cut a corner tighter than its own radius, or a groove narrower than itself. After a larger tool, material is left in those places. A rest machining operation takes the stock as the earlier operations of the same setup leave it, finds where more than **Smallest material to clean** (0.15 mm unless you change it) is left on the part, and cuts there with a smaller tool. It does not use selection sets: the strategy list says "Rest machining · ignores selections".

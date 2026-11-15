@@ -7,6 +7,9 @@ This example gives the tutorial's baluster a [tab](../glossary.md#tab) at each e
 
 You need the tutorial's finished project, [`testdata/examples/baluster/baluster-project`](https://github.com/OpenChuckCAM/OpenChuckCAM/tree/main/testdata/examples/baluster/baluster-project). Copy it to a folder of your own and open the copy with **File > Open project**. The numbers on this page come from that project and the build named in the figures' record; your own part gives other numbers.
 
+> [!NOTE]
+> The example project places the part 17.99 mm from the headstock face (**Offset along X** and **Zero at X** in the setup), the length of the project owner's supplied chuck. It is not a value for your machine: for your own parts, measure the distance from the face of the headstock body to the face of your chuck where the stock starts, with your jaws fitted and gripping as you will grip, and use that number. See [Set up the stock](../tutorial/04-stock.md).
+
 ## What you are setting
 
 A [held region](../glossary.md#held-region) is a length of the stock that the chuck or the tailstock holds. It is never cut, and links keep clear of it. A tab is a short bridge of uncut material between the part and the stock, so that the part stays attached until you cut it free yourself. Both count as part of the finished shape: the program cuts round them as if they were part of the model.

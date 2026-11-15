@@ -7,6 +7,9 @@ This example gives the tutorial's finishing tool flutes only 3 mm long, so that 
 
 You need the tutorial's finished project, [`testdata/examples/baluster/baluster-project`](https://github.com/OpenChuckCAM/OpenChuckCAM/tree/main/testdata/examples/baluster/baluster-project). Copy it to a folder of your own and open the copy with **File > Open project**. The numbers on this page come from that project on the build named in the figures' record; your own part gives other numbers.
 
+> [!NOTE]
+> The example project places the part 17.99 mm from the headstock face (**Offset along X** and **Zero at X** in the setup), the length of the project owner's supplied chuck. It is not a value for your machine: for your own parts, measure the distance from the face of the headstock body to the face of your chuck where the stock starts, with your jaws fitted and gripping as you will grip, and use that number. See [Set up the stock](../tutorial/04-stock.md).
+
 ## What the warning means
 
 The flutes are the cutting length of the tool. Above them is the shank, which does not cut. When the stock stands higher above the tool's tip, along the tool's axis, than the flutes are long, the shank may rub or push against the stock. The program checks every operation for this after it makes the path. If the stock may stand too high, it still makes the path, and it warns.

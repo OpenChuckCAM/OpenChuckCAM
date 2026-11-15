@@ -50,7 +50,7 @@ A range, Lowest A, Highest A
 : **Continuous** if A can turn without limit, or a limited range in degrees. On a limited axis every program is checked against the range, and no turn-dropping command is written.
 
 Rotary reference X, Rotary reference Y
-: A point on the rotary axis, in machine coordinates, such as the centre of the headstock face next to the chuck (the Makera Z1's), where the controller works from. Along the axis it is where a setup's part position is measured from.
+: A point on the rotary axis, in machine coordinates, such as the centre of the headstock face next to the chuck (the Makera Z1's), where the controller works from. Along the axis it is where a setup's part position is measured from, so on the Z1 model X 0 is the headstock face, and a part must be placed past the chuck: measure the distance from the face of the headstock body to the face of your chuck where the stock starts, with your jaws fitted and gripping as you will grip, and use it for the setup's **Offset along X** and **Zero at X**. The 18 mm in the tutorial is the owner's supplied chuck, not a value for yours; the program does not check that the stock is clear of the chuck.
 
 Axis height (machine Z)
 : The machine Z of the rotary axis. Everything the program writes in Z is measured from this height, so it matters more than any other value. Measure it on your machine.

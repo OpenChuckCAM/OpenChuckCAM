@@ -1,6 +1,9 @@
 # 4. Set up the stock
 
-On the Makera Z1, X 0 is the face of the headstock, where the chuck is mounted, and the chuck is about 18 mm long. The part must start beyond the chuck, so move it along X first, together with the [work offset](../glossary.md#work-offset)'s zero, before you choose the stock.
+On the Makera Z1, X 0 is the face of the headstock, where the chuck is mounted. The part must start beyond the chuck, so move it along X first, together with the [work offset](../glossary.md#work-offset)'s zero, before you choose the stock. This tutorial uses 18 mm.
+
+> [!WARNING]
+> The 18 mm in this example is the length of the project owner's supplied chuck, with its jaws as they were used, not a value for your machine. Measure, on your machine, the distance from the face of the headstock body to the face of your chuck where the stock starts, with your jaws fitted and gripping as you will grip, and use that number for **Offset along X** and **Zero at X**. A value that is too small puts the stock, and the tool's path, inside the chuck; the program does not check this. The program's X0 is set on the machine with the controller's work offset (G54), so set it there at the same place, and check the program before you cut.
 
 1. In the project tree on the left, choose **Stock** under **Setup 1** (or scroll the Inspector to **Stock**).
 2. Under **Part position**, set **Offset along X** to **18** (millimetres) and press <kbd>Enter</kbd>. **Position** now reads X 18.000 to 79.000 mm.

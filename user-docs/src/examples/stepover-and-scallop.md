@@ -7,6 +7,9 @@ This example changes the [stepover](../glossary.md#stepover) of the tutorial's f
 
 You need the tutorial's finished project, [`testdata/examples/baluster/baluster-project`](https://github.com/OpenChuckCAM/OpenChuckCAM/tree/main/testdata/examples/baluster/baluster-project). Copy it to a folder of your own and open the copy with **File > Open project**. The numbers on this page come from that project on the build named in the figures' record, with the Makera Z1 post; your own part gives other numbers. [Stepover, stepdown, scallop and stock to leave](../concepts/stepover-and-stock-to-leave.md) explains the terms.
 
+> [!NOTE]
+> The example project places the part 17.99 mm from the headstock face (**Offset along X** and **Zero at X** in the setup), the length of the project owner's supplied chuck. It is not a value for your machine: for your own parts, measure the distance from the face of the headstock body to the face of your chuck where the stock starts, with your jaws fitted and gripping as you will grip, and use that number. See [Set up the stock](../tutorial/04-stock.md).
+
 ## The scallop of a ball end mill
 
 A ball end mill of radius *R* that steps over by *s* between passes leaves a ridge, the [scallop](../glossary.md#scallop), between them. On a flat or gently curved surface its height is about

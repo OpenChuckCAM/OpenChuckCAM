@@ -20,7 +20,7 @@ def run(cap, work):
     cap.click(165, 54, 2)                      # 2 Setup
     cap.click(125, 342, 2)                     # Setup 1 > Stock
     cap.fill(1810, 255, "78")                  # Stock length
-    cap.fill(1810, 287, "-13")                 # Start X: 5 mm of bar between the grip and the part
+    cap.fill(1810, 287, "4.99")                # Start X: 5 mm of bar between the grip and the part at 17.99
     cap.click(98, 426, 2)                      # Setup 1 > Workholding
     cap.shot("01-zones")
     cap.click(1632, 974, 2)                    # Head tab

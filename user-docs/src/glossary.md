@@ -140,6 +140,6 @@ The path the cutter follows, with the angle of A at every point, worked out by a
 
 ## Work offset {#work-offset}
 
-The register in the machine's controller that stores where the part's zero is, such as G54. You set it on the machine; the program writes its moves relative to it.
+The register in the machine's controller that stores where the part's zero is, such as G54. You set it on the machine, with the controller, to match the setup's zero in the program; the program writes its moves relative to it.
 
 </div>

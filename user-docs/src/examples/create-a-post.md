@@ -2,6 +2,9 @@
 
 This example makes a small post-processor of your own, loads it, writes a program with it and checks the result. It uses the example post in the repository, [`testdata/examples/minimal-post`](https://github.com/OpenChuckCAM/OpenChuckCAM/tree/main/testdata/examples/minimal-post), and the tutorial's finished project, [`testdata/examples/baluster/baluster-project`](https://github.com/OpenChuckCAM/OpenChuckCAM/tree/main/testdata/examples/baluster/baluster-project). [Writing a post-processor](../reference/writing-a-post.md) is the reference for every option, variable and filter used here.
 
+> [!NOTE]
+> The example project places the part 17.99 mm from the headstock face (**Offset along X** and **Zero at X** in the setup), the length of the project owner's supplied chuck. It is not a value for your machine: for your own parts, measure the distance from the face of the headstock body to the face of your chuck where the stock starts, with your jaws fitted and gripping as you will grip, and use that number. See [Set up the stock](../tutorial/04-stock.md).
+
 > [!WARNING]
 > A post you write is yours to check. The program cannot know your controller: its checks read the program back in the LinuxCNC or Makera Z1 dialect only, and nothing they report makes a post right for your machine. Keep the safety notice on, check every program, and run an [air cut](../glossary.md#air-cut) before anything else; the [Makera Z1 air cut](../safety/air-cut.md) and [safe-practice checklist](../safety/checklist.md) show the kind of steps to follow on any machine. Generated G-code must be verified by you before it is run on a machine.
 
