@@ -1,10 +1,20 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
-# Issue chooser. The three forms (bug report, enhancement request, question)
-# replace blank issues, which are off (owner's decision of 7 Nov 2026; the
-# maintainer's own tasks are created through the API, which this does not affect).
-# Discussions is not enabled, so there is no link to it.
+# Issue chooser. The two forms (bug report, enhancement request) replace blank
+# issues, which are off (owner's decision of 7 Nov 2026; the maintainer's own
+# tasks are created through the API, which this does not affect).
+# Questions moved to GitHub Discussions (owner's decision of 14 Nov 2026,
+# issue #368): the question form is retired and the links below go to Q&A.
 blank_issues_enabled: false
 contact_links:
+  - name: Ask a question
+    url: https://github.com/OpenChuckCAM/OpenChuckCAM/discussions/categories/q-a
+    about: Questions, and machine and post help, go to Discussions, not to issues.
+  - name: Share an idea
+    url: https://github.com/OpenChuckCAM/OpenChuckCAM/discussions/categories/ideas
+    about: Describe the problem and your idea. One the maintainer takes up becomes an enhancement request.
+  - name: Show and tell
+    url: https://github.com/OpenChuckCAM/OpenChuckCAM/discussions/categories/show-and-tell
+    about: Share something you made. Sharing a result does not mean the project verified the G-code.
   - name: User guide - reporting a problem or asking for a feature
     url: https://openchuck.cam/latest/reporting.html
     about: What to include in a report, what the log file holds, and how to attach it safely.

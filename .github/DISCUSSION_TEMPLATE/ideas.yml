@@ -1,0 +1,32 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# Form for the Ideas category (slug ideas). Discussion forms take only `body`.
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Share an idea for the program. An idea the maintainer takes up becomes an enhancement request in the issue list; posting one does not promise a date. Describing the problem you are trying to solve helps most.
+
+        Discussions on GitHub are public. Generated G-code is yours to verify before you run it on a machine (NFR-12); an idea about G-code output does not change that.
+
+        A bug belongs in an [issue](https://github.com/OpenChuckCAM/OpenChuckCAM/issues/new/choose). See [Reporting a problem or asking for a feature](https://openchuck.cam/latest/reporting.html) in the user guide.
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem or workflow you cannot do today
+      description: What are you trying to make or do, and what stops you?
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: Your idea
+      description: What should the program do? A sketch of the steps you would take is enough.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Other ways you tried, including another program or a manual step.
+    validations:
+      required: false

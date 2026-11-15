@@ -1,0 +1,36 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# Form for the Show and tell category (slug show-and-tell). Discussion forms
+# take only `body`.
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Show what you made. Discussions on GitHub are public: share only what you are happy to have seen by everyone.
+
+        Generated G-code is yours to verify before you run it on a machine (NFR-12). Sharing a result here does not mean the project has verified the G-code, the settings or the part.
+  - type: textarea
+    id: made
+    attributes:
+      label: What you made
+    validations:
+      required: true
+  - type: input
+    id: machine
+    attributes:
+      label: Machine
+    validations:
+      required: false
+  - type: textarea
+    id: operations
+    attributes:
+      label: Operations and strategies used
+      description: For example the roughing and finishing operations, and the tools.
+    validations:
+      required: false
+  - type: textarea
+    id: photos
+    attributes:
+      label: Photos
+      description: Drag photos into this box.
+    validations:
+      required: false

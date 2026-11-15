@@ -38,6 +38,10 @@ OpenChuckCAM is licensed under AGPL-3.0-or-later. Every source file starts with:
 
 - `main` stays releasable. Branches are short-lived and merge only with CI green on Windows, macOS and Linux.
 
+## Community
+
+Everyone taking part in the project follows the [code of conduct](CODE_OF_CONDUCT.md); conduct reports go to github@openchuck.cam. Ask questions in [GitHub Discussions](https://github.com/OpenChuckCAM/OpenChuckCAM/discussions) (Q&A). Raise an idea there (Ideas) before you write a pull request for it, so the maintainer can say whether it fits; an idea that is taken up becomes an enhancement issue. Bugs go in issues.
+
 ## Safety
 
 Generated G-code must be verified by the user before it is run on a machine (NFR-12). Do not add wording or behaviour that implies otherwise.

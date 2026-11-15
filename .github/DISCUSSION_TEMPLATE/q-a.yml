@@ -1,18 +1,15 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
-name: Question
-description: Ask how to do something, or about something the user guide does not explain.
-title: "[Question]: "
-labels:
-  - question
-  - user-reported
-  - awaiting-triage
+# Form for the Q&A category (slug q-a). Discussion forms take only `body`; they
+# have no name, description, title or labels key.
 body:
   - type: markdown
     attributes:
       value: |
         Look in the [user guide](https://openchuck.cam/latest/), [Troubleshooting](https://openchuck.cam/latest/troubleshooting.html) and [Known limitations](https://openchuck.cam/latest/start/limitations.html) first.
 
-        The maintainer answers questions when time allows. Issues on GitHub are public: do not paste a project or model you do not want to share. Generated G-code is yours to verify before you run it on a machine (NFR-12).
+        The maintainer answers questions when time allows; there is no promised reply time. Discussions on GitHub are public: do not paste a project or model you do not want to share. Generated G-code is yours to verify before you run it on a machine (NFR-12).
+
+        A bug or a feature request belongs in an [issue](https://github.com/OpenChuckCAM/OpenChuckCAM/issues/new/choose), not here.
   - type: textarea
     id: question
     attributes:
@@ -22,7 +19,7 @@ body:
   - type: textarea
     id: goal
     attributes:
-      label: What you are trying to do
+      label: What you are trying to make
       description: The part you want to make, or the result you want.
     validations:
       required: false
