@@ -122,7 +122,7 @@ The end-face warning remains, because the stock beside the end is still deeper t
 
 The finish in layers, with **Face free ends** off, takes 37,002 moves against 19,152 for the tutorial's finish.
 
-With every flute-length warning gone, the end of the part still keeps what the roughing left: "Most material left: 1.320 mm at X 60.68". No warning means the program found nothing to warn about along the path; it does not mean that the end is finished, or that nothing touches the stock.
+With every flute-length warning gone, the end of the part still keeps what the roughing left: "Most material left: 1.320 mm at X 78.67". No warning means the program found nothing to warn about along the path; it does not mean that the end is finished, or that nothing touches the stock.
 
 A longer-flute tool is the change that keeps the path the same. Layers make the path longer, and turning off **Face free ends** leaves material on the end.
 

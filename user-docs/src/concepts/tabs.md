@@ -7,7 +7,7 @@ When a rotary job cuts the whole length of a part, the part can come free of the
 
 ## Where tabs go
 
-Tabs lie in the **head zone** or the **tail zone**: the gap between the part and the held region (or the end of the stock) at each end of the part. The Workholding section of the setup shows each zone, for example "Head zone X -1.000 to 0.000 mm", or says when there is no room for a tab. A tab that is not wholly in a zone is an error, and operations that can reach it cannot be generated.
+Tabs lie in the **head zone** or the **tail zone**: the gap between the part and the held region (or the end of the stock) at each end of the part. The Workholding section of the setup shows each zone, for example "Head zone X 12.990 to 17.990 mm", or says when there is no room for a tab. A tab that is not wholly in a zone is an error, and operations that can reach it cannot be generated.
 
 Every operation leaves the tabs uncut, and the simulation keeps them, so they show as part of the finished surface.
 

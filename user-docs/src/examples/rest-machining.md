@@ -44,7 +44,7 @@ What it found
 : "Rest machining (operation 'Rest'): 549718 of 1400280 points sampled on the part have more than 0.15 mm of material left; 87 passes cut where it is left". The roughing left 0.3 mm on purpose, and the finish took most of it; these are the places it did not reach.
 
 What it added for steep walls
-: "rest machining added 20 rings between X 11.984 and 60.998, as close as 0.1442 mm apart, where its tool's side meets a wall with material left, so that a steep wall keeps about 0.15 mm or less between them". On a wall that faces along the axis, passes spaced for a flat surface would leave tall ridges, so the operation adds rings there.
+: "rest machining added 20 rings between X 29.974 and 78.988, as close as 0.1442 mm apart, where its tool's side meets a wall with material left, so that a steep wall keeps about 0.15 mm or less between them". On a wall that faces along the axis, passes spaced for a flat surface would leave tall ridges, so the operation adds rings there.
 
 What it cannot reach
 : "rest machining cannot reach 9 areas of the part where material is left, which stay uncut: X 25.027 to 27.027 all round (92.8 mm2), too near a held region: the tool keeps its radius clear of the gripped length of the stock; X 30.257 to 31.085 all round (58.3 mm2), too narrow for this 2.000 mm tool, or deeper than its flutes or shank allow; ... and 4 smaller. Check them in the simulation; a smaller tool or another operation may reach them." The numbers match the markers in the view.
