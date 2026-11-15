@@ -40,9 +40,9 @@ Type each value and press <kbd>Enter</kbd>. For the example router:
 | Field | Value | Why |
 | --- | --- | --- |
 | Name | `Example router` | The name in lists. |
-| Rotary reference X, Y | `-300`, `-150` mm | A point on the rotary axis, such as the centre of the chuck face, in machine coordinates. |
+| Rotary reference X, Y | `-300`, `-150` mm | A point on the rotary axis, in machine coordinates, where the controller works from: on the Z1, the centre of the headstock face next to the chuck. |
 | Axis height (machine Z) | `-80` mm | The machine Z of the rotary axis. Every Z the program writes is measured from it. |
-| Lowest X, Lowest Y, Lowest Z | `-600`, `-300`, `-120` mm | The travel limits; the highest are 0 on this machine, as on the Z1. |
+| Lowest X, Lowest Y, Lowest Z | `-600`, `-300`, `-120` mm | The travel limits. The highest stay at the Z1's -1 mm here; on your machine, type its own. |
 
 <figure>
 <a href="images/custom_machine/03-copy-edited.png"><img src="images/custom_machine/03-copy-edited.png" width="1920" height="1080" alt="The draft Example router in the Machine library, New: not saved yet, with rotary reference X -300.000, Y -150.000, axis height -80.000 marked Not confirmed on the machine with a Mark confirmed... button, and travel Lowest X -600.000, Lowest Y -300.000, Lowest Z -120.000."></a>
@@ -60,7 +60,7 @@ Scroll down the form and go on:
 | Safe cylinder radius | `50` mm |
 | Highest tool number | `99` |
 
-Set **Safe Z** before **Safe cylinder radius**: the safe Z cannot be below the safe cylinder, and a radius of 50 mm is refused while the safe Z is still the Z1's 40 mm.
+Set **Safe Z** before **Safe cylinder radius**: the safe Z cannot be below the safe cylinder, and a radius of 50 mm is refused while the safe Z is still the Z1's 45 mm.
 
 <figure>
 <a href="images/custom_machine/04-feeds-and-clearance.png"><img src="images/custom_machine/04-feeds-and-clearance.png" width="1920" height="1080" alt="The Maximum feeds, Clearance and Tools and spindle groups of the draft: feeds 3000, 1500 and 7200, rapids 5000, 3000 and 7200, A in the feed word Separate, safe cylinder radius 50.000, safe Z 60.000, highest tool number 99, with Not confirmed on the machine and a Mark confirmed... button under the feeds and under the clearance values."></a>
@@ -115,7 +115,7 @@ When you have measured a value on the machine, click **Mark confirmed...** next 
 The setup checks now say:
 
 - "Safe Z cannot be checked against the Z travel: the machine's axis height is not confirmed on the machine." Confirm the axis height, and this check can be made.
-- "Tool length (tool 'Z1 O-flute 3.175x25', setup 'Setup 1'): tool 104 may take the spindle above the top of the Z travel at the safe Z: ...", and the same for tool 204. The profile still has the Z1's **Spindle to axis** of 73.1 mm, and a safe Z of 60 mm leaves too little room above it for these tools. Measure the router's spindle-to-axis distance and set it; then lower the safe Z or use shorter tools if the warning remains. A tool that may take the spindle past the top of its travel is a possible collision, so if the warning is still there when you export, the export asks you to acknowledge it before it writes anything.
+- "Tool length (tool 'Z1 O-flute 3.175x25', setup 'Setup 1'): tool 104 may take the spindle above the top of the Z travel at the safe Z: ...", and the same for tool 204. The profile still has the Z1's **Spindle to axis** of 72.0 mm, and a safe Z of 60 mm leaves too little room above it for these tools. Measure the router's spindle-to-axis distance and set it; then lower the safe Z or use shorter tools if the warning remains. A tool that may take the spindle past the top of its travel is a possible collision, so if the warning is still there when you export, the export asks you to acknowledge it before it writes anything.
 
 The status bar counts the unconfirmed values: "8 machine values unconfirmed". Every operation is now out of date, because the machine changed; generate them again before you post.
 
@@ -133,7 +133,7 @@ The first lists the profiles, with how many values are unconfirmed; the second g
 ## Common mistakes
 
 A value is refused with a red message
-: For example "The safe Z (40 mm) must not be below the safe cylinder radius (50 mm)." Change the other value first, then type this one again.
+: For example "The safe Z (45 mm) must not be below the safe cylinder radius (50 mm)." Change the other value first, then type this one again.
 
 The profile was copied, but not every value was checked
 : Values you do not change keep the source machine's values and marks. Go through every field.
