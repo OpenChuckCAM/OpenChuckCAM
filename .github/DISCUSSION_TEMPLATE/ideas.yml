@@ -6,7 +6,9 @@ body:
       value: |
         Share an idea for the program. An idea the maintainer takes up becomes an enhancement request in the issue list; posting one does not promise a date. Describing the problem you are trying to solve helps most.
 
-        Discussions on GitHub are public. A bug belongs in an [issue](https://github.com/OpenChuckCAM/OpenChuckCAM/issues/new/choose). See [Reporting a problem or asking for a feature](https://openchuck.cam/latest/reporting.html) in the user guide.
+        Discussions on GitHub are public. Generated G-code is yours to verify before you run it on a machine (NFR-12); an idea about G-code output does not change that.
+
+        A bug belongs in an [issue](https://github.com/OpenChuckCAM/OpenChuckCAM/issues/new/choose). See [Reporting a problem or asking for a feature](https://openchuck.cam/latest/reporting.html) in the user guide.
   - type: textarea
     id: problem
     attributes:

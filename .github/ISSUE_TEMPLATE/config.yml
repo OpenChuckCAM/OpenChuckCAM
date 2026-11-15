@@ -6,9 +6,12 @@
 # issue #368): the question form is retired and the links below go to Q&A.
 blank_issues_enabled: false
 contact_links:
-  - name: Ask a question or discuss an idea
+  - name: Ask a question
     url: https://github.com/OpenChuckCAM/OpenChuckCAM/discussions/categories/q-a
-    about: Questions, machine and post help, and ideas go to Discussions, not to issues.
+    about: Questions, and machine and post help, go to Discussions, not to issues.
+  - name: Share an idea
+    url: https://github.com/OpenChuckCAM/OpenChuckCAM/discussions/categories/ideas
+    about: Describe the problem and your idea. One the maintainer takes up becomes an enhancement request.
   - name: Show and tell
     url: https://github.com/OpenChuckCAM/OpenChuckCAM/discussions/categories/show-and-tell
     about: Share something you made. Sharing a result does not mean the project verified the G-code.
