@@ -1,13 +1,13 @@
 # Confirm machine profile values
 
-Some values in the built-in Makera Z1 profile have not been confirmed on a machine, and every value you change in a profile of your own starts unconfirmed. The program marks each of them, counts them in the status bar ("6 machine values unconfirmed"), and lists them as a warning when you export. Measure each one on your machine before you rely on it.
+The values in the built-in Makera Z1 profile were confirmed on the project owner's machine, not on yours, and every value you change in a profile of your own starts unconfirmed. The program marks each unconfirmed value, shows it in the status bar ("Clearance unconfirmed" for one value, "2 machine values unconfirmed" for two), and lists them as a warning when you export. Measure each value on your machine before you rely on it, confirmed or not.
 
 > [!WARNING]
 > Measure with the machine at a safe state: spindle stopped, no tool where it can hit the chuck, and your hand on the emergency stop when anything moves. A wrong axis height, travel or safe Z makes every program the program writes wrong in the same way, and its checks cannot see it.
 
 ## See which values are unconfirmed
 
-Click the "machine values unconfirmed" link in the status bar, or open the setup's machine section on the Setup step. An unconfirmed value has an amber triangle; hold the mouse over it to read where the value came from and how to confirm it.
+Click the unconfirmed values in the status bar, or open the setup's machine section on the Setup step. The status bar shows them only when the project's profile has one; with the built-in Makera Z1 unchanged it shows none. An unconfirmed value has an amber triangle; hold the mouse over it to read where the value came from and how to confirm it.
 
 ## How to check each value
 

@@ -25,7 +25,7 @@ The project
 
 ## Confirmed and unconfirmed values
 
-Each value records where it came from, and whether it has been confirmed on the machine. A confirmed value has a tick; an unconfirmed one has a triangle, and its tooltip says where the value came from and how to check it. The status bar counts the unconfirmed values, for example "6 machine values unconfirmed".
+Each value records where it came from, and whether it has been confirmed on the machine. A confirmed value has a tick; an unconfirmed one has a triangle, and its tooltip says where the value came from and how to check it. The status bar names an unconfirmed value, for example "Clearance unconfirmed", or counts them when there are more ("2 machine values unconfirmed"). The built-in Makera Z1 has none.
 
 When you change a value, it becomes unconfirmed, with the source "Changed by the user; check it on the machine". After you have measured or checked it on the machine, use **Mark confirmed...** and say how you confirmed it. [Confirm machine profile values](../how-to/confirm-machine-values.md) says how to check each one.
 
