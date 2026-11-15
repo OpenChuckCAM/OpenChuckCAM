@@ -1,0 +1,35 @@
+file                                                        lines safe Z estim. sheet  tie link  other
+testdata/golden/blisk/axial_linuxcnc.ngc                     8843     64      0     0    0    0  none
+testdata/golden/blisk/axial_makera-z1.nc                     8844     64      0     0    0    0  none
+testdata/golden/blisk/helical_2_linuxcnc.ngc                 8975      3      0     0   17    0  none
+testdata/golden/blisk/helical_2_makera-z1.nc                 8977      3      0     0   15    0  none
+testdata/golden/blisk/helical_5_linuxcnc.ngc                 7225      3      0     0   45    0  none
+testdata/golden/blisk/helical_5_makera-z1.nc                 7227      3      0     0   24    0  none
+testdata/golden/first_cut/first_cut_linuxcnc.ngc            15944      4      2     0    0    2  none
+    link height line 819: G0 Z23.355 -> G0 Z23.356
+    link height line 11170: G0 Z21.334 -> G0 Z21.599
+testdata/golden/first_cut/first_cut_makera-z1.nc            15966      4      2     0    0    2  none
+    link height line 821: G0 Z23.355 -> G0 Z23.356
+    link height line 11186: G0 Z21.334 -> G0 Z21.599
+testdata/golden/reference/cone_axial_lead_linuxcnc.ngc       1357     33      0     0    0    0  none
+testdata/golden/reference/cone_axial_lead_makera-z1.nc       1358     33      0     0    0    0  none
+testdata/golden/reference/cone_axial_linuxcnc.ngc             621     33      0     0    0    0  none
+testdata/golden/reference/cone_axial_makera-z1.nc             622     33      0     0    0    0  none
+testdata/golden/reference/cone_held_tabs_linuxcnc.ngc        1603      2      0     0    0    0  none
+testdata/golden/reference/cone_held_tabs_makera-z1.nc        1605      2      0     0    0    0  none
+testdata/golden/reference/cone_indexed_linuxcnc.ngc           213      5      0     0    8    0  none
+testdata/golden/reference/cone_indexed_makera-z1.nc           214      5      0     0    8    0  none
+testdata/golden/reference/cone_linuxcnc.ngc                  1098      2      0     0    0    0  none
+testdata/golden/reference/cone_makera-z1.nc                  1100      2      0     0    0    0  none
+testdata/golden/reference/drilling_linuxcnc.ngc                28      2      0     0    0    0  none
+testdata/golden/reference/drilling_makera-z1.nc                29      2      0     0    0    0  none
+testdata/golden/reference/face_flow_linuxcnc.ngc             1551      2      0     0    0    0  none
+testdata/golden/reference/face_flow_makera-z1.nc             1552      2      0     0    0    0  none
+testdata/golden/reference/groove_linuxcnc.ngc                1116      2      0     0    0    0  none
+testdata/golden/reference/groove_makera-z1.nc                1118      2      0     0    0    0  none
+testdata/golden/reference/lobed_linuxcnc.ngc                 1818      2      0     0    0    0  none
+testdata/golden/reference/lobed_makera-z1.nc                 1820      2      0     0    0    0  none
+testdata/golden/reference/sphere_linuxcnc.ngc                 738      2      0     0    0    0  none
+testdata/golden/reference/sphere_makera-z1.nc                 740      2      0     0    0    0  none
+testdata/golden/reference/swarf_linuxcnc.ngc                   67      7      0     0    0    0  none
+testdata/golden/reference/swarf_makera-z1.nc                   68      7      0     0    0    0  none

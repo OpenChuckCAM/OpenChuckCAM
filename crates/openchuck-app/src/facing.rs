@@ -618,6 +618,71 @@ mod tests {
             },
         );
     }
+    /// The Z1's footer ends with `G28`, which on firmware 1.1.3 goes to
+    /// machine Z -3, then X -11.6 and Y -14.6, not to machine 0 (the owner,
+    /// 14 Nov 2026). With the Z1's soft limits at -1 near home, the travel
+    /// holds that point though not machine 0, so the footer is accepted; a
+    /// travel that leaves out the G28 point, or whose top is below Z -3,
+    /// still refuses it (decision 0649, decision 6; OP-24, GC-09, SET-01).
+    #[test]
+    fn req_op_24_req_gc_09_req_set_01_z1_footer_home_is_the_observed_g28_point() {
+        use openchuck_post::{PostProcessor, TemplatePost, builtin};
+        use openchuck_types::geometry::Aabb;
+        let cancel = CancelToken::new();
+        let ctx = JobContext::new(&cancel, &NoProgress);
+        let soft_limits = Aabb {
+            min: Point3::new(-207., -160., -102.),
+            max: Point3::new(-1., -1., -1.),
+        };
+        let posted = |travel: Aabb| -> bool {
+            let (mut proof, group) = fixture(&ctx);
+            let data = Arc::get_mut(&mut proof.0).unwrap();
+            // The Z1's reference point, with the axis lower than the
+            // built-in's so the fixture's tool clears the footer retract.
+            data.machine.rotary_origin = Point3::new(-198.39, -123.39, -55.);
+            data.machine.travel = travel;
+            let mut accepted = false;
+            written_case(
+                proof,
+                group,
+                "makera-z1",
+                &ctx,
+                |_, job, path, metadata, _| {
+                    let definition = builtin("makera-z1").unwrap().unwrap();
+                    let text = TemplatePost::new(definition.clone())
+                        .post(path, job)
+                        .unwrap()
+                        .text;
+                    accepted = super::written::verify_output(
+                        &text,
+                        &definition,
+                        job,
+                        path,
+                        std::slice::from_ref(metadata),
+                        &ctx,
+                    )
+                    .is_ok();
+                },
+            );
+            accepted
+        };
+        assert!(
+            posted(soft_limits),
+            "machine 0 is outside, the G28 point inside"
+        );
+        let mut short_x = soft_limits;
+        short_x.max.x = -12.;
+        assert!(!posted(short_x), "G28 X -11.6 outside the travel");
+        let mut short_y = soft_limits;
+        short_y.max.y = -15.;
+        assert!(!posted(short_y), "G28 Y -14.6 outside the travel");
+        let mut low_top = soft_limits;
+        low_top.max.z = -4.;
+        assert!(
+            !posted(low_top),
+            "the retract to machine Z -3 is above the top"
+        );
+    }
     #[test]
     fn req_op_24_req_gc_08_facing_file_with_a_combined_rotation_posts_through_both_posts() {
         // Issue #641: a Facing operation and, in the same file, an operation

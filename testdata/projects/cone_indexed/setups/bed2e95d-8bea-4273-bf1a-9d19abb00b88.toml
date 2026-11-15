@@ -4,14 +4,14 @@ order = "V"
 name = "Setup 1"
 part = "dc2cd907-90f1-4079-842e-326794d822df"
 material = "oak"
-part_offset = 0.0
+part_offset = 17.990234375
 
 [work_offset]
 register = "g54"
-x = 0.0
+x = 17.990234375
 
 [stock]
 type = "cylinder"
 diameter = 22.0
 length = 32.0
-x_start = -1.0
+x_start = 16.990234375

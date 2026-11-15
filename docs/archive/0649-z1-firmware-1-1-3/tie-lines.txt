@@ -1,0 +1,7 @@
+Rounding-tie lines of the layout shift (decision record 0649, item 13), Z1 programs, by line number
+in the golden file. Each differs from main 90e78107 in one X word by 0.001 mm (or an X word written or
+left out as modal) and in the F word that follows from it.
+
+testdata/golden/blisk/helical_5_makera-z1.nc: 103, 256, 273, 280, 375, 382, 399, 1324, 1347, 1389, 1428, 1454, 1461, 1488, 1516, 1522, 1546, 1593, 1645, 2306, 2555, 3101, 3527, 3974
+testdata/golden/blisk/helical_2_makera-z1.nc: 1535, 1536, 1643, 1644, 1722, 2243, 2457, 3364, 3596, 3911, 3912, 4799, 4800, 8001, 8502
+testdata/golden/reference/cone_indexed_makera-z1.nc: 25, 26, 96, 97, 125, 126, 196, 197

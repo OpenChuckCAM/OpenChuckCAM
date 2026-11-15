@@ -43,13 +43,18 @@ fn text(t: &str) -> Option<ParameterValue> {
 /// The cube project with the built-in Makera Z1 as its machine, recorded
 /// with the built-in profile's ID.
 fn rig_with_z1(name: &str) -> Rig {
+    rig_with(name, z1())
+}
+
+/// A rig whose project has `machine` as the Makera Z1's copy.
+fn rig_with(name: &str, machine: MachineProfile) -> Rig {
     let mut rig = Rig::cube(name, None);
     rig.shell
         .app
         .as_mut()
         .unwrap()
         .execute(Command::SetMachineFrom {
-            machine: Some(Box::new(z1())),
+            machine: Some(Box::new(machine)),
             id: Some(Z1_ID.to_owned()),
         })
         .unwrap();
@@ -76,7 +81,7 @@ fn req_set_10_a_built_in_machine_is_copied_to_edit_and_saved_as_a_new_one() {
     );
     // A built-in value cannot be set.
     assert_eq!(window.set_value(None, fields::SAFE_Z, num(55.0)), None);
-    assert_eq!(z1().clearance.safe_z.0, 40.0);
+    assert_eq!(z1().clearance.safe_z.0, 45.0);
     window.duplicate(None);
     let draft = window.draft().unwrap();
     assert_eq!(draft.profile.name, "Makera Z1 copy");
@@ -276,7 +281,15 @@ fn req_set_10_delete_asks_first_and_export_then_import_round_trips() {
 
 #[test]
 fn req_set_10_req_ui_13_the_window_draws_every_group_with_its_provenance() {
-    let mut rig = rig_with_z1("machines-draw");
+    // Every value of the built-in Z1 is confirmed (decision record 0649);
+    // this copy's travel is not, so both marks are drawn.
+    let mut machine = z1();
+    machine
+        .provenance
+        .get_mut(&ProfileField::Travel)
+        .unwrap()
+        .state = openchuck_app::setup::Confirmation::Unconfirmed;
+    let mut rig = rig_with("machines-draw", machine);
     rig.shell.machine_library = MachineLibraryWindow::new(Some(folder("draw")), None);
     rig.shell.open_machine_library();
     rig.frame(Vec::new());
@@ -400,6 +413,8 @@ fn req_set_10_every_question_is_drawn_in_plain_words() {
     window.click(Selected::BuiltIn("built-in makera-z1".into()));
     window.duplicate(None);
     window.set_value(None, fields::NAME, text("My Z1"));
+    // A changed value is not confirmed (the built-in Z1 has none left).
+    window.set_value(None, fields::TRAVEL_MIN_X, num(-200.0));
     window.save();
     // A saved draft reads "Saved in the library".
     rig.shell.machine_library = window;
@@ -546,7 +561,7 @@ fn req_set_10_req_nfr_07_a_typed_value_is_checked_in_the_form() {
     draw(&mut rig);
     // Type into the Lowest X box: a value above the highest X is refused
     // under the box, naming both, and the project keeps its value.
-    rig.click(centre_of(&rig, "-200.000"));
+    rig.click(centre_of(&rig, "-207.000"));
     rig.frame(vec![
         egui::Event::Key {
             key: egui::Key::A,
@@ -566,10 +581,10 @@ fn req_set_10_req_nfr_07_a_typed_value_is_checked_in_the_form() {
     ]);
     draw(&mut rig);
     assert!(
-        rig.shows("The lowest X (10 mm) must not be above the highest X (0 mm)."),
+        rig.shows("The lowest X (10 mm) must not be above the highest X (-1 mm)."),
         "the refusal is drawn"
     );
-    assert_eq!(copy(&rig).0.travel.min.x, -200.0);
+    assert_eq!(copy(&rig).0.travel.min.x, -207.0);
 }
 
 #[test]
@@ -579,6 +594,8 @@ fn req_set_10_req_ui_13_cancel_drops_changes_and_a_library_value_is_confirmed_wi
     window.open(false);
     window.click(Selected::BuiltIn("built-in makera-z1".into()));
     window.duplicate(None);
+    // A travel the user changed is not confirmed (the built-in Z1's is).
+    window.set_value(None, fields::TRAVEL_MIN_X, num(-200.0));
     window.save();
     let saved = window.draft().unwrap().profile.clone();
     window.set_value(None, fields::A_SENSE, text("negative"));
@@ -628,7 +645,7 @@ fn req_set_10_discarding_edits_then_duplicating_copies_the_saved_machine() {
     let draft = window.draft().unwrap();
     assert_eq!(draft.profile.name, "Shop copy");
     assert_eq!(
-        draft.profile.clearance.safe_z.0, 40.0,
+        draft.profile.clearance.safe_z.0, 45.0,
         "the saved values, not the edits"
     );
     assert!(

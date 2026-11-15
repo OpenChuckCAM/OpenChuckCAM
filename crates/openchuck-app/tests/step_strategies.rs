@@ -153,10 +153,14 @@ fn build(job: &Job, tag: &str) -> (PathBuf, Application, ContentHash) {
     let hash = ContentHash::of_bytes(&std::fs::read(&file).unwrap());
     let (model, inspection) = app.add_model_with(&file, None, &job.transform).unwrap();
     let extent = inspection.extent.unwrap();
-    app.execute(Command::SetMachine(Some(Box::new(
-        builtin("makera-z1").unwrap().unwrap(),
-    ))))
-    .unwrap();
+    // These parts are placed with model X 0 where the reference jobs put it,
+    // 17.99 mm in front of the Z1's headstock face (decision record 0649):
+    // the copy's reference point is put there, so the stock and links stay
+    // inside the travel and the exact surfaces stay in the part's own frame.
+    let mut machine = builtin("makera-z1").unwrap().unwrap();
+    machine.rotary_origin.x += 17.990_234_375;
+    app.execute(Command::SetMachine(Some(Box::new(machine))))
+        .unwrap();
     let setup_id = SetupId::new();
     let mut setup = Setup::new(setup_id, "Setup 1");
     setup.part = Some(model);

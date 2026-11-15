@@ -16,6 +16,13 @@ use openchuck_types::kinematics::{
 };
 use openchuck_types::units::{Degrees, FeedRate, Millimetres, Seconds};
 
+/// Where the Makera Z1's `G28` goes, in machine coordinates: machine Z -3
+/// first, then X -11.6 and Y -14.6, observed by the owner on firmware 1.1.3
+/// (14 Nov 2026, decision record 0649). The footer check needs this point,
+/// not machine 0, inside the travel: the Z1's soft limits stop every axis at
+/// -1.0 near home.
+const Z1_G28: Point3 = Point3::new(-11.6, -14.6, -3.);
+
 fn refuse(reason: impl std::fmt::Display) -> AppError {
     AppError::Post(format!("Facing written-motion verification: {reason}"))
 }
@@ -256,9 +263,9 @@ fn verify_footer(
         let origin = setup.machine.rotary_origin;
         let physical = machine_xyz(&job.frame, last.tip, last.a) + (origin - job.frame.origin);
         let height = -3. - origin.z;
-        if !setup.machine.travel.contains(Point3::ORIGIN) {
+        if !setup.machine.travel.contains(Z1_G28) {
             return Err(refuse(
-                "the Z1 home position (machine XYZ0) lies outside configured travel",
+                "the Z1 home position (G28: machine X-11.6 Y-14.6 Z-3) lies outside configured travel",
             ));
         }
         // This global all-angle bound covers the vertical retract and the
@@ -269,8 +276,8 @@ fn verify_footer(
             || physical.z - origin.z < job.safe_z - 0.001
             || height.min(physical.z - origin.z) <= radial + 0.001
             || setup.projection_error != Some(0.)
-            || setup.machine.travel.min.z > -3.
-            || setup.machine.travel.max.z < 0.
+            || setup.machine.travel.min.z > Z1_G28.z
+            || setup.machine.travel.max.z < Z1_G28.z
         {
             return Err(refuse(
                 "the Z1 footer retract does not establish clearance above the actual whole setup/configured safe height",

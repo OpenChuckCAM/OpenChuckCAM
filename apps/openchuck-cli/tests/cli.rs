@@ -537,7 +537,7 @@ fn req_gc_17_req_set_01_req_set_03_req_set_05_req_set_06_cli_sets_machine_and_se
     );
 
     let out = run(&args(&["machines"]));
-    assert!(out.stdout.contains("makera-z1") && out.stdout.contains("6 of 13 values unconfirmed"));
+    assert!(out.stdout.contains("makera-z1") && out.stdout.contains("0 of 14 values unconfirmed"));
     let out = run(&args(&["machine", p, "makera-z1"]));
     assert_eq!(out.code, Some(0), "{}", out.stderr);
     // The A direction is stated from the shared kinematics, and every Z1
@@ -546,7 +546,7 @@ fn req_gc_17_req_set_01_req_set_03_req_set_05_req_set_06_cli_sets_machine_and_se
     // source-based provenance. Mode is a policy, outside the confirmation count.
     assert!(out.stdout.contains("faces -Y at A 90"), "{}", out.stdout);
     assert!(
-        out.stdout.contains("spindle:    up to 13000 rpm"),
+        out.stdout.contains("spindle:    4000 to 13000 rpm"),
         "{}",
         out.stdout
     );
@@ -554,14 +554,14 @@ fn req_gc_17_req_set_01_req_set_03_req_set_05_req_set_06_cli_sets_machine_and_se
     // (decision records 0317 and 0318).
     assert!(
         out.stdout.contains(
-            "spindle height: tool lengths measured automatically; spindle to axis 73.1 mm; recommended minimum safe Z 30 mm"
+            "spindle height: tool lengths measured automatically; spindle to axis 72 mm; recommended minimum safe Z 45 mm"
         ),
         "{}",
         out.stdout
     );
     assert_eq!(
         out.stdout.matches("UNCONFIRMED").count(),
-        6,
+        0,
         "{}",
         out.stdout
     );
@@ -597,7 +597,7 @@ fn req_gc_17_req_set_01_req_set_03_req_set_05_req_set_06_cli_sets_machine_and_se
     // (decision record 0201).
     assert!(
         out.stdout
-            .contains("set G55 to machine X -182.400 Y -108.800 Z -48.600"),
+            .contains("set G55 to machine X -200.390 Y -123.390 Z -48.600"),
         "{}",
         out.stdout
     );
@@ -645,12 +645,12 @@ fn req_gc_17_req_set_01_req_set_03_req_set_05_req_set_06_cli_sets_machine_and_se
         "--clearance",
         "machine",
         "--min-clearance",
-        "45",
+        "50",
     ]));
     assert_eq!(out.code, Some(0), "{}", out.stderr);
     for words in [
-        "minimum:    clearance radius 45 mm (set for this setup)",
-        "inside the minimum clearance (radius 45.000 mm, set for this setup)",
+        "minimum:    clearance radius 50 mm (set for this setup)",
+        "inside the minimum clearance (radius 50.000 mm, set for this setup)",
     ] {
         assert!(out.stdout.contains(words), "{words}: {}", out.stdout);
     }
@@ -664,7 +664,7 @@ fn req_gc_17_req_set_01_req_set_03_req_set_05_req_set_06_cli_sets_machine_and_se
     assert_eq!(out.code, Some(0), "{}", out.stderr);
     assert!(
         out.stdout.contains(
-            "in use:     safe cylinder radius 45.000 mm, safe Z 45.000 mm (Clearance from stock, margin 5 mm)"
+            "in use:     safe cylinder radius 50.000 mm, safe Z 50.000 mm (Clearance from stock, margin 5 mm)"
         ),
         "{}",
         out.stdout
@@ -693,7 +693,13 @@ fn req_gc_17_req_set_01_req_set_03_req_set_05_req_set_06_cli_sets_machine_and_se
         "off",
     ]));
     assert_eq!(out.code, Some(0), "{}", out.stderr);
-    assert!(!out.stdout.contains("minimum:"), "{}", out.stdout);
+    // The Z1's own minimum (decision record 0649) applies again.
+    assert!(
+        out.stdout
+            .contains("minimum:    clearance radius 45 mm (from the machine)"),
+        "{}",
+        out.stdout
+    );
     assert!(!out.stdout.contains("in use:"), "{}", out.stdout);
 
     // Bad values are refused with a clear message.

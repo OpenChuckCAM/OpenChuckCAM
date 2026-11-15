@@ -50,7 +50,7 @@ A range, Lowest A, Highest A
 : **Continuous** if A can turn without limit, or a limited range in degrees. On a limited axis every program is checked against the range, and no turn-dropping command is written.
 
 Rotary reference X, Rotary reference Y
-: A point on the rotary axis, such as the centre of the chuck face, in machine coordinates. Along the axis it is where a setup's part position is measured from.
+: A point on the rotary axis, in machine coordinates, such as the centre of the headstock face next to the chuck (the Makera Z1's), where the controller works from. Along the axis it is where a setup's part position is measured from.
 
 Axis height (machine Z)
 : The machine Z of the rotary axis. Everything the program writes in Z is measured from this height, so it matters more than any other value. Measure it on your machine.
@@ -112,20 +112,21 @@ Recommended minimum safe Z
 | --- | --- | --- |
 | Rotary axis, A+ direction | A about X, positive (at A +90 the top of the part faces the front of the machine) | yes |
 | A range | continuous | yes |
-| Axis height (machine Z) | -48.6 mm | yes |
-| Rotary reference X, Y | -180.4 mm, -108.8 mm | yes, but the X datum is still being checked |
-| Travel | X -200 to 0, Y -200 to 0, Z -100 to 0 mm | no |
-| X and Y feed, Z feed, A feed | 1200 mm/min, 600 mm/min, 1800 degrees/min | yes (A on firmware 1.1.3: `M203.1` prints `A: 30`, in degrees per second) |
+| Axis height (machine Z) | -48.6 mm | yes (48.568 mm measured again on firmware 1.1.3) |
+| Rotary reference X, Y | -198.39 mm, -123.39 mm (the centre of the headstock face next to the chuck) | yes (firmware 1.1.3) |
+| Travel | X -207 to -1, Y -160 to -1, Z -102 to -1 mm | yes (the controller's soft limits on firmware 1.1.3, with the rotary module fitted) |
+| X and Y feed, Z feed, A feed | 1200 mm/min, 600 mm/min, 1800 degrees/min, the same for rapids | yes (on firmware 1.1.3 `M203.1` prints `X: 20`, `Y: 20`, `Z: 10` and `A: 30`, per second; rapids timed) |
 | A in the feed word | makera | yes |
-| Safe cylinder radius, Safe Z | 40 mm, 40 mm | no (program defaults, not machine values) |
-| Highest tool number | 1000 | not applicable |
-| Highest spindle speed | 13000 rpm | no |
-| Minimum block time, Block window, Short moves | 7 ms, 32 blocks, Report | 7 ms yes; the window no; the mode is a program choice |
+| Safe cylinder radius, Safe Z | 45 mm, 45 mm | yes (set to the minimum clearance radius) |
+| Minimum clearance radius | 45 mm | yes, for the supplied chuck with its jaws reversed and fully open only: set your own on the setup for any other chuck or jaws |
+| Highest tool number | 1000 | not applicable (the program's limit; the controller accepts 1000 and 1001) |
+| Spindle speed | 4000 to 13000 rpm | yes |
+| Minimum block time, Block window, Short moves | 7 ms, 32 blocks, Report | yes; the mode is a program choice |
 | Tool length measurement | Automatic (tool setter) | yes |
-| Spindle to axis | 73.1 mm | no |
-| Recommended minimum safe Z | 30 mm | no |
+| Spindle to axis | 72.0 mm (from the collet face, at the top of the Z travel) | yes |
+| Recommended minimum safe Z | 45 mm | yes (for the supplied chuck with its jaws reversed and fully open) |
 
-The unconfirmed values are the program's best information, not measurements of your machine. Measure them before you rely on them.
+Every value is confirmed on the project owner's machine (firmware 1.1.3, with the supplied chuck), not on yours. Check them on your machine before you rely on them.
 
 ## Make a profile for another machine
 
