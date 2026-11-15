@@ -66,5 +66,5 @@ def run(cap, work):
     win_click(cap, 607, 433, 1)                # Cancel: an example's values are never confirmed
     win_click(cap, 1142, 720, 1.5)             # Close
     cap.scroll(1744, 700, 2)                   # down to Use this machine; Example router is chosen
-    cap.click(1653, 947, 3)                    # Use this machine
+    cap.click(1653, 886, 3)                    # Use this machine
     cap.shot("08-in-use")
