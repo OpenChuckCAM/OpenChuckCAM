@@ -331,11 +331,15 @@ def tutorial(args):
     click(1640, 482, 2.5)                            # Use this machine (Makera Z1)
     shot("04-machine")
     click(96, 343, 2)                                # Stock in the tree
+    # Model X 0 is the Z1's headstock face (decision 0649): move the part and the work zero past
+    # the chuck, about 18 mm, before the stock is filled in around the part (owner, 15 Nov 2026).
+    fill(1835, 338, "18")                            # Part position: Offset along X
+    fill(1835, 554, "18")                            # Work offset: Zero at X
     click(1814, 210, 1.5)                            # Shape list
     click(1810, 244, 2.5)                            # Cylinder
     shot("05-stock")
-    click(1820, 297, 1.5)                            # Material
-    click(1815, 459, 1.5)                            # Hardwood
+    click(1820, 266, 1.5)                            # Material: Pick...
+    click(1815, 427, 1.5)                            # Hardwood
     click(96, 427, 2)                                # Workholding in the tree
     click(1787, 674, 2)                              # Held at the start
     fill(1830, 706, "8")                             # Grip length
@@ -406,10 +410,11 @@ def tutorial(args):
     type_text(str(WORK / "output"))
     key("Return")
     shot("16-export-dialog")
-    scroll(677, 716, 8)
+    scroll(677, 716, 18)                             # to the end of the checks
     shot("17-export-checks")
-    click(498, 771, 1.5)                             # I will verify this G-code...
-    click(1389, 858, 5)                              # Write G-code
+    click(497, 630, 1.5)                             # I will verify this G-code...
+    click(486, 802, 1.5)                             # I have read the possible collisions...
+    click(1388, 857, 5)                              # Write G-code
     shot("18-export-result")
     click(1301, 744, 1)                              # Dismiss
     click(1310, 858, 1)                              # Cancel

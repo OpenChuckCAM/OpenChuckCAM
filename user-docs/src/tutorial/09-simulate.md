@@ -40,6 +40,6 @@ The most material left in this run, 0.924 mm, is at the inside corner where the 
 > [!WARNING]
 > Treat the simulation as a check on the toolpaths, not a guarantee. It does not model the chuck, the holder or the machine, and it cannot show whether your tool, speed and feed will cut well.
 
-The **Playback** panel also shows the programmed time: about 27 minutes 47 seconds here. This is the sum of the moves at their programmed feeds. It is not an estimate of the machine's time.
+The **Playback** panel also shows the programmed time: about 49 minutes 46 seconds here. This is the sum of the moves at their programmed feeds. It is not an estimate of the machine's time.
 
 When you are satisfied, press **Post and export...** at the bottom right.

@@ -113,6 +113,13 @@ Icon
 - **No screen reader support.**
 - **The project format may change** in a later release.
 
+### Known issues
+
+These two problems are fixed in the next release, 2026.2.
+
+- Facing does not yet work on STEP parts: it refuses with "no established projection bound". Workaround: import the part as STL for the Facing operation, or face the stock to length before it goes in the chuck and leave Facing out (#800).
+- Face flow cannot be applied to a closed shape whose edges do not join, for example a cylinder (#791). Workaround: choose faces that are not closed shapes, or split the face along its seam in your CAD program.
+
 ### Makera Z1 machine values
 
 These values in the built-in Makera Z1 profile were confirmed on the project owner's machine (firmware 1.1.2, and again on 1.1.3): the rotary axis along X, the direction of A+, the continuous A range, the axis height with the probe as the reference tool, the maximum feeds (the A limit of 1800 degrees per minute on firmware 1.1.3), the tool length measurement and the minimum block time. On firmware 1.1.3 the owner also confirmed the travel, the rotary reference point, the rapid rates, the spindle speed range, the spindle to axis distance, the block window, and the minimum clearance radius, the clearance and the recommended minimum safe Z (for the supplied chuck with its jaws reversed and fully open only). Every value in the built-in profile is now confirmed on the owner's machine; a value you change in your own copy is marked unconfirmed until you confirm it. Measure them on your own machine before you rely on them: see [Confirm machine profile values](how-to/confirm-machine-values.md). Every value can differ on your machine, confirmed or not.

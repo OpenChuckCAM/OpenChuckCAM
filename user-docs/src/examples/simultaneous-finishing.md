@@ -18,7 +18,7 @@ On a part that is round in section, start with **Helical finishing**: it is simp
 
 ## 1. Look at the part
 
-The project opens on the **Setup** step. The side view shows the crank: the pins at X = 0 to 10 and 30 to 40 sit above the axis and the pin at X = 15 to 25 below it.
+The project opens on the **Setup** step. The side view shows the crank: the pins at X = 17.99 to 27.99 and 47.99 to 57.99 sit above the axis and the pin at X = 32.99 to 42.99 below it (the example project places the part 17.99 mm from the headstock face).
 
 <figure>
 <a href="images/simultaneous/01-setup.png"><img src="images/simultaneous/01-setup.png" width="1920" height="1080" alt="The Setup step with the side view of the crankshaft: the part's outline steps up and down across the dashed rotary axis, with the hatched held region of 6 mm at the left, stock diameter 38.000 and stock length 46.000; the Messages list says the grip at the start of the stock covers 2.000 mm of the part."></a>
@@ -48,23 +48,23 @@ The project already has the setup (a 38 mm hardwood bar, gripped for 6 mm) and t
 3. Click **Iso** above the view, then **Results** under it. The notes are listed under **Information**.
 
 <figure>
-<a href="images/simultaneous/03-finish-path.png"><img src="images/simultaneous/03-finish-path.png" width="1920" height="1080" alt="The Iso view with the finishing path drawn in orange round each of the three pins of the crankshaft; the Results tab, with Information turned off, reads 2 operations, 40284 moves, 92.5 s to generate, Errors 0, Warnings 2, Information 35, and lists the two warnings of Finish: Inside corners and Tool holder."></a>
+<a href="images/simultaneous/03-finish-path.png"><img src="images/simultaneous/03-finish-path.png" width="1920" height="1080" alt="The Iso view with the finishing path drawn in orange round each of the three pins of the crankshaft; the Results tab, with Information turned off, reads 2 operations, 40284 moves, 94.9 s to generate, Errors 0, Warnings 2, Information 35, and lists the two warnings of Finish: Inside corners and Tool holder."></a>
 <figcaption><b>Figure 3.</b> The finishing path follows each pin round its own centre, not round the rotary axis.</figcaption>
 </figure>
 
 The finish gives these notes and two warnings. Figure 3 shows the warnings; the notes are under **Information**. Read them before you look at the simulation.
 
 The off-axis pins
-: "the part's section does not surround the rotary axis at X 4.088 to 9.960, X 15.008 to 24.953, X 30.001 to 39.946, so the path there goes round the section's own centre: the tool moves across the axis as A turns, to stay on the surface normal". Over each pin, Y and Z change as A turns, so the machine moves on all four axes at once.
+: "the part's section does not surround the rotary axis at X 22.078 to 27.950, X 32.998 to 42.943, X 47.991 to 57.936, so the path there goes round the section's own centre: the tool moves across the axis as A turns, to stay on the surface normal". Over each pin, Y and Z change as A turns, so the machine moves on all four axes at once.
 
 How far the tool leans
 : "A is smoothed within 10 degrees of the normal; the largest tilt used is 1.3 degrees from that". The tool is allowed to lean up to **Largest tilt** away from the normal so that A turns smoothly; here it needed only 1.3°.
 
 Surfaces it cannot see straight on
-: "surfaces hidden from the drive (such as the walls of a slot, an undercut, or sides of the section facing each other) between X 10.160 and 29.951 are finished with passes of their own after the main ones, the tool leaning from the surface normal as little as the part lets it reach them: up to 2.2 degrees (at X 10.160, A 118.471); the tool above its flutes is taken as no wider than its cutting part". The webs between the pins face each other, so they get passes of their own. A warning of its own goes with it, "Tool holder (operation 'Finish')": "the tool holder is not checked on the passes that finish the surfaces hidden from the drive between X 10.160 and 29.951, where the tool leans up to 2.2 degrees". Check the holder's clearance yourself where the tool leans.
+: "surfaces hidden from the drive (such as the walls of a slot, an undercut, or sides of the section facing each other) between X 28.150 and 47.941 are finished with passes of their own after the main ones, the tool leaning from the surface normal as little as the part lets it reach them: up to 2.2 degrees (at X 28.150, A 118.471); the tool above its flutes is taken as no wider than its cutting part". The webs between the pins face each other, so they get passes of their own. A warning of its own goes with it, "Tool holder (operation 'Finish')": "the tool holder is not checked on the passes that finish the surfaces hidden from the drive between X 28.150 and 47.941, where the tool leans up to 2.2 degrees". Check the holder's clearance yourself where the tool leans.
 
 Inside corners, a warning
-: "Inside corners (operation 'Finish'): at X 10.000, 15.000, 25.000 and 30.000 faces across the rotary axis meet a section that does not surround the axis in an inside corner: where a corner is sharper than the tool's radius, this tool's round end (radius 1.587 mm) leaves up to about 0.66 mm across it; a flat end can finish them". A ball cannot cut a sharp inside corner; plan another operation if those corners matter.
+: "Inside corners (operation 'Finish'): at X 27.990, 32.990, 42.990 and 47.990 faces across the rotary axis meet a section that does not surround the axis in an inside corner: where a corner is sharper than the tool's radius, this tool's round end (radius 1.587 mm) leaves up to about 0.66 mm across it; a flat end can finish them". A ball cannot cut a sharp inside corner; plan another operation if those corners matter.
 
 The finish also says that it drops the tool on "the STEP part's exact faces, to within 0.0001 mm", while the roughing uses the tessellation.
 
@@ -95,7 +95,7 @@ Now give the finish a lead:
 2. Click **Generate**.
 
 <figure>
-<a href="images/simultaneous/05-lead-10.png"><img src="images/simultaneous/05-lead-10.png" width="1920" height="1080" alt="The same view after generating with Lead angle 10.00; the Results tab reads 2 operations, 40183 moves, 42.5 s to generate, Errors 0, Warnings 2, Information 31, and the Tool holder warning now says the tool leans up to 12.2 degrees."></a>
+<a href="images/simultaneous/05-lead-10.png"><img src="images/simultaneous/05-lead-10.png" width="1920" height="1080" alt="The same view after generating with Lead angle 10.00; the Results tab reads 2 operations, 40183 moves, 38.9 s to generate, Errors 0, Warnings 2, Information 31, and the Tool holder warning now says the tool leans up to 12.2 degrees."></a>
 <figcaption><b>Figure 5.</b> With a 10° lead, the tool leans up to 12.2° on the hidden surfaces.</figcaption>
 </figure>
 
@@ -123,7 +123,7 @@ The operation is not generated, and the export is blocked until it is fixed. Set
 | **Lead angle** 10 | 40,183 | 1.3° from the normal plus the lead | up to 12.2° |
 | **Pattern** axial, **Lead angle** 10 | not generated | | |
 
-With the defaults the simulation leaves "Most material left: 2.000 mm at X 40.00", at the free end of the last pin, where the stock reaches past the part. The finish removes 1,357 mm³ after the roughing's 34,227 mm³.
+With the defaults the simulation leaves "Most material left: 2.000 mm at X 57.99", at the free end of the last pin, where the stock reaches past the part. The finish removes 1,357 mm³ after the roughing's 34,227 mm³.
 
 Over the pins the machine moves Y and Z while A turns. Before you run it, play the finish in the **Simulate** step and watch the tool over each pin: the program tells you how far the tool leaned, but only the simulation and an air cut show you what the machine does.
 

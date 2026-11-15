@@ -29,13 +29,14 @@ Files to write
 
 <figure>
   <img src="images/17-export-checks.png" width="1920" height="1080"
-       alt="The Checks before writing part of the dialog: the tool numbers table, the held-region warning of the Finish operation, a warning that machine values are not confirmed, the first lines of the program in the preview, and the notice to verify the G-code before running it with the box I will verify this G-code before running it on a machine.">
-  <figcaption><b>Figure 2.</b> The checks before writing: the tool numbers, two warnings (the held region of Finish, and the unconfirmed machine values), and the notice to verify the G-code.</figcaption>
+       alt="The Checks before writing part of the dialog: the held-region warning of the Finish operation and the tool-length warning of tool 104, the notice to verify the G-code with the box I will verify this G-code before running it on a machine, and the list of possible collisions with the box I have read the possible collisions listed for this result and will check them before running the program.">
+  <figcaption><b>Figure 2.</b> The checks before writing: two warnings (the held region of Finish, and the length of tool 104), the notice to verify the G-code, and the possible collision to acknowledge.</figcaption>
 </figure>
 
-3. Read the two warnings, the held region of **Finish** (as in [step 8](08-generate.md)) and the unconfirmed machine values, and the notice **"Verify this G-code before you run it."** If an operation had a partial path, the dialog would ask you to accept it here as well; this tutorial has none.
+3. Read the two warnings, the held region of **Finish** (as in [step 8](08-generate.md)) and the length of tool 104 (as in [step 7](07-operations.md)), and the notice **"Verify this G-code before you run it."** If an operation had a partial path, the dialog would ask you to accept it here as well; this tutorial has none.
 4. Tick **I will verify this G-code before running it on a machine** (the program asks this once per project on each computer).
-5. Press **Write G-code**.
+5. The tool-length warning is a possible collision, so it is listed again at the end. Tick **I have read the possible collisions listed for this result and will check them before running the program**. Check the tool's clearance over the chuck and the Z travel on your machine before you run the program.
+6. Press **Write G-code**.
 
 <figure>
   <img src="images/18-export-result.png" width="1920" height="1080"

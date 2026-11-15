@@ -7,6 +7,9 @@ This example changes the [stepover](../glossary.md#stepover) of the tutorial's f
 
 You need the tutorial's finished project, [`testdata/examples/baluster/baluster-project`](https://github.com/OpenChuckCAM/OpenChuckCAM/tree/main/testdata/examples/baluster/baluster-project). Copy it to a folder of your own and open the copy with **File > Open project**. The numbers on this page come from that project on the build named in the figures' record, with the Makera Z1 post; your own part gives other numbers. [Stepover, stepdown, scallop and stock to leave](../concepts/stepover-and-stock-to-leave.md) explains the terms.
 
+> [!NOTE]
+> The example project places the part 17.99 mm from the headstock face (**Offset along X** and **Zero at X** in the setup), the length of the project owner's supplied chuck. It is not a value for your machine: for your own parts, measure the distance from the face of the headstock body to the face of your chuck where the stock starts, with your jaws fitted and gripping as you will grip, and use that number. See [Set up the stock](../tutorial/04-stock.md).
+
 ## The scallop of a ball end mill
 
 A ball end mill of radius *R* that steps over by *s* between passes leaves a ridge, the [scallop](../glossary.md#scallop), between them. On a flat or gently curved surface its height is about
@@ -29,8 +32,8 @@ The tutorial's finishing tool, **Z1 ball 3.175x22**, has *R* = 1.5875 mm. The pr
 4. Under **Files**, choose **One file per operation**, so that the table lists each operation's programmed time.
 
 <figure>
-<a href="images/scallop/02-time-stepover-0.9.png"><img src="images/scallop/02-time-stepover-0.9.png" width="1920" height="1080" alt="The Post and export dialog with One file per operation chosen; Files to write lists 01-setup-1-rough.nc, Setup 1, 9189 lines, 13 min 25 s, and 02-setup-1-finish.nc, Setup 1, 9096 lines, 8 min 04 s; the text says Programmed time is the sum of the moves at their programmed feeds. It is not an estimate of the machine's time."></a>
-<figcaption><b>Figure 2.</b> With a 0.9 mm stepover the finish is 8 min 04 s of programmed time, against 14 min 55 s at the tutorial's stepover.</figcaption>
+<a href="images/scallop/02-time-stepover-0.9.png"><img src="images/scallop/02-time-stepover-0.9.png" width="1920" height="1080" alt="The Post and export dialog with One file per operation chosen; Files to write lists 01-setup-1-rough.nc, Setup 1, 9189 lines, 25 min 26 s, and 02-setup-1-finish.nc, Setup 1, 9096 lines, 13 min 30 s; the text says Programmed time is the sum of the moves at their programmed feeds. It is not an estimate of the machine's time."></a>
+<figcaption><b>Figure 2.</b> With a 0.9 mm stepover the finish is 13 min 30 s of programmed time, against 24 min 57 s at the tutorial's stepover.</figcaption>
 </figure>
 
 Close the dialog with the **×** at its top right: nothing is written until you choose a folder and click **Write G-code**.
@@ -50,20 +53,20 @@ Close the dialog with the **×** at its top right: nothing is written until you 
 3. Generate, and open **Post and export...** again.
 
 <figure>
-<a href="images/scallop/04-time-scallop-0.01.png"><img src="images/scallop/04-time-scallop-0.01.png" width="1920" height="1080" alt="The Post and export dialog: 01-setup-1-rough.nc, 9189 lines, 13 min 25 s, and 02-setup-1-finish.nc, 25730 lines, 18 min 37 s; behind it the Simulate step's Inspector shows Within ±0.100 mm 92.8 %."></a>
-<figcaption><b>Figure 4.</b> With a 0.01 mm scallop height the finish is 18 min 37 s. The roughing does not change.</figcaption>
+<a href="images/scallop/04-time-scallop-0.01.png"><img src="images/scallop/04-time-scallop-0.01.png" width="1920" height="1080" alt="The Post and export dialog: 01-setup-1-rough.nc, 9189 lines, 25 min 26 s, and 02-setup-1-finish.nc, 25730 lines, 31 min 13 s; behind it the Simulate step's Inspector shows Within ±0.100 mm 92.8 %."></a>
+<figcaption><b>Figure 4.</b> With a 0.01 mm scallop height the finish is 31 min 13 s. The roughing does not change.</figcaption>
 </figure>
 
 ## Read the result: stepover
 
 | Finish set to | Spacing between passes | Scallop height (worked out) | Finish programmed time |
 | --- | --- | --- | --- |
-| **Stepover** 0.9 mm | 0.9 mm | 0.065 mm | 8 min 04 s |
-| **Stepover** 0.453571 mm (the tutorial's) | 0.4536 mm | 0.016 mm | 14 min 55 s |
-| **Scallop height** 0.01 mm | about 0.356 mm | 0.010 mm | 18 min 37 s |
-| **Stepover** 0.2 mm | 0.2 mm | 0.003 mm | 32 min 21 s |
+| **Stepover** 0.9 mm | 0.9 mm | 0.065 mm | 13 min 30 s |
+| **Stepover** 0.453571 mm (the tutorial's) | 0.4536 mm | 0.016 mm | 24 min 57 s |
+| **Scallop height** 0.01 mm | about 0.356 mm | 0.010 mm | 31 min 13 s |
+| **Stepover** 0.2 mm | 0.2 mm | 0.003 mm | 53 min 53 s |
 
-The roughing is 13 min 25 s in every row.
+The roughing is 25 min 26 s in every row.
 
 - Halving the stepover roughly doubles the time, and divides the scallop height by about four: the height grows with the square of the stepover.
 - A scallop of 0.065 mm is easy to feel and to see on a finished surface; one of 0.003 mm is hard to see. Choose the largest stepover that leaves a surface you can accept, then sand or polish the rest if the part needs it.

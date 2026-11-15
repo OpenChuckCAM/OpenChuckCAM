@@ -49,7 +49,7 @@ Post (post-processor)
 : The part of the program that turns the toolpaths into the G-code dialect a given machine controller reads. The Makera Z1 has its own post. See [post-processor](../glossary.md#post-processor).
 
 Work offset (G54)
-: The register in the controller that stores where the part's zero is. Here it is on the rotary axis at the model's X = 0. See [work offset](../glossary.md#work-offset).
+: The register in the controller that stores where the part's zero is. Here it is on the rotary axis at the start of the part, 18 mm from the headstock face. See [work offset](../glossary.md#work-offset).
 
 ## The steps
 

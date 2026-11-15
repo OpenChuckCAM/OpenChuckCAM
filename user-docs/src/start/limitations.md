@@ -15,7 +15,7 @@ The program does not know your machine, your fixture or your tool. Before you ru
 
 The runs the project has recorded are attended air cuts of two reference programs on one Makera Z1, and one small first cut in tooling board, by the project owner. The maintainer has run other jobs on the same Makera Z1, but their details are not recorded here. Nothing has been run on any other machine.
 
-Some values in the built-in Makera Z1 profile have not been confirmed on a machine. The program marks them as unconfirmed, for example "6 machine values unconfirmed" in the status bar, and you must measure them on your own machine. See [Confirm machine profile values](../how-to/confirm-machine-values.md).
+The values in the built-in Makera Z1 profile were confirmed on one machine, the project owner's, with the supplied chuck. They can differ on yours, so measure them on your own machine. A value you change in a profile of your own is marked unconfirmed, and the status bar says so, for example "Clearance unconfirmed". See [Confirm machine profile values](../how-to/confirm-machine-values.md).
 
 ## What the program covers
 

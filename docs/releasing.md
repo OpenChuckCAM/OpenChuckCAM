@@ -58,6 +58,7 @@ Before pushing the tag `app-v<version>`, the project owner ticks these items and
 - [ ] The tutorial screenshots match this release: re-captured with `user-docs/tools/capture.py` at the release commit, or checked against the release build and marked reviewed in `user-docs/src/tutorial/images/CAPTURED.toml`. *(checked: the capture or review commit is not older than the last change to the screens)*
 - [ ] Every setting, operation, strategy, machine-profile field and command-line command added or changed since the previous release is described in the reference pages of the user guide.
 - [ ] The release-notes page (`user-docs/src/release-notes.md`) has a section for this version: what changed, the known limitations, the unconfirmed Z1 values and the notice that generated G-code must be verified before it is run on a machine. *(checked: a section headed with the version exists)*
+- [ ] The release notes' *Known issues* list each open bug found while testing the release candidate that the release does not fix, in plain words, with its issue number and a workaround.
 - [ ] The safety pages of the user guide still agree with `docs/z1-air-cut-procedure.md` and `docs/z1-safe-practice-checklist.md`.
 - [ ] The user guide builds with no broken link or anchor, valid HTML and no request to another site. *(checked)*
 - [ ] The footer of every page of the guide names this version and tag. *(checked)*

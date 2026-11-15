@@ -32,7 +32,7 @@ G54
 M5
 T1 M6
 S12000 M3
-G0 X0.000 Y0.000 Z40.000 A0.000
+G0 X0.000 Y0.000 Z45.000 A0.000
 Z12.000
 G1 Z10.000 F150.0
 ```
@@ -40,9 +40,9 @@ G1 Z10.000 F150.0
 And this is the end of a Makera Z1 program that turned A ten times:
 
 ```text
-X10.000 Z4.177 A3600.000 F562.4
+X10.000 Z4.177 A3600.000 F281.2
 Z12.000 F150.0
-G0 Z40.000
+G0 Z45.000
 G92.4 A0 S0
 M5
 G53 G0 Z-3
@@ -65,7 +65,7 @@ Header
 : `G90` (absolute positions), `G21` (millimetres) and `G17` (the XY plane). The LinuxCNC post adds `G61`, exact stop, so the simulator stops at each point.
 
 Work offset
-: The setup's work offset register, `G54` to `G59`. It replaces the post's own.
+: The setup's work offset register, `G54` to `G59`. It replaces the post's own. The program writes every move relative to it, and you set where its zero is on the machine, with the controller: on the rotary axis, at the setup's **Zero at X**. On the Makera Z1 you can set X0 anywhere along the axis when you set G54.
 
 Operation
 : Each operation starts with a comment that names it, its tool and its programmed time, for example `(operation Rough, tool T1 Z1 O-flute 3.175x25, about 1923 s)`.

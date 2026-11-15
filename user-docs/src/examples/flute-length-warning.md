@@ -7,6 +7,9 @@ This example gives the tutorial's finishing tool flutes only 3 mm long, so that 
 
 You need the tutorial's finished project, [`testdata/examples/baluster/baluster-project`](https://github.com/OpenChuckCAM/OpenChuckCAM/tree/main/testdata/examples/baluster/baluster-project). Copy it to a folder of your own and open the copy with **File > Open project**. The numbers on this page come from that project on the build named in the figures' record; your own part gives other numbers.
 
+> [!NOTE]
+> The example project places the part 17.99 mm from the headstock face (**Offset along X** and **Zero at X** in the setup), the length of the project owner's supplied chuck. It is not a value for your machine: for your own parts, measure the distance from the face of the headstock body to the face of your chuck where the stock starts, with your jaws fitted and gripping as you will grip, and use that number. See [Set up the stock](../tutorial/04-stock.md).
+
 ## What the warning means
 
 The flutes are the cutting length of the tool. Above them is the shank, which does not cut. When the stock stands higher above the tool's tip, along the tool's axis, than the flutes are long, the shank may rub or push against the stock. The program checks every operation for this after it makes the path. If the stock may stand too high, it still makes the path, and it warns.
@@ -32,23 +35,23 @@ Because the shank may meet the stock, the program treats this warning as a possi
 ## 2. Read the two warnings
 
 <figure>
-<a href="images/flutes/02-flute-warnings.png"><img src="images/flutes/02-flute-warnings.png" width="1920" height="1080" alt="The Operations step after generating: 2 Finish has a warning triangle; the Messages list shows Warnings 4, two of them starting Flute length (operation 'Finish', tool 'Short-flute ball 3.175x3'), each with the links 2 Finish and Show setting."></a>
+<a href="images/flutes/02-flute-warnings.png"><img src="images/flutes/02-flute-warnings.png" width="1920" height="1080" alt="The Operations step after generating: 2 Finish has a warning triangle; the Messages list shows Warnings 5, two of them starting Flute length (operation 'Finish', tool 'Short-flute ball 3.175x3'), each with the links 2 Finish and Show setting."></a>
 <figcaption><b>Figure 2.</b> Two flute-length warnings for the finish. The path was made: the operation shows a warning, not an error.</figcaption>
 </figure>
 
 The first warning is about the passes over the part:
 
-> Flute length (operation 'Finish', tool 'Short-flute ball 3.175x3'): the stock may stand up to 6.712 mm above the tool's tip along its axis (a bound, from how far the stock reaches from the rotary axis or across a step between readings: that stock is not measured exactly across the tool) (at X 21.203, A 342.3), more than the tool's 3.000 mm of flute, so the shank may meet the stock; the stock is what the earlier operations in this setup left. The path was made: check it before running it. Use a tool with longer flutes, or rough the part first in this setup, or turn on Finishing layers.
+> Flute length (operation 'Finish', tool 'Short-flute ball 3.175x3'): the stock may stand up to 6.712 mm above the tool's tip along its axis (a bound, from how far the stock reaches from the rotary axis or across a step between readings: that stock is not measured exactly across the tool) (at X 39.193, A 342.3), more than the tool's 3.000 mm of flute, so the shank may meet the stock; the stock is what the earlier operations in this setup left. The path was made: check it before running it. Use a tool with longer flutes, or rough the part first in this setup, or turn on Finishing layers.
 
 Read it in parts:
 
 - "may stand up to 6.712 mm ... (a bound ...)": the depth is an upper limit worked out from the stock, not a measurement across the tool. The real depth there may be less.
-- "(at X 21.203, A 342.3)": the place along the part and the angle where the bound is largest. Here it is on the vase.
+- "(at X 39.193, A 342.3)": the place along the part and the angle where the bound is largest. Here it is on the vase.
 - "the stock is what the earlier operations in this setup left": the check reads the simulated stock after the roughing, not the bare bar.
 
 The second warning is about the end of the part:
 
-> Flute length (operation 'Finish', tool 'Short-flute ball 3.175x3'): the end face at X 61.000 has nothing beyond it and is not faced: the stock beside it is up to 5.462 mm deep (a bound, from how far the stock reaches from the rotary axis: that stock is not measured exactly across the tool), more than the tool's 3.000 mm of flute, so no turn is cut there and the end keeps what earlier operations left; the stock is what the earlier operations in this setup left. Use a tool with longer flutes, or face it with a Facing operation, or turn off Face free ends for this operation. Check the path before you run it.
+> Flute length (operation 'Finish', tool 'Short-flute ball 3.175x3'): the end face at X 78.990 has nothing beyond it and is not faced: the stock beside it is up to 5.462 mm deep (a bound, from how far the stock reaches from the rotary axis: that stock is not measured exactly across the tool), more than the tool's 3.000 mm of flute, so no turn is cut there and the end keeps what earlier operations left; the stock is what the earlier operations in this setup left. Use a tool with longer flutes, or face it with a Facing operation, or turn off Face free ends for this operation. Check the path before you run it.
 
 A finishing operation with **Face free ends** ticked steps down beside each end face that has nothing beyond it, such as the point of the finial, and turns round there. When the stock beside the face is deeper than the flutes, it leaves that end out, and says so. Unlike the first warning, this one changes the path: the end is not cut, so it is not a possible collision and needs no acknowledgement.
 
@@ -89,7 +92,7 @@ This is the first thing to try. Set **Flute length** back to `22`, or choose the
 3. Set **Stepdown** to `2`, less than the 3 mm of flute, and click **Generate**.
 
 <figure>
-<a href="images/flutes/05-finishing-layers.png"><img src="images/flutes/05-finishing-layers.png" width="1920" height="1080" alt="The finish generated in layers: more rapid moves round the part in the view; the Inspector shows Material preset No preset, the Tool and feeds section open with Cutting feed 500 and Plunge feed 200, Face free ends ticked with the note The last path was made with a warning about this setting (see Messages): change it to accept or remove the warning, Finish allowance 0.100 default, Finishing layers ticked and Stepdown 2.000; the Messages list shows Warnings 3, and the only flute-length warning is the one about the end face at X 61.000."></a>
+<a href="images/flutes/05-finishing-layers.png"><img src="images/flutes/05-finishing-layers.png" width="1920" height="1080" alt="The finish generated in layers: more rapid moves round the part in the view; the Inspector shows Material preset No preset, the Tool and feeds section open with Cutting feed 500 and Plunge feed 200, Face free ends ticked with the note The last path was made with a warning about this setting (see Messages): change it to accept or remove the warning, Finish allowance 0.100 default, Finishing layers ticked and Stepdown 2.000; the Messages list shows Warnings 4, and the only flute-length warning is the one about the end face at X 78.990."></a>
 <figcaption><b>Figure 5.</b> With finishing layers of 2 mm, the warning about the passes is gone. The warning about the end face remains.</figcaption>
 </figure>
 
@@ -104,7 +107,7 @@ The end-face warning remains, because the stock beside the end is still deeper t
 1. Untick **Face free ends** and click **Generate**.
 
 <figure>
-<a href="images/flutes/06-face-free-ends-off.png"><img src="images/flutes/06-face-free-ends-off.png" width="1920" height="1080" alt="The Operations step with the Results tab open and Information turned off: 2 operations, 46948 moves, 14.5 s to generate, Warnings 1, the held-region warning that nothing within one tool radius of the held region is cut; the Inspector shows Face free ends unticked, Finishing layers ticked and Stepdown 2.000; the mark beside 2 Finish is an amber warning triangle, for the held-region warning."></a>
+<a href="images/flutes/06-face-free-ends-off.png"><img src="images/flutes/06-face-free-ends-off.png" width="1920" height="1080" alt="The Operations step with the Results tab open and Information turned off: 2 operations, 46948 moves, 13.1 s to generate, Warnings 1, the held-region warning that nothing within one tool radius of the held region is cut; the Inspector shows Face free ends unticked, Finishing layers ticked and Stepdown 2.000; the mark beside 2 Finish is an amber warning triangle, for the held-region warning."></a>
 <figcaption><b>Figure 6.</b> With <b>Face free ends</b> unticked, the flute-length warning about the end face is gone. The held-region warning remains.</figcaption>
 </figure>
 
@@ -119,7 +122,7 @@ The end-face warning remains, because the stock beside the end is still deeper t
 
 The finish in layers, with **Face free ends** off, takes 37,002 moves against 19,152 for the tutorial's finish.
 
-With every flute-length warning gone, the end of the part still keeps what the roughing left: "Most material left: 1.320 mm at X 60.68". No warning means the program found nothing to warn about along the path; it does not mean that the end is finished, or that nothing touches the stock.
+With every flute-length warning gone, the end of the part still keeps what the roughing left: "Most material left: 1.320 mm at X 78.67". No warning means the program found nothing to warn about along the path; it does not mean that the end is finished, or that nothing touches the stock.
 
 A longer-flute tool is the change that keeps the path the same. Layers make the path longer, and turning off **Face free ends** leaves material on the end.
 
