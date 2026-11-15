@@ -13,11 +13,12 @@ import subprocess
 
 PROJECT = "testdata/examples/blisk-start/blisk-project"
 
-# Points on the part in the view `front_view` leaves.
-HUB_FLOOR = (1150, 330)     # face 20, the hub floor between two blades
-BLADE_WALL = (1000, 280)    # face 19, the side of the blade above that floor
-RIM = (700, 450)            # face 1, the rim of the disc at the chuck end
-GUIDE_EDGE = (1010, 327)    # edge 65, where the blade wall meets the floor
+# Points on the part in the view `front_view` leaves, measured again after the samples moved
+# 17.99 mm along X (decision 0649): Fit now frames the part and the headstock face at X 0.
+HUB_FLOOR = (1213, 346)     # face 20, the hub floor between two blades
+BLADE_WALL = (1083, 303)    # face 19, the side of the blade above that floor
+RIM = (822, 449)            # face 1, the rim of the disc at the chuck end
+GUIDE_EDGE = (1100, 345)    # edge 65, where the blade wall meets the floor
 
 # The add operation dialog.
 STRATEGY = (958, 380)
