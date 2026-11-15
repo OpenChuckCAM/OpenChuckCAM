@@ -1,0 +1,45 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# Form for the Machines & Post Processors category (slug
+# machines-post-processors). Discussion forms take only `body`.
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Ask about a machine, its controller, or the post that writes its G-code. Look in the [user guide](https://openchuck.cam/latest/) and [Known limitations](https://openchuck.cam/latest/start/limitations.html) first.
+
+        The maintainer answers when time allows; there is no promised reply time. Discussions on GitHub are public: do not paste a project or model you do not want to share. Generated G-code is yours to verify before you run it on a machine (NFR-12). If G-code looks wrong or unsafe, do not run it.
+  - type: input
+    id: machine
+    attributes:
+      label: Machine
+      description: Make and model, and the rotary axis you use.
+    validations:
+      required: true
+  - type: input
+    id: controller
+    attributes:
+      label: Controller and firmware
+      description: For example the controller type and its firmware version.
+    validations:
+      required: false
+  - type: input
+    id: post
+    attributes:
+      label: Post used
+      description: The post you chose in the program, or "none yet".
+    validations:
+      required: false
+  - type: textarea
+    id: question
+    attributes:
+      label: Your question or request
+      description: What you want to know, or the machine or post you would like supported. If you ran a program on a machine, say what happened.
+    validations:
+      required: true
+  - type: input
+    id: version-os
+    attributes:
+      label: Version and operating system
+      description: The version is in Help > About.
+    validations:
+      required: false

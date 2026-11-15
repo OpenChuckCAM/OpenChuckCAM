@@ -64,7 +64,11 @@ In short, you can import an STL or STEP model, describe the machine, the stock a
 
 ## Getting help
 
-Questions, bugs and requests: [GitHub issues](https://github.com/OpenChuckCAM/OpenChuckCAM/issues). Say which build you used, what you did and what you expected. The program writes a local log file that never leaves your computer; the guide says [where it is](https://openchuck.cam/latest/start/install.html#where-the-program-keeps-its-log).
+Questions and ideas: [GitHub Discussions](https://github.com/OpenChuckCAM/OpenChuckCAM/discussions) (see [SUPPORT.md](SUPPORT.md)). Bugs and feature requests: [GitHub issues](https://github.com/OpenChuckCAM/OpenChuckCAM/issues). Say which build you used, what you did and what you expected. The program writes a local log file that never leaves your computer; the guide says [where it is](https://openchuck.cam/latest/start/install.html#where-the-program-keeps-its-log).
+
+## Community
+
+Ask questions, share ideas and show what you made in [GitHub Discussions](https://github.com/OpenChuckCAM/OpenChuckCAM/discussions). Everyone taking part follows the [code of conduct](CODE_OF_CONDUCT.md). Support is best effort, with no promised reply time.
 
 ## Licence
 
