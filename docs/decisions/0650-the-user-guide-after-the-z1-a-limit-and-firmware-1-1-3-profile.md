@@ -1,6 +1,6 @@
 # 0650: The user guide after the Z1's A limit and its firmware 1.1.3 profile (NFR-12, NFR-19, SET-01, SET-05, SET-06; issues #793 and #586; lane GUIDE-3)
 
-- **Status:** proposed by lane GUIDE-3 on 15 Nov 2026. It records the guide's update for [decision 0647](0647-the-z1-turns-a-at-most-1800-deg-per-min.md) and [decision 0649](0649-the-z1-profile-takes-the-firmware-1-1-3-measurements.md) and the owner's choices relayed by the coordinator during it (decision 0049); it changes no requirement, no architecture and no program behaviour. The number is provisional: the Merge Manager assigns the final number at release.
+- **Status:** Accepted by the project owner on 15 Nov 2026, relayed by the coordinator (decision 0049). Proposed by lane GUIDE-3 the same day. It records the guide's update for [decision 0647](0647-the-z1-turns-a-at-most-1800-deg-per-min.md) and [decision 0649](0649-the-z1-profile-takes-the-firmware-1-1-3-measurements.md) and the owner's choices relayed by the coordinator during it (decision 0049); it changes no requirement, no architecture and no program behaviour. The number is provisional: the Merge Manager assigns the final number at release.
 - **Date:** 15 Nov 2026.
 - **Open items:** closes OI-2145 and OI-2146; adds OI-2149 (the example projects' Z1 copies lack the minimum clearance radius, issue #809).
 
