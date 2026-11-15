@@ -17,8 +17,8 @@ You need the tutorial's finished project, [`testdata/examples/baluster/baluster-
 3. Find **Machine profiles** at the bottom of the Inspector; in a smaller window, scroll the Inspector down to it.
 
 <figure>
-<a href="images/custom_machine/01-machine-section.png"><img src="images/custom_machine/01-machine-section.png" width="1920" height="1080" alt="The Setup step with Machine profiles at the bottom of the Inspector: the library folder does not exist yet, with the buttons Create the library folder and Manage machines..., and the list showing Makera Z1 (built-in makera-z1)."></a>
-<figcaption><b>Figure 1.</b> The machine section of the Inspector. "Matches built-in makera-z1" says the project's copy is the same as the built-in profile.</figcaption>
+<a href="images/custom_machine/01-machine-section.png"><img src="images/custom_machine/01-machine-section.png" width="1920" height="1080" alt="The Setup step with Machine profiles at the bottom of the Inspector: the library folder does not exist yet, with the buttons Create the library folder and Manage machines...; above them the amber note Differs from built-in makera-z1 in: minimum clearance radius, which values are confirmed, with the button Update the copy from the library."></a>
+<figcaption><b>Figure 1.</b> The machine section of the Inspector. "Differs from built-in makera-z1 in: minimum clearance radius" says the project's copy is not the same as the built-in profile: the example project was saved in an older format, which has no minimum clearance radius.</figcaption>
 </figure>
 
 The library folder does not exist until you save a profile in it, or click **Create the library folder**.
@@ -73,11 +73,11 @@ Set **Safe Z** before **Safe cylinder radius**: the safe Z cannot be below the s
 Scroll further, and set **Highest spindle speed** to `24000` and **Lowest spindle speed** to `6000` rpm. An operation whose spindle speed is outside this range cannot be posted.
 
 <figure>
-<a href="images/custom_machine/05-spindle-and-short-moves.png"><img src="images/custom_machine/05-spindle-and-short-moves.png" width="1920" height="1080" alt="The Tools and spindle, Short moves and Spindle height groups: spindle speeds 6000 to 24000 rpm, minimum block time 7 ms still confirmed on the machine, block window 32 not confirmed, short moves Report, tool length measurement ticked and confirmed."></a>
-<figcaption><b>Figure 5.</b> The values below were left as the Z1's. Some still carry the Z1's ticks, such as Minimum block time and Tool length measurement, although nobody measured them on the router.</figcaption>
+<a href="images/custom_machine/05-spindle-and-short-moves.png"><img src="images/custom_machine/05-spindle-and-short-moves.png" width="1920" height="1080" alt="The Tools and spindle, Short moves and Spindle height groups: spindle speeds 6000 to 24000 rpm, minimum block time 7 ms and block window 32 still confirmed on the machine, short moves Report, tool length measurement ticked and confirmed."></a>
+<figcaption><b>Figure 5.</b> The values below were left as the Z1's. They still carry the Z1's ticks, such as Minimum block time, Block window and Tool length measurement, although nobody measured them on the router.</figcaption>
 </figure>
 
-Figure 5 shows the trap of a copy. **Minimum block time**, **Tool length measurement**, **Spindle to axis** and **Recommended minimum safe Z** were not changed, so they are still the Z1's values, and two of them still say "Confirmed on the machine". Go through every field, and type in your own machine's value even where it looks right. A typed value is marked unconfirmed until you confirm it.
+Figure 5 shows the trap of a copy. **Minimum block time**, **Tool length measurement**, **Spindle to axis** and **Recommended minimum safe Z** were not changed, so they are still the Z1's values, and every one of them still says "Confirmed on the machine". Go through every field, and type in your own machine's value even where it looks right. A typed value is marked unconfirmed until you confirm it.
 
 ## 4. Save the profile
 
@@ -109,7 +109,7 @@ When you have measured a value on the machine, click **Mark confirmed...** next 
 3. Click **Use this machine**. The project takes its own copy of the profile.
 
 <figure>
-<a href="images/custom_machine/08-in-use.png"><img src="images/custom_machine/08-in-use.png" width="1920" height="1080" alt="The Setup step with Setup 1 now on Example router: the view shows Safe Z +60 and Clearance R50; the Setup checks list four warnings, among them Safe Z cannot be checked against the Z travel because the axis height is not confirmed, and Tool length warnings that tools 104 and 204 may take the spindle above the top of the Z travel at the safe Z; the status bar says 8 machine values unconfirmed."></a>
+<a href="images/custom_machine/08-in-use.png"><img src="images/custom_machine/08-in-use.png" width="1920" height="1080" alt="The Setup step with Setup 1 now on Example router: the view shows Safe Z +60 and Clearance R50; the Setup checks list four warnings: Safe Z cannot be checked against the Z travel because the axis height is not confirmed, a Tool length warning that tool 104 may be too long to clear the workholding within the Z travel, a Tool length warning that tool 204 may take the spindle above the top of the Z travel at the safe Z, and the grip warning; the status bar says 5 machine values unconfirmed."></a>
 <figcaption><b>Figure 8.</b> The project on the example router. The view shows the new safe Z and clearance, and the setup checks show what the new values mean for this job.</figcaption>
 </figure>
 
@@ -118,9 +118,10 @@ When you have measured a value on the machine, click **Mark confirmed...** next 
 The setup checks now say:
 
 - "Safe Z cannot be checked against the Z travel: the machine's axis height is not confirmed on the machine." Confirm the axis height, and this check can be made.
-- "Tool length (tool 'Z1 O-flute 3.175x25', setup 'Setup 1'): tool 104 may take the spindle above the top of the Z travel at the safe Z: ...", and the same for tool 204. The profile still has the Z1's **Spindle to axis** of 72.0 mm, and a safe Z of 60 mm leaves too little room above it for these tools. Measure the router's spindle-to-axis distance and set it; then lower the safe Z or use shorter tools if the warning remains. A tool that may take the spindle past the top of its travel is a possible collision, so if the warning is still there when you export, the export asks you to acknowledge it before it writes anything.
+- "Tool length (tool 'Z1 ball 3.175x22', setup 'Setup 1'): tool 204 may take the spindle above the top of the Z travel at the safe Z: ...". The profile still has the Z1's **Spindle to axis** of 72.0 mm, and a safe Z of 60 mm leaves too little room above it for this tool.
+- "Tool length (tool 'Z1 O-flute 3.175x25', setup 'Setup 1'): tool 104 may be too long to clear the workholding within the Z travel: ...". The copy also keeps the Z1's **Minimum clearance radius** of 45 mm, which is for the Z1's own chuck and jaws, and this longer tool cannot clear it within the Z travel. Measure the router's spindle-to-axis distance and its workholding's clearance and set them; then lower the safe Z or use shorter tools if the warning remains. A tool that may take the spindle past the top of its travel is a possible collision, so if the warning is still there when you export, the export asks you to acknowledge it before it writes anything.
 
-The status bar counts the unconfirmed values: "8 machine values unconfirmed". Every operation is now out of date, because the machine changed; generate them again before you post.
+The status bar counts the unconfirmed values: "5 machine values unconfirmed". Every operation is now out of date, because the machine changed; generate them again before you post.
 
 ## On the command line
 
