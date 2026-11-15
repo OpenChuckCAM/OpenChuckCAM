@@ -30,7 +30,7 @@ def run(cap, work):
     cap.click(175, 54, 2)                      # 2 Setup
     cap.click(105, 315, 2)                     # Setup 1 > Machine profile
     cap.shot("01-machine-section")
-    cap.click(1813, 951, 2)                    # Manage machines...
+    cap.click(1815, 1017, 2)                   # Manage machines... (below the project copy's note)
     win_click(cap, 236, 194, 2)                # BUILT IN: Makera Z1
     cap.shot("02-built-in")
     win_click(cap, 702, 90, 2)                 # Copy to edit
@@ -65,7 +65,6 @@ def run(cap, work):
     cap.shot("07-mark-confirmed")
     win_click(cap, 607, 433, 1)                # Cancel: an example's values are never confirmed
     win_click(cap, 1142, 720, 1.5)             # Close
-    cap.click(1720, 947, 1.5)                  # the profile list
-    cap.click(1720, 980, 1.5)                  # Example router
-    cap.click(1655, 979, 3)                    # Use this machine
+    cap.scroll(1744, 700, 2)                   # down to Use this machine; Example router is chosen
+    cap.click(1653, 947, 3)                    # Use this machine
     cap.shot("08-in-use")
