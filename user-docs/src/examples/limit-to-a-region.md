@@ -58,7 +58,7 @@ A path limited to a selection stops at the edge between a selected surface and a
 <figcaption><b>Figure 2.</b> The finish over the whole part: 29,098 moves for both operations, of which the roughing is 9,946.</figcaption>
 </figure>
 
-The first line of the Results list is a note for the finish, counted under Information: "Rotary axis (operation 'Finish'): moves 19077 to 19148 (72 moves): A turns with the contact point at the rotary axis during these moves, so the contact point barely moves and the rotary axis's speed limit sets the time taken (0.083 s); the feed ..." (the figure cuts the line off there). Click the line to read all of it.
+The first line of the Results list is a note for the finish, counted under Information: "Rotary axis (operation 'Finish'): moves 19077 to 19148 (72 moves): A turns with the contact point at the rotary axis during these moves, so the contact point barely moves and the rotary axis's speed limit sets the time taken (0.167 s); the feed ..." (the figure cuts the line off there). Click the line to read all of it.
 
 ## 3. Only the ball: Cut on
 
