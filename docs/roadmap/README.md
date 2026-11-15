@@ -135,6 +135,8 @@ All 42 open issues without a milestone were triaged:
 
 `2026.2` is now heavy, at about 90 issues. If it needs lightening, the agreed candidates to move are #789 and #421 (to `2026.3`) and #461, #629 and #618 (to `Future`).
 
+Added on 15 Nov 2026 by the owner: #810, per-operation coolant with machine-defined outputs, in `2026.3`. It goes with the machine profile changes (#714) and the material library (#721). #598 (the missing M9) stays in `2026.2` and is fixed first.
+
 ## Open points for the next planning session
 
 - OI-313 is settled by the owner's decision to close #755 (no undo in the command line). Move its row to the Closed table of `docs/open-items.md` in the next docs pull request; it is not done on this branch.

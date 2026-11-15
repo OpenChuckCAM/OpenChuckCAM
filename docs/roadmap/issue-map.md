@@ -164,7 +164,7 @@ Added by the triage of 14 Nov 2026 (see README): #800, #801, #774, #685, #658, #
 | #686 | existing request | — | |
 | #683 | existing request | — | OI-1988 |
 
-Added on 14 Nov 2026: #601, #528, #516.
+Added on 14 Nov 2026: #601, #528, #516. Added on 15 Nov 2026: #810 (per-operation coolant; extends GC-04, after #598 in 2026.2).
 
 ### 2026.4 (release 4, "Capability and ecosystem")
 
