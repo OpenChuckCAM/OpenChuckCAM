@@ -47,12 +47,12 @@ What it added for steep walls
 : "rest machining added 20 rings between X 11.984 and 60.998, as close as 0.1442 mm apart, where its tool's side meets a wall with material left, so that a steep wall keeps about 0.15 mm or less between them". On a wall that faces along the axis, passes spaced for a flat surface would leave tall ridges, so the operation adds rings there.
 
 What it cannot reach
-: "rest machining cannot reach 9 areas of the part where material is left, which stay uncut: X 7.037 to 9.037 all round (92.8 mm2), too near a held region: the tool keeps its radius clear of the gripped length of the stock; X 12.267 to 13.095 all round (58.3 mm2), too narrow for this 2.000 mm tool, or deeper than its flutes or shank allow; ... and 4 smaller. Check them in the simulation; a smaller tool or another operation may reach them." The numbers match the markers in the view.
+: "rest machining cannot reach 9 areas of the part where material is left, which stay uncut: X 25.027 to 27.027 all round (92.8 mm2), too near a held region: the tool keeps its radius clear of the gripped length of the stock; X 30.257 to 31.085 all round (58.3 mm2), too narrow for this 2.000 mm tool, or deeper than its flutes or shank allow; ... and 4 smaller. Check them in the simulation; a smaller tool or another operation may reach them." The numbers match the markers in the view.
 
 Scroll the Results list down to the volumes:
 
 <figure>
-<a href="images/rest/03-rest-results.png"><img src="images/rest/03-rest-results.png" width="1920" height="1080" alt="The Results tab scrolled to the end: Setup 'Setup 1': stock 28503 mm³ before, 14242 mm³ after (14261 mm³ removed); Rough: 12100 mm³ removed in 9946 moves; Finish: 2110 mm³ removed in 19152 moves; Rest: 51 mm³ removed in 3661 moves; Most material left: 0.825 mm at X 10.00, Y 7.00, Z -0.41; Deepest cut below the surface: 0.049 mm, within the simulation's error."></a>
+<a href="images/rest/03-rest-results.png"><img src="images/rest/03-rest-results.png" width="1920" height="1080" alt="The Results tab scrolled to the end: Setup 'Setup 1': stock 28503 mm³ before, 14242 mm³ after (14261 mm³ removed); Rough: 12100 mm³ removed in 9946 moves; Finish: 2110 mm³ removed in 19152 moves; Rest: 51 mm³ removed in 3661 moves; Most material left: 0.825 mm at X 27.99, Y 7.00, Z -0.41; Deepest cut below the surface: 0.049 mm, within the simulation's error."></a>
 <figcaption><b>Figure 3.</b> The rest operation removes 51 mm³ in 3,661 moves.</figcaption>
 </figure>
 
@@ -64,7 +64,7 @@ Scroll the Results list down to the volumes:
 | Finish (3.175 mm ball) | 2,110 mm³ | 19,152 |
 | Rest (2 mm ball) | 51 mm³ | 3,661 |
 
-The rest operation is a small cut: 51 mm³ spread over the corners and walls the 3.175 mm ball could not reach. The largest amount left anywhere, "Most material left: 0.825 mm at X 10.00", is at the collar next to the chuck's grip, where the rest tool must keep its radius clear of the held region. Without the rest operation, the same simulation on the command line (`openchuck-cli simulate`) gives 0.924 mm at the same place. To clean that corner, shorten the grip ([Tabs and held regions](tabs-and-held-regions.md)) or use a tool that can reach it; a smaller ball alone does not help there.
+The rest operation is a small cut: 51 mm³ spread over the corners and walls the 3.175 mm ball could not reach. The largest amount left anywhere, "Most material left: 0.825 mm at X 27.99", is at the collar next to the chuck's grip, where the rest tool must keep its radius clear of the held region. Without the rest operation, the same simulation on the command line (`openchuck-cli simulate`) gives 0.924 mm at the same place. To clean that corner, shorten the grip ([Tabs and held regions](tabs-and-held-regions.md)) or use a tool that can reach it; a smaller ball alone does not help there.
 
 Rest machining reads the stock after the operations above it in the list. Keep it after them: if you move it to the top, or turn the earlier operations off, it has nothing to follow.
 
