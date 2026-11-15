@@ -137,13 +137,13 @@ The program starts like this:
 (Simulate it and air cut it first. You are responsible for what the machine does.)
 G90 G21 G17
 G54
-(operation Rough, tool T104 Z1 O-flute 3.175x25, about 805 s)
+(operation Rough, tool T104 Z1 O-flute 3.175x25, about 1526 s)
 M5
 T104 M6
 S10000 M3
-G0 X9.088 Y0.000 Z40.000 A0.000
-G0 X9.088 Y0.000 Z13.000 A0.000
-G1 X9.088 Y0.000 Z11.001 A0.000 F300.0
+G0 X9.087 Y0.000 Z45.000 A0.000
+G0 X9.087 Y0.000 Z13.000 A0.000
+G1 X9.087 Y0.000 Z11.001 A0.000 F300.0
 ```
 
 and ends with the footer, `M5` and `M30`. The version in the second line is the version of your program.
@@ -151,7 +151,7 @@ and ends with the footer, `M5` and `M30`. The version in the second line is the 
 Before it writes anything, the program reads the program back and replays it, and compares the replay with the toolpath; a program that does not match is not written. The command line prints, for example:
 
 ```text
-01-setup-1.ngc: 29099 moves; replay matches the toolpath (tip 0.0007 mm, A 0.0005 deg; cut 1564.6 s, toolpath 1564.5 s)
+01-setup-1.ngc: 29099 moves; replay matches the toolpath (tip 0.0007 mm, A 0.0005 deg; cut 2806.9 s, toolpath 2808.6 s)
 ```
 
 This says the file holds the same moves as the toolpath, within the numbers shown, and takes the same time. It does not say that your controller reads the file as the program does. Read the start, a tool change and the end of the file yourself, and compare one with a program from the built-in post you started from.
