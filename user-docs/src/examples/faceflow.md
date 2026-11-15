@@ -30,7 +30,7 @@ The edge set is optional: without it, each face starts from its longest side. It
 4. Click **Generate stale** at the bottom right. It took about 35 s on the test computer.
 
 <figure>
-<a href="images/blisk_faceflow/02-stepover.png"><img src="images/blisk_faceflow/02-stepover.png" width="1920" height="1080" alt="The face-flow passes drawn in orange along the twisted hub floor, with a strip of white-cased black diagonal hatching along both blade walls marking the unreachable area, labelled Unreachable (Floor finish) in the legend, and a numbered black-and-white marker 1 on the floor. Results: 1 operation, 2310 moves, 34.3 s to generate, Warnings 1, and the lines quoted in the text."></a>
+<a href="images/blisk_faceflow/02-stepover.png"><img src="images/blisk_faceflow/02-stepover.png" width="1920" height="1080" alt="The face-flow passes drawn in orange along the twisted hub floor, with a strip of white-cased black diagonal hatching along both blade walls marking the unreachable area, labelled Unreachable (Floor finish) in the legend, and a numbered black-and-white marker 1 on the floor. Results: 1 operation, 2310 moves, 30.7 s to generate, Warnings 1, and the lines quoted in the text."></a>
 <figcaption><b>Figure 2.</b> With the stepover of the tool's cutting data, 1 mm: the passes follow the floor, and the hatched area along the walls is where the ball does not fit.</figcaption>
 </figure>
 
@@ -44,8 +44,8 @@ The Results list three lines for the operation:
 "Face-flow finishing (operation 'Floor finish'): cuts 12 passes on 1 face"
 : The passes that are cut, after the stretches the tool cannot reach are left out. A pass that lies wholly in that area is not cut.
 
-"Unreached areas (operation 'Floor finish'): face-flow finishing cannot reach 1 area of the selected faces, which stay uncut: X 20.000 to 60.000 near A 282 (173.8 mm2), a neighbouring face is in the way of the tool; check them in the simulation before running the program"
-: The floor is a narrow strip between two blade walls, and a 3 mm ball cannot reach into the corners where the floor meets them without touching a wall. That strip, along the whole floor from X 20 to X 60, is not cut and is drawn hatched in the view, labelled **Unreachable (Floor finish)** in the legend: black diagonal lines in a white casing, painted on the surface, so they turn and stretch with it as you orbit and zoom. "A neighbouring face is in the way" means a blade wall, not the stock. The same line appears under **Messages**, with a link to the operation.
+"Unreached areas (operation 'Floor finish'): face-flow finishing cannot reach 1 area of the selected faces, which stay uncut: X 37.990 to 77.990 near A 282 (173.8 mm2), a neighbouring face is in the way of the tool; check them in the simulation before running the program"
+: The floor is a narrow strip between two blade walls, and a 3 mm ball cannot reach into the corners where the floor meets them without touching a wall. That strip, along the whole floor from X 37.99 to X 77.99, is not cut and is drawn hatched in the view, labelled **Unreachable (Floor finish)** in the legend: black diagonal lines in a white casing, painted on the surface, so they turn and stretch with it as you orbit and zoom. "A neighbouring face is in the way" means a blade wall, not the stock. The same line appears under **Messages**, with a link to the operation.
 
 How much is that? When face-flow finishing was built, the five floors of this blisk were measured ([decision 0525](https://github.com/OpenChuckCAM/OpenChuckCAM/blob/main/docs/decisions/0525-face-flow-finishing.md)): the same on all five, 171.6 mm2 of the 496.3 mm2 floor (35 %) out of reach of the 3 mm ball, all of it along the blade walls, and 118.4 mm2 (24 %) with a 2 mm ball. This run reports 173.8 mm2 at its own stepover. Whether a smaller tool, a different tool, or leaving the strip suits your part is your call; the program does not choose for you, and it has no strategy yet that finishes the strip with a second tool.
 
@@ -65,7 +65,7 @@ A [scallop](../glossary.md#scallop) height sets the spacing by the ridge a ball 
 </figure>
 
 <figure>
-<a href="images/blisk_faceflow/04-scallop.png"><img src="images/blisk_faceflow/04-scallop.png" width="1920" height="1080" alt="The floor with about twice as many orange passes. Results: 1 operation, 4803 moves, 32.8 s to generate; face 20 is cut from its guide, edge 65 (49.1 mm long), towards the opposite side in 34 passes up to 0.462 mm apart along the face; face-flow finishing cuts 25 passes on 1 face; 170.3 mm2 unreached."></a>
+<a href="images/blisk_faceflow/04-scallop.png"><img src="images/blisk_faceflow/04-scallop.png" width="1920" height="1080" alt="The floor with about twice as many orange passes. Results: 1 operation, 4803 moves, 31.9 s to generate; face 20 is cut from its guide, edge 65 (49.1 mm long), towards the opposite side in 34 passes up to 0.462 mm apart along the face; face-flow finishing cuts 25 passes on 1 face; 170.3 mm2 unreached."></a>
 <figcaption><b>Figure 4.</b> A 0.02 mm scallop height with a 3 mm ball puts the passes up to 0.462 mm apart.</figcaption>
 </figure>
 
@@ -75,7 +75,7 @@ A [scallop](../glossary.md#scallop) height sets the spacing by the ridge a ball 
 | Passes cut | 12 | 25 |
 | Unreached area | 173.8 mm2 | 170.3 mm2 |
 | Moves | 2310 | 4803 |
-| Time to generate | 34.3 s | 32.8 s |
+| Time to generate | 30.7 s | 31.9 s |
 
 Closer passes take longer to cut and leave smaller ridges. They do not get the ball into the corners: the unreached area hardly changes.
 
