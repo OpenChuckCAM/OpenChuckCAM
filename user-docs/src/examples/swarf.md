@@ -11,7 +11,7 @@ You need the example project [`testdata/examples/blisk-start/blisk-project`](htt
 
 The side of a blade is a ruled face: it is made of straight lines, its rulings, that run from the floor up to the tip. Swarf lays the side of the tool along each ruling in turn and moves along the blade, so one pass cuts the whole height. The blade meets other faces:
 
-- at its **ends**: the wall of the disc at X = 20 (face 5 here) and the end plane at X = 60 (face 15);
+- at its **ends**: the wall of the disc at X = 37.99 (face 5 here) and the end plane at X = 77.99 (face 15);
 - along the **ends of its rulings**: the hub floor at the bottom (face 20) and the outer cylinder at the tip (face 1).
 
 ## 1. Make the sets
@@ -34,7 +34,7 @@ Make two face sets as in step 1 of [Selection sets on a blisk](selection-sets.md
 3. Click **Generate stale**. It took about 30 s on the test computer.
 
 <figure>
-<a href="images/blisk_swarf/02-flat.png"><img src="images/blisk_swarf/02-flat.png" width="1920" height="1080" alt="The swarf pass drawn in orange along the blade root. Results: 1 operation, 47 moves, 30.3 s to generate, Errors 0, Warnings 3, Generated Blade swarf, and the warnings quoted in the text."></a>
+<a href="images/blisk_swarf/02-flat.png"><img src="images/blisk_swarf/02-flat.png" width="1920" height="1080" alt="The swarf pass drawn in orange along the blade root. Results: 1 operation, 47 moves, 30.2 s to generate, Errors 0, Warnings 3, Generated Blade swarf, and the warnings quoted in the text."></a>
 <figcaption><b>Figure 2.</b> One pass along the blade with the 3 mm flat end mill.</figcaption>
 </figure>
 
@@ -46,7 +46,7 @@ This is **Keep off the end faces** at work. It is on by default: each pass stops
 
 The other two swarf warnings are about the faces along the ends of the rulings:
 
-- "Overcut (operation 'Blade swarf'): swarf on face 19 cuts 0.023 mm into face 20, which meets it along the ends of its rulings, at (57.593, 1.020, 9.305), more than this operation's tolerance of 0.01 mm. To keep the tool off it, put face 20 in an avoid set on Cut short, which lifts the tool clear of it, or set a negative Tip extension to pull the tool up the face ..."
+- "Overcut (operation 'Blade swarf'): swarf on face 19 cuts 0.023 mm into face 20, which meets it along the ends of its rulings, at (75.583, 1.020, 9.305), more than this operation's tolerance of 0.01 mm. To keep the tool off it, put face 20 in an avoid set on Cut short, which lifts the tool clear of it, or set a negative Tip extension to pull the tool up the face ..."
 - The same for face 1, the outer cylinder at the tips: 0.014 mm.
 
 And one is about the blade itself: "Overcut (operation 'Blade swarf'): swarf on face 19 cuts into the finished surface by 0.0158 mm ... The face is ruled but not developable: it is made of straight lines, but its surface turns 8.62 degrees along each of them, so the straight side of the tool cannot lie flat on it everywhere". The blade twists, so a straight tool cannot follow it exactly. The warning says what you can do: accept it by raising **Tolerance** to 0.0158 mm, or use a tool with a smaller radius or a taper.
@@ -57,14 +57,14 @@ And one is about the blade itself: "Overcut (operation 'Blade swarf'): swarf on 
 2. Click **Generate stale**.
 
 <figure>
-<a href="images/blisk_swarf/03-ball.png"><img src="images/blisk_swarf/03-ball.png" width="1920" height="1080" alt="Blade swarf with the 3 mm ball. No orange pass shows in the view, only the pink entry move above the blade: the pass runs below the floor, which hides it. Results: 1 operation, 46 moves, 32.4 s to generate, Errors 1, Warnings 3, and the warning that the swarf on face 19 cuts 1.190 mm into face 20. In the Inspector, Tolerance and Tip extension are outlined, with the note The last path was made with a warning about this setting."></a>
+<a href="images/blisk_swarf/03-ball.png"><img src="images/blisk_swarf/03-ball.png" width="1920" height="1080" alt="Blade swarf with the 3 mm ball. No orange pass shows in the view, only the pink entry move above the blade: the pass runs below the floor, which hides it. Results: 1 operation, 46 moves, 30.9 s to generate, Errors 1, Warnings 3, and the warning that the swarf on face 19 cuts 1.190 mm into face 20. In the Inspector, Tolerance and Tip extension are outlined, with the note The last path was made with a warning about this setting."></a>
 <figcaption><b>Figure 3.</b> With a ball, the tool's round end reaches below the end of the rulings into the floor.</figcaption>
 </figure>
 
 The note now says "The tool's end reaches 1.500 mm beyond the end of the rulings at the tip (its corner radius and the tip extension), so it cuts into any face that meets them there, such as a floor, unless that face is in an avoid or check set." The flank of a ball end mill starts at its equator, 1.5 mm above its tip, so the tip goes 1.5 mm past the foot of the blade. The warnings show it:
 
-- "Overcut (operation 'Blade swarf'): swarf on face 19 cuts 1.190 mm into face 20, which meets it along the ends of its rulings, at (21.481, -13.814, -5.250) ..."
-- The simulation finds it too: "Overcut: 1.151 mm deepest, at X 55.53, Y -0.84, Z 9.63; 60878 samples beyond 0.10 mm", counted under **Errors**.
+- "Overcut (operation 'Blade swarf'): swarf on face 19 cuts 1.190 mm into face 20, which meets it along the ends of its rulings, at (39.472, -13.814, -5.250) ..."
+- The simulation finds it too: "Overcut: 1.151 mm deepest, at X 73.52, Y -0.84, Z 9.63; 60878 samples beyond 0.10 mm", counted under **Errors**.
 
 The pass also stops 2.158 mm short of the end plane (face 15) instead of 0.833 mm, because the ball's round end needs more room there.
 
@@ -80,7 +80,7 @@ The pass also stops 2.158 mm short of the end plane (face 15) instead of 0.833 m
 2. Click **Generate stale**.
 
 <figure>
-<a href="images/blisk_swarf/05-avoid.png"><img src="images/blisk_swarf/05-avoid.png" width="1920" height="1080" alt="Blade swarf with Hub floor as an avoid set: the orange pass runs along the foot of the blade, above the hatched floor. Results: 1 operation, 48 moves, 31.0 s to generate, Errors 0, Warnings 2, and no warning about face 20."></a>
+<a href="images/blisk_swarf/05-avoid.png"><img src="images/blisk_swarf/05-avoid.png" width="1920" height="1080" alt="Blade swarf with Hub floor as an avoid set: the orange pass runs along the foot of the blade, above the hatched floor. Results: 1 operation, 48 moves, 33.4 s to generate, Errors 0, Warnings 2, and no warning about face 20."></a>
 <figcaption><b>Figure 5.</b> The warning about the floor is gone, and so is the overcut.</figcaption>
 </figure>
 
@@ -103,11 +103,11 @@ To see what the setting does, turn it off:
 </figure>
 
 <figure>
-<a href="images/blisk_swarf/07-keep-off-off.png"><img src="images/blisk_swarf/07-keep-off-off.png" width="1920" height="1080" alt="Blade swarf with Keep off the end faces off: Results 1 operation, 48 moves, 32.6 s to generate, Errors 1, Warnings 3, and the warnings that the swarf on face 19 cuts 0.266 mm into face 1 and 0.269 mm into face 5. In the Inspector, Tolerance and Tip extension are outlined, and Tolerance and Keep off the end faces have the note The last path was made with a warning about this setting."></a>
+<a href="images/blisk_swarf/07-keep-off-off.png"><img src="images/blisk_swarf/07-keep-off-off.png" width="1920" height="1080" alt="Blade swarf with Keep off the end faces off: Results 1 operation, 48 moves, 32.2 s to generate, Errors 1, Warnings 3, and the warnings that the swarf on face 19 cuts 0.266 mm into face 1 and 0.269 mm into face 5. In the Inspector, Tolerance and Tip extension are outlined, and Tolerance and Keep off the end faces have the note The last path was made with a warning about this setting."></a>
 <figcaption><b>Figure 7.</b> With the setting off, the pass runs to the end of the blade and into the disc wall. A setting that a warning points at is outlined or has a note under it.</figcaption>
 </figure>
 
-The Results now say: "Overcut (operation 'Blade swarf'): swarf on face 19 cuts 0.269 mm into face 5, which meets it at an end of the pass, at (20.000, -17.997, -6.539), more than this operation's tolerance of 0.01 mm. Keep off the end faces is off for this operation: turn it on to stop the pass short of face 5 (in the operation inspector's parameters, where the field is marked), or put face 5 in an avoid set on Cut short." The simulation reports "Overcut: 0.300 mm deepest, at X 20.00, Y -16.89, Z -6.30". Turn the setting back on, unless you mean to cut into that face, for example because it is stock that a later operation removes.
+The Results now say: "Overcut (operation 'Blade swarf'): swarf on face 19 cuts 0.269 mm into face 5, which meets it at an end of the pass, at (37.990, -17.997, -6.539), more than this operation's tolerance of 0.01 mm. Keep off the end faces is off for this operation: turn it on to stop the pass short of face 5 (in the operation inspector's parameters, where the field is marked), or put face 5 in an avoid set on Cut short." The simulation reports "Overcut: 0.300 mm deepest, at X 37.99, Y -16.89, Z -6.30". Turn the setting back on, unless you mean to cut into that face, for example because it is stock that a later operation removes.
 
 ## Read the result
 
