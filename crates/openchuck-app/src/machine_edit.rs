@@ -1060,8 +1060,8 @@ mod tests {
     }
 
     /// The minimum clearance radius is an optional value of the Clearance
-    /// group: blank on the built-in Z1 (decision 0495, D4; OI-1780), set
-    /// and cleared like any optional value, marked not confirmed when it
+    /// group: 45 on the built-in Z1, the owner's measurement (decision 0649;
+    /// OI-1780), set and cleared like any optional value, marked not confirmed when it
     /// changes, refused in plain words when it is not positive (SET-10,
     /// UI-13, NFR-07). A value above the safe cylinder is allowed: the
     /// setup checks warn about it (decision 0495, D2).
@@ -1076,7 +1076,7 @@ mod tests {
         assert_eq!(field.label, "Minimum clearance radius");
         assert_eq!(field.group, MachineGroup::Clearance);
         assert!(field.optional);
-        assert_eq!(field.value, None);
+        assert_eq!(field.value, Some(num(45.0)));
         assert_eq!(field.provenance, Some(ProfileField::MinClearanceRadius));
         let q = set_machine_field(&p, MIN_CLEARANCE_RADIUS, Some(&num(60.0))).unwrap();
         assert_eq!(q.min_clearance_radius, Some(Millimetres(60.0)));
@@ -1108,15 +1108,15 @@ mod tests {
         let get = |n: &str| form.iter().find(|f| f.name == n).expect(n);
         assert_eq!(get(NAME).value, Some(text("Makera Z1")));
         assert_eq!(get(ORIGIN_Z).value, Some(num(-48.6)));
-        assert_eq!(get(SAFE_Z).value, Some(num(40.0)));
-        assert_eq!(get(SPINDLE_TO_AXIS).value, Some(num(73.1)));
-        assert_eq!(get(RECOMMENDED_MIN_SAFE_Z).value, Some(num(30.0)));
+        assert_eq!(get(SAFE_Z).value, Some(num(45.0)));
+        assert_eq!(get(SPINDLE_TO_AXIS).value, Some(num(72.0)));
+        assert_eq!(get(RECOMMENDED_MIN_SAFE_Z).value, Some(num(45.0)));
         assert_eq!(
             get(MAX_TOOL_NUMBER).value,
             Some(ParameterValue::Integer(1000))
         );
         assert_eq!(get(ROTARY_IN_FEED).value, Some(text("makera")));
-        assert_eq!(get(MIN_SPINDLE_RPM).value, None);
+        assert_eq!(get(MIN_SPINDLE_RPM).value, Some(num(4000.0)));
         assert!(get(MIN_SPINDLE_RPM).optional);
         // A continuous axis lists its limits but they do not apply.
         assert!(!get(A_MIN).applies && get(A_MIN).value.is_none());
@@ -1336,25 +1336,25 @@ mod tests {
                 SAFE_Z,
                 Some(num(30.0)),
                 "Safe Z",
-                "The safe Z (30 mm) must not be below the safe cylinder radius (40 mm).",
+                "The safe Z (30 mm) must not be below the safe cylinder radius (45 mm).",
             ),
             (
                 CLEARANCE_RADIUS,
-                Some(num(45.0)),
+                Some(num(50.0)),
                 "Safe cylinder radius",
-                "The safe Z (40 mm) must not be below the safe cylinder radius (45 mm).",
+                "The safe Z (45 mm) must not be below the safe cylinder radius (50 mm).",
             ),
             (
                 TRAVEL_MAX_Z,
                 Some(num(-120.0)),
                 "Highest Z",
-                "The lowest Z (-100 mm) must not be above the highest Z (-120 mm).",
+                "The lowest Z (-102 mm) must not be above the highest Z (-120 mm).",
             ),
             (
                 TRAVEL_MIN_X,
                 Some(num(10.0)),
                 "Lowest X",
-                "The lowest X (10 mm) must not be above the highest X (0 mm).",
+                "The lowest X (10 mm) must not be above the highest X (-1 mm).",
             ),
             (
                 MAX_TOOL_NUMBER,

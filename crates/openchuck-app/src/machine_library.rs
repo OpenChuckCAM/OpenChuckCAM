@@ -710,7 +710,7 @@ mod tests {
                 .clearance
                 .safe_z
                 .0,
-            40.0
+            45.0
         );
         // A refused value leaves the draft as it was.
         let before = draft.clone();
@@ -760,7 +760,7 @@ mod tests {
         bad.profile.clearance.safe_z.0 = 10.0;
         assert_eq!(
             save_draft(&dir, &mut bad).expect_err("invalid").to_string(),
-            "Safe Z: The safe Z (10 mm) must not be below the safe cylinder radius (40 mm)."
+            "Safe Z: The safe Z (10 mm) must not be below the safe cylinder radius (45 mm)."
         );
         assert!(!dir.join("bad.toml").exists());
         let _ = std::fs::remove_dir_all(&dir);

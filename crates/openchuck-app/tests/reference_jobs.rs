@@ -244,6 +244,22 @@ fn write_stl(mesh: &TriangleMesh, path: &Path) {
     std::fs::write(path, text).unwrap();
 }
 
+/// How far each job is laid out along X from the Makera Z1's reference
+/// point, the headstock face (decision record 0649, the owner's decision 9):
+/// the jobs were written with model X 0 at the old reference, 17.99 mm in
+/// front of the face, and keep that physical place (17.99 mm, taken as
+/// 17.990234375, the nearest value exact in binary). The part, the stock,
+/// the tabs and the work zero all move by it, so the programs, written from
+/// the work zero, do not change.
+pub const LAYOUT_SHIFT: f64 = 17.990_234_375;
+
+/// `x` moved by [`LAYOUT_SHIFT`]. The shift is 17 + 507/512, exact in
+/// binary, so a layout value moved and a coordinate moved back come out to
+/// the bit what they were, and the programs do not change.
+pub fn shifted(x: f64) -> f64 {
+    x + LAYOUT_SHIFT
+}
+
 fn build(job: &Job, tag: &str) -> (PathBuf, Application) {
     let dir = std::env::temp_dir().join(format!(
         "openchuck-ref-{tag}-{}-{}",
@@ -267,9 +283,14 @@ fn build(job: &Job, tag: &str) -> (PathBuf, Application) {
     setup.stock = Some(Stock::Cylinder {
         diameter: Millimetres(2.0 * job.radius + job.oversize),
         length: Millimetres(x1 - x0 + 2.0 * job.margin),
-        x_start: Millimetres(x0 - job.margin),
+        x_start: Millimetres(shifted(x0 - job.margin)),
     });
+    setup.frame.part_offset = Millimetres(shifted(0.0));
+    setup.frame.work_offset.x = Millimetres(shifted(0.0));
     setup.workholding = job.workholding.clone();
+    for tab in &mut setup.workholding.tabs {
+        tab.x_start.0 = shifted(tab.x_start.0);
+    }
     let tool_id = ToolId::new();
     let mut cutting_data = BTreeMap::new();
     cutting_data.insert(

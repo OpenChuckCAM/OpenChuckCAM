@@ -1,14 +1,19 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 #
-# Makera Z1 with its 4th-axis module (decision records 0007, 0011, 0013 and
-# 0647).
-# Values are a consensus across Makera's published profiles and the Z1
-# firmware's default configuration. The rotary axis, A direction, A range and
-# feed limits are confirmed by the owner, and the SP-12 air cut on firmware
-# 1.1.2 (decision 0007, 14 Oct 2026) confirmed the A direction; the block-rate
-# trial below measured 7 ms. The axis height is the owner's probing result for
-# the probe as the reference tool (decision 0317). Other unconfirmed values
-# retain their own gaps (including the X datum of the axis, OI-60).
+# Makera Z1 with its 4th-axis module (decision records 0007, 0011, 0013,
+# 0647 and 0649).
+# Values started as a consensus across Makera's published profiles and the
+# Z1 firmware's default configuration. The rotary axis, A direction, A range
+# and feed limits are confirmed by the owner, and the SP-12 air cut on
+# firmware 1.1.2 (decision 0007, 14 Oct 2026) confirmed the A direction; the
+# block-rate trial below measured 7 ms. The axis height is the owner's probing
+# result for the probe as the reference tool (decision 0317). The owner's
+# tests on firmware 1.1.3 (11 to 14 Nov 2026, decision 0649) confirmed the
+# feed limits (M203.1), 7 ms (decision 0648), the SP-12 conventions and the
+# axis height, measured the spindle-to-axis distance, the minimum clearance
+# for the supplied chuck, the spindle range and the rotary reference point
+# (the headstock face), and measured the travel's soft limits and the G0
+# rates. Every value is confirmed.
 # Machine coordinates are the firmware's (G53): home at 0, travel negative.
 schema = 8
 # Fixed for the built-in profile, so every project copy of it can be compared
@@ -22,54 +27,72 @@ block_window = 32
 short_block_mode = "report"
 rotary_axis = "x"
 a_sense = "positive"
-# The Z1's tool number range is effectively unlimited; the probe uses a high number
-# (unconfirmed). 1000 is the owner's choice for now (13 Oct 2026, OI-62).
+# The Z1's tool number range is effectively unlimited: on firmware 1.1.3 the
+# controller accepts M6 T1000 and M6 T1001 (owner, 14 Nov 2026, decision
+# 0649). The probe uses a high number (not recorded). 1000 is the owner's
+# choice of limit (13 Oct 2026, OI-62), not the controller's.
 max_tool_number = 1000
-# The spindle runs from 0 to 13 000 rpm (Makera's Z1 Safety Guidelines,
-# V1.3), so only the highest speed is a limit. Unconfirmed until the owner
-# checks it on the machine (decision 0231, OI-754).
+# The spindle runs from 4000 to 13 000 rpm, both confirmed by the owner on
+# firmware 1.1.3 (decision 0649): below S1000 it does not turn, and it runs
+# no slower than 4000 rpm. Makera's Z1 Safety Guidelines, V1.3, give 0 to
+# 13 000 (decision 0231).
+min_spindle_rpm = 4000.0
 max_spindle_rpm = 13000.0
 # The controller measures each tool on its tool setter, so every tip reaches
 # the programmed Z; a longer tool raises the spindle (decision 0317). The
-# spindle at home is 73.1 mm above the axis: the axis height measured with the
-# probe, 48.6, plus the probe's stick-out, 24.5 (decision 0318). A tool whose
+# collet face at machine Z 0 is 73.000 mm above the axis, measured on
+# firmware 1.1.3; at the top of the Z travel, the soft limit at machine Z -1,
+# it is 72.0 (decision 0649, replacing 73.1 of decision 0318). A tool whose
 # stick-out (flute length + 5 mm) leaves less than the safe Z warns. The
 # owner's recommended minimum safe Z is advice to check, not a limit.
 automatic_tool_length = true
-spindle_to_axis = 73.1
-recommended_min_safe_z = 30.0
+spindle_to_axis = 72.0
+recommended_min_safe_z = 45.0
+# Clears the supplied Sanou K02-50 chuck with its jaws reversed and fully open
+# (60 mm opening), measured by the owner (decision 0649, OI-1780). Other
+# chucks and jaw setups are the user's to set on the setup.
+min_clearance_radius = 45.0
 
-# Rotary reference point: X is anchor1_x + rotation_offset_x and Y is
-# anchor1_y + rotation_offset_y from the firmware's Z1 config (-192.4 + 12.0,
-# -194.3 + 85.5). Z is the owner's measurement with Makera's 4th-axis Z
+# Rotary reference point: the centre of the face of the headstock body next
+# to the chuck, where the controller works from (decision 0649, OI-60). X and
+# Y are the owner's on firmware 1.1.3: G54 in 4-axis mode, with X0 83.050 mm
+# toward +X from that face, read X -115.34 and Y -123.39, so the face is at
+# X -198.39. They replace the published config's anchor1 plus rotation
+# offset (-180.4, -108.8). Z is the owner's measurement with Makera's 4th-axis Z
 # probing routine (gate 4, 25 Oct 2026): the machine Z of the axis with the
 # probe as the reference tool. A tool longer than the probe raises the spindle
-# by the difference (decision 0317). It replaces the placeholder -55.
+# by the difference (decision 0317). It replaces the placeholder -55. On
+# firmware 1.1.3 the owner measured the axis height again: 48.568 (decision
+# 0649).
 [machine.rotary_origin]
-x = -180.4
-y = -108.8
+x = -198.39
+y = -123.39
 z = -48.6
 
 [machine.a_range]
 type = "continuous"
 
+# The travel is the firmware's soft limits on 1.1.3, measured by the owner
+# (decision 0649, OI-1292): X -207 to -1, Y -160 to -1 (the rotary module
+# fitted), Z -102 to -1.
 [machine.travel.min]
-x = -200.0
-y = -200.0
-z = -100.0
+x = -207.0
+y = -160.0
+z = -102.0
 
 [machine.travel.max]
-x = 0.0
-y = 0.0
-z = 0.0
+x = -1.0
+y = -1.0
+z = -1.0
 
 # The firmware limits X and Y to 1200 mm/min, Z to 600 mm/min and A to
 # 1800 deg/min (30 deg/s): when bit 0 of the factory setting FuncSetting is
 # set, Robot.cpp:295-298 caps A's configured maximum rate at 1800 deg/min,
 # and the owner's Z1 on firmware 1.1.3 prints "A: 30" (deg/s) for M203.1
-# (decision 0647). G0 is limited to the same per-axis rates, so rapids equal the feed
-# limits. To check a Z1, send M203.1 in its console: a machine that prints
-# A: 60 can raise both A limits to 3600 in a copy of this profile.
+# (decision 0647); it prints X: 20, Y: 20 and Z: 10 (mm/s) for the others
+# (decision 0649). G0 is limited to the same per-axis rates, so rapids equal
+# the feed limits, as the owner's timed G0 moves confirm. To check a Z1, send M203.1 in its console: a machine that
+# prints A: 60 can raise both A limits to 3600 in a copy of this profile.
 [machine.max_feeds]
 linear = 1200.0
 z = 600.0
@@ -82,66 +105,71 @@ rapid_rotary = 1800.0
 # hold that length, not just the XYZ line (decision 0076).
 rotary_in_feed = "makera"
 
-# The owner's default (decision 0317): at safe Z 40 the spindle is at machine
-# Z -8.6 with the probe fitted, inside the Z travel.
+# The owner's default (decision 0649, replacing 40 of decision 0317): the
+# minimum clearance radius above. At safe Z 45 the probe's tip is at machine
+# Z -3.6, 2.6 mm below the top of the travel.
 # A tool that sticks out further than the probe raises the spindle; the
 # setup checks warn when it would pass the top of the travel (decision 0318).
 [machine.clearance]
-radius = 40.0
-safe_z = 40.0
+radius = 45.0
+safe_z = 45.0
 
 [machine.provenance.rotary_axis]
 state = "confirmed"
-source = "confirmed by the owner from use of the machine (11 Oct 2026): the rotary axis is along X. Consistent with 7 of 7 Makera 4-axis profiles (Fusion Z1, Carvera, Carvera Air and Carvera Harmonic; FreeCAD Z1, C1 and Air) and the Makera Mastercam and Carveco posts (decision 0013)"
+source = "confirmed by the owner from use of the machine (11 Oct 2026): the rotary axis is along X. Consistent with 7 of 7 Makera 4-axis profiles (Fusion Z1, Carvera, Carvera Air and Carvera Harmonic; FreeCAD Z1, C1 and Air) and the Makera Mastercam and Carveco posts (decision 0013). Rechecked by the owner on firmware 1.1.3 (11 to 14 Nov 2026, issue #586 comment 6805176778, decision 0649): the SP-12 conventions hold"
 
 [machine.provenance.a_sense]
 state = "confirmed"
-source = "confirmed by the owner from use of the machine (11 Oct 2026): positive A is right-handed about +X, so the side facing up at A 0 faces machine -Y at A +90. Checked again on the machine on 13 Oct 2026 by sending an A+ command: a camera behind the chuck, looking toward home, sees the top of the chuck turn toward the front of the machine (away from home, -Y): clockwise from that view, counter-clockwise looking at the chuck from +X. Consistent with the Fusion (4 four-axis machine files), Mastercam and SolidCAM profiles. The SP-12 air cut (14 Oct 2026, firmware 1.1.2, decision 0007) confirmed it a third time: at A +90 the top moved toward the front"
+source = "confirmed by the owner from use of the machine (11 Oct 2026): positive A is right-handed about +X, so the side facing up at A 0 faces machine -Y at A +90. Checked again on the machine on 13 Oct 2026 by sending an A+ command: a camera behind the chuck, looking toward home, sees the top of the chuck turn toward the front of the machine (away from home, -Y): clockwise from that view, counter-clockwise looking at the chuck from +X. Consistent with the Fusion (4 four-axis machine files), Mastercam and SolidCAM profiles. The SP-12 air cut (14 Oct 2026, firmware 1.1.2, decision 0007) confirmed it a third time: at A +90 the top moved toward the front. Rechecked by the owner on firmware 1.1.3 (11 to 14 Nov 2026, issue #586 comment 6805176778, decision 0649): the SP-12 conventions hold"
 
 [machine.provenance.rotary_origin]
 state = "confirmed"
-source = "confirmed by the owner (30 Oct 2026, decision 0317): Z -48.6 is the machine Z (G53) of the axis with the probe as the reference tool, from Makera's 4th-axis Z probing routine on the owner's Z1 (gate 4, PR 284 comment 6399134358, firmware 1.1.2). The routine touches a point on the headstock 23 mm above the chuck centre and sets G54 Z0 on the axis; it makes the probe the reference tool, so another tool's tool length offset raises or lowers the spindle by its length difference from the probe. Not recorded: G54 X, Y and Z in machine coordinates, the tool length offset state, and gate steps P8 and M4 (OI-471). Y is the firmware's probing position (anchor1 plus rotation offset), not measured separately. X is from the firmware config (anchor1 plus rotation offset); its datum, chuck face or module reference, is not stated (OI-60)"
+source = "the reference point is the centre of the face of the headstock body next to the chuck, where the controller works from (the owner, 14 Nov 2026, decision 0649; OI-60 closed). X and Y confirmed by the owner on firmware 1.1.3: G54 set in 4-axis mode read X -115.34 and Y -123.39 in machine coordinates, with the owner's X0 83.050 mm toward +X from the headstock face, so the face is at machine X -198.39 and the axis at Y -123.39. They replace the published Z1 config's anchor1 plus rotation offset (-180.4, -108.8), which this machine does not use; a reading of Y -124.39 taken outside 4-axis mode is withdrawn. The chuck's front face is not the datum: its distance from the headstock varies with the jaws used. Z: -48.6 is the machine Z (G53) of the axis with the probe as the reference tool, from Makera's 4th-axis Z probing routine on the owner's Z1 (gate 4, PR 284 comment 6399134358, firmware 1.1.2, decision 0317). The routine touches a point on the headstock 23 mm above the chuck centre and sets G54 Z0 on the axis; it makes the probe the reference tool, so another tool's tool length offset raises or lowers the spindle by its length difference from the probe. Rechecked on firmware 1.1.3 (11 to 14 Nov 2026): the axis height measured 48.568, consistent with -48.6; with G54 Z0 on the axis the machine Z was -67.657 with a tool length offset of -19.09 and -68.180 with -19.612, each the axis height plus the offset"
 
 [machine.provenance.a_range]
 state = "confirmed"
-source = "confirmed by the owner from use of the machine (11 Oct 2026): the A axis is continuous. Consistent with Fusion (no limits, never reset), FreeCAD (+/-1e7, unwound), Mastercam (signed continuous) and the Z1 firmware (no A soft limit). The air cut turned A to 570 and -370 and unwound by `G92.4 A0 S0` with no limit stop"
+source = "confirmed by the owner from use of the machine (11 Oct 2026): the A axis is continuous. Consistent with Fusion (no limits, never reset), FreeCAD (+/-1e7, unwound), Mastercam (signed continuous) and the Z1 firmware (no A soft limit). The air cut turned A to 570 and -370 and unwound by `G92.4 A0 S0` with no limit stop. Rechecked by the owner on firmware 1.1.3 (11 to 14 Nov 2026, issue #586 comment 6805176778, decision 0649): the SP-12 conventions hold"
 
 [machine.provenance.travel]
-state = "unconfirmed"
-source = "spans 200 x 200 x 100 mm: FreeCAD Z1 exactly, Fusion Z1 with 10 mm extra on X and Y, firmware soft limits -206/-206/-102 (disabled by default). Frame is the firmware's G53 with home at 0; with the rotary module and soft limits on, the firmware holds Y above -160. Stock defaults: a user who changes them makes their own profile (decision 0013)"
+state = "confirmed"
+source = "the firmware's soft limits on 1.1.3, measured by the owner (14 Nov 2026, decision 0649): X -207 to -1, Y -160 to -1 and Z -102 to -1 in machine coordinates (G53). Near home a move to -0.9 is refused on all three axes; at the far ends the soft limit triggers beyond X -207, Y -160 and Z -102. The refusal's text was not recorded. Y -160 matches the firmware's note that, with the rotary module fitted and soft limits on, Y is held above -160; the published config gives -206/-206/-102 (decision 0013). Frame is the firmware's G53 with home at 0"
 
 [machine.provenance.max_feeds]
 state = "confirmed"
-source = "confirmed by the owner from use of the machine (11 Oct 2026): X and Y 1200 mm/min, Z 600 mm/min (decision 0013). A 1800 deg/min (30 deg/s), confirmed by the owner on firmware 1.1.3 (relayed 14 Nov 2026): M203.1 in the console prints A: 30. The firmware caps A's configured maximum rate (3600 deg/min in the Z1 config) at 1800 deg/min when bit 0 of the factory setting FuncSetting is set (Robot.cpp:295-298, in 1.1.2 and 1.1.3), and in the 0.55.0-rc2 gate 4 run the sphere took 127 s where the estimate at 3600 deg/min was 81 s (decision 0647). Check with M203.1: a Z1 that prints A: 60 can raise A in its own copy. Consistent with the 1200 reported from Makera Studio; the CAM profiles' figures are template values and were not used (decision 0013). How the firmware counts A in the F word was measured by the SP-12 air cut on firmware 1.1.2 (decision 0007, tests T3 and T4); the feed limits are applied to that length (decision 0076)"
+source = "confirmed by the owner from use of the machine (11 Oct 2026): X and Y 1200 mm/min, Z 600 mm/min (decision 0013). A 1800 deg/min (30 deg/s), confirmed by the owner on firmware 1.1.3 (relayed 14 Nov 2026): M203.1 in the console prints A: 30. The firmware caps A's configured maximum rate (3600 deg/min in the Z1 config) at 1800 deg/min when bit 0 of the factory setting FuncSetting is set (Robot.cpp:295-298, in 1.1.2 and 1.1.3), and in the 0.55.0-rc2 gate 4 run the sphere took 127 s where the estimate at 3600 deg/min was 81 s (decision 0647). Check with M203.1: a Z1 that prints A: 60 can raise A in its own copy. Consistent with the 1200 reported from Makera Studio; the CAM profiles' figures are template values and were not used (decision 0013). How the firmware counts A in the F word was measured by the SP-12 air cut on firmware 1.1.2 (decision 0007, tests T3 and T4); the feed limits are applied to that length (decision 0076). On firmware 1.1.3 M203.1 prints X: 20, Y: 20 and Z: 10 (mm/s), so X and Y 1200 and Z 600 mm/min are confirmed from the controller (owner, 14 Nov 2026, decision 0649). The rapid limits are the same per-axis maximum rates, confirmed by the owner's timed G0 moves (G53, no tool, 100 %, firmware 1.1.3, 14 Nov 2026): X -10 to -110 (100 mm) took 5.3 s (5.0 s at 1200 mm/min plus acceleration); Z -5 to -55 (50 mm) 5.13 s (5.0 s at 600); A 0 to 360 12.22 s (12.0 s at 1800 deg/min)"
 
 [machine.provenance.clearance]
-state = "unconfirmed"
-source = "OpenChuckCAM default chosen by the owner (30 Oct 2026, decision 0317), not a machine value: a safe Z of 40 mm puts the spindle at machine Z -8.6 with the probe fitted, and a longer tool raises it. A stock wider than 80 mm in diameter is inside the safe cylinder and warns; set a clearance on each setup to suit its stock"
+state = "confirmed"
+source = "the owner's default (14 Nov 2026, decision 0649), confirmed by the owner: a safe cylinder radius and safe Z of 45 mm, set to the measured minimum clearance radius for the supplied chuck (Sanou K02-50, jaws reversed and fully open); it replaces 40 (decision 0317). At safe Z 45 the probe's tip is at machine Z -3.6, 2.6 mm below the top of the travel, and a longer tool raises the spindle. Set a clearance on each setup to suit its stock and workholding"
 
 [machine.provenance.min_block_ms]
 state = "confirmed"
-source = "Owner gate 4, PR 284 comment 6399134358, submitted 25 Oct 2026: firmware 1.1.2, ESP32 (version not supplied), WiFi upload; 7, 10 and 20 ms passed in both parts, 5/3/2/1 ms stuttered. K4 retained by the owner as a release waiver; subsequent LinuxCNC replay passed. This measured program/transport only (decision 0222)."
+source = "Owner gate 4, PR 284 comment 6399134358, submitted 25 Oct 2026: firmware 1.1.2, ESP32 (version not supplied), WiFi upload; 7, 10 and 20 ms passed in both parts, 5/3/2/1 ms stuttered. K4 retained by the owner as a release waiver; subsequent LinuxCNC replay passed. This measured program/transport only (decision 0222). Confirmed again on firmware 1.1.3, ESP32 1.1.3, WiFi upload (owner, 14 Nov 2026, decision 0648): the air cut ran as one file per section; 7, 10 and 20 ms ran smoothly in both parts, 5 ms stuttered"
 
 [machine.provenance.block_window]
-state = "unconfirmed"
-source = "32-block planner queue in firmware source; accepted averaging rule, decision 0222 item 3; not a separately measured queue depth."
+state = "confirmed"
+source = "32 blocks, confirmed by the owner's statement (14 Nov 2026, decision 0649). The 32-block planner queue comes from the firmware source; the averaging rule is decision 0222 item 3. Not a separately measured queue depth: decision 0648 found that the source model's timing of short blocks fails below 5 ms"
 
 [machine.provenance.short_block_mode]
-state = "unconfirmed"
-source = "Report first, accepted decision 0222; software policy, not a controller measurement."
+state = "confirmed"
+source = "Report, confirmed by the owner as the default (14 Nov 2026, decision 0649) from the gate 4 block-rate testing: on firmware 1.1.2 (decision 0222) and 1.1.3 (decision 0648) 7 ms ran smoothly and 5 ms stuttered. A software policy (decision 0222), not a controller measurement"
 
 [machine.provenance.spindle_range]
-state = "unconfirmed"
-source = "Makera's published specification: the Makera Z1 Safety Guidelines, V1.3 (makera.com, file MakeraZ1-Safety_Guidelines-V1.3-multi-lan-260709-1.pdf), give the spindle as 0 to 13 000 rpm with closed-loop control; reviews (CNX Software, 1 Sep 2026) give the same. Not yet checked on the machine (decision 0231)"
+state = "confirmed"
+source = "4000 to 13000 rpm, confirmed by the owner on firmware 1.1.3 (14 Nov 2026, decision 0649). The lowest was observed with T1 M6 and no tool: the spindle runs when S is 1000 or above, and no slower than 4000 rpm. The highest is the owner's statement that it has been tested (no run details recorded). Makera's published specification, the Makera Z1 Safety Guidelines, V1.3 (makera.com, file MakeraZ1-Safety_Guidelines-V1.3-multi-lan-260709-1.pdf), gives 0 to 13 000 rpm with closed-loop control (decision 0231)"
 
 [machine.provenance.tool_length_measurement]
 state = "confirmed"
-source = "confirmed by the owner (30 Oct 2026, decision 0317): the Z1 measures each tool on its tool setter and offsets it from the probe as the reference tool (firmware 1.1.2, ATCHandler.cpp:1909-1919; Robot.cpp:498-506)"
+source = "confirmed by the owner (30 Oct 2026, decision 0317): the Z1 measures each tool on its tool setter and offsets it from the probe as the reference tool (firmware 1.1.2, ATCHandler.cpp:1909-1919; Robot.cpp:498-506). On firmware 1.1.3 (owner, 14 Nov 2026, decision 0649) M5, T1 M6 and T2 M6 showed the tool change, touched off on the measurement switch and returned to the G28 position, with the offsets as expected (OI-41)"
 
 [machine.provenance.spindle_to_axis]
-state = "unconfirmed"
-source = "derived (30 Oct 2026, decision 0318, issue #395): the owner measured the probe's stick-out from the collet as 24.5 mm, from the same reference as a tool's stick-out; D = 48.6 + 24.5 = 73.1 mm, the axis height measured with the probe plus the probe's stick-out. Not measured directly"
+state = "confirmed"
+source = "measured by the owner on firmware 1.1.3 (14 Nov 2026, decision 0649): with no tool and the tool length offset calibrated to the collet face (offset -24.433), G54 Z0 on the axis reads machine Z -73.000, so the collet face at machine Z 0 is 73.000 mm above the axis; a dummy tool 4.821 mm from the collet face (offset -19.612, machine Z -68.180) gives 73.001. 72.0 is 73.000 less 1 mm to the top of the Z travel, the soft limit at machine Z -1. It replaces 73.1, derived from the probe's stick-out measured with a caliper, 24.5 (decision 0318, issue #395); the probe's stick-out on the tool setter is 24.433"
 
 [machine.provenance.recommended_min_safe_z]
-state = "unconfirmed"
-source = "the owner's recommendation from measurements and experience (30 Oct 2026, decision 0317): The recommended minimum is 30 mm. This must be checked before machining."
+state = "confirmed"
+source = "the owner's recommendation, confirmed by the owner (14 Nov 2026, decision 0649), from the minimum clearance radius measured for one chuck and jaw setup (the supplied Sanou K02-50, jaws reversed and fully open); it replaces 30 (decision 0317). The recommended minimum is 45 mm. This must be checked before machining."
+
+[machine.provenance.min_clearance_radius]
+state = "confirmed"
+source = "measured by the owner on firmware 1.1.3 (14 Nov 2026, decision 0649, OI-1780): a clearance radius of 45 mm about the rotary axis clears the supplied Sanou K02-50 chuck with its jaws in the reverse configuration, fully open (60 mm chuck opening). It holds for that chuck and jaw setup only: other chucks, jaw configurations and a tailstock are not covered, so set the setup's own minimum clearance for them. Jaws gripping smaller stock reach less far"

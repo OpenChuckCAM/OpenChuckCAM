@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 380" font-family="sans-serif" font-size="12">
+  <title>Makera Z1 spindle against the rotary axis (decision 0649)</title>
+  <!-- Side view along the axis. Heights in mm above the rotary axis, 2.5 px per mm; the axis at y = 250. -->
+  <defs>
+    <marker id="arrow" markerWidth="8" markerHeight="8" refX="4" refY="4" orient="auto-start-reverse">
+      <path d="M0,0 L8,4 L0,8 z" fill="#222"/>
+    </marker>
+  </defs>
+  <rect width="720" height="380" fill="#ffffff"/>
+  <!-- minimum clearance radius 45 mm: circle about the axis -->
+  <circle cx="120" cy="250" r="112.5" fill="#f4f8ff" stroke="#3a6fb0" stroke-dasharray="6 4"/>
+  <text x="18" y="370" fill="#3a6fb0">minimum clearance radius 45 (supplied chuck, jaws reversed, fully open)</text>
+  <circle cx="120" cy="250" r="30" fill="#e3e3e3" stroke="#777"/>
+  <text x="101" y="296" fill="#555">chuck</text>
+  <!-- the axis -->
+  <line x1="10" y1="250" x2="710" y2="250" stroke="#555" stroke-dasharray="8 4"/>
+  <text x="250" y="266" fill="#333">rotary axis: machine Z of the probe's tip -48.6 (measured 48.568)</text>
+  <!-- collet face at machine Z 0: 73.000 above -> y = 67.5 -->
+  <rect x="100" y="42" width="40" height="25" fill="#cfe0f2" stroke="#36597f"/>
+  <line x1="90" y1="67.5" x2="300" y2="67.5" stroke="#36597f"/>
+  <text x="305" y="64" fill="#36597f">collet face at machine Z 0: 73.000 above the axis (measured)</text>
+  <!-- soft limit, machine Z -1: 72.0 above -> y = 70 -->
+  <line x1="90" y1="70" x2="300" y2="70" stroke="#c0601a" stroke-dasharray="3 2"/>
+  <text x="305" y="82" fill="#c0601a">soft limit at machine Z -1: 72.0 above the axis (spindle_to_axis)</text>
+  <!-- safe Z 45 -> y = 137.5 -->
+  <line x1="90" y1="137.5" x2="300" y2="137.5" stroke="#2f7d32" stroke-dasharray="6 3"/>
+  <text x="305" y="141" fill="#2f7d32">safe Z 45 and safe cylinder radius 45 (default)</text>
+  <!-- probe at the safe Z: tip at 45, collet face 24.433 above -> 69.433 -> y = 76.4 -->
+  <rect x="200" y="51.4" width="40" height="25" fill="#cfe0f2" stroke="#36597f"/>
+  <line x1="220" y1="76.4" x2="220" y2="137.5" stroke="#36597f" stroke-width="3"/>
+  <text x="228" y="112" fill="#36597f">probe, 24.433</text>
+  <!-- dimension 73.000 -->
+  <line x1="40" y1="67.5" x2="40" y2="250" stroke="#222" marker-start="url(#arrow)" marker-end="url(#arrow)"/>
+  <text x="46" y="168" fill="#222">73.000</text>
+  <!-- tool tip limit for a 30 mm stick-out: 72.0 - 30 = 42.0 -> y = 145 -->
+  <line x1="340" y1="145" x2="580" y2="145" stroke="#a01818"/>
+  <text x="340" y="160" fill="#a01818">highest tip of a tool sticking out 30 mm: 42.0,</text>
+  <text x="340" y="174" fill="#a01818">inside the 45 minimum: it warns</text>
+</svg>

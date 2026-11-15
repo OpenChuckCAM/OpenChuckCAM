@@ -122,7 +122,13 @@ fn req_set_01_req_set_06_setups_are_checked_against_the_machine() {
 #[test]
 fn req_set_01_z1_warnings_name_unconfirmed_values() {
     let (dir, mut app, _) = project("z1");
-    let z1 = builtin(MAKERA_Z1).unwrap().unwrap();
+    // Every value of the built-in Z1 is confirmed (decision record 0649);
+    // a copy whose travel is not confirmed names it.
+    let mut z1 = builtin(MAKERA_Z1).unwrap().unwrap();
+    z1.provenance
+        .get_mut(&openchuck_types::machine::ProfileField::Travel)
+        .unwrap()
+        .state = openchuck_types::machine::Confirmation::Unconfirmed;
     app.execute(Command::SetMachine(Some(Box::new(z1))))
         .unwrap();
     // The stock far along the axis: it runs past the X travel. (The part
@@ -141,9 +147,9 @@ fn req_set_01_z1_warnings_name_unconfirmed_values() {
     let text: Vec<String> = report.warnings.iter().map(ToString::to_string).collect();
     assert!(
         text.iter().any(
-            |t| t.starts_with("the end of the stock is at machine X 26.600")
+            |t| t.starts_with("the end of the stock is at machine X 8.610")
                 // The axis height is confirmed (decision record 0317); the
-                // travel is not.
+                // travel of this copy is not.
                 && t.ends_with("(uses machine values not confirmed on the machine: travel)")
         ),
         "{text:?}"

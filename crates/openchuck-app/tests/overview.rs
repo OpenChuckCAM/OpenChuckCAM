@@ -1582,6 +1582,12 @@ fn req_nfr_15_setup_messages_name_machine_values_in_plain_words() {
         .get_mut(&openchuck_app::setup::ProfileField::RotaryOrigin)
         .unwrap()
         .state = openchuck_app::setup::Confirmation::Unconfirmed;
+    // The built-in travel is confirmed since decision 0649; this copy's is
+    // not, so the message names two values.
+    z1.provenance
+        .get_mut(&openchuck_app::setup::ProfileField::Travel)
+        .unwrap()
+        .state = openchuck_app::setup::Confirmation::Unconfirmed;
     f.app
         .execute(Command::SetMachine(Some(Box::new(z1))))
         .unwrap();
@@ -2398,17 +2404,22 @@ fn req_set_01_req_ui_13_req_gc_09_an_old_z1_a_limit_warns_and_the_new_z1_does_no
     }
 }
 
-/// On the Makera Z1 (tool lengths measured, the spindle 73.1 mm above the
-/// axis at home), a setup warns once per enabled operation's tool whose
-/// assumed stick-out takes the spindle past the top of the Z travel at the
-/// setup's safe Z; a setup clearance that fits clears it, and the same
-/// project gives the same checks (SET-06, NFR-12, GC-07, decision 0318).
+/// On the Makera Z1 (tool lengths measured, the spindle 72.0 mm above the
+/// axis at the top of the Z travel, decision 0649), a setup warns once per
+/// enabled operation's tool whose assumed stick-out takes the spindle past
+/// the top of the Z travel at the setup's safe Z; a setup clearance that
+/// fits clears it, and the same project gives the same checks (SET-06,
+/// NFR-12, GC-07, decision 0318).
 #[test]
 fn req_set_06_req_nfr_12_a_tool_too_long_for_the_safe_z_warns_on_the_z1() {
     let mut f = fixture("spindle-height", "cube_ascii.stl");
-    let z1 = openchuck_app::setup::builtin(openchuck_app::setup::MAKERA_Z1)
+    let mut z1 = openchuck_app::setup::builtin(openchuck_app::setup::MAKERA_Z1)
         .unwrap()
         .unwrap();
+    // Without the Z1's minimum clearance radius, so the check of decision
+    // 0318 speaks rather than that of decision 0495 item 6b (the next
+    // test).
+    z1.min_clearance_radius = None;
     f.app
         .execute(Command::SetMachine(Some(Box::new(z1))))
         .unwrap();
@@ -2444,11 +2455,11 @@ fn req_set_06_req_nfr_12_a_tool_too_long_for_the_safe_z_warns_on_the_z1() {
         found.sort();
         found
     };
-    // Flute 10: sticks out 15, the tip reaches 58.1 above the axis.
+    // Flute 10: sticks out 15, the tip reaches 57.0 above the axis.
     assert!(spindle(&f).is_empty());
 
-    // Flute 42: sticks out 47, the tip reaches 26.1; at safe Z 40 the
-    // spindle is 13.9 mm past the top.
+    // Flute 42: sticks out 47, the tip reaches 25.0; at safe Z 45 the
+    // spindle is 20.0 mm past the top.
     let mut tool = f.app.project().tools()[0].clone();
     tool.tool.flute_length = Millimetres(42.0);
     tool.tool.overall_length = Millimetres(60.0);
@@ -2457,20 +2468,20 @@ fn req_set_06_req_nfr_12_a_tool_too_long_for_the_safe_z_warns_on_the_z1() {
     assert_eq!(first.len(), 1, "{first:?}");
     for words in [
         "Tool length (tool '4 mm ball', setup 'Setup 1'): tool 1 may",
-        "13.900 mm",
-        "26.100 mm",
+        "20.000 mm",
+        "25.000 mm",
         "on your machine",
-        "recommended minimum is 30 mm",
+        "recommended minimum is 45 mm",
     ] {
         assert!(first[0].contains(words), "{words}: {}", first[0]);
     }
     assert_eq!(spindle(&f), first, "the same project gives the same checks");
 
-    // The setup's own clearance is the safe Z checked: 26 fits.
+    // The setup's own clearance is the safe Z checked: 25 fits.
     let mut setup = f.app.project().setup(f.setup).unwrap().clone();
     setup.clearance = Some(openchuck_app::setup::Clearance {
         radius: Millimetres(20.0),
-        safe_z: Millimetres(26.0),
+        safe_z: Millimetres(25.0),
     });
     f.app.execute(Command::Replace(Item::Setup(setup))).unwrap();
     assert!(spindle(&f).is_empty());
@@ -2729,7 +2740,8 @@ fn req_set_06_req_nfr_12_a_tool_too_long_for_the_minimum_clearance_warns_on_the_
     let mut z1 = openchuck_app::setup::builtin(openchuck_app::setup::MAKERA_Z1)
         .unwrap()
         .unwrap();
-    // Flute 10: the tip reaches 58.1 above the axis.
+    // Flute 10: the tip reaches 57.0 above the axis (decision 0649), inside
+    // a 60 mm minimum.
     z1.min_clearance_radius = Some(Millimetres(60.0));
     f.app
         .execute(Command::SetMachine(Some(Box::new(z1))))
@@ -2743,7 +2755,7 @@ fn req_set_06_req_nfr_12_a_tool_too_long_for_the_minimum_clearance_warns_on_the_
         .map(|m| m.text.as_str())
         .collect();
     assert_eq!(found.len(), 1, "{found:?}");
-    assert!(found[0].contains("58.100 mm"), "{}", found[0]);
+    assert!(found[0].contains("57.000 mm"), "{}", found[0]);
     assert!(
         !found[0].contains("Lower the setup's safe Z"),
         "{}",

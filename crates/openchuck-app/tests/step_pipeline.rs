@@ -122,6 +122,12 @@ struct Job {
     stock: Stock,
 }
 
+/// How far each job is laid out along X from the Makera Z1's reference
+/// point, the headstock face (decision record 0649): 17.99 mm, taken as
+/// 17.990234375, the nearest value exact in binary, as in the reference jobs
+/// and the committed sample projects.
+const LAYOUT_SHIFT: f64 = 17.990_234_375;
+
 /// The `drilling` job: stock 1 mm over the rod's radius and each end.
 fn drilling_job() -> Job {
     Job {
@@ -180,7 +186,21 @@ fn build_job(
     let mut setup = Setup::new(setup_id, "Setup 1");
     setup.part = Some(model);
     setup.material = Some("oak".into());
-    setup.stock = Some(job.stock);
+    // Laid out from the Z1's headstock face, as the reference jobs are
+    // (decision record 0649): the part, stock and work zero move together,
+    // so the programs do not change.
+    let mut stock = job.stock;
+    match &mut stock {
+        Stock::Cylinder { x_start, .. } => x_start.0 += LAYOUT_SHIFT,
+        Stock::Box { bounds } => {
+            bounds.min.x += LAYOUT_SHIFT;
+            bounds.max.x += LAYOUT_SHIFT;
+        }
+        other => panic!("{other:?}"),
+    }
+    setup.stock = Some(stock);
+    setup.frame.part_offset = Millimetres(LAYOUT_SHIFT);
+    setup.frame.work_offset.x = Millimetres(LAYOUT_SHIFT);
     let tool_id = snapshot.id;
     for item in [
         Item::Setup(setup),
@@ -531,7 +551,10 @@ fn swarf(tag: &str) -> (PathBuf, Application) {
         .iter()
         .map(|[ny, nz]| {
             let pick = picker
-                .pick([HEX_LENGTH / 2.0, 100.0 * ny, 100.0 * nz], [0.0, -ny, -nz])
+                .pick(
+                    [LAYOUT_SHIFT + HEX_LENGTH / 2.0, 100.0 * ny, 100.0 * nz],
+                    [0.0, -ny, -nz],
+                )
                 .unwrap()
                 .expect("the ray meets the flat");
             assert_eq!(pick.model, Some(model));
@@ -633,7 +656,11 @@ fn req_op_07_req_sim_05_the_swarf_reference_job_cuts_the_flats_and_nothing_of_th
     let flats: Vec<f64> = d
         .points
         .iter()
-        .filter(|p| p.normal.x.abs() < 1e-6 && p.point.x > 1.0 && p.point.x < HEX_LENGTH - 1.0)
+        .filter(|p| {
+            // The bar's own X, from its start at LAYOUT_SHIFT.
+            let x = p.point.x - LAYOUT_SHIFT;
+            p.normal.x.abs() < 1e-6 && x > 1.0 && x < HEX_LENGTH - 1.0
+        })
         .map(|p| p.value)
         .collect();
     assert!(!flats.is_empty());

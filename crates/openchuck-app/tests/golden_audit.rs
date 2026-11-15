@@ -145,10 +145,11 @@ fn audit_conventions(name: &str, text: &str, post: Post) {
 
 fn z1_check_config() -> CheckConfig {
     let machine = builtin("makera-z1").unwrap().unwrap();
-    let zero = openchuck_types::setup::expected_work_offset(
-        &machine,
-        &openchuck_types::setup::SetupFrame::default(),
-    );
+    // The reference jobs' work zero, laid out from the Z1's headstock face
+    // (decision record 0649).
+    let mut frame = openchuck_types::setup::SetupFrame::default();
+    frame.work_offset.x = openchuck_types::units::Millimetres(super::reference_jobs::LAYOUT_SHIFT);
+    let zero = openchuck_types::setup::expected_work_offset(&machine, &frame);
     CheckConfig {
         travel: [
             (machine.travel.min.x - zero.x, machine.travel.max.x - zero.x),

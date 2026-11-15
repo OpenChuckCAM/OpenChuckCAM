@@ -24,8 +24,11 @@ const FACING: &str = "99e9173f-5bc8-4b43-99a9-9030e097e6b5";
 const APPROACH: f64 = 1.;
 /// The tool's radius (Z1 O-flute 3.175).
 const RADIUS: f64 = 3.175 / 2.;
-/// The far end of the stock and the top of the box, model frame.
-const STOCK_END: f64 = 71.4;
+/// The far end of the stock and the top of the box, model frame. The
+/// example is laid out from the Z1's headstock face, 17.990234375 mm behind
+/// the owner's model X 0 (decision record 0649): the stock runs from X -1 to
+/// 71.4 in the owner's layout, 16.990234375 to 89.390234375 here.
+const STOCK_END: f64 = 89.390_234_375;
 const STOCK_TOP: f64 = 17.5;
 
 /// A copy of the Baluster example with the owner's End facing set-up, in a
@@ -50,14 +53,14 @@ fn project(name: &str, extra: &str) -> PathBuf {
     .unwrap();
     let setup = dir.join(format!("setups/{SETUP}.toml"));
     let text = std::fs::read_to_string(&setup).unwrap();
-    let stock = "[stock]\ntype = \"cylinder\"\ndiameter = 24.000000238343276\nlength = 63.0\nx_start = -1.0\n";
+    let stock = "[stock]\ntype = \"cylinder\"\ndiameter = 24.000000238343276\nlength = 63.0\nx_start = 16.990234375\n";
     assert!(text.contains(stock), "the example's stock has changed");
     std::fs::write(
         &setup,
         text.replace(
             stock,
-            "[stock]\ntype = \"box\"\n\n[stock.bounds.min]\nx = -1.0\ny = -17.5\nz = -17.5\n\n\
-             [stock.bounds.max]\nx = 71.4\ny = 17.5\nz = 17.5\n",
+            "[stock]\ntype = \"box\"\n\n[stock.bounds.min]\nx = 16.990234375\ny = -17.5\nz = -17.5\n\n\
+             [stock.bounds.max]\nx = 89.390234375\ny = 17.5\nz = 17.5\n",
         ),
     )
     .unwrap();
@@ -286,7 +289,7 @@ fn req_op_24_req_nfr_05_whole_number_of_slices_posts_with_both_posts() {
         &setup,
         format!(
             "{}[stock]\ntype = \"cylinder\"\ndiameter = 24.000000238343276\nlength = 66.0\n\
-             x_start = -1.0\n{rest}",
+             x_start = 16.990234375\n{rest}",
             &text[..start]
         ),
     )
