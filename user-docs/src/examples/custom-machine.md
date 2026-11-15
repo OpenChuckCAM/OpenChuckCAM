@@ -66,7 +66,7 @@ Scroll down the form and go on:
 Set **Safe Z** before **Safe cylinder radius**: the safe Z cannot be below the safe cylinder, and a radius of 50 mm is refused while the safe Z is still the Z1's 45 mm.
 
 <figure>
-<a href="images/custom_machine/04-feeds-and-clearance.png"><img src="images/custom_machine/04-feeds-and-clearance.png" width="1920" height="1080" alt="The Maximum feeds, Clearance and Tools and spindle groups of the draft: feeds 3000, 1500 and 7200, rapids 5000, 3000 and 7200, A in the feed word Separate, safe cylinder radius 50.000, safe Z 60.000, highest tool number 99, with Not confirmed on the machine and a Mark confirmed... button under the feeds and under the clearance values."></a>
+<a href="images/custom_machine/04-feeds-and-clearance.png"><img src="images/custom_machine/04-feeds-and-clearance.png" width="1920" height="1080" alt="The Maximum feeds, Clearance and Tools and spindle groups of the draft: feeds 3000, 1500 and 7200, rapids 5000, 3000 and 7200, A in the feed word Separate, safe cylinder radius 50.000, safe Z 60.000, minimum clearance radius 45.000 still confirmed on the machine, highest tool number 99, with Not confirmed on the machine and a Mark confirmed... button under the feeds and under the clearance values."></a>
 <figcaption><b>Figure 4.</b> The feeds, the clearance and the highest tool number of the example router.</figcaption>
 </figure>
 
