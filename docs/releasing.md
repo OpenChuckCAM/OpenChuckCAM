@@ -122,7 +122,7 @@ What the owner does once, so that only the maintainer can create, move or delete
 
 The menu names were checked against this document's other ruleset steps (step 4 of the documentation setup), not clicked through (lane PACKAGING, 7 Nov 2026).
 
-**Who may start a release: the variable `RELEASE_MAINTAINERS`** (OI-2147; the owner's decision of 16 Nov 2026). The first job of the release workflow compares the person who started the run with the logins in this repository variable. Because the repository belongs to the organisation `OpenChuckCAM`, the repository owner is the organisation, never a person, so name the maintainers. The owner sets it once:
+**Who may start a release: the variable `RELEASE_MAINTAINERS`** (OI-2147; the owner's decision of 16 Nov 2026). The first job of the release workflow compares the person who started the run with the logins in this repository variable. Because the repository belongs to the organisation `OpenChuckCAM`, the repository owner is the organisation, never a person, so name the maintainers. The owner created it on 16 Nov 2026 (value `paulhampson`); the steps are kept for setting it up again or from scratch:
 
 1. In the repository, **Settings**, then **Secrets and variables** in the left sidebar, then **Actions**, then the **Variables** tab (*unchecked*: the tab's exact name).
 2. Click **New repository variable**. **Name:** `RELEASE_MAINTAINERS`. **Value:** `paulhampson`. For more than one maintainer, separate the logins with commas (`paulhampson, alice`); case and spaces around the commas do not matter.
@@ -164,7 +164,7 @@ So limiting `docs-release` to release tags does not stop the nightly "latest" fr
 
 ### 2. Install it on this repository only
 
-The App is owned by, and installed on, the organisation `OpenChuckCAM`. The owner created and installed it on 16 Nov 2026 (OI-2147); the steps are kept for a replacement.
+The App is owned by, and installed on, the organisation `OpenChuckCAM`. The owner transferred the App to the organisation and installed it on this repository on 16 Nov 2026 (OI-2147); the steps are kept for setting it up from scratch or replacing it.
 
 1. Back in **Developer settings, GitHub Apps** (the organisation's, or the personal one the App is still owned by), click **Edit** next to the App, then **Install App**.
 2. Click **Install** next to the organisation `OpenChuckCAM` (the account that owns the repository, not a personal account).
