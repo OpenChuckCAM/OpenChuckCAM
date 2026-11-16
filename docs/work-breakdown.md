@@ -86,8 +86,8 @@ State of each slice on `main` (7 Nov 2026, refreshed by lane DOCS-WAVE1 against 
 | --- | --- | --- |
 | 0 to 7 | Closed | |
 | 8 viewport and shell | Closed (10 Nov 2026, owner's decision relayed by the coordinator) | Still open, not blocking the close: the workflow has four steps ([decision 0282](decisions/0282-four-step-workflow-with-separate-simulate-and-export-actions.md), FOURSTEP #389). Waiting on: launch on native graphics on macOS and Linux (OI-129); the keyboard-only run (UI-14, OI-539); the frame time after the slice 22 rework is the owner's run (OI-540). `ui-smoke.yml` has run green on `main` (OI-321 closed). The manual 1366 × 768 reference-screen check is removed (owner, 2 Nov 2026; OI-523 removed); UI-16 stays with its automated layout tests |
-| 9 display, playback and jobs | Closed (16 Oct 2026), benchmark pending | Reference-machine measurements (OI-176) |
-| 10 mesh selection | Closed (16 Oct 2026), benchmark pending | Pick budget on the reference machines (OI-173) |
+| 9 display, playback and jobs | Closed (16 Oct 2026); reference-machine measurements checked and OI-176 closed 16 Nov 2026 (release check #587) | Nothing |
+| 10 mesh selection | Closed (16 Oct 2026); pick budget checked on the reference machines and OI-173 closed 16 Nov 2026 (release check #587) | Nothing |
 | 11 STEP import | Closed (20 Oct 2026, owner's decision relayed by the coordinator to lane CLS) | Follow-ups, accepted by the owner as not blocking: OI-25 (STEP from other CAD tools), OI-120, OI-121 and OI-28, OI-73 to OI-76, OI-81 (accuracy and cross-platform items). 11b was built by lane O ([decision 0066](decisions/0066-slice-11b-brep-selection.md), accepted; project schema 12) and wired to lane Z's placed B-rep (decision 0056); lane S11 ([decision 0112](decisions/0112-slice-11-closing-items.md), accepted) closed OI-243, OI-245, OI-332 and OI-335. `cargo xtask trace` now counts the kernel-gated tests (OI-537, closed), which NFR-13 needed |
 | 12 baseline finishing | Closed (16 Oct 2026) | |
 | 13 simultaneous 4-axis finishing | Closed (15 Oct 2026) | |
