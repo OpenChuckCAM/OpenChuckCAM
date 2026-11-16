@@ -52,7 +52,7 @@ Generated G-code is the user's to verify before running it on a machine (NFR-12)
 
 Before pushing the tag `app-v<version>`, the project owner ticks these items and records them in the release's verification report (verification plan section 9, Records). The release workflow checks the items marked *(checked)* and refuses to publish if they fail ([decision 0400](decisions/0400-user-documentation-site.md), section R).
 
-- [ ] The tag ruleset protecting `lib-v*` and `app-v*` and the `crates-io` environment's restrictions are still **Active** (set up by the owner on 7 Nov 2026; [Protect the release tags](#protect-the-release-tags), OI-305). *(reported: the run's plan job warns when it cannot see one, or when the run was not started by the repository owner; it never fails the run)*
+- [ ] The tag ruleset protecting `lib-v*` and `app-v*` and the `crates-io` environment's restrictions are still **Active** (set up by the owner on 7 Nov 2026; [Protect the release tags](#protect-the-release-tags), OI-305). *(reported: the run's plan job warns when it cannot see one, or when the run was started by someone who is not a named maintainer, see [Protect the release tags](#protect-the-release-tags); it never fails the run)*
 - [ ] The unsigned first run works as the README says, on a downloaded copy of the dry run's archives (decision 0541, OI-2107): on a Mac, open `OpenChuckCAM.app` from the macOS archive as downloaded and follow the README's steps (the "Not Opened" dialog, then **Open Anyway**, or the `xattr` command); on Windows, start `openchuck-ui.exe` from the zip as downloaded and check the SmartScreen steps. Record what macOS and Windows showed in the verification report.
 - [ ] The Makera Z1 air cut has been run, or the release notes say which Z1 values are unconfirmed ([decision 0106](decisions/0106-air-cut-is-a-manual-release-step.md)).
 - [ ] The tutorial screenshots match this release: re-captured with `user-docs/tools/capture.py` at the release commit, or checked against the release build and marked reviewed in `user-docs/src/tutorial/images/CAPTURED.toml`. *(checked: the capture or review commit is not older than the last change to the screens)*
@@ -110,7 +110,7 @@ To move the floor: change the image and its digest in `build-archives.yml` and `
 
 What the owner does once, so that only the maintainer can create, move or delete the tags that start a publishing release run (`lib-v*`, `app-v*`; OI-305).
 
-**Why it matters most for `app-v` tags.** Pushing an `app-v` tag starts a release run that publishes the application release with no further step (after the gate and the checks pass), so whoever can push such a tag can publish. A `lib-v` tag push publishes nothing: crates reach crates.io only through a manual run with `publish_crates` ticked, in the `crates-io` environment, after the owner approves it (above). The ruleset closes the first door; the environment closes the second. The release workflow cannot change repository settings. It only reports, in its first job: a warning when no active tag ruleset covers `lib-v*` and `app-v*`, or when the run was not started by the repository owner. The warning never fails the run, so a token that cannot read the rulesets does not block the first release; it can become a failure once a run has shown that the check works (decision 0541).
+**Why it matters most for `app-v` tags.** Pushing an `app-v` tag starts a release run that publishes the application release with no further step (after the gate and the checks pass), so whoever can push such a tag can publish. A `lib-v` tag push publishes nothing: crates reach crates.io only through a manual run with `publish_crates` ticked, in the `crates-io` environment, after the owner approves it (above). The ruleset closes the first door; the environment closes the second. The release workflow cannot change repository settings. It only reports, in its first job: a warning when no active tag ruleset covers `lib-v*` and `app-v*`, or when the run was started by someone who is not a named maintainer (the repository variable `RELEASE_MAINTAINERS`, below; the repository owner when it is not set). The warning never fails the run, so a token that cannot read the rulesets does not block the first release; it can become a failure once a run has shown that the check works (decision 0541).
 
 1. In the repository, **Settings**; under "Code, planning, and automation" in the left sidebar, **Rules**, then **Rulesets**.
 2. **New ruleset**, then **New tag ruleset**.
@@ -121,6 +121,14 @@ What the owner does once, so that only the maintainer can create, move or delete
 7. Click **Create**.
 
 The menu names were checked against this document's other ruleset steps (step 4 of the documentation setup), not clicked through (lane PACKAGING, 7 Nov 2026).
+
+**Who may start a release: the variable `RELEASE_MAINTAINERS`** (OI-2147; the owner's decision of 16 Nov 2026). The first job of the release workflow compares the person who started the run with the logins in this repository variable. Because the repository belongs to the organisation `OpenChuckCAM`, the repository owner is the organisation, never a person, so name the maintainers. The owner sets it once:
+
+1. In the repository, **Settings**, then **Secrets and variables** in the left sidebar, then **Actions**, then the **Variables** tab (*unchecked*: the tab's exact name).
+2. Click **New repository variable**. **Name:** `RELEASE_MAINTAINERS`. **Value:** `paulhampson`. For more than one maintainer, separate the logins with commas (`paulhampson, alice`); case and spaces around the commas do not matter.
+3. Click **Add variable**.
+
+This changes only a warning. If the variable is unset or empty, the workflow falls back to the repository owner (the organisation), so every run then warns that it was started by a person. The step never fails a run, and it does not decide who can start one: the tag ruleset above and the `crates-io` environment do that. When the warning appears, the run summary says which list it compared with.
 
 To check it: the ruleset's **Insights** tab lists the pushes it evaluated; a tag push by anyone outside the bypass list (a collaborator) must be refused, naming the ruleset. Also run the Release workflow by hand on `main` with `dry_run` ticked. Its summary should say "An active tag ruleset covers lib-v*" and the same for `app-v*`. If it warns that it could not read the rulesets, check the ruleset by hand in **Settings, Rules, Rulesets** before each release.
 
@@ -149,15 +157,17 @@ So limiting `docs-release` to release tags does not stop the nightly "latest" fr
 6. Leave **Callback URL** and **Setup URL** empty; leave **Request user authorization (OAuth) during installation** and **Enable Device Flow** unticked.
 7. Under **Webhook**, untick **Active**. The App receives no events.
 8. Under **Permissions**, **Repository permissions**: set **Contents** to **Read & write**. Leave everything else at **No access** (GitHub adds **Metadata: Read-only** itself).
-9. Under **Where can this GitHub App be installed?**, choose **Only on this account**.
+9. Under **Where can this GitHub App be installed?**, choose **Only on this account**. The repository belongs to the organisation `OpenChuckCAM`, so "this account" must be the organisation: a private GitHub App can be installed only on the account that owns it. To create the App for the organisation, start from the organisation's settings instead of your profile (step 1 above: on github.com click your profile picture, then **Your organizations**, then **Settings** next to `OpenChuckCAM`, then **Developer settings**, **GitHub Apps**; *unchecked*). An App created on a personal account is moved with **Settings, Developer settings, GitHub Apps**, the App, **Advanced**, **Transfer ownership**, choosing `OpenChuckCAM` (*unchecked*: the exact wording of this screen). Its client ID and private key do not change on transfer, so the environment's variable and secret (step 3) stay valid.
 10. Click **Create GitHub App**.
 11. On the App's settings page, note the **Client ID** (shown in the "About" section near the top; *unchecked*: the exact place on the page).
 12. Generate a private key: in the left sidebar click **Credentials**, then **New key**; or, on the older page layout, under **Private keys** click **Generate a private key**. Your browser downloads a `.pem` file. GitHub keeps only the public half.
 
 ### 2. Install it on this repository only
 
-1. Back in **Developer settings, GitHub Apps**, click **Edit** next to the App, then **Install App**.
-2. Click **Install** next to your account.
+The App is owned by, and installed on, the organisation `OpenChuckCAM`. The owner created and installed it on 16 Nov 2026 (OI-2147); the steps are kept for a replacement.
+
+1. Back in **Developer settings, GitHub Apps** (the organisation's, or the personal one the App is still owned by), click **Edit** next to the App, then **Install App**.
+2. Click **Install** next to the organisation `OpenChuckCAM` (the account that owns the repository, not a personal account).
 3. Choose **Only select repositories**, select `OpenChuckCAM`, and click **Install**.
 
 ### 3. Create the `docs-release` environment

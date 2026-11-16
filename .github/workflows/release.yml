@@ -150,14 +150,28 @@ jobs:
           REPO: ${{ github.repository }}
           OWNER: ${{ github.repository_owner }}
           ACTOR: ${{ github.triggering_actor }}
+          MAINTAINERS: ${{ vars.RELEASE_MAINTAINERS }}
         run: |
           warn() {
             echo "::warning title=Release tags (OI-305)::$1"
             echo "- Warning: $1" >> "$GITHUB_STEP_SUMMARY"
           }
-          if [ "$ACTOR" != "$OWNER" ]; then
-            warn "This run was started by $ACTOR, not by the repository owner $OWNER."
+          # Who may start a release: the logins in the repository variable RELEASE_MAINTAINERS
+          # (comma-separated, any case, spaces allowed); the repository owner when it is unset
+          # or empty (OI-2147, docs/releasing.md).
+          list=$(printf '%s' "$MAINTAINERS" | tr -d '[:space:]')
+          if [ -n "$(printf '%s' "$list" | tr -d ',')" ]; then
+            compared="named in the repository variable RELEASE_MAINTAINERS ($list)"
+          else
+            list="$OWNER"
+            compared="the repository owner $OWNER (the variable RELEASE_MAINTAINERS is not set)"
           fi
+          list=$(printf '%s' "$list" | tr '[:upper:]' '[:lower:]')
+          actor=$(printf '%s' "$ACTOR" | tr '[:upper:]' '[:lower:]')
+          case ",$list," in
+            *",$actor,"*) ;;
+            *) warn "This run was started by $ACTOR, who is not $compared." ;;
+          esac
           if ! ids=$(gh api "repos/$REPO/rulesets?targets=tag&includes_parents=true" --jq '.[] | select(.enforcement == "active") | .id' 2>&1); then
             warn "Could not read the repository's rulesets ($ids); check by hand that an active tag ruleset protects lib-v* and app-v*."
             exit 0
