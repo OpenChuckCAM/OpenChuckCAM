@@ -115,10 +115,63 @@ Icon
 
 ### Known issues
 
+These are the open bugs known at this release, grouped by what they affect, with the most serious first in each group. The number in brackets is the issue on the [issue tracker](https://github.com/OpenChuckCAM/OpenChuckCAM/issues?q=is%3Aissue+is%3Aopen+label%3Abug), where you can follow it or add what you find.
+
 These two problems are fixed in the next release, 2026.2.
 
 - Facing does not yet work on STEP parts: it refuses with "no established projection bound". Workaround: import the part as STL for the Facing operation, or face the stock to length before it goes in the chuck and leave Facing out (#800).
 - Face flow cannot be applied to a closed shape whose edges do not join, for example a cylinder (#791). Workaround: choose faces that are not closed shapes, or split the face along its seam in your CAD program.
+
+**Programs, and settings you could rely on wrongly.** These can change a program, or let you believe it does something it does not.
+
+- In a swarf operation, the lead, ramp or helix at the start and end of a pass is checked only against the faces the operation cuts, not the walls beside them. A lead-out at the end of a pass can run into a neighbouring wall with no warning, and a ball-end tool's lead on a wall that stands on a floor can cut into the floor. Check the start and end of every swarf pass in the simulation (#572).
+- In simultaneous finishing, **Largest lean on hidden surfaces** has no effect: set to 0° it gives the same program as the default 90°, and no warning lists surfaces left uncut. Do not rely on it; read the lean the operation's note reports (#619).
+- Copying a machine profile keeps the "Confirmed on the machine" marks of the values you do not edit, so a copy made for another machine shows values as confirmed that nobody has checked on it. Treat every value in a copied profile as unconfirmed and measure it on your machine. In the same window, after you correct a refused value, its red error stays at the bottom until you save (#603).
+- A tool profile file edited by hand accepts a radius far beyond any real tool (a number hundreds of digits long) instead of refusing it, and the tool's size then cannot be worked out. Give real sizes in a tool profile (#628).
+- In a post definition you write yourself, coolant set to flood or mist writes `M8` or `M7` at each spindle start but never `M9`, so coolant stays on until the end of the program, and then only if your controller turns it off there. The built-in posts have coolant off. If you turn coolant on, add `M9` to your post where coolant must stop (#598).
+- In a post definition, `unwind = "rotate"` writes no move: A is not turned back by whole turns between operations, and its value keeps growing through the program. The built-in LinuxCNC post uses this setting. The built-in Makera Z1 post resets the A count instead and is not affected (#599).
+- In a post definition you write yourself, the check that the program carries the notice that it must be verified accepts the notice text anywhere in the program, not only as comment lines at its start. Write the notice as whole comment lines at the start, as the built-in posts do (#574).
+- Rest machining and helical finishing can give many warnings that "the contact feed is 0.0 mm/min" on passes at the free end of the part, where A turns at almost no radius. It is not yet known whether only the message is wrong. Check the feeds near the tip of the part in the program before you run it (#510).
+- On axial and simultaneous finishing, the simulation can report rapid moves that remove material, some of them shown as 0.000 mm³, and the command-line simulation then fails. This was found on an earlier development build and has not been checked again on this release. Look at each reported rapid in the simulation before you acknowledge it (#801).
+- End facing on a round bar can be refused when posting with "the actual end sweeps leave an unfinished required region in an axial layer", with larger slices. Workaround: a smaller **Stepdown (band along the tool)**, about 1 to 1.5 mm (#650).
+- Facing with the **Box** shape refuses on the baluster example with "an unfinished strip remains inside the requested extent" (#500).
+- A helical finish with a selection set in **Avoid** set to **Cut short** gives about four times the moves of the same finish without it, and takes about twice as long to generate (#608).
+- Pencil clean-up with a flat-end tool on a STEP part makes many more passes at a corner with **Exact STEP surface contact** on than with it off (31 against 6 in one case). It is not yet known whether this is intended (#632).
+- The last move of a lead-in, where the tool meets the surface on a pass that turns A, is given a slower feed than its length needs, by a fraction of a second. It is never faster than it should be (#685).
+
+**Keyboard use and accessibility.**
+
+- A window that opens over the main window (export, import, new operation, tool library, machine library) does not take keyboard focus: the first <kbd>Tab</kbd> goes to the **File** menu behind it. Click in the window first (#580).
+- <kbd>Tab</kbd> can move to a field that is scrolled out of view, in the Inspector, on the export window's acknowledgement tick box and in the machine library, and nothing scrolls it into view. Scroll with the mouse, or make the window larger (#577).
+- Most tooltips open only when the mouse is over a control, so you do not see them from the keyboard. This includes the reason a step tab gives for being unavailable (#578).
+- There is no screen reader support, and many controls you can reach with <kbd>Tab</kbd> have no name (#579).
+- Smaller keyboard and layout problems: the <kbd>Tab</kbd> order does not always follow the reading order; **Help > Keyboard shortcuts** leaves out some keys (<kbd>F</kbd>, <kbd>V</kbd>, the playback keys, <kbd>Ctrl</kbd>+<kbd>Enter</kbd>, <kbd>Ctrl</kbd>+<kbd>+</kbd> and <kbd>Ctrl</kbd>+<kbd>-</kbd>, <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>Z</kbd>); adding a setup and deleting a selection set are in no menu; <kbd>Esc</kbd> closes only the tool library window; the **Add** button of the new operation window is not highlighted; and at 1366 x 768 some labels are cut short or overlap (#581).
+- With a selection set in **Avoid**, the **Cut short**, **Warn only** and **Ignore** choices wrap onto a second line that starts left of the other settings. Every choice still works (#609).
+
+**Tools, machines, workholding and selection.**
+
+- The held-region warning says nothing within one tool radius of the held region is cut. The zone left uncut is wider, the tool radius plus 0.5 mm, and corners next to it can keep up to about 0.9 mm more material (#774).
+- In the workholding section, the head zone line is out of date until you press **Apply**: it can show a 5 mm zone when the grip already reaches the part. Press **Apply** to bring it up to date (#767).
+- `openchuck-cli setup` with `--default-tabs` is refused when only one end of the part can have a default tab, and writes nothing. Add the tabs in the workholding section of the program, which adds the one there is room for, or add that end's tab by hand (#676).
+- An operation's **Geometry** section is crowded and hard to read when it has several selection sets (#759).
+- After a project that had recovery data is deleted, Messages keeps warning that the project is missing, and the warning cannot be dismissed (#681).
+- The default tools file starts with a comment that carries an internal reference number. It does not change the tools (#775).
+
+**Generating and the Results tab.**
+
+- After **Generate** is refused, Results shows the new error but still lists the previous run's moves and warnings under it. They belong to the earlier run (#766).
+- Hiding a path with its eye icon makes Results say "The project has changed since this run. Generate again." Showing or hiding paths changes nothing, and you do not need to generate again (#607).
+- The pass order message can give a time such as "about -11.4 s". A minus sign means the moves between passes are that much shorter: it is a saving (#612).
+- In rest machining, an area that cannot be reached can be listed with no length ("X 10.000 to 10.000"), and the **Pass order** choices show `by_region` and `after_main` instead of words (#613).
+- For face flow finishing and swarf, the **Geometry** section says "With nothing in Cut on, the operation cuts the whole part", but both refuse without a set in **Cut on**. Save the faces as a selection set and put it in **Cut on** (#614).
+- Face flow finishing can give two pass counts that seem to disagree, such as "cuts 12 passes on 1 face" and "in 17 passes" (#631).
+- The tree and the selection set's settings say "1 faces" and "1 edges", and the message shown when a STEP file opens does not name face flow finishing among the operations that use its exact faces (#615).
+
+**Other.**
+
+- On macOS, the OpenCASCADE notice says you may replace `openchuck-step-worker`, but not that replacing it inside `OpenChuckCAM.app` breaks the app's signature. Sign it again with `codesign --force --deep --sign - OpenChuckCAM.app` (#589).
+
+Other open issues concern the project's own tests, build and documentation and do not affect programs. They are listed on the [issue tracker](https://github.com/OpenChuckCAM/OpenChuckCAM/issues?q=is%3Aissue+is%3Aopen+label%3Abug) with the label bug.
 
 ### Makera Z1 machine values
 
