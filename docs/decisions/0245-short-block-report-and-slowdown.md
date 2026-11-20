@@ -35,7 +35,7 @@ The owner reported underflow-like movement at the far-end first-cut tab at 100% 
 
 ## Verification results (SHORTMOVE, GC-17, PR #356)
 
-Verification notes moved from `docs/short-block-verification.md` and `docs/first-cut-tail-tab-investigation.md` on 1 Nov 2026 (DOCS-TIDY). Branch `codex/lane-shortmove-smooth-running`; results are historical pre-integration checks at library **0.22.0** unless labelled otherwise; the released integration (main `ba10400fff3bb7ad32526a7e540919c810e85434`, GATES 19/5 compatibility and STEPALL 0.23.0) yields library **0.24.0**, schemas 20/6, and 0245 is this lane's renumber of its colliding 0244 (GATES' separate 0244 is untouched). OI-992 and OI-993 stay open. Nothing here is an attended Z1 trial.
+Verification notes moved from `docs/short-block-verification.md` and `docs/first-cut-tail-tab-investigation.md` on 1 Nov 2026 (DOCS-TIDY). Branch `codex/lane-shortmove-smooth-running`; results are historical pre-integration checks at library **0.22.0** unless labelled otherwise; the released integration (main `ba10400fff3bb7ad32526a7e540919c810e85434`, GATES 19/5 compatibility and STEPALL 0.23.0) yields library **0.24.0**, schemas 20/6, and 0245 is this lane's renumber of its colliding 0244 (GATES' separate 0244 is untouched). OI-992 stays open; OI-993 closed on 20 Nov 2026 ([decision 0506](0506-combine-pure-a-runs.md), Verification). Nothing here is an attended Z1 trial.
 
 ### Configuring a machine
 
