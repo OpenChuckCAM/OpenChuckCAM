@@ -560,8 +560,10 @@ mod tests {
         let z1 = builtin(MAKERA_Z1).unwrap().unwrap();
         assert_eq!(z1.rotary_origin.z, -48.6);
         // X and Y: the centre of the headstock face next to the chuck, from
-        // the owner's G54 in 4-axis mode on firmware 1.1.3 (decision 0649).
-        assert_eq!((z1.rotary_origin.x, z1.rotary_origin.y), (-198.39, -123.39));
+        // the owner's G54 in 4-axis mode on firmware 1.1.3 (decision 0649);
+        // Y is the G54 Y the firmware sets, -124.39, not 0649's -123.39
+        // (decision 0651).
+        assert_eq!((z1.rotary_origin.x, z1.rotary_origin.y), (-198.39, -124.39));
         assert!(z1.is_confirmed(ProfileField::RotaryOrigin));
         let source = &z1.provenance[&ProfileField::RotaryOrigin].source;
         // It says what was measured, with what, and what was not recorded.
@@ -575,9 +577,11 @@ mod tests {
             "tool length offset",
             "headstock",
             "83.050",
-            "-123.39",
+            "-124.39",
+            "-124.3900",
             "0317",
             "0649",
+            "0651",
         ] {
             assert!(source.contains(fact), "{fact}: {source}");
         }
