@@ -26,7 +26,7 @@ Because the shank may meet the stock, the program treats this warning as a possi
 4. Set **Flute length** to `3`.
 
 <figure>
-<a href="images/flutes/01-short-flutes.png"><img src="images/flutes/01-short-flutes.png" width="1920" height="1080" alt="The Tool library window on the project's copy of T204: the note The project's copy: each change can be undone, Name Short-flute ball 3.175x3, Type Ball end mill, Diameter 3.175, Flute length 3.000, Overall length 38.000, Stick-out blank with the hint 8.000, Shank diameter 3.175, 2 flutes, carbide; on the right, Differs from the library: name, flute length."></a>
+<a href="images/flutes/01-short-flutes.png"><img src="images/flutes/01-short-flutes.png" width="1920" height="1080" alt="The Tool library window on the project's copy of T204: the note The project's copy: each change can be undone, Name Short-flute ball 3.175x3, Type Ball end mill, Diameter 3.175, Flute length 3.000, Overall length 38.000, Stick-out 25.300, Shank diameter 3.175, 2 flutes, carbide; on the right, Differs from the library: name, flute length."></a>
 <figcaption><b>Figure 1.</b> The project's copy of the finishing tool, with 3 mm of flute. The library's tool is not changed.</figcaption>
 </figure>
 
