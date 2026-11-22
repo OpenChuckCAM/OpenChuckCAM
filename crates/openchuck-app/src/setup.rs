@@ -51,6 +51,10 @@ pub struct SetupReport {
     /// a tab narrower than a tool; each in the one form (decision record
     /// 0644).
     pub notes: Vec<String>,
+    /// The machine X of the profile's rotary reference point, the setup's
+    /// X 0, when the project has a machine: the travel warnings along the
+    /// rotary axis give the setup's X from it (decision record 0672).
+    pub rotary_reference_x: Option<f64>,
 }
 
 impl SetupReport {
@@ -60,7 +64,7 @@ impl SetupReport {
     pub fn warning_lines(&self) -> Vec<String> {
         self.warnings
             .iter()
-            .map(|w| crate::overview::setup_warning_in_form(&self.name, w))
+            .map(|w| crate::overview::setup_warning_in_form(&self.name, w, self.rotary_reference_x))
             .collect()
     }
 }
@@ -149,6 +153,48 @@ pub fn is_possible_collision(kind: &openchuck_types::setup::SetupWarningKind) ->
             | K::ClearanceInsidePart { .. }
             | K::ClearanceBelowMinimum { .. }
     )
+}
+
+/// Whether `profile`, the project's machine copy whose library id is `id`,
+/// is a copy of the built-in Makera Z1 (by its id, or by its name when it has
+/// no id) with the built-in's Rotary reference X,
+/// so its rotary reference point, X 0 of every setup, is the headstock face
+/// (decision records 0649 and 0672). An older copy (reference X -180.4, in
+/// front of the face) or another machine is not: what its reference point
+/// is on the machine is its profile's choice, and the program does not know
+/// it.
+pub fn reference_is_headstock_face(id: Option<&str>, profile: &MachineProfile) -> bool {
+    // Known as the old-copy checks know a Z1 copy: by its library id, or by
+    // its name when it has none (decision records 0647 and 0651).
+    let z1 = match id {
+        Some(id) => id == openchuck_project::machines::MAKERA_Z1_ID,
+        None => profile.name == openchuck_project::machines::MAKERA_Z1_NAME,
+    };
+    z1 && builtin(MAKERA_Z1)
+        .and_then(Result::ok)
+        .is_some_and(|z1| (z1.rotary_origin.x - profile.rotary_origin.x).abs() < 1e-9)
+}
+
+/// The setup checks of [`openchuck_types::setup::check_setup`], and on a
+/// machine whose reference point is its headstock face
+/// ([`reference_is_headstock_face`]) a stock (or part) starting behind it,
+/// before the travel warnings (decision record 0672). `id` is the machine
+/// copy's library id.
+pub fn check_setup(
+    id: Option<&str>,
+    check: &openchuck_types::setup::SetupCheck<'_>,
+) -> Vec<SetupWarning> {
+    let mut found = openchuck_types::setup::check_setup(check);
+    if reference_is_headstock_face(id, check.profile)
+        && let Some(behind) = openchuck_types::setup::starts_behind_reference(check)
+    {
+        let at = found
+            .iter()
+            .position(|w| matches!(w.kind, SetupWarningKind::OutsideTravel { .. }))
+            .unwrap_or(found.len());
+        found.insert(at, behind);
+    }
+    found
 }
 
 /// The length a tool is assumed to stick out beyond its flutes, since the
@@ -424,6 +470,141 @@ mod tests {
         // Flute 1 mm, stick-out 6 mm: the tip reaches 72 - 101 - 6 = -35.
         assert_eq!(spindle_depth(&z1, &tool(1.0), &path(&[0.0, -35.0])), None);
         assert!(spindle_depth(&z1, &tool(1.0), &path(&[-35.001])).is_some());
+    }
+
+    /// The stock starting behind X 0 warns only on a copy of the built-in
+    /// Makera Z1 with its Rotary reference X (the headstock face): not on an
+    /// older Z1 copy, whose reference is 17.99 mm in front of the face, not
+    /// on a copy saved under another id or name, and not on another machine, whose
+    /// reference point may be its chuck face (SET-05, SET-06, NFR-12;
+    /// decision record 0672, issue #812).
+    #[test]
+    fn req_set_05_req_set_06_only_a_current_z1_copy_warns_of_a_stock_behind_the_headstock() {
+        let z1 = builtin_z1();
+        let id = Some(openchuck_project::machines::MAKERA_Z1_ID);
+        let frame = SetupFrame::default();
+        let rules = ClearanceRules::default();
+        // The tutorial's fresh stock, 1 mm behind X 0.
+        let stock = Stock::Cylinder {
+            diameter: Millimetres(24.0),
+            length: Millimetres(63.0),
+            x_start: Millimetres(-1.0),
+        };
+        let behind = |id: Option<&str>, profile: &MachineProfile| {
+            check_setup(
+                id,
+                &openchuck_types::setup::SetupCheck {
+                    profile,
+                    frame: &frame,
+                    stock: Some(&stock),
+                    clearance: None,
+                    rules: &rules,
+                    part: None,
+                },
+            )
+            .into_iter()
+            .filter(|w| matches!(w.kind, SetupWarningKind::StartsBehindReference { .. }))
+            .count()
+        };
+        assert!(reference_is_headstock_face(id, &z1));
+        assert_eq!(behind(id, &z1), 1);
+        let text = crate::overview::setup_warning_in_form(
+            "Setup 1",
+            &check_setup(
+                id,
+                &openchuck_types::setup::SetupCheck {
+                    profile: &z1,
+                    frame: &frame,
+                    stock: Some(&stock),
+                    clearance: None,
+                    rules: &rules,
+                    part: None,
+                },
+            )[0],
+            Some(z1.rotary_origin.x),
+        );
+        for words in [
+            "Stock (setup 'Setup 1'): ",
+            "he stock starts at X -1.000, 1.000 mm inside the headstock (X 0 is the headstock \
+             face on the Makera Z1).",
+            "set the stock's Start X to at least that",
+        ] {
+            assert!(text.contains(words), "{words}: {text}");
+        }
+        let mut old = z1.clone();
+        old.rotary_origin.x = -180.4;
+        assert!(!reference_is_headstock_face(id, &old));
+        assert_eq!(behind(id, &old), 0);
+        assert_eq!(behind(Some("another-id"), &z1), 0);
+        // A copy with no id is known by its name, as the old-copy checks do.
+        assert_eq!(behind(None, &z1), 1);
+        let mut renamed = z1.clone();
+        renamed.name = "My Z1".into();
+        assert_eq!(behind(None, &renamed), 0);
+        assert_eq!(behind(None, &MachineProfile::example_x_rotary()), 0);
+    }
+
+    /// A position past the X travel is given in the setup's X as typed, how
+    /// far past, in machine X, and what to move: issue #820's numbers on the
+    /// Makera Z1 (decision record 0672).
+    #[test]
+    fn req_set_05_req_set_06_the_travel_warning_along_x_says_what_to_move() {
+        let z1 = builtin_z1();
+        let warning = SetupWarning {
+            kind: SetupWarningKind::OutsideTravel {
+                what: "the start of the stock",
+                axis: "X",
+                value: -263.16,
+                min: -207.0,
+                max: -1.0,
+            },
+            unconfirmed: Vec::new(),
+        };
+        let text =
+            crate::overview::setup_warning_in_form("Setup 1", &warning, Some(z1.rotary_origin.x));
+        for words in [
+            "Travel (setup 'Setup 1'): ",
+            "he start of the stock, at X -64.770, is 56.160 mm past the machine's X travel: it \
+             would be at machine X -263.160, and the machine reaches -207.000 to -1.000.",
+            "Move the stock towards +X (Start X), with the part (Offset along X) and the work \
+             zero (Zero at X), or shorten it.",
+            "X is measured from the machine's rotary reference point, at machine X -198.390.",
+        ] {
+            assert!(text.contains(words), "{words}: {text}");
+        }
+        let at_end = |what: &'static str| SetupWarning {
+            kind: SetupWarningKind::OutsideTravel {
+                what,
+                axis: "X",
+                value: 4.0,
+                min: -207.0,
+                max: -1.0,
+            },
+            unconfirmed: Vec::new(),
+        };
+        let text = crate::overview::setup_warning_in_form(
+            "S",
+            &at_end("the end of the part"),
+            Some(-198.39),
+        );
+        assert!(text.contains("at X 202.390, is 5.000 mm past"), "{text}");
+        assert!(
+            text.contains("Move the part towards -X (Offset along X)."),
+            "{text}"
+        );
+        let text =
+            crate::overview::setup_warning_in_form("S", &at_end("the work zero"), Some(-198.39));
+        assert!(
+            text.contains("Move the work zero towards -X (Zero at X)."),
+            "{text}"
+        );
+        // Without the reference point, and across the axis, the words are
+        // the library's.
+        let plain = crate::overview::setup_warning_in_form("S", &warning, None);
+        assert!(
+            plain.contains("is at machine X -263.160, outside the travel"),
+            "{plain}"
+        );
     }
 
     /// A flat end mill with `flute` mm of flute, as the Z1 defaults are.

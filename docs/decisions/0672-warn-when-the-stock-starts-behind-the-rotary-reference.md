@@ -1,59 +1,69 @@
-# 0672: Warn when the stock starts behind the rotary reference point (SET-05, SET-06, SET-09, NFR-12; issue #812; lane Z1-SETUP)
+# 0672: Warn when the stock starts behind the Z1's headstock face, and say what the travel numbers mean (SET-05, SET-06, SET-09, UI-07, NFR-12; issues #812 and #820; lane Z1-SETUP)
 
-- **Status:** proposed by lane Z1-SETUP on 22 Nov 2026, for the owner's choices D1 to D4 (asked through the coordinator). Not built until they are answered.
+- **Status:** proposed by lane Z1-SETUP on 22 Nov 2026. The owner accepted the first proposal's recommended set in principle on 22 Nov 2026 (every machine, a 0.0005 mm threshold on the stock's start, a plain warning, the #820 travel message to gain the model X and a fix), relayed by the coordinator, with two required changes: (1) short wording that says what to do first, with explanation where the user meets it (tooltips, and a user guide section with a diagram and a worked Z1 example); (2) an answer to whether model X 0 can be assumed to be the headstock on every machine. This revision answers both. Not pushed until the owner agrees the text (OI-2185).
 - **Date:** 22 Nov 2026.
-- **Requirements:** SET-05 (the part's position along the rotary axis), SET-06 (the setup checks), SET-09 (the held region), NFR-07, NFR-12. No requirement text changes.
-- **What it amends:** nothing in `requirements.md` or `architecture.md`. It builds on [decision 0649](0649-the-z1-profile-takes-the-firmware-1-1-3-measurements.md) item 5 (the Z1's rotary reference point is the headstock face, so model X 0 is that face) and [decision 0651](0651-the-z1-rotary-reference-y-is-the-firmware-g54-y.md); it uses the warning classes of [decision 0538](0538-a-possible-collision-is-a-warning-to-acknowledge.md) and the message form of [decision 0536](0536-message-levels-operation-reference-and-setting-links.md).
-- **Open items:** OI-2185 (this record's choices).
+- **Requirements:** SET-05 (the part's position along the rotary axis), SET-06 (the setup checks), SET-09 (the held region), UI-07 (the inspector's explanations), NFR-07, NFR-12. No requirement text changes.
+- **What it amends:** nothing in `requirements.md` or `architecture.md`. It builds on [decision 0011](0011-slice-3-machine-stock-setup.md) items 1, 2 and 4 (the frames and the rotary reference point), [decision 0201](0201-setup-offset-moves-the-part.md) (the part offset moves only the part), [decision 0649](0649-the-z1-profile-takes-the-firmware-1-1-3-measurements.md) item 5 and [decision 0651](0651-the-z1-rotary-reference-y-is-the-firmware-g54-y.md) (the Z1's reference point is the headstock face), and uses the warning classes of [decision 0538](0538-a-possible-collision-is-a-warning-to-acknowledge.md) and the message form of [decision 0536](0536-message-levels-operation-reference-and-setting-links.md).
+- **Open items:** OI-2185 (the owner's agreement to this text); OI-2187 (a profile field naming what the reference point is: proposed, not added).
 
 ## Context
 
-A setup's part offset and work zero are measured along the rotary axis from the machine's rotary reference point (`MachineProfile::rotary_origin`, SET-05). On the built-in Makera Z1 that point is the centre of the headstock face next to the chuck (decision 0649 item 5), so model X 0 is the headstock face and anything at a model X below 0 would be inside the headstock.
+On a fresh tutorial project the Cylinder stock fills in a start of X −1.000 and the setup checks say nothing (issue #812), although on the Makera Z1 that is 1 mm inside the headstock. When the stock starts far enough behind to leave the travel, the user gets "the start of the stock is at machine X −263.160, outside the travel −207.000 to −1.000" (issue #820): a machine coordinate the user never typed, and no way to fix it. The owner's note on #812: the chuck's length varies with the jaws and how far they grip, so the user must measure it, not rely on the tutorial's 18 mm.
 
-The setup checks (`openchuck_types::setup::check_setup`) check the stock's ends only against the machine's X travel. On the Z1 the travel runs 8.61 mm behind the face (machine X −207 against the face at −198.39), so a stock that starts at X −1 passes: a fresh tutorial project whose Cylinder stock fills in a start of X −1.000 shows "The stock, the clearance and the travel raise no warnings" (issue #812). The toolpath check catches moves outside the travel, but not a stock inside the headstock. When the stock starts far enough behind to leave the travel, the user gets "the start of the stock is at machine X −263.160, outside the travel −207.000 to −1.000" (issue #820), which gives machine coordinates the user did not type and no way to fix it.
+## Is model X 0 always the headstock? (the owner's question)
 
-The owner's note on #812 (15 Nov 2026): the chuck's length in front of the headstock is not a constant (it varies with the jaws and how far they grip), and the Makera controller lets the user offset X0, so the warning must tell the user to **measure** the distance from the headstock face to where the chuck grips the stock, not rely on an assumed value such as the tutorial's 18 mm.
+**What X 0 is, by construction.** Every position along the rotary axis in a setup is measured from the machine profile's **rotary reference point**, `rotary_origin` (decision 0011 items 1 and 4): the stock's **Start X**, the held regions and tabs, the work zero (**Zero at X**), and the part after its **Offset along X** (decision 0201). The machine X of a setup position *x* is `rotary_origin.x + x` (`RotaryFrame::on_axis`; `expected_work_offset` for the work zero; the travel checks of `check_setup`; the program check in `posting.rs`). So setup X 0 is the rotary reference point on every machine, by construction. The program's own X0 is the work zero, which is X 0 only when **Zero at X** is 0.
+
+**What the reference point is on the machine.** That is the profile author's choice, and the program does not know it. Decision 0011 item 4 defines `rotary_origin` as "a point on the rotary axis such as the chuck face centre". On the built-in Makera Z1 it is the centre of the headstock face next to the chuck (decision 0649 item 5), because the controller works from there and the chuck's face moves with the jaws. The only record of what the point is lies in the free-text provenance `source` of `rotary_origin`; there is no field for it. The library's doc comment and the inspector's **Position** tooltip still say "the chuck face" (`MachineProfile::rotary_origin`; `POSITION_EXPLAINED` in `crates/openchuck-app/src/setup_form.rs`), which has been wrong for the Z1 since 0649.
+
+**So the assumption is not safe on other machines.** A warning that model X 0 is the headstock face is right on the built-in Z1 and gives a **wrong warning** elsewhere:
+
+- a profile whose reference point is the **chuck face** expects the gripped stock to start behind X 0, inside the jaws: every correct setup on it would warn;
+- a profile whose reference point is in front of the headstock (an older copy of the Z1 is one: its reference X −180.4 is 17.99 mm in front of the face, decision 0649) would warn about stock that is clear;
+- a profile whose reference point is behind the headstock face would miss stock inside the headstock.
+
+None of these can be told apart without a field that says what the reference point is.
 
 ## Choices for the owner
 
-**D1. Which machines get the check.**
+**R. Which machines get the warning.**
 
-- **A (recommended): every machine.** Model X 0 is the rotary reference point on every machine (SET-05). The warning says where that point is on the Z1 and that a stock cannot start behind it. No schema change. A user-made profile whose reference point is the chuck's face (stock gripped behind it) would warn wrongly; the user guide's definition already describes the reference point as the headstock face on the Z1, "where the controller works from".
-- **B: only machines that say their reference point is the headstock face.** A new optional machine profile field (for example `reference_is_headstock_face`, or the headstock face's model X), set on the built-in Z1. Precise, but a format change: machine profile schema 9 and project schema 29 (claimed first), a migration, a machine form field and a provenance entry.
-- **C: only copies of the built-in Makera Z1** (known by its library `id`, as the feed word of decision 0076 is). No schema change, but a rule tied to one machine.
+- **R-A (recommended): copies of the built-in Makera Z1 whose Rotary reference X is the built-in's, −198.39** (the headstock face). They are known as the old-copy checks of decisions 0647 and 0651 know a Z1 copy, by the copy's library `id` (or, for a copy stored without one, its name, Makera Z1), and by the reference X, so an old copy with −180.4 does not warn. The warning names the headstock face. No other machine gets it, so it is never wrong; the tooltips and the guide section below explain X for every machine. No schema change. A user's own copy of the Z1, saved under a new `id`, does not get it either; the guide says so.
+- **R-B: R-A now, and later an optional machine profile field naming what the reference point is**, for example `rotary_reference = "headstock_face" | "chuck_face" | "other"`, so any machine can get the right warning: with `headstock_face` the warning below; with `chuck_face` a warning only when the stock starts behind X 0 by more than its held region at the start (the grip); with `other` or none, no warning. **Not added here** (the owner asked for a proposal only). Its cost: a format change, machine profile schema 9 and project schema 29 (the machine copy is a project file; claimed in the work breakdown first), an additive migration that changes only the number, one row in the machine form and the machine library, and the value in the built-in Z1. Tracked as OI-2187.
+- **R-C: every machine, worded "behind the rotary reference point" without naming the headstock** (the first proposal). Gives the wrong warnings listed above. Not recommended.
 
-**D2. What is checked, and the threshold.**
+**T. The threshold and the class** (accepted in principle, unchanged): the stock's start, or with no stock the part's start, more than 0.0005 mm behind X 0; a plain warning under the setup's **Part position**, nothing to acknowledge (decision 0538).
 
-- **A (recommended):** the start of the stock (the held region at the start lies inside the stock, so it is covered); with no stock, the start of the part. It warns when that start is behind model X 0 by more than 0.0005 mm (the G-code's three places, as the clearance checks).
-- **B:** as A, and also a warning when the stock starts within an assumed chuck length (for example 18 mm) of the face. Not recommended: the owner's note says the length varies and must be measured.
+**W. The words** (short, what to do first; the tutorial's fresh stock). With R-A:
 
-**D3. How the warning is classed** (decision 0538).
+> Stock (setup 'Setup 1'): the stock starts at X −1.000, 1.000 mm inside the headstock (X 0 is the headstock face on the Makera Z1). Measure from the headstock face to where your chuck grips, with your jaws fitted, and set the stock's Start X to at least that; move the part (Offset along X) and the work zero (Zero at X) with it.
 
-- **A (recommended): a warning, like the travel checks.** Shown in the setup checks and Messages under the setup's Part position section (where the fix is made); generation and export run; nothing to acknowledge.
-- **B: a possible collision**, which must be acknowledged before export, like a safe cylinder inside the stock. Every new project starts with a stock at X −1 (its part at X 0), so every new project would need the acknowledgement until the part is moved.
+With no stock: "the part starts at X …", and "set the part's Offset along X so it starts at least that far along, and move the work zero (Zero at X) with it". With R-C the first sentence would read "… 1.000 mm behind the machine's rotary reference point (X 0)", naming no headstock.
 
-**D4. The words** (recommended; the owner may change them). For the stock:
+The first proposal said "move the part along X (Offset along X and Zero at X), or shorten the stock". That was wrong: **Offset along X moves only the part** (decision 0201), so it does not take the stock out of the headstock, and shortening the stock does not either. The fix is the stock's **Start X**.
 
-> the start of the stock is at X −1.000, 1.000 mm behind the rotary reference point (X 0; on the Makera Z1 the headstock face), so part of it would be inside the headstock or the chuck. Measure the distance from the headstock face to where your chuck grips the stock, with your jaws fitted, and move the part along X by at least that (Offset along X and Zero at X), or shorten the stock.
+**M. The travel message along the rotary axis** (#820). Today: "the start of the stock is at machine X −263.160, outside the travel −207.000 to −1.000". Proposed, worked out in the application from the profile's Rotary reference X, so `openchuck-types` and its public API do not change:
 
-With no stock, "the start of the part" in place of "the start of the stock", and "move the part along X by at least that (Offset along X and Zero at X)" alone. The machine values it uses (the rotary reference point) are named when they are not confirmed, as every setup check does.
+> Travel (setup 'Setup 1'): the start of the stock, at X −64.770, is 56.160 mm past the machine's X travel: it would be at machine X −263.160, and the machine reaches −207.000 to −1.000. Move the stock towards +X (Start X), with the part (Offset along X) and the work zero (Zero at X), or shorten it. X is measured from the machine's rotary reference point, at machine X −198.390.
 
-**D5 (recommended, no choice needed unless the owner disagrees): the travel warning along the rotary axis says how to fix it** (#820). "the start of the stock is at machine X −263.160, outside the travel −207.000 to −1.000" becomes:
+The same for the end of the stock ("towards −X"), the part (Offset along X only) and the work zero (Zero at X only). The first proposal's version needed a new field in `SetupWarningKind::OutsideTravel`, a breaking change; this one does not.
 
-> the start of the stock (X −64.770) is at machine X −263.160, outside the travel −207.000 to −1.000. Move the part and the stock along X (Offset along X and Zero at X), or shorten the stock.
+**E. Explanation where the user meets it** (the owner's change 1).
 
-The model X comes first because it is the number the user typed; the machine X stays for checking against the controller. The same for the end of the stock, the part and the work zero ("Move the work zero (Zero at X)" for the work zero). It needs the model X in `SetupWarningKind::OutsideTravel`, a new field: a breaking change of `openchuck-types` and so a workspace minor bump (decision 0048), which waits until the coordinator says the crates.io publish of 0.55.0 is done.
+- **Tooltips.** **Offset along X**, **Zero at X**, the stock's **Start X**, the read-only **Position** row and the machine form's **Rotary reference X** each say, in one or two sentences, that X is measured from the machine's rotary reference point (the headstock face on the Makera Z1), and what the value moves and does not move: Offset along X moves only the part; Start X moves the stock; Zero at X moves only the program's X0. The Position tooltip's "(the chuck face)" goes.
+- **The user guide.** One section, "Where things sit along X", in the concept page *Stock and the held region* (`concepts/stock-and-held-region.md`), which already explains the stock and the grip; the tutorial's step 4 and the machine profile reference (**Rotary reference X, Rotary reference Y**) link to it rather than repeat it. The 0.55.0 release notes describe that release and are not changed. It has an inline SVG in the guide's style (`currentColor`, with `<title>` and `<desc>`, as in *How 4-axis rotary machining works*) showing, left to right: the headstock and its face, the chuck and jaws, the rotary reference point (X 0, at machine X = Rotary reference X), the stock's Start X, the held region, the part (placement plus Offset along X), the work zero (Zero at X, the program's X0) and the machine's X travel. A worked Z1 example in numbers, the #820 case: Start X −64.770 is machine X −198.390 + (−64.770) = −263.160, outside −207.000 to −1.000; the stock must start at X −8.610 or more to be inside the travel, and at the measured chuck length or more to be clear of the chuck. No decision or `OI-` numbers in the guide.
 
 ## Proposed decision
 
-D1 A, D2 A, D3 A, D4 and D5 as written: one new `SetupWarningKind`, `StartsBehindReference { what, x }`, in `openchuck-types` (the enum is `non_exhaustive`, so adding a variant is not a breaking change), raised by `check_setup` after the clearance checks and before the travel checks, and shown in the app's setup checks, Messages and export checks and the command line's `setup` report as the other setup warnings are. No G-code changes (GC-07): it is a check only.
+R-A, T, W, M and E as written. In code: `SetupWarningKind::StartsBehindReference { what, x }` (a new variant of a `non_exhaustive` enum, not a breaking change) with the words of W, raised by the application for a qualifying Z1 copy beside `check_setup`'s own warnings, wherever those are shown (setup checks, Messages, the export checks, the command line); M as the application's text for the along-axis travel warning; the tooltips and the guide section of E. R-B is recorded as OI-2187. No G-code changes (GC-07).
 
 ## Consequences (if accepted as proposed)
 
-- Every new project warns until its part is moved past the chuck: the user guide's tutorial already sets the part offset and work zero before the stock (decision 0650), so its screens should not change; `user-docs` pages that describe the setup checks get a sentence. No decision or `OI-` numbers in the guide.
-- The example and sample projects start their stock at X 5.99 or later (checked 22 Nov 2026: the lowest is `cone_held_tabs`, 5.990); a test asserts that none warns.
+- A new Z1 project warns until its stock is placed past the chuck. The tutorial sets the part offset and work zero first (decision 0650) and then the stock, so its screens should not change. The samples and examples start their stock at X 5.99 or later (checked 22 Nov 2026: the lowest is `cone_held_tabs`), so none warns; a test asserts it.
+- Machines other than a current copy of the built-in Z1 get no new warning (R-A); the guide says so.
+- The doc comment of `MachineProfile::rotary_origin` says "such as the centre of the headstock face next to the chuck (the Makera Z1's)" in place of "the chuck face" (documentation only).
 - Generated G-code is still the user's to verify before it runs (NFR-12). The warning is not a claim that a stock in front of the face clears the chuck.
 
 ## Verification
 
-To be written when the choices are answered and the check is built.
+To be written when the text is agreed and the change is built.
