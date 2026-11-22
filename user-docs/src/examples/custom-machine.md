@@ -17,8 +17,8 @@ You need the tutorial's finished project, [`testdata/examples/baluster/baluster-
 3. Find **Machine profiles** at the bottom of the Inspector; in a smaller window, scroll the Inspector down to it.
 
 <figure>
-<a href="images/custom_machine/01-machine-section.png"><img src="images/custom_machine/01-machine-section.png" width="1920" height="1080" alt="The Setup step with Machine profiles at the bottom of the Inspector: the library folder does not exist yet, with the buttons Create the library folder and Manage machines...; above them the amber note Differs from built-in makera-z1 in: minimum clearance radius, which values are confirmed, with the button Update the copy from the library."></a>
-<figcaption><b>Figure 1.</b> The machine section of the Inspector. "Differs from built-in makera-z1 in: minimum clearance radius" says the project's copy is not the same as the built-in profile: the example project was saved in an older format, which has no minimum clearance radius.</figcaption>
+<a href="images/custom_machine/01-machine-section.png"><img src="images/custom_machine/01-machine-section.png" width="1920" height="1080" alt="The Setup step with Machine profiles at the bottom of the Inspector: the library folder does not exist yet, with the buttons Create the library folder and Manage machines...; above them the note Matches built-in makera-z1."></a>
+<figcaption><b>Figure 1.</b> The machine section of the Inspector. "Matches built-in makera-z1." says the project's copy of the machine is the same as the built-in profile, value for value.</figcaption>
 </figure>
 
 The library folder does not exist until you save a profile in it, or click **Create the library folder**.

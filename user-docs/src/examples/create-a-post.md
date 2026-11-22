@@ -116,14 +116,14 @@ In the program:
 2. Generate the toolpaths, and simulate them, as in the [tutorial](../tutorial/08-generate.md).
 3. On the Simulate step, press **Post and export...**. Under **Post-processor**, set **Post** to **A post folder**.
 4. In **Post folder**, type the folder of your post, for example `/home/you/my-post`.
-5. Read the **Checks before writing**, tick **I will verify this G-code before running it on a machine** if asked, and press **Write G-code**.
+5. Read the **Checks before writing**, tick **I will verify this G-code before running it on a machine** if asked, and, after reading the possible collision listed (the length of tool 104, as in the [tutorial](../tutorial/07-operations.md)), **I have read the possible collisions listed for this result and will check them before running the program**; then press **Write G-code**.
 
 If the folder cannot be read, the panel says why, in red, before you export.
 
 On the command line, the same is one command:
 
 ```text
-openchuck-cli regenerate baluster --post my-post --tool-numbers keep --out baluster-out
+openchuck-cli regenerate baluster --post my-post --tool-numbers keep --out baluster-out --acknowledge-collision-warnings
 ```
 
 ## 4. Read the result
