@@ -113,7 +113,7 @@ Recommended minimum safe Z
 | Rotary axis, A+ direction | A about X, positive (at A +90 the top of the part faces the front of the machine) | yes |
 | A range | continuous | yes |
 | Axis height (machine Z) | -48.6 mm | yes (48.568 mm measured again on firmware 1.1.3) |
-| Rotary reference X, Y | -198.39 mm, -123.39 mm (the centre of the headstock face next to the chuck) | yes (firmware 1.1.3) |
+| Rotary reference X, Y | -198.39 mm, -124.39 mm (the centre of the headstock face next to the chuck) | yes (firmware 1.1.3; Y is the G54 Y the firmware sets in the 4-axis setup) |
 | Travel | X -207 to -1, Y -160 to -1, Z -102 to -1 mm | yes (the controller's soft limits on firmware 1.1.3, with the rotary module fitted) |
 | X and Y feed, Z feed, A feed | 1200 mm/min, 600 mm/min, 1800 degrees/min, the same for rapids | yes (on firmware 1.1.3 `M203.1` prints `X: 20`, `Y: 20`, `Z: 10` and `A: 30`, per second; rapids timed) |
 | A in the feed word | makera | yes |
@@ -127,6 +127,17 @@ Recommended minimum safe Z
 | Recommended minimum safe Z | 45 mm | yes (for the supplied chuck with its jaws reversed and fully open) |
 
 Every value is confirmed on the project owner's machine (firmware 1.1.3, with the supplied chuck), not on yours. Check them on your machine before you rely on them.
+
+## Rotary positioning on the Makera Z1
+
+How precisely A turns is not a value in the profile, and the program does not check it. It was measured once, on the project owner's Z1 (firmware 1.1.3), with a dial indicator on a rod held in the chuck. That is one result on one machine:
+
+- after moves to A 90, A 180 and A 270, A returned to A 0 within 0.01 mm;
+- A repeated within 0.01 to 0.02 mm at a radius of 23 mm.
+
+Every move approached from the same side, so this is how well A repeats, not how much it loses when it reverses (backlash).
+
+Makera gives the Z1's 4th axis module as 0.1 degrees, without saying whether that is its resolution or its accuracy. 0.1 degrees is 0.04 mm at a radius of 23 mm; it is 0.01 mm of arc only at a radius of about 5.7 mm. Your machine may differ: measure it if your part depends on it.
 
 ## Make a profile for another machine
 

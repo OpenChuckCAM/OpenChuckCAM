@@ -11,7 +11,7 @@ An [air cut](../glossary.md#air-cut) runs a program on the machine with **no too
 ## Before you start
 
 1. Complete sections 1 and 2 of the [safe-practice checklist](checklist.md).
-2. Note the controller's firmware version. The project's checks of the Makera Z1 were made on firmware 1.1.2; on another version, do not assume the machine behaves the same way.
+2. Note the controller's firmware version. The project's checks of the Makera Z1 were made on firmware 1.1.2 and 1.1.3; on another version, do not assume the machine behaves the same way.
 3. Measure the height of the rotary axis on your machine with Makera's 4th-axis Z probing routine, and compare it with the value in the machine profile. If it differs, correct the profile and generate the program again: a wrong axis height moves every Z in the program.
 4. Set the work offset (G54) with Y0 and Z0 on the centre line of the rotary axis, and X0 at the part's X origin, at least 10 mm clear of the jaws.
 5. Remove the tool from the spindle. Leave the chuck empty, or close the jaws on nothing.

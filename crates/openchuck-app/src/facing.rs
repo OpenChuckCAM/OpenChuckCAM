@@ -639,7 +639,7 @@ mod tests {
             let data = Arc::get_mut(&mut proof.0).unwrap();
             // The Z1's reference point, with the axis lower than the
             // built-in's so the fixture's tool clears the footer retract.
-            data.machine.rotary_origin = Point3::new(-198.39, -123.39, -55.);
+            data.machine.rotary_origin = Point3::new(-198.39, -124.39, -55.);
             data.machine.travel = travel;
             let mut accepted = false;
             written_case(
