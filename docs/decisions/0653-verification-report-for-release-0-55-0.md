@@ -3,7 +3,7 @@
 - **Status:** Accepted by the project owner on 22 Nov 2026, relayed by the coordinator (decision 0049). Proposed by lane VERIFY-REPORT the same day. It is the release verification report of [verification plan](../verification-plan.md) section 9 (Records) and work breakdown slice 20 item 13, drafted from the 0.55.0-rc3 test record. It changes no requirement, no architecture and no program behaviour. The number is provisional: the Merge Manager assigns the final number at release.
 - **Date:** 22 Nov 2026.
 - **Commit covered:** `aa73540022c3994e2cf27e350cff6fb47713672b` (tag `v0.55.0-rc3`, OpenChuckCAM 0.55.0), built by release dry run [43698165113](https://github.com/OpenChuckCAM/OpenChuckCAM/actions/runs/43698165113) on 15 Nov 2026.
-- **Open items:** adds OI-2151 (the gate 5 result on rc3 is partial), closed by the recorded waiver below, and OI-2152 (the repeat first cut with X0 probed). Names OI-992, OI-2144, OI-2107, OI-304, OI-23 and OI-2149 as still open, OI-471 and OI-2143 as closed by pull request #828 (not merged on 22 Nov 2026), and OI-105 as decided and closing in the REL-NOTES-SCREENS pull request. See *Open items* below.
+- **Open items:** adds OI-2151 (the gate 5 result on rc3 is partial), closed by the recorded waiver below, and OI-2152 (the repeat first cut with X0 probed). Names OI-992, OI-2144, OI-2107, OI-304, OI-23 and OI-2149 as still open, OI-471 and OI-2143 as closed by pull request #828 (merged on 22 Nov 2026), and OI-105 as decided and closing in the REL-NOTES-SCREENS pull request. See *Open items* below.
 - **Raw evidence:** [archive/0653-release-0-55-verification](../archive/0653-release-0-55-verification/README.md), the three parts of the rc3 test record (issue #586, comments 7072055765, 7072070836 and 7072079025).
 
 Generated G-code is the user's to verify before it is run on a machine (NFR-12). This report states what was observed on one Makera Z1 with one build. It does not verify any program as safe, for that machine or any other.
@@ -139,7 +139,7 @@ All figures in this subsection are calculated from the recorded readings; they a
 | Release gate passes | Passed in dry run 43698165113 at `aa73540`. The real release run has not happened (OI-304, OI-2107) |
 | Gates 1 to 5 passed for the reference job set on the Z1, results stored, G93 recorded | Gates 1 to 3: passed (Part A). Gate 4: passed for the ten reference programs (rc2 runs carried over on the A-04 diff, with rc3 spot checks) and for the first-cut program (C-02). Gate 5: partial, waived for 0.55.0 (below, OI-2151). G93: recorded, ignored on 1.1.3. Results stored in [archive/0653-release-0-55-verification](../archive/0653-release-0-55-verification/README.md) |
 | Fuzzing ran for a set period with no unresolved crash | Not assessed here |
-| Licence and advisory reports clean or decided; each spike has a written result | Not assessed here. Pull request #827 (decision 0652, heapless advisories) is open on 22 Nov 2026 |
+| Licence and advisory reports clean or decided; each spike has a written result | Not assessed here. Pull request #827 (decision 0652, the heapless advisories reached through rstar, ignored with a recorded decision) merged on 22 Nov 2026, after rc3 |
 | The G-code warning is present and checked (NFR-12) | Not separately checked in the rc3 record; A-07 found header and footer as rc2 |
 | User documentation current; release checklist documentation items ticked | The dry run's strict user guide check passed at `aa73540`. The items of the application release checklist (`docs/releasing.md`) are not ticked in this record; the Z1 air cut item is met (gate 4 above) |
 | Release notes drafted by a lane and reviewed before publication | Not assessed here |
@@ -170,7 +170,7 @@ Decided on 22 Nov 2026, relayed by the coordinator (decision 0049).
 - Gate 5 to ±0.1 mm: not met as written; inconclusive with the X shift allowed for; waived for 0.55.0 (OI-2151), repeat cut OI-2152.
 - B-05 (cone or lobed timing); the timing of the OI-993 on and off runs; the B-08 safe-Z check with a stated tool.
 - The A-axis two-sided backlash (C2-07 approached from one side only); the axis tilt is measured but not corrected.
-- The rotary reference Y: rc3 carries -123.39; the firmware's G54 Y read -124.39 on 21 Nov 2026 (the 14 Nov figure was a typo). Pull request #823 changes the built-in value; it is not merged on 22 Nov 2026, and its effect on rc3 output was not assessed here.
+- The rotary reference Y: rc3 carries -123.39; the firmware's G54 Y read -124.39 on 21 Nov 2026 (the 14 Nov figure was a typo). Pull request #823 (decision 0651, merged on 22 Nov 2026, after rc3) changes the built-in value to -124.39; its effect on rc3 output was not assessed here.
 - The whole-file block-rate program (OI-2144 (a), deferred) and blocks under 5 ms (OI-2144 (b)).
 - Selective short-block slowdown in representative cutting (OI-992).
 - Anything on macOS or Linux on the machine side: the Z1 runs used the Windows build.
@@ -188,5 +188,5 @@ This report was drafted by lane VERIFY-REPORT in a Linux cloud container on 22 N
 - **OI-2107, OI-304:** what only the first real release run can prove; open.
 - **OI-23:** legal review of the CLA and the OpenCASCADE notice wording; open.
 - **OI-2149:** the example projects' Z1 copies lack the minimum clearance radius; open.
-- **OI-471, OI-2143:** closed by pull request #828 on the rc3 record; not merged on 22 Nov 2026.
+- **OI-471, OI-2143:** closed by pull request #828 on the rc3 record (merged on 22 Nov 2026).
 - Closed before this report: OI-993 (20 Nov 2026), OI-41 and OI-267 (14 Nov 2026).
