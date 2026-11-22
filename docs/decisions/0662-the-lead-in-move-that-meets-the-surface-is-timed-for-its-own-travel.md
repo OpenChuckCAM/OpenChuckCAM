@@ -1,6 +1,6 @@
 # 0662: The lead-in move that meets the surface is timed for its own travel (OP-13, OP-11, NFR-12; issue #685; lane SIM-FINISH)
 
-- **Status:** proposed (22 Nov 2026) by lane SIM-FINISH, built in the lane's pull request. It awaits the owner's acceptance (decision 0049).
+- **Status:** Accepted by the project owner on 22 Nov 2026, relayed by the coordinator (decision 0049). Proposed by lane SIM-FINISH the same day; built in the lane's pull request.
 - **Date:** 22 Nov 2026.
 - **Builds on:** [0544](0544-a-lead-on-a-pass-that-turns-a-stays-in-the-plane-of-the-cut.md) item 3 (L3: the arc of a lead on a pass that turns A carries no contact point above the surface), [0034](0034-slice-12-baseline-finishing.md) (contact feed and timing).
 - **Context:** OP-13 (feed and timing of simultaneous moves), OP-11 (leads). It changes no requirement, no architecture and no API.

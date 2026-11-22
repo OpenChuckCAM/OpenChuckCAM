@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased (SIM-FINISH; issues #619, #685 and #608; decisions 0660, 0662 and 0663, proposed)
+## Unreleased (SIM-FINISH; issues #619, #685 and #608; decisions 0660, 0662 and 0663, accepted)
 
 - **Changed text (#619; decision 0660, option A, the owner's choice):** simultaneous finishing's note on surfaces hidden from the drive says what the tool aims at where it is placed to reach them (every 0.2 mm along each pass): the surface normal, plus as much of the lead as the largest lean on hidden surfaces allows, saying when it holds the lead back; where the part does not let it, how far it leans from the normal there, never more than the limit. Apart from it, it gives the largest angle of the axis from the normal along the passes, where the axis turns evenly between those places (the figure it gave before). The description of **Largest lean on hidden surfaces** says where the limit applies and that 0 also holds back the lead. Programs are unchanged. No API change.
 - **Fixed, changed output (#685; decision 0662):** on a pass that turns A, the lead-in move that meets the surface is timed for the tool tip's own travel. Its contact reference now starts at the arc's last tip plus the first cut point's offset from tip to contact, as a lead that holds A already did, so the jump from the tip to the contact point is no longer counted. Only that move's F word changes, and only where the contact point is off the tip (a sloping surface under a ball, for example); it was timed slower than needed, never faster. No API change.

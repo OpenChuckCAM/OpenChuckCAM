@@ -1,6 +1,6 @@
 # 0663: An area to avoid does not multiply the moves of helical finishing (OP-02, OP-04, NFR-04, NFR-12; issue #608; lane SIM-FINISH)
 
-- **Status:** proposed (22 Nov 2026) by lane SIM-FINISH, built in the lane's pull request. It awaits the owner's acceptance (decision 0049).
+- **Status:** Accepted by the project owner on 22 Nov 2026, relayed by the coordinator (decision 0049). Proposed by lane SIM-FINISH the same day; built in the lane's pull request.
 - **Date:** 22 Nov 2026.
 - **Builds on:** [0034](0034-slice-12-baseline-finishing.md) item 5 (region offsets replace sampling; `CONSTRAINED_SPACING` kept as the fallback for a constraint that cannot be developed), decision 0032 item 6 (a constraint is seen only where the tool is dropped).
 - **Context:** OP-02 (selections, boundaries, avoid and check surfaces), OP-04 (helical finishing), NFR-04 (generation on several cores; no requirement sets a generation time). It changes no requirement, no architecture and no API.
