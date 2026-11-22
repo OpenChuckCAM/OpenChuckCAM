@@ -648,3 +648,126 @@ fn req_gc_03_the_user_guide_example_post_loads_and_writes_a_program() {
         "GC-07"
     );
 }
+
+/// NFR-12 and NFR-07: the check looks for the notice as whole comment lines, in order, in the
+/// comment block at the top: the text inside a longer line, or the lines written only after
+/// the program has started, are refused; with line numbers on the notice is still found.
+#[test]
+fn req_nfr_12_req_nfr_07_the_notice_must_be_whole_lines_at_the_top() {
+    let manifest = std::fs::read_to_string(posts_path("linuxcnc/post.toml")).unwrap();
+    let template = std::fs::read_to_string(posts_path("linuxcnc/main.post")).unwrap();
+    let block =
+        "{% for notice in safety_notice %}\n{{ line(\"(\" ~ notice ~ \")\") }}\n{% endfor %}\n";
+    assert!(template.contains(block));
+    let refused = |template: &str| {
+        let def = PostDefinition::from_parts("t", &manifest, template).unwrap();
+        TemplatePost::new(def)
+            .post(&small_part(), &job())
+            .unwrap_err()
+            .to_string()
+    };
+    // Inside a longer line.
+    let inside = template.replace(
+        block,
+        "{% for notice in safety_notice %}\n{{ line(\"(note: \" ~ notice ~ \")\") }}\n{% endfor %}\n",
+    );
+    assert!(refused(&inside).contains("safety_notice"));
+    // Only after the program has started (moved below the work offset).
+    let late = template.replace(block, "").replace(
+        "{% if opt.feed_mode == \"g93\" %}",
+        &format!("{block}{{% if opt.feed_mode == \"g93\" %}}"),
+    );
+    assert_ne!(late, template);
+    assert!(refused(&late).contains("safety_notice"));
+    // With line numbers, the N word is not part of the comment.
+    let numbered = edited_post("linuxcnc", ("enabled = false", "enabled = true"), ("", ""));
+    assert!(
+        numbered.contains(&format!("N30 ({})", openchuck_post::SAFETY_NOTICE[0])),
+        "{numbered}"
+    );
+}
+
+/// GC-04 and GC-10 (decision 0241 item 6, issue #599): `unwind = "rotate"` writes nothing at an
+/// operation boundary. The A words of the next operation keep the accumulated turns, so no
+/// line turns A back by whole turns; the Z1's `drop_turns` writes its reset at the same place.
+#[test]
+fn req_gc_04_req_gc_10_rotate_writes_nothing_at_a_boundary_and_never_turns_back() {
+    let mut path = small_part();
+    let mut second = path.groups[0].clone();
+    second.tags.operation = "second".into();
+    second.start = pose(6.0, 0.0, 30.0, 1080.0);
+    for segment in &mut second.segments {
+        segment.end.a.0 += 1080.0;
+    }
+    path.groups.push(second);
+    let linux = builtin_post("linuxcnc").post(&path, &job()).unwrap().text;
+    let a_words: Vec<f64> = linux
+        .lines()
+        .flat_map(str::split_whitespace)
+        .filter_map(|w| w.strip_prefix('A'))
+        .map(|a| a.parse().unwrap())
+        .collect();
+    assert!(
+        a_words.windows(2).all(|w| w[1] >= w[0]),
+        "A never turns back: {a_words:?}"
+    );
+    assert_eq!(a_words.last(), Some(&2160.0), "{linux}");
+    assert!(!linux.contains("G92"), "{linux}");
+    let z1 = builtin_post("makera-z1").post(&path, &job()).unwrap().text;
+    assert_eq!(z1.matches("G92.4 A0 S0").count(), 2, "{z1}");
+}
+
+/// GC-04 and NFR-12 (issue #598, decision 0654): with `coolant` flood or mist, coolant is
+/// turned on with the spindle and off (`M9`) before every tool change and before the footer,
+/// so no spindle stop, tool change or program end leaves it running. With `off`, as both
+/// built-in posts ship, no coolant code is written.
+#[test]
+fn req_gc_04_req_nfr_12_coolant_goes_off_before_every_tool_change_and_the_end() {
+    let mut path = small_part();
+    let mut second = path.groups[0].clone();
+    second.tags.operation = "second".into();
+    second.tags.tool = "t2".into();
+    path.groups.push(second);
+    let mut j = job();
+    j.tools.insert(
+        "t2".into(),
+        openchuck_post::ToolSetting {
+            number: 2,
+            name: "6 mm flat".into(),
+            spindle_rpm: 8000.0,
+        },
+    );
+    for id in ["linuxcnc", "makera-z1"] {
+        let manifest = std::fs::read_to_string(posts_path(&format!("{id}/post.toml"))).unwrap();
+        let template = std::fs::read_to_string(posts_path(&format!("{id}/main.post"))).unwrap();
+        let off = builtin_post(id).post(&path, &j).unwrap().text;
+        assert!(
+            !off.lines().any(|l| ["M7", "M8", "M9"].contains(&l)),
+            "{id}: {off}"
+        );
+        for (value, on) in [("flood", "M8"), ("mist", "M7")] {
+            let edited = manifest.replace("coolant = \"off\"", &format!("coolant = \"{value}\""));
+            let def = PostDefinition::from_parts("t", &edited, &template).unwrap();
+            let text = TemplatePost::new(def).post(&path, &j).unwrap().text;
+            let mut running = false;
+            let (mut ons, mut offs) = (0, 0);
+            for line in text.lines() {
+                if line == on {
+                    running = true;
+                    ons += 1;
+                } else if line == "M9" {
+                    assert!(running, "{id} {value}: M9 with coolant off: {text}");
+                    running = false;
+                    offs += 1;
+                } else if line == "M5" || line.contains(" M6") || ["M2", "M30"].contains(&line) {
+                    assert!(!running, "{id} {value}: {line} with coolant on: {text}");
+                }
+            }
+            assert!(!running, "{id} {value}: coolant on at the end: {text}");
+            assert_eq!((ons, offs), (2, 2), "{id} {value}: {text}");
+            // Nothing else changes: without the coolant lines it is the coolant-off program.
+            let stripped: Vec<_> = text.lines().filter(|l| ![on, "M9"].contains(l)).collect();
+            assert_eq!(stripped, off.lines().collect::<Vec<_>>(), "{id} {value}");
+        }
+    }
+}

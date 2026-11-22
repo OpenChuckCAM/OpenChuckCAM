@@ -73,6 +73,10 @@ pub struct MachineDraft {
     /// names). They hold placeholders that are never shown or saved: the
     /// form shows them blank and [`save_draft`] refuses while any is left.
     pub blanks: BTreeSet<&'static str>,
+    /// The name of the profile this draft was copied from (Duplicate, or
+    /// Copy to edit), for [`Self::copied_marks_warning`]. Not saved: a
+    /// profile file does not say it is a copy (decision 0655).
+    pub copied_from: Option<String>,
 }
 
 /// The source of a value a new machine starts with (OI-1472).
@@ -187,6 +191,7 @@ impl MachineDraft {
             saved: Some(entry.profile.clone()),
             profile: entry.profile,
             blanks: BTreeSet::new(),
+            copied_from: None,
         })
     }
 
@@ -202,6 +207,7 @@ impl MachineDraft {
             saved: None,
             profile: blank_profile(),
             blanks: REQUIRED_FOR_NEW.into_iter().collect(),
+            copied_from: None,
         }
     }
 
@@ -210,7 +216,9 @@ impl MachineDraft {
     /// free in the library folder `dir`. It always gets a new ID, so it never
     /// becomes the source that projects made from the original compare with
     /// (the owner's choice on OI-1473, decision 0380 item 10). Its values
-    /// keep their provenance until edited.
+    /// keep their provenance until edited, "confirmed on the machine"
+    /// included; [`Self::copied_marks_warning`] says where the marks were
+    /// made (decision 0655, issue #603).
     pub fn copy_of(dir: &Path, profile: &MachineProfile) -> Self {
         let mut copy = profile.clone();
         copy.name = free_name(dir, &profile.name, "copy");
@@ -220,7 +228,29 @@ impl MachineDraft {
             saved: None,
             profile: copy,
             blanks: BTreeSet::new(),
+            copied_from: Some(profile.name.clone()),
         }
+    }
+
+    /// The name of the profile this draft was copied from, if it is a copy.
+    pub fn copied_from(&self) -> Option<&str> {
+        self.copied_from.as_deref()
+    }
+
+    /// For a copy that still has values confirmed on the machine, a warning
+    /// that the marks were made on the source machine (decision 0655, the
+    /// owner's option C; issue #603). Advice only: nothing is changed and
+    /// nothing has to be acknowledged (UI-13, NFR-12).
+    pub fn copied_marks_warning(&self) -> Option<String> {
+        let source = self.copied_from()?;
+        let p = &self.profile;
+        p.fields().iter().any(|f| p.is_confirmed(*f)).then(|| {
+            format!(
+                "This machine is a copy of {source}. The values marked confirmed on the \
+                 machine were confirmed on {source}, not on this copy. If this copy is for \
+                 another machine, check each of them on that machine before you rely on it."
+            )
+        })
     }
 
     /// The form of the draft: [`machine_form`], with the values not filled
@@ -252,6 +282,7 @@ impl MachineDraft {
             saved: None,
             profile,
             blanks: BTreeSet::new(),
+            copied_from: None,
         }
     }
 
@@ -997,6 +1028,42 @@ mod tests {
         let again = MachineDraft::copy_of(&dir, &z1);
         assert_eq!(again.profile.name, "Makera Z1 copy 2");
         assert_ne!(again.id, Some(first_id));
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// SET-10, UI-13 and NFR-12 (issue #603, decision 0655, the owner's option C): a copy keeps
+    /// the source's "confirmed on the machine" marks (decision 0380 item 3) and says, in plain
+    /// words, that they were made on the source machine and must be checked again if the copy
+    /// is for another machine. A profile that is not a copy, or a copy with nothing confirmed,
+    /// has no such warning.
+    #[test]
+    fn req_set_10_req_ui_13_a_copy_keeps_its_marks_and_warns_where_they_were_made() {
+        let dir = scratch("copy-warning");
+        let z1 = z1();
+        assert!(z1.fields().iter().any(|f| z1.is_confirmed(*f)));
+        let mut copy = MachineDraft::copy_of(&dir, &z1);
+        assert_eq!(copy.profile.provenance, z1.provenance);
+        assert_eq!(copy.copied_from(), Some("Makera Z1"));
+        assert_eq!(
+            copy.copied_marks_warning().as_deref(),
+            Some(
+                "This machine is a copy of Makera Z1. The values marked confirmed on the \
+                 machine were confirmed on Makera Z1, not on this copy. If this copy is for \
+                 another machine, check each of them on that machine before you rely on it."
+            )
+        );
+        // Saved, it is still the copy it was while the window shows it.
+        save_draft(&dir, &mut copy).expect("saves");
+        assert!(copy.copied_marks_warning().is_some());
+        // Nothing confirmed: nothing to warn about.
+        let mut plain = z1.clone();
+        plain.provenance.clear();
+        assert_eq!(
+            MachineDraft::copy_of(&dir, &plain).copied_marks_warning(),
+            None
+        );
+        // A profile opened from the library, or a new one, is not a copy.
+        assert_eq!(MachineDraft::new_machine().copied_marks_warning(), None);
         let _ = std::fs::remove_dir_all(&dir);
     }
 
