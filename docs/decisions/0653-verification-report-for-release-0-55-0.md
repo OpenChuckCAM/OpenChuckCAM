@@ -3,7 +3,7 @@
 - **Status:** Proposed by lane VERIFY-REPORT on 22 Nov 2026. Not accepted (decision 0049). It is the release verification report of [verification plan](../verification-plan.md) section 9 (Records) and work breakdown slice 20 item 13, drafted from the 0.55.0-rc3 test record. It changes no requirement, no architecture and no program behaviour. The number is provisional: the Merge Manager assigns the final number at release.
 - **Date:** 22 Nov 2026.
 - **Commit covered:** `aa73540022c3994e2cf27e350cff6fb47713672b` (tag `v0.55.0-rc3`, OpenChuckCAM 0.55.0), built by release dry run [43698165113](https://github.com/OpenChuckCAM/OpenChuckCAM/actions/runs/43698165113) on 15 Nov 2026.
-- **Open items:** adds OI-2151 (the gate 5 result on rc3 is partial). Names OI-105, OI-992, OI-2144, OI-2107, OI-304, OI-23 and OI-2149 as still open, and OI-471 and OI-2143 as closed by pull request #828 (not merged on 22 Nov 2026). See *Open items* below.
+- **Open items:** adds OI-2151 (the gate 5 result on rc3 is partial). Names OI-992, OI-2144, OI-2107, OI-304, OI-23 and OI-2149 as still open, OI-471 and OI-2143 as closed by pull request #828 (not merged on 22 Nov 2026), and OI-105 as decided and closing in the REL-NOTES-SCREENS pull request. See *Open items* below.
 - **Raw evidence:** [archive/0653-release-0-55-verification](../archive/0653-release-0-55-verification/README.md), the three parts of the rc3 test record (issue #586, comments 7072055765, 7072070836 and 7072079025).
 
 Generated G-code is the user's to verify before it is run on a machine (NFR-12). This report states what was observed on one Makera Z1 with one build. It does not verify any program as safe, for that machine or any other.
@@ -171,7 +171,7 @@ This report was drafted by lane VERIFY-REPORT in a Linux cloud container on 22 N
 ### Open items
 
 - **OI-2151 (new):** the gate 5 result on rc3 is partial; its disposition for 0.55.0 is to be decided (see the register).
-- **OI-105:** _wording to be supplied by the coordinator._
+- **OI-105:** rotary positioning precision. Decided on 22 Nov 2026 (relayed by the coordinator, decision 0049): the precision is stated in the Z1 page of the user guide and in the 0.55.0 release notes only, as one measured result on one machine at 23 mm radius (C2-06 and C2-07 above), next to Makera's 0.1 degree vendor figure; it is not stated on the setup sheet or in the machine profile. OI-105 closes in the REL-NOTES-SCREENS pull request, not here.
 - **OI-992:** selective short-block slowdown on the Z1 in representative cutting; open.
 - **OI-2144:** (a) the whole-file refusal, deferred on 14 Nov 2026; (b) blocks under 5 ms, open.
 - **OI-2107, OI-304:** what only the first real release run can prove; open.
