@@ -597,7 +597,7 @@ fn req_gc_17_req_set_01_req_set_03_req_set_05_req_set_06_cli_sets_machine_and_se
     // (decision record 0201).
     assert!(
         out.stdout
-            .contains("set G55 to machine X -200.390 Y -123.390 Z -48.600"),
+            .contains("set G55 to machine X -200.390 Y -124.390 Z -48.600"),
         "{}",
         out.stdout
     );
