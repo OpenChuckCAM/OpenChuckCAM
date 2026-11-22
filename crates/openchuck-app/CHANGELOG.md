@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased (POST-SAFETY, issue #603; decision 0655)
+
+- **Added:** `MachineDraft::copied_from` (a public field and an accessor) and `MachineDraft::copied_marks_warning`: a copy made by Duplicate or Copy to edit keeps its confirmed marks (decision 0380 item 3) and says that they were made on the named source machine.
+
 ## Unreleased (ALIMIT, issue #793; decision 0647, accepted)
 
 - **Added:** a setup check and a warning in Messages, under the topic Machine profile, when the project's Makera Z1 copy still holds the old A limit of 3600 deg/min; it names the controller's 1800 deg/min and `M203.1`, and asks the user to choose the Makera Z1 again. `setup::has_old_z1_a_limit` is re-exported.
