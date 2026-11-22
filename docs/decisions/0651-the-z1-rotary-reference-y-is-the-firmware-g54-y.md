@@ -1,6 +1,6 @@
 # 0651: The Z1's rotary reference Y is the G54 Y the firmware sets, −124.39 (SET-01, SET-03, NFR-12; issue #821; lane Z1-ORIGIN-Y)
 
-- **Status:** Proposed by lane Z1-ORIGIN-Y on 21 Nov 2026. Only the project owner accepts it (decision 0049). The owner asked for the fix (issue #821); the owner's answers A, B and C below were relayed by the coordinator on 21 Nov 2026.
+- **Status:** Accepted by the project owner on 22 Nov 2026, relayed by the coordinator (decision 0049). Proposed by lane Z1-ORIGIN-Y on 21 Nov 2026. The owner asked for the fix (issue #821); the owner's answers A, B and C below were relayed by the coordinator on 21 Nov 2026.
 - **Date:** 21 Nov 2026.
 - **Evidence:** the owner's `$#` on the Z1, firmware 1.1.3, 21 Nov 2026, as given in issue #821: `G54: -118.3900, -124.3900, ...`.
 - **What it amends:** [Decision 0649](0649-the-z1-profile-takes-the-firmware-1-1-3-measurements.md) (accepted), Context item 11 and Decision item 5, and the places in its Consequences and Verification that repeat the value: the rotary reference Y is −124.39, not −123.39. Its top-view drawing labels the axis "Y −123.39"; read it as −124.39. 0649's text is left as accepted.
