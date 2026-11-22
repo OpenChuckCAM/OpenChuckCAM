@@ -23,8 +23,8 @@ Then add both tools to the project:
 
 <figure>
   <img src="images/08-tools-in-project.png" width="1920" height="1080"
-       alt="The Tool library window with both tools listed under This project as T104 and T204.">
+       alt="The Tool library window with both tools listed under This project as T104 and T204; the selected tool's form shows Stick-out blank, with 27.000 as its hint.">
   <figcaption><b>Figure 2.</b> Both tools under <b>This project</b>, numbered T104 and T204.</figcaption>
 </figure>
 
-The project now holds two tools, numbered T104 and T204 (the numbers the Makera Z1 tool set suggests). Press **Close**.
+The project now holds two tools, numbered T104 and T204 (the numbers the Makera Z1 tool set suggests). **Stick-out**, how far a tool sticks out of the collet from its tip to the collet face, is blank: the program then assumes the flute length + 5 mm, shown as the hint, and its tool-length warnings say so. With a real tool fitted, measure it and enter it here. Press **Close**.

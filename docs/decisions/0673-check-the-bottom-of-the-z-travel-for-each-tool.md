@@ -47,6 +47,16 @@ D1 (the stated assumption now, the field proposed), D2 A, D3 A and D4 as written
 - The user guide's machine profile reference says that the spindle-to-axis distance and the Z travel are used for both ends of the travel (no decision or `OI-` numbers in the guide).
 - Generated G-code is still the user's to verify before it runs (NFR-12). No warning means only that this check found nothing; it is not a claim that the program stays in the travel.
 
+## The second pull request: a stick-out per tool (built)
+
+Built on `lane-z1-setup-stickout`, stacked on the first pull request (#838), after the coordinator said the 0.55.0 crates publish was done (22 Nov 2026).
+
+- `openchuck_types::tool::Tool` gains `stick_out: Option<Millimetres>`, tip to collet face, written only when set; `validate` refuses one below the flute length, above the overall length, or not above 0, naming `tool.stick_out`. A breaking change: the library family goes to 0.56.0 (decision 0048), with changelog entries in the four library crates.
+- Project schema 29 (claimed in the work breakdown): tool library files and the project's tool snapshots may hold it; the 28 to 29 step changes only the number and refuses a schema 28 tool file that already holds it. The tool library files keep their own schema 1, as when `centre_cutting` was added.
+- `openchuck_app::setup::stick_out` gives the tool's own stick-out or the assumption, flute length + 5 mm. The top-of-travel check (0318), the workholding case (0495 item 6b) and this check use it; with the tool's own the words say "with the stick-out of *S* mm the tool library gives", and without it "assuming it sticks out 5 mm beyond its flutes (*S* mm in all; set the tool's stick-out in the tool library for a better check)", as the owner asked.
+- The tool form gains **Stick-out** (blank allowed; the value shown when blank is the assumption), in the tool library window; **Show setting** on the workholding warning opens it. The command line's `tool` gains `--stick-out MM|none`, and the tool line shows a set stick-out.
+- The built-in Makera tools have no stick-out yet: the owner will give Makera's default held length, and each tool then takes overall length less held length, with provenance, marked not confirmed on the machine unless the owner says otherwise. Not guessed.
+
 ## Verification
 
 Run by lane Z1-SETUP on 22 Nov 2026 in a Linux cloud container (4 cores), branch `lane-z1-setup` from `main` at `57b8ac1b`.
