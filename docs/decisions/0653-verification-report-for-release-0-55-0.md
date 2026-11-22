@@ -3,14 +3,14 @@
 - **Status:** Proposed by lane VERIFY-REPORT on 22 Nov 2026. Not accepted (decision 0049). It is the release verification report of [verification plan](../verification-plan.md) section 9 (Records) and work breakdown slice 20 item 13, drafted from the 0.55.0-rc3 test record. It changes no requirement, no architecture and no program behaviour. The number is provisional: the Merge Manager assigns the final number at release.
 - **Date:** 22 Nov 2026.
 - **Commit covered:** `aa73540022c3994e2cf27e350cff6fb47713672b` (tag `v0.55.0-rc3`, OpenChuckCAM 0.55.0), built by release dry run [43698165113](https://github.com/OpenChuckCAM/OpenChuckCAM/actions/runs/43698165113) on 15 Nov 2026.
-- **Open items:** adds OI-2151 (the gate 5 result on rc3 is partial). Names OI-992, OI-2144, OI-2107, OI-304, OI-23 and OI-2149 as still open, OI-471 and OI-2143 as closed by pull request #828 (not merged on 22 Nov 2026), and OI-105 as decided and closing in the REL-NOTES-SCREENS pull request. See *Open items* below.
+- **Open items:** adds OI-2151 (the gate 5 result on rc3 is partial), closed by the recorded waiver below, and OI-2152 (the repeat first cut with X0 probed). Names OI-992, OI-2144, OI-2107, OI-304, OI-23 and OI-2149 as still open, OI-471 and OI-2143 as closed by pull request #828 (not merged on 22 Nov 2026), and OI-105 as decided and closing in the REL-NOTES-SCREENS pull request. See *Open items* below.
 - **Raw evidence:** [archive/0653-release-0-55-verification](../archive/0653-release-0-55-verification/README.md), the three parts of the rc3 test record (issue #586, comments 7072055765, 7072070836 and 7072079025).
 
 Generated G-code is the user's to verify before it is run on a machine (NFR-12). This report states what was observed on one Makera Z1 with one build. It does not verify any program as safe, for that machine or any other.
 
 ## Decision
 
-Release 0.55.0 is reported against the first-release exit criteria of verification plan section 9 as set out under *Verification*, on the evidence of the rc3 test record. The report names one commit (above), lists the waivers and deviations, and states what was not verified. It does not decide whether 0.55.0 is released: the gate 5 result is partial (OI-2151), and several exit criteria are outside the rc3 test record and are marked as not assessed here.
+Release 0.55.0 is reported against the first-release exit criteria of verification plan section 9 as set out under *Verification*, on the evidence of the rc3 test record. The report names one commit (above), lists the waivers and deviations, and states what was not verified. The gate 5 result is partial; it is waived for 0.55.0 (*Waiver: gate 5 for 0.55.0* below, OI-2151). Several exit criteria are outside the rc3 test record and are marked as not assessed here; this record does not decide them.
 
 ## Verification
 
@@ -128,7 +128,7 @@ All figures in this subsection are calculated from the recorded readings; they a
 - **Override.** 100 % at the start (E-18 asks for 10 %).
 - **X0.** Not set or recorded as the procedure asks (E-14 refers to C2, which set Y and Z only).
 - **C2 limits.** C2-01 to C2-04 were not met and the machine was not corrected before gate 5; their effect was allowed for by setting G54 Y and Z at the cone's X.
-- **Earlier waivers still in force:** the original K4 block-rate waiver retained on 25 Oct 2026 and the reference-program waivers recorded in [archive/0244-z1-gates-4-5](../archive/0244-z1-gates-4-5/z1-gates-4-5-results-and-review-record.md#10-results). No waiver is recorded for the rc3 gate 5 result (OI-2151).
+- **Earlier waivers still in force:** the original K4 block-rate waiver retained on 25 Oct 2026 and the reference-program waivers recorded in [archive/0244-z1-gates-4-5](../archive/0244-z1-gates-4-5/z1-gates-4-5-results-and-review-record.md#10-results). The rc3 gate 5 result is waived for 0.55.0 (below).
 
 ### Against the first-release exit criteria (verification plan section 9)
 
@@ -137,13 +137,23 @@ All figures in this subsection are calculated from the recorded readings; they a
 | Every P1 requirement has passing evidence or a recorded waiver | Not assessed here. A-02: the pull request checks and the dry run were green on `aa73540`. The traceability report of that commit is not quoted in the test record |
 | No open defect of severity 1 or 2 | The rc3 test record logs no defect. The issue tracker was not reviewed for this report (release checklist, *Known issues*) |
 | Release gate passes | Passed in dry run 43698165113 at `aa73540`. The real release run has not happened (OI-304, OI-2107) |
-| Gates 1 to 5 passed for the reference job set on the Z1, results stored, G93 recorded | Gates 1 to 3: passed (Part A). Gate 4: passed for the ten reference programs (rc2 runs carried over on the A-04 diff, with rc3 spot checks) and for the first-cut program (C-02). Gate 5: partial (OI-2151). G93: recorded, ignored on 1.1.3. Results stored in [archive/0653-release-0-55-verification](../archive/0653-release-0-55-verification/README.md) |
+| Gates 1 to 5 passed for the reference job set on the Z1, results stored, G93 recorded | Gates 1 to 3: passed (Part A). Gate 4: passed for the ten reference programs (rc2 runs carried over on the A-04 diff, with rc3 spot checks) and for the first-cut program (C-02). Gate 5: partial, waived for 0.55.0 (below, OI-2151). G93: recorded, ignored on 1.1.3. Results stored in [archive/0653-release-0-55-verification](../archive/0653-release-0-55-verification/README.md) |
 | Fuzzing ran for a set period with no unresolved crash | Not assessed here |
 | Licence and advisory reports clean or decided; each spike has a written result | Not assessed here. Pull request #827 (decision 0652, heapless advisories) is open on 22 Nov 2026 |
 | The G-code warning is present and checked (NFR-12) | Not separately checked in the rc3 record; A-07 found header and footer as rc2 |
 | User documentation current; release checklist documentation items ticked | The dry run's strict user guide check passed at `aa73540`. The items of the application release checklist (`docs/releasing.md`) are not ticked in this record; the Z1 air cut item is met (gate 4 above) |
 | Release notes drafted by a lane and reviewed before publication | Not assessed here |
 | A verification report is issued and the plan reviewed | This record is the draft report. Findings for the plan review are listed below |
+
+### Waiver: gate 5 for 0.55.0
+
+Decided on 22 Nov 2026, relayed by the coordinator (decision 0049); this record is still proposed.
+
+- **What is waived:** the first-release exit criterion "G-code gates 1 to 5 passed" (verification plan section 9), for gate 5 only and for release 0.55.0 only. Gate 5 on rc3 is partial: E-26 is not met as written (0 of 5 cone diameters within ±0.1 mm of the model, decision 0221), and the program cut is not the program that was air-cut (safe Z 35 mm, another roughing tool, 100 % override).
+- **Why:** the cut ran with no unexpected event and matched the simulation; nothing was cut outside the simulated region. The diameters are inconclusive rather than a fault found in the program: the cone sits about 1.4 mm along X from the X0 setting, a vernier on a cone cannot resolve ±0.1 mm, and with the shift allowed for the radial undersize is about 0.05 to 0.15 mm, borderline against the limit.
+- **Release notes:** 0.55.0 states in its limitations that gate 5 is partial (REL-NOTES lane).
+- **Follow-ups, milestone 2026.2:** the stepped-cylinder test part (issue #826), and a repeat first cut with X0 set by probing the stock end and the part measured in the machine, using the program that was air-cut (OI-2152).
+- **What the waiver is not:** it is not a claim that the generated G-code is verified or safe for any machine. Generated G-code is the user's to verify before it is run (NFR-12).
 
 ### Findings for the plan review
 
@@ -157,7 +167,7 @@ All figures in this subsection are calculated from the recorded readings; they a
 - That any program is safe to run, on this Z1 or another machine (NFR-12).
 - The program actually cut at gate 5 (safe Z 35 mm): not air-cut and not compared with the air-cut program.
 - E-27 in full (length, tab positions, tailstock piece), the simulated radius at the E-26 stations, the roughing tool fitted, how X0 was set.
-- Gate 5 to ±0.1 mm: not met as written; inconclusive with the X shift allowed for.
+- Gate 5 to ±0.1 mm: not met as written; inconclusive with the X shift allowed for; waived for 0.55.0 (OI-2151), repeat cut OI-2152.
 - B-05 (cone or lobed timing); the timing of the OI-993 on and off runs; the B-08 safe-Z check with a stated tool.
 - The A-axis two-sided backlash (C2-07 approached from one side only); the axis tilt is measured but not corrected.
 - The rotary reference Y: rc3 carries -123.39; the firmware's G54 Y read -124.39 on 21 Nov 2026 (the 14 Nov figure was a typo). Pull request #823 changes the built-in value; it is not merged on 22 Nov 2026, and its effect on rc3 output was not assessed here.
@@ -170,7 +180,8 @@ This report was drafted by lane VERIFY-REPORT in a Linux cloud container on 22 N
 
 ### Open items
 
-- **OI-2151 (new):** the gate 5 result on rc3 is partial; its disposition for 0.55.0 is to be decided (see the register).
+- **OI-2151 (new, closed):** the gate 5 result on rc3 is partial; waived for 0.55.0 on 22 Nov 2026 (relayed by the coordinator, decision 0049).
+- **OI-2152 (new):** the repeat first cut, in 2026.2, with X0 set by probing the stock end, the part measured in the machine and the program that was air-cut.
 - **OI-105:** rotary positioning precision. Decided on 22 Nov 2026 (relayed by the coordinator, decision 0049): the precision is stated in the Z1 page of the user guide and in the 0.55.0 release notes only, as one measured result on one machine at 23 mm radius (C2-06 and C2-07 above), next to Makera's 0.1 degree vendor figure; it is not stated on the setup sheet or in the machine profile. OI-105 closes in the REL-NOTES-SCREENS pull request, not here.
 - **OI-992:** selective short-block slowdown on the Z1 in representative cutting; open.
 - **OI-2144:** (a) the whole-file refusal, deferred on 14 Nov 2026; (b) blocks under 5 ms, open.
