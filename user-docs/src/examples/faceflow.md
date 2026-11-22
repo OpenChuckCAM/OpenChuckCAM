@@ -47,7 +47,7 @@ The Results list three lines for the operation:
 "Unreached areas (operation 'Floor finish'): face-flow finishing cannot reach 1 area of the selected faces, which stay uncut: X 37.990 to 77.990 near A 282 (173.8 mm2), a neighbouring face is in the way of the tool; check them in the simulation before running the program"
 : The floor is a narrow strip between two blade walls, and a 3 mm ball cannot reach into the corners where the floor meets them without touching a wall. That strip, along the whole floor from X 37.99 to X 77.99, is not cut and is drawn hatched in the view, labelled **Unreachable (Floor finish)** in the legend: black diagonal lines in a white casing, painted on the surface, so they turn and stretch with it as you orbit and zoom. "A neighbouring face is in the way" means a blade wall, not the stock. The same line appears under **Messages**, with a link to the operation.
 
-How much is that? When face-flow finishing was built, the five floors of this blisk were measured ([decision 0525](https://github.com/OpenChuckCAM/OpenChuckCAM/blob/main/docs/decisions/0525-face-flow-finishing.md)): the same on all five, 171.6 mm2 of the 496.3 mm2 floor (35 %) out of reach of the 3 mm ball, all of it along the blade walls, and 118.4 mm2 (24 %) with a 2 mm ball. This run reports 173.8 mm2 at its own stepover. Whether a smaller tool, a different tool, or leaving the strip suits your part is your call; the program does not choose for you, and it has no strategy yet that finishes the strip with a second tool.
+How much is that? When face-flow finishing was built, the five floors of this blisk were measured: the same on all five, 171.6 mm2 of the 496.3 mm2 floor (35 %) out of reach of the 3 mm ball, all of it along the blade walls, and 118.4 mm2 (24 %) with a 2 mm ball. This run reports 173.8 mm2 at its own stepover. Whether a smaller tool, a different tool, or leaving the strip suits your part is your call; the program does not choose for you, and it has no strategy yet that finishes the strip with a second tool.
 
 The setup's totals say "Floor finish: 5638 mm³ removed in 2310 moves". The stock is not roughed in this example, so most of that is stock above the floor, not finishing allowance.
 
@@ -101,7 +101,7 @@ An edge set in Avoid or Check
 : Those roles take faces. It is refused: "Avoid takes faces, not edges, on a STEP part. Take the edge set 'Floor guide' out of Avoid, and select faces instead." Put the edge set in **Guide edge**.
 
 Reading the unreached area as material left by mistake
-: The strip along the walls is left because the ball does not fit, not because a setting is wrong. A smaller stepover or scallop height does not shrink it (see the table). A smaller ball reaches more of it (24 % unreached with a 2 mm ball against 35 % with 3 mm, from decision 0525); the walls themselves are cut by another strategy, such as [swarf](swarf.md).
+: The strip along the walls is left because the ball does not fit, not because a setting is wrong. A smaller stepover or scallop height does not shrink it (see the table). A smaller ball reaches more of it (24 % unreached with a 2 mm ball against 35 % with 3 mm, as measured when face-flow finishing was built); the walls themselves are cut by another strategy, such as [swarf](swarf.md).
 
 Expecting the passes to stay on the floor near the walls
 : The tool is placed on the whole part, so where a blade wall is in the way the stretch is left out rather than cut into the wall. Check in the simulation that what is left out is what you expect.

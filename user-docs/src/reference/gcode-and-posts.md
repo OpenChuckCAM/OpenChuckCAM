@@ -107,4 +107,4 @@ These checks find some mistakes. They do not show that a program is right for yo
 
 ## Not yet confirmed on the Makera Z1
 
-The A direction, the turn-dropping command and the feed rule were checked in an attended air cut on a Makera Z1. The tool change (`M5`, `T<n> M6`) and the `G28` at the end have not been run with a real tool yet. Check them in your own air cut; see [Air cut on the Makera Z1](../safety/air-cut.md).
+The A direction, the turn-dropping command and the feed rule were checked in attended air cuts on the project owner's Makera Z1, on firmware 1.1.2 and 1.1.3. The tool change (`M5`, `T<n> M6`) and the `G28` at the end were run, attended, on the same machine on firmware 1.1.3, and one small first cut in tooling board has been made with real tools. That is one machine and a few programs: check them in your own air cut; see [Air cut on the Makera Z1](../safety/air-cut.md).

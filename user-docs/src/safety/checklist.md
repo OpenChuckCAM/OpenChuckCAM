@@ -10,7 +10,7 @@ Work through this list before and after every run on a Makera Z1. Stop at the fi
 - [ ] I know which program I am about to run, which version of OpenChuckCAM made it, and which post (Makera Z1, not the LinuxCNC post).
 - [ ] I have read the program, at least every line up to the first cut and the end, and nothing in it surprises me.
 - [ ] The header comment, the units (mm), the tool numbers and the safe Z match what I expect.
-- [ ] The machine profile in the project matches the machine: travel, height of the rotary axis, direction of A. The axis height is the value I measured on this machine.
+- [ ] The machine profile in the project matches the machine: travel, height of the rotary axis, direction of A. The axis height is the value I measured on this machine. It holds for the tool fitted when I measured it (the reference tool): a longer tool raises the spindle at the same work Z.
 - [ ] I have noted the firmware version.
 - [ ] I will stay beside the machine for the whole run.
 - [ ] The emergency stop is within reach of my hand while the program runs.
