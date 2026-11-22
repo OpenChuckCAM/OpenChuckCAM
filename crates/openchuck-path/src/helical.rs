@@ -389,9 +389,16 @@ fn passes(
         // `CONSTRAINED_SPACING` of path.
         let most_leave = zones.iter().fold(leave, |m, z| m.max(z.leave));
         let candidates = region_index(input, region, radius, most_leave, tolerance);
+        // The operation's own largest step: where the constraint alone makes
+        // the seeds finer, the runs between its edges are thinned back to the
+        // points the chord limit needs, no further apart than this, so an
+        // area to avoid does not multiply the moves of the rest of the part
+        // (issue #608).
+        let own_step = step;
         if region.is_some_and(|r| !r.is_empty()) && candidates.is_none() && radius > 0.0 {
             step = step.min((CONSTRAINED_SPACING / radius).to_degrees());
         }
+        let thin = step < own_step;
         let turns = length / pitch;
         let total_angle = 360.0 * turns;
         let seeds = (total_angle / step).ceil().max(1.0);
@@ -422,8 +429,12 @@ fn passes(
             constrained: region.is_some_and(|r| !r.is_empty()),
             candidates: candidates.as_ref(),
             spacing: region_spacing(tolerance, CONSTRAINED_SPACING),
-            thin: false,
-            max_dt: 1.0 / seeds as f64,
+            thin,
+            max_dt: if thin {
+                1.0 / (total_angle / own_step).ceil().max(1.0)
+            } else {
+                1.0 / seeds as f64
+            },
             wanted: None,
             across: 0.0,
         };
@@ -812,12 +823,19 @@ pub(crate) fn ring_passes(
             Some(phi) => fit.start + fit.sign * phi * i as f64,
             None => fit.start,
         };
+        // A thinned fit keeps its own largest step round the ring too: the
+        // helix's step in degrees is its `max_dt` of its whole angle.
+        let max_dt = if fit.thin && fit.total_angle > 0.0 {
+            (fit.max_dt * fit.total_angle / 360.0).max(1.0 / around as f64)
+        } else {
+            1.0 / around as f64
+        };
         let ring = Fit {
             x0: x,
             length: 0.0,
             start,
             total_angle: 360.0,
-            max_dt: 1.0 / around as f64,
+            max_dt,
             ..*fit
         };
         let pieces = fit_region(&ring, around, label, context)?;
