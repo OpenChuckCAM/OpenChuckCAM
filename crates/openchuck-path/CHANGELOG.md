@@ -2,7 +2,7 @@
 
 ## 0.56.0 (FACING-STEP; issue #800; decision 0666 option C, accepted)
 
-- **Added:** `enclose(&BrepModel) -> Result<Enclosure>`, with `Enclosure` (its `points`, `analytic_excess` and `spline_excess`, `mesh()` and `support()`) and the constants `ANALYTIC_EXCESS` (0.0005 mm) and `SPLINE_TARGET` (0.001 mm). The enclosure's points hold every face of a B-rep part, bounded from its exact geometry, never its tessellation:
+- **Added:** `enclose(&BrepModel) -> Result<Enclosure>`, with `Enclosure` (its `points`, `analytic_excess` and `spline_excess`, and `mesh()`) and the constants `ANALYTIC_EXCESS` (0.0005 mm) and `SPLINE_TARGET` (0.001 mm). The enclosure's points hold every face of a B-rep part, bounded from its exact geometry, never its tessellation:
   - planes, from their exact edges (or, without them, their parameter box);
   - cylinders, cones, spheres and tori, from circumscribed arcs over the face's parameter box, at most `ANALYTIC_EXCESS` outside;
   - B-spline faces and edges, from their control points, split exactly worst first until within `SPLINE_TARGET` or a work limit, with the excess reached reported.

@@ -98,7 +98,7 @@ Generated G-code remains the user's to verify before running it on a machine (NF
 
 Branch `claude/lane-facing-step-option-c`, stacked on the first pull request (#836), from `main` `57b8ac1b`. Linux container (4 cores, 15 GB), debug build, OpenCASCADE kernel built locally; uninstrumented `cargo nextest` times.
 
-- **`openchuck-path` `tests/brep_enclosure.rs`** (kernel-free, closed forms and a rational Bezier patch evaluated in the test). All seven failed against a stub before the code. The bounds are checked against the faces' own points, never the enclosure's arithmetic.
+- **`openchuck-path` `tests/brep_enclosure.rs`** (kernel-free, closed forms and a rational Bezier patch evaluated in the test). The first seven failed against a stub before the code. The last two were written after it, to cover what the record requires of flat faces' edges; they passed first time. The bounds are checked against the faces' own points, never the enclosure's arithmetic.
 
   | Test | What it checks | Time |
   | --- | --- | --- |
@@ -109,6 +109,8 @@ Branch `claude/lane-facing-step-option-c`, stacked on the first pull request (#8
   | `req_op_23_req_nfr_07_a_patch_it_cannot_bound_is_refused_with_the_face` | A refusal names the face | <0.01 s |
   | `req_gc_07_req_nfr_06_the_enclosure_is_the_same_every_time` | Determinism | <0.01 s |
   | `req_op_23_req_op_24_facing_reads_the_same_bounds_from_the_mesh_as_from_the_points` | The prism's bounds equal the points' along X, in 720 directions across X and in radius, and are never smaller elsewhere | 0.2 s |
+  | `req_op_23_req_op_24_a_flat_face_is_bounded_by_its_exact_line_ellipse_b_spline_and_point_edges` | Each edge kind bounds a flat face, within the stated excess of the exact curves | 0.03 s |
+  | `req_op_23_req_nfr_07_a_flat_face_with_an_edge_it_cannot_bound_falls_back_to_its_box` | A face with one unbounded edge falls back to its parameter box as a whole | <0.01 s |
 
 - **`openchuck-app` `tests/step_pipeline.rs`** (kernel, STEP kernel CI job). Each test is issue #800's set-up: End facing, start held 10 mm, stock past the part. Each generates and posts through LinuxCNC with byte-identical G-code at 1 and 2 threads, and the notes say the part was bounded from its exact faces.
 
@@ -120,7 +122,9 @@ Branch `claude/lane-facing-step-option-c`, stacked on the first pull request (#8
 
 - **`operation::req_op_23_req_op_24_checked_facing_on_a_step_part_is_not_refused_before_generating`** (kernel-free) replaces the first pull request's refusal test.
 - **`step::tests::req_op_23_req_imp_02_req_nfr_12_the_notice_says_which_strategies_use_the_tessellation`**: the notice names Facing's exact bounds.
-- **Suites, coverage and checks:** in the second pull request's description.
+- **Suites:** `cargo nextest run -p openchuck-path -p openchuck-app -p openchuck-import --features openchuck-app/kernel-tests`: 1910 of 1910 passed (2,150 s), before the two edge tests were added; those and the rest of `brep_enclosure` pass (9 of 9).
+- **Coverage:** `brep/enclosure.rs` 91.8 % of lines on its own nine tests. Not reached: the defensive refusals of geometry that is not finite, an empty part, the point limit and an unknown surface kind (NFR-07), and a B-spline edge whose knots give no pieces.
+- **Checks:** `cargo fmt`, `cargo clippy --workspace --all-targets -D warnings` with and without `openchuck-app/kernel-tests`, and `cargo xtask deps`, `licences`, `records` and `trace` pass.
 - **Not verified:** anything on a machine. A part whose bounds Facing reads in an oblique direction (a rotary axis other than X) would get the prism's wider bound; no such machine exists in the project.
 
 Generated G-code remains the user's to verify before running it on a machine (NFR-12).

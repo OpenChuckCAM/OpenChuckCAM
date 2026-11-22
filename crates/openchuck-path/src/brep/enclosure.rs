@@ -104,14 +104,6 @@ impl Enclosure {
             .collect();
         points_mesh(points)
     }
-
-    /// The largest value of `direction . p` over the points.
-    pub fn support(&self, direction: Vec3) -> f64 {
-        self.points
-            .iter()
-            .map(|p| p.to_vec().dot(direction))
-            .fold(f64::NEG_INFINITY, f64::max)
-    }
 }
 
 /// The convex hull of the points' (y, z), counter-clockwise (Andrew's
@@ -182,21 +174,26 @@ fn points_mesh(points: Vec<Point3>) -> TriangleMesh {
 /// parameter box.
 pub fn enclose(model: &BrepModel) -> Result<Enclosure> {
     if model.faces.is_empty() {
-        return Err(PathError::Surface("the part has no faces to bound".into()));
+        return Err(PathError::refused(
+            crate::topic::SURFACE,
+            "the part has no faces to bound",
+        ));
     }
     let edges: BTreeMap<EdgeId, &BrepEdge> = model.edges.iter().map(|e| (e.id, e)).collect();
     let mut b = Builder::default();
     for face in &model.faces {
         b.face(face, &edges)?;
         if b.points.len() > MAX_POINTS {
-            return Err(PathError::Surface(
-                "the part's bound needs more points than the work limit allows".into(),
+            return Err(PathError::refused(
+                crate::topic::SURFACE,
+                "the part's bound needs more points than the work limit allows",
             ));
         }
     }
     if b.points.iter().any(|p| !p.is_finite()) {
-        return Err(PathError::Surface(
-            "the part's bound has a point that is not finite".into(),
+        return Err(PathError::refused(
+            crate::topic::SURFACE,
+            "the part's bound has a point that is not finite",
         ));
     }
     Ok(Enclosure {
@@ -207,7 +204,7 @@ pub fn enclose(model: &BrepModel) -> Result<Enclosure> {
 }
 
 fn bad(face: u32, what: impl std::fmt::Display) -> PathError {
-    PathError::Surface(format!("face {face}: {what}"))
+    PathError::refused(crate::topic::SURFACE, format!("face {face}: {what}"))
 }
 
 #[derive(Default)]

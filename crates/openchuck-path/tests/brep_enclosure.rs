@@ -415,3 +415,117 @@ fn req_op_23_req_op_24_facing_reads_the_same_bounds_from_the_mesh_as_from_the_po
         );
     }
 }
+
+#[test]
+fn req_op_23_req_op_24_a_flat_face_is_bounded_by_its_exact_line_ellipse_b_spline_and_point_edges() {
+    // A flat face lies in the convex hull of its boundary, so it is bounded
+    // by its edges' exact curves: a line by its ends, an ellipse by
+    // circumscribed corners, a B-spline by its refined control points, and a
+    // degenerate edge (a point, such as a cone's apex) by itself. Checked
+    // against points of the exact curves, from the library's evaluator.
+    let plane = Frame {
+        origin: Point3::new(0.0, 0.0, 0.0),
+        x: Vec3::new(0.0, 1.0, 0.0),
+        y: Vec3::new(0.0, 0.0, 1.0),
+        z: Vec3::new(1.0, 0.0, 0.0),
+    };
+    let curves = vec![
+        EdgeCurve::Line {
+            origin: Point3::new(0.0, -10.0, -4.0),
+            direction: Vec3::new(0.0, 1.0, 0.0),
+            first: 0.0,
+            last: 20.0,
+        },
+        EdgeCurve::Ellipse {
+            frame: frame(
+                Point3::new(0.0, 10.0, 3.0),
+                Vec3::new(0.0, 0.0, 1.0),
+                Vec3::new(1.0, 0.0, 0.0),
+            ),
+            major: 7.0,
+            minor: 4.0,
+            first: -1.4,
+            last: 1.9,
+        },
+        EdgeCurve::BSpline(openchuck_types::brep::BSplineCurve {
+            degree: 3,
+            knots: vec![0.0, 0.0, 0.0, 0.0, 0.4, 1.0, 1.0, 1.0, 1.0],
+            poles: vec![
+                Point3::new(0.0, 10.0, 10.0),
+                Point3::new(0.0, 4.0, 19.0),
+                Point3::new(0.0, -2.0, 8.0),
+                Point3::new(0.0, -8.0, 21.0),
+                Point3::new(0.0, -10.0, 12.0),
+            ],
+            weights: vec![1.0, 1.4, 0.8, 1.0, 1.0],
+            first: 0.05,
+            last: 0.97,
+        }),
+    ];
+    let edge = |id: u32, curve: Option<EdgeCurve>, polyline: Vec<Point3>| BrepEdge {
+        id: EdgeId(id),
+        faces: vec![FaceId(0)],
+        vertices: None,
+        polyline,
+        curve,
+    };
+    let mut edges: Vec<BrepEdge> = curves
+        .iter()
+        .enumerate()
+        .map(|(i, c)| edge(i as u32, Some(c.clone()), Vec::new()))
+        .collect();
+    let apex = Point3::new(0.0, -14.0, 2.0);
+    edges.push(edge(3, None, vec![apex, apex]));
+    let model = BrepModel {
+        faces: vec![BrepFace {
+            id: FaceId(0),
+            surface: openchuck_types::brep::SurfaceKind::Plane,
+            body: 0,
+            edges: (0..4).map(EdgeId).collect(),
+            geometry: Surface::Plane { frame: plane },
+            reversed: false,
+            uv_bounds: [-1e3, 1e3, -1e3, 1e3],
+            trims: Vec::new(),
+            tessellation: TriangleMesh::default(),
+        }],
+        edges,
+        vertices: Vec::new(),
+        tessellation: Default::default(),
+    };
+    let e = enclose(&model).unwrap();
+    // The parameter box (2 m across) was not used: the edges bounded it.
+    assert!(support(&e.points, Vec3::new(0.0, 1.0, 0.0)) < 100.0);
+    let excess = e
+        .analytic_excess
+        .max(e.spline_excess.expect("a B-spline edge"));
+    assert!(excess <= 0.001, "{excess}");
+    let mut samples = vec![apex];
+    for c in &curves {
+        let (a, b) = match c {
+            EdgeCurve::Line { first, last, .. } | EdgeCurve::Ellipse { first, last, .. } => {
+                (*first, *last)
+            }
+            EdgeCurve::BSpline(s) => (s.first, s.last),
+            _ => unreachable!(),
+        };
+        for k in 0..=4000 {
+            let t = a + (b - a) * f64::from(k) / 4000.0;
+            samples.push(openchuck_path::edge_curve::point(c, t).unwrap());
+        }
+    }
+    check(&e, &samples, excess, 2e-4, "edges");
+}
+
+#[test]
+fn req_op_23_req_nfr_07_a_flat_face_with_an_edge_it_cannot_bound_falls_back_to_its_box() {
+    // An edge whose exact curve is missing (and is not a point) cannot bound
+    // the face, so the whole face falls back to its parameter box: nothing
+    // from its other edges is kept half-done.
+    let mut model = rod(5.0, 0.0, 10.0);
+    model.edges[0].curve = None;
+    model.edges[0].polyline = vec![Point3::new(0.0, 5.0, 0.0), Point3::new(0.0, -5.0, 0.0)];
+    let e = enclose(&model).unwrap();
+    // The end disc's parameter square reaches the corner at radius 5 * sqrt 2.
+    let r = e.points.iter().map(|p| p.y.hypot(p.z)).fold(0.0, f64::max);
+    assert!((r - 5.0 * 2f64.sqrt()).abs() < 1e-9, "{r}");
+}
