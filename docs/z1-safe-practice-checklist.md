@@ -2,7 +2,7 @@
 
 **Status: reviewed and accepted by the project owner, who operates the Z1 (14 Oct 2026), with no changes.** Written by the agent from the project documents ([verification plan section 6](verification-plan.md), [decision 0007](decisions/0007-sp-12-z1-conventions.md), [reference-jobs.md](reference-jobs.md)), not from experience of the machine. Work breakdown slice 20 item 12 required it to be reviewed by whoever operates the Z1 (OI-133, closed). The operator should still correct anything that proves not to match the machine and record the change in the review table.
 
-**Generated G-code is the user's to verify before running on a machine (NFR-12).** OpenChuckCAM has never run a generated program on a Z1 as of this draft. Passing the project's own gates reduces the risk; it does not remove it.
+**Generated G-code is the user's to verify before running on a machine (NFR-12).** When this checklist was drafted no generated program had run on a Z1; gates 4 and 5 have since been run on one Z1, firmware 1.1.3, for 0.55.0-rc2 and 0.55.0-rc3 (issue #586). Those runs, and passing the project's own gates, reduce the risk; they do not remove it.
 
 **Step-by-step instructions** for gates 4 and 5, with one-page checklists and results forms, are in [z1-gates-4-5-test-instructions.md](z1-gates-4-5-test-instructions.md) (lane GATES, draft for the owner's review).
 
@@ -14,7 +14,7 @@ Use with the [air-cut procedure](z1-air-cut-procedure.md). Tick each box; stop a
 - [ ] I have read the program from the first line to the last, or at least every line up to the first cut and the end of the program, and nothing in it surprises me.
 - [ ] The header comment, units (mm), tool number and safe Z match what I expect.
 - [ ] The machine profile in the project matches the machine (travel, axis height, A direction). The axis height is the value measured on this machine with Makera's 4th-axis Z probing routine (decision 0317). It holds for the tool fitted when it was measured (the reference tool): a longer tool raises the spindle at the same work Z.
-- [ ] Firmware version noted. If it differs from 1.1.2, the SP-12 conventions are rechecked before anything else.
+- [ ] Firmware version noted. If it is not 1.1.2 or 1.1.3 (the SP-12 conventions were rechecked on 1.1.3, [decision 0649](decisions/0649-the-z1-profile-takes-the-firmware-1-1-3-measurements.md) item 3), the SP-12 conventions are rechecked before anything else.
 - [ ] I am attended, and will stay beside the machine for the whole run.
 - [ ] The emergency stop is within reach of my hand while the program runs.
 - [ ] The enclosure is closed and nothing is on the bed or in the machine that should not be.
@@ -61,3 +61,7 @@ Use with the [air-cut procedure](z1-air-cut-procedure.md). Tick each box; stop a
 | Machine and firmware | Makera Z1; firmware not recorded in the review (note it at the first trial) |
 | Changes required to this checklist | None |
 | Reviewed: yes / no | Yes |
+
+## Change note
+
+**22 Nov 2026** (lane AIRCUT-DOC; the owner's approval of the air-cut procedure update, 22 Nov 2026, relayed by the coordinator). Checked against the same sources as the [air-cut procedure](z1-air-cut-procedure.md)'s change note (the 0.55.0-rc3 test record on issue #586, decisions 0647, 0649 and 0651). Two statements were wrong and are corrected: the firmware recheck now applies to a version other than 1.1.2 or 1.1.3 (decision 0649 item 3), and the note that no generated program had run on a Z1 now says that gates 4 and 5 have been run on one Z1. Everything else is unchanged: it states no travel, safe Z or spindle-to-axis value, and its feed limits already follow decision 0647 and its first-cut limit decision 0221.
