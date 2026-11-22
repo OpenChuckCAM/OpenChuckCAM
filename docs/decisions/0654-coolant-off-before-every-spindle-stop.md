@@ -1,9 +1,9 @@
 # 0654: A post that turns coolant on turns it off before every spindle stop (GC-03, GC-04, NFR-12; issue #598; lane POST-SAFETY)
 
-- **Status:** Proposed by lane POST-SAFETY on 22 Nov 2026. The owner chose option A on 22 Nov 2026, relayed by the coordinator; built in lane POST-SAFETY's pull request. Acceptance of this record's text is pending (OI-2155).
+- **Status:** Accepted by the project owner on 22 Nov 2026, relayed by the coordinator (decision 0049). Proposed by lane POST-SAFETY on 22 Nov 2026; the owner chose option A the same day (relayed). Built in lane POST-SAFETY's first pull request.
 - **Date:** 22 Nov 2026.
 - **Requirements:** GC-03 (template posts), GC-04 (post options), GC-07 and NFR-06 (deterministic output), NFR-12 (the user verifies G-code). Related: decisions [0019](0019-sp-10-template-engine.md) item 4 (the typed options) and [0020](0020-slice-6-post-and-round-trip.md) (the built-in posts).
-- **Open items:** OI-2155 (acceptance of this record).
+- **Open items:** OI-2155 (acceptance of this record; closed).
 
 Requirements and architecture are not edited by this record. No project or machine schema changes.
 

@@ -1,6 +1,6 @@
 # 0657: Post and machine safety fixes that need no design choice (GC-04, GC-10, GC-16, SET-10, NFR-07, NFR-12; issues #574, #599, #645 and part of #603; lane POST-SAFETY)
 
-- **Status:** Proposed by lane POST-SAFETY on 22 Nov 2026. It records fixes that follow accepted decisions and the verification of the lane; the design choices of the lane are in the proposed decisions [0654](0654-coolant-off-before-every-spindle-stop.md), [0655](0655-a-copied-machine-profile-keeps-its-marks-and-warns.md) and [0656](0656-post-line-length-limit.md).
+- **Status:** Proposed by lane POST-SAFETY on 22 Nov 2026. It records fixes that follow accepted decisions and the verification of the lane; the design choices of the lane are in the accepted decisions [0654](0654-coolant-off-before-every-spindle-stop.md), [0655](0655-a-copied-machine-profile-keeps-its-marks-and-warns.md) and [0656](0656-post-line-length-limit.md).
 - **Date:** 22 Nov 2026.
 - **Requirements:** GC-04 (post options), GC-10 (the LinuxCNC post), GC-16 (the command line), SET-10 (machine profiles), NFR-07 (clear errors), NFR-12 (the user verifies G-code), GC-07 and NFR-06 (deterministic output).
 - **Open items:** closes OI-2083 (raised for #574 on the never-merged branch `claude/safetynotice-followup`; the number was reserved there and is used here as raised and closed).

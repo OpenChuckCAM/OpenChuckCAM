@@ -1,9 +1,9 @@
 # 0655: A copied machine profile keeps its confirmed marks, and the window says where they were made (SET-10, UI-13, NFR-12; issue #603; lane POST-SAFETY)
 
-- **Status:** Proposed by lane POST-SAFETY on 22 Nov 2026. The owner chose option C on 22 Nov 2026, relayed by the coordinator: keep the marks as [decision 0380](0380-machine-library-in-the-application.md) item 3 says and only warn. Acceptance of this record's text is pending (OI-2156). It clarifies decision 0380 item 3 and does not amend it.
+- **Status:** Accepted by the project owner on 22 Nov 2026, relayed by the coordinator (decision 0049). Proposed by lane POST-SAFETY on 22 Nov 2026; the owner chose option C the same day (relayed): keep the marks as [decision 0380](0380-machine-library-in-the-application.md) item 3 says and only warn. It clarifies decision 0380 item 3 and does not amend it. Built in lane POST-SAFETY's first pull request.
 - **Date:** 22 Nov 2026.
 - **Requirements:** SET-10 (manage machine profiles), UI-13 (provenance shown), NFR-12 (the user verifies G-code). Related: decisions [0380](0380-machine-library-in-the-application.md), [0013](0013-z1-profile-consensus.md), [0317](0317-z1-measured-axis-height-and-safe-z.md), [0649](0649-the-z1-profile-takes-the-firmware-1-1-3-measurements.md).
-- **Open items:** OI-2156 (acceptance of this record), OI-2158 (the user guide's custom machine figures show the window before the warning), OI-2159 (a saved copy does not say it is a copy).
+- **Open items:** OI-2156 (acceptance of this record; closed), OI-2158 (the user guide's custom machine figures show the window before the warning), OI-2159 (a saved copy does not say it is a copy).
 
 Requirements and architecture are not edited by this record. No machine or project schema changes. No public API of the library family changes.
 

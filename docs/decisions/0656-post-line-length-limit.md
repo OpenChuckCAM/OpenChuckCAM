@@ -1,10 +1,10 @@
 # 0656: A post's line-length limit, checked before export (GC-08, GC-09, NFR-12; issue #703, OI-933; lane POST-SAFETY)
 
-- **Status:** Proposed by lane POST-SAFETY on 22 Nov 2026. The owner chose item 1 and option A on 22 Nov 2026, relayed by the coordinator. Acceptance of this record's text is pending (OI-2157). It is built in a second pull request of the lane, after the 0.55.0 crates are published, with the workspace minor version bump it needs (decision 0048), not in the first.
+- **Status:** Accepted by the project owner on 22 Nov 2026, relayed by the coordinator (decision 0049). Proposed by lane POST-SAFETY on 22 Nov 2026; the owner chose item 1 and option A the same day (relayed). It is built in a second pull request of the lane, after the 0.55.0 crates are published, with the workspace minor version bump it needs (decision 0048), not in the first.
 - **Date:** 22 Nov 2026.
 - **Requirements:** GC-08 (check generated G-code before export, P2), GC-09 (the Z1 post), GC-03 and GC-04 (post definitions and options), GC-07 and NFR-06 (deterministic output), NFR-07 (clear errors), NFR-12 (the user verifies G-code).
 - **Related:** [decision 0222](0222-short-moves-minimum-block-time.md) (where OI-933 was raised), [decision 0533](0533-safety-notice-post-option.md) (the notice lines), [decision 0540](0540-the-command-line-checks-before-it-writes.md) (the command line runs the export checks).
-- **Open items:** OI-933 (the limit itself; this record would close its software half), OI-2157 (acceptance of this record, and the build in the second pull request).
+- **Open items:** OI-933 (the limit itself; this record would close its software half), OI-2157 (the build in the second pull request).
 
 Requirements and architecture are not edited by this record. No project or machine schema changes: the limit is a post definition option, optional with a default, like `combine_rotary_runs` (decision 0506).
 
