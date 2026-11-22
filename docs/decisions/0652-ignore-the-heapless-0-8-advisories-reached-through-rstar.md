@@ -1,6 +1,6 @@
 # 0652: Ignore the heapless 0.8.0 advisories reached through rstar (NFR-14; issue #825; lane AUDIT-HEAPLESS)
 
-- **Status:** Proposed by lane AUDIT-HEAPLESS on 22 Nov 2026, written for the project owner to accept. The owner accepted option (c), the ignore below, on 22 Nov 2026, relayed by the coordinator (decision 0049), as a risk acceptance and as the freeze exception for this sev1 CI fix. The record itself still awaits the owner's acceptance. The number is provisional: the Merge Manager assigns the final number at release.
+- **Status:** Accepted by the project owner on 22 Nov 2026, relayed by the coordinator (decision 0049). Proposed by lane AUDIT-HEAPLESS the same day; the owner had first accepted option (c), the ignore below, as a risk acceptance and as the freeze exception for this sev1 CI fix, also relayed. The number is provisional: the Merge Manager assigns the final number at release.
 - **Date:** 22 Nov 2026.
 - **Context:** NFR-14 (dependency health), `docs/dependencies.md` (the advisory review rule and the `parry3d-f64` row), [decision 0052](0052-ci-speed-up.md) and [decision 0516](0516-ci-architecture.md) (`cargo audit --deny warnings` in the Fast checks job, required on every pull request). It changes no requirement, no architecture, no dependency, no `Cargo.lock` and no program behaviour.
 - **Open items:** adds OI-2150 (remove the ignore when `parry3d-f64` moves to rstar 0.14 or later).
