@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased (FACING-STEP; issue #800; decision 0666, proposed)
+
+- **Changed:** the STEP import notice adds that Facing works on a STEP part only as Flat or Round over the whole stock with no margin for now.
+
 ## 0.47.0
 
 - **Family release (0.47.0, TABCUT; issue #555; decision 0527, accepted):** `openchuck-path`'s `RegionConstraint` gains the public field `outside`, a breaking change; no change to this crate.

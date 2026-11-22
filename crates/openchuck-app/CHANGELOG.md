@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased (FACING-STEP; issue #800; decision 0666, proposed)
+
+- **Changed:** on a STEP part, Facing with the End or Box shape, a Part or Part plus tabs extent, or an extent margin is in error at once in the overview and the parameter form, and generation refuses it with the same plain words and what to do instead, not with "the whole source has no established projection bound". These modes still do not run on a STEP part (the fix is the owner's choice, decision 0666). Flat and Round over the whole stock with no margin are unchanged.
+
 ## Unreleased (ALIMIT, issue #793; decision 0647, accepted)
 
 - **Added:** a setup check and a warning in Messages, under the topic Machine profile, when the project's Makera Z1 copy still holds the old A limit of 3600 deg/min; it names the controller's 1800 deg/min and `M203.1`, and asks the user to choose the Makera Z1 again. `setup::has_old_z1_a_limit` is re-exported.
