@@ -101,7 +101,7 @@ Tool length measurement
 : **Automatic (tool setter)** if the controller measures each tool on a tool setter, so that a longer tool raises the spindle; otherwise none.
 
 Spindle to axis
-: The distance from the spindle, at the top of its Z travel, down to the rotary axis. A tool that sticks out further than this distance less the safe Z would need the spindle above the top of its travel at safe Z, and the program warns you.
+: The distance from the spindle, at the top of its Z travel, down to the rotary axis. A tool that sticks out further than this distance less the safe Z would need the spindle above the top of its travel at safe Z, and the program warns you. With the Z travel it also gives how far below the axis the spindle reaches at the bottom of its travel: when an operation takes a short tool lower than that, the program warns that the tool may need the spindle below the bottom of the Z travel. Both checks assume each tool sticks out its flute length plus 5 mm, and run only when **Tool length measurement** is automatic.
 
 Recommended minimum safe Z
 : Advice only: the lowest safe Z that is recommended for this machine. It is never used as a limit.

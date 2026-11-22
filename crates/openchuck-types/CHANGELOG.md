@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- **`SetupWarningKind::StartsBehindReference`** (lane Z1-SETUP; issue #812; decision 0672, proposed): `check_setup` warns when the stock, or with no stock the part, starts behind model X 0, the rotary reference point (the headstock face on the Makera Z1). A new variant of a `non_exhaustive` enum, so not a breaking change.
+
 ## 0.54.0
 
 - **Family release (0.54.0, or the next free version, as the Merge Manager sequences it; RAMPENTRY; issues #639, #642; decision 0543, accepted):** `openchuck-path`'s `EntryParameters` gains `allow_single_point_plunge` and loses `back_and_forth`, and `StrategyInput::entry_safety` and the `entry_safety` module are removed (decision 0543 D10), a breaking change; no change to this crate.

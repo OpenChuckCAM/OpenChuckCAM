@@ -29,7 +29,7 @@ The owner's note on #812 (15 Nov 2026): the chuck's length in front of the heads
 
 **D3. How the warning is classed** (decision 0538).
 
-- **A (recommended): a warning, like the travel checks.** Shown in the setup checks and Messages under the setup's Work offset and clearance section; generation and export run; nothing to acknowledge.
+- **A (recommended): a warning, like the travel checks.** Shown in the setup checks and Messages under the setup's Part position section (where the fix is made); generation and export run; nothing to acknowledge.
 - **B: a possible collision**, which must be acknowledged before export, like a safe cylinder inside the stock. Every new project starts with a stock at X −1 (its part at X 0), so every new project would need the acknowledgement until the part is moved.
 
 **D4. The words** (recommended; the owner may change them). For the stock:
@@ -42,7 +42,7 @@ With no stock, "the start of the part" in place of "the start of the stock", and
 
 > the start of the stock (X −64.770) is at machine X −263.160, outside the travel −207.000 to −1.000. Move the part and the stock along X (Offset along X and Zero at X), or shorten the stock.
 
-The model X comes first because it is the number the user typed; the machine X stays for checking against the controller. The same for the end of the stock, the part and the work zero ("Move the work zero (Zero at X)" for the work zero).
+The model X comes first because it is the number the user typed; the machine X stays for checking against the controller. The same for the end of the stock, the part and the work zero ("Move the work zero (Zero at X)" for the work zero). It needs the model X in `SetupWarningKind::OutsideTravel`, a new field: a breaking change of `openchuck-types` and so a workspace minor bump (decision 0048), which waits until the coordinator says the crates.io publish of 0.55.0 is done.
 
 ## Proposed decision
 

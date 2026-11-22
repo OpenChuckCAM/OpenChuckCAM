@@ -1627,6 +1627,8 @@ fn part_of(kind: &SetupWarningKind) -> Option<SetupPart> {
         | SetupWarningKind::StockNeedsPart
         | SetupWarningKind::ImportedStock
         | SetupWarningKind::PartOutsideStock => Some(SetupPart::Stock),
+        // Fixed by moving the part along X (decision record 0672).
+        SetupWarningKind::StartsBehindReference { .. } => Some(SetupPart::PartPosition),
         SetupWarningKind::ClearanceInsideStock { .. }
         | SetupWarningKind::ClearanceInsidePart { .. }
         | SetupWarningKind::ClearanceBelowMinimum { .. }
