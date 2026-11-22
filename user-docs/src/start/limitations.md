@@ -17,6 +17,8 @@ The runs the project has recorded are attended air cuts of the project's ten ref
 
 The values in the built-in Makera Z1 profile were confirmed on one machine, the project owner's, with the supplied chuck. They can differ on yours, so measure them on your own machine. A value you change in a profile of your own is marked unconfirmed, and the status bar says so, for example "Clearance unconfirmed". See [Confirm machine profile values](../how-to/confirm-machine-values.md).
 
+How precisely A turns was measured once, on that machine: see [Rotary positioning on the Makera Z1](../reference/machine-profiles.md#rotary-positioning-on-the-makera-z1).
+
 ## What the program covers
 
 Machines

@@ -128,6 +128,17 @@ Recommended minimum safe Z
 
 Every value is confirmed on the project owner's machine (firmware 1.1.3, with the supplied chuck), not on yours. Check them on your machine before you rely on them.
 
+## Rotary positioning on the Makera Z1
+
+How precisely A turns is not a value in the profile, and the program does not check it. It was measured once, on the project owner's Z1 (firmware 1.1.3), with a dial indicator on a rod held in the chuck. That is one result on one machine:
+
+- after moves to A 90, A 180 and A 270, A returned to A 0 within 0.01 mm;
+- A repeated within 0.01 to 0.02 mm at a radius of 23 mm.
+
+Every move approached from the same side, so this is how well A repeats, not how much it loses when it reverses (backlash).
+
+Makera gives the Z1's 4th axis module as 0.1 degrees, without saying whether that is its resolution or its accuracy. 0.1 degrees is 0.04 mm at a radius of 23 mm; it is 0.01 mm of arc only at a radius of about 5.7 mm. Your machine may differ: measure it if your part depends on it.
+
 ## Make a profile for another machine
 
 1. On the Setup step, in the machine section, click **Manage machines...** to open the machine library window.
