@@ -113,7 +113,7 @@ Recommended minimum safe Z
 | Rotary axis, A+ direction | A about X, positive (at A +90 the top of the part faces the front of the machine) | yes |
 | A range | continuous | yes |
 | Axis height (machine Z) | -48.6 mm | yes (48.568 mm measured again on firmware 1.1.3) |
-| Rotary reference X, Y | -198.39 mm, -123.39 mm (the centre of the headstock face next to the chuck) | yes (firmware 1.1.3) |
+| Rotary reference X, Y | -198.39 mm, -124.39 mm (the centre of the headstock face next to the chuck) | yes (firmware 1.1.3; Y is the G54 Y the firmware sets in the 4-axis setup) |
 | Travel | X -207 to -1, Y -160 to -1, Z -102 to -1 mm | yes (the controller's soft limits on firmware 1.1.3, with the rotary module fitted) |
 | X and Y feed, Z feed, A feed | 1200 mm/min, 600 mm/min, 1800 degrees/min, the same for rapids | yes (on firmware 1.1.3 `M203.1` prints `X: 20`, `Y: 20`, `Z: 10` and `A: 30`, per second; rapids timed) |
 | A in the feed word | makera | yes |
