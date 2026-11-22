@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
+<!-- OpenChuckCAM user guide: the page template (decision 0400). It replaces mdBook's own theme completely.
+     The @@...@@ placeholders and the latest-banner markers are filled in by user-docs/tools/build.py. -->
+<html lang="en" dir="ltr">
+<head>
+  <meta charset="utf-8">
+  <title>Install and first run - OpenChuckCAM user guide</title>
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="The user guide for OpenChuckCAM, free, open source CAM for 4-axis rotary CNC: how to turn a 3D model into G-code, and what to check before you run it.">
+  <meta name="docs-version" content="0.55.0">
+  <meta name="color-scheme" content="light dark">
+  <link rel="icon" href="../favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="../favicon.png" type="image/png" sizes="32x32">
+  <link rel="stylesheet" href="../style.css">
+  <script>
+    // The reader's theme choice, if any, is kept in localStorage (not a cookie). Without one, the page follows the system.
+    try { var t = localStorage.getItem('oc-theme'); if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t; } catch (e) {}
+    const path_to_root = "../";
+    window.path_to_searchindex_js = "../searchindex-acb44e9e.js";
+  </script>
+</head>
+<body>
+  <a class="skip" href="#content">Skip to the content</a>
+  
+  <header class="site-header">
+    <a class="site-title" href="../index.html"><svg class="site-logo" viewBox="0 0 512 512" width="28" height="28" aria-hidden="true" focusable="false"><g transform="translate(256 256) scale(0.94) translate(-256 -256)" fill="currentColor" stroke="currentColor"><rect x="224" y="128" width="64" height="40" rx="8"/><rect x="224" y="128" width="64" height="40" rx="8" transform="rotate(120 256 256)"/><rect x="224" y="128" width="64" height="40" rx="8" transform="rotate(240 256 256)"/><circle cx="256" cy="256" r="64"/><path d="M239.3 64.7 A192 192 0 1 1 66.9 222.7" fill="none" stroke-width="64" stroke-linecap="round"/><polygon points="85.3,118.3 -0.9,214.8 133.4,238.4" stroke-width="10" stroke-linejoin="round"/></g></svg>OpenChuckCAM <span>User guide</span></a>
+    <div class="tools">
+      <span class="version-switch"><a class="version-link" href="../../versions.html">Version: 0.55.0</a></span>
+      <a href="../print.html">Print the guide</a>
+      <button class="theme-toggle" type="button" hidden>Dark theme</button>
+    </div>
+  </header>
+  <div class="layout">
+    <nav class="sidebar" aria-label="Contents">
+      <details open>
+        <summary>Contents</summary>
+        <div class="search hidden" id="mdbook-search-wrapper">
+          <button type="button" id="mdbook-search-toggle" hidden>Search</button>
+          <form id="mdbook-searchbar-outer" role="search" onsubmit="return false">
+            <label for="mdbook-searchbar">Search the guide</label>
+            <input type="search" id="mdbook-searchbar" name="searchbar" autocomplete="off" aria-controls="mdbook-searchresults-outer" aria-describedby="mdbook-searchresults-header">
+          </form>
+          <div id="mdbook-searchresults-outer" class="searchresults-outer hidden">
+            <div id="mdbook-searchresults-header" class="searchresults-header" aria-live="polite"></div>
+            <ul id="mdbook-searchresults"></ul>
+          </div>
+        </div>
+        <ol class="chapter"><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../index.html">OpenChuckCAM user guide</a></span></li><li class="part-title">Start here</li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../start/install.html" aria-current="page">Install and first run</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../start/limitations.html">Known limitations</a></span></li><li class="part-title">Tutorial</li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../tutorial/index.html">Your first project</a></span><ol class="section"><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../tutorial/01-create-project.html">1. Create a project</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../tutorial/02-import-model.html">2. Import the model</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../tutorial/03-machine.html">3. Choose the machine</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../tutorial/04-stock.html">4. Set up the stock</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../tutorial/05-hold.html">5. Hold the work</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../tutorial/06-tools.html">6. Choose the tools</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../tutorial/07-operations.html">7. Add the operations</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../tutorial/08-generate.html">8. Generate the toolpaths</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../tutorial/09-simulate.html">9. Simulate and read the results</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../tutorial/10-export.html">10. Post and export</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../tutorial/11-verify.html">Before you run anything</a></span></li></ol><li class="part-title">Concepts</li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../concepts/rotary-machining.html">How 4-axis rotary machining works</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../concepts/stock-and-held-region.html">Stock and the held region</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../concepts/roughing-and-finishing.html">Roughing and finishing</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../concepts/stepover-and-stock-to-leave.html">Stepover, stepdown, scallop and stock to leave</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../concepts/finishing-strategies.html">Helical, axial, indexed and simultaneous finishing</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../concepts/tabs.html">Tabs</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../concepts/simulation.html">Simulation and deviation colours</a></span></li><li class="part-title">How-to guides</li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../how-to/import-step.html">Import a STEP file</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../how-to/limit-to-a-region.html">Limit an operation to a region</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../how-to/add-a-tool.html">Add a tool to the library</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../how-to/confirm-machine-values.html">Confirm machine profile values</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../how-to/short-block-settings.html">Machine setup: short moves</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../how-to/export.html">Export G-code and the setup sheet</a></span></li><li class="part-title">Worked examples</li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../examples/custom-machine.html">Create a custom machine</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../examples/create-a-post.html">Create a post-processing template</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../examples/tabs-and-held-regions.html">Tabs and held regions</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../examples/limit-to-a-region.html">Limit an operation to a region</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../examples/rest-machining.html">Rest machining</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../examples/flute-length-warning.html">The flute-length warning</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../examples/stepover-and-scallop.html">Stepover, stock to leave and scallop</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../examples/selection-sets.html">Selection sets on a blisk</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../examples/faceflow.html">Face-flow finishing on a blisk floor</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../examples/swarf.html">Swarf on a blisk blade</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../examples/simultaneous-finishing.html">Simultaneous finishing</a></span></li><li class="part-title">Safety and verification</li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../safety/checking-gcode.html">Checking G-code before you run it</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../safety/air-cut.html">Air cut on the Makera Z1</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../safety/checklist.html">Safe-practice checklist</a></span></li><li class="part-title">Reference</li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../reference/operations.html">Operations and strategies</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../reference/settings.html">Settings</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../reference/machine-profiles.html">Machine profiles</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../reference/tool-library.html">Tool library</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../reference/gcode-and-posts.html">G-code and posts</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../reference/writing-a-post.html">Writing a post-processor</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../reference/command-line.html">Command line</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../reference/messages.html">Messages and item states</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../glossary.html">Glossary</a></span></li><li class="part-title">More</li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../troubleshooting.html">Troubleshooting</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../reporting.html">Reporting a problem or asking for a feature</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../release-notes.html">Release notes</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../credits.html">Credits and licences</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../contributing.html">Contributing to this guide</a></span></li></ol>
+      </details>
+    </nav>
+    <div class="content">
+      <main id="content">
+        <div id="mdbook-content">
+<h1 id="install-and-first-run"><a class="header" href="#install-and-first-run">Install and first run</a></h1>
+<p>OpenChuckCAM has no stable release yet. You can download a development build, or build the program from its source code.</p>
+<blockquote class="blockquote-tag blockquote-tag-note">
+<p class="blockquote-tag-title"><svg viewbox="0 0 16 16" width="18" height="18"><path d="M0 8a8 8 0 1 1 16 0A8 8 0 0 1 0 8Zm8-6.5a6.5 6.5 0 1 0 0 13 6.5 6.5 0 0 0 0-13ZM6.5 7.75A.75.75 0 0 1 7.25 7h1a.75.75 0 0 1 .75.75v2.75h.25a.75.75 0 0 1 0 1.5h-2a.75.75 0 0 1 0-1.5h.25v-2h-.25a.75.75 0 0 1-.75-.75ZM8 6a1 1 0 1 1 0-2 1 1 0 0 1 0 2Z"></path></svg>Note</p>
+<p>A development build has passed none of the project’s release checks. Use it to learn the program and to try it on your own parts, and check every program it writes before you run it on a machine (see <a href="../safety/checking-gcode.html">Checking G-code before you run it</a>).</p>
+</blockquote>
+<h2 id="download-a-development-build"><a class="header" href="#download-a-development-build">Download a development build</a></h2>
+<p>When the program’s code changes, the project builds it for three systems and publishes the result as the rolling <a href="https://github.com/OpenChuckCAM/OpenChuckCAM/releases/tag/nightly"><code>nightly</code> pre-release</a> on GitHub.</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>System</th><th>Archive</th><th>Notes</th></tr>
+</thead>
+<tbody>
+<tr><td>Linux</td><td>x86-64</td><td>Needs glibc 2.35 or newer (Ubuntu 22.04, Debian 12, Fedora 36 or later), a Vulkan or OpenGL driver, and X11 or Wayland.</td></tr>
+<tr><td>Windows</td><td>x64</td><td>Not signed: Windows SmartScreen may warn before it runs.</td></tr>
+<tr><td>macOS</td><td>Apple silicon, macOS 11 or later</td><td>Not signed or notarised: macOS blocks it the first time (see below).</td></tr>
+</tbody>
+</table>
+</div>
+<p>The programs are not signed. Signing is not part of the first release.</p>
+<p>Each archive holds:</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>File</th><th>What it is</th></tr>
+</thead>
+<tbody>
+<tr><td><code>openchuck-ui</code> (on macOS, <code>OpenChuckCAM.app</code>)</td><td>The program with a window. This is the one most people use.</td></tr>
+<tr><td><code>openchuck-cli</code></td><td>The command-line program, which does the same work without a window.</td></tr>
+<tr><td><code>openchuck-step-worker</code></td><td>The reader for STEP files. Keep it in the same folder as the other two. On macOS the application carries its own copy inside <code>OpenChuckCAM.app</code>, and this one is for <code>openchuck-cli</code>.</td></tr>
+<tr><td>Licence and README</td><td>The licence texts, the third-party notices, the credits for the Makera Z1 tool data, and notes for the system.</td></tr>
+</tbody>
+</table>
+</div>
+<p>The same page also offers <code>openchuckcam-...-examples.zip</code>, the example projects (such as the tutorial’s baluster). It is not needed to run the program. Generated G-code must be verified by you before it is run on a machine.</p>
+<p>To install it:</p>
+<ol>
+<li>Download the archive for your system from the <a href="https://github.com/OpenChuckCAM/OpenChuckCAM/releases/tag/nightly"><code>nightly</code> pre-release</a>.</li>
+<li>Unpack it into a folder of its own.</li>
+<li>Start <code>openchuck-ui</code>, or on macOS open <code>OpenChuckCAM.app</code>, as below for the first time.</li>
+</ol>
+<p><strong>macOS, the first time.</strong> macOS says “OpenChuckCAM” Not Opened, because Apple could not check it. Click <strong>Done</strong>. Open <strong>System Settings &gt; Privacy &amp; Security</strong>; under <strong>Security</strong> there is a line about OpenChuckCAM: click <strong>Open Anyway</strong> and confirm with your password. After that it opens normally. Alternatively, in Terminal, in the unpacked folder, remove the download’s quarantine flag:</p>
+<pre><code class="language-text">xattr -dr com.apple.quarantine OpenChuckCAM.app openchuck-cli openchuck-step-worker
+</code></pre>
+<p><strong>Windows, the first time.</strong> If SmartScreen shows “Windows protected your PC”, click <strong>More info</strong>, then <strong>Run anyway</strong>. Or, before unpacking, right-click the zip file, choose <strong>Properties</strong>, tick <strong>Unblock</strong> and click <strong>OK</strong>.</p>
+<p><strong>Linux.</strong> Nothing extra: the archive has no signature to check. If the program does not start, check that your system meets the needs in the table above.</p>
+<h3 id="the-command-line"><a class="header" href="#the-command-line">The command line</a></h3>
+<p><code>openchuck-cli</code> does the same work as the window, from a terminal: it creates a project, imports a model, sets up the machine, stock and tools, generates the toolpaths, writes the G-code and simulates. In the unpacked folder, run:</p>
+<pre><code class="language-text">./openchuck-cli --help
+</code></pre>
+<p>On Windows, run <code>openchuck-cli.exe --help</code>. On macOS, run the <code>openchuck-cli</code> that sits beside <code>OpenChuckCAM.app</code>. <a href="../reference/command-line.html">Command line</a> describes each command.</p>
+<h2 id="build-from-source"><a class="header" href="#build-from-source">Build from source</a></h2>
+<p>The program is written in Rust. The version of Rust it needs is pinned in the repository’s <code>rust-toolchain.toml</code>, and <code>rustup</code> installs it for you.</p>
+<ol>
+<li>
+<p>Install Rust with <a href="https://rustup.rs">rustup</a>.</p>
+</li>
+<li>
+<p>Get the source: <code>git clone https://github.com/OpenChuckCAM/OpenChuckCAM.git</code>.</p>
+</li>
+<li>
+<p>In the <code>OpenChuckCAM</code> folder, build and start the program:</p>
+<pre><code class="language-text">cargo run --release -p openchuck-ui
+</code></pre>
+</li>
+<li>
+<p>For the command line, run <code>cargo run -p openchuck-cli -- --help</code>.</p>
+</li>
+</ol>
+<p>Reading STEP files needs the OpenCASCADE geometry kernel, which is not built by default and takes a long time to build the first time. The <a href="https://github.com/OpenChuckCAM/OpenChuckCAM/blob/main/crates/openchuck-import/README.md"><code>openchuck-import</code> README</a> says how.</p>
+<h2 id="the-first-time-it-opens"><a class="header" href="#the-first-time-it-opens">The first time it opens</a></h2>
+<p>The program opens with an empty window and offers <strong>New project…</strong> (also <strong>File &gt; New project…</strong>, <kbd>Ctrl</kbd>+<kbd>N</kbd>). A <a href="../glossary.html#project">project</a> is a folder of plain text files that holds the model, the setup, the tools and the operations of one job.</p>
+<p>The program does not save by itself. Use <strong>File &gt; Save</strong> (<kbd>Ctrl</kbd>+<kbd>S</kbd>) as you work; the window title says when there are changes you have not saved. As a safety net the program also keeps recovery copies of an open project (<strong>File &gt; Settings</strong> sets how often), and offers to recover one when the project is opened again after a crash. They do not replace saving: a recovered project is kept only until you save it, and Messages warns “Recovered checkpoint” until you do. Edits in a form take effect when you press <kbd>Enter</kbd> or leave the field, and <strong>Edit &gt; Undo</strong> reverses them.</p>
+<p>Next: <a href="../tutorial/index.html">Your first project</a> takes you through one job from start to finish.</p>
+<h2 id="where-the-program-keeps-its-log"><a class="header" href="#where-the-program-keeps-its-log">Where the program keeps its log</a></h2>
+<p>The program writes a log file, <code>openchuckcam.log</code>, with what happened at start-up, the graphics adapter, warnings and errors. It never leaves your computer. <strong>Help &gt; About</strong> has a button that opens the folder it is in.</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>System</th><th>Folder, when the program’s own folder cannot be written</th></tr>
+</thead>
+<tbody>
+<tr><td>Linux</td><td><code>~/.local/state/openchuckcam</code></td></tr>
+<tr><td>macOS</td><td><code>~/Library/Logs/OpenChuckCAM</code></td></tr>
+<tr><td>Windows</td><td><code>%LOCALAPPDATA%\OpenChuckCAM\logs</code></td></tr>
+</tbody>
+</table>
+</div>
+<p>Otherwise the log is in the program’s own folder. When you report a problem, you can attach it if you choose to.</p>
+
+        </div>
+        <nav class="pager" aria-label="Previous and next page">
+          <a class="prev" rel="prev" href="../index.html"><span>Previous</span>OpenChuckCAM user guide</a>
+          <a class="next" rel="next" href="../start/limitations.html"><span>Next</span>Known limitations</a>
+        </nav>
+      </main>
+      <footer class="site-footer">
+        <p class="notice">Generated G-code must be verified by the user before it is run on a machine. OpenChuckCAM does not guarantee that a program is safe or correct for any machine, tool or setup.</p>
+        <p class="stamp">Describes OpenChuckCAM 0.55.0 (app-v0.55.0, commit 57b8ac1), built 2026-11-22. Licensed AGPL-3.0-or-later.</p>
+      </footer>
+    </div>
+  </div>
+  <script>
+    // On a narrow screen the contents start folded; without JavaScript they stay open.
+    if (matchMedia('(max-width: 900px)').matches) document.querySelector('.sidebar details').open = false;
+    (function () {
+      var b = document.querySelector('.theme-toggle'), root = document.documentElement;
+      function dark() { return root.dataset.theme ? root.dataset.theme === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches; }
+      function label() { b.textContent = dark() ? 'Light theme' : 'Dark theme'; }
+      b.hidden = false; label();
+      b.addEventListener('click', function () {
+        root.dataset.theme = dark() ? 'light' : 'dark';
+        try { localStorage.setItem('oc-theme', root.dataset.theme); } catch (e) {}
+        label();
+      });
+    })();
+  </script>
+  <script src="../versions.js"></script>
+  <script src="../elasticlunr-ef4e11c1.min.js"></script>
+  <script src="../mark-09e88c2c.min.js"></script>
+  <script src="../searcher-09f2665d.js"></script>
+  <script>
+    // mdBook's search script expects a toggle button and loads its index when the box is shown.
+    // The box is always visible here, so the first focus presses the (hidden) toggle once.
+    (function () {
+      var bar = document.getElementById('mdbook-searchbar'), t = document.getElementById('mdbook-search-toggle'), done = false;
+      bar.addEventListener('focus', function () { if (!done) { done = true; t.click(); bar.focus(); } });
+    })();
+  </script>
+  
+</body>
+</html>

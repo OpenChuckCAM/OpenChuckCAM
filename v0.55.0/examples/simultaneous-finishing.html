@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
+<!-- OpenChuckCAM user guide: the page template (decision 0400). It replaces mdBook's own theme completely.
+     The @@...@@ placeholders and the latest-banner markers are filled in by user-docs/tools/build.py. -->
+<html lang="en" dir="ltr">
+<head>
+  <meta charset="utf-8">
+  <title>Simultaneous finishing - OpenChuckCAM user guide</title>
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="The user guide for OpenChuckCAM, free, open source CAM for 4-axis rotary CNC: how to turn a 3D model into G-code, and what to check before you run it.">
+  <meta name="docs-version" content="0.55.0">
+  <meta name="color-scheme" content="light dark">
+  <link rel="icon" href="../favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="../favicon.png" type="image/png" sizes="32x32">
+  <link rel="stylesheet" href="../style.css">
+  <script>
+    // The reader's theme choice, if any, is kept in localStorage (not a cookie). Without one, the page follows the system.
+    try { var t = localStorage.getItem('oc-theme'); if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t; } catch (e) {}
+    const path_to_root = "../";
+    window.path_to_searchindex_js = "../searchindex-acb44e9e.js";
+  </script>
+</head>
+<body>
+  <a class="skip" href="#content">Skip to the content</a>
+  
+  <header class="site-header">
+    <a class="site-title" href="../index.html"><svg class="site-logo" viewBox="0 0 512 512" width="28" height="28" aria-hidden="true" focusable="false"><g transform="translate(256 256) scale(0.94) translate(-256 -256)" fill="currentColor" stroke="currentColor"><rect x="224" y="128" width="64" height="40" rx="8"/><rect x="224" y="128" width="64" height="40" rx="8" transform="rotate(120 256 256)"/><rect x="224" y="128" width="64" height="40" rx="8" transform="rotate(240 256 256)"/><circle cx="256" cy="256" r="64"/><path d="M239.3 64.7 A192 192 0 1 1 66.9 222.7" fill="none" stroke-width="64" stroke-linecap="round"/><polygon points="85.3,118.3 -0.9,214.8 133.4,238.4" stroke-width="10" stroke-linejoin="round"/></g></svg>OpenChuckCAM <span>User guide</span></a>
+    <div class="tools">
+      <span class="version-switch"><a class="version-link" href="../../versions.html">Version: 0.55.0</a></span>
+      <a href="../print.html">Print the guide</a>
+      <button class="theme-toggle" type="button" hidden>Dark theme</button>
+    </div>
+  </header>
+  <div class="layout">
+    <nav class="sidebar" aria-label="Contents">
+      <details open>
+        <summary>Contents</summary>
+        <div class="search hidden" id="mdbook-search-wrapper">
+          <button type="button" id="mdbook-search-toggle" hidden>Search</button>
+          <form id="mdbook-searchbar-outer" role="search" onsubmit="return false">
+            <label for="mdbook-searchbar">Search the guide</label>
+            <input type="search" id="mdbook-searchbar" name="searchbar" autocomplete="off" aria-controls="mdbook-searchresults-outer" aria-describedby="mdbook-searchresults-header">
+          </form>
+          <div id="mdbook-searchresults-outer" class="searchresults-outer hidden">
+            <div id="mdbook-searchresults-header" class="searchresults-header" aria-live="polite"></div>
+            <ul id="mdbook-searchresults"></ul>
+          </div>
+        </div>
+        <ol class="chapter"><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../index.html">OpenChuckCAM user guide</a></span></li><li class="part-title">Start here</li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../start/install.html">Install and first run</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../start/limitations.html">Known limitations</a></span></li><li class="part-title">Tutorial</li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../tutorial/index.html">Your first project</a></span><ol class="section"><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../tutorial/01-create-project.html">1. Create a project</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../tutorial/02-import-model.html">2. Import the model</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../tutorial/03-machine.html">3. Choose the machine</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../tutorial/04-stock.html">4. Set up the stock</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../tutorial/05-hold.html">5. Hold the work</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../tutorial/06-tools.html">6. Choose the tools</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../tutorial/07-operations.html">7. Add the operations</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../tutorial/08-generate.html">8. Generate the toolpaths</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../tutorial/09-simulate.html">9. Simulate and read the results</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../tutorial/10-export.html">10. Post and export</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../tutorial/11-verify.html">Before you run anything</a></span></li></ol><li class="part-title">Concepts</li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../concepts/rotary-machining.html">How 4-axis rotary machining works</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../concepts/stock-and-held-region.html">Stock and the held region</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../concepts/roughing-and-finishing.html">Roughing and finishing</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../concepts/stepover-and-stock-to-leave.html">Stepover, stepdown, scallop and stock to leave</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../concepts/finishing-strategies.html">Helical, axial, indexed and simultaneous finishing</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../concepts/tabs.html">Tabs</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../concepts/simulation.html">Simulation and deviation colours</a></span></li><li class="part-title">How-to guides</li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../how-to/import-step.html">Import a STEP file</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../how-to/limit-to-a-region.html">Limit an operation to a region</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../how-to/add-a-tool.html">Add a tool to the library</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../how-to/confirm-machine-values.html">Confirm machine profile values</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../how-to/short-block-settings.html">Machine setup: short moves</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../how-to/export.html">Export G-code and the setup sheet</a></span></li><li class="part-title">Worked examples</li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../examples/custom-machine.html">Create a custom machine</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../examples/create-a-post.html">Create a post-processing template</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../examples/tabs-and-held-regions.html">Tabs and held regions</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../examples/limit-to-a-region.html">Limit an operation to a region</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../examples/rest-machining.html">Rest machining</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../examples/flute-length-warning.html">The flute-length warning</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../examples/stepover-and-scallop.html">Stepover, stock to leave and scallop</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../examples/selection-sets.html">Selection sets on a blisk</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../examples/faceflow.html">Face-flow finishing on a blisk floor</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../examples/swarf.html">Swarf on a blisk blade</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../examples/simultaneous-finishing.html" aria-current="page">Simultaneous finishing</a></span></li><li class="part-title">Safety and verification</li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../safety/checking-gcode.html">Checking G-code before you run it</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../safety/air-cut.html">Air cut on the Makera Z1</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../safety/checklist.html">Safe-practice checklist</a></span></li><li class="part-title">Reference</li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../reference/operations.html">Operations and strategies</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../reference/settings.html">Settings</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../reference/machine-profiles.html">Machine profiles</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../reference/tool-library.html">Tool library</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../reference/gcode-and-posts.html">G-code and posts</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../reference/writing-a-post.html">Writing a post-processor</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../reference/command-line.html">Command line</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../reference/messages.html">Messages and item states</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../glossary.html">Glossary</a></span></li><li class="part-title">More</li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../troubleshooting.html">Troubleshooting</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../reporting.html">Reporting a problem or asking for a feature</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../release-notes.html">Release notes</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../credits.html">Credits and licences</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../contributing.html">Contributing to this guide</a></span></li></ol>
+      </details>
+    </nav>
+    <div class="content">
+      <main id="content">
+        <div id="mdbook-content">
+<h1 id="simultaneous-finishing"><a class="header" href="#simultaneous-finishing">Simultaneous finishing</a></h1>
+<p>This example finishes a part whose section does not surround the rotary axis: a small crankshaft with pins set 10 mm off the axis. You add a roughing operation and a <strong>Simultaneous 4-axis finishing</strong> operation, read what the program says about the off-axis pins and the surfaces it cannot see straight on, and then try the two limits that set how the tool leans: <strong>Lead angle</strong> and <strong>Largest tilt</strong>.</p>
+<blockquote class="blockquote-tag blockquote-tag-warning">
+<p class="blockquote-tag-title"><svg viewbox="0 0 16 16" width="18" height="18"><path d="M6.457 1.047c.659-1.234 2.427-1.234 3.086 0l6.082 11.378A1.75 1.75 0 0 1 14.082 15H1.918a1.75 1.75 0 0 1-1.543-2.575Zm1.763.707a.25.25 0 0 0-.44 0L1.698 13.132a.25.25 0 0 0 .22.368h12.164a.25.25 0 0 0 .22-.368Zm.53 3.996v2.5a.75.75 0 0 1-1.5 0v-2.5a.75.75 0 0 1 1.5 0ZM9 11a1 1 0 1 1-2 0 1 1 0 0 1 2 0Z"></path></svg>Warning</p>
+<p>In simultaneous finishing the part turns while the tool moves, so the tool can come close to the part, the chuck and the stock from directions you do not expect. The program checks gouging against the part, but it does not check the tool holder, and it does not prove that nothing collides. Watch the whole path in the simulation and run an <a href="../glossary.html#air-cut">air cut</a> first. Generated G-code must be verified by you before it is run on a machine.</p>
+</blockquote>
+<p>You need the example project <a href="https://github.com/OpenChuckCAM/OpenChuckCAM/tree/main/testdata/examples/crankshaft-simultaneous/crankshaft-project"><code>testdata/examples/crankshaft-simultaneous/crankshaft-project</code></a>. Copy it to a folder of your own and open the copy with <strong>File &gt; Open project</strong>. Its part is the public model <code>testdata/step/valid/crankshaft.step</code>, and the program needs its STEP reader to open it (<a href="../start/install.html">Install</a>). The numbers on this page come from that project on the build named in the figures’ record; your own part gives other numbers.</p>
+<h2 id="when-to-use-simultaneous-finishing"><a class="header" href="#when-to-use-simultaneous-finishing">When to use simultaneous finishing</a></h2>
+<p>Most finishing strategies keep the tool pointing at the rotary axis. That works on parts that are round in section, such as the tutorial’s baluster. <strong>Simultaneous 4-axis finishing</strong> instead turns A so that the tool follows the surface’s normal as it moves. Use it when:</p>
+<ul>
+<li>the part’s section does not surround the rotary axis, such as an off-axis pin, a cam or a lobe;</li>
+<li>surfaces face each other or face sideways, so that a tool pointing at the axis would meet them at a steep angle or not at all.</li>
+</ul>
+<p>On a part that is round in section, start with <strong>Helical finishing</strong>: it is simpler to check.</p>
+<h2 id="1-look-at-the-part"><a class="header" href="#1-look-at-the-part">1. Look at the part</a></h2>
+<p>The project opens on the <strong>Setup</strong> step. The side view shows the crank: the pins at X = 17.99 to 27.99 and 47.99 to 57.99 sit above the axis and the pin at X = 32.99 to 42.99 below it (the example project places the part 17.99 mm from the headstock face).</p>
+<figure>
+<a href="images/simultaneous/01-setup.png"><img src="images/simultaneous/01-setup.png" width="1920" height="1080" alt="The Setup step with the side view of the crankshaft: the part&#39;s outline steps up and down across the dashed rotary axis, with the hatched held region of 6 mm at the left, stock diameter 38.000 and stock length 46.000; the Messages list says the grip at the start of the stock covers 2.000 mm of the part."></a>
+<figcaption><b>Figure 1.</b> The crankshaft in its 38 mm stock. Its pins are not centred on the rotary axis.</figcaption>
+</figure>
+<p>The project already has the setup (a 38 mm hardwood bar, gripped for 6 mm) and the two tools; you add the operations.</p>
+<h2 id="2-add-the-operations"><a class="header" href="#2-add-the-operations">2. Add the operations</a></h2>
+<ol>
+<li>Click <strong>Operations</strong> at the top.</li>
+<li>Click <strong>+ New operation</strong>, keep <strong>Rotary roughing</strong>, choose the tool <strong>Z1 O-flute 3.175x25</strong>, name it <code>Rough</code>, and click <strong>Add</strong>.</li>
+<li>In the Inspector, set <strong>Stepdown</strong> to <code>1</code>.</li>
+<li>Click <strong>+ New operation</strong> again. Under <strong>Strategy</strong>, choose <strong>Simultaneous 4-axis finishing</strong>, choose the tool <strong>Z1 ball 3.175x22</strong>, and name it <code>Finish</code>.</li>
+</ol>
+<figure>
+<a href="images/simultaneous/02-add-simultaneous.png"><img src="images/simultaneous/02-add-simultaneous.png" width="1920" height="1080" alt="The Add operation dialog with the name Finish, the strategy Simultaneous 4-axis finishing and its description: Moves the tool while turning the part to approach the surface from different directions. Use it for curved shapes that need the cutting angle to change along a pass. Four-axis motion cannot follow every surface direction; check the resulting path and simulation. Tool Z1 ball 3.175x22."></a>
+<figcaption><b>Figure 2.</b> The finishing operation. Its description says what it cannot do: four-axis motion cannot follow every surface direction.</figcaption>
+</figure>
+<ol start="5" style="counter-reset: step 4">
+<li>Click <strong>Add</strong>.</li>
+</ol>
+<h2 id="3-generate-and-read-the-notes"><a class="header" href="#3-generate-and-read-the-notes">3. Generate and read the notes</a></h2>
+<ol>
+<li>Click the eye beside <strong>1 Rough</strong> to hide its path, so the view shows the finish only.</li>
+<li>Click <strong>Generate</strong>. On the build these screens were taken with, both operations took about 90 seconds.</li>
+<li>Click <strong>Iso</strong> above the view, then <strong>Results</strong> under it. The notes are listed under <strong>Information</strong>.</li>
+</ol>
+<figure>
+<a href="images/simultaneous/03-finish-path.png"><img src="images/simultaneous/03-finish-path.png" width="1920" height="1080" alt="The Iso view with the finishing path drawn in orange round each of the three pins of the crankshaft; the Results tab, with Information turned off, reads 2 operations, 40284 moves, 94.9 s to generate, Errors 0, Warnings 2, Information 35, and lists the two warnings of Finish: Inside corners and Tool holder."></a>
+<figcaption><b>Figure 3.</b> The finishing path follows each pin round its own centre, not round the rotary axis.</figcaption>
+</figure>
+<p>The finish gives these notes and two warnings. Figure 3 shows the warnings; the notes are under <strong>Information</strong>. Read them before you look at the simulation.</p>
+<dl>
+<dt id="the-off-axis-pins"><a class="header" href="#the-off-axis-pins">The off-axis pins</a></dt>
+<dd>“the part’s section does not surround the rotary axis at X 22.078 to 27.950, X 32.998 to 42.943, X 47.991 to 57.936, so the path there goes round the section’s own centre: the tool moves across the axis as A turns, to stay on the surface normal”. Over each pin, Y and Z change as A turns, so the machine moves on all four axes at once.</dd>
+<dt id="how-far-the-tool-leans"><a class="header" href="#how-far-the-tool-leans">How far the tool leans</a></dt>
+<dd>“A is smoothed within 10 degrees of the normal; the largest tilt used is 1.3 degrees from that”. The tool is allowed to lean up to <strong>Largest tilt</strong> away from the normal so that A turns smoothly; here it needed only 1.3°.</dd>
+<dt id="surfaces-it-cannot-see-straight-on"><a class="header" href="#surfaces-it-cannot-see-straight-on">Surfaces it cannot see straight on</a></dt>
+<dd>“surfaces hidden from the drive (such as the walls of a slot, an undercut, or sides of the section facing each other) between X 28.150 and 47.941 are finished with passes of their own after the main ones, the tool leaning from the surface normal as little as the part lets it reach them: up to 2.2 degrees (at X 28.150, A 118.471); the tool above its flutes is taken as no wider than its cutting part”. The webs between the pins face each other, so they get passes of their own. A warning of its own goes with it, “Tool holder (operation ‘Finish’)”: “the tool holder is not checked on the passes that finish the surfaces hidden from the drive between X 28.150 and 47.941, where the tool leans up to 2.2 degrees”. Check the holder’s clearance yourself where the tool leans.</dd>
+<dt id="inside-corners-a-warning"><a class="header" href="#inside-corners-a-warning">Inside corners, a warning</a></dt>
+<dd>“Inside corners (operation ‘Finish’): at X 27.990, 32.990, 42.990 and 47.990 faces across the rotary axis meet a section that does not surround the axis in an inside corner: where a corner is sharper than the tool’s radius, this tool’s round end (radius 1.587 mm) leaves up to about 0.66 mm across it; a flat end can finish them”. A ball cannot cut a sharp inside corner; plan another operation if those corners matter.</dd>
+</dl>
+<p>The finish also says that it drops the tool on “the STEP part’s exact faces, to within 0.0001 mm”, while the roughing uses the tessellation.</p>
+<h2 id="4-the-lead-and-tilt-limits"><a class="header" href="#4-the-lead-and-tilt-limits">4. The lead and tilt limits</a></h2>
+<p>Scroll the Inspector down to <strong>Tool axis and A</strong>.</p>
+<figure>
+<a href="images/simultaneous/04-tool-axis.png"><img src="images/simultaneous/04-tool-axis.png" width="1920" height="1080" alt="The Finish operation&#39;s Inspector scrolled to Pattern and tolerance and Tool axis and A: Pattern spiral or axial, Largest lean on hidden surfaces 90.00 default, Passes Spiral, Pass order by_region, Rotation positive, Start angle 0.00, Largest angle step 5.00, Lead angle 0.00 and Largest tilt 10.00, all defaults."></a>
+<figcaption><b>Figure 4.</b> The settings that control how the tool leans and how A turns.</figcaption>
+</figure>
+<dl>
+<dt id="lead-angle"><a class="header" href="#lead-angle">Lead angle</a></dt>
+<dd>Leans the tool from the normal towards the way the path travels round the axis, between -30° and 30°. With a ball, a lead keeps the ball’s centre, where it barely cuts, off the surface. The default is 0.</dd>
+<dt id="largest-tilt"><a class="header" href="#largest-tilt">Largest tilt</a></dt>
+<dd>How far the tool may lean away from the normal, plus the lead, so that A turns smoothly with fewer reversals. 0 follows the normal exactly. A larger value gives a smoother A, but cuts with more of the tool’s side, which changes the finish for flat, bull-nose and V tools. The default is 10°.</dd>
+<dt id="largest-angle-step"><a class="header" href="#largest-angle-step">Largest angle step</a></dt>
+<dd>The largest change of A between two points of the path. The default is 5°.</dd>
+<dt id="largest-lean-on-hidden-surfaces"><a class="header" href="#largest-lean-on-hidden-surfaces">Largest lean on hidden surfaces</a></dt>
+<dd>A limit, between 0° and 90° (the default is 90°), on how far the tool may lean from the normal to reach a hidden surface. Read what it did in the note about surfaces hidden from the drive, which gives the largest lean used. On the build these screens were taken with, setting it to 0 did not change this example’s path; that is under review (#619).</dd>
+</dl>
+<p>Now give the finish a lead:</p>
+<ol>
+<li>Set <strong>Lead angle</strong> to <code>10</code> and press <kbd>Enter</kbd>.</li>
+<li>Click <strong>Generate</strong>.</li>
+</ol>
+<figure>
+<a href="images/simultaneous/05-lead-10.png"><img src="images/simultaneous/05-lead-10.png" width="1920" height="1080" alt="The same view after generating with Lead angle 10.00; the Results tab reads 2 operations, 40183 moves, 38.9 s to generate, Errors 0, Warnings 2, Information 31, and the Tool holder warning now says the tool leans up to 12.2 degrees."></a>
+<figcaption><b>Figure 5.</b> With a 10° lead, the tool leans up to 12.2° on the hidden surfaces.</figcaption>
+</figure>
+<p>The note under <strong>Information</strong> now reads “A is smoothed within 10 degrees of the normal plus the 10 degree lead; the largest tilt used is 1.3 degrees from that”, and the tool holder warning says the tool leans “up to 12.2 degrees” on the hidden surfaces, because the lead adds to the lean. The path is much the same; what changes is the angle at which the ball meets the wood.</p>
+<h2 id="5-a-lead-needs-the-spiral-pattern"><a class="header" href="#5-a-lead-needs-the-spiral-pattern">5. A lead needs the spiral pattern</a></h2>
+<p>A can only lean the tool round the axis. Axial passes travel along the axis, so a lead cannot apply to them:</p>
+<ol>
+<li>Next to <strong>Pattern</strong>, click <strong>axial</strong>, leaving <strong>Lead angle</strong> at 10.</li>
+<li>Click <strong>Generate</strong>.</li>
+</ol>
+<figure>
+<a href="images/simultaneous/06-axial-with-lead.png"><img src="images/simultaneous/06-axial-with-lead.png" width="1920" height="1080" alt="The Inspector shows This operation can&#39;t be generated: Lead angle (operation &#39;Finish&#39;): axial passes travel along the rotary axis, where A cannot lean the tool; set the lead angle to 0 or use the spiral pattern; below it, Export is blocked while this operation is in error. The Results tab shows Errors 1 and the same line in red, then the earlier run&#39;s warnings under The project has changed since this run. Generate again.; the top right reads Error to fix."></a>
+<figcaption><b>Figure 6.</b> The axial pattern with a lead is refused, and the reason is given.</figcaption>
+</figure>
+<p>The operation is not generated, and the export is blocked until it is fixed. Set <strong>Lead angle</strong> back to <code>0</code>, or click <strong>spiral</strong> again.</p>
+<h2 id="read-the-result"><a class="header" href="#read-the-result">Read the result</a></h2>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Finish</th><th>Moves, both operations</th><th>Largest tilt used</th><th>Lean on hidden surfaces</th></tr>
+</thead>
+<tbody>
+<tr><td>Defaults (lead 0, tilt 10)</td><td>40,284</td><td>1.3°</td><td>up to 2.2°</td></tr>
+<tr><td><strong>Lead angle</strong> 10</td><td>40,183</td><td>1.3° from the normal plus the lead</td><td>up to 12.2°</td></tr>
+<tr><td><strong>Pattern</strong> axial, <strong>Lead angle</strong> 10</td><td>not generated</td><td></td><td></td></tr>
+</tbody>
+</table>
+</div>
+<p>With the defaults the simulation leaves “Most material left: 2.000 mm at X 57.99”, at the free end of the last pin, where the stock reaches past the part. The finish removes 1,357 mm³ after the roughing’s 34,227 mm³.</p>
+<p>Over the pins the machine moves Y and Z while A turns. Before you run it, play the finish in the <strong>Simulate</strong> step and watch the tool over each pin: the program tells you how far the tool leaned, but only the simulation and an air cut show you what the machine does.</p>
+<h2 id="common-mistakes"><a class="header" href="#common-mistakes">Common mistakes</a></h2>
+<dl>
+<dt id="axial-passes-travel-along-the-rotary-axis-where-a-cannot-lean-the-tool-set-the-lead-angle-to-0-or-use-the-spiral-pattern"><a class="header" href="#axial-passes-travel-along-the-rotary-axis-where-a-cannot-lean-the-tool-set-the-lead-angle-to-0-or-use-the-spiral-pattern">“axial passes travel along the rotary axis, where A cannot lean the tool; set the lead angle to 0 or use the spiral pattern”</a></dt>
+<dd>A lead needs the spiral pattern.</dd>
+<dt id="a-large-largest-tilt-with-a-flat-or-bull-nose-tool"><a class="header" href="#a-large-largest-tilt-with-a-flat-or-bull-nose-tool">A large <strong>Largest tilt</strong> with a flat or bull-nose tool</a></dt>
+<dd>The tool cuts with more of its side, and the surface finish changes. Keep it small, or use a ball.</dd>
+<dt id="-the-tool-holder-is-not-checked"><a class="header" href="#-the-tool-holder-is-not-checked">“… the tool holder is not checked”</a></dt>
+<dd>The program checks the tool’s cutting part and takes the tool above its flutes as no wider; it does not know the holder. Check the clearance round the pins yourself.</dd>
+<dt id="expecting-the-inside-corners-to-be-sharp"><a class="header" href="#expecting-the-inside-corners-to-be-sharp">Expecting the inside corners to be sharp</a></dt>
+<dd>“this tool’s round end (radius 1.587 mm) leaves up to about 0.66 mm across it; a flat end can finish them”. Add an operation with a flat end mill for the corners, if they matter.</dd>
+</dl>
+<p>Related: <a href="../concepts/finishing-strategies.html">Finishing strategies</a>, <a href="../concepts/rotary-machining.html">Rotary machining</a>.</p>
+
+        </div>
+        <nav class="pager" aria-label="Previous and next page">
+          <a class="prev" rel="prev" href="../examples/swarf.html"><span>Previous</span>Swarf on a blisk blade</a>
+          <a class="next" rel="next" href="../safety/checking-gcode.html"><span>Next</span>Checking G-code before you run it</a>
+        </nav>
+      </main>
+      <footer class="site-footer">
+        <p class="notice">Generated G-code must be verified by the user before it is run on a machine. OpenChuckCAM does not guarantee that a program is safe or correct for any machine, tool or setup.</p>
+        <p class="stamp">Describes OpenChuckCAM 0.55.0 (app-v0.55.0, commit 57b8ac1), built 2026-11-22. Licensed AGPL-3.0-or-later.</p>
+      </footer>
+    </div>
+  </div>
+  <script>
+    // On a narrow screen the contents start folded; without JavaScript they stay open.
+    if (matchMedia('(max-width: 900px)').matches) document.querySelector('.sidebar details').open = false;
+    (function () {
+      var b = document.querySelector('.theme-toggle'), root = document.documentElement;
+      function dark() { return root.dataset.theme ? root.dataset.theme === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches; }
+      function label() { b.textContent = dark() ? 'Light theme' : 'Dark theme'; }
+      b.hidden = false; label();
+      b.addEventListener('click', function () {
+        root.dataset.theme = dark() ? 'light' : 'dark';
+        try { localStorage.setItem('oc-theme', root.dataset.theme); } catch (e) {}
+        label();
+      });
+    })();
+  </script>
+  <script src="../versions.js"></script>
+  <script src="../elasticlunr-ef4e11c1.min.js"></script>
+  <script src="../mark-09e88c2c.min.js"></script>
+  <script src="../searcher-09f2665d.js"></script>
+  <script>
+    // mdBook's search script expects a toggle button and loads its index when the box is shown.
+    // The box is always visible here, so the first focus presses the (hidden) toggle once.
+    (function () {
+      var bar = document.getElementById('mdbook-searchbar'), t = document.getElementById('mdbook-search-toggle'), done = false;
+      bar.addEventListener('focus', function () { if (!done) { done = true; t.click(); bar.focus(); } });
+    })();
+  </script>
+  
+</body>
+</html>

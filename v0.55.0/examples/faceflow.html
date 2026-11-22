@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
+<!-- OpenChuckCAM user guide: the page template (decision 0400). It replaces mdBook's own theme completely.
+     The @@...@@ placeholders and the latest-banner markers are filled in by user-docs/tools/build.py. -->
+<html lang="en" dir="ltr">
+<head>
+  <meta charset="utf-8">
+  <title>Face-flow finishing on a blisk floor - OpenChuckCAM user guide</title>
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="The user guide for OpenChuckCAM, free, open source CAM for 4-axis rotary CNC: how to turn a 3D model into G-code, and what to check before you run it.">
+  <meta name="docs-version" content="0.55.0">
+  <meta name="color-scheme" content="light dark">
+  <link rel="icon" href="../favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="../favicon.png" type="image/png" sizes="32x32">
+  <link rel="stylesheet" href="../style.css">
+  <script>
+    // The reader's theme choice, if any, is kept in localStorage (not a cookie). Without one, the page follows the system.
+    try { var t = localStorage.getItem('oc-theme'); if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t; } catch (e) {}
+    const path_to_root = "../";
+    window.path_to_searchindex_js = "../searchindex-acb44e9e.js";
+  </script>
+</head>
+<body>
+  <a class="skip" href="#content">Skip to the content</a>
+  
+  <header class="site-header">
+    <a class="site-title" href="../index.html"><svg class="site-logo" viewBox="0 0 512 512" width="28" height="28" aria-hidden="true" focusable="false"><g transform="translate(256 256) scale(0.94) translate(-256 -256)" fill="currentColor" stroke="currentColor"><rect x="224" y="128" width="64" height="40" rx="8"/><rect x="224" y="128" width="64" height="40" rx="8" transform="rotate(120 256 256)"/><rect x="224" y="128" width="64" height="40" rx="8" transform="rotate(240 256 256)"/><circle cx="256" cy="256" r="64"/><path d="M239.3 64.7 A192 192 0 1 1 66.9 222.7" fill="none" stroke-width="64" stroke-linecap="round"/><polygon points="85.3,118.3 -0.9,214.8 133.4,238.4" stroke-width="10" stroke-linejoin="round"/></g></svg>OpenChuckCAM <span>User guide</span></a>
+    <div class="tools">
+      <span class="version-switch"><a class="version-link" href="../../versions.html">Version: 0.55.0</a></span>
+      <a href="../print.html">Print the guide</a>
+      <button class="theme-toggle" type="button" hidden>Dark theme</button>
+    </div>
+  </header>
+  <div class="layout">
+    <nav class="sidebar" aria-label="Contents">
+      <details open>
+        <summary>Contents</summary>
+        <div class="search hidden" id="mdbook-search-wrapper">
+          <button type="button" id="mdbook-search-toggle" hidden>Search</button>
+          <form id="mdbook-searchbar-outer" role="search" onsubmit="return false">
+            <label for="mdbook-searchbar">Search the guide</label>
+            <input type="search" id="mdbook-searchbar" name="searchbar" autocomplete="off" aria-controls="mdbook-searchresults-outer" aria-describedby="mdbook-searchresults-header">
+          </form>
+          <div id="mdbook-searchresults-outer" class="searchresults-outer hidden">
+            <div id="mdbook-searchresults-header" class="searchresults-header" aria-live="polite"></div>
+            <ul id="mdbook-searchresults"></ul>
+          </div>
+        </div>
+        <ol class="chapter"><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../index.html">OpenChuckCAM user guide</a></span></li><li class="part-title">Start here</li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../start/install.html">Install and first run</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../start/limitations.html">Known limitations</a></span></li><li class="part-title">Tutorial</li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../tutorial/index.html">Your first project</a></span><ol class="section"><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../tutorial/01-create-project.html">1. Create a project</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../tutorial/02-import-model.html">2. Import the model</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../tutorial/03-machine.html">3. Choose the machine</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../tutorial/04-stock.html">4. Set up the stock</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../tutorial/05-hold.html">5. Hold the work</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../tutorial/06-tools.html">6. Choose the tools</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../tutorial/07-operations.html">7. Add the operations</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../tutorial/08-generate.html">8. Generate the toolpaths</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../tutorial/09-simulate.html">9. Simulate and read the results</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../tutorial/10-export.html">10. Post and export</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../tutorial/11-verify.html">Before you run anything</a></span></li></ol><li class="part-title">Concepts</li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../concepts/rotary-machining.html">How 4-axis rotary machining works</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../concepts/stock-and-held-region.html">Stock and the held region</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../concepts/roughing-and-finishing.html">Roughing and finishing</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../concepts/stepover-and-stock-to-leave.html">Stepover, stepdown, scallop and stock to leave</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../concepts/finishing-strategies.html">Helical, axial, indexed and simultaneous finishing</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../concepts/tabs.html">Tabs</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../concepts/simulation.html">Simulation and deviation colours</a></span></li><li class="part-title">How-to guides</li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../how-to/import-step.html">Import a STEP file</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../how-to/limit-to-a-region.html">Limit an operation to a region</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../how-to/add-a-tool.html">Add a tool to the library</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../how-to/confirm-machine-values.html">Confirm machine profile values</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../how-to/short-block-settings.html">Machine setup: short moves</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../how-to/export.html">Export G-code and the setup sheet</a></span></li><li class="part-title">Worked examples</li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../examples/custom-machine.html">Create a custom machine</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../examples/create-a-post.html">Create a post-processing template</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../examples/tabs-and-held-regions.html">Tabs and held regions</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../examples/limit-to-a-region.html">Limit an operation to a region</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../examples/rest-machining.html">Rest machining</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../examples/flute-length-warning.html">The flute-length warning</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../examples/stepover-and-scallop.html">Stepover, stock to leave and scallop</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../examples/selection-sets.html">Selection sets on a blisk</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../examples/faceflow.html" aria-current="page">Face-flow finishing on a blisk floor</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../examples/swarf.html">Swarf on a blisk blade</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../examples/simultaneous-finishing.html">Simultaneous finishing</a></span></li><li class="part-title">Safety and verification</li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../safety/checking-gcode.html">Checking G-code before you run it</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../safety/air-cut.html">Air cut on the Makera Z1</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../safety/checklist.html">Safe-practice checklist</a></span></li><li class="part-title">Reference</li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../reference/operations.html">Operations and strategies</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../reference/settings.html">Settings</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../reference/machine-profiles.html">Machine profiles</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../reference/tool-library.html">Tool library</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../reference/gcode-and-posts.html">G-code and posts</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../reference/writing-a-post.html">Writing a post-processor</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../reference/command-line.html">Command line</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../reference/messages.html">Messages and item states</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../glossary.html">Glossary</a></span></li><li class="part-title">More</li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../troubleshooting.html">Troubleshooting</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../reporting.html">Reporting a problem or asking for a feature</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../release-notes.html">Release notes</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../credits.html">Credits and licences</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../contributing.html">Contributing to this guide</a></span></li></ol>
+      </details>
+    </nav>
+    <div class="content">
+      <main id="content">
+        <div id="mdbook-content">
+<h1 id="face-flow-finishing-on-a-blisk-floor"><a class="header" href="#face-flow-finishing-on-a-blisk-floor">Face-flow finishing on a blisk floor</a></h1>
+<p>This example finishes one hub floor of a bladed disk (a blisk) with face-flow finishing: passes that run along one edge of the face, the guide, and step across it to the opposite side, following the face rather than the machine’s axes. It sets the spacing first by <a href="../glossary.html#stepover">stepover</a> and then by <a href="../glossary.html#scallop">scallop</a> height, chooses the guide with an edge set, and shows what the Results mean by an area the tool “cannot reach”, with the numbers from a real run.</p>
+<blockquote class="blockquote-tag blockquote-tag-warning">
+<p class="blockquote-tag-title"><svg viewbox="0 0 16 16" width="18" height="18"><path d="M6.457 1.047c.659-1.234 2.427-1.234 3.086 0l6.082 11.378A1.75 1.75 0 0 1 14.082 15H1.918a1.75 1.75 0 0 1-1.543-2.575Zm1.763.707a.25.25 0 0 0-.44 0L1.698 13.132a.25.25 0 0 0 .22.368h12.164a.25.25 0 0 0 .22-.368Zm.53 3.996v2.5a.75.75 0 0 1-1.5 0v-2.5a.75.75 0 0 1 1.5 0ZM9 11a1 1 0 1 1-2 0 1 1 0 0 1 2 0Z"></path></svg>Warning</p>
+<p>Face-flow finishing leaves out what it cannot reach and says so, but it checks only what its notes and warnings name. Generated G-code must be verified by you before it is run on a machine: watch the <a href="../glossary.html#simulation">simulation</a>, read every warning, and run an <a href="../glossary.html#air-cut">air cut</a> first.</p>
+</blockquote>
+<p>You need the example project <a href="https://github.com/OpenChuckCAM/OpenChuckCAM/tree/main/testdata/examples/blisk-start/blisk-project"><code>testdata/examples/blisk-start/blisk-project</code></a>. Copy it to a folder of your own and open the copy with <strong>File &gt; Open project</strong>. Face-flow finishing needs a STEP part: it works on the model’s exact faces, so it cannot be used on a mesh part. The numbers on this page come from OpenChuckCAM 0.55.0 on Linux (main at 55e6348).</p>
+<h2 id="1-make-the-sets"><a class="header" href="#1-make-the-sets">1. Make the sets</a></h2>
+<p>Make a face set and an edge set as in steps 1 and 2 of <a href="selection-sets.html">Selection sets on a blisk</a>:</p>
+<ul>
+<li><code>Hub floor</code>: the floor between the two blades in the middle of the front view (face 20);</li>
+<li><code>Floor guide</code>: the edge where the blade above that floor meets it (edge 65).</li>
+</ul>
+<p>The edge set is optional: without it, each face starts from its longest side. It is made here so you can choose it in step 4.</p>
+<h2 id="2-add-the-operation"><a class="header" href="#2-add-the-operation">2. Add the operation</a></h2>
+<ol>
+<li>Click <strong>+ New operation</strong>. Choose <strong>Face flow finishing</strong>. Its description says what it does and that it needs a STEP model.</li>
+<li>Choose the tool <strong>3 mm ball</strong>, name the operation <code>Floor finish</code>, and click <strong>Add</strong>.</li>
+<li>In the Inspector, under <strong>Geometry</strong>, choose <strong>Hub floor</strong> beside <strong>Cut on</strong>. Leave <strong>Guide edge</strong> empty for now.</li>
+</ol>
+<figure>
+<a href="images/blisk_faceflow/01-geometry.png"><img src="images/blisk_faceflow/01-geometry.png" width="1920" height="1080" alt="The Operations step with the blisk in the front view. The Inspector shows Floor finish, Face flow finishing, Stale, and Geometry with Cut on Hub floor; Guide edge, Contain within, Avoid and Check are empty."></a>
+<figcaption><b>Figure 1.</b> Face-flow finishing shows <b>Cut on</b> for the faces and <b>Guide edge</b> for the edge the passes follow.</figcaption>
+</figure>
+<ol start="4" style="counter-reset: step 3">
+<li>Click <strong>Generate stale</strong> at the bottom right. It took about 35 s on the test computer.</li>
+</ol>
+<figure>
+<a href="images/blisk_faceflow/02-stepover.png"><img src="images/blisk_faceflow/02-stepover.png" width="1920" height="1080" alt="The face-flow passes drawn in orange along the twisted hub floor, with a strip of white-cased black diagonal hatching along both blade walls marking the unreachable area, labelled Unreachable (Floor finish) in the legend, and a numbered black-and-white marker 1 on the floor. Results: 1 operation, 2310 moves, 30.7 s to generate, Warnings 1, and the lines quoted in the text."></a>
+<figcaption><b>Figure 2.</b> With the stepover of the tool's cutting data, 1 mm: the passes follow the floor, and the hatched area along the walls is where the ball does not fit.</figcaption>
+</figure>
+<h2 id="read-the-result"><a class="header" href="#read-the-result">Read the result</a></h2>
+<p>The Results list three lines for the operation:</p>
+<dl>
+<dt id="face-flow-finishing-operation-floor-finish-face-20-is-cut-from-its-guide-edge-65-491-mm-long-towards-the-opposite-side-in-17-passes-up-to-0953-mm-apart-along-the-face"><a class="header" href="#face-flow-finishing-operation-floor-finish-face-20-is-cut-from-its-guide-edge-65-491-mm-long-towards-the-opposite-side-in-17-passes-up-to-0953-mm-apart-along-the-face">“Face-flow finishing (operation ‘Floor finish’): face 20 is cut from its guide, edge 65 (49.1 mm long), towards the opposite side in 17 passes up to 0.953 mm apart along the face”</a></dt>
+<dd>The guide is the floor’s longest side, the root of the blade above it. The 17 passes are laid out across the floor, never more than the 1.000 mm <strong>Stepover</strong> apart, measured along the face.</dd>
+<dt id="face-flow-finishing-operation-floor-finish-cuts-12-passes-on-1-face"><a class="header" href="#face-flow-finishing-operation-floor-finish-cuts-12-passes-on-1-face">“Face-flow finishing (operation ‘Floor finish’): cuts 12 passes on 1 face”</a></dt>
+<dd>The passes that are cut, after the stretches the tool cannot reach are left out. A pass that lies wholly in that area is not cut.</dd>
+<dt id="unreached-areas-operation-floor-finish-face-flow-finishing-cannot-reach-1-area-of-the-selected-faces-which-stay-uncut-x-37990-to-77990-near-a-282-1738-mm2-a-neighbouring-face-is-in-the-way-of-the-tool-check-them-in-the-simulation-before-running-the-program"><a class="header" href="#unreached-areas-operation-floor-finish-face-flow-finishing-cannot-reach-1-area-of-the-selected-faces-which-stay-uncut-x-37990-to-77990-near-a-282-1738-mm2-a-neighbouring-face-is-in-the-way-of-the-tool-check-them-in-the-simulation-before-running-the-program">“Unreached areas (operation ‘Floor finish’): face-flow finishing cannot reach 1 area of the selected faces, which stay uncut: X 37.990 to 77.990 near A 282 (173.8 mm2), a neighbouring face is in the way of the tool; check them in the simulation before running the program”</a></dt>
+<dd>The floor is a narrow strip between two blade walls, and a 3 mm ball cannot reach into the corners where the floor meets them without touching a wall. That strip, along the whole floor from X 37.99 to X 77.99, is not cut and is drawn hatched in the view, labelled <strong>Unreachable (Floor finish)</strong> in the legend: black diagonal lines in a white casing, painted on the surface, so they turn and stretch with it as you orbit and zoom. “A neighbouring face is in the way” means a blade wall, not the stock. The same line appears under <strong>Messages</strong>, with a link to the operation.</dd>
+</dl>
+<p>How much is that? When face-flow finishing was built, the five floors of this blisk were measured: the same on all five, 171.6 mm2 of the 496.3 mm2 floor (35 %) out of reach of the 3 mm ball, all of it along the blade walls, and 118.4 mm2 (24 %) with a 2 mm ball. This run reports 173.8 mm2 at its own stepover. Whether a smaller tool, a different tool, or leaving the strip suits your part is your call; the program does not choose for you, and it has no strategy yet that finishes the strip with a second tool.</p>
+<p>The setup’s totals say “Floor finish: 5638 mm³ removed in 2310 moves”. The stock is not roughed in this example, so most of that is stock above the floor, not finishing allowance.</p>
+<h2 id="3-set-a-scallop-height-instead"><a class="header" href="#3-set-a-scallop-height-instead">3. Set a scallop height instead</a></h2>
+<p>A <a href="../glossary.html#scallop">scallop</a> height sets the spacing by the ridge a ball leaves between passes, instead of by distance.</p>
+<ol>
+<li>Scroll the Inspector down to <strong>Pattern and tolerance</strong>.</li>
+<li>Set <strong>Scallop height</strong> to <code>0.02</code> mm and press <kbd>Enter</kbd>. <strong>Stepover</strong> stays 1.000 mm; the scallop height makes the passes closer where it needs to.</li>
+<li>Click <strong>Generate stale</strong>.</li>
+</ol>
+<figure>
+<a href="images/blisk_faceflow/03-scallop-setting.png"><img src="images/blisk_faceflow/03-scallop-setting.png" width="1920" height="1080" alt="The Pattern and tolerance section of Floor finish: Tolerance 0.010 default, Stepover 1.000 from the tool&#39;s cutting data, Stock to leave 0.000 default, Scallop height 0.020 with a reset button, Cutting direction meander; then Tool axis and A with Lead angle 0.00 and Maximum tilt 5.00 degrees."></a>
+<figcaption><b>Figure 3.</b> The settings of face-flow finishing. A value you set has a reset button beside its label.</figcaption>
+</figure>
+<figure>
+<a href="images/blisk_faceflow/04-scallop.png"><img src="images/blisk_faceflow/04-scallop.png" width="1920" height="1080" alt="The floor with about twice as many orange passes. Results: 1 operation, 4803 moves, 31.9 s to generate; face 20 is cut from its guide, edge 65 (49.1 mm long), towards the opposite side in 34 passes up to 0.462 mm apart along the face; face-flow finishing cuts 25 passes on 1 face; 170.3 mm2 unreached."></a>
+<figcaption><b>Figure 4.</b> A 0.02 mm scallop height with a 3 mm ball puts the passes up to 0.462 mm apart.</figcaption>
+</figure>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th></th><th>Stepover 1 mm</th><th>Scallop height 0.02 mm</th></tr>
+</thead>
+<tbody>
+<tr><td>Passes laid out</td><td>17, up to 0.953 mm apart</td><td>34, up to 0.462 mm apart</td></tr>
+<tr><td>Passes cut</td><td>12</td><td>25</td></tr>
+<tr><td>Unreached area</td><td>173.8 mm2</td><td>170.3 mm2</td></tr>
+<tr><td>Moves</td><td>2310</td><td>4803</td></tr>
+<tr><td>Time to generate</td><td>30.7 s</td><td>31.9 s</td></tr>
+</tbody>
+</table>
+</div>
+<p>Closer passes take longer to cut and leave smaller ridges. They do not get the ball into the corners: the unreached area hardly changes.</p>
+<h2 id="4-choose-the-guide"><a class="header" href="#4-choose-the-guide">4. Choose the guide</a></h2>
+<ol>
+<li>Scroll the Inspector back to <strong>Geometry</strong>.</li>
+<li>Beside <strong>Guide edge</strong>, choose <strong>Floor guide</strong>. The list offers only edge sets.</li>
+<li>Click <strong>Generate stale</strong>.</li>
+</ol>
+<figure>
+<a href="images/blisk_faceflow/05-guide-result.png"><img src="images/blisk_faceflow/05-guide-result.png" width="1920" height="1080" alt="Floor finish with Cut on Hub floor and Guide edge Floor guide. The passes and the Results are the same as in Figure 4: 4803 moves, 34 passes up to 0.462 mm apart from guide edge 65."></a>
+<figcaption><b>Figure 5.</b> With <b>Floor guide</b> as the guide, the passes are the same: edge 65 is the floor's longest side, the edge the operation chose by itself.</figcaption>
+</figure>
+<p>The Results line names the guide, “edge 65 (49.1 mm long)”, whichever way it was chosen. Choose a guide when the longest side is not the direction you want the passes to run, for example along a shorter edge of a face whose sides are nearly the same length. The edges in the set must lie on the boundary of a face in <strong>Cut on</strong> and join end to end. The program does not yet draw the guide on the part; read it from the Results.</p>
+<h2 id="common-mistakes"><a class="header" href="#common-mistakes">Common mistakes</a></h2>
+<dl>
+<dt id="nothing-in-cut-on"><a class="header" href="#nothing-in-cut-on">Nothing in Cut on</a></dt>
+<dd>Face-flow finishing does not cut the whole part. It is refused: “Selection set (operation ‘Floor finish’): face-flow finishing needs a face set: select the faces to cut, save them as a set and put it in Cut on; an edge set there is the guide.” Make a face set of the faces to cut and choose it beside <strong>Cut on</strong>.</dd>
+<dt id="an-edge-set-in-avoid-or-check"><a class="header" href="#an-edge-set-in-avoid-or-check">An edge set in Avoid or Check</a></dt>
+<dd>Those roles take faces. It is refused: “Avoid takes faces, not edges, on a STEP part. Take the edge set ‘Floor guide’ out of Avoid, and select faces instead.” Put the edge set in <strong>Guide edge</strong>.</dd>
+<dt id="reading-the-unreached-area-as-material-left-by-mistake"><a class="header" href="#reading-the-unreached-area-as-material-left-by-mistake">Reading the unreached area as material left by mistake</a></dt>
+<dd>The strip along the walls is left because the ball does not fit, not because a setting is wrong. A smaller stepover or scallop height does not shrink it (see the table). A smaller ball reaches more of it (24 % unreached with a 2 mm ball against 35 % with 3 mm, as measured when face-flow finishing was built); the walls themselves are cut by another strategy, such as <a href="swarf.html">swarf</a>.</dd>
+<dt id="expecting-the-passes-to-stay-on-the-floor-near-the-walls"><a class="header" href="#expecting-the-passes-to-stay-on-the-floor-near-the-walls">Expecting the passes to stay on the floor near the walls</a></dt>
+<dd>The tool is placed on the whole part, so where a blade wall is in the way the stretch is left out rather than cut into the wall. Check in the simulation that what is left out is what you expect.</dd>
+<dt id="leaving-stock-to-leave-on-and-adding-a-check-set"><a class="header" href="#leaving-stock-to-leave-on-and-adding-a-check-set">Leaving stock to leave on and adding a check set</a></dt>
+<dd>Both keep the tool further from the walls, so less of the floor is reached. In <a href="selection-sets.html">Selection sets on a blisk</a>, the same floor with a check set on the blade wall and 0.2 mm stock to leave reported 208.6 mm2 unreached.</dd>
+</dl>
+
+        </div>
+        <nav class="pager" aria-label="Previous and next page">
+          <a class="prev" rel="prev" href="../examples/selection-sets.html"><span>Previous</span>Selection sets on a blisk</a>
+          <a class="next" rel="next" href="../examples/swarf.html"><span>Next</span>Swarf on a blisk blade</a>
+        </nav>
+      </main>
+      <footer class="site-footer">
+        <p class="notice">Generated G-code must be verified by the user before it is run on a machine. OpenChuckCAM does not guarantee that a program is safe or correct for any machine, tool or setup.</p>
+        <p class="stamp">Describes OpenChuckCAM 0.55.0 (app-v0.55.0, commit 57b8ac1), built 2026-11-22. Licensed AGPL-3.0-or-later.</p>
+      </footer>
+    </div>
+  </div>
+  <script>
+    // On a narrow screen the contents start folded; without JavaScript they stay open.
+    if (matchMedia('(max-width: 900px)').matches) document.querySelector('.sidebar details').open = false;
+    (function () {
+      var b = document.querySelector('.theme-toggle'), root = document.documentElement;
+      function dark() { return root.dataset.theme ? root.dataset.theme === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches; }
+      function label() { b.textContent = dark() ? 'Light theme' : 'Dark theme'; }
+      b.hidden = false; label();
+      b.addEventListener('click', function () {
+        root.dataset.theme = dark() ? 'light' : 'dark';
+        try { localStorage.setItem('oc-theme', root.dataset.theme); } catch (e) {}
+        label();
+      });
+    })();
+  </script>
+  <script src="../versions.js"></script>
+  <script src="../elasticlunr-ef4e11c1.min.js"></script>
+  <script src="../mark-09e88c2c.min.js"></script>
+  <script src="../searcher-09f2665d.js"></script>
+  <script>
+    // mdBook's search script expects a toggle button and loads its index when the box is shown.
+    // The box is always visible here, so the first focus presses the (hidden) toggle once.
+    (function () {
+      var bar = document.getElementById('mdbook-searchbar'), t = document.getElementById('mdbook-search-toggle'), done = false;
+      bar.addEventListener('focus', function () { if (!done) { done = true; t.click(); bar.focus(); } });
+    })();
+  </script>
+  
+</body>
+</html>

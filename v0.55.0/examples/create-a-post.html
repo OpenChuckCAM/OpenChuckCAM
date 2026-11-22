@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
+<!-- OpenChuckCAM user guide: the page template (decision 0400). It replaces mdBook's own theme completely.
+     The @@...@@ placeholders and the latest-banner markers are filled in by user-docs/tools/build.py. -->
+<html lang="en" dir="ltr">
+<head>
+  <meta charset="utf-8">
+  <title>Create a post-processing template - OpenChuckCAM user guide</title>
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="The user guide for OpenChuckCAM, free, open source CAM for 4-axis rotary CNC: how to turn a 3D model into G-code, and what to check before you run it.">
+  <meta name="docs-version" content="0.55.0">
+  <meta name="color-scheme" content="light dark">
+  <link rel="icon" href="../favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="../favicon.png" type="image/png" sizes="32x32">
+  <link rel="stylesheet" href="../style.css">
+  <script>
+    // The reader's theme choice, if any, is kept in localStorage (not a cookie). Without one, the page follows the system.
+    try { var t = localStorage.getItem('oc-theme'); if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t; } catch (e) {}
+    const path_to_root = "../";
+    window.path_to_searchindex_js = "../searchindex-acb44e9e.js";
+  </script>
+</head>
+<body>
+  <a class="skip" href="#content">Skip to the content</a>
+  
+  <header class="site-header">
+    <a class="site-title" href="../index.html"><svg class="site-logo" viewBox="0 0 512 512" width="28" height="28" aria-hidden="true" focusable="false"><g transform="translate(256 256) scale(0.94) translate(-256 -256)" fill="currentColor" stroke="currentColor"><rect x="224" y="128" width="64" height="40" rx="8"/><rect x="224" y="128" width="64" height="40" rx="8" transform="rotate(120 256 256)"/><rect x="224" y="128" width="64" height="40" rx="8" transform="rotate(240 256 256)"/><circle cx="256" cy="256" r="64"/><path d="M239.3 64.7 A192 192 0 1 1 66.9 222.7" fill="none" stroke-width="64" stroke-linecap="round"/><polygon points="85.3,118.3 -0.9,214.8 133.4,238.4" stroke-width="10" stroke-linejoin="round"/></g></svg>OpenChuckCAM <span>User guide</span></a>
+    <div class="tools">
+      <span class="version-switch"><a class="version-link" href="../../versions.html">Version: 0.55.0</a></span>
+      <a href="../print.html">Print the guide</a>
+      <button class="theme-toggle" type="button" hidden>Dark theme</button>
+    </div>
+  </header>
+  <div class="layout">
+    <nav class="sidebar" aria-label="Contents">
+      <details open>
+        <summary>Contents</summary>
+        <div class="search hidden" id="mdbook-search-wrapper">
+          <button type="button" id="mdbook-search-toggle" hidden>Search</button>
+          <form id="mdbook-searchbar-outer" role="search" onsubmit="return false">
+            <label for="mdbook-searchbar">Search the guide</label>
+            <input type="search" id="mdbook-searchbar" name="searchbar" autocomplete="off" aria-controls="mdbook-searchresults-outer" aria-describedby="mdbook-searchresults-header">
+          </form>
+          <div id="mdbook-searchresults-outer" class="searchresults-outer hidden">
+            <div id="mdbook-searchresults-header" class="searchresults-header" aria-live="polite"></div>
+            <ul id="mdbook-searchresults"></ul>
+          </div>
+        </div>
+        <ol class="chapter"><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../index.html">OpenChuckCAM user guide</a></span></li><li class="part-title">Start here</li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../start/install.html">Install and first run</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../start/limitations.html">Known limitations</a></span></li><li class="part-title">Tutorial</li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../tutorial/index.html">Your first project</a></span><ol class="section"><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../tutorial/01-create-project.html">1. Create a project</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../tutorial/02-import-model.html">2. Import the model</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../tutorial/03-machine.html">3. Choose the machine</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../tutorial/04-stock.html">4. Set up the stock</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../tutorial/05-hold.html">5. Hold the work</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../tutorial/06-tools.html">6. Choose the tools</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../tutorial/07-operations.html">7. Add the operations</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../tutorial/08-generate.html">8. Generate the toolpaths</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../tutorial/09-simulate.html">9. Simulate and read the results</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../tutorial/10-export.html">10. Post and export</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../tutorial/11-verify.html">Before you run anything</a></span></li></ol><li class="part-title">Concepts</li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../concepts/rotary-machining.html">How 4-axis rotary machining works</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../concepts/stock-and-held-region.html">Stock and the held region</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../concepts/roughing-and-finishing.html">Roughing and finishing</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../concepts/stepover-and-stock-to-leave.html">Stepover, stepdown, scallop and stock to leave</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../concepts/finishing-strategies.html">Helical, axial, indexed and simultaneous finishing</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../concepts/tabs.html">Tabs</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../concepts/simulation.html">Simulation and deviation colours</a></span></li><li class="part-title">How-to guides</li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../how-to/import-step.html">Import a STEP file</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../how-to/limit-to-a-region.html">Limit an operation to a region</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../how-to/add-a-tool.html">Add a tool to the library</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../how-to/confirm-machine-values.html">Confirm machine profile values</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../how-to/short-block-settings.html">Machine setup: short moves</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../how-to/export.html">Export G-code and the setup sheet</a></span></li><li class="part-title">Worked examples</li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../examples/custom-machine.html">Create a custom machine</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../examples/create-a-post.html" aria-current="page">Create a post-processing template</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../examples/tabs-and-held-regions.html">Tabs and held regions</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../examples/limit-to-a-region.html">Limit an operation to a region</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../examples/rest-machining.html">Rest machining</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../examples/flute-length-warning.html">The flute-length warning</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../examples/stepover-and-scallop.html">Stepover, stock to leave and scallop</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../examples/selection-sets.html">Selection sets on a blisk</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../examples/faceflow.html">Face-flow finishing on a blisk floor</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../examples/swarf.html">Swarf on a blisk blade</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../examples/simultaneous-finishing.html">Simultaneous finishing</a></span></li><li class="part-title">Safety and verification</li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../safety/checking-gcode.html">Checking G-code before you run it</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../safety/air-cut.html">Air cut on the Makera Z1</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../safety/checklist.html">Safe-practice checklist</a></span></li><li class="part-title">Reference</li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../reference/operations.html">Operations and strategies</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../reference/settings.html">Settings</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../reference/machine-profiles.html">Machine profiles</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../reference/tool-library.html">Tool library</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../reference/gcode-and-posts.html">G-code and posts</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../reference/writing-a-post.html">Writing a post-processor</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../reference/command-line.html">Command line</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../reference/messages.html">Messages and item states</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../glossary.html">Glossary</a></span></li><li class="part-title">More</li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../troubleshooting.html">Troubleshooting</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../reporting.html">Reporting a problem or asking for a feature</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../release-notes.html">Release notes</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../credits.html">Credits and licences</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../contributing.html">Contributing to this guide</a></span></li></ol>
+      </details>
+    </nav>
+    <div class="content">
+      <main id="content">
+        <div id="mdbook-content">
+<h1 id="create-a-post-processing-template"><a class="header" href="#create-a-post-processing-template">Create a post-processing template</a></h1>
+<p>This example makes a small post-processor of your own, loads it, writes a program with it and checks the result. It uses the example post in the repository, <a href="https://github.com/OpenChuckCAM/OpenChuckCAM/tree/main/testdata/examples/minimal-post"><code>testdata/examples/minimal-post</code></a>, and the tutorial’s finished project, <a href="https://github.com/OpenChuckCAM/OpenChuckCAM/tree/main/testdata/examples/baluster/baluster-project"><code>testdata/examples/baluster/baluster-project</code></a>. <a href="../reference/writing-a-post.html">Writing a post-processor</a> is the reference for every option, variable and filter used here.</p>
+<blockquote class="blockquote-tag blockquote-tag-note">
+<p class="blockquote-tag-title"><svg viewbox="0 0 16 16" width="18" height="18"><path d="M0 8a8 8 0 1 1 16 0A8 8 0 0 1 0 8Zm8-6.5a6.5 6.5 0 1 0 0 13 6.5 6.5 0 0 0 0-13ZM6.5 7.75A.75.75 0 0 1 7.25 7h1a.75.75 0 0 1 .75.75v2.75h.25a.75.75 0 0 1 0 1.5h-2a.75.75 0 0 1 0-1.5h.25v-2h-.25a.75.75 0 0 1-.75-.75ZM8 6a1 1 0 1 1 0-2 1 1 0 0 1 0 2Z"></path></svg>Note</p>
+<p>The example project places the part 17.99 mm from the headstock face (<strong>Offset along X</strong> and <strong>Zero at X</strong> in the setup), the length of the project owner’s supplied chuck. It is not a value for your machine: for your own parts, measure the distance from the face of the headstock body to the face of your chuck where the stock starts, with your jaws fitted and gripping as you will grip, and use that number. See <a href="../tutorial/04-stock.html">Set up the stock</a>.</p>
+</blockquote>
+<blockquote class="blockquote-tag blockquote-tag-warning">
+<p class="blockquote-tag-title"><svg viewbox="0 0 16 16" width="18" height="18"><path d="M6.457 1.047c.659-1.234 2.427-1.234 3.086 0l6.082 11.378A1.75 1.75 0 0 1 14.082 15H1.918a1.75 1.75 0 0 1-1.543-2.575Zm1.763.707a.25.25 0 0 0-.44 0L1.698 13.132a.25.25 0 0 0 .22.368h12.164a.25.25 0 0 0 .22-.368Zm.53 3.996v2.5a.75.75 0 0 1-1.5 0v-2.5a.75.75 0 0 1 1.5 0ZM9 11a1 1 0 1 1-2 0 1 1 0 0 1 2 0Z"></path></svg>Warning</p>
+<p>A post you write is yours to check. The program cannot know your controller: its checks read the program back in the LinuxCNC or Makera Z1 dialect only, and nothing they report makes a post right for your machine. Keep the safety notice on, check every program, and run an <a href="../glossary.html#air-cut">air cut</a> before anything else; the <a href="../safety/air-cut.html">Makera Z1 air cut</a> and <a href="../safety/checklist.html">safe-practice checklist</a> show the kind of steps to follow on any machine. Generated G-code must be verified by you before it is run on a machine.</p>
+</blockquote>
+<h2 id="what-you-need"><a class="header" href="#what-you-need">What you need</a></h2>
+<ul>
+<li>OpenChuckCAM, and the example projects: the <code>-examples.zip</code> file beside each download on the <a href="https://github.com/OpenChuckCAM/OpenChuckCAM/releases/tag/nightly"><code>nightly</code> pre-release</a> and every release, or the repository’s <code>testdata/examples</code> folder. Both hold <code>minimal-post</code> and <code>baluster</code>.</li>
+<li>A text editor.</li>
+</ul>
+<h2 id="1-look-at-the-example-post"><a class="header" href="#1-look-at-the-example-post">1. Look at the example post</a></h2>
+<p>The folder has two files.</p>
+<p><code>post.toml</code> names the post and sets its options:</p>
+<pre><code class="language-toml">schema = 1
+name = "Minimal example"
+template = "minimal.post"
+feed_rule = "linuxcnc"
+
+[options]
+units = "mm"
+a_letter = "A"
+a_direction = "same"
+unwind = "rotate"
+header = ["G90 G21 G17"]
+footer = ["M5", "M30"]
+work_offset = "G54"
+coolant = "off"
+feed_mode = "g94"
+comments = true
+safety_notice = true
+file_extension = "ngc"
+
+[options.tool_change]
+stop_spindle_first = true
+length_offset = false
+
+[options.line_numbers]
+enabled = false
+start = 10
+step = 10
+
+[options.decimals]
+pos = 3
+a = 3
+f = 1
+</code></pre>
+<p>Every key is required unless <a href="../reference/writing-a-post.html#options">the reference</a> says it is optional, and a key the program does not know is refused. Three choices matter most:</p>
+<ul>
+<li><code>feed_rule</code> is how the F word is worked out on a move that turns A. Choose the rule of your controller: <code>linuxcnc</code> applies F to the X, Y and Z distance, <code>makera</code> is the Makera Z1’s rule.</li>
+<li><code>comments = true</code> and <code>safety_notice = true</code> write the two lines of the safety notice at the top of every program. The notice needs comments, and a post with the notice on and comments off is refused.</li>
+<li><code>unwind = "rotate"</code> writes no command to reset the A count, so A keeps its full value to the end of the program.</li>
+</ul>
+<p><code>minimal.post</code> is the template. Text outside <code>{% %}</code> and <code>{{ }}</code> is written as it is; <code>{{ ... }}</code> writes a value; <code>{% ... %}</code> is logic:</p>
+<pre><code class="language-jinja">{% set st = namespace(at="") %}
+({{ title }})
+{% if generator is not none %}
+({{ generator }})
+{% endif %}
+{% for notice in safety_notice %}
+({{ notice }})
+{% endfor %}
+{% for h in opt.header %}
+{{ h }}
+{% endfor %}
+{{ opt.work_offset }}
+{% for it in steps %}
+{% if it.step == "comment" %}
+({{ it.text }})
+{% elif it.step == "tool_change" %}
+M5
+T{{ it.number }} M6
+{% elif it.step == "spindle_on" %}
+S{{ it.rpm|fixed(0) }} M3
+{% elif it.step == "rapid" or it.step == "feed" %}
+{% set at = "X" ~ it.target.x|fixed(opt.decimals.pos) ~ " Y" ~ it.target.y|fixed(opt.decimals.pos) ~ " Z" ~ it.target.z|fixed(opt.decimals.pos) ~ " A" ~ it.target.a|fixed(opt.decimals.a) %}
+{% if at != st.at %}
+{% if it.step == "rapid" %}
+G0 {{ at }}
+{% else %}
+G1 {{ at }} F{{ it.feed.value|feed(opt.decimals.f) }}
+{% endif %}
+{% set st.at = at %}
+{% endif %}
+{% endif %}
+{% endfor %}
+{% for f in opt.footer %}
+{{ f }}
+{% endfor %}
+</code></pre>
+<p>It writes the opening comments, the header and the work offset, then one line or more for each step of the program, then the footer. Unlike the built-in posts it writes every axis word on every move, which makes a longer file that is easier to read. <code>fixed(3)</code> writes a number with three decimal places, and <code>feed(1)</code> writes the feed with at least three significant figures. The <code>st.at</code> variable remembers the last position, so a move that would go nowhere is left out (see <a href="#common-errors">Common errors</a>).</p>
+<h2 id="2-make-your-own-copy"><a class="header" href="#2-make-your-own-copy">2. Make your own copy</a></h2>
+<ol>
+<li>Copy the <code>minimal-post</code> folder to a folder of your own, for example <code>my-post</code>.</li>
+<li>In <code>my-post/post.toml</code>, change <code>name</code> to <code>My post</code>.</li>
+<li>Make one change you can see: set <code>[options.line_numbers]</code> <code>enabled = true</code>. The template above does not write line numbers yet, so also change each line it writes; the built-in template <code>crates/openchuck-post/posts/makera-z1/main.post</code> shows how, with its <code>line</code> macro. Or leave line numbers off for this first try.</li>
+</ol>
+<h2 id="3-write-a-program-with-it"><a class="header" href="#3-write-a-program-with-it">3. Write a program with it</a></h2>
+<p>In the program:</p>
+<ol>
+<li>Copy <code>testdata/examples/baluster/baluster-project</code> to a folder of your own, and open the copy with <strong>File &gt; Open project</strong>.</li>
+<li>Generate the toolpaths, and simulate them, as in the <a href="../tutorial/08-generate.html">tutorial</a>.</li>
+<li>On the Simulate step, press <strong>Post and export…</strong>. Under <strong>Post-processor</strong>, set <strong>Post</strong> to <strong>A post folder</strong>.</li>
+<li>In <strong>Post folder</strong>, type the folder of your post, for example <code>/home/you/my-post</code>.</li>
+<li>Read the <strong>Checks before writing</strong>, tick <strong>I will verify this G-code before running it on a machine</strong> if asked, and press <strong>Write G-code</strong>.</li>
+</ol>
+<p>If the folder cannot be read, the panel says why, in red, before you export.</p>
+<p>On the command line, the same is one command:</p>
+<pre><code class="language-text">openchuck-cli regenerate baluster --post my-post --tool-numbers keep --out baluster-out
+</code></pre>
+<h2 id="4-read-the-result"><a class="header" href="#4-read-the-result">4. Read the result</a></h2>
+<p>The program starts like this:</p>
+<pre><code class="language-text">(Baluster - Setup 1)
+(OpenChuckCAM 0.49.0)
+(This program has not been run on your machine. Check it before you run it.)
+(Simulate it and air cut it first. You are responsible for what the machine does.)
+G90 G21 G17
+G54
+(operation Rough, tool T104 Z1 O-flute 3.175x25, about 1526 s)
+M5
+T104 M6
+S10000 M3
+G0 X9.087 Y0.000 Z45.000 A0.000
+G0 X9.087 Y0.000 Z13.000 A0.000
+G1 X9.087 Y0.000 Z11.001 A0.000 F300.0
+</code></pre>
+<p>and ends with the footer, <code>M5</code> and <code>M30</code>. The version in the second line is the version of your program.</p>
+<p>Before it writes anything, the program reads the program back and replays it, and compares the replay with the toolpath; a program that does not match is not written. The command line prints, for example:</p>
+<pre><code class="language-text">01-setup-1.ngc: 29099 moves; replay matches the toolpath (tip 0.0007 mm, A 0.0005 deg; cut 2806.9 s, toolpath 2808.6 s)
+</code></pre>
+<p>This says the file holds the same moves as the toolpath, within the numbers shown, and takes the same time. It does not say that your controller reads the file as the program does. Read the start, a tool change and the end of the file yourself, and compare one with a program from the built-in post you started from.</p>
+<h2 id="5-test-it-in-a-simulator-then-on-the-machine"><a class="header" href="#5-test-it-in-a-simulator-then-on-the-machine">5. Test it in a simulator, then on the machine</a></h2>
+<ol>
+<li>If your controller is LinuxCNC, or close to it, run the program in the LinuxCNC simulator first, as the project does with its own posts.</li>
+<li>Run an air cut on the machine: no tool, no material, reduced feed, with your hand on the stop.</li>
+<li>Only then cut, in a soft material first.</li>
+</ol>
+<h2 id="common-errors"><a class="header" href="#common-errors">Common errors</a></h2>
+<p>These are the messages the command line gives for each mistake; the export panel shows the same text.</p>
+<dl>
+<dt id="optionssafety_notice-is-written-as-comment-lines-so-it-needs-comments--true-set-comments--true-or-safety_notice--false"><a class="header" href="#optionssafety_notice-is-written-as-comment-lines-so-it-needs-comments--true-set-comments--true-or-safety_notice--false"><code>options.safety_notice: is written as comment lines, so it needs comments = true; set comments = true, or safety_notice = false</code></a></dt>
+<dd>The notice is on and <code>comments = false</code>. Turn comments on. If you turn the notice off instead, your programs carry no reminder to check them.</dd>
+<dt id="post-definition--unknown-field-colour-expected-one-of-"><a class="header" href="#post-definition--unknown-field-colour-expected-one-of-"><code>post definition ...: unknown field `colour`, expected one of ...</code></a></dt>
+<dd>A key in <code>post.toml</code> is misspelt, or in the wrong table. The message names it and lists the keys that are allowed there.</dd>
+<dt id="feed_rule-linuxcnc-cannot-be-written-in-feed_mode-g93-inverse_time-goes-with-g93-the-others-with-g94"><a class="header" href="#feed_rule-linuxcnc-cannot-be-written-in-feed_mode-g93-inverse_time-goes-with-g93-the-others-with-g94"><code>feed_rule "linuxcnc" cannot be written in feed_mode G93: inverse_time goes with g93, the others with g94</code></a></dt>
+<dd><code>feed_mode</code> and <code>feed_rule</code> do not agree.</dd>
+<dt id="setup-setup-1-minimalpost-at-line-27-undefined-value-ittaget-is-undefined"><a class="header" href="#setup-setup-1-minimalpost-at-line-27-undefined-value-ittaget-is-undefined"><code>setup 'Setup 1': minimal.post at line 27: undefined value `it.taget` is undefined</code></a></dt>
+<dd>A mistake in the template, here a misspelt variable. The message names the template and the line. The template stops at the first unknown name instead of writing empty text.</dd>
+<dt id="error-01-setup-1ngc-failed-its-checks-the-replay-does-not-match"><a class="header" href="#error-01-setup-1ngc-failed-its-checks-the-replay-does-not-match"><code>error: 01-setup-1.ngc failed its checks (the replay does not match)</code></a></dt>
+<dd>The template wrote a move that goes nowhere, such as two lines with the same position. The read-back counts the moves, so the program no longer matches its toolpath, and nothing is written. The <code>st.at</code> check in the example leaves such moves out.</dd>
+<dt id="optionssafety_notice-is-on-but-the-template-minimalpost-does-not-write-the-notice-"><a class="header" href="#optionssafety_notice-is-on-but-the-template-minimalpost-does-not-write-the-notice-"><code>options.safety_notice: is on, but the template minimal.post does not write the notice; ...</code></a></dt>
+<dd><code>safety_notice = true</code>, but the template does not write the notice lines. Keep the <code>{% for notice in safety_notice %}</code> loop after the generator line.</dd>
+</dl>
+<h2 id="what-the-example-does-not-do"><a class="header" href="#what-the-example-does-not-do">What the example does not do</a></h2>
+<p>The example post is for learning the format. It is written for the LinuxCNC dialect and is not set up for any machine. It has no line numbers, no tool length offset, and no coolant. It keeps A at its full value, so a long program reaches large A values; a controller that wraps A, or needs the count reset, needs its own <code>unwind</code> choice.</p>
+
+        </div>
+        <nav class="pager" aria-label="Previous and next page">
+          <a class="prev" rel="prev" href="../examples/custom-machine.html"><span>Previous</span>Create a custom machine</a>
+          <a class="next" rel="next" href="../examples/tabs-and-held-regions.html"><span>Next</span>Tabs and held regions</a>
+        </nav>
+      </main>
+      <footer class="site-footer">
+        <p class="notice">Generated G-code must be verified by the user before it is run on a machine. OpenChuckCAM does not guarantee that a program is safe or correct for any machine, tool or setup.</p>
+        <p class="stamp">Describes OpenChuckCAM 0.55.0 (app-v0.55.0, commit 57b8ac1), built 2026-11-22. Licensed AGPL-3.0-or-later.</p>
+      </footer>
+    </div>
+  </div>
+  <script>
+    // On a narrow screen the contents start folded; without JavaScript they stay open.
+    if (matchMedia('(max-width: 900px)').matches) document.querySelector('.sidebar details').open = false;
+    (function () {
+      var b = document.querySelector('.theme-toggle'), root = document.documentElement;
+      function dark() { return root.dataset.theme ? root.dataset.theme === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches; }
+      function label() { b.textContent = dark() ? 'Light theme' : 'Dark theme'; }
+      b.hidden = false; label();
+      b.addEventListener('click', function () {
+        root.dataset.theme = dark() ? 'light' : 'dark';
+        try { localStorage.setItem('oc-theme', root.dataset.theme); } catch (e) {}
+        label();
+      });
+    })();
+  </script>
+  <script src="../versions.js"></script>
+  <script src="../elasticlunr-ef4e11c1.min.js"></script>
+  <script src="../mark-09e88c2c.min.js"></script>
+  <script src="../searcher-09f2665d.js"></script>
+  <script>
+    // mdBook's search script expects a toggle button and loads its index when the box is shown.
+    // The box is always visible here, so the first focus presses the (hidden) toggle once.
+    (function () {
+      var bar = document.getElementById('mdbook-searchbar'), t = document.getElementById('mdbook-search-toggle'), done = false;
+      bar.addEventListener('focus', function () { if (!done) { done = true; t.click(); bar.focus(); } });
+    })();
+  </script>
+  
+</body>
+</html>

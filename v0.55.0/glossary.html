@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
+<!-- OpenChuckCAM user guide: the page template (decision 0400). It replaces mdBook's own theme completely.
+     The @@...@@ placeholders and the latest-banner markers are filled in by user-docs/tools/build.py. -->
+<html lang="en" dir="ltr">
+<head>
+  <meta charset="utf-8">
+  <title>Glossary - OpenChuckCAM user guide</title>
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="The user guide for OpenChuckCAM, free, open source CAM for 4-axis rotary CNC: how to turn a 3D model into G-code, and what to check before you run it.">
+  <meta name="docs-version" content="0.55.0">
+  <meta name="color-scheme" content="light dark">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="favicon.png" type="image/png" sizes="32x32">
+  <link rel="stylesheet" href="style.css">
+  <script>
+    // The reader's theme choice, if any, is kept in localStorage (not a cookie). Without one, the page follows the system.
+    try { var t = localStorage.getItem('oc-theme'); if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t; } catch (e) {}
+    const path_to_root = "";
+    window.path_to_searchindex_js = "searchindex-acb44e9e.js";
+  </script>
+</head>
+<body>
+  <a class="skip" href="#content">Skip to the content</a>
+  
+  <header class="site-header">
+    <a class="site-title" href="index.html"><svg class="site-logo" viewBox="0 0 512 512" width="28" height="28" aria-hidden="true" focusable="false"><g transform="translate(256 256) scale(0.94) translate(-256 -256)" fill="currentColor" stroke="currentColor"><rect x="224" y="128" width="64" height="40" rx="8"/><rect x="224" y="128" width="64" height="40" rx="8" transform="rotate(120 256 256)"/><rect x="224" y="128" width="64" height="40" rx="8" transform="rotate(240 256 256)"/><circle cx="256" cy="256" r="64"/><path d="M239.3 64.7 A192 192 0 1 1 66.9 222.7" fill="none" stroke-width="64" stroke-linecap="round"/><polygon points="85.3,118.3 -0.9,214.8 133.4,238.4" stroke-width="10" stroke-linejoin="round"/></g></svg>OpenChuckCAM <span>User guide</span></a>
+    <div class="tools">
+      <span class="version-switch"><a class="version-link" href="../versions.html">Version: 0.55.0</a></span>
+      <a href="print.html">Print the guide</a>
+      <button class="theme-toggle" type="button" hidden>Dark theme</button>
+    </div>
+  </header>
+  <div class="layout">
+    <nav class="sidebar" aria-label="Contents">
+      <details open>
+        <summary>Contents</summary>
+        <div class="search hidden" id="mdbook-search-wrapper">
+          <button type="button" id="mdbook-search-toggle" hidden>Search</button>
+          <form id="mdbook-searchbar-outer" role="search" onsubmit="return false">
+            <label for="mdbook-searchbar">Search the guide</label>
+            <input type="search" id="mdbook-searchbar" name="searchbar" autocomplete="off" aria-controls="mdbook-searchresults-outer" aria-describedby="mdbook-searchresults-header">
+          </form>
+          <div id="mdbook-searchresults-outer" class="searchresults-outer hidden">
+            <div id="mdbook-searchresults-header" class="searchresults-header" aria-live="polite"></div>
+            <ul id="mdbook-searchresults"></ul>
+          </div>
+        </div>
+        <ol class="chapter"><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="index.html">OpenChuckCAM user guide</a></span></li><li class="part-title">Start here</li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="start/install.html">Install and first run</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="start/limitations.html">Known limitations</a></span></li><li class="part-title">Tutorial</li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="tutorial/index.html">Your first project</a></span><ol class="section"><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="tutorial/01-create-project.html">1. Create a project</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="tutorial/02-import-model.html">2. Import the model</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="tutorial/03-machine.html">3. Choose the machine</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="tutorial/04-stock.html">4. Set up the stock</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="tutorial/05-hold.html">5. Hold the work</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="tutorial/06-tools.html">6. Choose the tools</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="tutorial/07-operations.html">7. Add the operations</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="tutorial/08-generate.html">8. Generate the toolpaths</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="tutorial/09-simulate.html">9. Simulate and read the results</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="tutorial/10-export.html">10. Post and export</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="tutorial/11-verify.html">Before you run anything</a></span></li></ol><li class="part-title">Concepts</li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="concepts/rotary-machining.html">How 4-axis rotary machining works</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="concepts/stock-and-held-region.html">Stock and the held region</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="concepts/roughing-and-finishing.html">Roughing and finishing</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="concepts/stepover-and-stock-to-leave.html">Stepover, stepdown, scallop and stock to leave</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="concepts/finishing-strategies.html">Helical, axial, indexed and simultaneous finishing</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="concepts/tabs.html">Tabs</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="concepts/simulation.html">Simulation and deviation colours</a></span></li><li class="part-title">How-to guides</li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="how-to/import-step.html">Import a STEP file</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="how-to/limit-to-a-region.html">Limit an operation to a region</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="how-to/add-a-tool.html">Add a tool to the library</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="how-to/confirm-machine-values.html">Confirm machine profile values</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="how-to/short-block-settings.html">Machine setup: short moves</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="how-to/export.html">Export G-code and the setup sheet</a></span></li><li class="part-title">Worked examples</li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="examples/custom-machine.html">Create a custom machine</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="examples/create-a-post.html">Create a post-processing template</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="examples/tabs-and-held-regions.html">Tabs and held regions</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="examples/limit-to-a-region.html">Limit an operation to a region</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="examples/rest-machining.html">Rest machining</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="examples/flute-length-warning.html">The flute-length warning</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="examples/stepover-and-scallop.html">Stepover, stock to leave and scallop</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="examples/selection-sets.html">Selection sets on a blisk</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="examples/faceflow.html">Face-flow finishing on a blisk floor</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="examples/swarf.html">Swarf on a blisk blade</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="examples/simultaneous-finishing.html">Simultaneous finishing</a></span></li><li class="part-title">Safety and verification</li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="safety/checking-gcode.html">Checking G-code before you run it</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="safety/air-cut.html">Air cut on the Makera Z1</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="safety/checklist.html">Safe-practice checklist</a></span></li><li class="part-title">Reference</li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="reference/operations.html">Operations and strategies</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="reference/settings.html">Settings</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="reference/machine-profiles.html">Machine profiles</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="reference/tool-library.html">Tool library</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="reference/gcode-and-posts.html">G-code and posts</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="reference/writing-a-post.html">Writing a post-processor</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="reference/command-line.html">Command line</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="reference/messages.html">Messages and item states</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="glossary.html" aria-current="page">Glossary</a></span></li><li class="part-title">More</li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="troubleshooting.html">Troubleshooting</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="reporting.html">Reporting a problem or asking for a feature</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="release-notes.html">Release notes</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="credits.html">Credits and licences</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="contributing.html">Contributing to this guide</a></span></li></ol>
+      </details>
+    </nav>
+    <div class="content">
+      <main id="content">
+        <div id="mdbook-content">
+<h1 id="glossary"><a class="header" href="#glossary">Glossary</a></h1>
+<div class="glossary">
+<p>The words this guide uses for machining and for the program. A page links a term here the first time it uses it.</p>
+<p class="letter-index">A · B · C · F · G · H · M · O · P · R · S · T · W</p>
+
+<h2 id="a-axis"><a class="header" href="#a-axis">A axis</a></h2>
+<p>The fourth axis of a rotary machine: the turning of the work about the <a href="#rotary-axis">rotary axis</a>. On the Makera Z1 it turns about X, and a positive A move turns the top of the chuck towards the front of the machine.</p>
+<h2 id="adaptive-spacing"><a class="header" href="#adaptive-spacing">Adaptive spacing</a></h2>
+<p>A finishing setting that measures the material left between two neighbouring passes and adds passes where more than the <strong>Allowed excess</strong> would stand. It is on by default in new finishing operations. Where it cannot confirm the excess before it reaches its limits, it keeps the path made so far and marks it as partial.</p>
+<h2 id="air-cut"><a class="header" href="#air-cut">Air cut</a></h2>
+<p>A run of a program with no tool fitted and no material in the chuck, at reduced feed, to watch every move before anything can be damaged. See <a href="safety/air-cut.html">Air cut on the Makera Z1</a>.</p>
+<h2 id="block"><a class="header" href="#block">Block</a></h2>
+<p>One line of G-code that makes one move. A controller reads blocks one at a time, so many very short blocks in a row can be more than it can read at the programmed feed. See <a href="how-to/short-block-settings.html">Machine setup: short moves</a>.</p>
+<h2 id="cam"><a class="header" href="#cam">CAM</a></h2>
+<p>Computer-aided manufacturing: software that works out the moves a machine tool must make to cut a part from a model, and writes them as <a href="#g-code">G-code</a>.</p>
+<h2 id="chuck"><a class="header" href="#chuck">Chuck</a></h2>
+<p>The clamp on a rotary machine that holds one end of the <a href="#stock">stock</a> with its jaws and turns with the <a href="#a-axis">A axis</a>.</p>
+<h2 id="feed"><a class="header" href="#feed">Feed</a></h2>
+<p>The speed at which the cutter moves through material, in millimetres per minute. A rapid move travels through air at the machine’s fastest speed instead.</p>
+<h2 id="feed-override"><a class="header" href="#feed-override">Feed override</a></h2>
+<p>A control on the machine that scales every programmed feed, for example to 10 % for a first run.</p>
+<h2 id="finishing"><a class="header" href="#finishing">Finishing</a></h2>
+<p>Cutting the final surface of the part, usually with a smaller tool and close passes. See <a href="concepts/roughing-and-finishing.html">Roughing and finishing</a>.</p>
+<h2 id="g-code"><a class="header" href="#g-code">G-code</a></h2>
+<p>The text program a CNC machine’s controller reads: one move or setting per line, such as <code>G1 X10 A90 F600</code>. Each controller reads its own variant, which is why the program needs a <a href="#post-processor">post-processor</a>.</p>
+<h2 id="held-region"><a class="header" href="#held-region">Held region</a></h2>
+<p>A length at one end of the <a href="#stock">stock</a>, measured along the axis, that the <a href="#chuck">chuck</a> or a <a href="#tailstock">tailstock</a> grips. It is never cut, and toolpaths keep clear of it. The program knows it only as a length, not as a solid body, so it cannot check the chuck itself against the tool. See <a href="concepts/stock-and-held-region.html">Stock and the held region</a>.</p>
+<h2 id="machine-profile"><a class="header" href="#machine-profile">Machine profile</a></h2>
+<p>The description of a machine the program uses: its axes, travel, the height and direction of the rotary axis, its feed limits and spindle speeds, and its post. Values nobody has measured on your machine are marked unconfirmed.</p>
+<h2 id="material"><a class="header" href="#material">Material</a></h2>
+<p>What the stock is made of, such as hardwood or tooling board. The tool library holds cutting data for each material.</p>
+<h2 id="operation"><a class="header" href="#operation">Operation</a></h2>
+<p>One step of the cutting: one tool, one <a href="#strategy">strategy</a> and its settings. A job is a list of operations, cut in order.</p>
+<h2 id="post-processor"><a class="header" href="#post-processor">Post-processor</a></h2>
+<p>The part of the program that turns toolpaths into the G-code variant a particular controller reads. Often shortened to <em>post</em>. OpenChuckCAM includes a post for the Makera Z1 and one for LinuxCNC.</p>
+<h2 id="project"><a class="header" href="#project">Project</a></h2>
+<p>A folder of plain text files that holds one job: the model, the setup, the tools and the operations.</p>
+<h2 id="rotary-axis"><a class="header" href="#rotary-axis">Rotary axis</a></h2>
+<p>The line the work turns about. On the Makera Z1 it lies along X. <span class="see">See also <a href="#a-axis">A axis</a>.</span></p>
+<h2 id="roughing"><a class="header" href="#roughing">Roughing</a></h2>
+<p>Removing most of the material quickly, in layers, leaving a little for <a href="#finishing">finishing</a>. See <a href="concepts/roughing-and-finishing.html">Roughing and finishing</a>.</p>
+<h2 id="scallop"><a class="header" href="#scallop">Scallop</a></h2>
+<p>The small ridge a round-ended cutter leaves between neighbouring passes. See <a href="concepts/stepover-and-stock-to-leave.html">Stepover, stepdown, scallop and stock to leave</a>.</p>
+<h2 id="selection-set"><a class="header" href="#selection-set">Selection set</a></h2>
+<p>A named group of faces or edges of the part (triangles or edges on a mesh). An operation uses a set in a role: the faces to cut (<strong>Cut on</strong>), a window to stay in, faces to avoid or to keep clear of, or the guide edge of face-flow finishing. See <a href="examples/selection-sets.html">Selection sets on a blisk</a>.</p>
+<h2 id="setup-sheet"><a class="header" href="#setup-sheet">Setup sheet</a></h2>
+<p>A page the program writes beside the G-code, listing the tools, the operations and a checksum of each program file, for the person at the machine.</p>
+<h2 id="simulation"><a class="header" href="#simulation">Simulation</a></h2>
+<p>The program’s model of the material each operation removes, shown in 3D and compared with the part. See <a href="concepts/simulation.html">Simulation and deviation colours</a>.</p>
+<h2 id="stepdown"><a class="header" href="#stepdown">Stepdown</a></h2>
+<p>How deep each roughing layer goes.</p>
+<h2 id="stepover"><a class="header" href="#stepover">Stepover</a></h2>
+<p>How far the cutter moves sideways between neighbouring passes. A smaller stepover leaves a smoother surface and takes longer.</p>
+<h2 id="stock"><a class="header" href="#stock">Stock</a></h2>
+<p>The material you start with, such as a round bar or a block. The program cuts the part out of the stock, and needs its shape and size to know where material is.</p>
+<h2 id="stock-to-leave"><a class="header" href="#stock-to-leave">Stock to leave</a></h2>
+<p>Material an operation leaves on the part on purpose, so that a later operation can finish it.</p>
+<h2 id="strategy"><a class="header" href="#strategy">Strategy</a></h2>
+<p>The pattern in which an operation moves the cutter, such as helical finishing (a spiral round the part) or axial finishing (passes along the axis).</p>
+<h2 id="swarf"><a class="header" href="#swarf">Swarf</a></h2>
+<p>Cutting a wall with the side of the tool instead of its end, along straight lines that lie on the wall. See <a href="examples/swarf.html">Swarf on a blisk blade</a>.</p>
+<h2 id="tab"><a class="header" href="#tab">Tab</a></h2>
+<p>A small bridge of material left uncut so that the part stays attached to the stock until you separate it yourself. See <a href="concepts/tabs.html">Tabs</a>.</p>
+<h2 id="tailstock"><a class="header" href="#tailstock">Tailstock</a></h2>
+<p>A support that holds the far end of long work on a rotary machine. The program knows it only as a <a href="#held-region">held region</a> at that end.</p>
+<h2 id="tolerance"><a class="header" href="#tolerance">Tolerance</a></h2>
+<p>How far a toolpath may stray from the model. The program’s default is 0.01 mm.</p>
+<h2 id="tool-library"><a class="header" href="#tool-library">Tool library</a></h2>
+<p>The list of cutters the program knows. Each tool has a diameter, a shape and cutting data (a spindle speed and feeds) for each <a href="#material">material</a>. The default tools cannot be edited; you can copy one and change the copy.</p>
+<h2 id="toolpath"><a class="header" href="#toolpath">Toolpath</a></h2>
+<p>The path the cutter follows, with the angle of A at every point, worked out by an operation.</p>
+<h2 id="work-offset"><a class="header" href="#work-offset">Work offset</a></h2>
+<p>The register in the machine’s controller that stores where the part’s zero is, such as G54. You set it on the machine, with the controller, to match the setup’s zero in the program; the program writes its moves relative to it.</p>
+</div>
+
+
+        </div>
+        <nav class="pager" aria-label="Previous and next page">
+          <a class="prev" rel="prev" href="reference/messages.html"><span>Previous</span>Messages and item states</a>
+          <a class="next" rel="next" href="troubleshooting.html"><span>Next</span>Troubleshooting</a>
+        </nav>
+      </main>
+      <footer class="site-footer">
+        <p class="notice">Generated G-code must be verified by the user before it is run on a machine. OpenChuckCAM does not guarantee that a program is safe or correct for any machine, tool or setup.</p>
+        <p class="stamp">Describes OpenChuckCAM 0.55.0 (app-v0.55.0, commit 57b8ac1), built 2026-11-22. Licensed AGPL-3.0-or-later.</p>
+      </footer>
+    </div>
+  </div>
+  <script>
+    // On a narrow screen the contents start folded; without JavaScript they stay open.
+    if (matchMedia('(max-width: 900px)').matches) document.querySelector('.sidebar details').open = false;
+    (function () {
+      var b = document.querySelector('.theme-toggle'), root = document.documentElement;
+      function dark() { return root.dataset.theme ? root.dataset.theme === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches; }
+      function label() { b.textContent = dark() ? 'Light theme' : 'Dark theme'; }
+      b.hidden = false; label();
+      b.addEventListener('click', function () {
+        root.dataset.theme = dark() ? 'light' : 'dark';
+        try { localStorage.setItem('oc-theme', root.dataset.theme); } catch (e) {}
+        label();
+      });
+    })();
+  </script>
+  <script src="versions.js"></script>
+  <script src="elasticlunr-ef4e11c1.min.js"></script>
+  <script src="mark-09e88c2c.min.js"></script>
+  <script src="searcher-09f2665d.js"></script>
+  <script>
+    // mdBook's search script expects a toggle button and loads its index when the box is shown.
+    // The box is always visible here, so the first focus presses the (hidden) toggle once.
+    (function () {
+      var bar = document.getElementById('mdbook-searchbar'), t = document.getElementById('mdbook-search-toggle'), done = false;
+      bar.addEventListener('focus', function () { if (!done) { done = true; t.click(); bar.focus(); } });
+    })();
+  </script>
+  
+</body>
+</html>

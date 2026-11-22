@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
+<!-- OpenChuckCAM user guide: the page template (decision 0400). It replaces mdBook's own theme completely.
+     The @@...@@ placeholders and the latest-banner markers are filled in by user-docs/tools/build.py. -->
+<html lang="en" dir="ltr">
+<head>
+  <meta charset="utf-8">
+  <title>Simulation and deviation colours - OpenChuckCAM user guide</title>
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="The user guide for OpenChuckCAM, free, open source CAM for 4-axis rotary CNC: how to turn a 3D model into G-code, and what to check before you run it.">
+  <meta name="docs-version" content="0.55.0">
+  <meta name="color-scheme" content="light dark">
+  <link rel="icon" href="../favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="../favicon.png" type="image/png" sizes="32x32">
+  <link rel="stylesheet" href="../style.css">
+  <script>
+    // The reader's theme choice, if any, is kept in localStorage (not a cookie). Without one, the page follows the system.
+    try { var t = localStorage.getItem('oc-theme'); if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t; } catch (e) {}
+    const path_to_root = "../";
+    window.path_to_searchindex_js = "../searchindex-acb44e9e.js";
+  </script>
+</head>
+<body>
+  <a class="skip" href="#content">Skip to the content</a>
+  
+  <header class="site-header">
+    <a class="site-title" href="../index.html"><svg class="site-logo" viewBox="0 0 512 512" width="28" height="28" aria-hidden="true" focusable="false"><g transform="translate(256 256) scale(0.94) translate(-256 -256)" fill="currentColor" stroke="currentColor"><rect x="224" y="128" width="64" height="40" rx="8"/><rect x="224" y="128" width="64" height="40" rx="8" transform="rotate(120 256 256)"/><rect x="224" y="128" width="64" height="40" rx="8" transform="rotate(240 256 256)"/><circle cx="256" cy="256" r="64"/><path d="M239.3 64.7 A192 192 0 1 1 66.9 222.7" fill="none" stroke-width="64" stroke-linecap="round"/><polygon points="85.3,118.3 -0.9,214.8 133.4,238.4" stroke-width="10" stroke-linejoin="round"/></g></svg>OpenChuckCAM <span>User guide</span></a>
+    <div class="tools">
+      <span class="version-switch"><a class="version-link" href="../../versions.html">Version: 0.55.0</a></span>
+      <a href="../print.html">Print the guide</a>
+      <button class="theme-toggle" type="button" hidden>Dark theme</button>
+    </div>
+  </header>
+  <div class="layout">
+    <nav class="sidebar" aria-label="Contents">
+      <details open>
+        <summary>Contents</summary>
+        <div class="search hidden" id="mdbook-search-wrapper">
+          <button type="button" id="mdbook-search-toggle" hidden>Search</button>
+          <form id="mdbook-searchbar-outer" role="search" onsubmit="return false">
+            <label for="mdbook-searchbar">Search the guide</label>
+            <input type="search" id="mdbook-searchbar" name="searchbar" autocomplete="off" aria-controls="mdbook-searchresults-outer" aria-describedby="mdbook-searchresults-header">
+          </form>
+          <div id="mdbook-searchresults-outer" class="searchresults-outer hidden">
+            <div id="mdbook-searchresults-header" class="searchresults-header" aria-live="polite"></div>
+            <ul id="mdbook-searchresults"></ul>
+          </div>
+        </div>
+        <ol class="chapter"><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../index.html">OpenChuckCAM user guide</a></span></li><li class="part-title">Start here</li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../start/install.html">Install and first run</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../start/limitations.html">Known limitations</a></span></li><li class="part-title">Tutorial</li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../tutorial/index.html">Your first project</a></span><ol class="section"><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../tutorial/01-create-project.html">1. Create a project</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../tutorial/02-import-model.html">2. Import the model</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../tutorial/03-machine.html">3. Choose the machine</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../tutorial/04-stock.html">4. Set up the stock</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../tutorial/05-hold.html">5. Hold the work</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../tutorial/06-tools.html">6. Choose the tools</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../tutorial/07-operations.html">7. Add the operations</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../tutorial/08-generate.html">8. Generate the toolpaths</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../tutorial/09-simulate.html">9. Simulate and read the results</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../tutorial/10-export.html">10. Post and export</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../tutorial/11-verify.html">Before you run anything</a></span></li></ol><li class="part-title">Concepts</li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../concepts/rotary-machining.html">How 4-axis rotary machining works</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../concepts/stock-and-held-region.html">Stock and the held region</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../concepts/roughing-and-finishing.html">Roughing and finishing</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../concepts/stepover-and-stock-to-leave.html">Stepover, stepdown, scallop and stock to leave</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../concepts/finishing-strategies.html">Helical, axial, indexed and simultaneous finishing</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../concepts/tabs.html">Tabs</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../concepts/simulation.html" aria-current="page">Simulation and deviation colours</a></span></li><li class="part-title">How-to guides</li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../how-to/import-step.html">Import a STEP file</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../how-to/limit-to-a-region.html">Limit an operation to a region</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../how-to/add-a-tool.html">Add a tool to the library</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../how-to/confirm-machine-values.html">Confirm machine profile values</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../how-to/short-block-settings.html">Machine setup: short moves</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../how-to/export.html">Export G-code and the setup sheet</a></span></li><li class="part-title">Worked examples</li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../examples/custom-machine.html">Create a custom machine</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../examples/create-a-post.html">Create a post-processing template</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../examples/tabs-and-held-regions.html">Tabs and held regions</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../examples/limit-to-a-region.html">Limit an operation to a region</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../examples/rest-machining.html">Rest machining</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../examples/flute-length-warning.html">The flute-length warning</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../examples/stepover-and-scallop.html">Stepover, stock to leave and scallop</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../examples/selection-sets.html">Selection sets on a blisk</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../examples/faceflow.html">Face-flow finishing on a blisk floor</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../examples/swarf.html">Swarf on a blisk blade</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../examples/simultaneous-finishing.html">Simultaneous finishing</a></span></li><li class="part-title">Safety and verification</li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../safety/checking-gcode.html">Checking G-code before you run it</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../safety/air-cut.html">Air cut on the Makera Z1</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../safety/checklist.html">Safe-practice checklist</a></span></li><li class="part-title">Reference</li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../reference/operations.html">Operations and strategies</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../reference/settings.html">Settings</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../reference/machine-profiles.html">Machine profiles</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../reference/tool-library.html">Tool library</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../reference/gcode-and-posts.html">G-code and posts</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../reference/writing-a-post.html">Writing a post-processor</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../reference/command-line.html">Command line</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../reference/messages.html">Messages and item states</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../glossary.html">Glossary</a></span></li><li class="part-title">More</li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../troubleshooting.html">Troubleshooting</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../reporting.html">Reporting a problem or asking for a feature</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../release-notes.html">Release notes</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../credits.html">Credits and licences</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../contributing.html">Contributing to this guide</a></span></li></ol>
+      </details>
+    </nav>
+    <div class="content">
+      <main id="content">
+        <div id="mdbook-content">
+<h1 id="simulation-and-deviation-colours"><a class="header" href="#simulation-and-deviation-colours">Simulation and deviation colours</a></h1>
+<p>The simulation cuts a model of your stock with every operation of the setup, in order, and then compares what is left with the part. It shows what the program will remove before anything is cut, and where it leaves too much material or cuts too deep. It is a check on the toolpaths, not a test of the program on your machine: generated G-code must still be verified by you before it is run on a machine.</p>
+<h2 id="how-the-stock-is-modelled"><a class="header" href="#how-the-stock-is-modelled">How the stock is modelled</a></h2>
+<p>The stock is modelled as a dense grid of thin columns, like a bed of nails, each column cut short where the tool passes. The width of a column is the <strong>Cell size</strong>, a setting of the project, 0.1 mm unless you change it. It can be from 0.025 mm to 1 mm.</p>
+<p>The cell size sets how fine the simulation is. The deviation it reports is accurate to about one cell. A smaller cell takes much longer and uses much more memory: half the cell takes about eight times the time and four times the memory. Change it on the Simulate step, under <strong>RESOLUTION</strong>; the line under it says how much time and memory the new value costs.</p>
+<p>Later operations in a setup are generated against the stock the earlier ones left: rest machining finds its material this way, and the flute-length check measures it. So the cell size also changes the toolpaths of those operations, and changing it makes the simulation and those operations out of date.</p>
+<p><strong>Skip stock simulation</strong>, in the Playback tab, makes only the toolpaths, which is quicker. There is then no cut part, no deviation and no check of the stock before posting, and the export asks you to confirm that you know.</p>
+<h2 id="deviation-colours"><a class="header" href="#deviation-colours">Deviation colours</a></h2>
+<p>On the Simulate step, tick <strong>Deviation colours</strong> in the Inspector. The cut part is then coloured by how far each point is from the part’s surface:</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Colour</th><th>Means</th></tr>
+</thead>
+<tbody>
+<tr><td>Red-orange</td><td>Overcut: cut deeper than the part’s surface, by more than the simulation’s own error</td></tr>
+<tr><td>Grey</td><td>On the surface, within the tolerance shown under the scale</td></tr>
+<tr><td>Ice blue</td><td>Up to 0.25 mm left</td></tr>
+<tr><td>Sky blue</td><td>0.25 to 1 mm left</td></tr>
+<tr><td>Strong blue</td><td>More than 1 mm left</td></tr>
+<tr><td>Violet, cross-hatched</td><td>Unreachable (enclosed): material no tool on this machine can reach</td></tr>
+<tr><td>Dark slate, hatched</td><td>Not measured</td></tr>
+</tbody>
+</table>
+</div>
+<p>The scale on the view shows the bands from <strong>Overcut</strong> through <strong>On</strong> to <strong>Left &gt; 1 mm</strong>. <strong>Colour by</strong> chooses <strong>Deviation</strong> (both), <strong>Remaining</strong> (only material left) or <strong>Overcut</strong> (only overcut). Hold the mouse still over the part to read the value at that point.</p>
+<p>The colours are drawn on the cut part from the nearest point the comparison measured. Tick <strong>Part</strong> in the view’s <strong>Show</strong> to see them on the part’s own model, which is finer.</p>
+<h2 id="the-results"><a class="header" href="#the-results">The results</a></h2>
+<p>Under <strong>SIMULATION RESULTS</strong>, for each setup:</p>
+<dl>
+<dt id="largest-overcut"><a class="header" href="#largest-overcut">Largest overcut</a></dt>
+<dd>The deepest cut into the part. “within ±0.1 mm” means it is inside the tolerance and is not counted as an overcut.</dd>
+<dt id="overcut-samples"><a class="header" href="#overcut-samples">Overcut samples</a></dt>
+<dd>How many measured points are overcut, and in how many places.</dd>
+<dt id="largest-material-left"><a class="header" href="#largest-material-left">Largest material left</a></dt>
+<dd>The most material standing above the part’s surface.</dd>
+<dt id="within--mm"><a class="header" href="#within--mm">Within ±… mm</a></dt>
+<dd>The share of the surface within the tolerance.</dd>
+<dt id="unreachable-enclosed"><a class="header" href="#unreachable-enclosed">Unreachable (enclosed)</a></dt>
+<dd>The share of the surface no tool can reach, because the part closes it off across the rotary axis, such as a bore along the axis. Remove it another way, for example by drilling.</dd>
+<dt id="left-not-classified"><a class="header" href="#left-not-classified">Left, not classified</a></dt>
+<dd>Material left that is not shown to be unreachable.</dd>
+</dl>
+<p><strong>DEVIATION DISTRIBUTION</strong> splits the surface into bands, with how many points fall in each; untick a band to hide it on the part, or type a range in <strong>Show only from</strong> and <strong>to</strong>. <strong>BY OPERATION</strong> lists each operation’s moves and the volume it removed, and says <strong>Clean</strong>, or how many rapid moves cut material: a rapid move that cuts is a fault in the toolpath.</p>
+<h2 id="reading-the-result"><a class="header" href="#reading-the-result">Reading the result</a></h2>
+<ul>
+<li>Grey where the part is finished, and blue where a later operation will cut, is what you want to see.</li>
+<li>Red is an overcut: find it, and change the operation, the tool or the tolerance. The simulation measures to about one cell, so a value around the cell size is at the limit of what it can tell.</li>
+<li>Blue that no later operation removes is material left on the finished part. Inside corners sharper than the tool’s radius always keep some.</li>
+<li>A rapid cut is a fault: do not post the program until it is gone. It is a possible collision, so the export also asks you to acknowledge it before it writes anything.</li>
+</ul>
+<p>The simulation does not model the chuck, a tailstock, the tool holder or the machine, and it does not check them against the part. See <a href="../start/limitations.html">Known limitations</a>.</p>
+<h2 id="playing-the-cut"><a class="header" href="#playing-the-cut">Playing the cut</a></h2>
+<p>The <strong>Playback</strong> tab plays the program: step through it move by move or operation by operation, play it at up to 10 000 times its speed, or set it to play the whole program in 10 s or 60 s. <strong>Go to move</strong> jumps to a move. <strong>Turn part with A</strong> turns the part, as the machine does, instead of the tool. Drag under the timeline to set a window of moves to play and show.</p>
+<p>The time shown is the programmed time, the moves at their programmed feeds; it is not an estimate of how long the machine takes.</p>
+
+        </div>
+        <nav class="pager" aria-label="Previous and next page">
+          <a class="prev" rel="prev" href="../concepts/tabs.html"><span>Previous</span>Tabs</a>
+          <a class="next" rel="next" href="../how-to/import-step.html"><span>Next</span>Import a STEP file</a>
+        </nav>
+      </main>
+      <footer class="site-footer">
+        <p class="notice">Generated G-code must be verified by the user before it is run on a machine. OpenChuckCAM does not guarantee that a program is safe or correct for any machine, tool or setup.</p>
+        <p class="stamp">Describes OpenChuckCAM 0.55.0 (app-v0.55.0, commit 57b8ac1), built 2026-11-22. Licensed AGPL-3.0-or-later.</p>
+      </footer>
+    </div>
+  </div>
+  <script>
+    // On a narrow screen the contents start folded; without JavaScript they stay open.
+    if (matchMedia('(max-width: 900px)').matches) document.querySelector('.sidebar details').open = false;
+    (function () {
+      var b = document.querySelector('.theme-toggle'), root = document.documentElement;
+      function dark() { return root.dataset.theme ? root.dataset.theme === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches; }
+      function label() { b.textContent = dark() ? 'Light theme' : 'Dark theme'; }
+      b.hidden = false; label();
+      b.addEventListener('click', function () {
+        root.dataset.theme = dark() ? 'light' : 'dark';
+        try { localStorage.setItem('oc-theme', root.dataset.theme); } catch (e) {}
+        label();
+      });
+    })();
+  </script>
+  <script src="../versions.js"></script>
+  <script src="../elasticlunr-ef4e11c1.min.js"></script>
+  <script src="../mark-09e88c2c.min.js"></script>
+  <script src="../searcher-09f2665d.js"></script>
+  <script>
+    // mdBook's search script expects a toggle button and loads its index when the box is shown.
+    // The box is always visible here, so the first focus presses the (hidden) toggle once.
+    (function () {
+      var bar = document.getElementById('mdbook-searchbar'), t = document.getElementById('mdbook-search-toggle'), done = false;
+      bar.addEventListener('focus', function () { if (!done) { done = true; t.click(); bar.focus(); } });
+    })();
+  </script>
+  
+</body>
+</html>

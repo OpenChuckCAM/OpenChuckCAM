@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
+<!-- OpenChuckCAM user guide: the page template (decision 0400). It replaces mdBook's own theme completely.
+     The @@...@@ placeholders and the latest-banner markers are filled in by user-docs/tools/build.py. -->
+<html lang="en" dir="ltr">
+<head>
+  <meta charset="utf-8">
+  <title>Command line - OpenChuckCAM user guide</title>
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="The user guide for OpenChuckCAM, free, open source CAM for 4-axis rotary CNC: how to turn a 3D model into G-code, and what to check before you run it.">
+  <meta name="docs-version" content="0.55.0">
+  <meta name="color-scheme" content="light dark">
+  <link rel="icon" href="../favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="../favicon.png" type="image/png" sizes="32x32">
+  <link rel="stylesheet" href="../style.css">
+  <script>
+    // The reader's theme choice, if any, is kept in localStorage (not a cookie). Without one, the page follows the system.
+    try { var t = localStorage.getItem('oc-theme'); if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t; } catch (e) {}
+    const path_to_root = "../";
+    window.path_to_searchindex_js = "../searchindex-acb44e9e.js";
+  </script>
+</head>
+<body>
+  <a class="skip" href="#content">Skip to the content</a>
+  
+  <header class="site-header">
+    <a class="site-title" href="../index.html"><svg class="site-logo" viewBox="0 0 512 512" width="28" height="28" aria-hidden="true" focusable="false"><g transform="translate(256 256) scale(0.94) translate(-256 -256)" fill="currentColor" stroke="currentColor"><rect x="224" y="128" width="64" height="40" rx="8"/><rect x="224" y="128" width="64" height="40" rx="8" transform="rotate(120 256 256)"/><rect x="224" y="128" width="64" height="40" rx="8" transform="rotate(240 256 256)"/><circle cx="256" cy="256" r="64"/><path d="M239.3 64.7 A192 192 0 1 1 66.9 222.7" fill="none" stroke-width="64" stroke-linecap="round"/><polygon points="85.3,118.3 -0.9,214.8 133.4,238.4" stroke-width="10" stroke-linejoin="round"/></g></svg>OpenChuckCAM <span>User guide</span></a>
+    <div class="tools">
+      <span class="version-switch"><a class="version-link" href="../../versions.html">Version: 0.55.0</a></span>
+      <a href="../print.html">Print the guide</a>
+      <button class="theme-toggle" type="button" hidden>Dark theme</button>
+    </div>
+  </header>
+  <div class="layout">
+    <nav class="sidebar" aria-label="Contents">
+      <details open>
+        <summary>Contents</summary>
+        <div class="search hidden" id="mdbook-search-wrapper">
+          <button type="button" id="mdbook-search-toggle" hidden>Search</button>
+          <form id="mdbook-searchbar-outer" role="search" onsubmit="return false">
+            <label for="mdbook-searchbar">Search the guide</label>
+            <input type="search" id="mdbook-searchbar" name="searchbar" autocomplete="off" aria-controls="mdbook-searchresults-outer" aria-describedby="mdbook-searchresults-header">
+          </form>
+          <div id="mdbook-searchresults-outer" class="searchresults-outer hidden">
+            <div id="mdbook-searchresults-header" class="searchresults-header" aria-live="polite"></div>
+            <ul id="mdbook-searchresults"></ul>
+          </div>
+        </div>
+        <ol class="chapter"><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../index.html">OpenChuckCAM user guide</a></span></li><li class="part-title">Start here</li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../start/install.html">Install and first run</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../start/limitations.html">Known limitations</a></span></li><li class="part-title">Tutorial</li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../tutorial/index.html">Your first project</a></span><ol class="section"><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../tutorial/01-create-project.html">1. Create a project</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../tutorial/02-import-model.html">2. Import the model</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../tutorial/03-machine.html">3. Choose the machine</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../tutorial/04-stock.html">4. Set up the stock</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../tutorial/05-hold.html">5. Hold the work</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../tutorial/06-tools.html">6. Choose the tools</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../tutorial/07-operations.html">7. Add the operations</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../tutorial/08-generate.html">8. Generate the toolpaths</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../tutorial/09-simulate.html">9. Simulate and read the results</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../tutorial/10-export.html">10. Post and export</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../tutorial/11-verify.html">Before you run anything</a></span></li></ol><li class="part-title">Concepts</li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../concepts/rotary-machining.html">How 4-axis rotary machining works</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../concepts/stock-and-held-region.html">Stock and the held region</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../concepts/roughing-and-finishing.html">Roughing and finishing</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../concepts/stepover-and-stock-to-leave.html">Stepover, stepdown, scallop and stock to leave</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../concepts/finishing-strategies.html">Helical, axial, indexed and simultaneous finishing</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../concepts/tabs.html">Tabs</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../concepts/simulation.html">Simulation and deviation colours</a></span></li><li class="part-title">How-to guides</li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../how-to/import-step.html">Import a STEP file</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../how-to/limit-to-a-region.html">Limit an operation to a region</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../how-to/add-a-tool.html">Add a tool to the library</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../how-to/confirm-machine-values.html">Confirm machine profile values</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../how-to/short-block-settings.html">Machine setup: short moves</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../how-to/export.html">Export G-code and the setup sheet</a></span></li><li class="part-title">Worked examples</li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../examples/custom-machine.html">Create a custom machine</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../examples/create-a-post.html">Create a post-processing template</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../examples/tabs-and-held-regions.html">Tabs and held regions</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../examples/limit-to-a-region.html">Limit an operation to a region</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../examples/rest-machining.html">Rest machining</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../examples/flute-length-warning.html">The flute-length warning</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../examples/stepover-and-scallop.html">Stepover, stock to leave and scallop</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../examples/selection-sets.html">Selection sets on a blisk</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../examples/faceflow.html">Face-flow finishing on a blisk floor</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../examples/swarf.html">Swarf on a blisk blade</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../examples/simultaneous-finishing.html">Simultaneous finishing</a></span></li><li class="part-title">Safety and verification</li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../safety/checking-gcode.html">Checking G-code before you run it</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../safety/air-cut.html">Air cut on the Makera Z1</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../safety/checklist.html">Safe-practice checklist</a></span></li><li class="part-title">Reference</li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../reference/operations.html">Operations and strategies</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../reference/settings.html">Settings</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../reference/machine-profiles.html">Machine profiles</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../reference/tool-library.html">Tool library</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../reference/gcode-and-posts.html">G-code and posts</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../reference/writing-a-post.html">Writing a post-processor</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../reference/command-line.html" aria-current="page">Command line</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../reference/messages.html">Messages and item states</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../glossary.html">Glossary</a></span></li><li class="part-title">More</li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../troubleshooting.html">Troubleshooting</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../reporting.html">Reporting a problem or asking for a feature</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../release-notes.html">Release notes</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../credits.html">Credits and licences</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../contributing.html">Contributing to this guide</a></span></li></ol>
+      </details>
+    </nav>
+    <div class="content">
+      <main id="content">
+        <div id="mdbook-content">
+<h1 id="command-line"><a class="header" href="#command-line">Command line</a></h1>
+<p><code>openchuck-cli</code> is OpenChuckCAM without a window. It opens, checks and changes a project folder, regenerates its toolpaths, simulates them and writes the G-code, so you can script a job or run it on a computer with no screen. It reads and writes the same project folders as the program with a window.</p>
+<blockquote class="blockquote-tag blockquote-tag-warning">
+<p class="blockquote-tag-title"><svg viewbox="0 0 16 16" width="18" height="18"><path d="M6.457 1.047c.659-1.234 2.427-1.234 3.086 0l6.082 11.378A1.75 1.75 0 0 1 14.082 15H1.918a1.75 1.75 0 0 1-1.543-2.575Zm1.763.707a.25.25 0 0 0-.44 0L1.698 13.132a.25.25 0 0 0 .22.368h12.164a.25.25 0 0 0 .22-.368Zm.53 3.996v2.5a.75.75 0 0 1-1.5 0v-2.5a.75.75 0 0 1 1.5 0ZM9 11a1 1 0 1 1-2 0 1 1 0 0 1 2 0Z"></path></svg>Warning</p>
+<p>Every run that writes G-code ends with the program’s notice: generated G-code must be verified by you before it is run on a machine. OpenChuckCAM does not guarantee that a program is safe or correct for any machine, tool or setup. See <a href="../safety/checking-gcode.html">Checking G-code before you run it</a>.</p>
+</blockquote>
+<p>The command line cannot add or change operations: make them in the program window. It can do everything else a job needs: create a project, import and place the model, choose the machine, set up the stock and the workholding, add tools, and regenerate, simulate and post a project that has operations.</p>
+<h2 id="running-it"><a class="header" href="#running-it">Running it</a></h2>
+<pre><code class="language-text">openchuck-cli &lt;command&gt; [options]
+openchuck-cli --help
+openchuck-cli &lt;command&gt; --help
+</code></pre>
+<p>In the commands below, <code>PROJECT</code> is a project folder.</p>
+<p>These options work with every command:</p>
+<dl>
+<dt id="--threads-n"><a class="header" href="#--threads-n"><code>--threads N</code></a></dt>
+<dd>The number of worker threads. The default is one per core. The output is the same whatever the number.</dd>
+<dt id="--create"><a class="header" href="#--create"><code>--create</code></a></dt>
+<dd>If the folder has no <code>project.toml</code>, create a project there. Without it, the command asks on a terminal and otherwise stops with an error.</dd>
+<dt id="--version"><a class="header" href="#--version"><code>--version</code></a></dt>
+<dd>The version, the commit it was built from, and the version of each part.</dd>
+</dl>
+<p>Results go to standard output. Warnings, notes and questions go to standard error. The command asks a question only when it runs in a terminal: to create a project, about the unit of an imported model, and to confirm the tool numbers. In a script, give the answer as an option instead.</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Exit code</th><th>Meaning</th></tr>
+</thead>
+<tbody>
+<tr><td>0</td><td>The command worked.</td></tr>
+<tr><td>1</td><td>An error, printed as <code>error: ...</code>, or a check failed.</td></tr>
+<tr><td>2</td><td>The command line itself was wrong, for example an unknown option.</td></tr>
+</tbody>
+</table>
+</div>
+<h2 id="projects"><a class="header" href="#projects">Projects</a></h2>
+<dl>
+<dt id="new-project---name-name"><a class="header" href="#new-project---name-name"><code>new PROJECT [--name NAME]</code></a></dt>
+<dd>Creates an empty project. The folder is created if needed. The name defaults to the folder’s name.</dd>
+<dt id="validate-project"><a class="header" href="#validate-project"><code>validate PROJECT</code></a></dt>
+<dd>Opens the project, checks its files, checks that each model file still matches what was imported, and regenerates to show every note. A model that cannot be read, has changed or is missing is an error. Writes nothing.</dd>
+<dt id="report-project"><a class="header" href="#report-project"><code>report PROJECT</code></a></dt>
+<dd>Prints a summary: the models, setups and operations, the machine profile with where each value came from, each setup and its checks, and each tool. Writes nothing.</dd>
+<dt id="resave-project"><a class="header" href="#resave-project"><code>resave PROJECT</code></a></dt>
+<dd>Loads and saves the project, rewriting only the files whose text changes.</dd>
+</dl>
+<h2 id="models"><a class="header" href="#models">Models</a></h2>
+<dl>
+<dt id="inspect-path---units-u"><a class="header" href="#inspect-path---units-u"><code>inspect PATH [--units U]</code></a></dt>
+<dd>Prints the size, bounds and checks of a model file, or of every model in a project. <code>--units</code> (<code>um</code>, <code>mm</code>, <code>cm</code>, <code>m</code> or <code>in</code>, default <code>mm</code>) applies to a file.</dd>
+<dt id="import-project-file---link---units-u"><a class="header" href="#import-project-file---link---units-u"><code>import PROJECT FILE [--link] [--units U]</code></a></dt>
+<dd>Adds a model to the project. By default the file is copied into the project’s <code>models/</code> folder; <code>--link</code> leaves it where it is and refers to it by its path, so the project breaks if the file moves.</dd>
+<dt id="copy-model-project-model"><a class="header" href="#copy-model-project-model"><code>copy-model PROJECT [MODEL]</code></a></dt>
+<dd>Copies linked models into the project’s <code>models/</code> folder. Without <code>MODEL</code>, every linked model.</dd>
+<dt id="units-project-model-unit"><a class="header" href="#units-project-model-unit"><code>units PROJECT MODEL UNIT</code></a></dt>
+<dd>Sets the unit a model was drawn in: <code>um</code>, <code>mm</code>, <code>cm</code>, <code>m</code>, <code>in</code>, or <code>default</code>.</dd>
+<dt id="transform-project-model-steps---clear"><a class="header" href="#transform-project-model-steps---clear"><code>transform PROJECT MODEL [STEPS...] [--clear]</code></a></dt>
+<dd>Adds placement steps, applied in order after the model’s existing ones: <code>translate=X,Y,Z</code>, <code>rotate=AXIS:DEGREES</code>, <code>scale=FACTOR</code>, <code>mirror=AXIS</code>, <code>centre</code> (onto the rotary axis), and <code>orient=DIRECTION</code> (for example <code>orient=+z</code>: turn that direction onto the rotary axis and centre the part). <code>--clear</code> removes the existing steps first.</dd>
+</dl>
+<p>A model can be named by its ID, its path or its file name.</p>
+<h2 id="the-machine"><a class="header" href="#the-machine">The machine</a></h2>
+<dl>
+<dt id="machines---library-folder"><a class="header" href="#machines---library-folder"><code>machines [--library FOLDER]</code></a></dt>
+<dd>Lists the built-in machine profiles and those in a library folder, with how many values are unconfirmed.</dd>
+<dt id="machine-project-profile---library-folder---clear"><a class="header" href="#machine-project-profile---library-folder---clear"><code>machine PROJECT [PROFILE] [--library FOLDER] [--clear]</code></a></dt>
+<dd>Shows the project’s machine profile, every value marked <code>confirmed</code> or <code>UNCONFIRMED</code> with its source, or sets it. <code>PROFILE</code> is a built-in name such as <code>makera-z1</code>, a profile in the library folder, or the path of a profile file. The project keeps its own copy. <code>--clear</code> removes it. See <a href="machine-profiles.html">Machine profiles</a>.</dd>
+</dl>
+<h2 id="setups"><a class="header" href="#setups">Setups</a></h2>
+<dl>
+<dt id="setup-project-setup-options"><a class="header" href="#setup-project-setup-options"><code>setup PROJECT [SETUP] [options]</code></a></dt>
+<dd>Adds a setup (<code>--new NAME</code>) or changes one, then prints its checks. With no options it only prints them.</dd>
+</dl>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Option</th><th>Value</th></tr>
+</thead>
+<tbody>
+<tr><td><code>--new NAME</code>, <code>--name NAME</code></td><td>Add a setup, or rename one.</td></tr>
+<tr><td><code>--part MODEL</code></td><td>The part, or <code>none</code>.</td></tr>
+<tr><td><code>--stock</code></td><td><code>cylinder=DIAMETER,LENGTH,X_START</code>, <code>box=X0,Y0,Z0,X1,Y1,Z1</code>, <code>bbox=OFFSET</code> (the part’s bounding box grown by the offset), or <code>none</code>. In millimetres.</td></tr>
+<tr><td><code>--material NAME</code></td><td>The stock material, or <code>none</code>. It chooses the tools’ cutting data.</td></tr>
+<tr><td><code>--part-offset MM</code></td><td>Moves the part along the rotary axis; the stock, tabs and work zero stay.</td></tr>
+<tr><td><code>--work-offset G54</code> to <code>G59</code></td><td>The work offset register.</td></tr>
+<tr><td><code>--work-x MM</code></td><td>Where the work zero is along the rotary axis.</td></tr>
+<tr><td><code>--clearance RADIUS,SAFE_Z</code> or <code>machine</code></td><td>The safe cylinder and safe Z, or the machine profile’s.</td></tr>
+<tr><td><code>--min-clearance MM</code> or <code>machine</code></td><td>The smallest safe cylinder allowed.</td></tr>
+<tr><td><code>--clearance-from-stock MM</code> or <code>off</code></td><td>A margin added to the stock’s radius for the safe cylinder.</td></tr>
+<tr><td><code>--held-start LENGTH[,DIAMETER]</code>, <code>--held-end ...</code> or <code>none</code></td><td>The <a href="../glossary.html#held-region">held region</a> at the low-X or high-X end, never cut.</td></tr>
+<tr><td><code>--tab SPEC</code></td><td>A tab: <code>cylinder=X_START,LENGTH,DIAMETER</code> or <code>frustum=X_START,LENGTH,START_DIAMETER,END_DIAMETER</code>, optionally followed by <code>@COUNT,START_ANGLE,RADIAL_OFFSET</code>. Repeat it for more tabs.</td></tr>
+<tr><td><code>--clear-tabs</code>, <code>--default-tabs</code></td><td>Remove the tabs first, or add the default head and tail tabs worked out from the part.</td></tr>
+</tbody>
+</table>
+</div>
+<p>The workholding is checked as <strong>Apply</strong> checks it: a tab outside the head and tail zones is refused, and nothing is saved; a tab shorter than a tool of the setup is wide, an automatic tab with no room and tabs that overlap are saved, each with a <code>warning:</code> line. The printout includes where to set the work offset on the machine, for example “set G54 to machine X … Y … Z … at A 0”.</p>
+<h2 id="tools"><a class="header" href="#tools">Tools</a></h2>
+<dl>
+<dt id="tools-project---library-folder"><a class="header" href="#tools-project---library-folder"><code>tools PROJECT [--library FOLDER]</code></a></dt>
+<dd>
+<p>Lists the project’s tools with their checks and, with <code>--library</code>, how each differs from the library. The project’s copy is always the one used.</p>
+</dd>
+<dt id="tool-project-tool-options"><a class="header" href="#tool-project-tool-options"><code>tool PROJECT TOOL [options]</code></a></dt>
+<dd>
+<p>Shows a project tool, or changes it. <code>TOOL</code> is a name, an ID or <code>T&lt;number&gt;</code>.</p>
+<ul>
+<li><code>--add --library FOLDER</code> copies the tool from the library into the project, with the number from the machine’s tool set, or the next free number.</li>
+<li><code>--update --library FOLDER</code> replaces the project’s copy with the library’s, keeping its number.</li>
+<li><code>--number N</code>, <code>--length-offset N</code>, <code>--diameter-offset N</code> set the T number and the H and D registers (<code>0</code> follows the tool number).</li>
+<li><code>--remove</code> takes it out of the project.</li>
+</ul>
+</dd>
+<dt id="tool-numbers-project---auto----set-toolnumber----max-n"><a class="header" href="#tool-numbers-project---auto----set-toolnumber----max-n"><code>tool-numbers PROJECT [--auto | --set TOOL=NUMBER ...] [--max N]</code></a></dt>
+<dd>
+<p>Shows the tool numbers the program will use, or changes them and saves them in the project. <code>--auto</code> numbers the tools in order of first use from 1; <code>--set</code> gives one tool a number and can be repeated.</p>
+</dd>
+<dt id="library-library-subcommand"><a class="header" href="#library-library-subcommand"><code>library LIBRARY &lt;subcommand&gt;</code></a></dt>
+<dd>
+<p>Works with a tool library folder: <code>list</code>, <code>import FROM</code>, <code>export TO [TOOLS...]</code>, <code>profile TOOL FILE</code> (give a tool a custom profile), <code>store PROJECT TOOL</code> (copy a project’s tool into the library), and <code>tool-set MACHINE [--set NUMBER=TOOL ...] [--unset NUMBER ...]</code>. See <a href="tool-library.html">Tool library</a>.</p>
+</dd>
+</dl>
+<p>The command line does not install the ready-made tools: the program window installs them into your tool library the first time it starts. Point <code>--library</code> at that folder (see <a href="tool-library.html#where-the-library-is-kept">Tool library</a>).</p>
+<h2 id="regenerating-and-writing-g-code"><a class="header" href="#regenerating-and-writing-g-code">Regenerating and writing G-code</a></h2>
+<dl>
+<dt id="regenerate-project-options"><a class="header" href="#regenerate-project-options"><code>regenerate PROJECT [options]</code></a></dt>
+<dd>Regenerates every toolpath. With <code>--post</code> and <code>--out</code>, it writes the G-code.</dd>
+</dl>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Option</th><th>Default</th><th>What it does</th></tr>
+</thead>
+<tbody>
+<tr><td><code>--post POST</code></td><td>none: toolpaths only</td><td><code>makera-z1</code>, <code>linuxcnc</code>, or the folder of a post of your own. See <a href="gcode-and-posts.html">G-code and posts</a>.</td></tr>
+<tr><td><code>--out FOLDER</code></td><td>none: a summary only</td><td>The folder to write into. It needs <code>--post</code> or <code>--setup-sheet</code>.</td></tr>
+<tr><td><code>--tool-numbers keep</code> or <code>auto</code></td><td>none</td><td>Confirms the tool numbers shown (<code>keep</code>), or numbers the tools in order of use (<code>auto</code>). Required with <code>--post</code> when no terminal can ask. A change is saved in the project.</td></tr>
+<tr><td><code>--grouping</code></td><td><code>setup</code></td><td>How the program is split into files: <code>project</code> (one file; only for a project with one setup), <code>setup</code>, <code>operation</code>, or <code>tool</code>.</td></tr>
+<tr><td><code>--setup-sheet</code></td><td>off</td><td>Also writes the setup sheet as HTML and PDF. It needs <code>--out</code>.</td></tr>
+<tr><td><code>--acknowledge-partial-path</code></td><td>off</td><td>Writes the files even though an operation’s path is partial (see <a href="operations.html#a-partial-path-must-be-acknowledged">Operations and strategies</a>), for this run only. Without it, nothing is written while a path is partial.</td></tr>
+<tr><td><code>--acknowledge-collision-warnings</code></td><td>off</td><td>Writes the files even though they hold possible collisions of the tool, its shank or its holder (see <a href="operations.html#possible-collisions-must-be-acknowledged">Operations and strategies</a>), for this run only. Without it, nothing is written while there is one. Read each warning first.</td></tr>
+</tbody>
+</table>
+</div>
+<p>With <code>--out</code>, <code>regenerate</code> checks before it writes anything, as the export in the program window does. It makes each program in memory, reads it back and replays it, and runs the export’s checks, then prints them under <code>checks before writing the G-code:</code>:</p>
+<ul>
+<li>an <code>error:</code> line for each check that stops the export, such as a program whose replay does not match its toolpath; then <code>error: 1 check(s) above stop the G-code from being written; nothing was written</code>, and the command ends with exit code 1. No file is written.</li>
+<li>a <code>warning:</code> line for each check that does not stop it, such as an operation that has not been simulated, or machine values that are not confirmed. The files are written.</li>
+</ul>
+<p>A possible collision (see <a href="operations.html#possible-collisions-must-be-acknowledged">Operations and strategies</a>) is listed as a warning in the same words as Messages, for example “Flute length (operation ‘Finish’, tool ‘…’): …”, ending “A possible collision: acknowledge it before the files are written”, and stops the files from being written unless you pass <code>--acknowledge-collision-warnings</code>. For example, with a 1 mm tab at the end of the tutorial’s part, shorter than its 3.175 mm tools are wide, the run ends:</p>
+<pre><code class="language-text">error: This result has 2 possible collisions that must be acknowledged before the files are written: Tab length (operation 'Rough', tool 'Z1 O-flute 3.175x25'): tab 1 (X 78.990 to 79.990 mm) is 1.000 mm long along X, shorter than the tool is wide (3.175 mm), ... Read them, then acknowledge them to write the files. Pass --acknowledge-collision-warnings to write them.
+</code></pre>
+<p>With the flag the files are written, and the run says <code>warning: writing with 2 possible collisions acknowledged for this run: check each before running the program</code>. The flag holds for that run only.</p>
+<p>Then, for each file, it prints the number of moves and whether the replay matches the toolpath, and last the notice, which it prints on every run. A project with no operations writes no G-code file, and so has nothing to check.</p>
+<p>For example, with a post whose template writes a move that goes nowhere, nothing is written:</p>
+<pre><code class="language-text">checks before writing the G-code:
+error: 01-setup-1.ngc failed its checks (the replay does not match). Look at the checks in the messages and fix the operation.
+warning: Operation 'Rough' has not been simulated. Run the simulation to see what it removes.
+warning: Operation 'Finish' has not been simulated. Run the simulation to see what it removes.
+error: 1 check(s) above stop the G-code from being written; nothing was written
+</code></pre>
+<dl>
+<dt id="simulate-project---cell-mm"><a class="header" href="#simulate-project---cell-mm"><code>simulate PROJECT [--cell MM]</code></a></dt>
+<dd>Regenerates and simulates the material removal of every operation, then compares the stock left with each setup’s part: the most material left and the deepest overcut, and any rapid move that removes material. It exits with 1 if it finds an overcut deeper than one cell or a rapid move through material. <code>--cell</code> sets the simulation’s cell size, from 0.025 mm to 1 mm (default 0.1 mm), and saves it in the project: finer costs time and memory.</dd>
+<dt id="gcode-sim-program-report---tolerance-t---source-lines-firstlast"><a class="header" href="#gcode-sim-program-report---tolerance-t---source-lines-firstlast"><code>gcode-sim PROGRAM REPORT [--tolerance T] [--source-lines FIRST:LAST]</code></a></dt>
+<dd>A check the project uses: compares the report of a run in the LinuxCNC simulator with the program it ran.</dd>
+</dl>
+<h2 id="an-example"><a class="header" href="#an-example">An example</a></h2>
+<p>This takes the finished tutorial project from the repository, <a href="https://github.com/OpenChuckCAM/OpenChuckCAM/tree/main/testdata/examples/baluster/baluster-project"><code>testdata/examples/baluster/baluster-project</code></a>, and writes its G-code and setup sheet. Copy it first, so the example stays as it is:</p>
+<pre><code class="language-text">cp -r testdata/examples/baluster/baluster-project baluster
+openchuck-cli validate baluster
+openchuck-cli tool-numbers baluster
+openchuck-cli simulate baluster
+openchuck-cli regenerate baluster --post makera-z1 --tool-numbers keep --out baluster-out --setup-sheet
+</code></pre>
+<p><code>tool-numbers</code> shows <code>T104 Z1 O-flute 3.175x25</code> and <code>T204 Z1 ball 3.175x22</code>. The last command checks the program, writes <code>01-setup-1.nc</code>, <code>baluster-setup-sheet.html</code> and <code>baluster-setup-sheet.pdf</code> into <code>baluster-out</code>, and prints:</p>
+<pre><code class="language-text">  01-setup-1.nc: 27964 moves; replay matches the toolpath (tip 0.0007 mm, A 0.0005 deg; cut 2808.6 s, toolpath 2808.6 s)
+wrote baluster-out/baluster-setup-sheet.html
+wrote baluster-out/baluster-setup-sheet.pdf
+baluster: 2 toolpath groups, 1 G-code files
+Generated G-code must be verified by the user before it is run on a machine. OpenChuckCAM does not guarantee that a program is safe or correct for any machine, tool or setup.
+</code></pre>
+<p>Before that, on standard error, it prints what the run found, each at its level, then the checks that did not stop the export:</p>
+<pre><code class="language-text">warning: Held region (operation 'Finish'): nothing within one tool radius of the held region at the start of the stock is cut: no part of the tool reaches over the gripped length of the stock.
+note: Feed limit (operation 'Rough'): 9536 moves were limited by the machine's feed limits. In the worst case the target was 1000.0 mm/min, but the move was reduced to 11.0 mm/min to stay within the machine's capabilities.
+note: Feed limit (operation 'Finish'): 18507 moves were limited by the machine's feed limits. In the worst case the target was 500.0 mm/min, but the move was reduced to 0.5 mm/min to stay within the machine's capabilities.
+note: Shoulders (operation 'Rough'): the part has a step across the rotary axis (a shoulder facing along X): the tool makes one extra turn round the axis, without moving along it, at X 67.879, so the shoulder keeps only the stock to leave.
+note: Free ends (operation 'Finish'): the end face at X 78.990 has nothing beyond it: the tool goes down beside it in 5 layers of 1 mm to the rotary axis, turning once round the axis in each.
+note: Rotary axis (operation 'Finish'): moves 19077 to 19148 (72 moves): A turns with the contact point at the rotary axis during these moves, so the contact point barely moves and the rotary axis's speed limit sets the time taken (0.167 s); the feed set is 500.0 mm/min.
+short-block settings: Report (machine profile), 7.000 ms (machine profile), 32 blocks (machine profile)
+checks before writing the G-code:
+warning: Held region (operation 'Finish'): nothing within one tool radius of the held region at the start of the stock is cut: no part of the tool reaches over the gripped length of the stock.
+warning: Operation 'Rough' has not been simulated. Run the simulation to see what it removes.
+warning: Operation 'Finish' has not been simulated. Run the simulation to see what it removes.
+</code></pre>
+<p><code>validate</code>, <code>regenerate</code> and <code>simulate</code> print each message of the run as the program’s <strong>Results</strong> tab shows it: a <code>warning:</code> line for something that may be a problem when you machine, and a <code>note:</code> line for information, where the goal was met with a compromise. Each line starts with what it is about, as in Messages: “Held region (operation ‘Finish’): …”. The moves the machine’s feed limits slowed are one <code>note:</code> line for each operation, and notes about consecutive moves that say the same thing are one line, with the moves’ numbers (“moves 19077 to 19148 (72 moves)”).</p>
+<p>Each command runs on its own, so the <code>simulate</code> run before does not count as a simulation for <code>regenerate</code>: read its result yourself. Measure the machine values on your own machine, confirmed or not (see <a href="../how-to/confirm-machine-values.html">Confirm machine profile values</a>).</p>
+<p>“Replay matches the toolpath” means the file says what the toolpath says. It does not mean the program is right for your machine, stock or fixture.</p>
+<p>A project started on the command line goes as far as the setup and its tools; add the operations in the program window:</p>
+<pre><code class="language-text">openchuck-cli new baluster2
+openchuck-cli import baluster2 testdata/examples/baluster/baluster.stl
+openchuck-cli machine baluster2 makera-z1
+openchuck-cli transform baluster2 baluster.stl centre
+openchuck-cli setup baluster2 --new "Setup 1" --part baluster.stl --stock cylinder=24,63,-1 --material Hardwood --held-start 8
+openchuck-cli tool baluster2 "Z1 ball 3.175x22" --add --library ~/.config/OpenChuckCAM/tools
+</code></pre>
+<p>The library path is the Linux one; see <a href="tool-library.html#where-the-library-is-kept">Tool library</a> for the others.</p>
+
+        </div>
+        <nav class="pager" aria-label="Previous and next page">
+          <a class="prev" rel="prev" href="../reference/writing-a-post.html"><span>Previous</span>Writing a post-processor</a>
+          <a class="next" rel="next" href="../reference/messages.html"><span>Next</span>Messages and item states</a>
+        </nav>
+      </main>
+      <footer class="site-footer">
+        <p class="notice">Generated G-code must be verified by the user before it is run on a machine. OpenChuckCAM does not guarantee that a program is safe or correct for any machine, tool or setup.</p>
+        <p class="stamp">Describes OpenChuckCAM 0.55.0 (app-v0.55.0, commit 57b8ac1), built 2026-11-22. Licensed AGPL-3.0-or-later.</p>
+      </footer>
+    </div>
+  </div>
+  <script>
+    // On a narrow screen the contents start folded; without JavaScript they stay open.
+    if (matchMedia('(max-width: 900px)').matches) document.querySelector('.sidebar details').open = false;
+    (function () {
+      var b = document.querySelector('.theme-toggle'), root = document.documentElement;
+      function dark() { return root.dataset.theme ? root.dataset.theme === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches; }
+      function label() { b.textContent = dark() ? 'Light theme' : 'Dark theme'; }
+      b.hidden = false; label();
+      b.addEventListener('click', function () {
+        root.dataset.theme = dark() ? 'light' : 'dark';
+        try { localStorage.setItem('oc-theme', root.dataset.theme); } catch (e) {}
+        label();
+      });
+    })();
+  </script>
+  <script src="../versions.js"></script>
+  <script src="../elasticlunr-ef4e11c1.min.js"></script>
+  <script src="../mark-09e88c2c.min.js"></script>
+  <script src="../searcher-09f2665d.js"></script>
+  <script>
+    // mdBook's search script expects a toggle button and loads its index when the box is shown.
+    // The box is always visible here, so the first focus presses the (hidden) toggle once.
+    (function () {
+      var bar = document.getElementById('mdbook-searchbar'), t = document.getElementById('mdbook-search-toggle'), done = false;
+      bar.addEventListener('focus', function () { if (!done) { done = true; t.click(); bar.focus(); } });
+    })();
+  </script>
+  
+</body>
+</html>

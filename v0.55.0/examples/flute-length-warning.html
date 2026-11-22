@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
+<!-- OpenChuckCAM user guide: the page template (decision 0400). It replaces mdBook's own theme completely.
+     The @@...@@ placeholders and the latest-banner markers are filled in by user-docs/tools/build.py. -->
+<html lang="en" dir="ltr">
+<head>
+  <meta charset="utf-8">
+  <title>The flute-length warning - OpenChuckCAM user guide</title>
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="The user guide for OpenChuckCAM, free, open source CAM for 4-axis rotary CNC: how to turn a 3D model into G-code, and what to check before you run it.">
+  <meta name="docs-version" content="0.55.0">
+  <meta name="color-scheme" content="light dark">
+  <link rel="icon" href="../favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="../favicon.png" type="image/png" sizes="32x32">
+  <link rel="stylesheet" href="../style.css">
+  <script>
+    // The reader's theme choice, if any, is kept in localStorage (not a cookie). Without one, the page follows the system.
+    try { var t = localStorage.getItem('oc-theme'); if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t; } catch (e) {}
+    const path_to_root = "../";
+    window.path_to_searchindex_js = "../searchindex-acb44e9e.js";
+  </script>
+</head>
+<body>
+  <a class="skip" href="#content">Skip to the content</a>
+  
+  <header class="site-header">
+    <a class="site-title" href="../index.html"><svg class="site-logo" viewBox="0 0 512 512" width="28" height="28" aria-hidden="true" focusable="false"><g transform="translate(256 256) scale(0.94) translate(-256 -256)" fill="currentColor" stroke="currentColor"><rect x="224" y="128" width="64" height="40" rx="8"/><rect x="224" y="128" width="64" height="40" rx="8" transform="rotate(120 256 256)"/><rect x="224" y="128" width="64" height="40" rx="8" transform="rotate(240 256 256)"/><circle cx="256" cy="256" r="64"/><path d="M239.3 64.7 A192 192 0 1 1 66.9 222.7" fill="none" stroke-width="64" stroke-linecap="round"/><polygon points="85.3,118.3 -0.9,214.8 133.4,238.4" stroke-width="10" stroke-linejoin="round"/></g></svg>OpenChuckCAM <span>User guide</span></a>
+    <div class="tools">
+      <span class="version-switch"><a class="version-link" href="../../versions.html">Version: 0.55.0</a></span>
+      <a href="../print.html">Print the guide</a>
+      <button class="theme-toggle" type="button" hidden>Dark theme</button>
+    </div>
+  </header>
+  <div class="layout">
+    <nav class="sidebar" aria-label="Contents">
+      <details open>
+        <summary>Contents</summary>
+        <div class="search hidden" id="mdbook-search-wrapper">
+          <button type="button" id="mdbook-search-toggle" hidden>Search</button>
+          <form id="mdbook-searchbar-outer" role="search" onsubmit="return false">
+            <label for="mdbook-searchbar">Search the guide</label>
+            <input type="search" id="mdbook-searchbar" name="searchbar" autocomplete="off" aria-controls="mdbook-searchresults-outer" aria-describedby="mdbook-searchresults-header">
+          </form>
+          <div id="mdbook-searchresults-outer" class="searchresults-outer hidden">
+            <div id="mdbook-searchresults-header" class="searchresults-header" aria-live="polite"></div>
+            <ul id="mdbook-searchresults"></ul>
+          </div>
+        </div>
+        <ol class="chapter"><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../index.html">OpenChuckCAM user guide</a></span></li><li class="part-title">Start here</li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../start/install.html">Install and first run</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../start/limitations.html">Known limitations</a></span></li><li class="part-title">Tutorial</li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../tutorial/index.html">Your first project</a></span><ol class="section"><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../tutorial/01-create-project.html">1. Create a project</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../tutorial/02-import-model.html">2. Import the model</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../tutorial/03-machine.html">3. Choose the machine</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../tutorial/04-stock.html">4. Set up the stock</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../tutorial/05-hold.html">5. Hold the work</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../tutorial/06-tools.html">6. Choose the tools</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../tutorial/07-operations.html">7. Add the operations</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../tutorial/08-generate.html">8. Generate the toolpaths</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../tutorial/09-simulate.html">9. Simulate and read the results</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../tutorial/10-export.html">10. Post and export</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../tutorial/11-verify.html">Before you run anything</a></span></li></ol><li class="part-title">Concepts</li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../concepts/rotary-machining.html">How 4-axis rotary machining works</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../concepts/stock-and-held-region.html">Stock and the held region</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../concepts/roughing-and-finishing.html">Roughing and finishing</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../concepts/stepover-and-stock-to-leave.html">Stepover, stepdown, scallop and stock to leave</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../concepts/finishing-strategies.html">Helical, axial, indexed and simultaneous finishing</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../concepts/tabs.html">Tabs</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../concepts/simulation.html">Simulation and deviation colours</a></span></li><li class="part-title">How-to guides</li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../how-to/import-step.html">Import a STEP file</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../how-to/limit-to-a-region.html">Limit an operation to a region</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../how-to/add-a-tool.html">Add a tool to the library</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../how-to/confirm-machine-values.html">Confirm machine profile values</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../how-to/short-block-settings.html">Machine setup: short moves</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../how-to/export.html">Export G-code and the setup sheet</a></span></li><li class="part-title">Worked examples</li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../examples/custom-machine.html">Create a custom machine</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../examples/create-a-post.html">Create a post-processing template</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../examples/tabs-and-held-regions.html">Tabs and held regions</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../examples/limit-to-a-region.html">Limit an operation to a region</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../examples/rest-machining.html">Rest machining</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../examples/flute-length-warning.html" aria-current="page">The flute-length warning</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../examples/stepover-and-scallop.html">Stepover, stock to leave and scallop</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../examples/selection-sets.html">Selection sets on a blisk</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../examples/faceflow.html">Face-flow finishing on a blisk floor</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../examples/swarf.html">Swarf on a blisk blade</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../examples/simultaneous-finishing.html">Simultaneous finishing</a></span></li><li class="part-title">Safety and verification</li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../safety/checking-gcode.html">Checking G-code before you run it</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../safety/air-cut.html">Air cut on the Makera Z1</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../safety/checklist.html">Safe-practice checklist</a></span></li><li class="part-title">Reference</li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../reference/operations.html">Operations and strategies</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../reference/settings.html">Settings</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../reference/machine-profiles.html">Machine profiles</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../reference/tool-library.html">Tool library</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../reference/gcode-and-posts.html">G-code and posts</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../reference/writing-a-post.html">Writing a post-processor</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../reference/command-line.html">Command line</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../reference/messages.html">Messages and item states</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../glossary.html">Glossary</a></span></li><li class="part-title">More</li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../troubleshooting.html">Troubleshooting</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../reporting.html">Reporting a problem or asking for a feature</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../release-notes.html">Release notes</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../credits.html">Credits and licences</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../contributing.html">Contributing to this guide</a></span></li></ol>
+      </details>
+    </nav>
+    <div class="content">
+      <main id="content">
+        <div id="mdbook-content">
+<h1 id="the-flute-length-warning"><a class="header" href="#the-flute-length-warning">The flute-length warning</a></h1>
+<p>This example gives the tutorial’s finishing tool flutes only 3 mm long, so that the program warns that they may not reach the deepest cut. You read the two warnings it gives, then try each of the changes they suggest.</p>
+<blockquote class="blockquote-tag blockquote-tag-warning">
+<p class="blockquote-tag-title"><svg viewbox="0 0 16 16" width="18" height="18"><path d="M6.457 1.047c.659-1.234 2.427-1.234 3.086 0l6.082 11.378A1.75 1.75 0 0 1 14.082 15H1.918a1.75 1.75 0 0 1-1.543-2.575Zm1.763.707a.25.25 0 0 0-.44 0L1.698 13.132a.25.25 0 0 0 .22.368h12.164a.25.25 0 0 0 .22-.368Zm.53 3.996v2.5a.75.75 0 0 1-1.5 0v-2.5a.75.75 0 0 1 1.5 0ZM9 11a1 1 0 1 1-2 0 1 1 0 0 1 2 0Z"></path></svg>Warning</p>
+<p>The flute-length warning is a warning, not a collision check. It compares the tool’s flute length with how deep the stock may stand along the tool’s axis, and the depth it uses is often a bound, not a measurement. No warning does not mean that the shank, the holder or the spindle clears the stock, the chuck or the part. Check the path in the simulation, and run an <a href="../glossary.html#air-cut">air cut</a> first. Generated G-code must be verified by you before it is run on a machine.</p>
+</blockquote>
+<p>You need the tutorial’s finished project, <a href="https://github.com/OpenChuckCAM/OpenChuckCAM/tree/main/testdata/examples/baluster/baluster-project"><code>testdata/examples/baluster/baluster-project</code></a>. Copy it to a folder of your own and open the copy with <strong>File &gt; Open project</strong>. The numbers on this page come from that project on the build named in the figures’ record; your own part gives other numbers.</p>
+<blockquote class="blockquote-tag blockquote-tag-note">
+<p class="blockquote-tag-title"><svg viewbox="0 0 16 16" width="18" height="18"><path d="M0 8a8 8 0 1 1 16 0A8 8 0 0 1 0 8Zm8-6.5a6.5 6.5 0 1 0 0 13 6.5 6.5 0 0 0 0-13ZM6.5 7.75A.75.75 0 0 1 7.25 7h1a.75.75 0 0 1 .75.75v2.75h.25a.75.75 0 0 1 0 1.5h-2a.75.75 0 0 1 0-1.5h.25v-2h-.25a.75.75 0 0 1-.75-.75ZM8 6a1 1 0 1 1 0-2 1 1 0 0 1 0 2Z"></path></svg>Note</p>
+<p>The example project places the part 17.99 mm from the headstock face (<strong>Offset along X</strong> and <strong>Zero at X</strong> in the setup), the length of the project owner’s supplied chuck. It is not a value for your machine: for your own parts, measure the distance from the face of the headstock body to the face of your chuck where the stock starts, with your jaws fitted and gripping as you will grip, and use that number. See <a href="../tutorial/04-stock.html">Set up the stock</a>.</p>
+</blockquote>
+<h2 id="what-the-warning-means"><a class="header" href="#what-the-warning-means">What the warning means</a></h2>
+<p>The flutes are the cutting length of the tool. Above them is the shank, which does not cut. When the stock stands higher above the tool’s tip, along the tool’s axis, than the flutes are long, the shank may rub or push against the stock. The program checks every operation for this after it makes the path. If the stock may stand too high, it still makes the path, and it warns.</p>
+<p>A tool that fits within the flutes can still be too short in other ways: the holder, the collet and the spindle are not checked against the stock by this warning.</p>
+<p>Because the shank may meet the stock, the program treats this warning as a possible collision: you must acknowledge it before the G-code is written. Section 3 shows where.</p>
+<h2 id="1-shorten-the-flutes"><a class="header" href="#1-shorten-the-flutes">1. Shorten the flutes</a></h2>
+<ol>
+<li>In the project panel, click <strong>2 Finish</strong>.</li>
+<li>In the Inspector, under <strong>Tool</strong>, click <strong>Edit tool…</strong>. The tool library opens on the project’s own copy of the tool, T204.</li>
+<li>Set <strong>Name</strong> to <code>Short-flute ball 3.175x3</code>, so the copy is not mistaken for the library’s tool.</li>
+<li>Set <strong>Flute length</strong> to <code>3</code>.</li>
+</ol>
+<figure>
+<a href="images/flutes/01-short-flutes.png"><img src="images/flutes/01-short-flutes.png" width="1920" height="1080" alt="The Tool library window on the project&#39;s copy of T204: the note The project&#39;s copy: each change can be undone, Name Short-flute ball 3.175x3, Type Ball end mill, Diameter 3.175, Flute length 3.000, Overall length 38.000, Shank diameter 3.175, 2 flutes, carbide; on the right, Differs from the library: name, flute length."></a>
+<figcaption><b>Figure 1.</b> The project's copy of the finishing tool, with 3 mm of flute. The library's tool is not changed.</figcaption>
+</figure>
+<ol start="5" style="counter-reset: step 4">
+<li>Click <strong>Close</strong>, then <strong>Generate stale (2)</strong> at the bottom right.</li>
+</ol>
+<h2 id="2-read-the-two-warnings"><a class="header" href="#2-read-the-two-warnings">2. Read the two warnings</a></h2>
+<figure>
+<a href="images/flutes/02-flute-warnings.png"><img src="images/flutes/02-flute-warnings.png" width="1920" height="1080" alt="The Operations step after generating: 2 Finish has a warning triangle; the Messages list shows Warnings 5, two of them starting Flute length (operation &#39;Finish&#39;, tool &#39;Short-flute ball 3.175x3&#39;), each with the links 2 Finish and Show setting."></a>
+<figcaption><b>Figure 2.</b> Two flute-length warnings for the finish. The path was made: the operation shows a warning, not an error.</figcaption>
+</figure>
+<p>The first warning is about the passes over the part:</p>
+<blockquote>
+<p>Flute length (operation ‘Finish’, tool ‘Short-flute ball 3.175x3’): the stock may stand up to 6.712 mm above the tool’s tip along its axis (a bound, from how far the stock reaches from the rotary axis or across a step between readings: that stock is not measured exactly across the tool) (at X 39.193, A 342.3), more than the tool’s 3.000 mm of flute, so the shank may meet the stock; the stock is what the earlier operations in this setup left. The path was made: check it before running it. Use a tool with longer flutes, or rough the part first in this setup, or turn on Finishing layers.</p>
+</blockquote>
+<p>Read it in parts:</p>
+<ul>
+<li>“may stand up to 6.712 mm … (a bound …)”: the depth is an upper limit worked out from the stock, not a measurement across the tool. The real depth there may be less.</li>
+<li>“(at X 39.193, A 342.3)”: the place along the part and the angle where the bound is largest. Here it is on the vase.</li>
+<li>“the stock is what the earlier operations in this setup left”: the check reads the simulated stock after the roughing, not the bare bar.</li>
+</ul>
+<p>The second warning is about the end of the part:</p>
+<blockquote>
+<p>Flute length (operation ‘Finish’, tool ‘Short-flute ball 3.175x3’): the end face at X 78.990 has nothing beyond it and is not faced: the stock beside it is up to 5.462 mm deep (a bound, from how far the stock reaches from the rotary axis: that stock is not measured exactly across the tool), more than the tool’s 3.000 mm of flute, so no turn is cut there and the end keeps what earlier operations left; the stock is what the earlier operations in this setup left. Use a tool with longer flutes, or face it with a Facing operation, or turn off Face free ends for this operation. Check the path before you run it.</p>
+</blockquote>
+<p>A finishing operation with <strong>Face free ends</strong> ticked steps down beside each end face that has nothing beyond it, such as the point of the finial, and turns round there. When the stock beside the face is deeper than the flutes, it leaves that end out, and says so. Unlike the first warning, this one changes the path: the end is not cut, so it is not a possible collision and needs no acknowledgement.</p>
+<h2 id="3-acknowledge-the-possible-collision"><a class="header" href="#3-acknowledge-the-possible-collision">3. Acknowledge the possible collision</a></h2>
+<p>Hold the mouse over the warning mark beside <strong>2 Finish</strong> in the project panel:</p>
+<figure>
+<a href="images/flutes/03-needs-acknowledging.png"><img src="images/flutes/03-needs-acknowledging.png" width="1920" height="1080" alt="The project panel with the mouse on the amber warning mark of 2 Finish; its tooltip reads Needs acknowledging: Flute length (operation &#39;Finish&#39;, tool &#39;Short-flute ball 3.175x3&#39;): the stock may stand up to 6.712 mm above the tool&#39;s tip along its axis ..."></a>
+<figcaption><b>Figure 3.</b> The mark of an operation with a possible collision starts "Needs acknowledging".</figcaption>
+</figure>
+<p>Click <strong>Continue to simulate</strong>, then <strong>Post and export…</strong>, and scroll the dialog down to its checks:</p>
+<figure>
+<a href="images/flutes/04-export-acknowledge.png"><img src="images/flutes/04-export-acknowledge.png" width="1920" height="1080" alt="The Post and export dialog scrolled to its checks: Warning: Flute length (operation &#39;Finish&#39;, tool &#39;Short-flute ball 3.175x3&#39;): ... A possible collision: acknowledge it before the files are written; a Held region warning and a warning about machine values not confirmed on the machine; the box Verify this G-code before you run it with the unticked box I will verify this G-code before running it on a machine; then These files hold possible collisions of the tool, its shank or its holder with the part, the stock, a tab or a held region. Read each one, here and in Messages, and check it before running the program, the flute-length warning, and the unticked box I have read the possible collisions listed for this result and will check them before running the program; Write G-code is greyed out."></a>
+<figcaption><b>Figure 4.</b> <b>Write G-code</b> is greyed out. Besides "I will verify this G-code before running it on a machine", it waits for a second tick: "I have read the possible collisions listed for this result and will check them before running the program".</figcaption>
+</figure>
+<p>The checks give the warning in the same words as Messages, “Flute length (operation ‘Finish’, tool ‘…’): …”, ending “A possible collision: acknowledge it before the files are written”, and list it under “These files hold possible collisions of the tool, its shank or its holder with the part, the stock, a tab or a held region. Read each one, here and in Messages, and check it before running the program”. The tick says that you have read them and will check them; it does not make the path any different. On the command line, <code>openchuck-cli regenerate</code> writes the files only with <code>--acknowledge-collision-warnings</code>.</p>
+<p>Close the dialog with the <strong>×</strong> at its top right: here, you fix the cause instead.</p>
+<h2 id="4-what-to-change"><a class="header" href="#4-what-to-change">4. What to change</a></h2>
+<p>The warnings name three changes. Try them in this order.</p>
+<h3 id="a-tool-with-longer-flutes"><a class="header" href="#a-tool-with-longer-flutes">A tool with longer flutes</a></h3>
+<p>This is the first thing to try. Set <strong>Flute length</strong> back to <code>22</code>, or choose the library’s <strong>Z1 ball 3.175x22</strong> for the operation, and generate again: both warnings go.</p>
+<h3 id="finishing-layers"><a class="header" href="#finishing-layers">Finishing layers</a></h3>
+<p><strong>Finishing layers</strong> cuts the finish in layers along the tool’s axis, so no one pass is deeper than the <strong>Stepdown</strong>.</p>
+<ol>
+<li>Click <strong>Operations</strong> at the top and <strong>2 Finish</strong> in the project panel, and scroll the Inspector down to <strong>Face free ends</strong> and <strong>Finishing layers</strong>. <strong>Show setting</strong> beside a warning in the Messages list also takes you to the operation.</li>
+<li>Tick <strong>Finishing layers</strong>. <strong>Stepdown</strong> now says “required”.</li>
+<li>Set <strong>Stepdown</strong> to <code>2</code>, less than the 3 mm of flute, and click <strong>Generate</strong>.</li>
+</ol>
+<figure>
+<a href="images/flutes/05-finishing-layers.png"><img src="images/flutes/05-finishing-layers.png" width="1920" height="1080" alt="The finish generated in layers: more rapid moves round the part in the view; the Inspector shows Material preset No preset, the Tool and feeds section open with Cutting feed 500 and Plunge feed 200, Face free ends ticked with the note The last path was made with a warning about this setting (see Messages): change it to accept or remove the warning, Finish allowance 0.100 default, Finishing layers ticked and Stepdown 2.000; the Messages list shows Warnings 4, and the only flute-length warning is the one about the end face at X 78.990."></a>
+<figcaption><b>Figure 5.</b> With finishing layers of 2 mm, the warning about the passes is gone. The warning about the end face remains.</figcaption>
+</figure>
+<p>The Results tab now says: “Finishing layers (operation ‘Finish’): up to 3 layers of 2 mm above a finish allowance of 0.1 mm, then the final pass on the surface; the layers start from the stock the earlier operations left, known to a simulation cell, so the depth of each cut is not uniform and no engagement is promised”.</p>
+<p>Setting <strong>Stepdown</strong> also sets <strong>Material preset</strong> to “No preset”, and the Results tab says “stepdown 2 set on the operation overrides 1 from the cutting data of ‘Short-flute ball 3.175x3’ for ‘Hardwood’”. The operation now keeps its own feeds and speeds, each with a button to go back to the tool’s value.</p>
+<h3 id="face-free-ends"><a class="header" href="#face-free-ends">Face free ends</a></h3>
+<p>The end-face warning remains, because the stock beside the end is still deeper than the flutes. If you do not need this operation to face that end (for example because a facing operation, or the cut that parts the piece off, does it), turn it off:</p>
+<ol>
+<li>Untick <strong>Face free ends</strong> and click <strong>Generate</strong>.</li>
+</ol>
+<figure>
+<a href="images/flutes/06-face-free-ends-off.png"><img src="images/flutes/06-face-free-ends-off.png" width="1920" height="1080" alt="The Operations step with the Results tab open and Information turned off: 2 operations, 46948 moves, 13.1 s to generate, Warnings 1, the held-region warning that nothing within one tool radius of the held region is cut; the Inspector shows Face free ends unticked, Finishing layers ticked and Stepdown 2.000; the mark beside 2 Finish is an amber warning triangle, for the held-region warning."></a>
+<figcaption><b>Figure 6.</b> With <b>Face free ends</b> unticked, the flute-length warning about the end face is gone. The held-region warning remains.</figcaption>
+</figure>
+<h2 id="read-the-result"><a class="header" href="#read-the-result">Read the result</a></h2>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Finish</th><th>Flute-length warnings</th></tr>
+</thead>
+<tbody>
+<tr><td>22 mm flutes (the tutorial’s tool)</td><td>0</td></tr>
+<tr><td>3 mm flutes</td><td>2</td></tr>
+<tr><td>3 mm flutes, layers of 2 mm</td><td>1 (the end face)</td></tr>
+<tr><td>3 mm flutes, layers of 2 mm, <strong>Face free ends</strong> off</td><td>0</td></tr>
+</tbody>
+</table>
+</div>
+<p>The finish in layers, with <strong>Face free ends</strong> off, takes 37,002 moves against 19,152 for the tutorial’s finish.</p>
+<p>With every flute-length warning gone, the end of the part still keeps what the roughing left: “Most material left: 1.320 mm at X 78.67”. No warning means the program found nothing to warn about along the path; it does not mean that the end is finished, or that nothing touches the stock.</p>
+<p>A longer-flute tool is the change that keeps the path the same. Layers make the path longer, and turning off <strong>Face free ends</strong> leaves material on the end.</p>
+<h2 id="common-mistakes"><a class="header" href="#common-mistakes">Common mistakes</a></h2>
+<dl>
+<dt id="reading-the-warning-as-a-collision-report"><a class="header" href="#reading-the-warning-as-a-collision-report">Reading the warning as a collision report</a></dt>
+<dd>The flute-length check is about the flutes. It does not check the holder or the spindle, and its depth is often a bound.</dd>
+<dt id="ticking-the-acknowledgement-to-make-the-warning-go-away"><a class="header" href="#ticking-the-acknowledgement-to-make-the-warning-go-away">Ticking the acknowledgement to make the warning go away</a></dt>
+<dd>The tick lets the files be written; the possible collision is still there. Check it in the simulation, or change the tool or the operation so the warning goes.</dd>
+<dt id="changing-the-librarys-tool-to-make-the-warning-go"><a class="header" href="#changing-the-librarys-tool-to-make-the-warning-go">Changing the library’s tool to make the warning go</a></dt>
+<dd>Edit the project’s copy only when your tool really is different. Do not raise the flute length above what your cutter has.</dd>
+<dt id="use-a-tool-with-longer-flutes-or-rough-the-part-first-in-this-setup-or-turn-on-finishing-layers"><a class="header" href="#use-a-tool-with-longer-flutes-or-rough-the-part-first-in-this-setup-or-turn-on-finishing-layers">“Use a tool with longer flutes, or rough the part first in this setup, or turn on Finishing layers”</a></dt>
+<dd>The roughing operation must be in the same setup, before the finish, for the check to read what it left.</dd>
+<dt id="-and-is-not-faced--so-no-turn-is-cut-there-and-the-end-keeps-what-earlier-operations-left"><a class="header" href="#-and-is-not-faced--so-no-turn-is-cut-there-and-the-end-keeps-what-earlier-operations-left">“… and is not faced … so no turn is cut there and the end keeps what earlier operations left”</a></dt>
+<dd>Face the end with a <strong>Facing</strong> operation, use a tool with longer flutes, or turn off <strong>Face free ends</strong> and finish the end another way.</dd>
+</dl>
+<p>Related: <a href="rest-machining.html">Rest machining</a>, <a href="stepover-and-scallop.html">Stepover, stock to leave and scallop</a>, <a href="../reference/tool-library.html">Tool library</a>.</p>
+
+        </div>
+        <nav class="pager" aria-label="Previous and next page">
+          <a class="prev" rel="prev" href="../examples/rest-machining.html"><span>Previous</span>Rest machining</a>
+          <a class="next" rel="next" href="../examples/stepover-and-scallop.html"><span>Next</span>Stepover, stock to leave and scallop</a>
+        </nav>
+      </main>
+      <footer class="site-footer">
+        <p class="notice">Generated G-code must be verified by the user before it is run on a machine. OpenChuckCAM does not guarantee that a program is safe or correct for any machine, tool or setup.</p>
+        <p class="stamp">Describes OpenChuckCAM 0.55.0 (app-v0.55.0, commit 57b8ac1), built 2026-11-22. Licensed AGPL-3.0-or-later.</p>
+      </footer>
+    </div>
+  </div>
+  <script>
+    // On a narrow screen the contents start folded; without JavaScript they stay open.
+    if (matchMedia('(max-width: 900px)').matches) document.querySelector('.sidebar details').open = false;
+    (function () {
+      var b = document.querySelector('.theme-toggle'), root = document.documentElement;
+      function dark() { return root.dataset.theme ? root.dataset.theme === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches; }
+      function label() { b.textContent = dark() ? 'Light theme' : 'Dark theme'; }
+      b.hidden = false; label();
+      b.addEventListener('click', function () {
+        root.dataset.theme = dark() ? 'light' : 'dark';
+        try { localStorage.setItem('oc-theme', root.dataset.theme); } catch (e) {}
+        label();
+      });
+    })();
+  </script>
+  <script src="../versions.js"></script>
+  <script src="../elasticlunr-ef4e11c1.min.js"></script>
+  <script src="../mark-09e88c2c.min.js"></script>
+  <script src="../searcher-09f2665d.js"></script>
+  <script>
+    // mdBook's search script expects a toggle button and loads its index when the box is shown.
+    // The box is always visible here, so the first focus presses the (hidden) toggle once.
+    (function () {
+      var bar = document.getElementById('mdbook-searchbar'), t = document.getElementById('mdbook-search-toggle'), done = false;
+      bar.addEventListener('focus', function () { if (!done) { done = true; t.click(); bar.focus(); } });
+    })();
+  </script>
+  
+</body>
+</html>

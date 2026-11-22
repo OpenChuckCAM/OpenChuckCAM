@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
+<!-- OpenChuckCAM user guide: the page template (decision 0400). It replaces mdBook's own theme completely.
+     The @@...@@ placeholders and the latest-banner markers are filled in by user-docs/tools/build.py. -->
+<html lang="en" dir="ltr">
+<head>
+  <meta charset="utf-8">
+  <title>Limit an operation to a region - OpenChuckCAM user guide</title>
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="The user guide for OpenChuckCAM, free, open source CAM for 4-axis rotary CNC: how to turn a 3D model into G-code, and what to check before you run it.">
+  <meta name="docs-version" content="0.55.0">
+  <meta name="color-scheme" content="light dark">
+  <link rel="icon" href="../favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="../favicon.png" type="image/png" sizes="32x32">
+  <link rel="stylesheet" href="../style.css">
+  <script>
+    // The reader's theme choice, if any, is kept in localStorage (not a cookie). Without one, the page follows the system.
+    try { var t = localStorage.getItem('oc-theme'); if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t; } catch (e) {}
+    const path_to_root = "../";
+    window.path_to_searchindex_js = "../searchindex-acb44e9e.js";
+  </script>
+</head>
+<body>
+  <a class="skip" href="#content">Skip to the content</a>
+  
+  <header class="site-header">
+    <a class="site-title" href="../index.html"><svg class="site-logo" viewBox="0 0 512 512" width="28" height="28" aria-hidden="true" focusable="false"><g transform="translate(256 256) scale(0.94) translate(-256 -256)" fill="currentColor" stroke="currentColor"><rect x="224" y="128" width="64" height="40" rx="8"/><rect x="224" y="128" width="64" height="40" rx="8" transform="rotate(120 256 256)"/><rect x="224" y="128" width="64" height="40" rx="8" transform="rotate(240 256 256)"/><circle cx="256" cy="256" r="64"/><path d="M239.3 64.7 A192 192 0 1 1 66.9 222.7" fill="none" stroke-width="64" stroke-linecap="round"/><polygon points="85.3,118.3 -0.9,214.8 133.4,238.4" stroke-width="10" stroke-linejoin="round"/></g></svg>OpenChuckCAM <span>User guide</span></a>
+    <div class="tools">
+      <span class="version-switch"><a class="version-link" href="../../versions.html">Version: 0.55.0</a></span>
+      <a href="../print.html">Print the guide</a>
+      <button class="theme-toggle" type="button" hidden>Dark theme</button>
+    </div>
+  </header>
+  <div class="layout">
+    <nav class="sidebar" aria-label="Contents">
+      <details open>
+        <summary>Contents</summary>
+        <div class="search hidden" id="mdbook-search-wrapper">
+          <button type="button" id="mdbook-search-toggle" hidden>Search</button>
+          <form id="mdbook-searchbar-outer" role="search" onsubmit="return false">
+            <label for="mdbook-searchbar">Search the guide</label>
+            <input type="search" id="mdbook-searchbar" name="searchbar" autocomplete="off" aria-controls="mdbook-searchresults-outer" aria-describedby="mdbook-searchresults-header">
+          </form>
+          <div id="mdbook-searchresults-outer" class="searchresults-outer hidden">
+            <div id="mdbook-searchresults-header" class="searchresults-header" aria-live="polite"></div>
+            <ul id="mdbook-searchresults"></ul>
+          </div>
+        </div>
+        <ol class="chapter"><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../index.html">OpenChuckCAM user guide</a></span></li><li class="part-title">Start here</li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../start/install.html">Install and first run</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../start/limitations.html">Known limitations</a></span></li><li class="part-title">Tutorial</li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../tutorial/index.html">Your first project</a></span><ol class="section"><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../tutorial/01-create-project.html">1. Create a project</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../tutorial/02-import-model.html">2. Import the model</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../tutorial/03-machine.html">3. Choose the machine</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../tutorial/04-stock.html">4. Set up the stock</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../tutorial/05-hold.html">5. Hold the work</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../tutorial/06-tools.html">6. Choose the tools</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../tutorial/07-operations.html">7. Add the operations</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../tutorial/08-generate.html">8. Generate the toolpaths</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../tutorial/09-simulate.html">9. Simulate and read the results</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../tutorial/10-export.html">10. Post and export</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../tutorial/11-verify.html">Before you run anything</a></span></li></ol><li class="part-title">Concepts</li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../concepts/rotary-machining.html">How 4-axis rotary machining works</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../concepts/stock-and-held-region.html">Stock and the held region</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../concepts/roughing-and-finishing.html">Roughing and finishing</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../concepts/stepover-and-stock-to-leave.html">Stepover, stepdown, scallop and stock to leave</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../concepts/finishing-strategies.html">Helical, axial, indexed and simultaneous finishing</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../concepts/tabs.html">Tabs</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../concepts/simulation.html">Simulation and deviation colours</a></span></li><li class="part-title">How-to guides</li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../how-to/import-step.html">Import a STEP file</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../how-to/limit-to-a-region.html">Limit an operation to a region</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../how-to/add-a-tool.html">Add a tool to the library</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../how-to/confirm-machine-values.html">Confirm machine profile values</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../how-to/short-block-settings.html">Machine setup: short moves</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../how-to/export.html">Export G-code and the setup sheet</a></span></li><li class="part-title">Worked examples</li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../examples/custom-machine.html">Create a custom machine</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../examples/create-a-post.html">Create a post-processing template</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../examples/tabs-and-held-regions.html">Tabs and held regions</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../examples/limit-to-a-region.html" aria-current="page">Limit an operation to a region</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../examples/rest-machining.html">Rest machining</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../examples/flute-length-warning.html">The flute-length warning</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../examples/stepover-and-scallop.html">Stepover, stock to leave and scallop</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../examples/selection-sets.html">Selection sets on a blisk</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../examples/faceflow.html">Face-flow finishing on a blisk floor</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../examples/swarf.html">Swarf on a blisk blade</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../examples/simultaneous-finishing.html">Simultaneous finishing</a></span></li><li class="part-title">Safety and verification</li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../safety/checking-gcode.html">Checking G-code before you run it</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../safety/air-cut.html">Air cut on the Makera Z1</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../safety/checklist.html">Safe-practice checklist</a></span></li><li class="part-title">Reference</li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../reference/operations.html">Operations and strategies</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../reference/settings.html">Settings</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../reference/machine-profiles.html">Machine profiles</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../reference/tool-library.html">Tool library</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../reference/gcode-and-posts.html">G-code and posts</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../reference/writing-a-post.html">Writing a post-processor</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../reference/command-line.html">Command line</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../reference/messages.html">Messages and item states</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../glossary.html">Glossary</a></span></li><li class="part-title">More</li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../troubleshooting.html">Troubleshooting</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../reporting.html">Reporting a problem or asking for a feature</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../release-notes.html">Release notes</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../credits.html">Credits and licences</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../contributing.html">Contributing to this guide</a></span></li></ol>
+      </details>
+    </nav>
+    <div class="content">
+      <main id="content">
+        <div id="mdbook-content">
+<h1 id="limit-an-operation-to-a-region"><a class="header" href="#limit-an-operation-to-a-region">Limit an operation to a region</a></h1>
+<p>This example saves the ball of the baluster’s finial as a selection set, then runs the tutorial’s finishing operation three ways: on the whole part, on the ball only, and on everything except the ball. You see the path and the numbers change each time.</p>
+<blockquote class="blockquote-tag blockquote-tag-warning">
+<p class="blockquote-tag-title"><svg viewbox="0 0 16 16" width="18" height="18"><path d="M6.457 1.047c.659-1.234 2.427-1.234 3.086 0l6.082 11.378A1.75 1.75 0 0 1 14.082 15H1.918a1.75 1.75 0 0 1-1.543-2.575Zm1.763.707a.25.25 0 0 0-.44 0L1.698 13.132a.25.25 0 0 0 .22.368h12.164a.25.25 0 0 0 .22-.368Zm.53 3.996v2.5a.75.75 0 0 1-1.5 0v-2.5a.75.75 0 0 1 1.5 0ZM9 11a1 1 0 1 1-2 0 1 1 0 0 1 2 0Z"></path></svg>Warning</p>
+<p>A selection limits where the program plans the cut. It does not stop the tool from touching the rest of the part on the way in, on the way out or between cuts. Look at the whole path, simulate it, and run an <a href="../glossary.html#air-cut">air cut</a> first. Generated G-code must be verified by you before it is run on a machine.</p>
+</blockquote>
+<p>You need the tutorial’s finished project, <a href="https://github.com/OpenChuckCAM/OpenChuckCAM/tree/main/testdata/examples/baluster/baluster-project"><code>testdata/examples/baluster/baluster-project</code></a>. Copy it to a folder of your own and open the copy with <strong>File &gt; Open project</strong>. The numbers on this page come from that project on the build named in the figures’ record; your own part gives other numbers.</p>
+<blockquote class="blockquote-tag blockquote-tag-note">
+<p class="blockquote-tag-title"><svg viewbox="0 0 16 16" width="18" height="18"><path d="M0 8a8 8 0 1 1 16 0A8 8 0 0 1 0 8Zm8-6.5a6.5 6.5 0 1 0 0 13 6.5 6.5 0 0 0 0-13ZM6.5 7.75A.75.75 0 0 1 7.25 7h1a.75.75 0 0 1 .75.75v2.75h.25a.75.75 0 0 1 0 1.5h-2a.75.75 0 0 1 0-1.5h.25v-2h-.25a.75.75 0 0 1-.75-.75ZM8 6a1 1 0 1 1 0-2 1 1 0 0 1 0 2Z"></path></svg>Note</p>
+<p>The example project places the part 17.99 mm from the headstock face (<strong>Offset along X</strong> and <strong>Zero at X</strong> in the setup), the length of the project owner’s supplied chuck. It is not a value for your machine: for your own parts, measure the distance from the face of the headstock body to the face of your chuck where the stock starts, with your jaws fitted and gripping as you will grip, and use that number. See <a href="../tutorial/04-stock.html">Set up the stock</a>.</p>
+</blockquote>
+<h2 id="what-a-region-is"><a class="header" href="#what-a-region-is">What a region is</a></h2>
+<p>A selection set is a named group of the model’s surfaces. On an STL model, such as the baluster, it is a group of triangles; on a STEP model it is a group of faces. Each operation has four places to put sets, under <strong>Geometry</strong> in the Inspector. The program describes each one in its tooltip:</p>
+<dl>
+<dt id="cut-on"><a class="header" href="#cut-on">Cut on</a></dt>
+<dd>“The operation cuts only on these surfaces.” With nothing here, it cuts the whole part.</dd>
+<dt id="contain-within"><a class="header" href="#contain-within">Contain within</a></dt>
+<dd>“The tool may cut only inside the window of X and angle this set spans.”</dd>
+<dt id="avoid"><a class="header" href="#avoid">Avoid</a></dt>
+<dd>“These surfaces are never cut; the tool may pass over them.”</dd>
+<dt id="check"><a class="header" href="#check">Check</a></dt>
+<dd>“The tool must not touch these surfaces.”</dd>
+</dl>
+<p>A set in <strong>Avoid</strong> or <strong>Check</strong> has a choice beside it: <strong>Cut short</strong> (the path stops where the tool would reach the set), <strong>Warn only</strong> (the path is kept and generation warns where it reaches the set) and <strong>Ignore</strong> (the set is not used for this operation). <strong>Warn only</strong> samples the path and can miss a narrow set.</p>
+<p>A path limited to a selection stops at the edge between a selected surface and an unselected one: a contact on that edge counts as off the selection.</p>
+<h2 id="1-save-the-ball-as-a-set"><a class="header" href="#1-save-the-ball-as-a-set">1. Save the ball as a set</a></h2>
+<ol>
+<li>In the project panel, click <strong>+</strong> beside <strong>SELECTION SETS</strong>. The pick tools open at the top left of the view.</li>
+<li>Click <strong>Front</strong> above the view, so the part lies along the screen.</li>
+<li>Keep <strong>By angle (E)</strong> chosen, with the angle at 30°, and click the ball at the end of the finial. The Inspector says “1,104 triangles selected”: the ball’s triangles, up to where the surface turns more than 30° into the neck.</li>
+<li>Type <code>Finial ball</code> in the name box and press <kbd>Enter</kbd>.</li>
+</ol>
+<figure>
+<a href="images/region/01-pick-the-ball.png"><img src="images/region/01-pick-the-ball.png" width="1920" height="1080" alt="The Operations step in the Front view with the pick tools open and By angle (E) chosen; the ball of the finial is drawn blue; the Inspector shows New selection, 1,104 triangles selected, the name Finial ball, and the buttons Save as new set and Clear, with select by angle within 30 degrees."></a>
+<figcaption><b>Figure 1.</b> The ball picked by angle: one click selects the triangles that join without a sharp turn.</figcaption>
+</figure>
+<ol start="5" style="counter-reset: step 4">
+<li>Click <strong>Save as new set</strong>, then press <kbd>Esc</kbd> to stop picking.</li>
+</ol>
+<p>“Finial ball” appears under <strong>SELECTION SETS</strong> with “1104 triangles”, and the legend of the view gets its colour. Shift-click adds to a set and Ctrl-click takes away from it, while the set is chosen.</p>
+<h2 id="2-before-the-whole-part"><a class="header" href="#2-before-the-whole-part">2. Before: the whole part</a></h2>
+<ol>
+<li>In the project panel, click <strong>2 Finish</strong>.</li>
+<li>Click the eye beside <strong>1 Rough</strong> to hide its path, so the view shows the finishing path only. Hiding a path changes the view only.</li>
+<li>Click <strong>Generate</strong> at the bottom right, and wait for generation to finish. <strong>1 Rough</strong> turns green; <strong>2 Finish</strong> shows the warning mark, and the Inspector shows “Warning” for it.</li>
+<li>Under the view, click <strong>Results</strong>, and scroll the list to its end.</li>
+</ol>
+<figure>
+<a href="images/region/02-before.png"><img src="images/region/02-before.png" width="1920" height="1080" alt="The Front view with the helical finishing path drawn in orange over the whole baluster from the collar to the finial; the operation 2 Finish has a warning mark and the Inspector shows Warning; the Results tab reads 2 operations, 29098 moves, Errors 0, Warnings 1, Information 11, a line that starts Rotary axis (operation &#39;Finish&#39;): moves 19077 to 19148 (72 moves), and Setup &#39;Setup 1&#39;: stock 28503 mm³ before, 14293 mm³ after (14210 mm³ removed); Rough: 12100 mm³ removed in 9946 moves; Finish: 2110 mm³ removed in 19152 moves."></a>
+<figcaption><b>Figure 2.</b> The finish over the whole part: 29,098 moves for both operations, of which the roughing is 9,946.</figcaption>
+</figure>
+<p>The first line of the Results list is a note for the finish, counted under Information: “Rotary axis (operation ‘Finish’): moves 19077 to 19148 (72 moves): A turns with the contact point at the rotary axis during these moves, so the contact point barely moves and the rotary axis’s speed limit sets the time taken (0.167 s); the feed …” (the figure cuts the line off there). Click the line to read all of it.</p>
+<h2 id="3-only-the-ball-cut-on"><a class="header" href="#3-only-the-ball-cut-on">3. Only the ball: Cut on</a></h2>
+<ol>
+<li>In the Inspector, under <strong>Geometry</strong>, open the list beside <strong>Cut on</strong> and choose <strong>Finial ball</strong>.</li>
+<li>Click <strong>Generate</strong>.</li>
+</ol>
+<figure>
+<a href="images/region/03-cut-on.png"><img src="images/region/03-cut-on.png" width="1920" height="1080" alt="The Front view with the finishing path only on the ball of the finial; the Inspector shows Cut on: Finial ball and Up to date; the Results tab reads 2 operations, 12182 moves, Errors 0, Warnings 0, Information 12, a line that starts Rotary axis (operation &#39;Finish&#39;): moves 2161 to 2232 (72 moves), and stock 28503 mm³ before, 16200 mm³ after (12303 mm³ removed); Finish: 204 mm³ removed in 2236 moves."></a>
+<figcaption><b>Figure 3.</b> With <b>Cut on</b> set, the finish covers the ball and stops at its edge.</figcaption>
+</figure>
+<p>The finish now has 2,236 moves instead of about 19,150, and removes 204 mm³. The rest of the part keeps what the roughing left, 0.3 mm of stock to leave.</p>
+<h2 id="4-everything-but-the-ball-avoid"><a class="header" href="#4-everything-but-the-ball-avoid">4. Everything but the ball: Avoid</a></h2>
+<ol>
+<li>Click the <strong>×</strong> on <strong>Finial ball</strong> beside <strong>Cut on</strong>, so that it is empty again.</li>
+<li>Open the list beside <strong>Avoid</strong> and choose <strong>Finial ball</strong>. <strong>Cut short</strong> is chosen beside it.</li>
+<li>Click <strong>Generate</strong>.</li>
+</ol>
+<figure>
+<a href="images/region/04-avoid.png"><img src="images/region/04-avoid.png" width="1920" height="1080" alt="The Front view with the finishing path over the whole baluster except the ball, which is drawn with the red hatching of Avoid; the Inspector shows Avoid: Finial ball with Cut short chosen and Warn only and Ignore beside it, and Warning; the Results tab reads 2 operations, 84864 moves, Errors 0, Warnings 1, Information 12, a line that starts Rotary axis (operation &#39;Finish&#39;): moves 74161 to 74914 (754 moves), and stock 28503 mm³ before, 14436 mm³ after (14067 mm³ removed); Finish: 1968 mm³ removed in 74918 moves."></a>
+<figcaption><b>Figure 4.</b> With the ball in <b>Avoid</b>, the finish stops short of it. The ball keeps the roughing's stock to leave.</figcaption>
+</figure>
+<h2 id="read-the-result"><a class="header" href="#read-the-result">Read the result</a></h2>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Finish limited by</th><th>Moves, both operations</th><th>Removed, both operations</th></tr>
+</thead>
+<tbody>
+<tr><td>nothing (the whole part)</td><td>29,098</td><td>14,210 mm³</td></tr>
+<tr><td><strong>Cut on</strong>: Finial ball</td><td>12,182</td><td>12,303 mm³</td></tr>
+<tr><td><strong>Avoid</strong>: Finial ball, <strong>Cut short</strong></td><td>84,864</td><td>14,067 mm³</td></tr>
+</tbody>
+</table>
+</div>
+<p>The roughing is the same in every row: 9,946 moves and 12,100 mm³.</p>
+<p>Avoid can lengthen the program, even though it cuts less: here the finish with the ball avoided has more moves than the finish over the whole part. The strategy’s description says that “selections and gaps can split the spiral into separate cuts”. After you add a set, look at the path, the move count in the Results tab and the programmed time in <strong>Post and export…</strong> again, not only at the picture.</p>
+<h2 id="common-mistakes"><a class="header" href="#common-mistakes">Common mistakes</a></h2>
+<dl>
+<dt id="the-set-is-lost-when-you-click-elsewhere"><a class="header" href="#the-set-is-lost-when-you-click-elsewhere">The set is lost when you click elsewhere</a></dt>
+<dd>Type the name, then click <strong>Save as new set</strong> before you click anything else. If you leave the form with a typed name, the program asks “Keep the changes or discard them?”; choose <strong>Keep</strong> and save.</dd>
+<dt id="the-set-takes-more-or-less-than-you-meant"><a class="header" href="#the-set-takes-more-or-less-than-you-meant">The set takes more or less than you meant</a></dt>
+<dd><strong>By angle</strong> stops where the surface turns more than the angle. Lower the angle to stop sooner, or Shift-click and Ctrl-click to change the set.</dd>
+<dt id="warn-only-samples-the-path-and-can-miss-a-narrow-set"><a class="header" href="#warn-only-samples-the-path-and-can-miss-a-narrow-set">“Warn only samples the path and can miss a narrow set.”</a></dt>
+<dd>The program says this beside <strong>Warn only</strong>. Use <strong>Cut short</strong> where the set must not be cut.</dd>
+<dt id="-it-is-set-to-ignore-the-tool-is-not-kept-clear-of-it"><a class="header" href="#-it-is-set-to-ignore-the-tool-is-not-kept-clear-of-it">“… it is set to Ignore: the tool is not kept clear of it”</a></dt>
+<dd>A set in <strong>Avoid</strong> or <strong>Check</strong> with <strong>Ignore</strong> chosen is not used. Choose <strong>Cut short</strong> or <strong>Warn only</strong>.</dd>
+</dl>
+<p>Related: <a href="tabs-and-held-regions.html">Tabs and held regions</a>, <a href="../reference/operations.html">Operations and strategies</a>.</p>
+
+        </div>
+        <nav class="pager" aria-label="Previous and next page">
+          <a class="prev" rel="prev" href="../examples/tabs-and-held-regions.html"><span>Previous</span>Tabs and held regions</a>
+          <a class="next" rel="next" href="../examples/rest-machining.html"><span>Next</span>Rest machining</a>
+        </nav>
+      </main>
+      <footer class="site-footer">
+        <p class="notice">Generated G-code must be verified by the user before it is run on a machine. OpenChuckCAM does not guarantee that a program is safe or correct for any machine, tool or setup.</p>
+        <p class="stamp">Describes OpenChuckCAM 0.55.0 (app-v0.55.0, commit 57b8ac1), built 2026-11-22. Licensed AGPL-3.0-or-later.</p>
+      </footer>
+    </div>
+  </div>
+  <script>
+    // On a narrow screen the contents start folded; without JavaScript they stay open.
+    if (matchMedia('(max-width: 900px)').matches) document.querySelector('.sidebar details').open = false;
+    (function () {
+      var b = document.querySelector('.theme-toggle'), root = document.documentElement;
+      function dark() { return root.dataset.theme ? root.dataset.theme === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches; }
+      function label() { b.textContent = dark() ? 'Light theme' : 'Dark theme'; }
+      b.hidden = false; label();
+      b.addEventListener('click', function () {
+        root.dataset.theme = dark() ? 'light' : 'dark';
+        try { localStorage.setItem('oc-theme', root.dataset.theme); } catch (e) {}
+        label();
+      });
+    })();
+  </script>
+  <script src="../versions.js"></script>
+  <script src="../elasticlunr-ef4e11c1.min.js"></script>
+  <script src="../mark-09e88c2c.min.js"></script>
+  <script src="../searcher-09f2665d.js"></script>
+  <script>
+    // mdBook's search script expects a toggle button and loads its index when the box is shown.
+    // The box is always visible here, so the first focus presses the (hidden) toggle once.
+    (function () {
+      var bar = document.getElementById('mdbook-searchbar'), t = document.getElementById('mdbook-search-toggle'), done = false;
+      bar.addEventListener('focus', function () { if (!done) { done = true; t.click(); bar.focus(); } });
+    })();
+  </script>
+  
+</body>
+</html>
