@@ -5,7 +5,6 @@ captured_at = "e9e3472b3a4d36bbf9fe09d7fadbb82f7eb88850"
 captured_on = "2026-11-15"
 renderer = "Mesa lavapipe (software Vulkan) on Xvfb"
 window = "1920x1080"
-# Reviewed against lane Z1-SETUP at 00ec98ea (22 Nov 2026): its changes to the screen folders are a stock-behind-the-headstock
-# warning and a bottom-of-Z-travel warning that none of these projects raises, the travel warning's words, which none of
-# them shows, and tooltips, which show only on hover.
-reviewed_at = "00ec98ea15364fde3ccb2b78f712fc3787cb2727"
+# Reviewed against lane Z1-SETUP PR 2 at 993d940f (22 Nov 2026): these STEP screens need the STEP reader, not built
+# here; none shows a tool-length warning or the tool form, which are what the change touched.
+reviewed_at = "993d940f5c0c5246f496ac70990a3d56ffa037a5"
