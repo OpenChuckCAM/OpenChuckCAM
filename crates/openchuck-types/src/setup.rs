@@ -947,6 +947,26 @@ mod tests {
         assert!(text.contains("set the part's Offset along X"), "{text}");
         assert_eq!(behind(None, Some(&part)), None);
         assert_eq!(behind(None, None), None);
+        // A confirmed reference point is not named as unconfirmed.
+        let mut confirmed = MachineProfile::example_x_rotary();
+        confirmed.provenance.insert(
+            ProfileField::RotaryOrigin,
+            Provenance {
+                state: Confirmation::Confirmed,
+                source: "measured".into(),
+            },
+        );
+        let stock = at(-1.0);
+        let found = starts_behind_reference(&SetupCheck {
+            profile: &confirmed,
+            frame: &frame,
+            stock: Some(&stock),
+            clearance: None,
+            rules: &rules,
+            part: Some(&part),
+        })
+        .unwrap();
+        assert!(found.unconfirmed.is_empty(), "{found:?}");
     }
 
     #[test]
