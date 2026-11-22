@@ -29,6 +29,25 @@ fn golden(name: &str, text: &str) {
     openchuck_testkit::golden::check(&path, text).unwrap_or_else(|m| panic!("{m}"));
 }
 
+/// The NFR-12 notice block of a program from `job()`: the comment lines after the title and
+/// the generator, before the revision. The Z1 post wraps it to its 63-character lines
+/// (decision 0656); joined, its text is the notice word for word.
+fn notice_block(text: &str) -> Vec<&str> {
+    text.lines()
+        .skip(2)
+        .take_while(|l| l.starts_with('(') && *l != "(revision abc1234)")
+        .collect()
+}
+
+/// The notice block's text, the lines' parentheses removed and the lines joined by spaces.
+fn notice_text(text: &str) -> String {
+    notice_block(text)
+        .iter()
+        .map(|l| &l[1..l.len() - 1])
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
 /// NFR-16 and GC-07: both posts write the generator comment right after the title, before the
 /// revision; with no generator, or with comments off, the line is not written.
 #[test]
@@ -36,13 +55,10 @@ fn req_nfr_16_both_posts_name_the_tool_and_version_after_the_title() {
     for id in ["linuxcnc", "makera-z1"] {
         let text = post_text(id);
         // The NFR-12 notice lines (decision 0533) sit between the generator and the revision.
+        let notice = notice_block(&text);
         let head: Vec<_> = text
             .lines()
-            .filter(|l| {
-                !openchuck_post::SAFETY_NOTICE
-                    .iter()
-                    .any(|n| *l == format!("({n})"))
-            })
+            .filter(|l| !notice.contains(l))
             .take(3)
             .collect();
         assert_eq!(
@@ -238,6 +254,17 @@ fn req_gc_04_req_nfr_07_bad_options_are_refused_naming_the_option() {
             "unwind_command",
         ),
         ("coolant = \"off\"", "coolant = \"spray\"", "spray"),
+        // GC-08 (decision 0656): the line-length limit is checked when it is loaded.
+        (
+            "max_line_length = 255",
+            "max_line_length = 19",
+            "max_line_length",
+        ),
+        (
+            "max_line_length = 255",
+            "max_line_length = 4097",
+            "max_line_length",
+        ),
         ("feed_mode = \"g94\"", "feed_mode = \"g93\"", "feed_rule"),
         ("schema = 1", "schema = 2", "schema 2"),
         ("comments = true", "commets = true", "commets"),
@@ -473,14 +500,21 @@ fn req_nfr_12_both_posts_write_the_safety_notice_after_the_generator() {
         let lines: Vec<_> = text.lines().collect();
         assert_eq!(lines[0], "(Small part)", "{id}");
         assert_eq!(lines[1], "(OpenChuckCAM 0.10.0)", "{id}");
-        for (i, notice) in openchuck_post::SAFETY_NOTICE.iter().enumerate() {
-            assert_eq!(lines[2 + i], format!("({notice})"), "{id}");
-        }
+        // Word for word; on the Z1 wrapped to its 63-character lines (decision 0656).
+        let notice = notice_block(&text);
         assert_eq!(
-            lines[2 + openchuck_post::SAFETY_NOTICE.len()],
-            "(revision abc1234)",
+            notice_text(&text),
+            openchuck_post::SAFETY_NOTICE.join(" "),
             "{id}"
         );
+        if id == "linuxcnc" {
+            let whole: Vec<_> = openchuck_post::SAFETY_NOTICE
+                .iter()
+                .map(|n| format!("({n})"))
+                .collect();
+            assert_eq!(notice, whole, "{id}");
+        }
+        assert_eq!(lines[2 + notice.len()], "(revision abc1234)", "{id}");
     }
 }
 
@@ -512,13 +546,15 @@ fn req_nfr_12_req_gc_04_notice_off_writes_nothing_else_changes() {
         for notice in openchuck_post::SAFETY_NOTICE {
             assert!(!off.contains(notice), "{id}: {off}");
         }
+        let notice = notice_block(&on);
+        assert_eq!(
+            notice_text(&on),
+            openchuck_post::SAFETY_NOTICE.join(" "),
+            "{id}"
+        );
         let without: String = on
             .lines()
-            .filter(|l| {
-                !openchuck_post::SAFETY_NOTICE
-                    .iter()
-                    .any(|n| *l == format!("({n})"))
-            })
+            .filter(|l| !notice.contains(l))
             .map(|l| format!("{l}\n"))
             .collect();
         assert_eq!(off, without, "{id}");
@@ -579,7 +615,11 @@ fn req_nfr_12_req_nfr_07_a_template_that_drops_the_notice_is_refused() {
 fn req_nfr_12_req_gc_07_notice_output_is_byte_identical_on_1_2_and_n_threads() {
     for id in ["linuxcnc", "makera-z1"] {
         let reference = post_text(id);
-        assert!(reference.contains(openchuck_post::SAFETY_NOTICE[0]), "{id}");
+        assert_eq!(
+            notice_text(&reference),
+            openchuck_post::SAFETY_NOTICE.join(" "),
+            "{id}"
+        );
         let n = std::thread::available_parallelism().map_or(4, |n| n.get().max(3));
         for threads in [1, 2, n] {
             let handles: Vec<_> = (0..threads)
@@ -770,4 +810,138 @@ fn req_gc_04_req_nfr_12_coolant_goes_off_before_every_tool_change_and_the_end() 
             assert_eq!(stripped, off.lines().collect::<Vec<_>>(), "{id} {value}");
         }
     }
+}
+
+/// The comment lines in the comment block at the top of a program, without their parentheses.
+fn top_comments(text: &str) -> Vec<&str> {
+    text.lines()
+        .take_while(|l| l.starts_with('('))
+        .map(|l| &l[1..l.len() - 1])
+        .collect()
+}
+
+/// GC-08, GC-09 and NFR-12 (issue #703, decision 0656, OI-933): the Makera Z1 post allows at
+/// most 63 characters a line. A longer comment is wrapped at spaces into comment lines that
+/// fit, so the NFR-12 notice is written word for word, only on more lines; every line fits.
+/// The LinuxCNC post allows 255 and writes the notice as before.
+#[test]
+fn req_gc_08_req_nfr_12_the_z1_wraps_long_comments_and_keeps_the_notice_word_for_word() {
+    assert_eq!(
+        builtin_post("makera-z1")
+            .definition()
+            .options
+            .max_line_length,
+        Some(63)
+    );
+    assert_eq!(
+        builtin_post("linuxcnc")
+            .definition()
+            .options
+            .max_line_length,
+        Some(255)
+    );
+    let text = post_text("makera-z1");
+    let longest = text.lines().map(str::len).max().unwrap();
+    assert!(longest <= 63, "{longest}: {text}");
+    let joined = top_comments(&text).join(" ");
+    for notice in openchuck_post::SAFETY_NOTICE {
+        assert!(joined.contains(notice), "{notice}: {joined}");
+        assert!(notice.len() + 2 > 63, "the notice line is wrapped");
+    }
+    let linux = post_text("linuxcnc");
+    for notice in openchuck_post::SAFETY_NOTICE {
+        assert!(linux.contains(&format!("\n({notice})\n")), "{linux}");
+    }
+}
+
+/// GC-08, NFR-07 and GC-07 (decision 0656): a comment from project text longer than the limit
+/// is wrapped at spaces, a word longer than a line is cut, nothing is lost, and with line
+/// numbers on the numbered lines fit too. The same input gives the same lines.
+#[test]
+fn req_gc_08_req_gc_07_long_comments_are_wrapped_to_fit_and_lose_nothing() {
+    let mut j = job();
+    let word = "x".repeat(80);
+    j.title = format!("A rather long project name - Setup 1 - with words {word} end");
+    for numbered in [false, true] {
+        let manifest = std::fs::read_to_string(posts_path("makera-z1/post.toml")).unwrap();
+        let template = std::fs::read_to_string(posts_path("makera-z1/main.post")).unwrap();
+        let manifest = if numbered {
+            manifest.replace("enabled = false", "enabled = true")
+        } else {
+            manifest
+        };
+        let post =
+            TemplatePost::new(PostDefinition::from_parts("t", &manifest, &template).unwrap());
+        let text = post.post(&small_part(), &j).unwrap().text;
+        assert_eq!(text, post.post(&small_part(), &j).unwrap().text);
+        assert!(text.lines().all(|l| l.len() <= 63), "{text}");
+        let bodies: String = text
+            .lines()
+            .map(|l| match l.split_once(' ') {
+                Some((n, rest)) if n.starts_with('N') && rest.starts_with('(') => rest,
+                _ => l,
+            })
+            .take_while(|l| l.starts_with('('))
+            .map(|l| &l[1..l.len() - 1])
+            .collect::<Vec<_>>()
+            .join(" ");
+        let squeezed = |s: &str| s.split_whitespace().collect::<String>();
+        assert!(squeezed(&bodies).contains(&squeezed(&j.title)), "{bodies}");
+        assert!(text.starts_with(if numbered {
+            "N10 (A rather long"
+        } else {
+            "(A rather long"
+        }));
+    }
+}
+
+/// GC-08 (decision 0656): only comments are wrapped. A command line over the limit is written
+/// as it is, for the G-code check to refuse; a word exactly two lines long fills two lines.
+#[test]
+fn req_gc_08_command_lines_are_never_wrapped() {
+    let free = edited_post(
+        "linuxcnc",
+        ("max_line_length = 255", "max_line_length = 4096"),
+        ("", ""),
+    );
+    let mut j = job();
+    j.title = "y".repeat(2 * 18);
+    let manifest = std::fs::read_to_string(posts_path("linuxcnc/post.toml")).unwrap();
+    let template = std::fs::read_to_string(posts_path("linuxcnc/main.post")).unwrap();
+    let def = PostDefinition::from_parts(
+        "t",
+        &manifest.replace("max_line_length = 255", "max_line_length = 20"),
+        &template,
+    )
+    .unwrap();
+    let tight = TemplatePost::new(def).post(&small_part(), &j).unwrap().text;
+    let commands = |t: &str| -> Vec<String> {
+        t.lines()
+            .filter(|l| !l.starts_with('('))
+            .map(str::to_owned)
+            .collect()
+    };
+    assert_eq!(commands(&tight), commands(&free));
+    assert!(tight.lines().any(|l| l.len() > 20), "{tight}");
+    let y = "y".repeat(18);
+    assert!(tight.starts_with(&format!("({y})\n({y})\n")), "{tight}");
+}
+
+/// NFR-12 and NFR-07 (decision 0533, issue #839 item 3): a line that holds a comment and a
+/// command, such as `(title) G90`, ends the opening comment block, so a notice written after it
+/// is after the program has started and is refused; comment-only headers still pass.
+#[test]
+fn req_nfr_12_req_nfr_07_a_mixed_comment_and_command_line_ends_the_opening_block() {
+    let manifest = std::fs::read_to_string(posts_path("linuxcnc/post.toml")).unwrap();
+    let template = std::fs::read_to_string(posts_path("linuxcnc/main.post")).unwrap();
+    let title = "{{ line(\"(\" ~ title ~ \")\") }}";
+    assert!(template.contains(title));
+    let mixed = template.replace(title, "{{ line(\"(\" ~ title ~ \") G90\") }}");
+    let def = PostDefinition::from_parts("t", &manifest, &mixed).unwrap();
+    let e = TemplatePost::new(def)
+        .post(&small_part(), &job())
+        .unwrap_err()
+        .to_string();
+    assert!(e.contains("safety_notice"), "{e}");
+    assert!(post_text("linuxcnc").contains(openchuck_post::SAFETY_NOTICE[0]));
 }

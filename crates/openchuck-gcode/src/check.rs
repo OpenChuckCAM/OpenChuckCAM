@@ -81,6 +81,8 @@ pub enum FindingKind {
     Arc,
     /// The program has no end code.
     NoEnd,
+    /// A line is longer than the post allows (decision 0656, OI-933).
+    LineTooLong,
 }
 
 /// One problem, with the line it is on.
@@ -263,4 +265,24 @@ pub fn static_check(replay: &Replay, config: &CheckConfig) -> Vec<Finding> {
         });
     }
     findings
+}
+
+/// Lines longer than `max_chars` characters, the line end not counted (GC-08; decision 0656,
+/// OI-933). A controller that cuts a long line short runs something other than what was
+/// written, so each such line is a finding, comments included.
+pub fn line_length_check(source: &str, max_chars: usize) -> Vec<Finding> {
+    source
+        .lines()
+        .enumerate()
+        .filter_map(|(i, line)| {
+            let chars = line.strip_suffix('\r').unwrap_or(line).chars().count();
+            (chars > max_chars).then(|| Finding {
+                kind: FindingKind::LineTooLong,
+                line: i + 1,
+                message: format!(
+                    "the line has {chars} characters; the post allows at most {max_chars}"
+                ),
+            })
+        })
+        .collect()
 }

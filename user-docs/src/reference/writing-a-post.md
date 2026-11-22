@@ -52,6 +52,7 @@ Each file can be at most 1 MiB.
 | `combine_rotary_runs` | `true`, `false` | Optional, off when left out. Joins moves in a row that turn only A, in the same direction at the same feed, into one line. |
 | `comments` | `true`, `false` | Write comments. |
 | `safety_notice` | `true`, `false` | Optional, off when left out. Write the two lines of the safety notice after the version line. It needs `comments = true`. Both built-in posts have it on. |
+| `max_line_length` | 20 to 4096 | Optional, no limit when left out. The most characters a line of the program may have, for a controller that cuts longer lines short. A longer comment is wrapped onto more comment lines; any other longer line stops the export with a message naming the line. The Makera Z1 post sets 63, the LinuxCNC post 255. |
 | `file_extension` | 1 to 8 lower-case letters or digits | The file's extension, without the dot. |
 | `min_block_ms`, `block_window`, `short_block_mode` | as in the machine profile | Optional. Override the machine's [short move settings](../how-to/short-block-settings.md) for this post. |
 

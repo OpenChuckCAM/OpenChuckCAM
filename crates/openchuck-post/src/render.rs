@@ -88,8 +88,9 @@ pub const SAFETY_NOTICE: &[&str] = &[
 
 /// Whether the program opens with the notice: every line of [`SAFETY_NOTICE`], in order,
 /// as whole comment lines (after an optional `N` word) in the comment block at the top,
-/// before the first line that is not a comment. Text that only appears inside a longer
-/// line, out of order or after the program has started does not count (decision 0533).
+/// before the first line that is not a single comment and nothing else (so `(title) G90`
+/// ends it, issue #839). Text that only appears inside a longer line, out of order or after
+/// the program has started does not count (decision 0533).
 fn writes_notice(text: &str) -> bool {
     let header: Vec<&str> = text
         .lines()
@@ -100,12 +101,98 @@ fn writes_notice(text: &str) -> bool {
             },
             None => line,
         })
-        .take_while(|line| line.starts_with('('))
+        // A comment-only line: one comment and nothing else, so `(title) G90` ends the block
+        // (issue #839).
+        .take_while(|line| {
+            line.strip_prefix('(')
+                .and_then(|r| r.strip_suffix(')'))
+                .is_some_and(|inner| !inner.contains(['(', ')']))
+        })
         .collect();
     let wanted: Vec<String> = SAFETY_NOTICE.iter().map(|n| format!("({n})")).collect();
     header
         .windows(wanted.len())
         .any(|block| block.iter().zip(&wanted).all(|(line, want)| line == want))
+}
+
+/// Splits `text` at spaces into pieces of at most `budget` characters; a word longer than
+/// that is cut. Runs of spaces become one. Deterministic (GC-07).
+fn wrap_words(text: &str, budget: usize) -> Vec<String> {
+    let budget = budget.max(1);
+    let mut pieces = Vec::new();
+    let mut current = String::new();
+    for word in text.split_whitespace() {
+        let mut word: Vec<char> = word.chars().collect();
+        while word.len() > budget {
+            if !current.is_empty() {
+                pieces.push(std::mem::take(&mut current));
+            }
+            pieces.push(word.drain(..budget).collect());
+        }
+        if word.is_empty() {
+            continue;
+        }
+        let word: String = word.into_iter().collect();
+        if current.is_empty() {
+            current = word;
+        } else if current.chars().count() + 1 + word.chars().count() <= budget {
+            current.push(' ');
+            current.push_str(&word);
+        } else {
+            pieces.push(std::mem::replace(&mut current, word));
+        }
+    }
+    if !current.is_empty() {
+        pieces.push(current);
+    }
+    pieces
+}
+
+/// Wraps every comment line longer than `max` characters (a whole line `(...)`, after an
+/// optional `N` word) into comment lines that fit, at spaces (decision 0656, OI-933). The
+/// `N` word stays on the first of them. Other lines are left as they are: one that is too
+/// long is the GC-08 check's to report.
+fn wrap_comments(text: &str, max: usize) -> String {
+    let mut out = String::with_capacity(text.len());
+    for line in text.split_inclusive('\n') {
+        let (body, end) = match line.strip_suffix('\n') {
+            Some(body) => (body, "\n"),
+            None => (line, ""),
+        };
+        if body.chars().count() <= max {
+            out.push_str(line);
+            continue;
+        }
+        let (prefix, rest) = match body.strip_prefix('N').and_then(|r| r.split_once(' ')) {
+            Some((number, rest))
+                if !number.is_empty() && number.chars().all(|c| c.is_ascii_digit()) =>
+            {
+                body.split_at(body.len() - rest.len())
+            }
+            _ => ("", body),
+        };
+        let inner = rest
+            .strip_prefix('(')
+            .and_then(|r| r.strip_suffix(')'))
+            .filter(|inner| !inner.contains(['(', ')']));
+        let Some(inner) = inner else {
+            out.push_str(line);
+            continue;
+        };
+        let budget = max.saturating_sub(prefix.chars().count() + 2);
+        for (i, piece) in wrap_words(inner, budget).iter().enumerate() {
+            if i == 0 {
+                out.push_str(prefix);
+            } else {
+                out.push_str(end);
+            }
+            out.push('(');
+            out.push_str(piece);
+            out.push(')');
+        }
+        out.push_str(end);
+    }
+    out
 }
 
 /// Replaces what a G-code comment cannot hold: parentheses, control
@@ -276,6 +363,12 @@ impl PostProcessor for TemplatePost {
                 ),
             });
         }
+        // Long comments are wrapped after the notice check, so the notice is checked as the
+        // template wrote it and kept word for word (decision 0656).
+        let text = match options.max_line_length {
+            Some(max) => wrap_comments(&text, max as usize),
+            None => text,
+        };
         let estimated_seconds = if short_blocks.enabled()
             && short_blocks.mode == openchuck_types::machine::ShortBlockMode::SlowDown
         {

@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased (POST-SAFETY, issue #703; decision 0656, accepted)
+
+- **Added:** the G-code checks of every file include the post's `max_line_length` (GC-08): a line longer than it is a finding, so the file fails its checks and export is blocked, in the dialog and on the command line.
+
 ## Unreleased (POST-SAFETY, issue #603; decision 0655)
 
 - **Added:** `MachineDraft::copied_from` (a public field and an accessor) and `MachineDraft::copied_marks_warning`: a copy made by Duplicate or Copy to edit keeps its confirmed marks (decision 0380 item 3) and says that they were made on the named source machine.

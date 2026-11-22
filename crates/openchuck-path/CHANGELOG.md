@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.56.0
+
+- **Family release (0.56.0, POST-SAFETY; issue #703; decision 0656, accepted):** `openchuck-post`'s `PostOptions` gains the public field `max_line_length` and `openchuck-gcode`'s `FindingKind` gains `LineTooLong`, a breaking change; no change to this crate.
+
 ## Unreleased (ALIMIT, issue #793; decision 0647, accepted)
 
 - **Changed behaviour:** a fed move that turns A is timed for A written to three decimals, up to 0.001 degree further than the exact turn, as the line already was for its positions (decision 0076). A turn held to A's own limit no longer writes an F word over that limit: with the Z1's A at 1800 deg/min an edge-following engraving wrote `F1802.2` on LinuxCNC. Moves A's limit sets take up to 0.001 degree's time longer; no position changes. No API change.
