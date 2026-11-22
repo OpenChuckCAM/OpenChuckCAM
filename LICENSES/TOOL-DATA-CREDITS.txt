@@ -20,4 +20,9 @@ of its tool file in the OpenChuckCAM source; it copies no descriptions,
 images or file structures. No legal clearance of this use is claimed.
 OpenChuckCAM is an independent project, not made or endorsed by Makera.
 
+The stick-out of each ready-made Makera Z1 tool (how far it sticks out of
+the collet) is not from these sources: it is the overall length less
+12.7 mm, the length the project owner gives for a standard tool setup inside
+the collet. It is not confirmed on the machine.
+
 Check every program OpenChuckCAM writes before you run it on a machine.

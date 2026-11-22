@@ -99,4 +99,6 @@ The ready-made Makera Z1 tools and the Z1 default tool set are written from fact
 
 This is a credit, not a licence: neither repository has a licence file. OpenChuckCAM uses only facts from these sources (dimensions, parameters, tool numbers and cutting parameters), each recorded with its source in its tool file, and copies no descriptions, images or file structures. OpenChuckCAM is an independent project, not made or endorsed by Makera. The same credit is in `TOOL-DATA-CREDITS.txt` in each download.
 
+The **Stick-out** of each ready-made Makera Z1 tool is not from these sources: it is the tool's overall length less 12.7 mm, the length the project owner gives for a standard tool setup inside the collet. It is not confirmed on the machine: measure your own tool as fitted and change it if it differs.
+
 The cutting data are the sources' values. Check every program before you run it on a machine (see [Checking G-code before you run it](../safety/checking-gcode.md)).

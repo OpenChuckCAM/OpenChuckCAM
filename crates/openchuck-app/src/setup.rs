@@ -806,6 +806,37 @@ mod tests {
         );
     }
 
+    /// The ready-made Z1 tools give their stick-out (overall length less
+    /// the 12.7 mm a standard setup holds in the collet): the tutorial's
+    /// O-flute 3.175x25 sticks out 29.3 mm, so on the built-in Z1 its tip
+    /// rises at most 42.7 mm, inside the 45 mm minimum, and the warning says
+    /// the stick-out is the tool library's; the ball 3.175x22 (25.3 mm) fits
+    /// (TL-12, NFR-12; decision record 0673).
+    #[test]
+    fn req_tl_12_req_nfr_12_the_builtin_z1_tools_are_checked_with_their_own_stick_out() {
+        let z1 = builtin_z1();
+        let tools = openchuck_project::tools::z1_tools().unwrap();
+        let by_name = |name: &str| {
+            tools
+                .iter()
+                .find(|t| t.name == name)
+                .map(|t| t.tool.clone())
+                .unwrap()
+        };
+        let found = spindle_height(&z1, 45.0, Some(45.0), &by_name("Z1 O-flute 3.175x25")).unwrap();
+        assert!(!found.assumed);
+        assert!((found.highest_tip - 42.7).abs() < 1e-9, "{found:?}");
+        let text = spindle_height_text(104, &found);
+        assert!(
+            text.contains("with the stick-out of 29.300 mm the tool library gives, its tip can rise at most 42.700 mm"),
+            "{text}"
+        );
+        assert_eq!(
+            spindle_height(&z1, 45.0, Some(45.0), &by_name("Z1 ball 3.175x22")),
+            None
+        );
+    }
+
     /// The boundary: a tool that just reaches the top of the travel at the
     /// safe Z passes; 0.001 mm more warns (decision 0318).
     #[test]

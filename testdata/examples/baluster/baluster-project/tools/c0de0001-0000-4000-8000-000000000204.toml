@@ -7,6 +7,7 @@ name = "Z1 ball 3.175x22"
 diameter = 3.175
 flute_length = 22.0
 overall_length = 38.0
+stick_out = 25.3
 shank_diameter = 3.175
 flute_count = 2
 material = "carbide"
