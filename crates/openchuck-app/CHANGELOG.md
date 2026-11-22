@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.56.0 (FACING-STEP; issue #800; decision 0666 option C, accepted)
+
+- **Changed output:** Facing with the End or Box shape, a Part or Part plus tabs extent, or an extent margin now generates on a STEP part, bounding the part from its exact faces (`openchuck_path::enclose`), not its tessellation. The interim refusal before generating (#836) is removed. Each such operation's notes say so, and, where the part has B-spline faces, how far Facing may stop short of an extreme on one, leaving that much more stock.
+- **Changed:** the scene's Facing preview of a STEP part draws from the same bounds.
+- **Refused:** a STEP part with a face that cannot be bounded is refused with the face and what to do.
+- STL parts are unchanged.
+
 ## Unreleased (FACING-STEP; issue #800; decision 0666, accepted)
 
 - **Changed:** on a STEP part, Facing with the End or Box shape, a Part or Part plus tabs extent, or an extent margin is in error at once in the overview and the parameter form, and generation refuses it with the same plain words and what to do instead, not with "the whole source has no established projection bound". These modes still do not run on a STEP part: the owner chose to bound the part from its exact faces (decision 0666, option C), built in a later release. Flat and Round over the whole stock with no margin are unchanged.

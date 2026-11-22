@@ -2204,11 +2204,7 @@ fn build(app: &Application, checks: Option<&Checks>, jobs: &JobLog) -> Overview 
         }
         // A strategy that needs a STEP part on a mesh part: said at once,
         // before anything is generated (decision record 0174).
-        // Facing that checks its cut against the part, on a STEP part, is
-        // said the same way (issue #800).
-        if let Some(reason) = crate::operation::brep_only(project, &app.strategies, o)
-            .or_else(|| crate::operation::facing_on_step_part(project, o))
-        {
+        if let Some(reason) = crate::operation::brep_only(project, &app.strategies, o) {
             status = ItemStatus::new(ItemState::Error, sentence(&reason));
             let message = Message::about(
                 Severity::Error,

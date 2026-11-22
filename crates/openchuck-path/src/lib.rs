@@ -119,7 +119,10 @@ pub use assemble::{
     GeneratedPath, MAX_UNREACHED_POINTS, ShankBreak, Unreached, UnreachedReason, passes_named,
 };
 pub use axial::AxialFinishing;
-pub use brep::{BrepSurface, DROP_TOLERANCE, ExactDrop, ExactFace, ball_radius, has_exact_drop};
+pub use brep::{
+    ANALYTIC_EXCESS, BrepSurface, DROP_TOLERANCE, Enclosure, ExactDrop, ExactFace, SPLINE_TARGET,
+    ball_radius, enclose, has_exact_drop,
+};
 pub use brep_edges::BrepEdges;
 pub use composite::CompositeSurface;
 pub use curves::{ChosenSegments, CurveSource, EdgeChain, MeshFeatureEdges};

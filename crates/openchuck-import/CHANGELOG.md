@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.56.0 (FACING-STEP; issue #800; decision 0666 option C, accepted)
+
+- **Changed:** the STEP import notice says Facing takes its bounds of the part from the exact faces, in place of the interim sentence that its checked modes did not work on a STEP part.
+
 ## Unreleased (FACING-STEP; issue #800; decision 0666, accepted)
 
 - **Changed:** the STEP import notice adds that Facing works on a STEP part only as Flat or Round over the whole stock with no margin for now.

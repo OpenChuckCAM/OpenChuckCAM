@@ -180,7 +180,7 @@ Prepares the stock: flat faces along it, a round diameter, the end opposite the 
 
 For the unheld end, **Stepover** is labelled **Stepover (slice thickness along X)**: the thickness of each slice taken off the end, at most the tool's cutting diameter. Where there is room beside the stock, each band is entered from the air; where there is not, at the plunge feed. Facing also has **Extend past the stock** with **Also past the sides**, and flat facing has **Adaptive spacing**.
 
-On a STEP part, Facing works for now only as **Flat along stock** or **Round** over the **Whole stock** with no extent margin. The unheld end, box sides, **Part only** and **Part plus tabs**, and an extent margin check the cut against the part, and a STEP part has no proved bound of its shape for that check yet (its triangles are an approximation), so the operation is shown in error before anything is generated, with what to do instead: use the part as an STL for that setup, or have the stock cut to length so its end is flush with the part's end.
+On a STEP part, Facing takes the part's ends, outline and radius from its exact faces, not from the triangles made from them. Its bounds may lie a little outside the part, never inside it: at most 0.0005 mm for flat, cylindrical, conical, spherical and toroidal faces. A face that is a free-form surface (a B-spline) is bounded by its control points, so where the part's furthest point lies on one, Facing may stop a little short of it and leave that much more stock; the operation's notes give the figure.
 
 ## Helical finishing
 

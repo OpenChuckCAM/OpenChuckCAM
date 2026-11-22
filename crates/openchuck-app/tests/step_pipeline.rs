@@ -778,15 +778,15 @@ fn req_op_28_req_gc_07_the_committed_face_flow_project_writes_the_golden_program
     committed("face_flow", face_flow_job);
 }
 
-/// A 3.175 mm flat end mill in oak, 25 mm of flute (the Z1 O-flute's size).
-fn flat() -> ToolSnapshot {
+/// A 3.175 mm flat end mill in oak with `flute` mm of flute.
+fn flat(flute: f64) -> ToolSnapshot {
     tool(
         "3.175 mm flat",
         Tool {
             shape: ToolShape::FlatEnd,
             diameter: Millimetres(3.175),
-            flute_length: Millimetres(25.0),
-            overall_length: Millimetres(50.0),
+            flute_length: Millimetres(flute),
+            overall_length: Millimetres(flute + 25.0),
             shank_diameter: Millimetres(3.175),
             flute_count: 1,
             material: None,
@@ -798,35 +798,33 @@ fn flat() -> ToolSnapshot {
     )
 }
 
-/// Issue #800 (decision 0666): Facing of the unheld end of a STEP
-/// part, opposite a held start, with the stock running on past the part, is
-/// refused before anything is generated, in plain words that say what to do,
-/// not with "the whole source has no established projection bound". The
-/// import notice says so too. Round facing over the whole stock reads
-/// nothing of the part and generates on the same STEP part.
-#[test]
-fn req_op_23_req_op_24_req_nfr_07_facing_the_end_of_a_step_part_is_refused_plainly() {
+/// Facing of the unheld end of the corpus part `fixture`, placed by
+/// `transform`, with `stock` running on past the part and the start held
+/// for 10 mm (issue #800's set-up).
+fn end_facing(
+    tag: &str,
+    fixture: &'static str,
+    transform: &[TransformStep],
+    stock: Stock,
+    flute: f64,
+) -> (PathBuf, Application) {
     use openchuck_types::workholding::HeldRegion;
     let job = Job {
         project: "facing-step",
         operation: "Face end",
-        fixture: FIXTURE,
-        stock: Stock::Cylinder {
-            diameter: Millimetres(26.0),
-            length: Millimetres(70.0),
-            x_start: Millimetres(-1.0),
-        },
+        fixture,
+        stock,
     };
     let (dir, mut app) = build_job(
-        "facing-end",
+        tag,
         job,
-        &[],
+        transform,
         "facing",
-        flat(),
+        flat(flute),
         &[
             ("shape", ParameterValue::Text("end".into())),
-            ("stepover", ParameterValue::Number(1.0)),
-            ("stepdown", ParameterValue::Number(2.0)),
+            ("stepover", ParameterValue::Number(1.5)),
+            ("stepdown", ParameterValue::Number(flute)),
             ("feed", ParameterValue::Number(1000.0)),
             ("plunge_feed", ParameterValue::Number(300.0)),
         ],
@@ -837,42 +835,125 @@ fn req_op_23_req_op_24_req_nfr_07_facing_the_end_of_a_step_part_is_refused_plain
         diameter: None,
     });
     app.execute(Command::Replace(Item::Setup(setup))).unwrap();
-    let model = app.project().models()[0].id;
-    let notes = app.inspect_model(model).unwrap().notes;
-    assert!(
-        notes
-            .iter()
-            .any(|n| n.contains("Facing works on a STEP part only as Flat or Round")),
-        "{notes:?}"
-    );
-    let e = app.start_regenerate().wait().unwrap_err().to_string();
-    assert!(
-        e.contains("does not work on a STEP part yet") && e.contains("use the part as an STL"),
-        "{e}"
-    );
-    assert!(!e.contains("projection bound"), "{e}");
-    let mut operation = app.project().operations()[0].clone();
-    operation.parameters = [
-        ("shape", ParameterValue::Text("round".into())),
-        ("size", ParameterValue::Number(25.0)),
-        ("stepover", ParameterValue::Number(1.0)),
-        ("stepdown", ParameterValue::Number(0.5)),
-        ("feed", ParameterValue::Number(1000.0)),
-        ("plunge_feed", ParameterValue::Number(300.0)),
-    ]
-    .into_iter()
-    .map(|(k, v)| (k.to_owned(), v))
-    .collect();
-    app.execute(Command::Replace(Item::Operation(operation)))
-        .unwrap();
-    let run = app.start_regenerate().wait().unwrap();
+    (dir, app)
+}
+
+/// Generates and posts `app`'s job, and its notes; the G-code is the same
+/// at 1 and 2 threads (GC-07, NFR-06).
+fn faced(dir: &Path, app: &mut Application) -> Vec<String> {
+    let run = app
+        .start_regenerate_with_post(
+            PostSelection::Builtin("linuxcnc".into()),
+            openchuck_app::OutputGrouping::Setup,
+        )
+        .wait()
+        .unwrap_or_else(|e| panic!("{e}"));
     assert!(
         run.toolpath
             .groups
             .iter()
             .flat_map(|g| &g.segments)
             .any(|s| s.kind == MoveKind::Cutting),
-        "round facing cuts nothing"
+        "Facing cuts nothing"
+    );
+    app.save().unwrap();
+    let mut one = Application::open(dir, Threads::Exactly(1)).unwrap();
+    let again = one
+        .start_regenerate_with_post(
+            PostSelection::Builtin("linuxcnc".into()),
+            openchuck_app::OutputGrouping::Setup,
+        )
+        .wait()
+        .unwrap();
+    assert_eq!(
+        run.gcode, again.gcode,
+        "the G-code differs at 1 and 2 threads"
+    );
+    run.notes
+}
+
+const EXACT: &str = "STEP part is bounded from its exact faces, not its tessellation";
+
+/// Issue #800 (decision 0666, option C): Facing of the unheld end of a STEP
+/// part with a flat end (the corpus rod) generates and posts, bounding the
+/// part from its exact faces, and its notes say so. Before option C it was
+/// refused ("the whole source has no established projection bound").
+#[test]
+fn req_op_23_req_op_24_facing_the_flat_end_of_a_step_part_bounds_it_from_its_exact_faces() {
+    let (dir, mut app) = end_facing(
+        "facing-flat-end",
+        FIXTURE,
+        &[],
+        Stock::Cylinder {
+            diameter: Millimetres(26.0),
+            length: Millimetres(70.0),
+            x_start: Millimetres(-1.0),
+        },
+        25.0,
+    );
+    let model = app.project().models()[0].id;
+    let notes = app.inspect_model(model).unwrap().notes;
+    assert!(
+        notes
+            .iter()
+            .all(|n| !n.contains("Facing works on a STEP part only")),
+        "{notes:?}"
+    );
+    let notes = faced(&dir, &mut app);
+    assert!(notes.iter().any(|n| n.contains(EXACT)), "{notes:?}");
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+/// A STEP part whose end along X is round (the corpus cylinder, radius 10,
+/// lying across the rotary axis): the end is bounded from the exact
+/// cylinder, within the analytic excess.
+#[test]
+fn req_op_23_req_op_24_facing_the_round_end_of_a_step_part_bounds_it_from_its_exact_faces() {
+    let (dir, mut app) = end_facing(
+        "facing-round-end",
+        "cylinder",
+        &[TransformStep::CentreOnRotaryAxis],
+        Stock::Cylinder {
+            diameter: Millimetres(56.0),
+            length: Millimetres(32.0),
+            x_start: Millimetres(-11.0),
+        },
+        40.0,
+    );
+    let notes = faced(&dir, &mut app);
+    let note = notes.iter().find(|n| n.contains(EXACT)).expect("the note");
+    assert!(note.contains("at most 0.0005 mm"), "{note}");
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+/// A STEP part whose end along X lies on a B-spline face (the corpus vase,
+/// a spline revolved, turned onto the rotary axis): it is bounded by the
+/// face's refined control points, and the notes say how far Facing may
+/// stop short there, leaving that much more stock.
+#[test]
+fn req_op_23_req_op_24_facing_a_b_spline_end_says_how_far_it_may_stop_short() {
+    let (dir, mut app) = end_facing(
+        "facing-spline-end",
+        "revolved_spline",
+        &[
+            TransformStep::Rotate {
+                axis: Axis::Y,
+                angle: Degrees(90.0),
+            },
+            TransformStep::CentreOnRotaryAxis,
+        ],
+        Stock::Cylinder {
+            diameter: Millimetres(30.0),
+            length: Millimetres(50.0),
+            x_start: Millimetres(-1.0),
+        },
+        25.0,
+    );
+    let notes = faced(&dir, &mut app);
+    let note = notes.iter().find(|n| n.contains(EXACT)).expect("the note");
+    assert!(
+        note.contains("B-spline faces") && note.contains("may stop up to"),
+        "{note}"
     );
     std::fs::remove_dir_all(&dir).unwrap();
 }
