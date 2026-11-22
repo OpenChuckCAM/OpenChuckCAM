@@ -160,6 +160,7 @@ fn main() {
         flute_count: 2,
         material: None,
         centre_cutting: None,
+        stick_out: None,
     };
     let profile = tool.profile().unwrap();
     let machine = MachineProfile::example_x_rotary();

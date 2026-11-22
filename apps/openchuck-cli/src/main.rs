@@ -361,6 +361,11 @@ enum Action {
         /// Set the diameter offset register (D), or 0 to follow the tool number.
         #[arg(long)]
         diameter_offset: Option<u32>,
+        /// Set how far the tool sticks out of the collet, tip to collet face,
+        /// in mm, or `none` to leave it to the assumption (flute length +
+        /// 5 mm). The tool-length checks use it.
+        #[arg(long, value_name = "MM|none")]
+        stick_out: Option<String>,
         /// Remove the tool from the project.
         #[arg(long, conflicts_with_all = ["add", "update"])]
         remove: bool,
@@ -1246,6 +1251,7 @@ fn run(cli: Cli) -> Result<()> {
             number,
             length_offset,
             diameter_offset,
+            stick_out,
             remove,
         } => {
             let mut app = open_project(&project, threads, create)?;
@@ -1320,6 +1326,22 @@ fn run(cli: Cli) -> Result<()> {
             }
             if let Some(d) = diameter_offset {
                 edited.controller.diameter_offset = (d != 0).then_some(d);
+            }
+            if let Some(text) = stick_out {
+                let value = if text.trim().eq_ignore_ascii_case("none") {
+                    openchuck_app::project::ParameterValue::Text(String::new())
+                } else {
+                    openchuck_app::project::ParameterValue::Number(
+                        text.trim().parse::<f64>().with_context(|| {
+                            format!("--stick-out: \"{text}\" is not a number or none")
+                        })?,
+                    )
+                };
+                edited.tool = openchuck_app::tool_edit::set_tool_field(
+                    &edited.tool,
+                    openchuck_app::tool_edit::fields::STICK_OUT,
+                    &value,
+                )?;
             }
             if edited != snapshot {
                 app.execute(Command::Replace(Item::Tool(edited)))?;

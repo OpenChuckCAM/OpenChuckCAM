@@ -790,8 +790,15 @@ impl ToolLibraryWindow {
                 egui::Id::unique(("tool fields", tool.id)),
                 tool.tool.clone(),
                 move |tool, text| {
-                    let value = form_panel::parse(&field.kind, text)?
-                        .ok_or_else(|| "Needs a value. Not applied.".to_owned())?;
+                    // Stick-out may be left blank: the checks then assume
+                    // the flute length + 5 mm (decision record 0673).
+                    let value = match form_panel::parse(&field.kind, text)? {
+                        Some(value) => value,
+                        None if field.name == tool_edit::fields::STICK_OUT => {
+                            openchuck_app::project::ParameterValue::Text(String::new())
+                        }
+                        None => return Err("Needs a value. Not applied.".to_owned()),
+                    };
                     tool_edit::set_tool_field(tool, &field.name, &value)
                         .map_err(|e| form_panel::refusal(&e.to_string()))
                 },

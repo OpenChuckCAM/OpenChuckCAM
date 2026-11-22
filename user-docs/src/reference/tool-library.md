@@ -41,6 +41,7 @@ All lengths are in millimetres and angles in degrees.
 | Diameter | The width of the cutting part. For a custom profile it is where the profile ends, doubled. | above 0 |
 | Flute length | The length of the cutting part from the tip. A layer cannot be deeper than this. | above 0, at most the overall length |
 | Overall length | From the tip to the end of the shank; shown on the setup sheet. | above 0 |
+| Stick-out | How far the tool sticks out of the collet, from the tip to the collet face. The tool-length checks (the spindle at the top and the bottom of the Z travel, and the workholding) use it; blank, they assume the flute length + 5 mm and say so. Measure it with the tool fitted. | blank, or from the flute length to the overall length |
 | Shank diameter | The plain part the machine holds. | above 0 |
 | Flutes | The number of cutting edges, used to work out the cutting feed. | 1 to 99 |
 | Corner radius | Bull-nose: the roundness of the tip's corners. | above 0, at most the tool's radius |

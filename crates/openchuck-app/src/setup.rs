@@ -197,16 +197,43 @@ pub fn check_setup(
     found
 }
 
-/// The length a tool is assumed to stick out beyond its flutes, since the
-/// tool library holds no stick-out (decision record 0318).
+/// The length a tool is assumed to stick out beyond its flutes when its
+/// tool library entry gives no stick-out (decision records 0318 and 0673).
 pub const STICK_OUT_BEYOND_FLUTES: f64 = 5.0;
+
+/// How far `tool` sticks out of the collet, tip to collet face, and whether
+/// that is assumed: the tool's own `stick_out` when the tool library gives
+/// one, else its flute length + [`STICK_OUT_BEYOND_FLUTES`] (decision record
+/// 0673).
+pub fn stick_out(tool: &openchuck_types::tool::Tool) -> (f64, bool) {
+    match tool.stick_out {
+        Some(s) => (s.0, false),
+        None => (tool.flute_length.0 + STICK_OUT_BEYOND_FLUTES, true),
+    }
+}
+
+/// The words for the stick-out a tool-length check used, `stick_out` mm,
+/// assumed or from the tool library (decision record 0673): an assumption
+/// is always stated, with how to make the check better.
+fn stick_out_words(stick_out: f64, assumed: bool) -> String {
+    if assumed {
+        format!(
+            "assuming it sticks out 5 mm beyond its flutes ({stick_out:.3} mm in all; set the \
+             tool's stick-out in the tool library for a better check)"
+        )
+    } else {
+        format!("with the stick-out of {stick_out:.3} mm the tool library gives")
+    }
+}
 
 /// A tool that would take the spindle past the top of the Z travel at the
 /// safe Z (decision record 0318), in millimetres.
 #[derive(Debug, Clone, PartialEq)]
 pub struct SpindleHeight {
-    /// The tool's assumed stick-out: flute length + 5 mm.
+    /// The tool's stick-out: its own, or flute length + 5 mm when assumed.
     pub stick_out: f64,
+    /// Whether the stick-out is assumed (the tool library gives none).
+    pub assumed: bool,
     /// The highest the tool's tip reaches above the axis: the spindle-to-axis
     /// distance less the stick-out. A safe Z up to this fits.
     pub highest_tip: f64,
@@ -236,7 +263,7 @@ pub fn spindle_height(
         return None;
     }
     let distance = profile.spindle_to_axis?.0;
-    let stick_out = tool.flute_length.0 + STICK_OUT_BEYOND_FLUTES;
+    let (stick_out, assumed) = stick_out(tool);
     let highest_tip = distance - stick_out;
     // Millimetres to three places, as the G-code: a fit equal to the safe Z
     // within rounding passes.
@@ -248,6 +275,7 @@ pub fn spindle_height(
     Some(SpindleHeight {
         below_minimum,
         stick_out,
+        assumed,
         highest_tip,
         past_top,
         recommended_min: profile
@@ -267,20 +295,22 @@ pub fn spindle_height_text(number: u32, found: &SpindleHeight) -> String {
         // 0318 advice is not given (decision record 0495).
         format!(
             "tool {number} may be too long to clear the workholding within the Z travel: \
-             assuming it sticks out {:.3} mm (flute length + 5 mm), its tip can rise at most {:.3} mm \
-             above the axis, inside the minimum clearance radius of {minimum:.3} mm, so no safe Z \
-             clears both the chuck, jaws, headstock or tailstock and the top of the Z travel. \
-             Use a shorter tool, and check the clearance over the chuck and the Z travel on your \
-             machine before running.",
-            found.stick_out, found.highest_tip
+             {}, its tip can rise at most {:.3} mm above the axis, inside the minimum clearance \
+             radius of {minimum:.3} mm, so no safe Z clears both the chuck, jaws, headstock or \
+             tailstock and the top of the Z travel. Use a shorter tool, and check the clearance \
+             over the chuck and the Z travel on your machine before running.",
+            stick_out_words(found.stick_out, found.assumed),
+            found.highest_tip
         )
     } else {
         format!(
             "tool {number} may take the spindle above the top of the Z travel at the safe Z: \
-         assuming it sticks out {:.3} mm (flute length + 5 mm), the spindle would be {:.3} mm past the top. \
-         Lower the setup's safe Z and clearance to {:.3} mm or less, or use a shorter tool, \
-         and check the clearance over the chuck and the Z travel on your machine before running.",
-            found.stick_out, found.past_top, found.highest_tip
+             {}, the spindle would be {:.3} mm past the top. Lower the setup's safe Z and \
+             clearance to {:.3} mm or less, or use a shorter tool, and check the clearance over \
+             the chuck and the Z travel on your machine before running.",
+            stick_out_words(found.stick_out, found.assumed),
+            found.past_top,
+            found.highest_tip
         )
     };
     if let Some(minimum) = found.recommended_min {
@@ -296,8 +326,10 @@ pub fn spindle_height_text(number: u32, found: &SpindleHeight) -> String {
 /// c), in millimetres from the rotary axis.
 #[derive(Debug, Clone, PartialEq)]
 pub struct SpindleDepth {
-    /// The tool's assumed stick-out: flute length + 5 mm.
+    /// The tool's stick-out: its own, or flute length + 5 mm when assumed.
     pub stick_out: f64,
+    /// Whether the stick-out is assumed (the tool library gives none).
+    pub assumed: bool,
     /// The lowest the tool's tip goes in the path, measured along the tool
     /// axis from the rotary axis (negative below it).
     pub lowest_tip: f64,
@@ -328,7 +360,7 @@ pub fn spindle_depth(
     }
     let distance = profile.spindle_to_axis?.0;
     let span = profile.travel.max.z - profile.travel.min.z;
-    let stick_out = tool.flute_length.0 + STICK_OUT_BEYOND_FLUTES;
+    let (stick_out, assumed) = stick_out(tool);
     let lowest_reach = distance - span - stick_out;
     let height = |pose: &openchuck_types::ir::ToolPose| {
         let (tip, axis) = (pose.tip, pose.axis.get());
@@ -352,6 +384,7 @@ pub fn spindle_depth(
         )?;
     (lowest_reach - lowest_tip > 5e-4).then_some(SpindleDepth {
         stick_out,
+        assumed,
         lowest_tip,
         lowest_reach,
         segment,
@@ -365,11 +398,12 @@ pub fn spindle_depth(
 pub fn spindle_depth_text(number: u32, found: &SpindleDepth) -> String {
     format!(
         "tool {number} may need the spindle below the bottom of the Z travel: its tip goes down \
-         to {:.3} mm from the axis, and assuming it sticks out 5 mm beyond its flutes ({:.3} mm in \
-         all; the tool library holds no stick-out), the spindle at the bottom of the travel takes \
-         its tip only down to {:.3} mm. Use a longer tool or a longer stick-out, or keep the cut \
-         further from the axis, and check the Z travel on your machine before running.",
-        found.lowest_tip, found.stick_out, found.lowest_reach
+         to {:.3} mm from the axis, and {}, the spindle at the bottom of the travel takes its tip \
+         only down to {:.3} mm. Use a longer tool or a longer stick-out, or keep the cut further \
+         from the axis, and check the Z travel on your machine before running.",
+        found.lowest_tip,
+        stick_out_words(found.stick_out, found.assumed),
+        found.lowest_reach
     )
 }
 
@@ -461,8 +495,8 @@ mod tests {
         for words in [
             "tool 7 may need the spindle below the bottom of the Z travel",
             "down to -20.000 mm from the axis",
-            "assuming it sticks out 5 mm beyond its flutes (10.000 mm in all; the tool library \
-             holds no stick-out)",
+            "assuming it sticks out 5 mm beyond its flutes (10.000 mm in all; set the tool's \
+             stick-out in the tool library for a better check)",
             "only down to -18.000 mm",
             "check the Z travel on your machine before running",
         ] {
@@ -642,6 +676,7 @@ mod tests {
             flute_count: 2,
             material: None,
             centre_cutting: None,
+            stick_out: None,
         }
     }
 
@@ -723,6 +758,54 @@ mod tests {
         assert_eq!(gate5.recommended_min, None, "43.1 is above 30");
     }
 
+    /// A tool whose tool library entry gives a stick-out is checked with
+    /// it, at both ends of the Z travel, and the words say so; a tool with
+    /// none is checked with flute length + 5 mm, and the words state the
+    /// assumption and how to make the check better (decision record 0673).
+    #[test]
+    fn req_set_06_req_nfr_12_a_tool_s_own_stick_out_replaces_the_assumption() {
+        let z1 = z1();
+        // Flute 42: assumed 47, highest tip 73.1 - 47 = 26.1, under safe Z 40.
+        let assumed = spindle_height(&z1, 40.0, None, &tool(42.0)).unwrap();
+        assert!(assumed.assumed);
+        let text = spindle_height_text(7, &assumed);
+        assert!(
+            text.contains(
+                "assuming it sticks out 5 mm beyond its flutes (47.000 mm in all; set the tool's \
+                 stick-out in the tool library for a better check)"
+            ),
+            "{text}"
+        );
+        // Set in 3 mm deeper than assumed, it still warns, with its own.
+        let mut set = tool(42.0);
+        set.stick_out = Some(Millimetres(44.0));
+        let own = spindle_height(&z1, 40.0, None, &set).unwrap();
+        assert!(!own.assumed);
+        assert!((own.highest_tip - 29.1).abs() < 1e-9, "{own:?}");
+        let text = spindle_height_text(7, &own);
+        assert!(
+            text.contains("with the stick-out of 44.000 mm the tool library gives, the spindle"),
+            "{text}"
+        );
+        assert!(!text.contains("assuming"), "{text}");
+        // A short stick-out fits where the assumption did not.
+        let mut short = tool(25.0);
+        short.stick_out = Some(Millimetres(30.0));
+        assert_eq!(spindle_height(&z1, 40.0, None, &short), None);
+        // At the bottom of the travel (D 73.1, Z span 101): flute 5 assumed
+        // reaches -37.9; set to 20 it reaches -47.9.
+        let mut deep = tool(5.0);
+        assert!(spindle_depth(&z1, &deep, &path(&[-40.0])).is_some());
+        deep.stick_out = Some(Millimetres(20.0));
+        assert_eq!(spindle_depth(&z1, &deep, &path(&[-40.0])), None);
+        let found = spindle_depth(&z1, &deep, &path(&[-48.0])).unwrap();
+        assert!(!found.assumed);
+        assert!(
+            spindle_depth_text(3, &found).contains("with the stick-out of 20.000 mm"),
+            "{found:?}"
+        );
+    }
+
     /// The boundary: a tool that just reaches the top of the travel at the
     /// safe Z passes; 0.001 mm more warns (decision 0318).
     #[test]
@@ -762,7 +845,7 @@ mod tests {
         for words in [
             "tool 7 may",
             "47.000 mm",
-            "flute length + 5 mm",
+            "assuming it sticks out 5 mm beyond its flutes",
             "13.900 mm",
             "26.100 mm",
             "on your machine",
@@ -826,7 +909,7 @@ mod tests {
         for words in [
             "tool 1 may",
             "too long to clear the workholding within the Z travel",
-            "30.000 mm (flute length + 5 mm)",
+            "5 mm beyond its flutes (30.000 mm in all; set the tool's stick-out",
             "43.100 mm",
             "45.000 mm",
             "Use a shorter tool",

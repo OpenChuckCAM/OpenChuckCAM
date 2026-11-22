@@ -39,6 +39,7 @@ fn ball(diameter: f64) -> Tool {
         flute_count: 2,
         material: Some("carbide".into()),
         centre_cutting: None,
+        stick_out: None,
     }
 }
 

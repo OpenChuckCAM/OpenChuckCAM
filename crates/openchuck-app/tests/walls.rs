@@ -108,6 +108,7 @@ fn build(name: &str, profile: &[(f64, f64)], radius: f64) -> (PathBuf, Applicati
             flute_count: 2,
             material: None,
             centre_cutting: None,
+            stick_out: None,
         },
         controller: ControllerMapping {
             number: 1,

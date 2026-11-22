@@ -481,6 +481,7 @@ fn req_tl_04_req_tl_05_every_tool_library_entry_has_a_plain_tooltip() {
         flute_count: 2,
         material: None,
         centre_cutting: None,
+        stick_out: None,
     };
     for field in openchuck_app::tool_edit::tool_form(&tool) {
         assert!(

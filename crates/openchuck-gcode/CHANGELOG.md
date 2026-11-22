@@ -4,6 +4,8 @@
 
 - **Breaking (0.56.0, POST-SAFETY; issue #703; OI-933; decision 0656, accepted):** `line_length_check(source, max_chars)` returns a `FindingKind::LineTooLong` finding for each line longer than `max_chars` characters (the line end not counted), naming the line and both lengths (GC-08). A `match` on `FindingKind` adds the variant.
 
+- **Family release (0.56.0; lane Z1-SETUP, PR 2; issue #692; decision 0673):** `openchuck-types`'s `Tool` gains the public field `stick_out`, a breaking change; no change to this crate.
+
 ## 0.54.0
 
 - **Family release (0.54.0, or the next free version, as the Merge Manager sequences it; RAMPENTRY; issues #639, #642; decision 0543, accepted):** `openchuck-path`'s `EntryParameters` gains `allow_single_point_plunge` and loses `back_and_forth`, and `StrategyInput::entry_safety` and the `entry_safety` module are removed (decision 0543 D10), a breaking change; no change to this crate.
@@ -82,7 +84,6 @@
 
 - Lockstep library-family version for GC-17’s machine-profile and post API additions (accepted decision 0222, lane GATES). Existing whole-program replay behavior is unchanged.
 
-
 All notable changes to `openchuck-gcode` are recorded here.
 
 ## Unreleased
@@ -92,7 +93,6 @@ All notable changes to `openchuck-gcode` are recorded here.
 - `compare_with_moves` exposes each actual replayed move with its source group/segment, controller counter shift and programmed fed duration. Observations are provisional until the complete comparison succeeds. Existing `compare` delegates with a no-op observer and preserves its result/structural checks; no motion is silently accepted because a callback ran.
 
 - **Breaking family release (0.25.0, FACING, decision 0252):** `StrategyInput::facing` adds the optional whole-setup context. Host struct literals supply the new field; use `None` for other strategies and legacy whole-stock Facing. All family crates advance together under 0048. No project-schema migration.
-
 
 - Version 0.24.0 with the library family (GC-17, decisions 0222/0245): configurable short-block reporting and geometry-preserving slowdown; profile/post/report APIs extended. Legacy project copies retain Off.
 

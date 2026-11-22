@@ -11,6 +11,10 @@
 - **Fixed:** with `safety_notice` on, the notice must be written as whole comment lines, in order, in the comment block at the top; text inside a longer line or after the program has started is refused (decision 0657 item 1, OI-2083).
 - **Docs:** `UnwindMode::Rotate` says what it does: nothing is written at a boundary and the A words carry the whole turns (decision 0241 item 6). No public API changes.
 
+## 0.56.0
+
+- **Family release (0.56.0; lane Z1-SETUP, PR 2; issue #692; decision 0673):** `openchuck-types`'s `Tool` gains the public field `stick_out`, a breaking change; no change to this crate.
+
 ## 0.54.0
 
 - **Family release (0.54.0, or the next free version, as the Merge Manager sequences it; RAMPENTRY; issues #639, #642; decision 0543, accepted):** `openchuck-path`'s `EntryParameters` gains `allow_single_point_plunge` and loses `back_and_forth`, and `StrategyInput::entry_safety` and the `entry_safety` module are removed (decision 0543 D10), a breaking change; no change to this crate.

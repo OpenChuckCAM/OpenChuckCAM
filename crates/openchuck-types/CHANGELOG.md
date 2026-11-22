@@ -4,6 +4,8 @@
 
 - **Family release (0.56.0, POST-SAFETY; issue #703; decision 0656, accepted):** `openchuck-post`'s `PostOptions` gains the public field `max_line_length` and `openchuck-gcode`'s `FindingKind` gains `LineTooLong`, a breaking change; no change to this crate.
 
+- **Breaking (0.56.0; lane Z1-SETUP, PR 2; issue #692; decision 0673):** `tool::Tool` gains the public field `stick_out: Option<Millimetres>`, how far the tool sticks out of the collet from its tip to the collet face, written only when set; `Tool::validate` and `Tool::profile` refuse one below the flute length or above the overall length. A struct literal of `Tool` must add `stick_out: None`. Tool files and project tool snapshots carry it from project schema 29.
+
 ### Unreleased entries merged into 0.56.0
 
 - **`setup::starts_behind_reference` and `SetupWarningKind::StartsBehindReference`** (lane Z1-SETUP; issue #812; decision 0672, accepted): the stock, or with no stock the part, starting behind X 0, for a host to raise on a machine whose rotary reference point is its headstock face (the Makera Z1); `check_setup` does not raise it. A new function and a new variant of a `non_exhaustive` enum, so not a breaking change. The doc comment of `MachineProfile::rotary_origin` names the headstock face, the Z1's, in place of the chuck face.
@@ -80,13 +82,11 @@
 
 - GC-17 (accepted decision 0222): minimum block-time profile/post fields and deterministic Report mode. The built-in Z1 uses the gate-4 measured 7 ms with window 32. Existing project copies remain Off, and Report leaves G-code unchanged. No Slow down or Merge.
 
-
 All notable changes to `openchuck-types` are recorded here.
 
 ## Unreleased
 
 - **Breaking family release (0.25.0, FACING, decision 0252):** `StrategyInput::facing` adds the optional whole-setup context. Host struct literals supply the new field; use `None` for other strategies and legacy whole-stock Facing. All family crates advance together under 0048. No project-schema migration.
-
 
 - Breaking (0.24.0): `ShortBlockMode` adds `SlowDown`; the profile window uses `usize` and is bounded to 4096. Confirmation lists omit disabled timing settings and the software mode policy.
 

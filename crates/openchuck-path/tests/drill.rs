@@ -55,6 +55,7 @@ fn drill(diameter: f64) -> RevolvedProfile {
         flute_count: 2,
         material: None,
         centre_cutting: Some(true),
+        stick_out: None,
     }
     .profile()
     .unwrap()
@@ -701,6 +702,7 @@ fn req_op_10_req_tl_04_req_nfr_07_a_hole_deeper_than_the_flutes_is_warned() {
         flute_count: 2,
         material: None,
         centre_cutting: Some(true),
+        stick_out: None,
     }
     .profile()
     .unwrap();

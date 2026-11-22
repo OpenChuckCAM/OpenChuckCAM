@@ -111,6 +111,7 @@ The workholding is checked as **Apply** checks it: a tab outside the head and ta
   - `--add --library FOLDER` copies the tool from the library into the project, with the number from the machine's tool set, or the next free number.
   - `--update --library FOLDER` replaces the project's copy with the library's, keeping its number.
   - `--number N`, `--length-offset N`, `--diameter-offset N` set the T number and the H and D registers (`0` follows the tool number).
+  - `--stick-out MM` sets how far the tool sticks out of the collet, tip to collet face, which the tool-length checks use; `--stick-out none` leaves it to their assumption, the flute length + 5 mm.
   - `--remove` takes it out of the project.
 
 `tool-numbers PROJECT [--auto | --set TOOL=NUMBER ...] [--max N]`

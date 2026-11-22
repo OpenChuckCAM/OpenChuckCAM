@@ -154,6 +154,7 @@ fn req_op_24_req_op_21_rapid_with_clear_endpoints_still_refuses_a_thin_interveni
         flute_count: 2,
         material: None,
         centre_cutting: None,
+        stick_out: None,
     };
     let tab = Solid::cylinder(Point3::new(30.123, 0., 16.), UnitVec3::X, 0.000002, 2.).unwrap();
     let setup = FacingSetup {
@@ -229,6 +230,7 @@ fn req_op_24_req_op_12_req_op_21_complete_fed_body_preserves_tabs_and_whole_part
         flute_count: 2,
         material: None,
         centre_cutting: None,
+        stick_out: None,
     };
     let tab = Solid::cylinder(Point3::new(50., 0., 0.), UnitVec3::X, 10., 5.).unwrap();
     let held = Solid::cuboid(Aabb {
@@ -316,6 +318,7 @@ fn req_op_24_fed_shank_requires_actual_prior_removal_not_candidate_passes() {
         flute_count: 2,
         material: None,
         centre_cutting: None,
+        stick_out: None,
     };
     let setup = FacingSetup {
         part: &part,
@@ -461,6 +464,7 @@ fn req_op_24_req_nfr_04_axially_separated_end_motion_does_not_rescan_all_source_
         flute_count: 2,
         material: None,
         centre_cutting: None,
+        stick_out: None,
     };
     let m = machine();
     let setup = FacingSetup {

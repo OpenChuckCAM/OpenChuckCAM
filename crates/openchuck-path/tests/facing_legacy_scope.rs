@@ -42,6 +42,7 @@ fn fixture(test: impl FnOnce(&StrategyInput<'_>, &FacingSetup<'_>, &JobContext<'
         flute_count: 2,
         material: None,
         centre_cutting: None,
+        stick_out: None,
     };
     let profile = tool.profile().unwrap();
     let surface = MeshSurface::new(&part).unwrap();
