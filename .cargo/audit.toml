@@ -1,0 +1,27 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+#
+# cargo-audit configuration, read by `cargo audit --deny warnings` in the CI
+# Fast checks job. Each ignore is a risk acceptance by the project owner and
+# has a decision record; remove the ignore when its removal condition holds.
+
+[advisories]
+ignore = [
+    # heapless 0.8.0, reached only through parry3d-f64 0.31.1 -> rstar 0.13.0
+    # (decision 0652, OI-2150; issue #825). rstar uses only
+    # heapless::binary_heap::BinaryHeap, which none of these advisories names,
+    # and the only rstar use in parry3d-f64 (mesh_intersection) is not called
+    # by openchuck-geom or openchuck-path. Patched only in heapless >= 0.9.4,
+    # which needs rstar >= 0.14, which parry3d-f64 does not accept yet.
+    # Remove all nine when parry3d-f64 moves to rstar >= 0.14 (heapless
+    # >= 0.9.4), or re-check at once if our code starts to use parry's
+    # mesh_intersection or rstar directly.
+    "RUSTSEC-2026-0574", # sorted_linked_list::FindMutView::pop: not used by rstar
+    "RUSTSEC-2026-0575", # spsc::Spsc::peek: not used by rstar
+    "RUSTSEC-2026-0576", # IndexMap::truncate: not used by rstar
+    "RUSTSEC-2026-0577", # panicking Drop in Deque, HistoryBuf, IndexMap, vec::IntoIter: not used by rstar
+    "RUSTSEC-2026-0578", # SortedLinkedList::zeroize: not used by rstar
+    "RUSTSEC-2026-0579", # Deque::try_from (0.9.2 to 0.9.3 only): not used by rstar, and 0.8.0 is outside the range
+    "RUSTSEC-2026-0580", # arc_pool, box_pool, object_pool (treiber stack): not used by rstar
+    "RUSTSEC-2026-0581", # Deque::make_contiguous: not used by rstar
+    "RUSTSEC-2026-0582", # IndexMap::insert at u16::MAX entries: not used by rstar
+]
