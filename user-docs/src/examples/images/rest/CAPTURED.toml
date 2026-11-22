@@ -1,11 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 # Written by user-docs/tools/capture.py. Add reviewed_at = "<commit>" after checking the
 # screens against a later build without re-capturing (user-docs/STYLE.md, Figures).
-captured_at = "b0e4aafa39a9ee3d8e9e63b6314a3d6c51faf9fc"
+captured_at = "f7885f57563d580a41cdbb9436a1ad25788c0fb7"
 captured_on = "2026-11-22"
 renderer = "Mesa lavapipe (software Vulkan) on Xvfb"
 window = "1920x1080"
-# Reviewed against lane Z1-SETUP at 00ec98ea (22 Nov 2026): its changes to the screen folders are a stock-behind-the-headstock
-# warning and a bottom-of-Z-travel warning that none of these projects raises, the travel warning's words, which none of
-# them shows, and tooltips, which show only on hover.
-reviewed_at = "00ec98ea15364fde3ccb2b78f712fc3787cb2727"
