@@ -798,7 +798,7 @@ fn flat() -> ToolSnapshot {
     )
 }
 
-/// Issue #800 (decision 0666, proposed): Facing of the unheld end of a STEP
+/// Issue #800 (decision 0666): Facing of the unheld end of a STEP
 /// part, opposite a held start, with the stock running on past the part, is
 /// refused before anything is generated, in plain words that say what to do,
 /// not with "the whole source has no established projection bound". The

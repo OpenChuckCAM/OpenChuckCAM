@@ -1515,7 +1515,7 @@ fn req_op_23_req_nfr_07_a_set_a_strategy_cannot_use_on_a_step_part_is_an_error_b
 #[test]
 fn req_op_23_req_op_24_req_nfr_07_checked_facing_on_a_step_part_is_refused_plainly_before_generating()
  {
-    // Issue #800 (decision 0666, proposed): the Facing modes that check
+    // Issue #800 (decision 0666): the Facing modes that check
     // their cut against the part (End, Box, a Part extent or a margin) have
     // no proved bound for a STEP part yet, because its tessellation setting
     // alone is not one (decision 0252 section 4). Until that is built the

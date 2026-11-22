@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased (FACING-STEP; issues #650 and #500; decision 0667, proposed)
+## Unreleased (FACING-STEP; issues #650 and #500; decision 0667, accepted)
 
 - **Fixed (issue #650):** End facing's completion proof no longer refuses a slab that ends exactly at a sweep's axial edge. The slab boundaries are each sweep's own edge, so recomputing the sweep's reach for that slab put it a rounding error past the tool radius (no margin) or eroded it away (the written-motion margin), and ordinary settings were refused with "the actual end sweeps leave an unfinished required region in an axial layer", at generation or when posted. A sweep now reaches a slab when the slab lies inside the axial span the boundaries were made from, and at its edge it still counts its own across span, eroded by the margin. No path changes; settings that were refused now generate and post. No API change.
 - **Changed (issue #500):** a Box face left unfinished says where along X, and, when that is a held region and the tool's radius beside it, says so with what to change (the Part only extent, or a shorter grip or the part moved away from it). The faces are still refused, never cropped silently (decision 0252). `verify_flat_raster` and its texts are unchanged. No API change.

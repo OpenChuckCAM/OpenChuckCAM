@@ -1,6 +1,6 @@
 # 0667: Facing completion: an End slab at a sweep's edge, and a Box face left beside a grip (OP-24, NFR-07; issues #650 and #500; lane FACING-STEP)
 
-- **Status:** proposed by lane FACING-STEP on 22 Nov 2026. It fixes and rewords refusals of the Facing completion checks within accepted decisions [0252](0252-facing-ends-sides-and-extents.md) and [0547](0547-end-facing-enters-from-air-and-checks-its-engagement.md); it changes neither, and no path or G-code that was already generated. The number is provisional: the Merge Manager assigns the final number at release.
+- **Status:** Accepted by the project owner on 22 Nov 2026, relayed by the coordinator (decision 0049). Proposed by lane FACING-STEP the same day. It fixes and rewords refusals of the Facing completion checks within accepted decisions [0252](0252-facing-ends-sides-and-extents.md) and [0547](0547-end-facing-enters-from-air-and-checks-its-engagement.md); it changes neither, and no path or G-code that was already generated. The number is provisional: the Merge Manager assigns the final number at release.
 - **Date:** 22 Nov 2026.
 - **Requirements:** OP-24 (facing), NFR-07 (a clear refusal, naming what to change), NFR-05, GC-07, NFR-06, NFR-12.
 - **Open items:** none new. OI-2132 (decision 0547) is not touched.

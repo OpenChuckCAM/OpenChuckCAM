@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased (FACING-STEP; issue #800; decision 0666, proposed)
+## Unreleased (FACING-STEP; issue #800; decision 0666, accepted)
 
 - **Changed:** on a STEP part, Facing with the End or Box shape, a Part or Part plus tabs extent, or an extent margin is in error at once in the overview and the parameter form, and generation refuses it with the same plain words and what to do instead, not with "the whole source has no established projection bound". These modes still do not run on a STEP part: the owner chose to bound the part from its exact faces (decision 0666, option C), built in a later release. Flat and Round over the whole stock with no margin are unchanged.
 

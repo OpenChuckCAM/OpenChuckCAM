@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased (FACING-STEP; issue #800; decision 0666, proposed)
+## Unreleased (FACING-STEP; issue #800; decision 0666, accepted)
 
 - **Changed:** the STEP import notice adds that Facing works on a STEP part only as Flat or Round over the whole stock with no margin for now.
 

@@ -618,7 +618,7 @@ mod tests {
             "{notice}"
         );
         // Facing's checked modes do not run on a STEP part yet (issue
-        // #800, decision 0666 proposed), and the notice says so.
+        // #800, decision 0666), and the notice says so.
         assert!(
             notice
                 .contains("Facing works on a STEP part only as Flat or Round over the whole stock"),

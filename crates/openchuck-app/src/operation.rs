@@ -1480,7 +1480,7 @@ pub(crate) fn brep_only(
 }
 
 /// Why Facing that checks its cut against the part cannot run on a STEP
-/// part yet (issue #800; decision 0666, proposed). End, Box, a Part or Part
+/// part yet (issue #800; decision 0666). End, Box, a Part or Part
 /// plus tabs extent and an extent margin prove coverage and clearance
 /// against the part, which needs a proved bound of how far the source lies
 /// from the triangles used; a STEP part's tessellation setting alone is not
