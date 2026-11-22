@@ -20,7 +20,7 @@ In the commands below, `PROJECT` is a project folder.
 These options work with every command:
 
 `--threads N`
-: The number of worker threads. The default is one per core. The output is the same whatever the number (GC-07).
+: The number of worker threads. The default is one per core. The output is the same whatever the number.
 
 `--create`
 : If the folder has no `project.toml`, create a project there. Without it, the command asks on a terminal and otherwise stops with an error.

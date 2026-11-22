@@ -104,7 +104,7 @@ Icon
 
 [Known limitations](start/limitations.md) lists what the program cannot do yet. The most important for this release:
 
-- **Very little has run on a real machine.** The recorded runs are attended air cuts of two reference programs and one small first cut in tooling board, on one Makera Z1. Nothing has been run on any other machine.
+- **Very little has run on a real machine.** The recorded runs are attended air cuts of the project's ten reference programs and of one first-cut program, and one small first cut in tooling board, on one Makera Z1. Nothing has been run on any other machine.
 - **The programs are not signed.** Builds for this release are not signed or notarised. macOS refuses to open the program the first time and Windows SmartScreen may warn. [Install and first run](start/install.md) and the README in each download give the steps.
 - **The macOS build has not been tested by hand.** It is built and its automatic tests run, including starting the program, but nobody has worked through it on a Mac: not the first-run dialogs of a downloaded copy, opening it from Finder or the Dock, the clipboard, Command-key shortcuts, the menu bar, full screen or the file dialogs. It is for Apple silicon only. The Windows build has had less hands-on testing than the Linux build.
 - **Collisions with the machine are not checked.** The program does not model the chuck, the tailstock, the spindle, the tool holder or the machine body.
@@ -117,7 +117,7 @@ Icon
 
 These are the open bugs known at this release, grouped by what they affect, with the most serious first in each group. The number in brackets is the issue on the [issue tracker](https://github.com/OpenChuckCAM/OpenChuckCAM/issues?q=is%3Aissue+is%3Aopen+label%3Abug), where you can follow it or add what you find.
 
-These two problems are fixed in the next release, 2026.2.
+These two problems are planned to be fixed in the next release, 2026.2.
 
 - Facing does not yet work on STEP parts: it refuses with "no established projection bound". Workaround: import the part as STL for the Facing operation, or face the stock to length before it goes in the chuck and leave Facing out (#800).
 - Face flow cannot be applied to a closed shape whose edges do not join, for example a cylinder (#791). Workaround: choose faces that are not closed shapes, or split the face along its seam in your CAD program.
@@ -150,6 +150,8 @@ These two problems are fixed in the next release, 2026.2.
 
 **Tools, machines, workholding and selection.**
 
+- A setup can be refused with a travel message such as "the start of the stock is at machine X -263.160, outside the travel -207.000 to -1.000" while the stock looks well inside the machine in the view. The message does not say why. On the Makera Z1, model X 0 is the face of the headstock, so stock that starts at a negative X, for example round a model imported centred on X 0, lies behind that face. Move the part and the work zero along X with **Offset along X** and **Zero at X** so the stock starts past your chuck (see [Set up the stock](tutorial/04-stock.md)). If the message stays, add your project to the issue (#820).
+- In the machine section, a project whose copy of the Makera Z1 differs from the built-in profile only in the rotary reference point says it differs in "axis height". The difference is in the reference point. **Update the copy from the library** takes the built-in values (#824).
 - The held-region warning says nothing within one tool radius of the held region is cut. The zone left uncut is wider, the tool radius plus 0.5 mm, and corners next to it can keep up to about 0.9 mm more material (#774).
 - In the workholding section, the head zone line is out of date until you press **Apply**: it can show a 5 mm zone when the grip already reaches the part. Press **Apply** to bring it up to date (#767).
 - `openchuck-cli setup` with `--default-tabs` is refused when only one end of the part can have a default tab, and writes nothing. Add the tabs in the workholding section of the program, which adds the one there is room for, or add that end's tab by hand (#676).
@@ -169,13 +171,39 @@ These two problems are fixed in the next release, 2026.2.
 
 **Other.**
 
+- When `openchuck-cli` refuses to write files because a possible collision or a partial path has not been acknowledged, it does not print the reminder that generated G-code must be verified. Nothing is written; the reminder is printed on the run that writes the files (#645).
 - On macOS, the OpenCASCADE notice says you may replace `openchuck-step-worker`, but not that replacing it inside `OpenChuckCAM.app` breaks the app's signature. Sign it again with `codesign --force --deep --sign - OpenChuckCAM.app` (#589).
 
 Other open issues concern the project's own tests, build and documentation and do not affect programs. They are listed on the [issue tracker](https://github.com/OpenChuckCAM/OpenChuckCAM/issues?q=is%3Aissue+is%3Aopen+label%3Abug) with the label bug.
 
 ### Makera Z1 machine values
 
-These values in the built-in Makera Z1 profile were confirmed on the project owner's machine (firmware 1.1.2, and again on 1.1.3): the rotary axis along X, the direction of A+, the continuous A range, the axis height with the probe as the reference tool, the maximum feeds (the A limit of 1800 degrees per minute on firmware 1.1.3), the tool length measurement and the minimum block time. On firmware 1.1.3 the owner also confirmed the travel, the rotary reference point, the rapid rates, the spindle speed range, the spindle to axis distance, the block window, and the minimum clearance radius, the clearance and the recommended minimum safe Z (for the supplied chuck with its jaws reversed and fully open only). Every value in the built-in profile is now confirmed on the owner's machine; a value you change in your own copy is marked unconfirmed until you confirm it. Measure them on your own machine before you rely on them: see [Confirm machine profile values](how-to/confirm-machine-values.md). Every value can differ on your machine, confirmed or not.
+The built-in Makera Z1 profile was measured on the project owner's Z1, on firmware 1.1.2 and again on 1.1.3, with the supplied chuck. Every value in it is marked confirmed. These are the values confirmed on that machine:
+
+- the rotary axis along X, the direction of A+ and the continuous A range;
+- the axis height, with the probe as the reference tool;
+- the rotary reference point, the centre of the headstock face next to the chuck (on firmware 1.1.3; its Y is the G54 Y that the firmware sets in its 4-axis setup);
+- the travel, which is the controller's soft limits on firmware 1.1.3 with the rotary module fitted;
+- the maximum feeds and the rapid rates, including the A limit of 1800 degrees per minute on firmware 1.1.3;
+- the lowest spindle speed, 4000 rpm;
+- the spindle to axis distance;
+- the tool length measurement on the tool setter;
+- the minimum block time of 7 ms;
+- the minimum clearance radius, the default safe cylinder and safe Z, and the recommended minimum safe Z, all 45 mm, for the supplied chuck with its jaws reversed and fully open.
+
+Not confirmed, or confirmed only in part:
+
+- **The highest spindle speed**, 13000 rpm, is the owner's statement that it has been run; no run was recorded.
+- **The block window** of 32 blocks comes from the firmware source and the owner's statement; it was not measured on the machine.
+- **The clearance values** hold only for the supplied chuck with its jaws reversed and fully open. For any other chuck or jaws, measure and set the setup's own minimum clearance.
+- **The highest tool number**, 1000, is the project's choice, not a limit of the controller.
+- **How straight the A axis runs along X** is not part of the profile: the program assumes the axis is parallel to the X travel. On the owner's Z1 it was not quite parallel (about 0.1 to 0.2 mm sideways and under 0.04 mm up or down over 50 mm), and the chuck's screw mount held the stock about 0.1 mm off centre. For the first cut the owner set G54 Y and Z from the axis measured with the probe at the part, not at the headstock.
+- **The size of a finished part.** The one first cut, in tooling board, ran as the simulation showed with nothing cut that should not have been, but its measured diameters do not show whether the part is within 0.1 mm: the work zero along X was about 1.4 mm out, which on a cone reads as a diameter error.
+- **Other firmware, other Z1 machines and other chucks** have not been checked. Every value can differ on your machine, confirmed or not, and a value you change in your own copy of the profile is marked unconfirmed until you confirm it.
+
+While setting the work offsets for that first cut, setting G54 with `G10 L2` and a Z word cleared the tool length offset and made the probe the reference tool, and a later offset step reset G54 Y. Check the offsets in the console (`$#`) after you set them, before you run a program.
+
+Measure the values on your own machine before you rely on them: see [Confirm machine profile values](how-to/confirm-machine-values.md).
 
 Generated G-code must be verified by you before it is run on a machine. OpenChuckCAM does not guarantee that a program is safe or correct for any machine, tool or setup.
 
