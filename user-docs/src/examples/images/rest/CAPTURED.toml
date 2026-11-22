@@ -5,3 +5,7 @@ captured_at = "b0e4aafa39a9ee3d8e9e63b6314a3d6c51faf9fc"
 captured_on = "2026-11-22"
 renderer = "Mesa lavapipe (software Vulkan) on Xvfb"
 window = "1920x1080"
+# Reviewed against lane Z1-SETUP at 00ec98ea (22 Nov 2026): its changes to the screen folders are a stock-behind-the-headstock
+# warning and a bottom-of-Z-travel warning that none of these projects raises, the travel warning's words, which none of
+# them shows, and tooltips, which show only on hover.
+reviewed_at = "00ec98ea15364fde3ccb2b78f712fc3787cb2727"

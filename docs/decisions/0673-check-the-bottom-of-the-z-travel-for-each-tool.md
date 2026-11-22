@@ -49,4 +49,13 @@ D1 (the stated assumption now, the field proposed), D2 A, D3 A and D4 as written
 
 ## Verification
 
-To be written when the choices are answered and the check is built.
+Run by lane Z1-SETUP on 22 Nov 2026 in a Linux cloud container (4 cores), branch `lane-z1-setup` from `main` at `57b8ac1b`.
+
+- **Tests, written from the record first** (the built-in Z1 case was corrected once: the limit for a 1 mm flute is exactly −35, which passes):
+  - `crates/openchuck-app/src/setup.rs`: `req_set_01_req_gc_08_a_short_tool_deep_below_the_axis_needs_the_spindle_below_the_travel` (a Z1 with Z −81 to −1: tool flute 5, stick-out 10, path to −20 against a limit of −18 warns at move 2; −18.0004 passes, −18.001 warns; a longer tool fits; no warning without automatic tool length or a spindle-to-axis distance; the words state the assumption), `req_set_01_req_gc_08_the_tip_height_is_along_the_tool_axis` (at A 90 the height is the tip's Y), `req_set_01_req_gc_08_the_builtin_z1_reaches_well_below_the_axis` (D 72, Z span 101: flute 22 to −50 fits; flute 1 to −35 fits, to −35.001 warns).
+  - The pipeline adds the warning to the operation's group warnings; no reference job, sample or example warns (the whole suite's golden and warning comparisons pass unchanged).
+- **Whole workspace:** `cargo nextest run --workspace --locked --no-fail-fast`, uninstrumented: 3424 tests, 3421 passed and 3 failed in 61 min 31 s. The three were fixed and pass on their own: `openchuck-cli` `req_gc_17_req_set_01_req_set_03_req_set_05_req_set_06_cli_sets_machine_and_setup` (its stock starts at X −2 on the Z1, so it now expects the headstock warning, decision 0672), `xtask` `registers::tests::the_repository_registers_pass` (a `|` inside an open-item cell) and `xtask` `examples_zip::tests::the_real_examples_pack_and_unzip_cleanly` (a `__pycache__` folder left by checking the blisk generator, deleted). The `openchuck-app` unit tests were run again after the last text change (282 passed). No golden program changed and none was re-blessed.
+- **Checks:** `cargo fmt --all`, `cargo clippy --workspace --all-targets --locked` (no warnings), `cargo xtask deps`, `licences`, `records` and `trace` (ok; 105 of 105 P1 requirements have tests). The user guide built with mdBook 0.5.4 (`user-docs/tools/build.py`, `assemble.py`) and `user-docs/tools/check.py`: 0 errors, 0 warnings.
+- **Test times:** every new test takes under 1 s uninstrumented; none is long-running (AGENTS.md).
+- **Coverage:** every line of `spindle_depth` and `spindle_depth_text` is reached by these tests. The two lines in `pipeline.rs` that push the warning are not reached by any test: no project in the suite has a machine and tool for which it fires. They were read and match the tested function.
+- **Not verified:** on a machine with a short Z travel; the stick-out field (D1, second pull request).
