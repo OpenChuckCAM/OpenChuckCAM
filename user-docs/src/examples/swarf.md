@@ -119,7 +119,7 @@ The Results now say: "Overcut (operation 'Blade swarf'): swarf on face 19 cuts 0
 | Cut into face 1 (outer cylinder), warned | 0.014 mm | 0.014 mm | 0.011 mm | 0.266 mm |
 | Moves | 47 | 46 | 48 | 48 |
 
-These are the same numbers that were measured on this blade when the stop at the ends was built: 0.471 mm and 0.833 mm with a 3 mm flat end mill, 0.471 mm and 2.157 mm with a 3 mm ball, and the floor cut by 0.023 mm and 1.190 mm ([decision 0532](https://github.com/OpenChuckCAM/OpenChuckCAM/blob/main/docs/decisions/0532-swarf-keeps-off-the-faces-at-its-ends.md), the rows of blade 7). Other blades of this blisk twist into the disc wall more, and there the pass stops much further short: 6.935 mm with a 3 mm flat end mill on blade 9, in the same table.
+These are the same numbers that were measured on this blade when the stop at the ends was built: 0.471 mm and 0.833 mm with a 3 mm flat end mill, 0.471 mm and 2.157 mm with a 3 mm ball, and the floor cut by 0.023 mm and 1.190 mm (on blade 7). Other blades of this blisk twist into the disc wall more, and there the pass stops much further short: 6.935 mm with a 3 mm flat end mill on blade 9.
 
 How to read the lines:
 
