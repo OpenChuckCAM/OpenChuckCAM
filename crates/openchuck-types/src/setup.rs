@@ -399,17 +399,6 @@ pub enum SetupWarningKind {
         /// Where the minimum comes from.
         source: MinimumSource,
     },
-    /// The stock (or, with no stock, the part) starts behind X 0 on a
-    /// machine whose rotary reference point is its headstock face, the
-    /// Makera Z1's: part of it would be inside the headstock
-    /// ([`starts_behind_reference`]; decision record 0672). A warning:
-    /// generation and export still run (NFR-12).
-    StartsBehindReference {
-        /// "the stock" or "the part".
-        what: &'static str,
-        /// The model X where it starts, below 0.
-        x: f64,
-    },
     /// A position is outside the machine's travel.
     OutsideTravel {
         /// What it is, in words.
@@ -461,6 +450,17 @@ pub enum SetupWarningKind {
         hand_tab: usize,
         /// The X extent they share.
         x: (f64, f64),
+    },
+    /// The stock (or, with no stock, the part) starts behind X 0 on a
+    /// machine whose rotary reference point is its headstock face, the
+    /// Makera Z1's: part of it would be inside the headstock
+    /// ([`starts_behind_reference`]; decision record 0672). A warning:
+    /// generation and export still run (NFR-12).
+    StartsBehindReference {
+        /// "the stock" or "the part".
+        what: &'static str,
+        /// The model X where it starts, below 0.
+        x: f64,
     },
 }
 
