@@ -1,6 +1,6 @@
 # 0653: Verification report for release 0.55.0 (rc3; gates 4 and 5 on the Makera Z1; GC-09, GC-17, OP-13, NFR-12; issue #586; lane VERIFY-REPORT)
 
-- **Status:** Proposed by lane VERIFY-REPORT on 22 Nov 2026. Not accepted (decision 0049). It is the release verification report of [verification plan](../verification-plan.md) section 9 (Records) and work breakdown slice 20 item 13, drafted from the 0.55.0-rc3 test record. It changes no requirement, no architecture and no program behaviour. The number is provisional: the Merge Manager assigns the final number at release.
+- **Status:** Accepted by the project owner on 22 Nov 2026, relayed by the coordinator (decision 0049). Proposed by lane VERIFY-REPORT the same day. It is the release verification report of [verification plan](../verification-plan.md) section 9 (Records) and work breakdown slice 20 item 13, drafted from the 0.55.0-rc3 test record. It changes no requirement, no architecture and no program behaviour. The number is provisional: the Merge Manager assigns the final number at release.
 - **Date:** 22 Nov 2026.
 - **Commit covered:** `aa73540022c3994e2cf27e350cff6fb47713672b` (tag `v0.55.0-rc3`, OpenChuckCAM 0.55.0), built by release dry run [43698165113](https://github.com/OpenChuckCAM/OpenChuckCAM/actions/runs/43698165113) on 15 Nov 2026.
 - **Open items:** adds OI-2151 (the gate 5 result on rc3 is partial), closed by the recorded waiver below, and OI-2152 (the repeat first cut with X0 probed). Names OI-992, OI-2144, OI-2107, OI-304, OI-23 and OI-2149 as still open, OI-471 and OI-2143 as closed by pull request #828 (not merged on 22 Nov 2026), and OI-105 as decided and closing in the REL-NOTES-SCREENS pull request. See *Open items* below.
@@ -147,7 +147,7 @@ All figures in this subsection are calculated from the recorded readings; they a
 
 ### Waiver: gate 5 for 0.55.0
 
-Decided on 22 Nov 2026, relayed by the coordinator (decision 0049); this record is still proposed.
+Decided on 22 Nov 2026, relayed by the coordinator (decision 0049).
 
 - **What is waived:** the first-release exit criterion "G-code gates 1 to 5 passed" (verification plan section 9), for gate 5 only and for release 0.55.0 only. Gate 5 on rc3 is partial: E-26 is not met as written (0 of 5 cone diameters within ±0.1 mm of the model, decision 0221), and the program cut is not the program that was air-cut (safe Z 35 mm, another roughing tool, 100 % override).
 - **Why:** the cut ran with no unexpected event and matched the simulation; nothing was cut outside the simulated region. The diameters are inconclusive rather than a fault found in the program: the cone sits about 1.4 mm along X from the X0 setting, a vernier on a cone cannot resolve ±0.1 mm, and with the shift allowed for the radial undersize is about 0.05 to 0.15 mm, borderline against the limit.
