@@ -1,6 +1,6 @@
 # 0674: The baluster example moves to the current project schema and holds the Z1's minimum clearance radius (SET-01, SET-06, NFR-12; issues #809 and #797; lane Z1-SETUP)
 
-- **Status:** proposed by lane Z1-SETUP on 22 Nov 2026. A data and test change within decision 0649 item 11 ("the sample and example projects follow the built-in Z1"), which the owner accepted; it records what was done and how it was checked.
+- **Status:** Accepted by the project owner on 22 Nov 2026, relayed by the coordinator (decision 0049). Proposed by lane Z1-SETUP the same day; a data and test change within decision 0649 item 11.
 - **Date:** 22 Nov 2026.
 - **Requirements:** SET-01 (the project keeps its own copy of the machine), SET-06 (the minimum clearance check, [decision 0495](0495-minimum-clearance-and-clearance-from-stock.md)), GC-07, NFR-12.
 - **What it amends:** nothing. It carries out [decision 0649](0649-the-z1-profile-takes-the-firmware-1-1-3-measurements.md) item 11 for the one field the baluster example's schema could not hold, and settles the baluster part of OI-2149.

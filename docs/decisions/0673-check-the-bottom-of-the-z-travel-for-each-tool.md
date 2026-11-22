@@ -1,6 +1,6 @@
 # 0673: Check the bottom of the Z travel for each tool (SET-01, OP-14, GC-08, NFR-12; issue #692, OI-1781; lane Z1-SETUP)
 
-- **Status:** proposed by lane Z1-SETUP on 22 Nov 2026. The owner accepted the recommended set in principle on 22 Nov 2026, relayed by the coordinator, with one change: the tool's stick-out belongs in the tool library; until a tool has one, the check uses the assumption (flute length + 5 mm) and the warning and the guide say so (D1 below). The coordinator accepted on 22 Nov 2026 that the warning does not yet tell the user to set a stick-out, which cannot be set until the field exists, and agreed the field in principle for a second pull request after the crates publish, claiming project schema 29 first. Awaiting the owner's acceptance of this text (OI-2186).
+- **Status:** Accepted by the project owner on 22 Nov 2026, relayed by the coordinator (decision 0049). Proposed by lane Z1-SETUP the same day; the owner accepted the recommended set in principle with one change, the tool's stick-out in the tool library: until a tool has one the check uses the assumption (flute length + 5 mm) and says so, and the field follows in a second pull request after the crates publish, claiming project schema 29 (D1).
 - **Date:** 22 Nov 2026.
 - **Requirements:** SET-01 (the machine's travel), OP-14 (links at the clearance), GC-08 (axis limit violations found before export), NFR-07, NFR-12. No requirement text changes.
 - **What it amends:** nothing in `requirements.md` or `architecture.md`. It builds the case [decision 0495](0495-minimum-clearance-and-clearance-from-stock.md) item 6c left unbuilt, beside the top-of-travel check of [decision 0318](0318-z1-spindle-height-warning-switched-on.md) and 0495 item 6b, with the Z1's measured values of [decision 0649](0649-the-z1-profile-takes-the-firmware-1-1-3-measurements.md).
@@ -37,11 +37,11 @@ On the built-in Z1, *D* = 72.0 and *T* = 101.0 (Z −102 to −1), so *D − T* 
 
 The lead-in names the topic and the operation in the one form of decision 0536 ("Tool length (operation '*name*'): …"). Machines that do not measure tool lengths, or give no spindle-to-axis distance, get no guess, as for the top (OI-1782).
 
-## Proposed decision
+## Decision
 
 D1 (the stated assumption now, the field proposed), D2 A, D3 A and D4 as written, with D1's words. A pure function in `openchuck-app` beside `spindle_height` (`spindle_depth`, say) takes the profile, the tool and the operation's lowest tip, worked out from the toolpath as the tip's height above the rotary axis along the tool axis (the dot product of the tip and the tool axis in the model frame, since the tool axis crosses the rotary axis at right angles on a 4-axis machine). The pipeline adds the warning to the operation's group warnings after the toolpath is made, so it shows wherever an operation's warnings show. To three places, as the G-code: a tip within 0.0005 mm of the limit passes. No G-code changes (GC-07).
 
-## Consequences (if accepted as proposed)
+## Consequences
 
 - None of the samples, examples or reference jobs warns (the Z1's tip limit is at least 29 mm below the axis); a test asserts it for the reference jobs, and the worked cases are tested on a profile with a short Z travel.
 - The user guide's machine profile reference says that the spindle-to-axis distance and the Z travel are used for both ends of the travel (no decision or `OI-` numbers in the guide).

@@ -1,6 +1,6 @@
 # 0672: Warn when the stock starts behind the Z1's headstock face, and say what the travel numbers mean (SET-05, SET-06, SET-09, UI-07, NFR-12; issues #812 and #820; lane Z1-SETUP)
 
-- **Status:** proposed by lane Z1-SETUP on 22 Nov 2026. The owner accepted the first proposal's recommended set in principle on 22 Nov 2026 with two required changes (short wording with explanation where the user meets it; an answer on whether model X 0 can be assumed to be the headstock), relayed by the coordinator. On the revised text the owner chose **R-B** on 22 Nov 2026, relayed: build R-A now, and track the profile field as a proposal only (OI-2187, nothing claimed); the corrections, M and E accepted. Awaiting the owner's acceptance of the final text (OI-2185).
+- **Status:** Accepted by the project owner on 22 Nov 2026, relayed by the coordinator (decision 0049). Proposed by lane Z1-SETUP the same day; the owner accepted the first proposal's recommended set in principle with two required changes (short wording with explanation where the user meets it; an answer on whether model X 0 can be assumed to be the headstock), then chose R-B on the revised text: R-A built, the profile field proposed only (OI-2187).
 - **Date:** 22 Nov 2026.
 - **Requirements:** SET-05 (the part's position along the rotary axis), SET-06 (the setup checks), SET-09 (the held region), UI-07 (the inspector's explanations), NFR-07, NFR-12. No requirement text changes.
 - **What it amends:** nothing in `requirements.md` or `architecture.md`. It builds on [decision 0011](0011-slice-3-machine-stock-setup.md) items 1, 2 and 4 (the frames and the rotary reference point), [decision 0201](0201-setup-offset-moves-the-part.md) (the part offset moves only the part), [decision 0649](0649-the-z1-profile-takes-the-firmware-1-1-3-measurements.md) item 5 and [decision 0651](0651-the-z1-rotary-reference-y-is-the-firmware-g54-y.md) (the Z1's reference point is the headstock face), and uses the warning classes of [decision 0538](0538-a-possible-collision-is-a-warning-to-acknowledge.md) and the message form of [decision 0536](0536-message-levels-operation-reference-and-setting-links.md).
@@ -57,7 +57,7 @@ The same for the end of the stock ("towards −X"), the part (Offset along X onl
 
 R-A now, with T, W, M and E as written; the field of R-B proposed only (OI-2187). In code: `SetupWarningKind::StartsBehindReference { what, x }` (a new variant of a `non_exhaustive` enum, not a breaking change) with the words of W, raised by the application for a qualifying Z1 copy beside `check_setup`'s own warnings, wherever those are shown (setup checks, Messages, the export checks, the command line); M as the application's text for the along-axis travel warning; the tooltips and the guide section of E. R-B is recorded as OI-2187. No G-code changes (GC-07).
 
-## Consequences (if accepted as proposed)
+## Consequences
 
 - A new Z1 project warns until its stock is placed past the chuck. The tutorial sets the part offset and work zero first (decision 0650) and then the stock, so its screens should not change. The samples and examples start their stock at X 5.99 or later (checked 22 Nov 2026: the lowest is `cone_held_tabs`), so none warns; a test asserts it.
 - Machines other than a current copy of the built-in Z1 get no new warning (R-A); the guide says so.
