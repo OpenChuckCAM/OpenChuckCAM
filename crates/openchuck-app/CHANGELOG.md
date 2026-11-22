@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.56.0
+
+- **Breaking, changed output (0.56.0; SIM-FINISH, issue #801; decision 0661, accepted, option C):** `GroupInfo::rapid_cuts` holds `openchuck_sim::RapidCut`s, not `(move, mm³)` pairs, and only the rapids that go deeper into the stock than one cell of the simulation: those stay warnings to acknowledge, and read with their depth first ("Rapid cut (operation 'X'): move N is a rapid that goes D mm into the stock, deeper than the simulation's cell of C mm, and removes V mm³ of material"). A rapid no deeper than one cell is a note of the run ("... is a rapid that touches the stock D mm deep, within the simulation's cell of C mm, and removes V mm³ of material"), with nothing to acknowledge. A volume under 0.001 mm³ reads "less than 0.001 mm³", never 0.000.
+
 ## Unreleased (ALIMIT, issue #793; decision 0647, accepted)
 
 - **Added:** a setup check and a warning in Messages, under the topic Machine profile, when the project's Makera Z1 copy still holds the old A limit of 3600 deg/min; it names the controller's 1800 deg/min and `M203.1`, and asks the user to choose the Makera Z1 again. `setup::has_old_z1_a_limit` is re-exported.

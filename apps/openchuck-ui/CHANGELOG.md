@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.56.0
+
+- **Changed (0.56.0; SIM-FINISH, issue #801; decision 0661, accepted, option C):** the Results tab lists as a problem, with its depth, only a rapid that goes deeper into the stock than one cell of the simulation, and counts only those as rapid cuts; a shallower one is a note of the run. `openchuck-cli simulate` fails only on those too, and prints every rapid with its depth and volume.
+
 ## Unreleased (MSGREVIEW, decision 0644, accepted; decision 0536 step 6; issue #567)
 
 - **Changed text (the owner's answer (3)):** the Results tab's Facing line reads "Facing (operation '<name>'): facing covered the end faces it was asked to." (with "; the simulation shows what it removed" for a simulated run), and the note of what was left unfaced is shown in the same form. The Tool number tooltip no longer names TL-06. A count of one takes the singular in the Results summary ("1 operation, 1 move"), the export's short-block line, the tool library and the hidden-labels line.

@@ -388,7 +388,7 @@ These warnings may be a collision, so the export asks you to tick "I have read t
 | Swarf cutting into a face next to it | The ring of stock left at a faced end |
 | A check set the tool touches (**Warn only**) | A move beyond the machine's travel |
 | A part that can be cut free at a free end and thrown | Areas simultaneous finishing could not reach |
-| A rapid move that removes material, found by the simulation | A shank wider than the cutting part, where the path is broken |
+| A rapid move that goes deeper than one cell into the stock, found by the simulation | A shank wider than the cutting part, where the path is broken |
 | A safe cylinder that does not enclose the stock or the part, or is inside the minimum clearance | |
 | A tool that may be too long to clear the workholding at the safe Z | |
 
