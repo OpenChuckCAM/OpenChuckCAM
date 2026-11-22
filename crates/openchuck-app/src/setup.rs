@@ -357,10 +357,10 @@ pub fn spindle_depth(
 pub fn spindle_depth_text(number: u32, found: &SpindleDepth) -> String {
     format!(
         "tool {number} may need the spindle below the bottom of the Z travel: its tip goes down \
-         to {:.3} mm from the axis, and assuming it sticks out {:.3} mm (flute length + 5 mm), the \
-         spindle at the bottom of the travel takes its tip only down to {:.3} mm. Use a longer \
-         tool or a longer stick-out, or keep the cut further from the axis, and check the Z \
-         travel on your machine before running.",
+         to {:.3} mm from the axis, and assuming it sticks out 5 mm beyond its flutes ({:.3} mm in \
+         all; the tool library holds no stick-out), the spindle at the bottom of the travel takes \
+         its tip only down to {:.3} mm. Use a longer tool or a longer stick-out, or keep the cut \
+         further from the axis, and check the Z travel on your machine before running.",
         found.lowest_tip, found.stick_out, found.lowest_reach
     )
 }
@@ -438,7 +438,8 @@ mod tests {
         for words in [
             "tool 7 may need the spindle below the bottom of the Z travel",
             "down to -20.000 mm from the axis",
-            "sticks out 10.000 mm (flute length + 5 mm)",
+            "assuming it sticks out 5 mm beyond its flutes (10.000 mm in all; the tool library \
+             holds no stick-out)",
             "only down to -18.000 mm",
             "check the Z travel on your machine before running",
         ] {
