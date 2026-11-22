@@ -94,13 +94,68 @@ pub(super) fn validate_setup(setup: &FacingSetup<'_>, context: &JobContext<'_>) 
     Ok(())
 }
 
+/// The refusal for a Box face left unfinished, saying where along X (the
+/// raster's second coordinate, as `box_sides` transposes it). A strip beside
+/// a held region is the grip and the tool's clearance from it, which Facing
+/// keeps off and never crops silently (decision 0252); it says so and what to
+/// change (issue #500, NFR-07).
+fn box_gap(
+    setup: &FacingSetup<'_>,
+    extent: super::extents::FacingExtent,
+    gap: super::coverage::RasterGap,
+) -> PathError {
+    use super::coverage::{RasterGap, UNFINISHED_STRIP};
+    use super::extents::FacingExtent;
+    let ([from, to], what) = match gap {
+        RasterGap::Strip(v) => (v, UNFINISHED_STRIP),
+        RasterGap::End(v) => (
+            v,
+            "the requested face is not completely covered by final-depth sweeps",
+        ),
+    };
+    let radius = 0.5 * setup.tool.diameter.0;
+    let held = setup
+        .held
+        .iter()
+        .zip(["start", "far end"])
+        .find_map(|(interval, end)| {
+            interval
+                .filter(|(lo, hi)| from <= hi + radius && to >= lo - radius)
+                .map(|interval| (interval, end))
+        });
+    let Some(((lo, hi), end)) = held else {
+        return PathError::refused(
+            crate::topic::FACING_COMPLETION,
+            format!("{what}, from X {from:.3} to {to:.3}"),
+        );
+    };
+    let advice = match extent {
+        FacingExtent::WholeStock => {
+            "Use the Part only extent so the faces stop at the part, with the part clear of the \
+             grip by the tool's radius"
+        }
+        FacingExtent::Part | FacingExtent::PartPlusTabs => {
+            "Shorten the held length, or move the part along X away from the grip, so the part \
+             clears it by the tool's radius"
+        }
+    };
+    PathError::refused(
+        crate::topic::FACING_COMPLETION,
+        format!(
+            "the Box faces cannot be finished from X {from:.3} to {to:.3}: that is the held \
+             {end} (X {lo:.3} to {hi:.3}) and the tool's radius ({radius:.3} mm) beside it, \
+             which Facing keeps clear of. {advice}"
+        ),
+    )
+}
+
 pub(super) fn box_sides(
     setup: &FacingSetup<'_>,
     parameters: &Parameters,
     group: &ToolpathGroup,
     context: &JobContext<'_>,
 ) -> Result<()> {
-    use super::coverage::{FlatSweep, verify_flat_raster};
+    use super::coverage::{FlatSweep, flat_raster_gap};
     use super::extents::FacingExtent;
     use super::plan::BoxFacingParameters;
     let settings = BoxFacingParameters::read(parameters)?;
@@ -170,7 +225,7 @@ pub(super) fn box_sides(
             let target = *levels
                 .get(level)
                 .ok_or_else(|| refuse("invalid Box layer index"))?;
-            verify_flat_raster(
+            flat_raster_gap(
                 face.coverage.transposed(),
                 face.target.plane.transposed(),
                 target,
@@ -178,7 +233,8 @@ pub(super) fn box_sides(
                 0.5 * setup.tool.diameter.0,
                 settings.tolerance,
                 context,
-            )
+            )?
+            .map_or(Ok(()), |gap| Err(box_gap(setup, settings.extent, gap)))
         };
         let mut from = group.start;
         for segment in &group.segments {

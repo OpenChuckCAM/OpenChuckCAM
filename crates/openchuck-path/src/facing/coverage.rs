@@ -36,6 +36,39 @@ pub fn verify_flat_raster(
     tolerance: f64,
     context: &JobContext<'_>,
 ) -> Result<()> {
+    match flat_raster_gap(rectangle, plane, target, sweeps, radius, tolerance, context)? {
+        None => Ok(()),
+        Some(RasterGap::Strip(_)) => Err(refuse(UNFINISHED_STRIP)),
+        Some(RasterGap::End(_)) => Err(refuse(
+            "the requested face is not completely covered by final-depth sweeps",
+        )),
+    }
+}
+
+/// The completion refusal of [`verify_flat_raster`] when a strip is left.
+pub(crate) const UNFINISHED_STRIP: &str = "an unfinished strip remains inside the requested extent";
+
+/// Where [`flat_raster_gap`] found the rectangle not proved covered: the
+/// interval of its second coordinate (v) from the last proved edge to the
+/// next sweep's strip (`Strip`) or to the rectangle's end (`End`).
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub(crate) enum RasterGap {
+    Strip([f64; 2]),
+    End([f64; 2]),
+}
+
+/// [`verify_flat_raster`]'s proof, giving the first strip it cannot prove
+/// finished instead of refusing, so a caller can say where (NFR-07).
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn flat_raster_gap(
+    rectangle: CoverageRectangle,
+    plane: FacingPlane,
+    target: f64,
+    sweeps: &[FlatSweep],
+    radius: f64,
+    tolerance: f64,
+    context: &JobContext<'_>,
+) -> Result<Option<RasterGap>> {
     context.check_cancelled()?;
     if !target.is_finite()
         || !radius.is_finite()
@@ -102,18 +135,14 @@ pub fn verify_flat_raster(
             continue;
         }
         if lo > reached {
-            return Err(refuse(
-                "an unfinished strip remains inside the requested extent",
-            ));
+            return Ok(Some(RasterGap::Strip([reached, lo.min(v1)])));
         }
         reached = reached.max(hi);
         if reached >= v1 {
-            return Ok(());
+            return Ok(None);
         }
     }
-    Err(refuse(
-        "the requested face is not completely covered by final-depth sweeps",
-    ))
+    Ok(Some(RasterGap::End([reached, v1])))
 }
 
 fn refuse(reason: &str) -> PathError {
