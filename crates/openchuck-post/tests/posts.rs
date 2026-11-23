@@ -1312,6 +1312,28 @@ fn req_gc_10_req_nfr_07_each_guarded_text_is_reported_once_with_its_source() {
         ]
     );
 
+    // A title guarded at its start with another opening later, at a wrap: both places, each
+    // counted in the title as the job gave it.
+    let mut j = job();
+    j.title = " MSG,one two three MSG,four".into();
+    assert_eq!(
+        report(&linuxcnc_limited(20), &j),
+        vec![
+            guarded(
+                CommentSource::Title,
+                "MSG,",
+                " MSG,one two three MSG,four",
+                1
+            ),
+            guarded(
+                CommentSource::Title,
+                "MSG,",
+                " MSG,one two three MSG,four",
+                19
+            ),
+        ]
+    );
+
     // A wrapped line of the post's own header: its first line is the author's and is kept;
     // the later line is guarded and reported as the post's.
     let manifest = std::fs::read_to_string(posts_path("linuxcnc/post.toml")).unwrap();
