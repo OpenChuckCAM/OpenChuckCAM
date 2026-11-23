@@ -67,6 +67,8 @@ use openchuck_types::job::JobContext;
 use openchuck_types::tool::profile::RevolvedProfile;
 use openchuck_types::units::Degrees;
 
+mod outline;
+
 use crate::assemble::{MAX_UNREACHED_POINTS, Unreached, UnreachedReason};
 use crate::brep::{BrepSurface, ExactFace};
 use crate::cutter::{self, ToolLine};
@@ -99,6 +101,22 @@ pub mod parameter {
     pub const CLIMB: &str = "climb";
     /// Every pass conventional cut.
     pub const CONVENTIONAL: &str = "conventional";
+    /// With Meander, the tool steps along the face from the end of one pass
+    /// to the start of the next instead of lifting, where the step is clear.
+    pub const STAY_DOWN: &str = "stay_down";
+    /// How the passes are laid out on each face: [`AUTOMATIC`],
+    /// [`ALONG_GUIDE`] or [`OUTLINE`].
+    pub const PATTERN: &str = "pattern";
+    /// Along the guide where those passes stay whole on the face, and along
+    /// the face's outline where the face's own notches or holes would break
+    /// them.
+    pub const AUTOMATIC: &str = "automatic";
+    /// Passes parallel to the guide, blended to the opposite side (decision
+    /// 0525 item 2.2).
+    pub const ALONG_GUIDE: &str = "along_guide";
+    /// Passes that follow the face's outline, each the stepover inside the
+    /// last, measured on the face.
+    pub const OUTLINE: &str = "outline";
 }
 
 /// The turn between two edges, in degrees, above which their junction is a
@@ -269,6 +287,36 @@ impl Strategy for FaceFlow {
                     default: MEANDER.to_owned(),
                 },
             },
+            ParameterSpec {
+                name: STAY_DOWN.to_owned(),
+                label: "Stay down between passes".to_owned(),
+                description: "With Meander, the tool steps along the face from the end of one \
+                              pass to the start of the next instead of lifting, where the step \
+                              is on the face and clear of the part. It lifts where a wall is in \
+                              the way, where the step would leave the face, or where it would be \
+                              longer than twice the stepover."
+                    .to_owned(),
+                kind: ParameterKind::Flag { default: true },
+            },
+            ParameterSpec {
+                name: PATTERN.to_owned(),
+                label: "Pattern".to_owned(),
+                description: "How the passes are laid out on each face. Along the guide: \
+                              passes parallel to the guide edge, blended to the opposite side. \
+                              Follow the outline: passes that follow the face's own edges, \
+                              each the stepover inside the last, for a face with fingers, \
+                              notches or holes. Automatic takes the guide where its passes stay \
+                              whole on the face and the outline where the face's shape would \
+                              break them."
+                    .to_owned(),
+                kind: ParameterKind::Choice {
+                    options: [AUTOMATIC, ALONG_GUIDE, OUTLINE]
+                        .iter()
+                        .map(|o| (*o).to_owned())
+                        .collect(),
+                    default: AUTOMATIC.to_owned(),
+                },
+            },
         ]);
         for spec in &mut schema.parameters {
             if spec.name == names::STEPOVER {
@@ -351,6 +399,17 @@ struct Settings {
     lead: f64,
     tilt: f64,
     direction: Direction,
+    /// Steps along the face between meander passes, where clear.
+    stay_down: bool,
+    pattern: Pattern,
+}
+
+/// How a face's passes are laid out.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Pattern {
+    Automatic,
+    AlongGuide,
+    Outline,
 }
 
 impl Settings {
@@ -372,6 +431,12 @@ impl Settings {
             CONVENTIONAL => Direction::Conventional,
             _ => Direction::Meander,
         };
+        let stay_down = parameters.flag(STAY_DOWN)?;
+        let pattern = match parameters.text(PATTERN)? {
+            ALONG_GUIDE => Pattern::AlongGuide,
+            OUTLINE => Pattern::Outline,
+            _ => Pattern::Automatic,
+        };
         Ok(Self {
             tolerance,
             stepover,
@@ -380,6 +445,8 @@ impl Settings {
             lead,
             tilt,
             direction,
+            stay_down,
+            pattern,
         })
     }
 }
@@ -1686,19 +1753,45 @@ fn near(x: f64, near: f64) -> f64 {
     x + ((near - x) / 360.0).round() * 360.0
 }
 
+/// A line across a face that a pass follows, taken by fraction `s` from 0
+/// to 1: the blend between the guide and the opposite boundary at one
+/// weight, or an offset of the face's outline.
+trait PassLine {
+    /// How many base samples the line is first taken at.
+    fn m(&self) -> usize;
+    /// The face's point and normal at fraction `s`, or `None` where the line
+    /// leaves the face.
+    fn at(&self, s: f64) -> Option<SurfacePoint>;
+}
+
+/// The pass of a field at weight `w` (decision 0525 item 2.2).
+struct Blend<'a, 'f> {
+    field: &'a Field<'f>,
+    w: f64,
+}
+
+impl PassLine for Blend<'_, '_> {
+    fn m(&self) -> usize {
+        self.field.m()
+    }
+
+    fn at(&self, s: f64) -> Option<SurfacePoint> {
+        self.field.at(s, self.w)
+    }
+}
+
 /// One pass's samples, in guide order.
-fn pass_samples(field: &Field<'_>, tooling: &Tooling<'_>, w: f64) -> Vec<Sample> {
+fn pass_samples(line: &dyn PassLine, tooling: &Tooling<'_>) -> Vec<Sample> {
     // The base samples: the face's points along the pass, refined where the
     // chord leaves the face by more than the tolerance.
-    let m = field.m();
+    let m = line.m();
     let mut base: Vec<(f64, Option<SurfacePoint>)> = Vec::new();
     for j in 0..=m {
         let s = j as f64 / m as f64;
-        let sp = field.at(s, w);
+        let sp = line.at(s);
         if let (Some((s0, Some(a))), Some(b)) = (base.last().copied(), sp) {
             refine_chord(
-                field,
-                w,
+                line,
                 (s0, a),
                 (s, b),
                 tooling.settings.tolerance,
@@ -1755,8 +1848,8 @@ fn pass_samples(field: &Field<'_>, tooling: &Tooling<'_>, w: f64) -> Vec<Sample>
         // The direction of travel, from the face itself a hair either side.
         let s = base.get(i).map_or(0.0, |b| b.0);
         let travel = match (
-            field.at((s - TANGENT_STEP).max(0.0), w),
-            field.at((s + TANGENT_STEP).min(1.0), w),
+            line.at((s - TANGENT_STEP).max(0.0)),
+            line.at((s + TANGENT_STEP).min(1.0)),
         ) {
             (Some(a), Some(b)) => b.point - a.point,
             _ => Vec3::ZERO,
@@ -1786,12 +1879,11 @@ fn pass_samples(field: &Field<'_>, tooling: &Tooling<'_>, w: f64) -> Vec<Sample>
             _ => out.push(Sample::Skipped),
         }
     }
-    refine_moves(field, tooling, w, &base, &phi, out)
+    refine_moves(line, tooling, &base, &phi, out)
 }
 
 fn refine_chord(
-    field: &Field<'_>,
-    w: f64,
+    line: &dyn PassLine,
     a: (f64, SurfacePoint),
     b: (f64, SurfacePoint),
     tolerance: f64,
@@ -1802,16 +1894,16 @@ fn refine_chord(
         return;
     }
     let s = 0.5 * (a.0 + b.0);
-    let Some(m) = field.at(s, w) else {
+    let Some(m) = line.at(s) else {
         return;
     };
     let chord = a.1.point + (b.1.point - a.1.point) * 0.5;
     if chord.distance(m.point) <= tolerance {
         return;
     }
-    refine_chord(field, w, a, (s, m), tolerance, depth + 1, out);
+    refine_chord(line, a, (s, m), tolerance, depth + 1, out);
     out.push((s, Some(m)));
-    refine_chord(field, w, (s, m), b, tolerance, depth + 1, out);
+    refine_chord(line, (s, m), b, tolerance, depth + 1, out);
 }
 
 /// The smoothed angle at each base sample.
@@ -1934,9 +2026,8 @@ fn phi_at(base: &[(f64, Option<SurfacePoint>)], phi: &[Option<f64>], s: f64) -> 
 /// middle or quarter points, by placing the tool between its ends; a move
 /// that still cuts in after [`MAX_DEPTH`] halvings is broken.
 fn refine_moves(
-    field: &Field<'_>,
+    line: &dyn PassLine,
     tooling: &Tooling<'_>,
-    w: f64,
     base: &[(f64, Option<SurfacePoint>)],
     phi: &[Option<f64>],
     samples: Vec<Sample>,
@@ -1944,7 +2035,7 @@ fn refine_moves(
     let mut out: Vec<Sample> = Vec::with_capacity(samples.len());
     for sample in samples {
         if let (Some(Sample::Cut(a)), Sample::Cut(b)) = (out.last().copied(), sample) {
-            split_move(field, tooling, w, base, phi, a, b, 0, &mut out);
+            split_move(line, tooling, base, phi, a, b, 0, &mut out);
         }
         out.push(sample);
     }
@@ -1953,9 +2044,8 @@ fn refine_moves(
 
 #[allow(clippy::too_many_arguments)]
 fn split_move(
-    field: &Field<'_>,
+    line: &dyn PassLine,
     tooling: &Tooling<'_>,
-    w: f64,
     base: &[(f64, Option<SurfacePoint>)],
     phi: &[Option<f64>],
     a: Pose,
@@ -1975,16 +2065,16 @@ fn split_move(
         return;
     }
     let s = 0.5 * (a.s + b.s);
-    let (Some(sp), Some(angle)) = (field.at(s, w), phi_at(base, phi, s)) else {
+    let (Some(sp), Some(angle)) = (line.at(s), phi_at(base, phi, s)) else {
         out.push(Sample::Skipped);
         return;
     };
     let middle = tooling.place(s, sp.point, sp.normal.get(), angle);
     match middle {
         Sample::Cut(m) => {
-            split_move(field, tooling, w, base, phi, a, m, depth + 1, out);
+            split_move(line, tooling, base, phi, a, m, depth + 1, out);
             out.push(middle);
-            split_move(field, tooling, w, base, phi, m, b, depth + 1, out);
+            split_move(line, tooling, base, phi, m, b, depth + 1, out);
         }
         other => out.push(other),
     }
@@ -2011,12 +2101,18 @@ struct Stretch {
 struct FaceCut {
     id: FaceId,
     passes: Vec<Vec<Vec<CutPoint>>>,
+    /// The runs in cutting order, already directed, when Meander stays down
+    /// between passes; `None` when the passes are directed and linked one
+    /// by one.
+    joined: Option<Vec<Vec<CutPoint>>>,
     stretches: Vec<Stretch>,
     guide_edges: Vec<EdgeId>,
     guide_length: f64,
     point_opposite: bool,
     dropped_short: usize,
     spacing: f64,
+    /// Cut along the face's outline rather than from its guide.
+    outline: bool,
 }
 
 #[allow(clippy::too_many_lines)]
@@ -2096,6 +2192,7 @@ fn face_flow(
         })
         .collect::<Result<_>>()?;
     let mut fields = Vec::with_capacity(exact.len());
+    let mut closures = Vec::with_capacity(exact.len());
     for (id, face) in &exact {
         context.check_cancelled()?;
         let brep = model.faces.get(id.0 as usize).ok_or_else(|| {
@@ -2107,6 +2204,7 @@ fn face_flow(
         let closed = closure(model, brep, face);
         let b = boundaries(model, brep, &guide, &closed, face)?;
         fields.push(field(model, *id, face, b, &closed)?);
+        closures.push(closed);
     }
     let order = face_order(model, &fields);
     let total = fields.len();
@@ -2117,10 +2215,47 @@ fn face_flow(
         let Some(f) = fields.get(*index) else {
             continue;
         };
-        cuts.push(cut_face(f, &tooling, &profile, context)?);
+        let (Some(closed), Some(brep)) = (closures.get(*index), model.faces.get(f.id.0 as usize))
+        else {
+            continue;
+        };
+        let along_outline = match settings.pattern {
+            Pattern::AlongGuide => false,
+            Pattern::Outline => true,
+            Pattern::Automatic => notched(f, closed),
+        };
+        cuts.push(if along_outline {
+            outline::cut_outline(model, brep, f.id, f.face, closed, &tooling, &profile, context)?
+        } else {
+            cut_face(f, &tooling, &profile, context)?
+        });
     }
     context.report("face-flow finishing", total as u64, Some(total as u64));
     assemble(cuts, &tooling, input, context)
+}
+
+/// Whether the passes from a face's guide would leave it in places (its
+/// outline has notches or fingers the blend between its guide and the
+/// opposite boundary runs across), so Automatic follows its outline instead
+/// (the owner's answer of 23 Nov 2026 to Q1). A face that closes round on
+/// itself keeps its rings.
+fn notched(f: &Field<'_>, closed: &Closure) -> bool {
+    if closed.period.iter().any(Option::is_some) {
+        return false;
+    }
+    const N: usize = 40;
+    let mut off = 0;
+    let mut all = 0;
+    for i in 1..N {
+        for j in 1..N {
+            let (s, w) = (i as f64 / N as f64, j as f64 / N as f64);
+            all += 1;
+            if f.at(s, w).is_none() {
+                off += 1;
+            }
+        }
+    }
+    off * 50 > all
 }
 
 /// The order the faces are cut in (decision 0525 D2): the face with the
@@ -2178,6 +2313,8 @@ fn cut_face(
     let weights = weights(&across, &tooling.settings, f.id)?;
     let diameter = 2.0 * profile.cutting_radius();
     let mut passes: Vec<Vec<Vec<CutPoint>>> = Vec::with_capacity(weights.len());
+    // Each kept pass's weight and its runs' spans along it.
+    let mut kept: Vec<(f64, Vec<(f64, f64)>)> = Vec::with_capacity(weights.len());
     let mut stretches: Vec<Stretch> = Vec::new();
     let mut dropped_short = 0;
     let point_opposite = matches!(f.boundaries.opposite, Opposite::Point(_));
@@ -2194,7 +2331,7 @@ fn cut_face(
         .fold(0.0, f64::max);
     for (k, &w) in weights.iter().enumerate() {
         context.check_cancelled()?;
-        let samples = pass_samples(f, tooling, w);
+        let samples = pass_samples(&Blend { field: f, w }, tooling);
         // A pass towards a point opposite shorter than the tool is left out:
         // on a face that closes round, a ring by its length round (its ends
         // meet); otherwise by the distance between its ends.
@@ -2223,79 +2360,267 @@ fn cut_face(
         let below = gap(k.checked_sub(1)).map_or(0.0, |x| w - x);
         let above = gap(Some(k + 1)).map_or(0.0, |x| x - w);
         let share = 0.5 * (below + above);
-        let mut runs: Vec<Vec<CutPoint>> = Vec::new();
-        let mut run: Vec<CutPoint> = Vec::new();
-        let mut blocked: Vec<(Point3, f64, f64)> = Vec::new();
-        let flush_blocked = |blocked: &mut Vec<(Point3, f64, f64)>,
-                             stretches: &mut Vec<Stretch>| {
-            if blocked.is_empty() {
-                return;
-            }
-            let pts: Vec<Point3> = blocked.iter().map(|b| b.0).collect();
-            let length = Curve::new(pts.clone()).length();
-            let (s0, s1) = (
-                blocked.first().map_or(0.0, |b| b.2),
-                blocked.last().map_or(0.0, |b| b.2),
-            );
-            let mid = 0.5 * (s0 + s1);
-            let width = across.width(mid);
-            // Its width across: the share of the face's width it stands for.
-            let reason = if width < diameter {
-                UnreachedReason::TooNarrow
-            } else {
-                UnreachedReason::Blocked
-            };
-            stretches.push(Stretch {
-                face: f.id,
-                pass: k,
-                s: (s0, s1),
-                points: pts,
-                a: blocked.iter().map(|b| b.1).collect(),
-                reason,
-                area: length.max(SAMPLE_SPACING) * share * width,
-            });
-            blocked.clear();
-        };
-        for sample in samples {
-            match sample {
-                Sample::Cut(pose) => {
-                    flush_blocked(&mut blocked, &mut stretches);
-                    run.push(pose.point);
-                }
-                Sample::Blocked { point, a, s } => {
-                    if run.len() >= 2 {
-                        runs.push(std::mem::take(&mut run));
-                    } else {
-                        run.clear();
-                    }
-                    blocked.push((point, a, s));
-                }
-                Sample::Skipped => {
-                    flush_blocked(&mut blocked, &mut stretches);
-                    if run.len() >= 2 {
-                        runs.push(std::mem::take(&mut run));
-                    } else {
-                        run.clear();
-                    }
-                }
-            }
-        }
-        flush_blocked(&mut blocked, &mut stretches);
-        if run.len() >= 2 {
-            runs.push(run);
-        }
+        let (runs, spans) = split_runs(
+            samples,
+            f.id,
+            k,
+            share,
+            &|s| across.width(s),
+            diameter,
+            &mut stretches,
+        );
+        kept.push((w, spans));
         passes.push(runs);
     }
+    // With Meander and Stay down between passes, the runs are joined across
+    // the passes' ends by steps along the face, where clear (the owner's
+    // answer of 23 Nov 2026 to Q2).
+    let joined = (tooling.settings.direction == Direction::Meander && tooling.settings.stay_down)
+        .then(|| join_meander(f, tooling, &passes, &kept));
     Ok(FaceCut {
         id: f.id,
         passes,
+        joined,
         stretches,
         guide_edges: f.boundaries.guide_edges.clone(),
         guide_length: f.boundaries.guide.length(),
         point_opposite,
         dropped_short,
         spacing,
+        outline: false,
     })
+}
+
+/// A pass's samples split into runs (stretches of at least two points the
+/// tool cuts without lifting), with where each starts and ends along the
+/// pass, and its unreached stretches added to `stretches`: too narrow where
+/// the face there (`width` at the stretch's middle) is narrower than the
+/// tool, blocked otherwise, each standing for `share` of the face across.
+fn split_runs(
+    samples: Vec<Sample>,
+    face: FaceId,
+    k: usize,
+    share: f64,
+    width: &dyn Fn(f64) -> f64,
+    diameter: f64,
+    stretches: &mut Vec<Stretch>,
+) -> (Vec<Vec<CutPoint>>, Vec<(f64, f64)>) {
+    let mut runs: Vec<Vec<CutPoint>> = Vec::new();
+    let mut run: Vec<CutPoint> = Vec::new();
+    // Where along the pass each run starts and ends.
+    let mut spans: Vec<(f64, f64)> = Vec::new();
+    let mut run_s: (f64, f64) = (0.0, 0.0);
+    let mut blocked: Vec<(Point3, f64, f64)> = Vec::new();
+    let flush_blocked = |blocked: &mut Vec<(Point3, f64, f64)>, stretches: &mut Vec<Stretch>| {
+        if blocked.is_empty() {
+            return;
+        }
+        let pts: Vec<Point3> = blocked.iter().map(|b| b.0).collect();
+        let length = Curve::new(pts.clone()).length();
+        let (s0, s1) = (
+            blocked.first().map_or(0.0, |b| b.2),
+            blocked.last().map_or(0.0, |b| b.2),
+        );
+        let across = width(0.5 * (s0 + s1));
+        let reason = if across < diameter {
+            UnreachedReason::TooNarrow
+        } else {
+            UnreachedReason::Blocked
+        };
+        stretches.push(Stretch {
+            face,
+            pass: k,
+            s: (s0, s1),
+            points: pts,
+            a: blocked.iter().map(|b| b.1).collect(),
+            reason,
+            area: length.max(SAMPLE_SPACING) * share * across,
+        });
+        blocked.clear();
+    };
+    for sample in samples {
+        match sample {
+            Sample::Cut(pose) => {
+                flush_blocked(&mut blocked, stretches);
+                if run.is_empty() {
+                    run_s.0 = pose.s;
+                }
+                run_s.1 = pose.s;
+                run.push(pose.point);
+            }
+            Sample::Blocked { point, a, s } => {
+                if run.len() >= 2 {
+                    runs.push(std::mem::take(&mut run));
+                    spans.push(run_s);
+                } else {
+                    run.clear();
+                }
+                blocked.push((point, a, s));
+            }
+            Sample::Skipped => {
+                flush_blocked(&mut blocked, stretches);
+                if run.len() >= 2 {
+                    runs.push(std::mem::take(&mut run));
+                    spans.push(run_s);
+                } else {
+                    run.clear();
+                }
+            }
+        }
+    }
+    flush_blocked(&mut blocked, stretches);
+    if run.len() >= 2 {
+        runs.push(run);
+        spans.push(run_s);
+    }
+    (runs, spans)
+}
+
+/// The runs of a face's passes in meander order, each pass after the first
+/// reversed in turn, with the end of one pass joined to the start of the
+/// next by a step along the face where [`step`] finds it clear. A run that
+/// does not reach the end of its pass, or whose next pass does not start at
+/// that end, is not joined: the tool lifts there as before.
+fn join_meander(
+    f: &Field<'_>,
+    tooling: &Tooling<'_>,
+    passes: &[Vec<Vec<CutPoint>>],
+    kept: &[(f64, Vec<(f64, f64)>)],
+) -> Vec<Vec<CutPoint>> {
+    let mut out: Vec<Vec<CutPoint>> = Vec::new();
+    let mut forward = true;
+    // The weight and guide fraction where the last pass's last run ended,
+    // when that is an end of the pass.
+    let mut open: Option<(f64, f64)> = None;
+    for (runs, (w, spans)) in passes.iter().zip(kept) {
+        if runs.is_empty() {
+            open = None;
+            continue;
+        }
+        let mut pass: Vec<(Vec<CutPoint>, (f64, f64))> =
+            runs.iter().cloned().zip(spans.iter().copied()).collect();
+        if !forward {
+            pass.reverse();
+            for (points, span) in &mut pass {
+                points.reverse();
+                *span = (span.1, span.0);
+            }
+        }
+        let last = pass.len().saturating_sub(1);
+        for (i, (points, (s0, s1))) in pass.into_iter().enumerate() {
+            let steps = match (i, open, out.last().and_then(|r| r.last()), points.first()) {
+                (0, Some((w0, s)), Some(a), Some(b)) if (s0 - s).abs() < 1e-12 => {
+                    step(f, tooling, (w0, *w), s, a, b)
+                }
+                _ => None,
+            };
+            match (steps, out.last_mut()) {
+                (Some(steps), Some(run)) => {
+                    run.extend(steps);
+                    run.extend(points);
+                }
+                _ => out.push(points),
+            }
+            if i == last {
+                open = (s1 <= 0.0 || s1 >= 1.0).then_some((*w, s1));
+            }
+        }
+        forward = !forward;
+    }
+    out
+}
+
+/// The pass end of a field at guide fraction `s`, from weight `w0` to `w1`:
+/// the line a step between two meander passes follows.
+struct EndStep<'a, 'f> {
+    field: &'a Field<'f>,
+    s: f64,
+    w0: f64,
+    w1: f64,
+}
+
+impl PassLine for EndStep<'_, '_> {
+    fn m(&self) -> usize {
+        1
+    }
+
+    fn at(&self, t: f64) -> Option<SurfacePoint> {
+        self.field.at(self.s, self.w0 + (self.w1 - self.w0) * t)
+    }
+}
+
+/// The points of a step along the face at guide fraction `s` (an end of the
+/// passes) from weight `ws.0`, where the run ends at `a`, to `ws.1`, where
+/// the next starts at `b`; `None` where the tool should lift instead.
+fn step(
+    f: &Field<'_>,
+    tooling: &Tooling<'_>,
+    ws: (f64, f64),
+    s: f64,
+    a: &CutPoint,
+    b: &CutPoint,
+) -> Option<Vec<CutPoint>> {
+    let line = EndStep {
+        field: f,
+        s,
+        w0: ws.0,
+        w1: ws.1,
+    };
+    step_on(&line, tooling, s, a, b)
+}
+
+/// The points of a step from `a` to `b` along `line` (taken from 0 at `a`
+/// to 1 at `b`); `None` where the tool should lift instead: the step is
+/// longer than twice the stepover, leaves the face, needs the tool to tilt
+/// beyond Maximum tilt, is lifted by the part (a wall in the way), or a move
+/// of it would cut into the part. A goes linearly from `a`'s to `b`'s; each
+/// point is placed by the same drop on the whole part as the passes, and
+/// every move is checked at its quarter and middle points (decisions 0115
+/// and 0133). `label` is the fraction recorded with the points.
+fn step_on(
+    line: &dyn PassLine,
+    tooling: &Tooling<'_>,
+    label: f64,
+    a: &CutPoint,
+    b: &CutPoint,
+) -> Option<Vec<CutPoint>> {
+    let settings = tooling.settings;
+    let reach = 2.0 * settings.stepover;
+    let span = a.contact.distance(b.contact);
+    if span > reach {
+        return None;
+    }
+    let n = ((span / SAMPLE_SPACING).ceil() as usize).max(1);
+    let end_a = nearest_turn(b.a, a.a);
+    let mut out: Vec<CutPoint> = Vec::with_capacity(n);
+    let mut prev = *a;
+    let mut length = 0.0;
+    for i in 1..n {
+        let t = i as f64 / n as f64;
+        let sp = line.at(t)?;
+        let deg = a.a.0 + (end_a.0 - a.a.0) * t;
+        let phi = 90.0 - deg / tooling.sense;
+        let normal = sp.normal.get();
+        let target = polar(normal)?;
+        if (near(target, phi) - phi).abs() > settings.tilt + settings.lead.abs() + 1e-9 {
+            return None;
+        }
+        let Sample::Cut(pose) = tooling.place(label, sp.point, normal, phi) else {
+            return None;
+        };
+        let point = pose.point;
+        if tooling.move_error(&prev, &point) > settings.tolerance {
+            return None;
+        }
+        length += prev.contact.distance(point.contact);
+        out.push(point);
+        prev = point;
+    }
+    if tooling.move_error(&prev, b) > settings.tolerance {
+        return None;
+    }
+    length += prev.contact.distance(b.contact);
+    (length <= reach + settings.tolerance).then_some(out)
 }
 
 /// Whether the uncut material, towards `next`, is on the tool's right
@@ -2343,10 +2668,16 @@ fn assemble(
         let geometric = cut.passes.len();
         let reaching = cut.passes.iter().filter(|runs| !runs.is_empty()).count();
         cutting += reaching;
-        // Directions (decision 0525 D1).
+        // Directions (decision 0525 D1), unless Meander already joined the
+        // runs in their cutting order.
         let centres: Vec<Option<Point3>> = cut.passes.iter().map(|p| centre(p)).collect();
         let mut forward = true;
-        for k in 0..cut.passes.len() {
+        let directed = if cut.joined.is_some() {
+            0
+        } else {
+            cut.passes.len()
+        };
+        for k in 0..directed {
             let here = centres.get(k).copied().flatten();
             let towards = centres
                 .get(k + 1..)
@@ -2388,6 +2719,27 @@ fn assemble(
                 }
             }
         }
+        if cut.outline {
+            face_notes.push(format!(
+                "face {} follows its outline, edges {} ({:.1} mm long), inwards in {} up to {:.3} \
+                 mm apart along the face",
+                cut.id.0,
+                list(cut.guide_edges.iter().map(|e| e.0)),
+                cut.guide_length,
+                crate::counted(geometric, "pass", "passes"),
+                cut.spacing
+            ));
+            let runs = cut.joined.take().unwrap_or_default();
+            for points in runs {
+                out_passes.push(Pass {
+                    low_link: !out_passes.is_empty(),
+                    points,
+                    ..Pass::default()
+                });
+            }
+            stretches.append(&mut cut.stretches);
+            continue;
+        }
         let edges = list(cut.guide_edges.iter().map(|e| e.0));
         let plural = if cut.guide_edges.len() == 1 { "" } else { "s" };
         let towards = if cut.point_opposite {
@@ -2418,14 +2770,16 @@ fn assemble(
             ));
         }
         face_notes.push(note);
-        for runs in cut.passes {
-            for points in runs {
-                out_passes.push(Pass {
-                    low_link: !out_passes.is_empty(),
-                    points,
-                    ..Pass::default()
-                });
-            }
+        let runs: Vec<Vec<CutPoint>> = match cut.joined.take() {
+            Some(joined) => joined,
+            None => cut.passes.into_iter().flatten().collect(),
+        };
+        for points in runs {
+            out_passes.push(Pass {
+                low_link: !out_passes.is_empty(),
+                points,
+                ..Pass::default()
+            });
         }
         stretches.append(&mut cut.stretches);
     }

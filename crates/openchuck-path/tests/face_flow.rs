@@ -49,6 +49,13 @@ fn text(s: &str) -> openchuck_path::ParameterValue {
     openchuck_path::ParameterValue::Text(s.to_owned())
 }
 
+fn flag(b: bool) -> openchuck_path::ParameterValue {
+    openchuck_path::ParameterValue::Flag(b)
+}
+
+/// The operation's values. The tests of the passes themselves (their
+/// geometry, spacing and order) set Stay down between passes off, so each
+/// pass is its own run; the stay-down tests turn it on.
 fn values(
     stepover: f64,
     extra: &[(&str, openchuck_path::ParameterValue)],
@@ -62,6 +69,7 @@ fn values(
     .into_iter()
     .map(|(k, x)| (k.to_owned(), num(x)))
     .collect();
+    v.insert(p::STAY_DOWN.to_owned(), flag(false));
     for (k, x) in extra {
         v.insert((*k).to_owned(), x.clone());
     }
@@ -414,6 +422,23 @@ fn channel(half: f64) -> BrepModel {
         EdgeId(2),
     );
     b.model
+}
+
+/// As [`channel`], with a third wall across the floor's end at X 30 (on its
+/// edge 1), facing -X.
+fn channel_with_end_wall(half: f64) -> BrepModel {
+    let mut model = channel(half);
+    let mut b = Builder { model };
+    wall(
+        &mut b,
+        p3(30.0, -half, 10.0),
+        p3(30.0, half, 10.0),
+        6.0,
+        Vec3::new(-1.0, 0.0, 0.0),
+        EdgeId(1),
+    );
+    model = b.model;
+    model
 }
 
 // ---- running the strategy ---------------------------------------------------------
@@ -1811,4 +1836,307 @@ fn req_op_28_req_nfr_07_the_summary_counts_the_passes_the_face_note_says_cut() {
         .map(|p| (middle(p).y * 1000.0).round() as i64)
         .collect();
     assert_eq!(lines.len(), cut, "{summary}");
+}
+
+// ---- stay down between passes (the owner's Q2 of 23 Nov 2026) -------------------------
+
+/// The length of each move of `pass`, by its contacts.
+fn steps_of(pass: &Pass) -> Vec<f64> {
+    pass.points
+        .windows(2)
+        .map(|w| w[0].contact.distance(w[1].contact))
+        .collect()
+}
+
+#[test]
+fn req_op_28_req_op_14_meander_passes_stay_down_on_the_face() {
+    let (model, height) = twisted(30.0, 6.0, [10.0, 12.0, 11.0, 10.0]);
+    let rig = Rig::new(model, &ball(6.0));
+    let stepover = 0.8;
+    let apart = rig.passes(&[0], &[], &values(stepover, &[]));
+    let joined = rig.passes(&[0], &[], &values(stepover, &[(p::STAY_DOWN, flag(true))]));
+    // One run: the tool lifts only at the end.
+    assert!(apart.len() >= 15, "{} passes", apart.len());
+    assert_eq!(joined.len(), 1, "{} runs", joined.len());
+    // Every point of the run, the steps' too, is on the face.
+    for c in &joined[0].points {
+        let q = c.contact;
+        assert!(
+            (q.z - height(q.x, q.y)).abs() < 0.005,
+            "{q:?} is off the face"
+        );
+        assert!(
+            q.x > -1e-6 && q.x < 30.0 + 1e-6 && q.y.abs() < 6.0 + 1e-6,
+            "{q:?}"
+        );
+    }
+    // The passes are all there, in the same places; between them only steps
+    // along the face's ends, no longer than the stepover allows.
+    let total: usize = apart.iter().map(|p| p.points.len()).sum();
+    assert!(
+        joined[0].points.len() > total,
+        "{} points",
+        joined[0].points.len()
+    );
+    for p in &apart {
+        for c in &p.points {
+            assert!(
+                joined[0]
+                    .points
+                    .iter()
+                    .any(|j| j.contact.distance(c.contact) < 1e-9),
+                "a pass point {:?} is missing",
+                c.contact
+            );
+        }
+    }
+    let longest = steps_of(&joined[0]).into_iter().fold(0.0, f64::max);
+    assert!(longest <= 2.0 * stepover + 0.01, "a move of {longest} mm");
+    // The steps run along the face's ends, X 0 and X 30.
+    let at_ends = joined[0]
+        .points
+        .iter()
+        .filter(|c| c.contact.x < 1e-3 || c.contact.x > 30.0 - 1e-3)
+        .count();
+    assert!(
+        at_ends >= 2 * (apart.len() - 1),
+        "{at_ends} points at the ends"
+    );
+}
+
+#[test]
+fn req_op_28_req_op_14_climb_and_conventional_lift_between_passes() {
+    // Their passes all run the same way, so a pass ends where the next does
+    // not start: there is no step to make.
+    let (model, _) = twisted(30.0, 6.0, [10.0, 12.0, 11.0, 10.0]);
+    let rig = Rig::new(model, &ball(6.0));
+    for direction in [p::CLIMB, p::CONVENTIONAL] {
+        let off = rig.passes(&[0], &[], &values(0.8, &[(p::DIRECTION, text(direction))]));
+        let on = rig.passes(
+            &[0],
+            &[],
+            &values(
+                0.8,
+                &[(p::DIRECTION, text(direction)), (p::STAY_DOWN, flag(true))],
+            ),
+        );
+        assert_eq!(off, on, "{direction}");
+    }
+}
+
+/// Checks the ball's centre stays out of the channel's floor and walls at
+/// every point and at the middle and quarter points of every move.
+fn check_channel(rig: &Rig, passes: &[Pass], half: f64, end_wall: bool) {
+    let tol = 0.005;
+    let check = |c: &CutPoint| {
+        let o = centre_of(rig, c, 3.0);
+        assert!(o.z - 10.0 >= 3.0 - tol, "into the floor at {o:?}");
+        if o.z < 16.0 + 3.0 {
+            assert!(o.y.abs() <= half - 3.0 + tol, "into a wall at {o:?}");
+            if end_wall {
+                assert!(o.x <= 30.0 - 3.0 + tol, "into the end wall at {o:?}");
+            }
+        }
+    };
+    for pass in passes {
+        for c in &pass.points {
+            check(c);
+        }
+        for w in pass.points.windows(2) {
+            for f in [0.25, 0.5, 0.75] {
+                check(&between(rig, &w[0], &w[1], f));
+            }
+        }
+    }
+}
+
+#[test]
+fn req_op_28_req_op_12_staying_down_between_walls_never_gouges() {
+    let half = 4.0;
+    let rig = Rig::new(channel(half), &ball(6.0));
+    let on = values(0.5, &[(p::STAY_DOWN, flag(true))]);
+    let joined = rig.passes(&[0], &[], &on);
+    // The open ends at X 0 and 30 are clear, so the passes that cut join.
+    assert_eq!(joined.len(), 1, "{} runs", joined.len());
+    check_channel(&rig, &joined, half, false);
+}
+
+#[test]
+fn req_op_28_req_op_12_a_wall_at_a_pass_end_makes_the_tool_lift_there() {
+    // With a wall across the end at X 30, no pass reaches that end, so
+    // there the tool lifts; at the open end, X 0, it stays down.
+    let half = 4.0;
+    let rig = Rig::new(channel_with_end_wall(half), &ball(6.0));
+    let apart = rig.passes(&[0], &[], &values(0.5, &[]));
+    let joined = rig.passes(&[0], &[], &values(0.5, &[(p::STAY_DOWN, flag(true))]));
+    let n = apart.len();
+    assert!(n >= 3, "{n} passes");
+    // The first pass runs from X 0 towards the wall, so the joins at X 0 are
+    // after the second pass, the fourth, and so on.
+    assert_eq!(
+        joined.len(),
+        n - (n - 1) / 2,
+        "{} runs of {n} passes",
+        joined.len()
+    );
+    check_channel(&rig, &joined, half, true);
+}
+
+#[test]
+fn req_op_28_req_gc_07_staying_down_is_the_same_at_1_2_and_n_threads() {
+    let rig = Rig::new(channel(4.0), &ball(6.0));
+    let strategy = rig.strategy(&[0], &[]);
+    let v = values(0.5, &[(p::STAY_DOWN, flag(true))]);
+    let runs = openchuck_testkit::determinism::check(|| {
+        let path = run(|ctx| openchuck_path::generate(&strategy, &rig.input(), &v, ctx)).unwrap();
+        format!("{:?} {:?} {:?}", path.group, path.notices, path.unreached).into_bytes()
+    })
+    .unwrap();
+    assert_eq!(runs.len(), 4);
+}
+
+// ---- follow the outline (the owner's Q1 of 23 Nov 2026: the pattern is automatic) ----
+
+/// A flat comb at Z 10: a base from X 0 to 30, Y -10 to -2, with two fingers
+/// 5 mm wide reaching to Y 10 (X 5 to 10 and X 20 to 25), as the blisk's
+/// outer face's lands are fingers of its rim. Its outline, counter-clockwise.
+const COMB: [(f64, f64); 12] = [
+    (0.0, -10.0),
+    (30.0, -10.0),
+    (30.0, -2.0),
+    (25.0, -2.0),
+    (25.0, 10.0),
+    (20.0, 10.0),
+    (20.0, -2.0),
+    (10.0, -2.0),
+    (10.0, 10.0),
+    (5.0, 10.0),
+    (5.0, -2.0),
+    (0.0, -2.0),
+];
+
+fn comb() -> BrepModel {
+    let mut b = Builder::default();
+    flat(&mut b, 10.0, &COMB, &[]);
+    b.model
+}
+
+/// The distance from (x, y) to the comb's outline.
+fn to_comb_outline(x: f64, y: f64) -> f64 {
+    let outline: Vec<Point3> = COMB
+        .iter()
+        .chain(COMB.first())
+        .map(|&(u, v)| p3(u, v, 10.0))
+        .collect();
+    to_polyline(p3(x, y, 10.0), &outline)
+}
+
+#[test]
+fn req_op_28_a_face_with_fingers_is_cut_along_its_outline_in_few_runs() {
+    let rig = Rig::new(comb(), &ball(3.0));
+    let stepover = 0.8;
+    let v = values(stepover, &[(p::STAY_DOWN, flag(true))]);
+    let out = rig
+        .output(&rig.strategy(&[0], &[]), &v)
+        .unwrap_or_else(|e| panic!("refused: {e}"));
+    let notes = out.notes().join("\n");
+    assert!(notes.contains("follows its outline"), "{notes}");
+    // Every contact is on the face.
+    let all: Vec<Point3> = out.passes.iter().flat_map(contacts).collect();
+    for q in &all {
+        assert!((q.z - 10.0).abs() < 1e-6, "{q:?}");
+        assert!(inside_polygon(&COMB, q.x, q.y) || to_comb_outline(q.x, q.y) < 0.01, "{q:?} is off the face");
+    }
+    // The face is covered: every point of it is within a stepover of a
+    // contact (where offsets from both sides meet, the last pass can be up
+    // to a stepover from the middle), the fingers' tips too.
+    let mut worst: f64 = 0.0;
+    for i in 0..=60 {
+        for j in 0..=40 {
+            let (x, y) = (30.0 * f64::from(i) / 60.0, -10.0 + 20.0 * f64::from(j) / 40.0);
+            if !inside_polygon(&COMB, x, y) {
+                continue;
+            }
+            let d = all
+                .iter()
+                .map(|q| (q.x - x).hypot(q.y - y))
+                .fold(f64::INFINITY, f64::min);
+            worst = worst.max(d);
+        }
+    }
+    assert!(worst <= stepover + 0.1, "a point {worst} mm from the nearest contact");
+    // The first pass follows the outline, round the fingers and their tips.
+    let first = contacts(&out.passes[0]);
+    assert!(first.iter().filter(|q| q.y > 9.9).count() >= 10, "the fingers' tips are not followed");
+    // Few runs: the tool stays down from one offset to the next where it can.
+    assert!(out.passes.len() <= 4, "{} runs", out.passes.len());
+    // Along the guide, the same face's passes break at the notches.
+    let blend = rig.passes(
+        &[0],
+        &[],
+        &values(stepover, &[(p::STAY_DOWN, flag(true)), (p::PATTERN, text(p::ALONG_GUIDE))]),
+    );
+    assert!(blend.len() > 4 * out.passes.len(), "{} runs along the guide", blend.len());
+}
+
+#[test]
+fn req_op_28_a_plain_face_keeps_the_passes_along_its_guide() {
+    // Automatic keeps the guide's passes where they stay whole: the
+    // trapezoid's passes are as before.
+    let rig = Rig::new(trapezoid(), &ball(6.0));
+    let auto = rig.passes(&[0], &[], &values(0.7, &[]));
+    let guide = rig.passes(&[0], &[], &values(0.7, &[(p::PATTERN, text(p::ALONG_GUIDE))]));
+    assert_eq!(auto, guide);
+    let full = rig.passes(&[0], &[], &values(0.7, &[(p::PATTERN, text(p::AUTOMATIC))]));
+    assert_eq!(auto, full);
+    // A full cylinder keeps its rings.
+    let rig = Rig::new(full_cylinder(10.0, 20.0), &ball(6.0));
+    let notes = rig
+        .output(&rig.strategy(&[0], &[]), &values(1.0, &[]))
+        .unwrap()
+        .notes()
+        .join("\n");
+    assert!(notes.contains("is cut from its guide"), "{notes}");
+}
+
+#[test]
+fn req_op_28_follow_the_outline_offsets_a_rectangle_inwards_at_the_stepover() {
+    // Chosen by the user on a plain rectangle: closed loops, each the
+    // stepover inside the last, measured on the face.
+    let mut b = Builder::default();
+    flat(&mut b, 10.0, &[(0.0, 0.0), (20.0, 0.0), (20.0, 12.0), (0.0, 12.0)], &[]);
+    let rig = Rig::new(b.model, &ball(3.0));
+    let stepover = 1.0;
+    let passes = rig.passes(&[0], &[], &values(stepover, &[(p::PATTERN, text(p::OUTLINE))]));
+    // Each pass is a loop at a constant distance from the outline.
+    let edge = |q: &Point3| q.x.min(20.0 - q.x).min(q.y).min(12.0 - q.y);
+    let mut levels: Vec<f64> = Vec::new();
+    for pass in &passes {
+        let c = contacts(pass);
+        let d: Vec<f64> = c.iter().map(edge).collect();
+        let lo = d.iter().copied().fold(f64::INFINITY, f64::min);
+        // Away from the corners every point of a loop is at its level.
+        let mid = d.iter().filter(|x| (*x - lo).abs() < 0.12).count();
+        assert!(mid * 10 >= d.len() * 8, "a loop strays from its level");
+        levels.push(lo);
+    }
+    levels.sort_by(f64::total_cmp);
+    assert!(levels[0] < 0.05, "{levels:?}");
+    for w in levels.windows(2) {
+        assert!(w[1] - w[0] <= stepover * 1.05 + 0.1 && w[1] - w[0] > 0.5 * stepover, "{levels:?}");
+    }
+    assert!(*levels.last().unwrap() > 5.0 - stepover, "{levels:?}");
+}
+
+#[test]
+fn req_op_28_req_gc_07_following_the_outline_is_the_same_at_1_2_and_n_threads() {
+    let rig = Rig::new(comb(), &ball(3.0));
+    let strategy = rig.strategy(&[0], &[]);
+    let v = values(0.8, &[(p::STAY_DOWN, flag(true))]);
+    let runs = openchuck_testkit::determinism::check(|| {
+        let path = run(|ctx| openchuck_path::generate(&strategy, &rig.input(), &v, ctx)).unwrap();
+        format!("{:?} {:?} {:?}", path.group, path.notices, path.unreached).into_bytes()
+    })
+    .unwrap();
+    assert_eq!(runs.len(), 4);
 }
