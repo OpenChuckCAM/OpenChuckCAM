@@ -10,4 +10,6 @@ window = "1920x1080"
 # them shows, and tooltips, which show only on hover. Reviewed again at the merge of main 90a1fe0 into it, 8abdda7
 # (23 Nov 2026): main had been reviewed at d763edf, and its changes since are a warning for a machine library copy
 # with confirmed marks and a refusal of some Facing on a STEP part; the tutorial uses the built-in Z1 and an STL part.
-reviewed_at = "8abdda706dfb9902a8202c8b847d0ede519adf60"
+# Reviewed again at 1c661f1 (23 Nov 2026), the answers to review: warning words, a tooltip and where a warning
+# shows, none of which these screens show.
+reviewed_at = "1c661f1ff54c2c2ff57facce137581e3bbd50b64"
