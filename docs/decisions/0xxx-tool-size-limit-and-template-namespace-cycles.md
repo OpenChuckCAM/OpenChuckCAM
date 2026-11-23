@@ -25,11 +25,15 @@ Issue #582 (sev3): the STEP mutation program (`examples/step_mutations.rs`, [dec
 - **C: clamp to the limit.** This silently changes the user's tool, against NFR-07.
 - **D: fix only the fuzz target's arithmetic.** The tool stays accepted.
 
+![The (radius, height) half-plane of a tool profile. A real cutter of a few millimetres lies well inside the accepted square of 1000 mm by 1000 mm from the tip. The nightly fuzz input, one line to a radius of 7.8e307 mm, runs far outside it and is refused, naming the segment, the size and the limit.](0xxx-tool-size-limit.svg)
+
 **Item 2, a namespace that holds itself (#794).**
 
 - **A (recommended, built): free the namespaces after each render.** The post's template environment replaces the `namespace` function with one that calls the engine's own and records the namespace it makes. When the render ends, successfully or not, every key of every recorded namespace is set to `none` by a small generated template of `set` statements, the only way to change a namespace from outside the engine. That breaks every cycle, since namespaces are the only values a template can change. Because the cleanup must write `ns.key`, `namespace(...)` refuses a key that is not a name (ASCII letters, digits and `_`, not starting with a digit), with a template error naming the key. Such a key could only be read as `ns["a b"]`, and no built-in or example post uses one. Non-string keys were already dropped by the engine. The output text does not change. The code is in the crate's private `engine` module, so the public API does not change.
 - **B: turn the fuzz target's leak check off for this target**, document the bounded leak and report it upstream. This would also hide any future leak in our own code.
 - **C: report upstream only**, and leave the nightly job failing until the engine is fixed.
+
+![Before: after `{% set st.a = st %}` the namespace's key refers back to the namespace, so it is still held when the render ends and is never freed. After: when the render ends, or fails, every key of every namespace the render made is set to none, nothing refers to the namespace any more, and it is freed.](0xxx-namespace-cycle.svg)
 
 With A, the owner is still asked to report the cycle upstream (OI-xxxx). The lane cannot reach other repositories.
 
