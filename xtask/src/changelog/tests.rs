@@ -1033,3 +1033,72 @@ fn changelog_flow_a_file_name_git_would_quote_is_read_as_it_is() {
         "{problems:?}"
     );
 }
+
+// ------------------------------------------- follow-up #879, folded into the CI-fix push
+
+#[test]
+fn changelog_flow_a_commented_out_entry_is_not_an_entry() {
+    let text = notes(&[
+        "- **A.** One.",
+        "<!--",
+        "- **Hidden.** Not yet.",
+        "-->",
+        "- **B.** Two.",
+    ]);
+    assert_eq!(
+        development_entries(&text),
+        vec!["- **A.** One.", "- **B.** Two."]
+    );
+    assert!(!make(&text).contains("Hidden"));
+    let after = start_release(&text, "0.60.0").expect("drafted");
+    let dev = after
+        .get(after.find("## Development version").expect("dev")..)
+        .expect("dev");
+    assert!(
+        dev.contains("<!--") && dev.contains("- **Hidden.** Not yet.") && dev.contains("-->"),
+        "{dev}"
+    );
+    let new = after
+        .get(after.find("## 0.60.0").expect("new")..after.find("## 0.55.0").expect("old"))
+        .expect("new");
+    assert!(
+        new.contains("- **A.** One.") && new.contains("- **B.** Two.") && !new.contains("Hidden"),
+        "{new}"
+    );
+}
+
+#[test]
+fn changelog_flow_only_a_published_crates_deleted_changelog_is_ignored() {
+    let repo = Repo::new("moved-changelog");
+    repo.write(
+        "testdata/examples/sample/CHANGELOG.md",
+        "# The sample's history, long enough to move\n",
+    );
+    let base = repo.commit("example changelog");
+    repo.git(&[
+        "mv",
+        "testdata/examples/sample/CHANGELOG.md",
+        "testdata/archive-CHANGELOG.md",
+    ]);
+    repo.commit("move");
+    let problems = check_pr(repo.root(), &base, "HEAD", "").expect("check");
+    assert!(
+        problems
+            .iter()
+            .any(|p| p.contains("testdata/examples/sample/CHANGELOG.md")),
+        "{problems:?}"
+    );
+}
+
+#[test]
+fn changelog_flow_a_link_with_a_title_in_parentheses_is_rewritten() {
+    let out = make(&notes(&[
+        "- **Keys.** See [Keyboard](reference/keyboard.md (Keyboard reference)).",
+    ]));
+    assert!(
+        out.contains(
+            "[Keyboard](https://openchuck.cam/latest/reference/keyboard.html (Keyboard reference))"
+        ),
+        "{out}"
+    );
+}

@@ -103,6 +103,12 @@ fn entry_spans(lines: &[&str], start: usize, end: usize) -> Vec<(usize, usize)> 
     let mut spans = Vec::new();
     let mut i = start;
     while i < end {
+        // An HTML comment block is no entry, and nothing in it is one (a commented-out bullet stays
+        // in the Development version, with both of its comment markers).
+        if opens_comment(line(i)) {
+            i = comment_end(lines, i, end) + 1;
+            continue;
+        }
         if !is_bullet(line(i)) {
             i += 1;
             continue;
@@ -111,7 +117,7 @@ fn entry_spans(lines: &[&str], start: usize, end: usize) -> Vec<(usize, usize)> 
         i += 1;
         let mut last = i;
         while i < end {
-            if is_bullet(line(i)) {
+            if is_bullet(line(i)) || opens_comment(line(i)) {
                 break;
             }
             if is_blank(line(i)) {
@@ -131,6 +137,25 @@ fn entry_spans(lines: &[&str], start: usize, end: usize) -> Vec<(usize, usize)> 
         spans.push((first, last));
     }
     spans
+}
+
+/// Whether a line starts an HTML comment.
+fn opens_comment(line: &str) -> bool {
+    line.trim_start().starts_with("<!--")
+}
+
+/// The line on which the HTML comment opened on line `start` closes (`end - 1` if it never does).
+fn comment_end(lines: &[&str], start: usize, end: usize) -> usize {
+    let first = lines.get(start).copied().unwrap_or("");
+    let after_open = first
+        .find("<!--")
+        .map_or("", |at| first.get(at + 4..).unwrap_or(""));
+    if after_open.contains("-->") {
+        return start;
+    }
+    (start + 1..end)
+        .find(|&j| lines.get(j).is_some_and(|l| l.contains("-->")))
+        .unwrap_or(end.saturating_sub(1))
 }
 
 fn join(lines: &[&str], a: usize, b: usize) -> String {
@@ -247,7 +272,7 @@ fn rewrite_target(target: &str, guide: &str) -> String {
 }
 
 /// Whether `rest`, what follows a link's destination, closes the link: `)` at once, or a title in
-/// double or single quotes and then `)` (CommonMark), which is kept as it is.
+/// double quotes, single quotes or parentheses and then `)` (CommonMark), which is kept as it is.
 fn link_end(rest: &str) -> bool {
     if rest.starts_with(')') {
         return true;
@@ -256,12 +281,17 @@ fn link_end(rest: &str) -> bool {
     if title.len() == rest.len() {
         return false;
     }
-    let Some(quote) = title.chars().next().filter(|c| matches!(c, '"' | '\'')) else {
+    let Some(close) = title.chars().next().and_then(|c| match c {
+        '"' => Some('"'),
+        '\'' => Some('\''),
+        '(' => Some(')'),
+        _ => None,
+    }) else {
         return false;
     };
     let after_open = title.get(1..).unwrap_or("");
     after_open
-        .find(quote)
+        .find(close)
         .and_then(|close| after_open.get(close + 1..))
         .is_some_and(|tail| tail.trim_start().starts_with(')'))
 }
@@ -701,8 +731,13 @@ pub fn check_pr(root: &Path, base: &str, head: &str, body: &str) -> Result<Findi
     let mut files = Vec::new();
     let mut fields = status.split('\0').filter(|f| !f.is_empty());
     while let (Some(kind), Some(path)) = (fields.next(), fields.next()) {
-        // A deleted crate changelog is not an entry for the crate.
-        if kind == "D" && path.ends_with("/CHANGELOG.md") {
+        // A published crate's deleted changelog is not an entry for the crate. Any other deleted
+        // file, a CHANGELOG.md in an example project included, is a change like any other.
+        if kind == "D"
+            && FAMILY
+                .iter()
+                .any(|c| path == format!("crates/{c}/CHANGELOG.md"))
+        {
             continue;
         }
         files.push(path.to_string());
