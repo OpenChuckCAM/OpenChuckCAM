@@ -4,16 +4,13 @@
 
 - **Breaking (0.56.0, POST-SAFETY; issue #703; OI-933; decision 0656, accepted):** `PostOptions::max_line_length` (post key `max_line_length`, 20 to 4096 characters, read as unset when a post leaves it out): a comment line longer than it is wrapped at spaces into comment lines that fit (a word longer than a line is cut; an `N` word stays on the first line), after the NFR-12 notice check, so the notice is kept word for word. A post with a value outside 20 to 4096 is refused at load (`options.max_line_length`). The Makera Z1 post sets 63 (the firmware source's 64-byte line, OI-933), the LinuxCNC post 255. Struct literals of `PostOptions` add the field. Every Makera Z1 program writes the notice on four comment lines instead of two, and a title or operation comment longer than 63 characters on more than one line; no other byte changes.
 - **Fixed (issue #839 item 3):** the NFR-12 notice check's opening comment block ends at a line that is not one comment and nothing else, such as `(title) G90`, so a notice written after it is refused. Built-in output does not change.
+- **Family release (0.56.0; lane Z1-SETUP, PR 2; issue #692; decision 0673):** `openchuck-types`'s `Tool` gains the public field `stick_out`, a breaking change; no change to this crate.
 
 ## Unreleased (POST-SAFETY; issues #574, #598, #599; decisions 0654 and 0657)
 
 - **Fixed (output of a post with coolant on):** with `coolant = "flood"` or `"mist"`, the built-in template now writes `M9` before the next tool change and before the footer once coolant is on (decision 0654, option A). Built-in output does not change: both built-in posts have coolant off.
 - **Fixed:** with `safety_notice` on, the notice must be written as whole comment lines, in order, in the comment block at the top; text inside a longer line or after the program has started is refused (decision 0657 item 1, OI-2083).
 - **Docs:** `UnwindMode::Rotate` says what it does: nothing is written at a boundary and the A words carry the whole turns (decision 0241 item 6). No public API changes.
-
-## 0.56.0
-
-- **Family release (0.56.0; lane Z1-SETUP, PR 2; issue #692; decision 0673):** `openchuck-types`'s `Tool` gains the public field `stick_out`, a breaking change; no change to this crate.
 
 ## 0.54.0
 
