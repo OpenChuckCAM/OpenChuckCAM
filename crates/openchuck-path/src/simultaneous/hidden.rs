@@ -408,6 +408,10 @@ pub(super) struct Sample {
     /// The normal's angle across X, degrees (the smoothed normal's on a
     /// mesh).
     pub phi_n: f64,
+    /// The axis angle aimed at: the normal's plus the lead, within the
+    /// largest lean on hidden surfaces, degrees. The lean reaching the point
+    /// needed is the best angle's difference from it (decision record 0660).
+    pub target: f64,
     /// The angles of the axis that reach it: the one nearest the target,
     /// and the band A may be smoothed in. `None` where it is not reached.
     pub gate: Option<(f64, f64, f64)>,
@@ -950,6 +954,7 @@ impl Plan<'_> {
                 t,
                 point,
                 phi_n,
+                target: target.clamp(phi_n - window, phi_n + window),
                 gate,
                 status,
                 probe,
@@ -1400,7 +1405,7 @@ impl Plan<'_> {
 
     /// Whether the operation's region, boundary and avoid sets let a
     /// strategy cut at `p` (OP-02): an area outside them is not reported.
-    fn in_scope(&self, p: Point3) -> bool {
+    pub(super) fn in_scope(&self, p: Point3) -> bool {
         let Some(region) = self.region else {
             return true;
         };

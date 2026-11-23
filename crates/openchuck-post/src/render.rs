@@ -86,6 +86,123 @@ pub const SAFETY_NOTICE: &[&str] = &[
     "Simulate it and air cut it first. You are responsible for what the machine does.",
 ];
 
+/// Whether the program opens with the notice: every line of [`SAFETY_NOTICE`], in order,
+/// as whole comment lines (after an optional `N` word) in the comment block at the top,
+/// before the first line that is not a single comment and nothing else (so `(title) G90`
+/// ends it, issue #839). Text that only appears inside a longer line, out of order or after
+/// the program has started does not count (decision 0533).
+fn writes_notice(text: &str) -> bool {
+    let header: Vec<&str> = text
+        .lines()
+        .map(|line| match line.strip_prefix('N') {
+            Some(rest) => match rest.split_once(' ') {
+                Some((number, body)) if number.chars().all(|c| c.is_ascii_digit()) => body,
+                _ => line,
+            },
+            None => line,
+        })
+        // A comment-only line: one comment and nothing else, so `(title) G90` ends the block
+        // (issue #839).
+        .take_while(|line| {
+            line.strip_prefix('(')
+                .and_then(|r| r.strip_suffix(')'))
+                .is_some_and(|inner| !inner.contains(['(', ')']))
+        })
+        .collect();
+    let wanted: Vec<String> = SAFETY_NOTICE.iter().map(|n| format!("({n})")).collect();
+    header
+        .windows(wanted.len())
+        .any(|block| block.iter().zip(&wanted).all(|(line, want)| line == want))
+}
+
+/// Splits `text` at spaces into pieces of at most `first` characters for the first piece and
+/// `rest` for the others; a word longer than its piece's width is cut. Runs of spaces become
+/// one. Deterministic (GC-07).
+fn wrap_words(text: &str, first: usize, rest: usize) -> Vec<String> {
+    let (first, rest) = (first.max(1), rest.max(1));
+    let mut pieces: Vec<String> = Vec::new();
+    let mut current: Vec<char> = Vec::new();
+    for word in text.split_whitespace() {
+        let mut word: Vec<char> = word.chars().collect();
+        loop {
+            // The piece being filled is `current`, the first while nothing is pushed.
+            let width = if pieces.is_empty() { first } else { rest };
+            if current.is_empty() {
+                if word.len() <= width {
+                    current = word;
+                    break;
+                }
+                if pieces.is_empty() && word.len() <= rest {
+                    // Too long for the narrow first line but not for a full one: keep it
+                    // whole on the next line, and leave the first line an empty comment.
+                    pieces.push(String::new());
+                    continue;
+                }
+                pieces.push(word.drain(..width).collect());
+            } else if current.len() + 1 + word.len() <= width {
+                current.push(' ');
+                current.append(&mut word);
+                break;
+            } else {
+                pieces.push(std::mem::take(&mut current).into_iter().collect());
+            }
+        }
+    }
+    if !current.is_empty() {
+        pieces.push(current.into_iter().collect());
+    }
+    pieces
+}
+
+/// Wraps every comment line longer than `max` characters (a whole line `(...)`, after an
+/// optional `N` word) into comment lines that fit, at spaces (decision 0656, OI-933). The
+/// `N` word stays on the first of them. Other lines are left as they are: one that is too
+/// long is the GC-08 check's to report.
+fn wrap_comments(text: &str, max: usize) -> String {
+    let mut out = String::with_capacity(text.len());
+    for line in text.split_inclusive('\n') {
+        let (body, end) = match line.strip_suffix('\n') {
+            Some(body) => (body, "\n"),
+            None => (line, ""),
+        };
+        if body.chars().count() <= max {
+            out.push_str(line);
+            continue;
+        }
+        let (prefix, rest) = match body.strip_prefix('N').and_then(|r| r.split_once(' ')) {
+            Some((number, rest))
+                if !number.is_empty() && number.chars().all(|c| c.is_ascii_digit()) =>
+            {
+                body.split_at(body.len() - rest.len())
+            }
+            _ => ("", body),
+        };
+        let inner = rest
+            .strip_prefix('(')
+            .and_then(|r| r.strip_suffix(')'))
+            .filter(|inner| !inner.contains(['(', ')']));
+        let Some(inner) = inner else {
+            out.push_str(line);
+            continue;
+        };
+        // Only the first line carries the `N` word; the others have the whole width.
+        let first = max.saturating_sub(prefix.chars().count() + 2);
+        let rest = max.saturating_sub(2);
+        for (i, piece) in wrap_words(inner, first, rest).iter().enumerate() {
+            if i == 0 {
+                out.push_str(prefix);
+            } else {
+                out.push('\n');
+            }
+            out.push('(');
+            out.push_str(piece);
+            out.push(')');
+        }
+        out.push_str(end);
+    }
+    out
+}
+
 /// Replaces what a G-code comment cannot hold: parentheses, control
 /// characters and anything that is not ASCII (decision 0019 item 4, OI-84).
 pub fn sanitise_comment(text: &str) -> String {
@@ -243,11 +360,7 @@ impl PostProcessor for TemplatePost {
         let text = template
             .render(Serde(&context))
             .map_err(|e| PostError::Template(engine::describe(&e)))?;
-        if options.safety_notice
-            && SAFETY_NOTICE
-                .iter()
-                .any(|notice| !text.contains(&format!("({notice})")))
-        {
+        if options.safety_notice && !writes_notice(&text) {
             return Err(PostError::Setting {
                 name: "options.safety_notice".into(),
                 reason: format!(
@@ -258,6 +371,12 @@ impl PostProcessor for TemplatePost {
                 ),
             });
         }
+        // Long comments are wrapped after the notice check, so the notice is checked as the
+        // template wrote it and kept word for word (decision 0656).
+        let text = match options.max_line_length {
+            Some(max) => wrap_comments(&text, max as usize),
+            None => text,
+        };
         let estimated_seconds = if short_blocks.enabled()
             && short_blocks.mode == openchuck_types::machine::ShortBlockMode::SlowDown
         {

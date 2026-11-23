@@ -19,13 +19,15 @@ On the command line, `openchuck-cli regenerate` takes `--post makera-z1`, `--pos
 
 ## What a program looks like
 
-This is the start of a program from the project's reference jobs, written by the Makera Z1 post. In a real program the second line holds the program's version, for example `(OpenChuckCAM 0.49.0)`, and the operation line holds the operation's name, its tool and its time.
+This is the start of a program from the project's reference jobs, written by the Makera Z1 post. In a real program the second line holds the program's version, for example `(OpenChuckCAM 0.49.0)`, and the operation line holds the operation's name, its tool and its time. The Makera Z1 cuts short a line longer than 63 characters, so its post wraps a longer comment, such as the safety notice, onto more lines, and stops the export if any other line is longer. The LinuxCNC post allows 255 characters.
 
 ```text
 (cone_axial - Setup 1)
 (OpenChuckCAM <version>)
-(This program has not been run on your machine. Check it before you run it.)
-(Simulate it and air cut it first. You are responsible for what the machine does.)
+(This program has not been run on your machine. Check it)
+(before you run it.)
+(Simulate it and air cut it first. You are responsible for)
+(what the machine does.)
 G90 G21 G17
 G54
 (operation <id>)

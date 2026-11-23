@@ -1035,14 +1035,17 @@ impl Application {
             };
             let (warnings, expected) = match project.machine() {
                 Some(profile) => (
-                    openchuck_types::setup::check_setup(&openchuck_types::setup::SetupCheck {
-                        profile,
-                        frame: &s.frame,
-                        stock: s.stock.as_ref(),
-                        clearance: s.clearance.as_ref(),
-                        rules: &s.clearance_rules,
-                        part: part.as_ref(),
-                    }),
+                    setup::check_setup(
+                        project.machine_id(),
+                        &openchuck_types::setup::SetupCheck {
+                            profile,
+                            frame: &s.frame,
+                            stock: s.stock.as_ref(),
+                            clearance: s.clearance.as_ref(),
+                            rules: &s.clearance_rules,
+                            part: part.as_ref(),
+                        },
+                    ),
                     Some(setup::expected_work_offset(profile, &s.frame)),
                 ),
                 None => {
@@ -1100,6 +1103,7 @@ impl Application {
                 expected_work_offset: expected,
                 part,
                 notes,
+                rotary_reference_x: project.machine().map(|m| m.rotary_origin.x),
             });
         }
         Ok(reports)

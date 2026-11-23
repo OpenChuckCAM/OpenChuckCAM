@@ -2,7 +2,7 @@
     Rotary (XYZA) post template (decision record 0019). Every controller difference is in `opt`;
     A direction, unwinding and the feed word are settled before the template runs, so it only
     writes what it is given. -#}
-{% set st = namespace(motion="", have=false, x="", y="", z="", a="", f="", n=opt.line_numbers.start) %}
+{% set st = namespace(motion="", have=false, coolant=false, x="", y="", z="", a="", f="", n=opt.line_numbers.start) %}
 {% macro line(text) %}{% if opt.line_numbers.enabled %}N{{ st.n }} {% set st.n = st.n + opt.line_numbers.step %}{% endif %}{{ text }}{% endmacro %}
 {% if opt.comments %}
 {{ line("(" ~ title ~ ")") }}
@@ -31,6 +31,11 @@
 {{ line("(" ~ it.text ~ ")") }}
 {% endif %}
 {% elif it.step == "tool_change" %}
+{# Coolant that is on goes off before every tool change and comes back on with the spindle (decision 0654). #}
+{% if st.coolant %}
+{{ line("M9") }}
+{% set st.coolant = false %}
+{% endif %}
 {% if opt.tool_change.stop_spindle_first %}
 {{ line("M5") }}
 {% endif %}
@@ -39,8 +44,10 @@
 {{ line("S" ~ it.rpm|fixed(0) ~ " M3") }}
 {% if opt.coolant == "flood" %}
 {{ line("M8") }}
+{% set st.coolant = true %}
 {% elif opt.coolant == "mist" %}
 {{ line("M7") }}
+{% set st.coolant = true %}
 {% endif %}
 {% elif it.step == "rotary_boundary" %}
 {# The controller drops whole turns with no motion and keeps the remainder in `it.at.a`. #}
@@ -76,6 +83,10 @@
 {% endif %}
 {% endif %}
 {% endfor %}
+{% if st.coolant %}
+{{ line("M9") }}
+{% set st.coolant = false %}
+{% endif %}
 {% for f in opt.footer %}
 {{ line(f) }}
 {% endfor %}

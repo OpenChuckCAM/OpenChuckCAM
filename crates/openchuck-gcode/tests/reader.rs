@@ -319,3 +319,24 @@ fn req_gc_08_feed_limits_apply_by_the_axes_a_move_changes() {
             .contains("`B`")
     );
 }
+
+/// GC-08 (issue #703, decision 0656, OI-933): a line longer than the post's limit is a finding
+/// that names the line and both lengths; a line at the limit is not, and the line end (LF or
+/// CRLF) is not counted.
+#[test]
+fn req_gc_08_a_line_over_the_posts_limit_is_a_finding() {
+    use openchuck_gcode::{FindingKind, line_length_check};
+    let at = format!("G1 X{}", "1".repeat(59));
+    assert_eq!(at.len(), 63);
+    let over = format!("{at}2");
+    let text = format!("G21\r\n{at}\r\n{over}\nM30\n");
+    let found = line_length_check(&text, 63);
+    assert_eq!(found.len(), 1, "{found:?}");
+    assert_eq!(found[0].kind, FindingKind::LineTooLong);
+    assert_eq!(found[0].line, 3);
+    assert_eq!(
+        found[0].message,
+        "the line has 64 characters; the post allows at most 63"
+    );
+    assert!(line_length_check(&text, 64).is_empty());
+}

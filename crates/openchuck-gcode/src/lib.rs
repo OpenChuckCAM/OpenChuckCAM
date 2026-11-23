@@ -17,7 +17,7 @@ mod reader;
 mod sim;
 mod sim_ranges;
 
-pub use check::{CheckConfig, FeedLimits, Finding, FindingKind, static_check};
+pub use check::{CheckConfig, FeedLimits, Finding, FindingKind, line_length_check, static_check};
 pub use compare::{
     CompareError, ComparedMove, Comparison, TimingRule, Tolerances, compare, compare_with_moves,
 };

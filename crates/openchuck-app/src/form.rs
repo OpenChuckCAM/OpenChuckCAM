@@ -234,6 +234,7 @@ pub fn parameter_form(
     // decision 0111 items 1 and 3).
     if let Some(reason) = crate::operation::brep_only(project, registry, op)
         .or_else(|| crate::operation::needs_faces(project, op))
+        .or_else(|| crate::operation::facing_on_step_part(project, op))
     {
         notes.insert(0, format!("{}.", reason.replacen("swarf", "Swarf", 1)));
     }
