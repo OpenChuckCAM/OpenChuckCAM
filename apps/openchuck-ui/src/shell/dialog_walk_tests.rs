@@ -72,40 +72,6 @@ fn click_starting(rig: &mut Rig, start: &str) {
     frames(rig, 1);
 }
 
-/// Clicks the entry box nearest below or beside the text `label`.
-fn click_entry_near(rig: &mut Rig, label: &str) {
-    let row = rig
-        .visible_text_rects()
-        .into_iter()
-        .find(|(text, _)| text == label)
-        .map(|(_, rect)| rect)
-        .unwrap_or_else(|| panic!("{label} is visible: {:?}", rig.texts()));
-    let near =
-        |r: &egui::Rect| r.bottom() > row.top() && r.top() < row.bottom() + 40.0 && *r != row;
-    let distance = |r: &egui::Rect| (r.center() - row.center()).length();
-    // A dialog may recolour its boxes; then the box's painted text marks it.
-    let at = rig
-        .entry_rects()
-        .into_iter()
-        .filter(|r| r.width() > 60.0 && near(r))
-        .min_by(|a, b| distance(a).total_cmp(&distance(b)))
-        .or_else(|| {
-            rig.visible_text_rects()
-                .into_iter()
-                .filter(|(t, r)| {
-                    near(r) && r.top() > row.bottom() - 2.0 && !t.ends_with('\u{2026}')
-                })
-                .map(|(_, r)| r)
-                .min_by(|a, b| distance(a).total_cmp(&distance(b)))
-        })
-        .unwrap_or_else(|| panic!("{label} has an entry box: {:?}", rig.texts()))
-        .center();
-    rig.click(at);
-    frames(rig, 1);
-    rig.click(at);
-    frames(rig, 1);
-}
-
 /// Clicks midway between the texts `left` and `right` of one row: an empty
 /// box drawn between its label and its button.
 fn click_between(rig: &mut Rig, left: &str, right: &str) {
