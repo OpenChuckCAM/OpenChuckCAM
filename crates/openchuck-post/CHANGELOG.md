@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased (DEPS-UPDATES)
+
+- **Changed (template engine):** post templates render with `minijinja` 3.1.0 (was 3.0.3). No public API change. Built-in output does not change. A template a user wrote may see the engine's changes: rendering uses slightly more fuel (filters and operators now count; the budget is unchanged and the built-in posts use about a tenth of it), an error while writing `{{ ... }}` points at the whole expression, and several filters behave differently for unusual input (`max` and `groupby` keep the first of equal items; `none` and undefined values in `first`, `last`, `length` and `join`; `2 ** -1` is 0.5; `format` prints floats as Python's `str()`; `sort` by several attributes ignores case).
+
 ## 0.59.0
 
 - **Family release (0.59.0; lane Z1-SETUP, PR 2; issue #692; decision 0673):** `openchuck-types`'s `Tool` gains the public field `stick_out`, a breaking change; no change to this crate.
