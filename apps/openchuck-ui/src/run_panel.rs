@@ -210,9 +210,16 @@ pub fn result_lines(run: &Regeneration, project: &Project) -> Vec<ResultLine> {
                     out.push(line(
                         Severity::Problem,
                         format!(
-                            "  {}: move {} is a rapid that goes {:.3} mm into the stock ({:.3} \
-                             mm³)",
-                            op.operation, cut.segment, cut.depth, cut.volume
+                            "  {}: move {} is a rapid that goes {:.3} mm into the stock ({})",
+                            op.operation,
+                            cut.segment,
+                            cut.depth,
+                            // Never "0.000" (issue #801).
+                            if cut.volume >= 0.0005 {
+                                format!("{:.3} mm³", cut.volume)
+                            } else {
+                                "less than 0.001 mm³".to_owned()
+                            }
                         ),
                     ));
                 }

@@ -494,7 +494,7 @@ impl DexelStock {
     /// because span endpoints depend only on the pose and the column, not on
     /// the order. Returns the volume removed.
     pub fn cut(&mut self, tool: &ToolSolid, poses: &[Pose]) -> f64 {
-        self.cut_watching(tool, poses, None).0
+        self.cut_watching(tool, poses, None, false).0
     }
 
     /// [`DexelStock::cut`] that gives up soon after `cancel` is cancelled and
@@ -508,7 +508,7 @@ impl DexelStock {
         poses: &[Pose],
         cancel: &CancelToken,
     ) -> Result<f64> {
-        let (removed, _) = self.cut_watching(tool, poses, Some(cancel));
+        let (removed, _) = self.cut_watching(tool, poses, Some(cancel), false);
         cancel.check()?;
         Ok(removed)
     }
@@ -523,17 +523,20 @@ impl DexelStock {
         poses: &[Pose],
         cancel: &CancelToken,
     ) -> Result<(f64, f64)> {
-        let out = self.cut_watching(tool, poses, Some(cancel));
+        let out = self.cut_watching(tool, poses, Some(cancel), true);
         cancel.check()?;
         Ok(out)
     }
 
-    /// The volume removed and the most removed from one column.
+    /// The volume removed and, with `deepest`, the most removed from one
+    /// column (0 without: the per-column tally costs a row's worth of memory
+    /// each, so only a rapid's own batch keeps it).
     fn cut_watching(
         &mut self,
         tool: &ToolSolid,
         poses: &[Pose],
         cancel: Option<&CancelToken>,
+        deepest: bool,
     ) -> (f64, f64) {
         if poses.is_empty() {
             return (0.0, 0.0);
@@ -555,7 +558,11 @@ impl DexelStock {
                 let x = x0 + (i as f64 + 0.5) * cx;
                 let mut removed = 0.0;
                 // Each column's own removal, for the deepest.
-                let mut by_column = vec![0.0_f64; row.len()];
+                let mut by_column = if deepest {
+                    vec![0.0_f64; row.len()]
+                } else {
+                    Vec::new()
+                };
                 let mut scratch: Vec<[f64; 2]> = Vec::new();
                 for (n, p) in prepared.iter().enumerate() {
                     // A relaxed load every few poses: cheap beside the cut.
