@@ -5,7 +5,9 @@
 # `openchuck-ui` in release mode for Linux, Windows and macOS and upload one
 # archive per platform as a workflow artifact (build-archives.yml, shared with
 # the release workflow). A build of `main` also replaces the rolling `nightly`
-# pre-release with those archives. These are development builds, not releases:
+# pre-release with those archives, whose notes list what has changed since the last release (the
+# Development version of user-docs/src/release-notes.md; decision record CHANGELOG-FLOW-A). These are
+# development builds, not releases:
 # releases are built by release.yml from `lib-v` and `app-v` tags after the
 # release gate (decision records 0031 and 0091).
 #
@@ -70,6 +72,26 @@ jobs:
             echo "build=true" >> "$GITHUB_OUTPUT"
             echo "Building $SHA (last nightly build: ${last:-none})." >> "$GITHUB_STEP_SUMMARY"
           fi
+      # The pre-release notes, from this commit's release notes (decision record CHANGELOG-FLOW-A), shown
+      # in the run's summary so that a run on another branch, which publishes nothing, shows them too.
+      - uses: actions/checkout@v7
+        if: steps.check.outputs.build == 'true'
+        with:
+          persist-credentials: false
+      - name: Notes of the pre-release
+        if: steps.check.outputs.build == 'true'
+        env:
+          SHA: ${{ github.sha }}
+          DATE: ${{ steps.check.outputs.date }}
+          REPO: ${{ github.repository }}
+        run: |
+          python3 user-docs/tools/changelog.py nightly-notes --sha "$SHA" --date "$DATE" --repo "$REPO" --out notes.md
+          {
+            echo
+            echo "### Notes of the pre-release"
+            echo
+            cat notes.md
+          } >> "$GITHUB_STEP_SUMMARY"
 
   # The notices, build, assemble and pack steps are shared with the release workflow
   # (build-archives.yml, decision 0091). The job has no display name, so its jobs show as
@@ -116,17 +138,10 @@ jobs:
           ls -l dist
           count=$(find dist -maxdepth 1 -type f -name 'openchuckcam-nightly-*' | wc -l)
           [ "$count" -eq 4 ] || { echo "expected 4 files (3 archives and the examples zip), found $count"; exit 1; }
-          notice=$(perl -0777 -ne 'if (/VERIFY_GCODE_NOTICE: &str = "(.*?)";/s) { $s = $1; $s =~ s/\\\n\s*//g; print $s }' crates/openchuck-types/src/notice.rs)
-          [ -n "$notice" ] || { echo "could not read the G-code notice"; exit 1; }
-          {
-            echo "Automatic development build of \`main\` at $SHA, built $DATE."
-            echo
-            echo "**This is not a release.** It passed no release gate and may be incomplete or broken. It is replaced by the next nightly build."
-            echo
-            echo "**$notice**"
-            echo
-            echo "Each archive holds \`openchuck-cli\`, \`openchuck-ui\`, the licence, the third-party notices and a README. \`openchuckcam-nightly-*-examples.zip\` holds the example projects. The binaries are not signed: macOS quarantines them and Windows SmartScreen may warn (see the README in each archive)."
-          } > notes.md
+          # The notes: the build, "not a release", the G-code notice (NFR-12), what has changed since
+          # the last release (the Development version of user-docs/src/release-notes.md at this commit,
+          # at most 60,000 characters) and the downloads (decision record CHANGELOG-FLOW-A).
+          python3 user-docs/tools/changelog.py nightly-notes --sha "$SHA" --date "$DATE" --repo "$REPO" --out notes.md
           # Upload everything to a draft first: a draft creates no tag and is
           # not visible to visitors, so the current `nightly` release stays up
           # until its replacement holds all three archives and the examples zip. A draft left by

@@ -197,6 +197,15 @@ class ReleaseChecks(unittest.TestCase):
         problems = check.release_problems(d, "0.32.0")
         self.assertTrue(any("stamp" in p or "version" in p for p in problems))
 
+    def test_changelog_flow_release_needs_an_empty_development_version_in_the_source(self):
+        src = tempfile.mkdtemp()
+        write(src, "release-notes.md", "# Release notes\n\n## 0.31.0\n\nWritten.\n\n## Development version\n\n"
+                                       "Intro.\n\n- **Left.** Not moved.\n")
+        problems = check.source_release_problems(src, "0.31.0")
+        self.assertTrue(any("Development version" in p for p in problems), problems)
+        write(src, "release-notes.md", "# Release notes\n\n## 0.31.0\n\nWritten.\n\n## Development version\n\nIntro.\n")
+        self.assertEqual(check.source_release_problems(src, "0.31.0"), [])
+
 
 class Screens(unittest.TestCase):
     """Decision 0400 sections G and R: tutorial screenshots older than the last change to the screens."""

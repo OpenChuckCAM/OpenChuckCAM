@@ -18,6 +18,8 @@ import subprocess
 import sys
 import tomllib
 
+import changelog
+
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.abspath(os.path.join(HERE, "..", ".."))
 SRC = os.path.join(REPO, "user-docs", "src")
@@ -248,6 +250,13 @@ def release_problems(site, version):
     return problems
 
 
+def source_release_problems(src, version):
+    """Section R and CHANGELOG-FLOW-A: the source's section for the release is written (not start-release's
+    draft) and the Development version has been moved into it, so it means "since the last release" again."""
+    with open(os.path.join(src, "release-notes.md"), encoding="utf-8") as f:
+        return changelog.release_problems(f.read(), version)
+
+
 def _git(repo, *args):
     return subprocess.run(["git", *args], cwd=repo, capture_output=True, text=True, check=True).stdout.strip()
 
@@ -340,6 +349,7 @@ def main(argv=None):
     errors += unverified_pins(WORKFLOWS)
     if args.release:
         errors += release_problems(args.site, args.release)
+        errors += [p for p in source_release_problems(SRC, args.release) if "no section headed" not in p]
     stale = stale_screens(REPO, IMAGES)
     if stale:
         (errors if args.screens == "strict" else warnings).append(f"tutorial screenshots: {stale}")
