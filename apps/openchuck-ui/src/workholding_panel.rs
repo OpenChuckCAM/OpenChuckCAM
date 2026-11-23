@@ -788,7 +788,9 @@ impl WorkholdingPanel {
         };
         match &self.facts {
             Facts::Found { facts, .. } => {
-                match zone_lines(&setup.workholding, stock, &facts.extent) {
+                // The draft's held regions, as typed: the zones need only
+                // them, the stock and the part's extent (issue #767).
+                match zone_lines(self.draft.workholding(), stock, &facts.extent) {
                     Some(lines) => {
                         for line in lines {
                             ui.label(line);
@@ -856,7 +858,7 @@ impl WorkholdingPanel {
                 .collect();
             let stopped = self.row_state(i) == Some(ItemState::Error);
             let zone = match (&setup.stock, self.part_extent()) {
-                (Some(stock), Some(part)) => tab_zone(tab, &setup.workholding, stock, &part),
+                (Some(stock), Some(part)) => tab_zone(tab, &draft, stock, &part),
                 _ => None,
             };
             let header = format!(
@@ -1591,7 +1593,8 @@ impl WorkholdingPanel {
                 // What did not refuse stays on its tab's row, as a warning.
                 self.findings = found;
                 self.refused = false;
-                // The zones and the defaults follow the stored held regions.
+                // The default tabs are worked out again from the stored held
+                // regions; the zone lines already follow the draft (#767).
                 self.facts = Facts::None;
                 Some(Command::Replace(Item::Setup(edited)))
             }
@@ -1981,6 +1984,37 @@ mod tests {
         panel.poll_facts(&ctx, &app, &bare);
         assert!(panel.part_extent().is_none());
         assert!(panel.viewport_draft(&bare).is_none());
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    /// The zone lines and the tab rows' zones follow the draft's held
+    /// regions as they are typed, before Apply (issue #767): a grip that
+    /// reaches the part leaves no head zone at once.
+    #[test]
+    fn req_ui_25_req_set_09_the_zone_lines_follow_the_draft_before_apply() {
+        let (dir, app, _, setup_id) = cube_project("workholding-draft-zones");
+        let setup = app.project().setup(setup_id).unwrap().clone();
+        let mut panel = WorkholdingPanel::new(&setup);
+        let ctx = egui::Context::default();
+        let text = settle(&mut panel, &ctx, &app, &setup);
+        assert!(
+            text.contains("Head zone X \u{2212}7.000 to 0.000 mm (7.000 mm)"),
+            "{text}"
+        );
+        // The stock starts at X -7 and the part at X 0: a 3 mm grip moves
+        // the head zone's start at once, and an 8 mm grip leaves no room.
+        for (grip, line) in [
+            (3.0, "Head zone X \u{2212}4.000 to 0.000 mm (4.000 mm)"),
+            (8.0, "Head zone: no room for a tab"),
+        ] {
+            panel.draft.edit().start = Some(HeldRegion {
+                length: Millimetres(grip),
+                diameter: None,
+            });
+            let text = painted(&mut panel, &ctx, &app, &setup);
+            assert!(panel.has_unapplied_changes());
+            assert!(text.contains(line), "grip {grip}: {text}");
+        }
         std::fs::remove_dir_all(dir).unwrap();
     }
 
