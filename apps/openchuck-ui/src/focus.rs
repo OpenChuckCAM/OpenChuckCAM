@@ -323,9 +323,8 @@ pub fn end_frame(ctx: &egui::Context) {
         router
             .drawn
             .iter()
-            .filter(|(_, rect, layer)| *layer == r.layer_id && rect.contains(r.rect.center()))
             // The innermost: a region drawn inside another comes later.
-            .next_back()
+            .rfind(|(_, rect, layer)| *layer == r.layer_id && rect.contains(r.rect.center()))
             .map(|(region, ..)| *region)
     });
     let was_in = router.focused_in;

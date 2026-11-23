@@ -3326,7 +3326,7 @@ pub(crate) mod tests {
             (egui::Key::Num0, StandardView::Isometric),
         ] {
             viewport.set_view(StandardView::Bottom);
-            let mut expected = viewport.camera.clone();
+            let mut expected = viewport.camera;
             expected.set_view(view);
             run_frame(&mut viewport, &ctx, vec![key(digit, Modifiers::NONE)]);
             assert!(
