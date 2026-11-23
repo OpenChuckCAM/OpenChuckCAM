@@ -1819,7 +1819,8 @@ impl Viewport {
         }
     }
 
-    /// F fits, V opens "Show or hide" (7.1, section 16), and Esc clears the
+    /// F fits, V opens "Show or hide", 1, 3, 7 and 0 turn to the standard
+    /// views (7.1, section 16), and Esc clears the
     /// selected held region or tab (7.5); not while a text field has the
     /// keyboard.
     fn keys(&mut self, ui: &egui::Ui) {
@@ -1832,6 +1833,21 @@ impl Viewport {
         }
         if ctx.input_mut(|i| i.consume_key(Modifiers::NONE, egui::Key::V)) {
             self.show_menu_open = !self.show_menu_open;
+        }
+        // 1, 3, 7 and 0, on the top row or the number pad: front, right, top
+        // and isometric (section 16; the owner's answer Q4 A). The same rule
+        // as the toolbar's view buttons: there must be a model to look at.
+        if self.project_has_models() {
+            for (key, view) in [
+                (egui::Key::Num1, StandardView::Front),
+                (egui::Key::Num3, StandardView::Right),
+                (egui::Key::Num7, StandardView::Top),
+                (egui::Key::Num0, StandardView::Isometric),
+            ] {
+                if ctx.input_mut(|i| i.consume_key(Modifiers::NONE, key)) {
+                    self.set_view(view);
+                }
+            }
         }
         if !self.picking
             && self.selected_item.is_some()
@@ -3283,6 +3299,49 @@ pub(crate) mod tests {
         };
         let mut output = ctx.run_ui(input, |ui| viewport.show(ui));
         output.textures_delta.clear();
+    }
+
+    /// Specification 16 as the owner answered Q4 A (issue #581 F6): 1, 3, 7
+    /// and 0, on the top row or the number pad (egui 0.37 reads both as the
+    /// same key), turn to the front, right, top and isometric views, while no
+    /// text field has the keyboard; with Alt or Ctrl they keep their own
+    /// meanings.
+    #[test]
+    fn req_ui_14_the_digit_keys_turn_to_the_standard_views() {
+        let ctx = egui::Context::default();
+        let mut viewport = Viewport::new(true);
+        viewport.set_scene(cube_scene("digit-views"), true);
+        viewport.set_project_has_models(true);
+        let key = |key, modifiers| egui::Event::Key {
+            key,
+            physical_key: None,
+            pressed: true,
+            repeat: false,
+            modifiers,
+        };
+        for (digit, view) in [
+            (egui::Key::Num1, StandardView::Front),
+            (egui::Key::Num3, StandardView::Right),
+            (egui::Key::Num7, StandardView::Top),
+            (egui::Key::Num0, StandardView::Isometric),
+        ] {
+            viewport.set_view(StandardView::Bottom);
+            let mut expected = viewport.camera.clone();
+            expected.set_view(view);
+            run_frame(&mut viewport, &ctx, vec![key(digit, Modifiers::NONE)]);
+            assert!(
+                (viewport.camera.yaw - expected.yaw).abs() < 1e-9
+                    && (viewport.camera.pitch - expected.pitch).abs() < 1e-9,
+                "{digit:?} gave yaw {} pitch {}, not {view:?}",
+                viewport.camera.yaw,
+                viewport.camera.pitch
+            );
+            // With Ctrl the digit is not a view key.
+            viewport.set_view(StandardView::Bottom);
+            let bottom = (viewport.camera.yaw, viewport.camera.pitch);
+            run_frame(&mut viewport, &ctx, vec![key(digit, Modifiers::COMMAND)]);
+            assert_eq!((viewport.camera.yaw, viewport.camera.pitch), bottom);
+        }
     }
 
     /// In the machine view the part is drawn turned by its slot's transform,

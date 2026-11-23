@@ -284,14 +284,6 @@ fn req_tl_01_esc_closes_the_library_window_unless_a_field_has_the_keyboard() {
     rig.frame(Vec::new());
     rig.frame(Vec::new());
     assert!(rig.shell.tool_library.is_open());
-    // The window opens with the keyboard in its first field, the search
-    // (issue #580): the first Esc ends that edit only (OI-536) ...
-    assert!(rig.ctx.text_edit_focused());
-    rig.press(Key::Escape, Modifiers::NONE);
-    rig.frame(Vec::new());
-    assert!(rig.shell.tool_library.is_open());
-    assert!(!rig.ctx.text_edit_focused());
-    // ... and Esc with no field editing closes the window.
     rig.press(Key::Escape, Modifiers::NONE);
     rig.frame(Vec::new());
     assert!(!rig.shell.tool_library.is_open());

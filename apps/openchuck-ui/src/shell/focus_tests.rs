@@ -55,9 +55,10 @@ const WINDOWS: [&str; 5] = [
     "machine library",
 ];
 
-/// Issue #580: a tool window that opens takes the keyboard. Its first
-/// control has focus at once, and Tab moves on inside the window, not to the
-/// File menu behind it.
+/// Issue #580 (the owner's answer Q1 B): a tool window that opens takes the
+/// keyboard as a whole: nothing behind it keeps focus and no control in it has
+/// focus yet; the first Tab goes to its first control, not to the File menu
+/// behind it, and the next Tab stays inside.
 #[test]
 fn req_ui_14_a_new_window_takes_the_keyboard() {
     for window in WINDOWS {
@@ -76,12 +77,18 @@ fn req_ui_14_a_new_window_takes_the_keyboard() {
         for _ in 0..4 {
             rig.frame(Vec::new());
         }
+        assert!(
+            rig.focused().is_none(),
+            "{window}: {:?} has focus",
+            rig.focused()
+        );
+        rig.tab(false);
         let first = rig
             .focused()
-            .unwrap_or_else(|| panic!("{window}: nothing has focus"));
+            .unwrap_or_else(|| panic!("{window}: the first Tab gave nothing focus"));
         assert_eq!(
             first.layer_id, layer,
-            "{window}: focus stayed behind the window"
+            "{window}: the first Tab went behind the window"
         );
         rig.tab(false);
         let next = rig
@@ -390,4 +397,78 @@ fn req_ui_10_the_new_operation_dialog_has_its_primary_action_bottom_right() {
         }
     }
     assert_eq!(order, ["Cancel", "Add"]);
+}
+
+/// Whether the tool window `window` is open.
+fn is_open(rig: &Rig, window: &str) -> bool {
+    match window {
+        "export dialog" => rig.shell.export.is_open(),
+        "import model" => rig.shell.import.is_some(),
+        "add operation" => rig.shell.run.is_adding(),
+        "tool library" => rig.shell.tool_library.is_open(),
+        "machine library" => rig.shell.machine_library.is_open(),
+        _ => unreachable!("{window}"),
+    }
+}
+
+/// Issue #581 F11 (the owner's answer Q6 A): Esc does what each tool window's
+/// Close or Cancel does. Esc in a text field ends the edit only, and a second
+/// Esc closes; a machine library draft with changes asks first, as Close does.
+#[test]
+fn req_ui_14_esc_closes_every_tool_window_as_its_close_does() {
+    for window in WINDOWS {
+        let mut rig = Rig::cube(&format!("focus-esc-{}", window.replace(' ', "-")), None);
+        let dir = super::frame_tests::temp(&format!("focus-esc-libs-{}", window.replace(' ', "-")));
+        rig.shell.tool_library = ToolLibraryWindow::new(Some(dir.join("tools")));
+        rig.shell.machine_library =
+            MachineLibraryWindow::new(Some(dir.join("machines")), Some(dir.join("tools")));
+        rig.dirs.push(dir);
+        open_each(&mut rig, window);
+        for _ in 0..3 {
+            rig.frame(Vec::new());
+        }
+        assert!(is_open(&rig, window), "{window} opened");
+        rig.press(Key::Escape, Modifiers::NONE);
+        rig.frame(Vec::new());
+        assert!(!is_open(&rig, window), "Esc closed {window}");
+    }
+
+    // Esc in a text field: the import window's first control is its file field.
+    let mut rig = Rig::cube("focus-esc-field", None);
+    open_each(&mut rig, "import model");
+    rig.frame(Vec::new());
+    rig.tab(false);
+    assert!(rig.ctx.text_edit_focused(), "Tab reached the file field");
+    rig.press(Key::Escape, Modifiers::NONE);
+    rig.frame(Vec::new());
+    assert!(
+        is_open(&rig, "import model"),
+        "the first Esc ends the edit only"
+    );
+    rig.press(Key::Escape, Modifiers::NONE);
+    rig.frame(Vec::new());
+    assert!(!is_open(&rig, "import model"), "the second Esc closes");
+
+    // A machine library draft with changes asks before it is dropped.
+    let mut rig = Rig::cube("focus-esc-draft", None);
+    let dir = super::frame_tests::temp("focus-esc-draft-libs");
+    rig.shell.machine_library =
+        MachineLibraryWindow::new(Some(dir.join("machines")), Some(dir.join("tools")));
+    rig.dirs.push(dir);
+    rig.shell.open_machine_library();
+    rig.frame(Vec::new());
+    rig.shell.machine_library.new_machine();
+    for _ in 0..3 {
+        rig.frame(Vec::new());
+    }
+    rig.press(Key::Escape, Modifiers::NONE);
+    rig.frame(Vec::new());
+    for _ in 0..2 {
+        rig.frame(Vec::new());
+    }
+    assert!(
+        rig.shell.machine_library.is_open(),
+        "the draft was not dropped"
+    );
+    assert!(rig.shows("Discard the changes to this machine?"));
 }
