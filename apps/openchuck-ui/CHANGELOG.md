@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased (A11Y-FOCUS, decision 0xxx, proposed, built as the owner answered; issues #577, #578, #580, #581)
+## Unreleased (A11Y-FOCUS, decision 0xxx, accepted, built as the owner answered; issues #577, #578, #580, #581)
 
 - **Added:** a tool window that opens (import, New operation, tool library, machine library, Post and export) takes the keyboard with no control focused; the first Tab goes to the first control of its body (#580; the owner's answer Q1 B).
 - **Added:** Tab follows reading order in the main window (menus, steps, badge, actions, project panel, view, dock, inspector, footer with the primary last) and in each tool window (body, then footer buttons left to right, round inside the window) (`focus::region`, `focus::row_at_right`) (#581 F4).
