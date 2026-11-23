@@ -1167,6 +1167,10 @@ pub(crate) fn unreached_list(
                                                     radius clear of the gripped length of the \
                                                     stock"
                     .to_owned(),
+                // Face flow's only.
+                UnreachedReason::TooShort { length } => {
+                    format!("a cut of {length:.1} mm, shorter than the Shortest cut")
+                }
             };
             format!(
                 "X {:.3} to {:.3} {place} ({:.1} mm2), {why}",

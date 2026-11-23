@@ -117,6 +117,10 @@ pub mod parameter {
     /// Passes that follow the face's outline, each the stepover inside the
     /// last, measured on the face.
     pub const OUTLINE: &str = "outline";
+    /// The shortest cut kept, mm: a run (what is cut between one lift and
+    /// the next) shorter than this is left out and reported; 0 keeps every
+    /// run. A new operation is written with its tool's diameter.
+    pub const SHORTEST_CUT: &str = "shortest_cut";
 }
 
 /// The turn between two edges, in degrees, above which their junction is a
@@ -323,6 +327,26 @@ impl Strategy for FaceFlow {
                 },
             },
         ]);
+        schema.parameters.push(ParameterSpec {
+            name: SHORTEST_CUT.to_owned(),
+            label: "Shortest cut".to_owned(),
+            description: "A cut from one lift to the next that is shorter than this is left \
+                          out and marked on the part as not cut, as an area the tool cannot \
+                          reach is, and a warning names it. Nothing inside a longer cut is \
+                          removed. A new operation starts at its tool's diameter; 0 keeps \
+                          every cut."
+                .to_owned(),
+            // 0 for an operation saved without it, so its program is
+            // unchanged; a new operation is written with its tool's
+            // diameter (as decision 0205 writes roughing's stock to leave).
+            kind: ParameterKind::Number {
+                unit: Unit::Millimetres,
+                min: Some(0.0),
+                min_exclusive: false,
+                max: None,
+                default: Some(0.0),
+            },
+        });
         // How the tool goes from one ring to the next on a face that closes
         // round on itself, as on the ring strategies (decision 0545's
         // parameters; the owner's decision of 23 Nov 2026).
@@ -414,6 +438,8 @@ struct Settings {
     /// The blend angle between rings, degrees, with blended steps; `None`
     /// for sharp steps along the seam.
     ring_blend: Option<f64>,
+    /// Runs shorter than this, mm, are left out; 0 keeps every run.
+    shortest: f64,
 }
 
 /// How a face's passes are laid out.
@@ -479,6 +505,7 @@ impl Settings {
             stay_down,
             pattern,
             ring_blend,
+            shortest: parameters.number(SHORTEST_CUT)?,
         })
     }
 }
@@ -3081,7 +3108,29 @@ fn assemble(
         }
         stretches.append(&mut cut.stretches);
     }
-    let unreached = areas(&stretches, context)?;
+    let mut unreached = areas(&stretches, context)?;
+    // Shortest cut, applied last, to whole runs (the owner's answer of 23
+    // Nov 2026 to Q3): a run shorter than it is left out and reported as an
+    // area left uncut; nothing inside a longer run is removed.
+    let mut short: Vec<Unreached> = Vec::new();
+    if settings.shortest > 0.0 {
+        out_passes.retain(|pass| {
+            let length: f64 = pass
+                .points
+                .windows(2)
+                .map(|w| w[0].contact.distance(w[1].contact))
+                .sum();
+            if length < settings.shortest {
+                short.push(short_area(pass, length, settings.stepover));
+                false
+            } else {
+                true
+            }
+        });
+        for (i, pass) in out_passes.iter_mut().enumerate() {
+            pass.low_link = i > 0;
+        }
+    }
     let diameter = 2.0 * input.tool.cutting_radius();
     if out_passes.is_empty() {
         let why = if unreached.is_empty() {
@@ -3123,6 +3172,30 @@ fn assemble(
             setting: None,
             acknowledgement: None,
         });
+    }
+    if !short.is_empty() {
+        warnings.push(
+            Notice {
+                level: Level::Warning,
+                topic: Some(topic::UNREACHED_AREAS.to_owned()),
+                segment: None,
+                text: format!(
+                    "face-flow finishing leaves out {} shorter than the Shortest cut ({:.3} \
+                     mm), which {} uncut: {}; lower the Shortest cut to keep {} (0 keeps every \
+                     cut), and check {} in the simulation before running the program",
+                    crate::counted(short.len(), "cut", "cuts"),
+                    settings.shortest,
+                    if short.len() == 1 { "stays" } else { "stay" },
+                    unreached_list(&short, diameter),
+                    if short.len() == 1 { "it" } else { "them" },
+                    if short.len() == 1 { "it" } else { "them" },
+                ),
+                setting: None,
+                acknowledgement: None,
+            }
+            .with_setting(parameter::SHORTEST_CUT),
+        );
+        unreached.extend(short);
     }
     Ok(StrategyOutput {
         passes: out_passes,
@@ -3225,6 +3298,33 @@ fn areas(stretches: &[Stretch], context: &JobContext<'_>) -> Result<Vec<Unreache
     Ok(out)
 }
 
+/// A run left out for being shorter than the Shortest cut, as an area left
+/// uncut: its X and A ranges, its length times the stepover, and its
+/// contacts.
+fn short_area(pass: &Pass, length: f64, stepover: f64) -> Unreached {
+    let range = |v: &mut dyn Iterator<Item = f64>| {
+        v.fold((f64::INFINITY, f64::NEG_INFINITY), |(lo, hi), x| {
+            (lo.min(x), hi.max(x))
+        })
+    };
+    let x = range(&mut pass.points.iter().map(|c| c.contact.x));
+    let a = range(&mut pass.points.iter().map(|c| c.a.0));
+    let n = pass.points.len();
+    let take = n.div_ceil(MAX_UNREACHED_POINTS).max(1);
+    Unreached {
+        x,
+        a,
+        area: length * stepover,
+        reason: UnreachedReason::TooShort { length },
+        points: pass
+            .points
+            .iter()
+            .step_by(take)
+            .map(|c| c.contact)
+            .collect(),
+    }
+}
+
 /// The areas for a message: the largest five, each with where, how large
 /// and why, then how many more.
 fn unreached_list(areas: &[Unreached], diameter: f64) -> String {
@@ -3237,6 +3337,7 @@ fn unreached_list(areas: &[Unreached], diameter: f64) -> String {
                 UnreachedReason::TooNarrow => {
                     format!("the face is too narrow for this {diameter:.3} mm tool there")
                 }
+                UnreachedReason::TooShort { length } => format!("a cut of {length:.1} mm"),
                 _ => "a neighbouring face is in the way of the tool".to_owned(),
             };
             format!(

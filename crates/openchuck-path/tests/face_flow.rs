@@ -2428,3 +2428,117 @@ fn req_op_28_face_flow_offers_the_ring_steps_of_the_ring_strategies() {
         other => panic!("{other:?}"),
     }
 }
+
+// ---- Shortest cut (the owner's answer of 23 Nov 2026 to Q3: applied last, to
+// whole runs; default the tool's diameter, 0 off) ----
+
+fn run_length(pass: &Pass) -> f64 {
+    contacts(pass).windows(2).map(|w| w[0].distance(w[1])).sum()
+}
+
+#[test]
+fn req_op_28_req_op_20_runs_shorter_than_the_shortest_cut_are_left_out_and_reported() {
+    // The comb along its guide: runs from 8 mm long, broken at the notches.
+    let rig = Rig::new(comb(), &ball(3.0));
+    let with = |shortest: Option<f64>| {
+        let mut v = values(
+            0.8,
+            &[
+                (p::STAY_DOWN, flag(true)),
+                (p::PATTERN, text(p::ALONG_GUIDE)),
+            ],
+        );
+        if let Some(x) = shortest {
+            v.insert(p::SHORTEST_CUT.to_owned(), num(x));
+        }
+        rig.output(&rig.strategy(&[0], &[]), &v).unwrap()
+    };
+    let every = with(Some(0.0));
+    assert!(
+        every
+            .unreached
+            .iter()
+            .all(|u| !matches!(u.reason, UnreachedReason::TooShort { .. }))
+    );
+    // An operation saved without it keeps every run (its program is
+    // unchanged); a new operation is written with the tool's diameter.
+    assert_eq!(
+        format!("{:?}", with(None).passes),
+        format!("{:?}", every.passes)
+    );
+    let limit = 9.0;
+    let short: Vec<&Pass> = every
+        .passes
+        .iter()
+        .filter(|p| run_length(p) < limit)
+        .collect();
+    assert!(
+        !short.is_empty() && short.len() < every.passes.len(),
+        "{} short runs",
+        short.len()
+    );
+    let out = with(Some(limit));
+    // Nothing inside a run is removed: the runs kept are exactly the long
+    // ones, point for point.
+    let long: Vec<String> = every
+        .passes
+        .iter()
+        .filter(|p| run_length(p) >= limit)
+        .map(|p| format!("{:?}", p.points))
+        .collect();
+    let kept: Vec<String> = out
+        .passes
+        .iter()
+        .map(|p| format!("{:?}", p.points))
+        .collect();
+    assert_eq!(kept, long);
+    // Each run left out is reported as an area left uncut, with its place
+    // and length, and named in a warning.
+    let dropped: Vec<_> = out
+        .unreached
+        .iter()
+        .filter(|u| matches!(u.reason, UnreachedReason::TooShort { .. }))
+        .collect();
+    assert_eq!(dropped.len(), short.len());
+    for (u, p) in dropped.iter().zip(&short) {
+        let UnreachedReason::TooShort { length } = u.reason else {
+            unreachable!()
+        };
+        assert!((length - run_length(p)).abs() < 1e-6, "{length}");
+        let xs: Vec<f64> = contacts(p).iter().map(|q| q.x).collect();
+        let lo = xs.iter().copied().fold(f64::INFINITY, f64::min);
+        let hi = xs.iter().copied().fold(f64::NEG_INFINITY, f64::max);
+        assert!(
+            (u.x.0 - lo).abs() < 1e-6 && (u.x.1 - hi).abs() < 1e-6,
+            "{:?}",
+            u.x
+        );
+        assert!(!u.points.is_empty());
+    }
+    let warnings: Vec<&str> = out
+        .notices
+        .iter()
+        .filter(|n| n.is_warning())
+        .map(|n| n.text.as_str())
+        .collect();
+    let warnings = warnings.join("\n");
+    assert!(
+        warnings.contains("shorter than the Shortest cut"),
+        "{warnings}"
+    );
+}
+
+#[test]
+fn req_op_28_req_nfr_07_a_negative_shortest_cut_is_refused_by_name() {
+    let rig = Rig::new(comb(), &ball(3.0));
+    for bad in [-1.0, f64::NAN] {
+        let e = rig
+            .output(
+                &rig.strategy(&[0], &[]),
+                &values(0.8, &[(p::SHORTEST_CUT, num(bad))]),
+            )
+            .err()
+            .unwrap_or_else(|| panic!("{bad} accepted"));
+        assert!(e.to_string().contains(p::SHORTEST_CUT), "{bad}: {e}");
+    }
+}

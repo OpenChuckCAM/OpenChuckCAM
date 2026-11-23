@@ -1817,13 +1817,14 @@ fn req_op_11_a_new_ring_operation_blends_its_steps() {
 }
 
 #[test]
-fn req_op_28_a_new_face_flow_operation_stays_down_and_blends_its_ring_steps() {
+fn req_op_28_a_new_face_flow_operation_stays_down_blends_its_ring_steps_and_sets_its_shortest_cut()
+{
     // Issue #854 (the owner's answers of 23 Nov 2026, Q2 and the ring
     // joins): a new face-flow operation is written with Stay down between
     // passes on and blended steps between rings, as decision 0545 D3 writes
     // blended steps; one saved without them keeps its program (both off by
     // default), and other strategies get no Stay down.
-    use openchuck_path::face_flow::parameter::STAY_DOWN;
+    use openchuck_path::face_flow::parameter::{SHORTEST_CUT, STAY_DOWN};
     use openchuck_path::helical::parameter::{BLENDED, RING_STEP};
     let (dir, mut app, op) = project("face-flow-defaults");
     // Face flow needs a STEP part.
@@ -1851,10 +1852,23 @@ fn req_op_28_a_new_face_flow_operation_stays_down_and_blends_its_ring_steps() {
         value(&app, added, RING_STEP),
         Some(openchuck_app::project::ParameterValue::Text(BLENDED.into()))
     );
+    // Shortest cut starts at the tool's diameter (Q3).
+    let diameter = app
+        .project()
+        .tools()
+        .iter()
+        .find(|t| Some(t.id) == tool)
+        .map(|t| t.tool.diameter.0)
+        .unwrap();
+    assert_eq!(
+        value(&app, added, SHORTEST_CUT),
+        Some(openchuck_app::project::ParameterValue::Number(diameter))
+    );
     let helical = app
         .add_operation("helical_finishing", "helical_finishing", setup, tool)
         .unwrap();
     assert_eq!(value(&app, helical, STAY_DOWN), None);
+    assert_eq!(value(&app, helical, SHORTEST_CUT), None);
     assert_eq!(value(&app, op, STAY_DOWN), None);
     std::fs::remove_dir_all(&dir).unwrap();
 }

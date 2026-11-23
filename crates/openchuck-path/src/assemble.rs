@@ -101,6 +101,13 @@ pub enum UnreachedReason {
     /// the stock, which every tool keeps clear of by its radius (SET-09;
     /// decision records 0161 and 0505).
     NearHeldRegion,
+    /// The tool reaches it, but only in a cut (from one lift to the next)
+    /// shorter than the operation's Shortest cut, so that cut is left out
+    /// (face-flow finishing; issue #854).
+    TooShort {
+        /// The length of the cut left out, in millimetres.
+        length: f64,
+    },
 }
 
 /// A place where a strategy broke a pass because the tool's shank, wider
