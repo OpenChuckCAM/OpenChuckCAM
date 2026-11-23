@@ -115,21 +115,62 @@ fn writes_notice(text: &str) -> bool {
         .any(|block| block.iter().zip(&wanted).all(|(line, want)| line == want))
 }
 
+/// The mark written in front of a comment that would otherwise start with one of the post's
+/// `active_comment_prefixes`, so the controller reads it as an ordinary comment (issue #851).
+/// LinuxCNC skips only white space before it compares a comment with its words, so one
+/// printable character is enough.
+pub const ACTIVE_COMMENT_GUARD: char = '_';
+
+/// Whether `text`, after its leading white space, starts with `prefix`, ASCII letters in any
+/// case (LinuxCNC compares its interpreter's words in lower case; matching every word in any
+/// case also covers its task's upper-case ones).
+pub(crate) fn starts_with_prefix(text: &str, prefix: &str) -> bool {
+    text.trim_start()
+        .as_bytes()
+        .get(..prefix.len())
+        .is_some_and(|head| head.eq_ignore_ascii_case(prefix.as_bytes()))
+}
+
+/// Whether a comment holding `text` would be acted on by the controller (issue #851).
+fn is_active(text: &str, prefixes: &[String]) -> bool {
+    prefixes.iter().any(|p| starts_with_prefix(text, p))
+}
+
+/// `text` from the project, made safe to start a comment: when it would start an active
+/// comment, its leading spaces are dropped and [`ACTIVE_COMMENT_GUARD`] is written in front;
+/// any other text is returned as it is (issue #851).
+fn guard_active(text: String, prefixes: &[String]) -> String {
+    if is_active(&text, prefixes) {
+        format!("{ACTIVE_COMMENT_GUARD}{}", text.trim_start())
+    } else {
+        text
+    }
+}
+
 /// Splits `text` at spaces into pieces of at most `first` characters for the first piece and
 /// `rest` for the others; a word longer than its piece's width is cut. Runs of spaces become
-/// one. Deterministic (GC-07).
-fn wrap_words(text: &str, first: usize, rest: usize) -> Vec<String> {
+/// one. A piece that starts anywhere but at the start of `text` and would start an active
+/// comment gets [`ACTIVE_COMMENT_GUARD`] in front, counted in its width (issue #851); the
+/// start of `text` is the template's to write. Deterministic (GC-07).
+fn wrap_words(text: &str, first: usize, rest: usize, prefixes: &[String]) -> Vec<String> {
     let (first, rest) = (first.max(1), rest.max(1));
     let mut pieces: Vec<String> = Vec::new();
     let mut current: Vec<char> = Vec::new();
+    let mut at_start = true;
     for word in text.split_whitespace() {
         let mut word: Vec<char> = word.chars().collect();
         loop {
             // The piece being filled is `current`, the first while nothing is pushed.
             let width = if pieces.is_empty() { first } else { rest };
             if current.is_empty() {
-                if word.len() <= width {
-                    current = word;
+                let guard = !at_start && is_active(&word.iter().collect::<String>(), prefixes);
+                let mark = usize::from(guard);
+                if word.len() + mark <= width {
+                    if guard {
+                        current.push(ACTIVE_COMMENT_GUARD);
+                    }
+                    current.append(&mut word);
+                    at_start = false;
                     break;
                 }
                 if pieces.is_empty() && word.len() <= rest {
@@ -138,7 +179,14 @@ fn wrap_words(text: &str, first: usize, rest: usize) -> Vec<String> {
                     pieces.push(String::new());
                     continue;
                 }
-                pieces.push(word.drain(..width).collect());
+                let mut piece: String = if guard {
+                    ACTIVE_COMMENT_GUARD.to_string()
+                } else {
+                    String::new()
+                };
+                piece.extend(word.drain(..width.saturating_sub(mark).max(1)));
+                pieces.push(piece);
+                at_start = false;
             } else if current.len() + 1 + word.len() <= width {
                 current.push(' ');
                 current.append(&mut word);
@@ -156,9 +204,10 @@ fn wrap_words(text: &str, first: usize, rest: usize) -> Vec<String> {
 
 /// Wraps every comment line longer than `max` characters (a whole line `(...)`, after an
 /// optional `N` word) into comment lines that fit, at spaces (decision 0656, OI-933). The
-/// `N` word stays on the first of them. Other lines are left as they are: one that is too
-/// long is the GC-08 check's to report.
-fn wrap_comments(text: &str, max: usize) -> String {
+/// `N` word stays on the first of them, and a later line that would start an active comment
+/// is guarded (issue #851). Other lines are left as they are: one that is too long is the
+/// GC-08 check's to report.
+fn wrap_comments(text: &str, max: usize, prefixes: &[String]) -> String {
     let mut out = String::with_capacity(text.len());
     for line in text.split_inclusive('\n') {
         let (body, end) = match line.strip_suffix('\n') {
@@ -188,7 +237,7 @@ fn wrap_comments(text: &str, max: usize) -> String {
         // Only the first line carries the `N` word; the others have the whole width.
         let first = max.saturating_sub(prefix.chars().count() + 2);
         let rest = max.saturating_sub(2);
-        for (i, piece) in wrap_words(inner, first, rest).iter().enumerate() {
+        for (i, piece) in wrap_words(inner, first, rest, prefixes).iter().enumerate() {
             if i == 0 {
                 out.push_str(prefix);
             } else {
@@ -326,10 +375,13 @@ impl PostProcessor for TemplatePost {
         for r in &mut program.short_blocks {
             r.sources = sources;
         }
+        // Text from the project never starts an active comment (issue #851).
+        let active = &d.options.active_comment_prefixes;
+        let safe = |text: &str| guard_active(sanitise_comment(text), active);
         for step in &mut program.steps {
             match step {
-                Step::Comment { text } => *text = sanitise_comment(text),
-                Step::ToolChange { name, .. } => *name = sanitise_comment(name),
+                Step::Comment { text } => *text = safe(text),
+                Step::ToolChange { name, .. } => *name = safe(name),
                 _ => {}
             }
         }
@@ -340,9 +392,9 @@ impl PostProcessor for TemplatePost {
         }
         let steps = apply_a_conventions(&program, &options);
         let context = Context {
-            title: sanitise_comment(&job.title),
-            revision: job.revision.as_deref().map(sanitise_comment),
-            generator: job.generator.as_deref().map(sanitise_comment),
+            title: safe(&job.title),
+            revision: job.revision.as_deref().map(safe),
+            generator: job.generator.as_deref().map(safe),
             safety_notice: if options.safety_notice {
                 SAFETY_NOTICE
             } else {
@@ -374,7 +426,7 @@ impl PostProcessor for TemplatePost {
         // Long comments are wrapped after the notice check, so the notice is checked as the
         // template wrote it and kept word for word (decision 0656).
         let text = match options.max_line_length {
-            Some(max) => wrap_comments(&text, max as usize),
+            Some(max) => wrap_comments(&text, max as usize, active),
             None => text,
         };
         let estimated_seconds = if short_blocks.enabled()

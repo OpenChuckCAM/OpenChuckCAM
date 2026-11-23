@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased (POST-COMMENTS; issue #851; decision 9901, proposed; number provisional)
+
+- **Breaking (needs a workspace minor bump, assigned at release; decision 0048):** `PostOptions::active_comment_prefixes` (post key `active_comment_prefixes`, a list, empty when a post leaves it out): the openings of comments the controller acts on, such as LinuxCNC's `MSG,`. Text from the project that would start such a comment (the title, revision, generator, operation comments and tool names, after the sanitiser) and each line a wrapped comment starts are written with the new constant `ACTIVE_COMMENT_GUARD` (`_`) in front, counted in the line limit; the post's own header and footer are kept. Bad entries are refused at load (`options.active_comment_prefixes`). The LinuxCNC post lists LinuxCNC's fourteen openings; the Makera Z1 post lists none. Struct literals of `PostOptions` add the field. No golden program changes; a LinuxCNC program for a project whose name starts with one of the openings gains the mark.
+
 ## 0.56.0
 
 - **Breaking (0.56.0, POST-SAFETY; issue #703; OI-933; decision 0656, accepted):** `PostOptions::max_line_length` (post key `max_line_length`, 20 to 4096 characters, read as unset when a post leaves it out): a comment line longer than it is wrapped at spaces into comment lines that fit (a word longer than a line is cut; an `N` word stays on the first line), after the NFR-12 notice check, so the notice is kept word for word. A post with a value outside 20 to 4096 is refused at load (`options.max_line_length`). The Makera Z1 post sets 63 (the firmware source's 64-byte line, OI-933), the LinuxCNC post 255. Struct literals of `PostOptions` add the field. Every Makera Z1 program writes the notice on four comment lines instead of two, and a title or operation comment longer than 63 characters on more than one line; no other byte changes.
