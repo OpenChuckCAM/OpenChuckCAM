@@ -40,6 +40,13 @@ use openchuck_app::{AppError, Application, Command};
 
 use crate::field_row::{self, Outcome, TextRow};
 use crate::floating::{WindowEvent, floating_unscrolled};
+
+/// The window's four parts in Tab order: the tool list, the form, the data
+/// for the tool, then the footer (Q3 A).
+const LIST: crate::focus::Region = crate::focus::dialog_part("tool library", 0, 4);
+const FORM: crate::focus::Region = crate::focus::dialog_part("tool library", 1, 4);
+const DATA: crate::focus::Region = crate::focus::dialog_part("tool library", 2, 4);
+const FOOTER: crate::focus::Region = crate::focus::dialog_part("tool library", 3, 4);
 use crate::form_panel::{self, FormState};
 use crate::theme::DARK;
 use crate::tool_panel::{self, ProfileAction};
@@ -566,7 +573,9 @@ impl ToolLibraryWindow {
         }
         egui::Panel::bottom("tool library footer")
             .resizable(false)
-            .show(ui, |ui| self.footer(ui, project, acts));
+            .show(ui, |ui| {
+                crate::focus::region(ui, FOOTER, |ui| self.footer(ui, project, acts));
+            });
         crate::floating::focus_starts_here(ui);
         let Some(lib) = &self.library else {
             if project.is_some() && ui.button("Remove unused tools…").clicked() {
@@ -583,43 +592,51 @@ impl ToolLibraryWindow {
             .default_size(270.0)
             .resizable(true)
             .show(ui, |ui| {
-                list(
-                    ui,
-                    lib,
-                    project,
-                    (&mut self.search, &mut self.view),
-                    self.chosen,
-                    acts,
-                );
+                crate::focus::region(ui, LIST, |ui| {
+                    list(
+                        ui,
+                        lib,
+                        project,
+                        (&mut self.search, &mut self.view),
+                        self.chosen,
+                        acts,
+                    );
+                })
             });
         let tool = self.shown(project);
         egui::Panel::right("tool library data")
             .default_size(300.0)
             .resizable(true)
             .show(ui, |ui| {
+                crate::focus::region(ui, DATA, |ui| {
+                    crate::theme::solid_scroll_bar(ui);
+                    egui::ScrollArea::vertical()
+                        .auto_shrink([false, false])
+                        .show_keeping_focus(ui, |ui| match &tool {
+                            Some(tool) => self.data(ui, tool, project, acts),
+                            None => {
+                                ui.label(RichText::new("Choose a tool.").color(DARK.muted));
+                            }
+                        });
+                })
+            });
+        egui::CentralPanel::default().show(ui, |ui| {
+            crate::focus::region(ui, FORM, |ui| {
                 crate::theme::solid_scroll_bar(ui);
                 egui::ScrollArea::vertical()
                     .auto_shrink([false, false])
                     .show_keeping_focus(ui, |ui| match &tool {
-                        Some(tool) => self.data(ui, tool, project, acts),
+                        Some(tool) => self.tool_form(ui, tool, acts),
                         None => {
-                            ui.label(RichText::new("Choose a tool.").color(DARK.muted));
+                            ui.label(
+                                RichText::new(
+                                    "Choose a tool in the list, or make one with New tool.",
+                                )
+                                .color(DARK.muted),
+                            );
                         }
                     });
-            });
-        egui::CentralPanel::default().show(ui, |ui| {
-            crate::theme::solid_scroll_bar(ui);
-            egui::ScrollArea::vertical()
-                .auto_shrink([false, false])
-                .show_keeping_focus(ui, |ui| match &tool {
-                    Some(tool) => self.tool_form(ui, tool, acts),
-                    None => {
-                        ui.label(
-                            RichText::new("Choose a tool in the list, or make one with New tool.")
-                                .color(DARK.muted),
-                        );
-                    }
-                });
+            })
         });
         self.dialogs(ui, acts);
     }
@@ -649,18 +666,21 @@ impl ToolLibraryWindow {
                 ui.add(egui::Label::new(RichText::new(text).color(colour)).truncate());
             }
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                let (label, enabled, reason) = self.add_state(project);
-                let button = if self.purpose == Purpose::Browse {
-                    ui.add_enabled(enabled, egui::Button::new(label))
-                } else {
-                    crate::shell::primary_button(ui, label, enabled)
-                };
-                if button.on_disabled_hover_text(reason).clicked() {
-                    acts.push(Act::AddToProject);
-                }
-                if ui.button("Close").clicked() {
-                    acts.push(Act::Close);
-                }
+                // Left to right, so Tab reaches Close first (Q3 A).
+                crate::focus::row_at_right(ui, "tool library footer", |ui| {
+                    if ui.button("Close").clicked() {
+                        acts.push(Act::Close);
+                    }
+                    let (label, enabled, reason) = self.add_state(project);
+                    let button = if self.purpose == Purpose::Browse {
+                        ui.add_enabled(enabled, egui::Button::new(label))
+                    } else {
+                        crate::shell::primary_button(ui, label, enabled)
+                    };
+                    if button.on_disabled_hover_text(reason).clicked() {
+                        acts.push(Act::AddToProject);
+                    }
+                });
             });
         });
         ui.add_space(8.0);

@@ -2864,6 +2864,7 @@ impl Shell {
     /// the eframe frame it does not use, so a test can run it.
     fn draw(&mut self, ui: &mut egui::Ui) {
         let ctx = ui.ctx().clone();
+        crate::focus::begin_frame(&ctx);
         self.edit_context = Some(ctx.clone());
         if self.recovery.is_closing() {
             ctx.send_viewport_cmd(egui::ViewportCommand::CancelClose);
@@ -2906,6 +2907,7 @@ impl Shell {
             self.recovery.cancel_install(app.location());
         }
         self.checkpoint_frame(&ctx);
+        crate::focus::end_frame(&ctx);
         self.text_had_focus = ctx.text_edit_focused();
         self.record_actions_frame(&ctx);
     }

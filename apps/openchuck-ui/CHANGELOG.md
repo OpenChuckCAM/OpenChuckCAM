@@ -1,8 +1,10 @@
 # Changelog
 
-## Unreleased (A11Y-FOCUS, decision 0xxx, proposed; issues #577, #578, #580, #581)
+## Unreleased (A11Y-FOCUS, decision 0xxx, proposed, built as the owner answered; issues #577, #578, #580, #581)
 
-- **Added:** a tool window that opens (import, New operation, tool library, machine library, Post and export) gives the keyboard to the first control of its body (#580).
+- **Added:** a tool window that opens (import, New operation, tool library, machine library, Post and export) takes the keyboard with no control focused; the first Tab goes to the first control of its body (#580; the owner's answer Q1 B).
+- **Added:** Tab follows reading order in the main window (menus, steps, badge, actions, project panel, view, dock, inspector, footer with the primary last) and in each tool window (body, then footer buttons left to right, round inside the window) (`focus::region`, `focus::row_at_right`) (#581 F4).
+- **Added:** Esc does what each tool window's Close or Cancel does, with the same guard; 1, 3, 7 and 0 turn to the front, right, top and isometric views (#581 F11, F6).
 - **Added:** Tab scrolls the control it reaches into view in every scroll area (`focus::KeepFocus`) (#577).
 - **Changed:** every tooltip opens on keyboard focus as well as on hover (`focus::Tip`); an unavailable step tab is a Tab stop that shows its reason on focus and draws the focus ring (#578; UI-10, UI-14).
 - **Fixed:** the single-letter and function keys (N, G, F5, F2, Del, F, V, Q to R) work while a button or menu has the keyboard; only a text field takes them, as intended.

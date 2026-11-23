@@ -231,6 +231,10 @@ fn req_ui_14_the_shortcut_list_names_every_key() {
         "Ctrl −",
         "F",
         "V",
+        "1",
+        "3",
+        "7",
+        "0",
         "N",
         "Ctrl D",
         "Del",
@@ -471,4 +475,98 @@ fn req_ui_14_esc_closes_every_tool_window_as_its_close_does() {
         "the draft was not dropped"
     );
     assert!(rig.shows("Discard the changes to this machine?"));
+}
+
+/// The regions Tab passes through, in order, each counted once per visit,
+/// from `presses` presses of Tab (or Shift Tab). A stop outside every region
+/// (a pop-up) is left out.
+fn region_walk(rig: &mut Rig, back: bool, presses: usize) -> Vec<(&'static str, usize)> {
+    let mut walk: Vec<(&'static str, usize)> = Vec::new();
+    for _ in 0..presses {
+        rig.tab(back);
+        if let Some(region) = crate::focus::focused_region(&rig.ctx)
+            && walk.last() != Some(&region)
+        {
+            walk.push(region);
+        }
+    }
+    walk
+}
+
+/// Issue #581 F4 (the owner's answer Q3 A): Tab goes through the main window
+/// in reading order: menus, step tabs, the health badge, the workflow
+/// actions, the project panel, the view, the dock, the inspector, the footer
+/// with the primary button last; then round to the menus. Shift Tab goes the
+/// other way.
+#[test]
+fn req_ui_14_tab_follows_reading_order() {
+    let mut rig = Rig::cube("focus-order", None);
+    rig.press(Key::Num3, Modifiers::ALT);
+    let op = rig.shell.app.as_ref().unwrap().project().operations()[0].id;
+    rig.shell.select(Selection::Operation(op));
+    rig.settle();
+    let main = |index| ("main window", index);
+    let forward = region_walk(&mut rig, false, 400);
+    let first_lap: Vec<_> = forward.iter().take(10).copied().collect();
+    assert_eq!(
+        first_lap,
+        (0..9).map(main).chain([main(0)]).collect::<Vec<_>>(),
+        "forward: {forward:?}"
+    );
+    // The primary button is the footer's last stop.
+    let mut rig = Rig::cube("focus-order-back", None);
+    rig.press(Key::Num3, Modifiers::ALT);
+    rig.shell.select(Selection::Operation(op));
+    rig.settle();
+    let back = region_walk(&mut rig, true, 400);
+    let first_lap: Vec<_> = back.iter().take(10).copied().collect();
+    assert_eq!(
+        first_lap,
+        [8, 7, 6, 5, 4, 3, 2, 1, 0, 8].map(main).to_vec(),
+        "backward: {back:?}"
+    );
+}
+
+/// Issue #581 F4 (Q3 A): in every tool window Tab reads the body's parts in
+/// order (a part with no control is passed), then the footer, then round
+/// inside the window; it never goes behind it.
+#[test]
+fn req_ui_14_a_dialog_reads_its_body_then_its_footer() {
+    let parts = [
+        ("export dialog", 2),
+        ("import model", 3),
+        ("add operation", 2),
+        ("tool library", 4),
+        ("machine library", 3),
+    ];
+    for (window, count) in parts {
+        let mut rig = Rig::cube(&format!("focus-order-{}", window.replace(' ', "-")), None);
+        let dir =
+            super::frame_tests::temp(&format!("focus-order-libs-{}", window.replace(' ', "-")));
+        rig.shell.tool_library = ToolLibraryWindow::new(Some(dir.join("tools")));
+        rig.shell.machine_library =
+            MachineLibraryWindow::new(Some(dir.join("machines")), Some(dir.join("tools")));
+        rig.dirs.push(dir);
+        open_each(&mut rig, window);
+        rig.frame(Vec::new());
+        let walk = region_walk(&mut rig, false, 150);
+        assert!(
+            walk.iter().all(|(scope, _)| *scope == window),
+            "{window}: {walk:?}"
+        );
+        let lap: Vec<usize> = walk.iter().map(|(_, i)| *i).collect();
+        let end = lap
+            .iter()
+            .position(|i| *i == count - 1)
+            .expect("the footer is reached");
+        assert!(
+            lap[..=end].windows(2).all(|w| w[0] < w[1]),
+            "{window}: {lap:?}"
+        );
+        assert_eq!(
+            lap.get(end + 1),
+            lap.first(),
+            "{window}: round to the start: {lap:?}"
+        );
+    }
 }

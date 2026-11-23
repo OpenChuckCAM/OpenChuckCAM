@@ -154,7 +154,7 @@ fn end_opening(ctx: &egui::Context, window: egui::Id) {
 /// The key of what Esc found at the end of the last frame: whether a text
 /// field had the keyboard, and whether a pop-up was open.
 fn esc_state_id() -> egui::Id {
-    egui::Id::new("dialog esc state")
+    egui::Id::unique("dialog esc state")
 }
 
 /// Whether Esc this frame closes the dialog on `layer` (UI-14, specification

@@ -82,8 +82,8 @@ const LEGEND_STRIP: f32 = 36.0;
 
 /// The keys, for Help > Keyboard shortcuts (specification section 16), each
 /// key written once so the list can be checked against the section. The keys
-/// the section names that are not built yet (Ctrl H, Ctrl K, S, M, B and the
-/// numpad views) are left out.
+/// the section names that are not built yet (Ctrl H, Ctrl K, S, M and B) are
+/// left out.
 pub(super) const KEY_MAP: &[(&str, &str)] = &[
     ("Ctrl N, Ctrl O, Ctrl S", "New, open, save project"),
     ("Ctrl I", "Import model"),
@@ -101,6 +101,10 @@ pub(super) const KEY_MAP: &[(&str, &str)] = &[
         "Scale the interface up, down, back to 100 %",
     ),
     ("F, V", "Fit the view; show or hide"),
+    (
+        "1, 3, 7, 0",
+        "Front, right, top, isometric view (top row or number pad)",
+    ),
     ("N", "New operation"),
     (
         "G or F5",
@@ -127,7 +131,10 @@ pub(super) const KEY_MAP: &[(&str, &str)] = &[
         "Tab, Shift Tab",
         "Move to the next or previous control; its tooltip opens with it",
     ),
-    ("Esc", "Cancel the running job, or leave picking"),
+    (
+        "Esc",
+        "Cancel the running job, leave picking, close a pop-up, or close a tool window as its Close does",
+    ),
 ];
 
 /// A status chip in the words of the item's mark (specification section 8).
@@ -292,14 +299,20 @@ impl Shell {
         egui::Panel::top("title bar")
             .exact_size(TITLE_BAR)
             .frame(bar_frame())
-            .show(ui, |ui| self.title_bar(ui));
+            .show(ui, |ui| {
+                crate::focus::region(ui, crate::focus::main_window::MENUS, |ui| {
+                    self.title_bar(ui)
+                });
+            });
         egui::Panel::top("workflow bar")
             .exact_size(WORKFLOW_BAR)
             .show(ui, |ui| self.workflow_bar(ui));
         egui::Panel::bottom("footer")
             .exact_size(FOOTER)
             .frame(bar_frame())
-            .show(ui, |ui| self.footer(ui));
+            .show(ui, |ui| {
+                crate::focus::region(ui, crate::focus::main_window::FOOTER, |ui| self.footer(ui));
+            });
         self.side_panel(ui, Region::Project);
         self.side_panel(ui, Region::Inspector);
         self.viewport.set_picking(matches!(
@@ -333,42 +346,44 @@ impl Shell {
                 egui::CentralPanel::default()
                     .frame(egui::Frame::NONE)
                     .show(ui, |ui| {
-                        if self.app.is_none()
-                            || self
-                                .app
-                                .as_ref()
-                                .is_some_and(|a| a.project().models().is_empty())
-                                && self.import.is_none()
-                        {
-                            self.empty_state(ui);
-                            return;
-                        }
-                        if let Some(panes) = &panes {
-                            let (focused, selected) = self.viewport.marked_solids();
-                            let marks = crate::setup_panes::Marks { focused, selected };
-                            // Each setup keeps its panes' zoom and pan for
-                            // the session (decision record 0203).
-                            let seen = crate::setup_panes::show(
-                                ui,
-                                panes,
-                                marks,
-                                self.viewport.shows_unapplied(),
-                                egui::Id::unique(("setup panes view", self.setup)),
-                            );
-                            if let Some(item) = seen.clicked {
-                                self.viewport.click_solid(item);
+                        crate::focus::region(ui, crate::focus::main_window::VIEW, |ui| {
+                            if self.app.is_none()
+                                || self
+                                    .app
+                                    .as_ref()
+                                    .is_some_and(|a| a.project().models().is_empty())
+                                    && self.import.is_none()
+                            {
+                                self.empty_state(ui);
+                                return;
                             }
-                            return;
-                        }
-                        let corner = crate::selection_panel::tools_corner(ui.max_rect());
-                        self.viewport.show(ui);
-                        // A result that no longer matches the project says so on
-                        // the result itself (issue 260).
-                        self.view_banner(ui.ctx());
-                        // The selection tools sit over the top left of the view.
-                        if self.viewport.is_picking() {
-                            self.selection.tools(ui.ctx(), corner);
-                        }
+                            if let Some(panes) = &panes {
+                                let (focused, selected) = self.viewport.marked_solids();
+                                let marks = crate::setup_panes::Marks { focused, selected };
+                                // Each setup keeps its panes' zoom and pan for
+                                // the session (decision record 0203).
+                                let seen = crate::setup_panes::show(
+                                    ui,
+                                    panes,
+                                    marks,
+                                    self.viewport.shows_unapplied(),
+                                    egui::Id::unique(("setup panes view", self.setup)),
+                                );
+                                if let Some(item) = seen.clicked {
+                                    self.viewport.click_solid(item);
+                                }
+                                return;
+                            }
+                            let corner = crate::selection_panel::tools_corner(ui.max_rect());
+                            self.viewport.show(ui);
+                            // A result that no longer matches the project says so on
+                            // the result itself (issue 260).
+                            self.view_banner(ui.ctx());
+                            // The selection tools sit over the top left of the view.
+                            if self.viewport.is_picking() {
+                                self.selection.tools(ui.ctx(), corner);
+                            }
+                        })
                     });
             });
     }
@@ -436,26 +451,33 @@ impl Shell {
             builder = builder.exact_size(default);
             self.reset = None;
         }
+        let order = if left {
+            crate::focus::main_window::PROJECT
+        } else {
+            crate::focus::main_window::INSPECTOR
+        };
         let response = builder.show(ui, |ui| {
-            self.panel_header(ui, region);
-            match region {
-                Region::Project => self.tree(ui),
-                _ => {
-                    crate::theme::solid_scroll_bar(ui);
-                    egui::ScrollArea::vertical()
-                        .id_salt("inspector scroll")
-                        // The pane's width is the user's, not the content's.
-                        .auto_shrink([false, false])
-                        .show_keeping_focus(ui, |ui| {
-                            let ctx = ui.ctx().clone();
-                            crate::pending_edits::form(
-                                &ctx,
-                                egui::Id::unique("inspector form"),
-                                || self.properties(ui),
-                            );
-                        });
+            crate::focus::region(ui, order, |ui| {
+                self.panel_header(ui, region);
+                match region {
+                    Region::Project => self.tree(ui),
+                    _ => {
+                        crate::theme::solid_scroll_bar(ui);
+                        egui::ScrollArea::vertical()
+                            .id_salt("inspector scroll")
+                            // The pane's width is the user's, not the content's.
+                            .auto_shrink([false, false])
+                            .show_keeping_focus(ui, |ui| {
+                                let ctx = ui.ctx().clone();
+                                crate::pending_edits::form(
+                                    &ctx,
+                                    egui::Id::unique("inspector form"),
+                                    || self.properties(ui),
+                                );
+                            });
+                    }
                 }
-            }
+            })
         });
         let rect = response.response.rect;
         let edge = if left { rect.right() } else { rect.left() };
@@ -576,7 +598,9 @@ impl Shell {
         #[cfg(test)]
         ui.ctx()
             .data_mut(|d| d.insert_temp(egui::Id::unique("test dock parent"), ui.scope_id()));
-        let response = builder.show(ui, |ui| self.dock(ui));
+        let response = builder.show(ui, |ui| {
+            crate::focus::region(ui, crate::focus::main_window::DOCK, |ui| self.dock(ui));
+        });
         let rect = response.response.rect;
         let top = rect.top();
         let dragging = ui.input(|i| {
@@ -1008,84 +1032,97 @@ impl Shell {
             );
         }
         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-            if self.app.is_some() && self.health_badge(ui, &steps, first_problem) {
+            let badge = crate::focus::region(ui, crate::focus::main_window::BADGE, |ui| {
+                self.app.is_some() && self.health_badge(ui, &steps, first_problem)
+            });
+            if badge {
                 self.go_to_first_problem();
             }
-            match self.step {
-                Step::Model if self.app.is_some() => {
-                    if ui
-                        .add_enabled(self.import.is_none(), egui::Button::new("+ Import model…"))
-                        .tip("Import model (Ctrl I)")
-                        .clicked()
-                    {
-                        self.import_model();
-                    }
-                }
-                Step::Setup => {
-                    if let Some(app) = &self.app {
-                        let blocked = openchuck_app::add_setup_blocked(app.project());
-                        let tip = blocked.unwrap_or("New setup");
+            crate::focus::region(ui, crate::focus::main_window::ACTIONS, |ui| {
+                match self.step {
+                    Step::Model if self.app.is_some() => {
                         if ui
-                            .add_enabled(blocked.is_none(), egui::Button::new("+ Add setup"))
-                            .on_disabled_hover_text(tip)
-                            .tip(tip)
+                            .add_enabled(
+                                self.import.is_none(),
+                                egui::Button::new("+ Import model…"),
+                            )
+                            .tip("Import model (Ctrl I)")
                             .clicked()
                         {
-                            self.add_setup();
+                            self.import_model();
                         }
                     }
-                    ui.add(
-                        egui::Label::new(
-                            RichText::new("Changing a setup marks its operations stale.")
-                                .color(DARK.muted),
-                        )
-                        .truncate(),
-                    );
-                }
-                Step::Operations => {
-                    if ui
-                        .button("Tool library…")
-                        .tip("Open the tool library to add, edit or import tools")
-                        .clicked()
-                    {
-                        self.open_tool_library(super::Purpose::Add, None);
-                    }
-                    if ui
-                        .button("+ New operation")
-                        .tip("New operation (N)")
-                        .clicked()
-                    {
-                        self.new_operation();
-                    }
-                    if let Some(Selection::Operation(id)) = self.selected
-                        && ui.button("Duplicate").tip("Ctrl D").clicked()
-                    {
-                        self.tree_action(super::TreeAction::Duplicate(id));
-                    }
-                }
-                _ => {}
-            }
-            ui.with_layout(egui::Layout::left_to_right(egui::Align::Center), |ui| {
-                egui::ScrollArea::horizontal()
-                    .id_salt("steps")
-                    .scroll_bar_visibility(egui::scroll_area::ScrollBarVisibility::AlwaysHidden)
-                    .show_keeping_focus(ui, |ui| {
-                        ui.horizontal_centered(|ui| {
-                            for step in Step::ALL {
-                                let state = steps
-                                    .iter()
-                                    .find(|s| s.step == step)
-                                    .cloned()
-                                    .unwrap_or_else(|| self.overview.step(step));
-                                let active = self.step == step;
-                                if step_tab(ui, step, active, &state).clicked() {
-                                    self.open_step(step);
-                                }
+                    Step::Setup => {
+                        if let Some(app) = &self.app {
+                            let blocked = openchuck_app::add_setup_blocked(app.project());
+                            let tip = blocked.unwrap_or("New setup");
+                            if ui
+                                .add_enabled(blocked.is_none(), egui::Button::new("+ Add setup"))
+                                .on_disabled_hover_text(tip)
+                                .tip(tip)
+                                .clicked()
+                            {
+                                self.add_setup();
                             }
-                            ui.separator();
-                            self.g_code_status(ui);
+                        }
+                        ui.add(
+                            egui::Label::new(
+                                RichText::new("Changing a setup marks its operations stale.")
+                                    .color(DARK.muted),
+                            )
+                            .truncate(),
+                        );
+                    }
+                    Step::Operations => {
+                        // Left to right, so Tab reads them as they stand (Q3 A).
+                        crate::focus::row_at_right(ui, "operations actions", |ui| {
+                            if let Some(Selection::Operation(id)) = self.selected
+                                && ui.button("Duplicate").tip("Ctrl D").clicked()
+                            {
+                                self.tree_action(super::TreeAction::Duplicate(id));
+                            }
+                            if ui
+                                .button("+ New operation")
+                                .tip("New operation (N)")
+                                .clicked()
+                            {
+                                self.new_operation();
+                            }
+                            if ui
+                                .button("Tool library…")
+                                .tip("Open the tool library to add, edit or import tools")
+                                .clicked()
+                            {
+                                self.open_tool_library(super::Purpose::Add, None);
+                            }
                         });
-                    });
+                    }
+                    _ => {}
+                }
+            });
+            ui.with_layout(egui::Layout::left_to_right(egui::Align::Center), |ui| {
+                crate::focus::region(ui, crate::focus::main_window::STEPS, |ui| {
+                    egui::ScrollArea::horizontal()
+                        .id_salt("steps")
+                        .scroll_bar_visibility(egui::scroll_area::ScrollBarVisibility::AlwaysHidden)
+                        .show_keeping_focus(ui, |ui| {
+                            ui.horizontal_centered(|ui| {
+                                for step in Step::ALL {
+                                    let state = steps
+                                        .iter()
+                                        .find(|s| s.step == step)
+                                        .cloned()
+                                        .unwrap_or_else(|| self.overview.step(step));
+                                    let active = self.step == step;
+                                    if step_tab(ui, step, active, &state).clicked() {
+                                        self.open_step(step);
+                                    }
+                                }
+                                ui.separator();
+                                self.g_code_status(ui);
+                            });
+                        })
+                });
             });
         });
     }
@@ -1155,60 +1192,25 @@ impl Shell {
     /// room left.
     fn footer(&mut self, ui: &mut egui::Ui) {
         let primary = self.app.as_ref().map(|_| self.overview.primary(self.step));
-        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-            match &primary {
-                Some(p) if self.step == Step::Simulate => self.simulate_actions(ui, p),
-                Some(p) => {
-                    let enabled = p.blocked.is_none() && !self.run.is_running();
-                    let response = primary_button(ui, &p.label, enabled);
-                    let response = match &p.blocked {
-                        Some(reason) => response.on_disabled_hover_text(reason),
-                        None if self.run.is_running() => response
-                            .on_disabled_hover_text("Wait for the running job, or cancel it"),
-                        None => response,
-                    };
-                    if response.clicked() {
-                        self.primary();
-                    }
-                    if !enabled && response.hovered() {
-                        self.highlight = p.message;
-                    }
-                }
-                None => {
-                    if primary_button(ui, "New project…", true).clicked() {
-                        let ctx = ui.ctx().clone();
-                        self.request(Next::New, &ctx);
-                    }
-                }
-            }
-            if self.run.is_running() && ui.button("Cancel").tip("Esc").clicked() {
-                self.run.cancel();
-            }
-            ui.separator();
-            let warnings = self.overview.machine_warnings.clone();
-            let text = match warnings.as_slice() {
-                [] => None,
-                [one] => Some(one.clone()),
-                many => Some(format!("{} machine values unconfirmed", many.len())),
-            };
-            if let Some(text) = text
-                && ui
-                    .link(RichText::new(text).color(DARK.warning))
-                    .tip(format!(
-                        "{}. Open the machine in Setup.",
-                        warnings.join(", ")
-                    ))
-                    .clicked()
-                && let Some(setup) = self.setup
-            {
-                self.open_step(Step::Setup);
-                self.choose_setup(setup, Some(openchuck_app::overview::SetupPart::Machine));
-            }
-            if let Some(tolerance) = self.footer_tolerance() {
-                ui.monospace(format!("Tol {tolerance:.3} mm"));
-            }
-            ui.label("mm · deg").tip("Display units");
-            ui.with_layout(egui::Layout::left_to_right(egui::Align::Center), |ui| {
+        // Reading order, for Tab too (the owner's answer Q3 A): the status on
+        // the left first, then the right-hand items left to right, the primary
+        // button last. The right-hand items are drawn left to right in a box
+        // as wide as they were last frame, at the right end; the status takes
+        // the rest.
+        let full = ui.available_rect_before_wrap();
+        let width_id = egui::Id::unique("footer right width");
+        let right = ui.data(|d| d.get_temp::<f32>(width_id)).unwrap_or(0.0);
+        let split = (full.right() - right).max(full.left());
+        let gap = ui.spacing().item_spacing.x;
+        let left = egui::Rect::from_min_max(
+            full.min,
+            egui::pos2((split - gap).max(full.left()), full.max.y),
+        );
+        ui.scope_builder(
+            egui::UiBuilder::new()
+                .max_rect(left)
+                .layout(egui::Layout::left_to_right(egui::Align::Center)),
+            |ui| {
                 // The current job, with its one percentage and the
                 // operation it works on; choosing it opens the Jobs tab, with
                 // every job, their history and Cancel (issue 201, the
@@ -1250,8 +1252,78 @@ impl Shell {
                     .and_then(|p| p.blocked.clone())
                     .unwrap_or_else(|| step_note(self.step).to_owned());
                 ui.add(egui::Label::new(RichText::new(note).color(DARK.muted)).truncate());
-            });
-        });
+            },
+        );
+        let right_box = egui::Rect::from_min_max(egui::pos2(split, full.min.y), full.max);
+        let drawn = ui
+            .scope_builder(
+                egui::UiBuilder::new()
+                    .max_rect(right_box)
+                    .layout(egui::Layout::left_to_right(egui::Align::Center)),
+                |ui| {
+                    ui.label("mm · deg").tip("Display units");
+                    if let Some(tolerance) = self.footer_tolerance() {
+                        ui.monospace(format!("Tol {tolerance:.3} mm"));
+                    }
+                    let warnings = self.overview.machine_warnings.clone();
+                    let text = match warnings.as_slice() {
+                        [] => None,
+                        [one] => Some(one.clone()),
+                        many => Some(format!("{} machine values unconfirmed", many.len())),
+                    };
+                    if let Some(text) = text
+                        && ui
+                            .link(RichText::new(text).color(DARK.warning))
+                            .tip(format!(
+                                "{}. Open the machine in Setup.",
+                                warnings.join(", ")
+                            ))
+                            .clicked()
+                        && let Some(setup) = self.setup
+                    {
+                        self.open_step(Step::Setup);
+                        self.choose_setup(setup, Some(openchuck_app::overview::SetupPart::Machine));
+                    }
+                    ui.separator();
+                    if self.run.is_running() && ui.button("Cancel").tip("Esc").clicked() {
+                        self.run.cancel();
+                    }
+                    match &primary {
+                        Some(p) if self.step == Step::Simulate => self.simulate_actions(ui, p),
+                        Some(p) => {
+                            let enabled = p.blocked.is_none() && !self.run.is_running();
+                            let response = primary_button(ui, &p.label, enabled);
+                            let response = match &p.blocked {
+                                Some(reason) => response.on_disabled_hover_text(reason),
+                                None if self.run.is_running() => response.on_disabled_hover_text(
+                                    "Wait for the running job, or cancel it",
+                                ),
+                                None => response,
+                            };
+                            if response.clicked() {
+                                self.primary();
+                            }
+                            if !enabled && response.hovered() {
+                                self.highlight = p.message;
+                            }
+                        }
+                        None => {
+                            if primary_button(ui, "New project…", true).clicked() {
+                                let ctx = ui.ctx().clone();
+                                self.request(Next::New, &ctx);
+                            }
+                        }
+                    }
+                },
+            )
+            .response
+            .rect
+            .width();
+        if (drawn - right).abs() > 0.5 {
+            ui.data_mut(|d| d.insert_temp(width_id, drawn));
+            ui.ctx()
+                .request_discard("the footer's right-hand items were measured");
+        }
     }
 
     /// Simulate's two footer actions in fixed places, in workflow order:

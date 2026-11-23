@@ -29,6 +29,11 @@ use crate::theme::DARK;
 /// about 12 points taller (its rows, unit buttons and check box pad more), so
 /// that every mesh finding still shows without scrolling (decision record 0294).
 const WINDOW_KEY: &str = "import model";
+/// The window's three parts in Tab order: the file header, the body, then
+/// the footer (Q3 A).
+const HEADER: crate::focus::Region = crate::focus::dialog_part(WINDOW_KEY, 0, 3);
+const BODY: crate::focus::Region = crate::focus::dialog_part(WINDOW_KEY, 1, 3);
+const FOOTER: crate::focus::Region = crate::focus::dialog_part(WINDOW_KEY, 2, 3);
 const WINDOW_SIZE: [f32; 2] = [460.0, 544.0];
 
 /// The label of the button that starts the check (the owner's decision on
@@ -401,218 +406,231 @@ impl ImportSession {
             egui::Panel::top("import header")
                 .resizable(false)
                 .show(ui, |ui| {
-                    crate::floating::focus_starts_here(ui);
-                    ui.add_space(4.0);
-                    ui.label(RichText::new("FILE").small().strong().color(DARK.muted));
-                    ui.horizontal(|ui| {
-                        let before = self.path_text.clone();
-                        let field = ui.add(
-                            crate::theme::single_line(ui, &mut self.path_text)
-                                .desired_width(ui.available_width() - 240.0)
-                                .hint_text("Path of a model file (STL or STEP)"),
-                        );
-                        crate::pending_edits::draft_text(
-                            ui,
-                            &field,
-                            "Model file",
-                            &before,
-                            &mut self.path_text,
-                            |text| Ok(text.to_owned()),
-                        );
-                        // The file being added is the one checked: no new path meanwhile.
-                        let busy = self.adding.is_some();
-                        if ui
-                            .add_enabled(!busy, egui::Button::new("Browse…"))
-                            .clicked()
-                        {
-                            browse = true;
+                    crate::focus::region(ui, HEADER, |ui| {
+                        crate::floating::focus_starts_here(ui);
+                        ui.add_space(4.0);
+                        ui.label(RichText::new("FILE").small().strong().color(DARK.muted));
+                        ui.horizontal(|ui| {
+                            let before = self.path_text.clone();
+                            let field = ui.add(
+                                crate::theme::single_line(ui, &mut self.path_text)
+                                    .desired_width(ui.available_width() - 240.0)
+                                    .hint_text("Path of a model file (STL or STEP)"),
+                            );
+                            crate::pending_edits::draft_text(
+                                ui,
+                                &field,
+                                "Model file",
+                                &before,
+                                &mut self.path_text,
+                                |text| Ok(text.to_owned()),
+                            );
+                            // The file being added is the one checked: no new path meanwhile.
+                            let busy = self.adding.is_some();
+                            if ui
+                                .add_enabled(!busy, egui::Button::new("Browse…"))
+                                .clicked()
+                            {
+                                browse = true;
+                            }
+                            let enter = !busy
+                                && field.lost_focus()
+                                && ui.input(|i| i.key_pressed(egui::Key::Enter));
+                            let ready = !busy && !self.path_text.trim().is_empty();
+                            if ui
+                                .add_enabled(ready, egui::Button::new(CHECK_LABEL))
+                                .clicked()
+                                || enter
+                            {
+                                submit = true;
+                            }
+                        });
+                        ui.weak(step_line(checked));
+                        let working = if self.adding.is_some() {
+                            Some("Adding…")
+                        } else if self.job.is_some() {
+                            Some("Checking…")
+                        } else {
+                            None
+                        };
+                        status_row(ui, working);
+                        if let Some(error) = &self.error {
+                            ui.colored_label(DARK.error, error);
                         }
-                        let enter = !busy
-                            && field.lost_focus()
-                            && ui.input(|i| i.key_pressed(egui::Key::Enter));
-                        let ready = !busy && !self.path_text.trim().is_empty();
-                        if ui
-                            .add_enabled(ready, egui::Button::new(CHECK_LABEL))
-                            .clicked()
-                            || enter
-                        {
-                            submit = true;
-                        }
-                    });
-                    ui.weak(step_line(checked));
-                    let working = if self.adding.is_some() {
-                        Some("Adding…")
-                    } else if self.job.is_some() {
-                        Some("Checking…")
-                    } else {
-                        None
-                    };
-                    status_row(ui, working);
-                    if let Some(error) = &self.error {
-                        ui.colored_label(DARK.error, error);
-                    }
-                    ui.add_space(2.0);
+                        ui.add_space(2.0);
+                    })
                 });
             egui::Panel::bottom("import footer")
                 .resizable(false)
                 .show(ui, |ui| {
-                    ui.add_space(4.0);
-                    if self.preview.is_some() {
-                        self.copy_choice(ui);
-                    }
-                    ui.weak(
-                        "The file is not changed. Its path and hash are stored in the project.",
-                    );
-                    // A row of its own height: a layout given the panel's whole height centres
-                    // the buttons in it, and the panel then keeps growing (issue 222).
-                    let row = egui::vec2(ui.available_width(), ui.spacing().interact_size.y);
-                    ui.allocate_ui_with_layout(
-                        row,
-                        egui::Layout::right_to_left(egui::Align::Center),
-                        |ui| {
-                            let can_add = self.can_add();
-                            let add = egui::Button::new(
-                                RichText::new("Add to project").color(DARK.primary_text),
-                            )
-                            .fill(DARK.primary)
-                            .stroke(egui::Stroke::new(1.0, DARK.primary_border));
-                            if ui.add_enabled(can_add, add).clicked() {
-                                action = ImportAction::Add;
-                            }
-                            if ui.button("Cancel").clicked() {
-                                action = ImportAction::Cancel;
-                            }
-                        },
-                    );
-                    ui.add_space(2.0);
+                    crate::focus::region(ui, FOOTER, |ui| {
+                        ui.add_space(4.0);
+                        if self.preview.is_some() {
+                            self.copy_choice(ui);
+                        }
+                        ui.weak(
+                            "The file is not changed. Its path and hash are stored in the project.",
+                        );
+                        // A row of its own height: a layout given the panel's whole height centres
+                        // the buttons in it, and the panel then keeps growing (issue 222).
+                        let row = egui::vec2(ui.available_width(), ui.spacing().interact_size.y);
+                        ui.allocate_ui_with_layout(
+                            row,
+                            egui::Layout::right_to_left(egui::Align::Center),
+                            |ui| {
+                                // Left to right, so Tab reaches Cancel first (Q3 A).
+                                crate::focus::row_at_right(ui, "import footer", |ui| {
+                                    if ui.button("Cancel").clicked() {
+                                        action = ImportAction::Cancel;
+                                    }
+                                    let can_add = self.can_add();
+                                    let add = egui::Button::new(
+                                        RichText::new("Add to project").color(DARK.primary_text),
+                                    )
+                                    .fill(DARK.primary)
+                                    .stroke(egui::Stroke::new(1.0, DARK.primary_border));
+                                    if ui.add_enabled(can_add, add).clicked() {
+                                        action = ImportAction::Add;
+                                    }
+                                });
+                            },
+                        );
+                        ui.add_space(2.0);
+                    })
                 });
             egui::ScrollArea::vertical()
                 .auto_shrink([false, false])
                 .show_keeping_focus(ui, |ui| {
-                    if let Some(preview) = &self.preview {
-                        let i = &preview.inspection;
-                        ui.label(RichText::new("1 UNITS").small().strong().color(DARK.muted));
-                        if let Some(question) = &i.unit_question {
-                            let colours = DARK.warning_box;
-                            egui::Frame::new()
-                                .fill(colours.bg)
-                                .stroke(egui::Stroke::new(1.0, colours.border))
-                                .corner_radius(3.0)
-                                .inner_margin(8.0)
-                                .show(ui, |ui| {
-                                    ui.colored_label(colours.text, question.message());
-                                });
-                        }
-                        let used = self.units.unwrap_or(i.units.applied);
-                        ui.horizontal(|ui| {
-                            for unit in LengthUnit::ALL {
-                                if ui
-                                    .selectable_label(used == unit, unit.short_name())
-                                    .clicked()
-                                    && self.units != Some(unit)
-                                {
-                                    self.units = Some(unit);
-                                    changed = true;
-                                }
+                    crate::focus::region(ui, BODY, |ui| {
+                        if let Some(preview) = &self.preview {
+                            let i = &preview.inspection;
+                            ui.label(RichText::new("1 UNITS").small().strong().color(DARK.muted));
+                            if let Some(question) = &i.unit_question {
+                                let colours = DARK.warning_box;
+                                egui::Frame::new()
+                                    .fill(colours.bg)
+                                    .stroke(egui::Stroke::new(1.0, colours.border))
+                                    .corner_radius(3.0)
+                                    .inner_margin(8.0)
+                                    .show(ui, |ui| {
+                                        ui.colored_label(colours.text, question.message());
+                                    });
                             }
-                        });
-                        if let Some(b) = i.summary.bounds {
-                            let largest = (b.max.x - b.min.x)
-                                .max(b.max.y - b.min.y)
-                                .max(b.max.z - b.min.z);
+                            let used = self.units.unwrap_or(i.units.applied);
+                            ui.horizontal(|ui| {
+                                for unit in LengthUnit::ALL {
+                                    if ui
+                                        .selectable_label(used == unit, unit.short_name())
+                                        .clicked()
+                                        && self.units != Some(unit)
+                                    {
+                                        self.units = Some(unit);
+                                        changed = true;
+                                    }
+                                }
+                            });
+                            if let Some(b) = i.summary.bounds {
+                                let largest = (b.max.x - b.min.x)
+                                    .max(b.max.y - b.min.y)
+                                    .max(b.max.z - b.min.z);
+                                ui.horizontal(|ui| {
+                                    ui.label(
+                                        RichText::new("Largest side after conversion")
+                                            .color(DARK.muted),
+                                    );
+                                    ui.with_layout(
+                                        egui::Layout::right_to_left(egui::Align::Center),
+                                        |ui| {
+                                            ui.label(
+                                                RichText::new(format!("{largest:.1} mm"))
+                                                    .monospace(),
+                                            );
+                                        },
+                                    );
+                                });
+                            }
+                            ui.weak(i.units.describe());
+                            ui.separator();
+                        }
+
+                        ui.label(
+                            RichText::new("2 PLACEMENT")
+                                .small()
+                                .strong()
+                                .color(DARK.muted),
+                        );
+                        egui::ComboBox::from_id_salt("import orientation")
+                            .width(ui.available_width())
+                            .selected_text(self.orientation.name())
+                            .show_ui(ui, |ui| {
+                                for o in Orientation::all() {
+                                    changed |= ui
+                                        .selectable_value(&mut self.orientation, o, o.name())
+                                        .changed();
+                                }
+                            });
+                        ui.weak(
+                "Places the model on the rotary axis as it is added; the dashed cyan line in \
+                 the view is the axis. The Model step's placement steps change it later.",
+            );
+                        ui.separator();
+
+                        if let Some(preview) = &self.preview {
+                            let i = &preview.inspection;
                             ui.horizontal(|ui| {
                                 ui.label(
-                                    RichText::new("Largest side after conversion")
+                                    RichText::new("3 MESH CHECK")
+                                        .small()
+                                        .strong()
                                         .color(DARK.muted),
                                 );
                                 ui.with_layout(
                                     egui::Layout::right_to_left(egui::Align::Center),
                                     |ui| {
                                         ui.label(
-                                            RichText::new(format!("{largest:.1} mm")).monospace(),
-                                        );
-                                    },
-                                );
-                            });
-                        }
-                        ui.weak(i.units.describe());
-                        ui.separator();
-                    }
-
-                    ui.label(
-                        RichText::new("2 PLACEMENT")
-                            .small()
-                            .strong()
-                            .color(DARK.muted),
-                    );
-                    egui::ComboBox::from_id_salt("import orientation")
-                        .width(ui.available_width())
-                        .selected_text(self.orientation.name())
-                        .show_ui(ui, |ui| {
-                            for o in Orientation::all() {
-                                changed |= ui
-                                    .selectable_value(&mut self.orientation, o, o.name())
-                                    .changed();
-                            }
-                        });
-                    ui.weak(
-                "Places the model on the rotary axis as it is added; the dashed cyan line in \
-                 the view is the axis. The Model step's placement steps change it later.",
-            );
-                    ui.separator();
-
-                    if let Some(preview) = &self.preview {
-                        let i = &preview.inspection;
-                        ui.horizontal(|ui| {
-                            ui.label(
-                                RichText::new("3 MESH CHECK")
-                                    .small()
-                                    .strong()
-                                    .color(DARK.muted),
-                            );
-                            ui.with_layout(
-                                egui::Layout::right_to_left(egui::Align::Center),
-                                |ui| {
-                                    ui.label(
-                                        RichText::new(format!("{} triangles", i.summary.triangles))
+                                            RichText::new(format!(
+                                                "{} triangles",
+                                                i.summary.triangles
+                                            ))
                                             .color(DARK.muted),
-                                    );
-                                },
-                            );
-                        });
-                        for finding_row in mesh_rows(&i.report) {
-                            let selected = self.selected == Some(finding_row.kind);
-                            ui.horizontal(|ui| {
-                                if finding_row.count == 0 {
-                                    ui.colored_label(DARK.ok, "\u{2713}");
-                                } else {
-                                    ui.colored_label(DARK.warning, "!");
-                                }
-                                let label = ui.selectable_label(selected, finding_row.name);
-                                if label.clicked() && finding_row.count > 0 {
-                                    self.selected = if selected {
-                                        None
-                                    } else {
-                                        Some(finding_row.kind)
-                                    };
-                                }
-                                ui.with_layout(
-                                    egui::Layout::right_to_left(egui::Align::Center),
-                                    |ui| {
-                                        ui.label(
-                                            RichText::new(finding_row.count.to_string())
-                                                .monospace(),
                                         );
                                     },
                                 );
                             });
+                            for finding_row in mesh_rows(&i.report) {
+                                let selected = self.selected == Some(finding_row.kind);
+                                ui.horizontal(|ui| {
+                                    if finding_row.count == 0 {
+                                        ui.colored_label(DARK.ok, "\u{2713}");
+                                    } else {
+                                        ui.colored_label(DARK.warning, "!");
+                                    }
+                                    let label = ui.selectable_label(selected, finding_row.name);
+                                    if label.clicked() && finding_row.count > 0 {
+                                        self.selected = if selected {
+                                            None
+                                        } else {
+                                            Some(finding_row.kind)
+                                        };
+                                    }
+                                    ui.with_layout(
+                                        egui::Layout::right_to_left(egui::Align::Center),
+                                        |ui| {
+                                            ui.label(
+                                                RichText::new(finding_row.count.to_string())
+                                                    .monospace(),
+                                            );
+                                        },
+                                    );
+                                });
+                            }
+                            ui.weak("The check reports problems and changes nothing.");
+                            for note in &i.notes {
+                                ui.separator();
+                                ui.label(RichText::new(note).small());
+                            }
                         }
-                        ui.weak("The check reports problems and changes nothing.");
-                        for note in &i.notes {
-                            ui.separator();
-                            ui.label(RichText::new(note).small());
-                        }
-                    }
+                    })
                 });
         });
         if event == WindowEvent::CloseRequested {

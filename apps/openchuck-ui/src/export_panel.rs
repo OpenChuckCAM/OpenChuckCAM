@@ -31,6 +31,10 @@ use openchuck_app::{
 
 use crate::failure::Failure;
 use crate::floating::{WindowEvent, floating_unscrolled};
+
+/// The dialog's two parts in Tab order: the body, then the footer (Q3 A).
+const BODY: crate::focus::Region = crate::focus::dialog_part("export dialog", 0, 2);
+const FOOTER: crate::focus::Region = crate::focus::dialog_part("export dialog", 1, 2);
 use crate::theme::DARK;
 
 #[path = "export_panel/feedback.rs"]
@@ -874,6 +878,34 @@ impl ExportPanel {
         acts: &mut Vec<Act>,
     ) {
         egui::Panel::bottom("export footer").show(ui, |ui| {
+            crate::focus::region(ui, FOOTER, |ui| self.footer(ui, blocker, acts));
+        });
+        // Keep the body below the fixed actions, and leave the scrollbar
+        // its own strip (UI-16, issue 311). Future preview content belongs
+        // inside this body, without changing the footer or its scroll bounds.
+        crate::theme::solid_scroll_bar(ui);
+        egui::ScrollArea::vertical().show_keeping_focus(ui, |ui| {
+            crate::focus::region(ui, BODY, |ui| {
+                crate::floating::focus_starts_here(ui);
+                ui.columns(2, |columns| {
+                    let [left, right] = columns else { return };
+                    self.left(left, app, checks, acts);
+                    let current = self.files_current(app).is_some();
+                    self.right(right, app, current);
+                });
+                ui.add_space(8.0);
+                self.notice(ui);
+                self.skip_notice(ui, app);
+                self.partial_notice(ui, app);
+                self.collision_notice(ui, app);
+            });
+        });
+    }
+
+    /// The footer: why Write G-code is blocked, then Cancel and Write G-code
+    /// at the right, left to right so Tab reaches Cancel first (Q3 A).
+    fn footer(&self, ui: &mut egui::Ui, blocker: Option<&str>, acts: &mut Vec<Act>) {
+        {
             ui.add_space(4.0);
             // Its own wrapped line: beside the buttons it ran out of the dialog and over
             // the primary button (issue 222).
@@ -881,7 +913,10 @@ impl ExportPanel {
                 ui.add(egui::Label::new(RichText::new(reason).weak()).wrap());
             }
             ui.horizontal(|ui| {
-                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                crate::focus::row_at_right(ui, "export footer", |ui| {
+                    if ui.button("Cancel").clicked() {
+                        acts.push(Act::Close);
+                    }
                     // The primary styling shows the action that can be taken now; a
                     // blocked one is drawn as an ordinary disabled button (OI-349).
                     let button = if blocker.is_none() {
@@ -903,31 +938,10 @@ impl ExportPanel {
                     if write.clicked() {
                         acts.push(Act::Write);
                     }
-                    if ui.button("Cancel").clicked() {
-                        acts.push(Act::Close);
-                    }
                 });
             });
             ui.add_space(4.0);
-        });
-        // Keep the body below the fixed actions, and leave the scrollbar
-        // its own strip (UI-16, issue 311). Future preview content belongs
-        // inside this body, without changing the footer or its scroll bounds.
-        crate::theme::solid_scroll_bar(ui);
-        egui::ScrollArea::vertical().show_keeping_focus(ui, |ui| {
-            crate::floating::focus_starts_here(ui);
-            ui.columns(2, |columns| {
-                let [left, right] = columns else { return };
-                self.left(left, app, checks, acts);
-                let current = self.files_current(app).is_some();
-                self.right(right, app, current);
-            });
-            ui.add_space(8.0);
-            self.notice(ui);
-            self.skip_notice(ui, app);
-            self.partial_notice(ui, app);
-            self.collision_notice(ui, app);
-        });
+        }
     }
 
     fn left(

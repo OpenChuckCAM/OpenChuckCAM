@@ -283,6 +283,11 @@ pub fn results_text(lines: &[ResultLine], summary: &str, build: &str) -> String 
     out
 }
 
+/// The New operation dialog's two parts in Tab order: its body, then the
+/// footer with Cancel and Add (Q3 A).
+const ADD_BODY: crate::focus::Region = crate::focus::dialog_part("add operation", 0, 2);
+const ADD_FOOTER: crate::focus::Region = crate::focus::dialog_part("add operation", 1, 2);
+
 /// The New operation dialog's material preset (issue 197; decision record
 /// 0230): the setup's stock material, or one of the tool's other materials,
 /// with a warning when it is not the setup's and a message when the tool has
@@ -769,7 +774,7 @@ impl RunPanel {
                     .id_salt("add operation body")
                     .max_height(body_height)
                     .auto_shrink([false, false])
-                    .show_keeping_focus(ui, |ui| {
+                    .show_keeping_focus(ui, |ui| crate::focus::region(ui, ADD_BODY, |ui| {
                         crate::floating::focus_starts_here(ui);
                         ui.horizontal(|ui| {
                             ui.label("Name");
@@ -895,7 +900,7 @@ impl RunPanel {
                             });
                         }
                         ui.add(egui::Label::new("Everything else starts at the strategy's defaults; set them in the operation's panel.").wrap());
-                    });
+                    }));
                 ui.add_space(4.0);
                 let unavailable = choices
                     .iter()
@@ -912,44 +917,46 @@ impl RunPanel {
                 } else {
                     None
                 };
-                ui.horizontal(|ui| {
-                    let font = egui::TextStyle::Button.resolve(ui.style());
-                    let width = |text: &str| {
-                        ui.painter()
-                            .layout_no_wrap(
-                                text.to_owned(),
-                                font.clone(),
-                                egui::Color32::PLACEHOLDER,
+                crate::focus::region(ui, ADD_FOOTER, |ui| {
+                    ui.horizontal(|ui| {
+                        let font = egui::TextStyle::Button.resolve(ui.style());
+                        let width = |text: &str| {
+                            ui.painter()
+                                .layout_no_wrap(
+                                    text.to_owned(),
+                                    font.clone(),
+                                    egui::Color32::PLACEHOLDER,
+                                )
+                                .size()
+                                .x
+                                + 2.0 * ui.spacing().button_padding.x
+                        };
+                        // A few points spare: "Add" is drawn in the strong face.
+                        let buttons =
+                            width("Cancel") + width("Add") + ui.spacing().item_spacing.x + 4.0;
+                        ui.add_space((ui.available_width() - buttons).max(0.0));
+                        if ui.button("Cancel").clicked() {
+                            close = true;
+                        }
+                        let button = if blocked.is_none() {
+                            egui::Button::new(
+                                egui::RichText::new("Add")
+                                    .color(crate::theme::DARK.primary_text)
+                                    .strong(),
                             )
-                            .size()
-                            .x
-                            + 2.0 * ui.spacing().button_padding.x
-                    };
-                    // A few points spare: "Add" is drawn in the strong face.
-                    let buttons =
-                        width("Cancel") + width("Add") + ui.spacing().item_spacing.x + 4.0;
-                    ui.add_space((ui.available_width() - buttons).max(0.0));
-                    if ui.button("Cancel").clicked() {
-                        close = true;
-                    }
-                    let button = if blocked.is_none() {
-                        egui::Button::new(
-                            egui::RichText::new("Add")
-                                .color(crate::theme::DARK.primary_text)
-                                .strong(),
-                        )
-                        .fill(crate::theme::DARK.primary)
-                        .stroke(egui::Stroke::new(1.0, crate::theme::DARK.primary_border))
-                    } else {
-                        egui::Button::new("Add")
-                    };
-                    if ui
-                        .add_enabled(blocked.is_none(), button)
-                        .on_disabled_hover_text(blocked.unwrap_or_default())
-                        .clicked()
-                    {
-                        add = true;
-                    }
+                            .fill(crate::theme::DARK.primary)
+                            .stroke(egui::Stroke::new(1.0, crate::theme::DARK.primary_border))
+                        } else {
+                            egui::Button::new("Add")
+                        };
+                        if ui
+                            .add_enabled(blocked.is_none(), button)
+                            .on_disabled_hover_text(blocked.unwrap_or_default())
+                            .clicked()
+                        {
+                            add = true;
+                        }
+                    })
                 });
             },
         );

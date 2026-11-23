@@ -272,7 +272,10 @@ fn req_ui_14_the_keys_are_left_to_any_dialog_or_window_in_front_of_the_view() {
             Some(Selection::Picking),
             "Esc behind {name} leaves picking"
         );
-        assert!(rig.shell.window_open(), "Esc does not close {name}");
+        // Esc closes a tool window as its Close or Cancel does (the owner's
+        // answer Q6 A, issue #581 F11); an error dialog is not a tool window.
+        let tool_window = name != "an error dialog";
+        assert_eq!(rig.shell.window_open(), !tool_window, "Esc and {name}");
         rig.cleanup();
     }
 }

@@ -990,7 +990,7 @@ Dark is the default. The light theme *(UI-20)* changes the panels, bars and dial
 | Alt 5 | Post and export (as Ctrl E) |
 | Ctrl 1, Ctrl 2, Ctrl 3 | Collapse the project panel, inspector, dock |
 | F, V, S, M | Fit; show or hide; section; measure |
-| Numpad 1, 3, 7, 0 | Front, right, top, isometric |
+| 1, 3, 7, 0 (top row or numpad) | Front, right, top, isometric, while no text field has the keyboard; with Alt or Ctrl the digits keep their own meanings ([decision 0xxx](../decisions/0xxx-keyboard-focus-tooltips-and-tool-windows.md), Q4) |
 | N | New operation |
 | G, or F5 | Generate selected; Shift G, or Shift F5, generates every stale operation |
 | Ctrl D, Del, F2 | Duplicate, delete, rename the selected item |
@@ -998,11 +998,11 @@ Dark is the default. The light theme *(UI-20)* changes the panels, bars and dial
 | Q, W, E, R, B | Select one, flood fill, by angle, same direction, box (while picking); on an edge, Q, W and E are select one, chain and smooth chain |
 | Ctrl Enter (Cmd Enter on macOS) | Apply the workholding draft (in its section, 11.7) |
 | Space, ←, →, Shift ←, Shift → | Play or pause, step, previous or next operation |
-| Esc | Cancel the running job, or leave picking, or close a popover |
+| Esc | Cancel the running job, or leave picking, or close a popover; in a tool window, what its Close or Cancel does, with the same guard: in a text field it ends the edit only, and a draft with changes asks first (decision 0xxx, Q6) |
 
 On macOS, Ctrl is Command.
 
-- **Keyboard.** Every control can be reached and used with the keyboard, in reading order. Tooltips and help bubbles open on focus as well as hover (the Setup board shows one open on focus).
+- **Keyboard.** Every control can be reached and used with the keyboard, in reading order. Tooltips and help bubbles open on focus as well as hover (the Setup board shows one open on focus). Reading order in the main window is: menus, step tabs, the G-code status and health badge, the workflow actions, the project panel, the view's toolbar and the view, the dock, the inspector, the footer with the primary button last; in a dialog, its body, then its footer buttons left to right, and Tab goes round inside the dialog. A tool window that opens takes the keyboard as a whole, with no control focused; the first Tab goes to its first control. A step that is unavailable stays a Tab stop and shows why on focus (decision 0xxx, Q1 to Q3).
 - **Screen readers.** Icon-only buttons have accessible names. egui's AccessKit support is used, so controls are exposed to screen readers.
 - **Contrast.** Text has at least 4.5:1 contrast with its background, and graphics that carry meaning at least 3:1.
 - **Colour.** State is never shown by colour alone (section 6 marks, 7.4 line styles). Colour maps differ in lightness.
