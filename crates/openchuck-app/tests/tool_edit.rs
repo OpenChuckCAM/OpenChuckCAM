@@ -334,6 +334,12 @@ fn req_tl_02_req_ui_07_the_stick_out_is_set_or_left_blank() {
         row.description
             .contains("Blank uses the flute length + 5 mm")
     );
+    // The ready-made Z1 values are a standard setup, not a measurement
+    // (decision record 0673; NFR-12): the help says to measure.
+    assert!(
+        row.description
+            .contains("not measured: measure your tool as fitted")
+    );
     let before = app.project().clone();
     for bad in [11.0, 50.5] {
         let e = app

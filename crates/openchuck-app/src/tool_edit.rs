@@ -127,7 +127,7 @@ pub fn tool_form(tool: &Tool) -> Vec<Field> {
     let mut stick = mm(
         STICK_OUT,
         "Stick-out",
-        "How far the tool sticks out of the collet, in millimetres, from the tip to the collet face: at least the flute length and at most the overall length. The tool-length checks use it. Blank uses the flute length + 5 mm, and the checks then say they assumed it.",
+        "How far the tool sticks out of the collet, in millimetres, from the tip to the collet face: at least the flute length and at most the overall length. The tool-length checks use it. The ready-made Makera Z1 tools give their overall length less 12.7 mm, a standard setup inside the collet, not measured: measure your tool as fitted and enter it. Blank uses the flute length + 5 mm, and the checks then say they assumed it.",
         crate::setup::stick_out(tool).0,
     );
     stick.set = tool.stick_out.map(|s| ParameterValue::Number(s.0));
