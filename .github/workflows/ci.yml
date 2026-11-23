@@ -636,7 +636,7 @@ jobs:
         id: conflicts
         if: always()
         run: cargo xtask conflicts
-      # The changelog since the last release (decision record CHANGELOG-FLOW-A): a pull request that
+      # The changelog since the last release (decision record 0678): a pull request that
       # changes what users see adds or changes a bullet under "Development version" in
       # user-docs/src/release-notes.md (and a library-family crate its CHANGELOG.md), or its description
       # has a line "No user-visible change: <reason>". Drafts too (decision 0052: Fast checks run on a

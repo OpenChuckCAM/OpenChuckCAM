@@ -6,7 +6,7 @@
 # archive per platform as a workflow artifact (build-archives.yml, shared with
 # the release workflow). A build of `main` also replaces the rolling `nightly`
 # pre-release with those archives, whose notes list what has changed since the last release (the
-# Development version of user-docs/src/release-notes.md; decision record CHANGELOG-FLOW-A). These are
+# Development version of user-docs/src/release-notes.md; decision record 0678). These are
 # development builds, not releases:
 # releases are built by release.yml from `lib-v` and `app-v` tags after the
 # release gate (decision records 0031 and 0091).
@@ -73,7 +73,7 @@ jobs:
             echo "Building $SHA (last nightly build: ${last:-none})." >> "$GITHUB_STEP_SUMMARY"
           fi
       # The pre-release notes, made once here from this commit's release notes (decision record
-      # CHANGELOG-FLOW-A): the build, "not a release", the G-code notice (NFR-12), what has changed since
+      # 0678): the build, "not a release", the G-code notice (NFR-12), what has changed since
       # the last release (the Development version of user-docs/src/release-notes.md, at most 60,000
       # characters) and the downloads. They go to the run's summary, so a run on another branch, which
       # publishes nothing, shows them too, and to the `publish` job as an artifact. `cargo xtask` builds
@@ -138,7 +138,7 @@ jobs:
           merge-multiple: true
           skip-decompress: true
           path: dist
-      # The notes made by the `changes` job from this commit (decision record CHANGELOG-FLOW-A).
+      # The notes made by the `changes` job from this commit (decision record 0678).
       - uses: actions/download-artifact@v8
         with:
           name: nightly-notes
@@ -155,7 +155,7 @@ jobs:
           ls -l dist
           count=$(find dist -maxdepth 1 -type f -name 'openchuckcam-nightly-*' | wc -l)
           [ "$count" -eq 4 ] || { echo "expected 4 files (3 archives and the examples zip), found $count"; exit 1; }
-          # The notes, made by the `changes` job from this commit (decision record CHANGELOG-FLOW-A).
+          # The notes, made by the `changes` job from this commit (decision record 0678).
           notes=nightly-notes/notes.md
           [ -s "$notes" ] || { echo "the notes made by the changes job are missing"; exit 1; }
           # Upload everything to a draft first: a draft creates no tag and is

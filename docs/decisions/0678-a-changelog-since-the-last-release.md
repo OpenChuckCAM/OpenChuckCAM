@@ -1,12 +1,12 @@
-# CHANGELOG-FLOW-A: A changelog since the last release, checked on each pull request, published with each nightly build and reset by each release (NFR-19, NFR-12, INT-07; lane CHANGELOG-FLOW)
+# 0678: A changelog since the last release, checked on each pull request, published with each nightly build and reset by each release (NFR-19, NFR-12, INT-07; lane CHANGELOG-FLOW)
 
-- **Status:** Proposed by lane CHANGELOG-FLOW on 23 Nov 2026. The coordinator approved the plan and answered its five questions the same day (below). The first version of the tool was Python; the owner then decided, the same day (relayed by the coordinator), that it is an xtask command and set the tooling rule of item 7. The project owner has not accepted the record, and the rule text it adds to `AGENTS.md` and `CLAUDE.md` is quoted in the pull request for the owner's review (OI-9961).
+- **Status:** Accepted by the project owner on 23 Nov 2026, relayed by the coordinator (decision 0049), at head `d86d5c5`, including the rules it adds to `AGENTS.md` ("Write repository tools in xtask" and "Record every change users could notice in the changelog") and the text in `CLAUDE.md` and `docs/releasing.md`. Proposed by lane CHANGELOG-FLOW the same day; the coordinator approved the plan and answered its five questions (below). The first version of the tool was Python; the owner then decided, the same day (relayed), that it is an xtask command and set the tooling rule of item 7.
 - **Date:** 23 Nov 2026.
 - **Requirements:** NFR-19 (the user documentation, with the development version and a version for each release), NFR-12 (generated G-code is the user's to verify; nothing here may suggest otherwise), INT-07 (breaking library changes recorded in a changelog).
 - **Builds on:** [decision 0023](0023-nightly-builds.md) (nightly builds), [decision 0091](0091-release-workflow-and-gate.md) (the release workflow and gate), [decision 0400](0400-user-documentation-site.md) section R (the release checks of the user guide), [decision 0052](0052-ci-speed-up.md) (the draft gate: Fast checks run on a draft), [decision 0055](0055-push-discipline-and-draft-pull-requests.md) (one push; drafts), [decision 0516](0516-ci-architecture.md) and [docs/ci-performance.md](../ci-performance.md) (the CI budget), and the owner's rules that release notes carry no decision, open item or requirement numbers and that a lane drafts the release notes (`docs/releasing.md`, 1 Nov 2026).
-- **Open items:** adds OI-9961 (the owner's acceptance of this record and its rule text). Issue #833 (the generated release page text) stays a separate follow-up (the coordinator's answer 3).
+- **Open items:** adds and closes OI-2193 (the owner's acceptance of this record and its rule text). Issue #833 (the generated release page text) stays a separate follow-up (the coordinator's answer 3).
 
-Numbering: provisional. The coordinator assigns the record number and the OI number at release, above `main`'s highest at that time, in merge order. No project schema number and no library API change.
+Numbering: the coordinator assigned record 0678 and OI-2193 when the pull request was released (provisionally CHANGELOG-FLOW-A and OI-9961; numbers in merge order), checked free on `main` `57c873c`. No project schema number and no library API change.
 
 ## Context
 
@@ -22,7 +22,7 @@ On `main` at `445286b`:
 
 ## Decision
 
-<img src="CHANGELOG-FLOW-A-changelog-flow.svg" alt="Flow: a pull request adds a bullet under Development version, or says No user-visible change with a reason; the Fast checks step checks it. The nightly pre-release notes and the latest user guide are made from the section. At a release, start-release moves the bullets into a draft section for the version, the owner edits it, and the release workflow refuses a release while the draft or any bullet remains; the Development version then starts again, empty.">
+<img src="0678-changelog-flow.svg" alt="Flow: a pull request adds a bullet under Development version, or says No user-visible change with a reason; the Fast checks step checks it. The nightly pre-release notes and the latest user guide are made from the section. At a release, start-release moves the bullets into a draft section for the version, the owner edits it, and the release workflow refuses a release while the draft or any bullet remains; the Development version then starts again, empty.">
 
 1. **The changelog is the *Development version* section of `user-docs/src/release-notes.md`.** It holds one top-level bullet for each change users could notice since the last release, in plain words, with no decision, open item or requirement numbers. Issue numbers are allowed because they link to the tracker. The section's introduction and its closing G-code reminder are not entries. Nothing in it may suggest that generated G-code is checked or safe (NFR-12; `check.py` already fails such wording in the guide's source).
 2. **One tool, `cargo xtask changelog`** (`xtask/src/changelog.rs`, no new crate; tests in `xtask/src/changelog/tests.rs`), by the tooling rule of item 7. It has four commands:
@@ -161,4 +161,4 @@ Environment: the lane's cloud container (four cores), Rust from `rust-toolchain.
   - the workflow steps on GitHub, beyond the draft pull request's Fast checks, which run `check-pr` on this pull request. The nightly step runs only at the next nightly build after merge, because a manual run is not wanted (answer 4); its toolchain install and xtask build on a fresh runner are estimated, not measured;
   - the release gate step on a real or dry-run release;
   - how GitHub renders `<kbd>` in a release body (it renders on github.com, but was not seen on this page).
-- **Open items:** OI-9961.
+- **Open items:** OI-2193.

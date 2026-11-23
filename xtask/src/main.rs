@@ -25,7 +25,7 @@
 //! - `macos-app`: the macOS application bundle `OpenChuckCAM.app` (decision 0541; not part of `all`).
 //! - `examples-zip`: the zip of the example projects for the nightly build and the release (lane
 //!   EXAMPLEZIP; not part of `all`).
-//! - `changelog`: the changelog since the last release (decision record CHANGELOG-FLOW-A): the
+//! - `changelog`: the changelog since the last release (decision record 0678): the
 //!   nightly notes, the pull request check, and the release step (not part of `all`).
 //! - `glibc-floor`: the Linux binaries need no newer glibc or libstdc++ than the stated floor
 //!   (decision 0541; not part of `all`).
@@ -202,7 +202,7 @@ enum Check {
         check: Option<PathBuf>,
     },
     /// The changelog since the last release: the *Development version* section of
-    /// `user-docs/src/release-notes.md` (decision record CHANGELOG-FLOW-A).
+    /// `user-docs/src/release-notes.md` (decision record 0678).
     Changelog {
         #[command(subcommand)]
         command: ChangelogCommand,

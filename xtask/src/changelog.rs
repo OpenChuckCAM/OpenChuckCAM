@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-//! The changelog since the last release (decision record CHANGELOG-FLOW-A): the nightly notes, the
+//! The changelog since the last release (decision record 0678): the nightly notes, the
 //! pull request check and the release step.
 //!
 //! - `cargo xtask changelog nightly-notes --sha SHA --date YYYYMMDD [--repo OWNER/NAME] [--out FILE]`

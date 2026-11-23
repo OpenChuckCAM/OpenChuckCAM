@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-//! Tests of the changelog flow (decision record CHANGELOG-FLOW-A; NFR-12; NFR-19; INT-07; decision
+//! Tests of the changelog flow (decision record 0678; NFR-12; NFR-19; INT-07; decision
 //! 0400 section R). Each test is named after the record (`changelog_flow`) or the requirement.
 
 use std::path::{Path, PathBuf};
