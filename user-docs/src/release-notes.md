@@ -62,7 +62,7 @@ The open bugs at this release, most serious first in each group. The number is t
 - Facing refuses every STEP part ("no established projection bound"). Import the part as STL for Facing, or face the stock to length before it goes in the chuck (#800).
 - Face flow refuses a closed shape whose edges do not join, such as a cylinder. Split the face along its seam in your CAD program (#791).
 - End facing on a round bar can be refused at posting with larger slices; use a **Stepdown (band along the tool)** of about 1 to 1.5 mm (#650). Facing with the **Box** shape refuses on the baluster example (#500).
-- A helical finish with a set in **Avoid** set to **Cut short** gives about four times the moves (#608); pencil clean-up with **Exact STEP surface contact** on can make many more passes at a corner (#632); the last move of a lead-in is fed slightly slower than it needs (#685).
+- A helical finish with a set in **Avoid** set to **Cut short** gives about four times the moves (#608); pencil clean-up with a flat end can leave most of a sharp inside corner uncut, or, with **Exact STEP surface contact** on, cut it in many short passes; check the corner in the simulation (#632); the last move of a lead-in is fed slightly slower than it needs (#685).
 
 **Setups, machines and workholding**
 
