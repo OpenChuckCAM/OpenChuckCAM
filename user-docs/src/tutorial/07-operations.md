@@ -31,7 +31,7 @@ Each entry has a one-paragraph description. Face flow finishing is greyed becaus
   <figcaption><b>Figure 3.</b> The Rough operation's settings: stepover 2.2225 mm, stock to leave 0.3 mm and stepdown 1 mm.</figcaption>
 </figure>
 
-Messages, under the view, now warns that this tool "may be too long to clear the workholding within the Z travel": the program assumes it sticks out 30 mm (its flutes plus 5 mm), so on the Z1 its tip rises at most 42 mm above the axis, inside the 45 mm the chuck and its jaws need; on your machine, set the setup's **Minimum clearance** to suit your stock and jaws, or use a tool that sticks out less. This tutorial keeps the tool, and you acknowledge the warning when you export ([step 10](10-export.md)).
+Messages, under the view, now warns that this tool "may be too long to clear the workholding within the Z travel": its **Stick-out** in the tool library is 29.3 mm (its overall length less the 12.7 mm a standard tool setup holds inside the collet), so on the Z1 its tip rises at most 42.7 mm above the axis, inside the 45 mm the chuck and its jaws need. On your machine, measure how far your tool sticks out and set its **Stick-out** in the tool library, set the setup's **Minimum clearance** to suit your stock and jaws, or use a tool that sticks out less. This tutorial keeps the tool, and you acknowledge the warning when you export ([step 10](10-export.md)).
 
 The rest comes from the tool and the strategy. Two to look at:
 

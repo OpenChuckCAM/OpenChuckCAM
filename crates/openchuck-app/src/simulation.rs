@@ -531,6 +531,7 @@ mod tests {
             flute_count: 2,
             material: None,
             centre_cutting: None,
+            stick_out: None,
         };
         assert_eq!(smallest_tool([&tool(6.0, 6.0), &tool(3.0, 4.0)]), Some(3.0));
         // A shank narrower than the cutter, or no tool at all: nothing is

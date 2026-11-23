@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.59.0
+
+- **Breaking (0.59.0; lane Z1-SETUP, PR 2; issue #692; decision 0673):** `tool::Tool` gains the public field `stick_out: Option<Millimetres>`, how far the tool sticks out of the collet from its tip to the collet face, written only when set; `Tool::validate` and `Tool::profile` refuse one below the flute length or above the overall length. A struct literal of `Tool` must add `stick_out: None`. Tool files and project tool snapshots carry it from project schema 29.
+
 ## 0.56.0
 
 - **Family release (0.56.0, POST-SAFETY; issue #703; decision 0656, accepted):** `openchuck-post`'s `PostOptions` gains the public field `max_line_length` and `openchuck-gcode`'s `FindingKind` gains `LineTooLong`, a breaking change; no change to this crate.

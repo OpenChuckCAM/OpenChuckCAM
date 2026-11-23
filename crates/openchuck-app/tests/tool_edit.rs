@@ -37,6 +37,7 @@ fn tool(shape: ToolShape) -> Tool {
         flute_count: 2,
         material: None,
         centre_cutting: None,
+        stick_out: None,
     }
 }
 
@@ -82,6 +83,7 @@ fn req_ui_07_tool_form_lists_the_fields_each_shape_needs() {
         fields::DIAMETER,
         fields::FLUTE_LENGTH,
         fields::OVERALL_LENGTH,
+        fields::STICK_OUT,
         fields::SHANK_DIAMETER,
         fields::FLUTE_COUNT,
     ];
@@ -314,4 +316,49 @@ fn req_tl_03_profile_editor_adds_arcs_moves_segments_and_gives_arc_radii() {
     assert_eq!(move_segment(&mut p, 2, false), None);
     assert_eq!(move_segment(&mut p, 9, true), None);
     assert_eq!(p, before);
+}
+
+/// The tool form's Stick-out is blank until set, showing the flute length +
+/// 5 mm the checks then assume; it takes a value between the flute length
+/// and the overall length, as one undoable step, and blank clears it
+/// (TL-02, UI-07, NFR-07; decision record 0673).
+#[test]
+fn req_tl_02_req_ui_07_the_stick_out_is_set_or_left_blank() {
+    let (dir, mut app, id) = project("stick-out", ToolShape::BallEnd);
+    let form = tool_form(&the_tool(&app, id));
+    let row = form.iter().find(|f| f.name == fields::STICK_OUT).unwrap();
+    assert_eq!(row.label, "Stick-out");
+    assert_eq!(row.set, None);
+    assert_eq!(row.value, Some(ParameterValue::Number(17.0)));
+    assert!(
+        row.description
+            .contains("Blank uses the flute length + 5 mm")
+    );
+    // The ready-made Z1 values are a standard setup, not a measurement
+    // (decision record 0673; NFR-12): the help says to measure.
+    assert!(
+        row.description
+            .contains("not measured: measure your tool as held and set it")
+    );
+    let before = app.project().clone();
+    for bad in [11.0, 50.5] {
+        let e = app
+            .set_tool_field(id, fields::STICK_OUT, &ParameterValue::Number(bad))
+            .unwrap_err()
+            .to_string();
+        assert!(e.contains("stick_out"), "{bad}: {e}");
+        assert_eq!(app.project(), &before);
+    }
+    app.set_tool_field(id, fields::STICK_OUT, &ParameterValue::Number(20.0))
+        .unwrap();
+    assert_eq!(the_tool(&app, id).stick_out, Some(Millimetres(20.0)));
+    let form = tool_form(&the_tool(&app, id));
+    let row = form.iter().find(|f| f.name == fields::STICK_OUT).unwrap();
+    assert_eq!(row.set, Some(ParameterValue::Number(20.0)));
+    app.set_tool_field(id, fields::STICK_OUT, &ParameterValue::Text(String::new()))
+        .unwrap();
+    assert_eq!(the_tool(&app, id).stick_out, None);
+    app.undo().unwrap();
+    assert_eq!(the_tool(&app, id).stick_out, Some(Millimetres(20.0)));
+    std::fs::remove_dir_all(&dir).unwrap();
 }

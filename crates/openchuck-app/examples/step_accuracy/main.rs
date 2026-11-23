@@ -996,6 +996,7 @@ fn tool(name: &str, number: u32, shape: ToolShape, diameter: f64, flutes: f64) -
             flute_count: 2,
             material: None,
             centre_cutting: Some(true),
+            stick_out: None,
         },
         controller: ControllerMapping {
             number,

@@ -923,6 +923,7 @@ mod tests {
             flute_count: 2,
             material: None,
             centre_cutting: None,
+            stick_out: None,
         };
         let tool = ToolSolid::new(&tool.profile().unwrap());
         let poses: Vec<Pose> = (0..40)
@@ -973,6 +974,7 @@ mod tests {
                 flute_count: 2,
                 material: None,
                 centre_cutting: None,
+                stick_out: None,
             };
             ToolSolid::new(&t.profile().unwrap())
         };

@@ -291,6 +291,7 @@ fn req_imp_02_tessellation_fallback_drop_is_within_the_mesh_error() {
         flute_count: 2,
         material: None,
         centre_cutting: None,
+        stick_out: None,
     }
     .profile()
     .unwrap();

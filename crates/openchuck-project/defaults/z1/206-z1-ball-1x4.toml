@@ -14,6 +14,9 @@
 # (variant sizes), shank 3.175, length ~38, flute count 2 (two flute), solid
 # carbide; set page agrees; community file Makera Ball Endmills.csv agrees
 # (ball end mill, overall length 38).
+# Stick-out (decision record 0673): owner-provided: standard tool setup holds
+# 12.7 mm inside the collet (22 Nov 2026), so stick_out = overall_length - 12.7
+# (tip to collet face). Not confirmed on the machine.
 schema = 1
 id = "c0de0001-0000-4000-8000-000000000206"
 name = "Z1 ball 1x4"
@@ -22,6 +25,7 @@ name = "Z1 ball 1x4"
 diameter = 1.0
 flute_length = 4.0
 overall_length = 38.0
+stick_out = 25.3
 shank_diameter = 3.175
 flute_count = 2
 material = "carbide"

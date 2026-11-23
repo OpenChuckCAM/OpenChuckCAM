@@ -75,6 +75,7 @@ fn flat2() -> RevolvedProfile {
         flute_count: 2,
         material: None,
         centre_cutting: Some(true),
+        stick_out: None,
     }
     .profile()
     .unwrap()

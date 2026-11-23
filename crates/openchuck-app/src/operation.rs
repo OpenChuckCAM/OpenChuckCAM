@@ -2305,6 +2305,7 @@ mod tests {
             flute_count: 2,
             material: None,
             centre_cutting: Some(true),
+            stick_out: None,
         };
         fixture_on(strategy, parameters, brep, built, file, drill, RADIUS)
     }
@@ -2931,6 +2932,7 @@ mod tests {
             flute_count: 2,
             material: None,
             centre_cutting: None,
+            stick_out: None,
         };
         fixture_on(swarf::NAME, &[], brep, Vec::new(), "boss.step", flat, 20.0)
     }
@@ -2952,6 +2954,7 @@ mod tests {
             flute_count: 2,
             material: None,
             centre_cutting: None,
+            stick_out: None,
         };
         let mut f = fixture_on(
             swarf::NAME,
@@ -3091,6 +3094,7 @@ mod tests {
             flute_count: 2,
             material: None,
             centre_cutting: None,
+            stick_out: None,
         };
         let mut f = fixture_on(
             swarf::NAME,
@@ -3345,6 +3349,7 @@ mod tests {
             flute_count: 2,
             material: None,
             centre_cutting: None,
+            stick_out: None,
         };
         let mut f = fixture_on(
             swarf::NAME,
@@ -3436,6 +3441,7 @@ mod tests {
             flute_count: 2,
             material: None,
             centre_cutting: None,
+            stick_out: None,
         };
         fixture_on(strategy, parameters, brep, Vec::new(), file, ball, BAR)
     }
@@ -4036,6 +4042,7 @@ mod tests {
             flute_count: 2,
             material: None,
             centre_cutting: None,
+            stick_out: None,
         };
         fixture_on(
             pencil::NAME,
@@ -4757,6 +4764,7 @@ mod tests {
             flute_count: 2,
             material: None,
             centre_cutting: None,
+            stick_out: None,
         };
         fixture_on(
             face_flow::NAME,
@@ -4805,6 +4813,7 @@ mod tests {
             flute_count: 2,
             material: None,
             centre_cutting: None,
+            stick_out: None,
         };
         let mut f = fixture_on(
             face_flow::NAME,
