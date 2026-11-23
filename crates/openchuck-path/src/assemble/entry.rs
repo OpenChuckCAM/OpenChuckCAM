@@ -1278,7 +1278,9 @@ impl Entry {
                 continue;
             }
             let d = -cutter::clearance_at(&self.cutter, tip, axis, *p);
-            if d > 0.0 && worst.is_none_or(|(w, n)| d > w || (d == w && *face < n)) {
+            // The samples are in face-number order, so the first deepest
+            // is on the lowest face number.
+            if d > 0.0 && worst.is_none_or(|(w, _)| d > w) {
                 worst = Some((d, *face));
             }
         }

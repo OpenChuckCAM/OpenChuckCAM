@@ -90,4 +90,6 @@ Generated G-code must be verified by you before it is run on a machine. OpenChuc
 
 The *latest* version of this guide describes the nightly build, the [development build](start/install.md#download-a-development-build) made each night from the main branch. Its limits are on [Known limitations](start/limitations.md).
 
+- **Swarf:** a lead or helix entry that would cut a face next to the selected faces deeper than the pass itself does, such as a lead-out running on into the wall at the end of a blade, is now refused, naming the face; the face's note gives the tool's reach past the end of the rulings after any lift.
+
 Generated G-code must be verified by you before it is run on a machine. OpenChuckCAM does not guarantee that a program is safe or correct for any machine, tool or setup.

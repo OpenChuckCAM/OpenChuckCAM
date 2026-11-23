@@ -1,11 +1,11 @@
 # 9902: Swarf's reach past the end of the rulings is said after the lift, as information (OP-07, OP-12, NFR-12, UI-12; issue #624; lane SWARF-LEADS)
 
-- **Status:** Proposed by lane SWARF-LEADS on 23 Nov 2026, with option (c) built as the recommendation; the choice is the owner's (OI-9902) and is queued by the coordinator. The number 9902 and OI-9902 are provisional: the coordinator assigns the real ones at release.
+- **Status:** Proposed by lane SWARF-LEADS on 23 Nov 2026. The owner chose option (c) on 23 Nov 2026, relayed by the coordinator (decision 0049), and it is built; the owner's acceptance of the record is not yet given. The number 9902 and OI-9902 are provisional: the coordinator assigns the real ones at release.
 - **Date:** 23 Nov 2026.
 - **Requirements:** OP-07 (swarf), OP-12 (gouge checks), NFR-12 (the user verifies the program), UI-12 (messages).
 - **What it amends:** the message inventory row P75c (`docs/message-review/path.md`; decision [0536](0536-message-levels-operation-reference-and-setting-links.md) step 2 left it to this issue), and the note sentence of [0491](0491-swarf-keeps-the-tip-off-a-floor.md) item 2, which was measured before the lift.
 - **Builds on:** [0491](0491-swarf-keeps-the-tip-off-a-floor.md) (the lift clear of avoid and check sets), [0532](0532-swarf-keeps-off-the-faces-at-its-ends.md) item 3 (every face next to the cut face is measured and a cut into it warned of).
-- **Open items:** OI-9902 (new, provisional: the owner's choice).
+- **Open items:** OI-9902 (closed: the owner chose option (c) on 23 Nov 2026, relayed).
 
 ## Context
 
@@ -19,10 +19,10 @@ Since decision 0532 item 3, with the faces next to the face given (the applicati
 
 - **(a)** A warning on the reach after the lift (the largest left at any pose). It warns on every face where a ball's end hangs over nothing (an open end), and repeats 0532's measured warning where a floor is there.
 - **(b)** A warning giving the length along the face where the end still reaches past the rulings after the lift. The same costs, with a length.
-- **(c) (recommended, built)** Information, said after the lift. The measured warning of 0532 item 3 stays the warning for a real cut. Cost: a floor that does not share an edge with the face (OI-2080) is not measured, so only this sentence mentions it.
+- **(c) (recommended; chosen and built)** Information, said after the lift. The measured warning of 0532 item 3 stays the warning for a real cut. Cost: a floor that does not share an edge with the face (OI-2080) is not measured, so only this sentence mentions it.
 - **(d)** As (c), but a warning, as (a), when the faces next to the face set were not given (library callers without them); in the application the same as (c).
 
-## Decision (as built for option (c); pending the owner)
+## Decision (option (c), the owner's choice of 23 Nov 2026, relayed)
 
 1. With no lift, the sentence is unchanged.
 2. Where the tip is lifted at every pose by at least the reach: "The tool's end would reach {d} mm beyond the end of the rulings at the tip (its corner radius and the tip extension); it is lifted at least that far all along the face, so it ends level with them or short of them."
