@@ -208,7 +208,10 @@ pub fn stock_rows(setup: &Setup) -> Vec<SetupRow> {
             rows.push(row(
                 SetupField::StartX,
                 "Start X",
-                "Model X of the stock's low-X end.",
+                "Where the stock starts along the rotary axis, measured from the machine's rotary \
+                 reference point (X 0: the headstock face on the Makera Z1). It moves the stock \
+                 with its held regions, and the tabs placed from them; tabs placed by hand stay \
+                 where they are on the part. It does not move the part or the work zero.",
                 Some(x_start.0),
                 None,
             ));
@@ -263,12 +266,14 @@ pub const PART_OFFSET_EXPLAINED: &str = "Moves the part along the rotary axis in
      only, from where the Model step's placement puts it. The stock, the held regions and tabs \
      and the work zero stay where they are, so the toolpaths and the G-code move with the \
      part. Use it to choose where the part sits in the stock. To move the part in every \
-     setup, change the placement in the Model step instead.";
+     setup, change the placement in the Model step instead. X is measured from the machine's \
+     rotary reference point (the headstock face on the Makera Z1); to move the stock, change \
+     its Start X (X from and X to for a box).";
 
 /// What the read-only position row shows (decision record 0201).
 pub const POSITION_EXPLAINED: &str = "Where the part is along the rotary axis in this setup: \
      the Model step's placement plus this setup's Offset along X, measured from the \
-     machine's rotary reference point (the chuck face). Read only.";
+     machine's rotary reference point (X 0: the headstock face on the Makera Z1). Read only.";
 
 /// The row of the Part position section (SET-05): how far this setup moves
 /// the part along X.
@@ -319,8 +324,9 @@ pub fn clearance_rows(setup: &Setup, machine: Option<&MachineProfile>) -> Vec<Se
             SetupField::WorkZeroX,
             "Zero at X",
             "Where the work zero (the program's X0) lies on the rotary axis, measured from the \
-             machine's rotary reference point, like the stock. It stays put when the part is \
-             moved with Offset along X.",
+             machine's rotary reference point (X 0: the headstock face on the Makera Z1), like \
+             the stock. It moves only the program's X0: it stays put when the part is moved \
+             with Offset along X, and it does not move the stock.",
             Some(setup.frame.work_offset.x.0),
             None,
         ),

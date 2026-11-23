@@ -351,10 +351,13 @@ pub struct MachineProfile {
     /// Direction of positive A.
     pub a_sense: ASense,
     /// Machine coordinates of the rotary reference point: a point on the
-    /// rotary axis, such as the centre of the chuck face. Across the axis it
-    /// is the rotary axis offset (decision record 0001, item 2); along the
-    /// axis it is where a setup's part offset is measured from (SET-05,
-    /// decision record 0011).
+    /// rotary axis, such as the centre of the headstock face next to the
+    /// chuck (the Makera Z1's, decision record 0649). Across the axis it is
+    /// the rotary axis offset (decision record 0001, item 2); along the axis
+    /// it is X 0 of every setup, where the part offset, the stock, the held
+    /// regions and tabs and the work zero are measured from (SET-05,
+    /// decision records 0011 and 0672). What the point is on the machine is
+    /// the profile's choice.
     pub rotary_origin: Point3,
     /// Allowed A travel.
     pub a_range: ARange,

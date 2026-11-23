@@ -22,6 +22,8 @@ mod checkpoints;
 mod descent_feed;
 #[path = "drilling.rs"]
 mod drilling;
+#[path = "example_machines.rs"]
+mod example_machines;
 #[path = "export_dialog.rs"]
 mod export_dialog;
 #[path = "facing_approach.rs"]

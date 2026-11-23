@@ -196,7 +196,13 @@ fn setup_collisions(run: &Regeneration) -> Vec<String> {
             found
                 .iter()
                 .filter(|w| crate::setup::is_possible_collision(&w.kind))
-                .map(|w| crate::overview::setup_warning_in_form(&setup.name, w)),
+                .map(|w| {
+                    crate::overview::setup_warning_in_form(
+                        &setup.name,
+                        w,
+                        Some(machine.rotary_origin.x),
+                    )
+                }),
         );
         // The tools of the setup's operations in this run, in the tool
         // list's order, as the setup check names them.

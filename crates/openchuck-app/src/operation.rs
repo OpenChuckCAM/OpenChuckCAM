@@ -584,7 +584,9 @@ fn generate_unnamed(
     // Swarf reads rulings from exact faces and drilling finds holes in them
     // (decision 0021, OI-96; decision 0174): said before any selection on a
     // mesh is judged.
-    if let Some(reason) = brep_only(project, registry, operation) {
+    if let Some(reason) =
+        brep_only(project, registry, operation).or_else(|| facing_on_step_part(project, operation))
+    {
         return Err(missing(
             operation,
             crate::lead_in::topic::STEP_PART,
@@ -1475,6 +1477,30 @@ pub(crate) fn brep_only(
          file",
         strategy.label()
     ))
+}
+
+/// Why Facing that checks its cut against the part cannot run on a STEP
+/// part yet (issue #800; decision 0666). End, Box, a Part or Part
+/// plus tabs extent and an extent margin prove coverage and clearance
+/// against the part, which needs a proved bound of how far the source lies
+/// from the triangles used; a STEP part's tessellation setting alone is not
+/// one (decision 0252 section 4; decision 0211 measured it exceeded). Said
+/// in plain words with what to do instead (NFR-07), before generating.
+const FACING_ON_STEP: &str = "Facing with the End or Box shape, a Part or Part plus tabs \
+     extent, or an extent margin does not work on a STEP part yet: these check the cut against \
+     a proved bound of the part, and a STEP part's tessellation is not one. For now, use the \
+     part as an STL for this setup, or cut the stock to length so its end is flush with the \
+     part's end, or use the Flat or Round shape over the whole stock with no margin";
+
+/// Why `operation` cannot run on its STEP part: Facing in a mode that
+/// checks its cut against the part ([`FACING_ON_STEP`]). `None` for any
+/// other strategy or mode, or a mesh part. Read from the project only, as
+/// [`brep_only`] is, so the overview and the form say it before generation.
+pub(crate) fn facing_on_step_part(project: &Project, operation: &Operation) -> Option<String> {
+    (operation.strategy == openchuck_path::facing::NAME
+        && crate::facing::needs_verification(operation)
+        && on_step_part(project, operation))
+    .then(|| FACING_ON_STEP.to_owned())
 }
 
 /// Why swarf on a STEP part with no face set is refused (decision 0111

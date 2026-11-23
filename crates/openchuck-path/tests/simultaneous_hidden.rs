@@ -678,6 +678,134 @@ fn req_op_20_a_wall_needing_more_lean_than_the_limit_is_reported_with_its_parame
     assert!(most > 0.1, "{most}");
 }
 
+/// The note on the passes that finish the hidden surfaces.
+fn hidden_note(path: &GeneratedPath) -> String {
+    path.notices
+        .iter()
+        .find(|n| !n.is_warning() && n.text.contains("hidden from the drive"))
+        .map(|n| n.text.clone())
+        .unwrap_or_else(|| panic!("no note on hidden surfaces: {:?}", path.notices))
+}
+
+/// The lean the note gives where the tool is placed to reach the hidden
+/// surfaces, degrees: 0 where it says the tool is on the surface normal.
+fn placed_lean(note: &str) -> f64 {
+    let (_, placed) = note
+        .split_once("where the tool is placed to reach them, every 0.2 mm along each pass, ")
+        .unwrap_or_else(|| panic!("no lean where the tool is placed: {note}"));
+    assert!(placed.starts_with("it is on the surface normal"), "{note}");
+    // Where the part does not let it be on the normal, how far it leans.
+    let placed = placed.split(';').next().unwrap();
+    placed
+        .split_once("as little as the part lets it, up to ")
+        .map_or(0.0, |(_, lean)| {
+            lean.split(' ').next().unwrap().parse().unwrap()
+        })
+}
+
+#[test]
+fn req_op_20_req_op_06_the_note_gives_the_lean_where_the_tool_is_placed_within_the_limit() {
+    // Issue #619 (decision record 0660, option A): the note's lean is the
+    // one reaching the surface needed where the tool is placed, never more
+    // than the largest lean on hidden surfaces; how far the axis can differ
+    // from the normal between those places is said apart from it.
+    let (mesh, _) = keyway(6.0);
+    let f = Fixture::new(MeshSurface::new(&mesh).unwrap(), 14.0, &ball(DIAMETER));
+    for limit in [90.0, 30.0] {
+        let path = generate_on(
+            &f,
+            &f.input(),
+            &[(names::STEPOVER, 1.0), (parameter::MAX_HIDDEN_LEAN, limit)],
+        );
+        let note = hidden_note(&path);
+        let lean = placed_lean(&note);
+        // The walls need the tool's side: a lean well away from the normal.
+        assert!(lean > 10.0 && lean <= limit + 1e-9, "limit {limit}: {note}");
+        assert!(
+            note.contains("between those places the tool axis turns evenly"),
+            "{note}"
+        );
+    }
+}
+
+#[test]
+fn req_op_20_req_op_06_the_note_says_how_much_of_the_lead_the_limit_lets_the_tool_take() {
+    // Issue #619 (decision record 0660, option A): the tool is placed to
+    // reach the sides of two pins that face each other from the normal plus
+    // as much of the lead as the largest lean on hidden surfaces allows: at
+    // 0 it is on the normal and the lead is held back. The note says which,
+    // and gives apart from it how far the axis is from the normal along the
+    // passes, where it turns evenly.
+    let f = Fixture::new(
+        MeshSurface::new(&twin_pins(4.0, 12.0)).unwrap(),
+        16.0,
+        &ball(DIAMETER),
+    );
+    for (limit, words) in [
+        (
+            0.0,
+            "it is on the surface normal without the 10 degree lead (the largest lean on hidden \
+             surfaces is 0 degrees)",
+        ),
+        (
+            5.0,
+            "it is on the surface normal plus 5 degrees of the 10 degree lead (the largest lean \
+             on hidden surfaces is 5 degrees) where the part lets it",
+        ),
+        (
+            90.0,
+            "it is on the surface normal plus the 10 degree lead where the part lets it",
+        ),
+    ] {
+        let path = generate_on(
+            &f,
+            &f.input(),
+            &[
+                (names::STEPOVER, 1.0),
+                (parameter::LEAD_ANGLE, 10.0),
+                (parameter::MAX_HIDDEN_LEAN, limit),
+            ],
+        );
+        let note = hidden_note(&path);
+        assert!(note.contains(words), "limit {limit}: {note}");
+        assert!(placed_lean(&note) <= limit + 1e-9, "limit {limit}: {note}");
+        assert!(note.contains("along the passes it is up to "), "{note}");
+    }
+}
+
+#[test]
+fn req_op_20_the_largest_lean_says_where_it_applies_in_the_program_and_the_guide() {
+    // Decision record 0660, option A: the limit applies where the tool is
+    // placed to reach a hidden surface, and 0 also holds back the lead; the
+    // user guide's reference says the same.
+    use openchuck_path::Strategy;
+    let schema = SimultaneousFinishing.schema();
+    let spec = schema.get(parameter::MAX_HIDDEN_LEAN).unwrap();
+    for words in [
+        "Where the tool is placed to reach such a surface, every 0.2 mm along each pass",
+        "0 keeps it on the normal there and also holds back the lead",
+        "Between those places the tool axis turns evenly",
+    ] {
+        assert!(spec.description.contains(words), "{}", spec.description);
+    }
+    let guide = std::fs::read_to_string(
+        std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../../user-docs/src/reference/operations.md"),
+    )
+    .unwrap();
+    let row = guide
+        .lines()
+        .find(|l| l.starts_with("| Largest lean on hidden surfaces |"))
+        .unwrap();
+    for words in [
+        "where it is placed to reach a surface a straight approach cannot see, every 0.2 mm",
+        "between those places the tool axis turns evenly",
+        "0 keeps it on the normal there and also holds back the lead",
+    ] {
+        assert!(row.contains(words), "{row}");
+    }
+}
+
 /// Stock cut back to the part by earlier operations, within the fixtures'
 /// 14 mm.
 const BARE: support::Bare = support::Bare { radius: 14.0 };
