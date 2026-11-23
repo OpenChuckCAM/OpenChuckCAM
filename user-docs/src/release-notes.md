@@ -78,7 +78,7 @@ The open bugs at this release, most serious first in each group. The number is t
 **Wording and display**
 
 - After a refused **Generate**, Results still shows the previous run under the new error (#766). Hiding a path asks you to generate again, which you need not do (#607).
-- Rest machining: a saving shown as a negative time (#612), zero-length areas and raw words in **Pass order** (#613). Face flow and swarf: the hint says an empty **Cut on** cuts the whole part, but both refuse (#614); face flow shows two pass counts that seem to disagree (#631). "1 faces" and similar wording (#615).
+- Rest machining: raw words in **Pass order** (#613). Face flow and swarf: the hint says an empty **Cut on** cuts the whole part, but both refuse (#614); face flow shows two pass counts that seem to disagree (#631). "1 faces" and similar wording (#615).
 - The **Geometry** section is crowded with several selection sets (#759). A deleted project's recovery warning cannot be dismissed (#681). The default tools file starts with an internal reference number (#775).
 - `openchuck-cli` does not print the reminder to verify the G-code when it refuses for a missing acknowledgement; nothing is written (#645). On macOS, the OpenCASCADE notice does not say that replacing the STEP reader inside the app needs `codesign --force --deep --sign - OpenChuckCAM.app` (#589).
 
@@ -91,5 +91,6 @@ Generated G-code must be verified by you before it is run on a machine. OpenChuc
 The *latest* version of this guide describes the nightly build, the [development build](start/install.md#download-a-development-build) made each night from the main branch. Its limits are on [Known limitations](start/limitations.md).
 
 - **Keyboard.** A window that opens takes the keyboard and the first <kbd>Tab</kbd> goes into it, <kbd>Tab</kbd> follows reading order and scrolls the control it reaches into view, <kbd>Esc</kbd> closes a tool window, <kbd>1</kbd>, <kbd>3</kbd>, <kbd>7</kbd> and <kbd>0</kbd> turn the view, tooltips open on keyboard focus (including why a step is not available yet), letter keys work while a button has focus, **Help > Keyboard shortcuts** lists every key, **Project > Add setup** and **Edit > Delete** for a selection set are in the menus, and **Add** in **New operation** is the filled button at the bottom right (#577, #578, #580, #581). See [Keyboard and shortcuts](reference/keyboard.md).
+- **Plainer messages.** When pass order by region saves time between passes, the note says "about 11.4 s less" and not "about -11.4 s". An area that lies at one X in a "cannot reach" warning reads "X 10.000" and not "X 10.000 to 10.000" (#612, #613).
 
 Generated G-code must be verified by you before it is run on a machine. OpenChuckCAM does not guarantee that a program is safe or correct for any machine, tool or setup.
