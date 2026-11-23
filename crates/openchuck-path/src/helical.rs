@@ -430,8 +430,10 @@ fn passes(
             candidates: candidates.as_ref(),
             spacing: region_spacing(tolerance, CONSTRAINED_SPACING),
             thin,
+            // The operation's own step as a share of the helix, uncapped,
+            // so the rings keep that angle however short the part is.
             max_dt: if thin {
-                1.0 / (total_angle / own_step).ceil().max(1.0)
+                own_step / total_angle
             } else {
                 1.0 / seeds as f64
             },
@@ -827,6 +829,7 @@ pub(crate) fn ring_passes(
         // helix's step in degrees is its `max_dt` of its whole angle.
         let max_dt = if fit.thin && fit.total_angle > 0.0 {
             (fit.max_dt * fit.total_angle / 360.0).max(1.0 / around as f64)
+            // (`max_dt · total_angle` is the operation's own step, degrees.)
         } else {
             1.0 / around as f64
         };

@@ -494,7 +494,7 @@ impl DexelStock {
     /// because span endpoints depend only on the pose and the column, not on
     /// the order. Returns the volume removed.
     pub fn cut(&mut self, tool: &ToolSolid, poses: &[Pose]) -> f64 {
-        self.cut_watching(tool, poses, None)
+        self.cut_watching(tool, poses, None, false).0
     }
 
     /// [`DexelStock::cut`] that gives up soon after `cancel` is cancelled and
@@ -508,19 +508,38 @@ impl DexelStock {
         poses: &[Pose],
         cancel: &CancelToken,
     ) -> Result<f64> {
-        let removed = self.cut_watching(tool, poses, Some(cancel));
+        let (removed, _) = self.cut_watching(tool, poses, Some(cancel), false);
         cancel.check()?;
         Ok(removed)
     }
 
+    /// [`DexelStock::cut_cancellable`] that also gives the most material
+    /// removed from any one column, mm: how deep the poses went into the
+    /// stock along the columns (decision record 0661). The largest over the
+    /// columns, so it does not depend on the thread count.
+    pub(crate) fn cut_deepest(
+        &mut self,
+        tool: &ToolSolid,
+        poses: &[Pose],
+        cancel: &CancelToken,
+    ) -> Result<(f64, f64)> {
+        let out = self.cut_watching(tool, poses, Some(cancel), true);
+        cancel.check()?;
+        Ok(out)
+    }
+
+    /// The volume removed and, with `deepest`, the most removed from one
+    /// column (0 without: the per-column tally costs a row's worth of memory
+    /// each, so only a rapid's own batch keeps it).
     fn cut_watching(
         &mut self,
         tool: &ToolSolid,
         poses: &[Pose],
         cancel: Option<&CancelToken>,
-    ) -> f64 {
+        deepest: bool,
+    ) -> (f64, f64) {
         if poses.is_empty() {
-            return 0.0;
+            return (0.0, 0.0);
         }
         // The extent is worked out again from the columns as they are cut.
         self.z_range = ZRange::default();
@@ -531,13 +550,19 @@ impl DexelStock {
             .collect();
         let (x0, y0, cx, cy, ny) = (self.x0, self.y0, self.cx, self.cy, self.ny);
         let march = cx.min(cy);
-        let removed: Vec<f64> = self
+        let removed: Vec<(f64, f64)> = self
             .cols
             .par_chunks_mut(ny.max(1))
             .enumerate()
             .map(|(i, row)| {
                 let x = x0 + (i as f64 + 0.5) * cx;
                 let mut removed = 0.0;
+                // Each column's own removal, for the deepest.
+                let mut by_column = if deepest {
+                    vec![0.0_f64; row.len()]
+                } else {
+                    Vec::new()
+                };
                 let mut scratch: Vec<[f64; 2]> = Vec::new();
                 for (n, p) in prepared.iter().enumerate() {
                     // A relaxed load every few poses: cheap beside the cut.
@@ -576,15 +601,22 @@ impl DexelStock {
                         scratch.clear();
                         subtract(col, spans.as_slice(), &mut scratch);
                         if scratch.as_slice() != col.as_slice() {
-                            removed += before - column_length(&scratch);
+                            let here = before - column_length(&scratch);
+                            removed += here;
+                            if let Some(slot) = by_column.get_mut(j) {
+                                *slot += here;
+                            }
                             col.clone_from(&scratch);
                         }
                     }
                 }
-                removed
+                (removed, by_column.into_iter().fold(0.0, f64::max))
             })
             .collect();
-        removed.iter().sum::<f64>() * cx * cy
+        (
+            removed.iter().map(|r| r.0).sum::<f64>() * cx * cy,
+            removed.iter().map(|r| r.1).fold(0.0, f64::max),
+        )
     }
 
     /// True when the tool at `pose` would touch material: the cut test
