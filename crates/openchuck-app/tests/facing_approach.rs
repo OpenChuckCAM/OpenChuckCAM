@@ -610,8 +610,9 @@ fn req_op_24_req_set_09_baluster_flat_part_extent_stops_short_of_the_held_start(
 /// beside the grip is short, and the numbers are in the notes. Box facing
 /// of all four sides on the Baluster set-up stops short of the held start
 /// on each: the view shows one label, "Not faced: held start" (21
-/// characters, at most 24), in the draft and on the generated path, and no
-/// label carries the stop X.
+/// characters, at most 24; a draft adds the existing "<operation> · draft
+/// · " lead), in the draft and on the generated path, and no label carries
+/// the stop X.
 #[test]
 fn req_ui_03_req_op_24_baluster_overlay_marks_the_grip_with_one_short_label() {
     let dir = project(
@@ -631,17 +632,16 @@ fn req_ui_03_req_op_24_baluster_overlay_marks_the_grip_with_one_short_label() {
         let marks: Vec<_> = view
             .labels
             .iter()
-            .filter(|l| l.text.starts_with("Not faced"))
+            .filter(|l| l.text.contains("Not faced"))
             .collect();
         assert_eq!(marks.len(), 1, "{what}: {marks:?}");
-        assert_eq!(marks[0].text, "Not faced: held start", "{what}");
-        assert!(marks[0].text.chars().count() <= 24, "{what}");
+        // A draft label carries the existing "<operation> · draft · " lead.
+        assert!(marks[0].text.ends_with("Not faced: held start"), "{what}");
+        let own = &marks[0].text[marks[0].text.find("Not faced").unwrap()..];
+        assert!(own.chars().count() <= 24, "{what}: {own}");
         assert!(
             !view.labels.iter().any(|l| l.text.contains("25.490")),
             "{what}: the stop X belongs in the notes, not the view"
         );
-        for l in &view.labels {
-            println!("LABEL {what} {} {:?}", l.text.chars().count(), l.text);
-        }
     }
 }
