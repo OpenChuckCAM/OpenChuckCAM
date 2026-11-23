@@ -70,7 +70,9 @@ On branch `claude/lane-swarf-leads`, rebased on `main` `5e52b0b`. Linux, 4 cores
 
 Not verified: no machine or air cut; no owner project (the owner's projects are private).
 
-## Open items
+## Open items and follow-ups
 
-- **OI-2081** (issue #572): closed by this record once item 2 is built.
-- **OI-9921** (new, provisional number): the owner's choice in item 2.
+- **OI-2081** (issue #572): closed by this record; option B is built.
+- **OI-9921** (provisional number): closed; the owner chose option B on 23 Nov 2026 (relayed).
+- **OI-2078** (unchanged): the faces next to the face set are measured to the sampling of a guarded face; option B's sampling slack is the same limit.
+- **Follow-up, issue [#867](https://github.com/OpenChuckCAM/OpenChuckCAM/issues/867)** (the owner's request of 23 Nov 2026; an enhancement, no milestone): split the lead-in and the lead-out into separate entry and exit options, so that on a face that ends at a wall, a lead-in can be kept while the exit is a retract (today Entry Lead is refused there as a whole).
