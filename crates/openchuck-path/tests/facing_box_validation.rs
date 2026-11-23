@@ -337,7 +337,11 @@ fn req_op_24_req_op_21_box_extents_and_margins_preserve_thin_tabs_and_refuse_unk
                         .validate_path(&blocked_input, p, &path, ctx)
                         .unwrap_err()
                         .to_string();
-                    assert!(error.contains("protected geometry"), "{error}");
+                    assert!(
+                        error.contains("protected geometry")
+                            || error.contains("outside selected Facing coverage"),
+                        "{error}"
+                    );
                     let unknown = FacingSetup {
                         projection_error: None,
                         ..*setup
@@ -439,8 +443,12 @@ fn req_op_24_req_op_11_deep_assembled_box_uses_actual_upper_layers_to_clear_shan
 }
 
 #[test]
-fn req_op_24_req_set_09_box_held_ends_do_not_crop_requested_coverage_or_disappear_at_part_extents()
-{
+/// A path planned without the grip and checked with it is refused: beside
+/// a held region the faced rectangle stops where the tool keeps clear of the
+/// grip (decision FACING-GRIP-A), so the rows over the grip are outside it,
+/// as well as through protected geometry. A Part extent clear of the grip
+/// by the tool's reach and clearance validates unchanged.
+fn req_op_24_req_set_09_box_paths_over_a_grip_refuse_and_part_extents_clear_of_it_validate() {
     use openchuck_path::Solid;
     for held_mask in 0..4 {
         for extent in ["whole_stock", "part"] {
@@ -474,12 +482,8 @@ fn req_op_24_req_set_09_box_held_ends_do_not_crop_requested_coverage_or_disappea
                 if held_mask == 0 || extent == "part" {
                     result.unwrap();
                 } else {
-                    assert!(
-                        result
-                            .unwrap_err()
-                            .to_string()
-                            .contains("protected geometry")
-                    );
+                    let error = result.unwrap_err().to_string();
+                    assert!(error.contains("protected geometry"), "{error}");
                 }
             });
         }

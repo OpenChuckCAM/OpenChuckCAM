@@ -32,7 +32,15 @@ impl FacingVerification {
         context: &JobContext<'_>,
     ) -> Result<FacingDisplay, AppError> {
         self.validate(group, context)?;
-        let mut display = nominal(self.description()?)?;
+        // Legacy Flat's unfaced spans beside a held region come from the
+        // cut itself (decision FACING-GRIP-A).
+        let description = openchuck_path::facing::description::describe_path(
+            &self.setup(),
+            &self.0.parameters,
+            group,
+            context,
+        )?;
+        let mut display = nominal(description)?;
         // The cutter's sweep along the cutting moves only, at the tool's tip
         // (the owner's decision S-1, issue #499): the outline of the tool
         // over the face it cuts. Plunges, entries and links are not drawn,
@@ -107,7 +115,7 @@ impl FacingVerification {
         }
         // The diagram is of the path, not of a simulation (decision 0536,
         // the owner's answer of 8 Nov 2026 to (c2), refined).
-        display.completion = "Facing covered the end faces it was asked to.".into();
+        display.completion = super::completion_note(&display.description).into();
         Ok(display)
     }
 }
@@ -163,6 +171,33 @@ pub(super) fn nominal(description: FacingDescription) -> Result<FacingDisplay, A
                     ),
                 )?;
             }
+            // Where each face stops beside a held region, and what it
+            // leaves unfaced (decision FACING-GRIP-A).
+            for face in faces {
+                let [_, v0] = face.coverage.min();
+                let [_, v1] = face.coverage.max();
+                for u in &face.unfaced {
+                    let x = unfaced_edge(u);
+                    let h = face.target.offset;
+                    lines.push(ScenePolyline {
+                        role: SceneRole::FacingExtent,
+                        points: vec![
+                            face.target.plane.point(x, v0, h)?,
+                            face.target.plane.point(x, v1, h)?,
+                        ],
+                    });
+                    // One label per held end, however many faces stop there.
+                    let text = unfaced_label(u);
+                    if labels.iter().any(|l| l.text == text) {
+                        continue;
+                    }
+                    labels.push(SceneLabel {
+                        role: SceneRole::FacingExtent,
+                        at: face.target.plane.point(x, v1, h)?,
+                        text,
+                    });
+                }
+            }
             for (i, a) in faces.iter().enumerate() {
                 for b in faces.iter().skip(i + 1) {
                     if (a.target.plane.normal() + b.target.plane.normal()).length() < 1e-9 {
@@ -194,7 +229,29 @@ pub(super) fn nominal(description: FacingDescription) -> Result<FacingDisplay, A
                 ),
             )?;
         }
-        FacingGeometry::Round { diameter, x_extent } => {
+        FacingGeometry::Round {
+            diameter,
+            x_extent,
+            unfaced,
+        } => {
+            for u in unfaced {
+                let x = unfaced_edge(u);
+                let points = (0..=64)
+                    .map(|i| {
+                        let a = std::f64::consts::TAU * f64::from(i) / 64.;
+                        Point3::new(x, 0.5 * diameter * a.cos(), 0.5 * diameter * a.sin())
+                    })
+                    .collect();
+                lines.push(ScenePolyline {
+                    role: SceneRole::FacingExtent,
+                    points,
+                });
+                labels.push(SceneLabel {
+                    role: SceneRole::FacingExtent,
+                    at: Point3::new(x, 0., 0.5 * diameter),
+                    text: unfaced_label(u),
+                });
+            }
             for (m, role) in [
                 (0., SceneRole::FacingExtent),
                 (margin, SceneRole::FacingMargin),
@@ -240,6 +297,25 @@ pub(super) fn nominal(description: FacingDescription) -> Result<FacingDisplay, A
         labels,
         completion: "Draft Facing extent; generate to verify completion".into(),
     })
+}
+
+/// Where the face is finished up to beside a held region: the unfaced
+/// span's end away from the grip.
+fn unfaced_edge(u: &openchuck_path::facing::held::Unfaced) -> f64 {
+    match u.beside {
+        openchuck_path::facing::geometry::FacingEnd::Start => u.x.1,
+        openchuck_path::facing::geometry::FacingEnd::Far => u.x.0,
+    }
+}
+
+/// The overlay's label for what is left unfaced beside a held region: short,
+/// once per held end and operation; the numbers are in the notes.
+fn unfaced_label(u: &openchuck_path::facing::held::Unfaced) -> String {
+    match u.beside {
+        openchuck_path::facing::geometry::FacingEnd::Start => "Not faced: held start",
+        openchuck_path::facing::geometry::FacingEnd::Far => "Not faced: held far end",
+    }
+    .to_owned()
 }
 
 /// Build draft geometry inside the existing scene worker from its immutable

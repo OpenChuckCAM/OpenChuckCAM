@@ -234,6 +234,11 @@ pub fn plan_box_sides(
         if x1 <= x0 || y1 <= y0 {
             return Err(refuse("the requested side has no positive-area extent"));
         }
+        // Beside a held region the rows keep the tool's centre out of the
+        // grip widened by its reach and clearance; the first and last rows
+        // sit on that limit, so nothing is lost to the stepover's rounding
+        // (decision FACING-GRIP-A).
+        let (x0, x1) = super::held::crop(setup, (x0, x1), 0.5 * setup.tool.diameter.0)?.centres;
         // Across-going lines allow the eventual protected-end validator to
         // assess axial edge footprints independently of full-length passes.
         let rows = ((x1 - x0) / parameters.stepover).ceil().max(1.0);

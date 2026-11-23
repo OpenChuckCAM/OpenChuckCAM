@@ -1288,8 +1288,10 @@ fn generate_unnamed(
         // In the one form, the owner's words after the lead-in (decision
         // record 0644 item 3).
         notes.push(
-            openchuck_path::Notice::information("Facing covered the end faces it was asked to.")
-                .about(crate::lead_in::topic::FACING),
+            openchuck_path::Notice::information(crate::facing::completion_note(
+                &proof.description()?,
+            ))
+            .about(crate::lead_in::topic::FACING),
         );
         if proof.description()?.extent != openchuck_path::facing::extents::FacingExtent::WholeStock
         {

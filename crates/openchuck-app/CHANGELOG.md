@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.60.0 (FACING-GRIP; issue #500; decision FACING-GRIP-A, proposed)
+
+- **Changed output:** Facing beside a held region faces what the tool reaches and its notes say what it leaves (see `openchuck-path` 0.60.0). The Facing completion note says, when a face stops short of a held region, that it covered the faces up to the held region and that the held-region note gives the numbers; otherwise it is unchanged.
+- **Changed:** the Facing overlay draws where each face stops beside a held region and labels the unfaced X range and length; legacy Flat's comes from the cut (`describe_path`).
+
 ## 0.58.0 (FACING-STEP; issue #800; decision 0666 option C, accepted)
 
 - **Changed output:** Facing with the End or Box shape, a Part or Part plus tabs extent, or an extent margin now generates on a STEP part, bounding the part from its exact faces (`openchuck_path::enclose`), not its tessellation. The interim refusal before generating (#836) is removed. Each such operation's notes say so, and, where the part has B-spline faces, how far Facing may stop short of an extreme on one, leaving that much more stock.

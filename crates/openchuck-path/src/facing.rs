@@ -15,6 +15,7 @@ pub mod description;
 pub mod end;
 pub mod extents;
 pub mod geometry;
+pub mod held;
 pub mod motion;
 pub mod plan;
 pub mod selection;
@@ -311,6 +312,7 @@ impl Facing {
             parameter::END | parameter::BOX
         ) {
             let setup = validation::input(input, context)?;
+            held::check_host(setup, input.keep_out)?;
             if parameters.text(crate::extend::parameter::EXTEND)? != crate::extend::parameter::NO
                 || parameters.flag(crate::extend::parameter::EXTEND_SIDES)?
             {
@@ -328,12 +330,14 @@ impl Facing {
                 }
                 plan.passes
             } else {
-                plan::plan_box_sides(
+                let passes = plan::plan_box_sides(
                     setup,
                     &plan::BoxFacingParameters::read(parameters)?,
                     context,
                 )?
-                .passes
+                .passes;
+                notices.extend(held_notes(setup, parameters, &passes)?);
+                passes
             };
             if low_links(parameters)? {
                 for pass in &mut passes {
@@ -363,6 +367,7 @@ impl Facing {
                     "Facing extent requires an established whole-source projection bound",
                 ));
             }
+            held::check_host(setup, input.keep_out)?;
             let description = description::describe(setup, parameters)?;
             Some(match description.geometry {
                 description::FacingGeometry::Flat { faces } => crate::roughing::FacingScope::Flat(
@@ -381,7 +386,16 @@ impl Facing {
         } else {
             None
         };
-        crate::roughing::face(input, parameters, round, level, scope.as_ref(), context)
+        let mut output =
+            crate::roughing::face(input, parameters, round, level, scope.as_ref(), context)?;
+        if scope.is_some()
+            && let Some(setup) = input.facing
+        {
+            output
+                .notices
+                .extend(held_notes(setup, parameters, &output.passes)?);
+        }
+        Ok(output)
     }
 
     /// Recheck actual assembled or connected nominal motion using the SAME
@@ -452,6 +466,57 @@ fn above_area_note(
     ))
 }
 
+/// The information notes on what Facing leaves unfaced beside a held
+/// region, face by face (decision FACING-GRIP-A): where it stops, why and
+/// how much of the requested extent is left. None when nothing is.
+///
+/// Legacy Flat's are read from its `passes`, as its completion check reads
+/// them from the assembled path (`description::describe_path`).
+fn held_notes(
+    setup: &plan::FacingSetup<'_>,
+    parameters: &Parameters,
+    passes: &[Pass],
+) -> Result<Vec<crate::Notice>> {
+    let geometry = description::describe(setup, parameters)?.geometry;
+    let (faces, flat) = match geometry {
+        description::FacingGeometry::Flat { mut faces } => {
+            let tolerance = parameters.number(crate::params::names::TOLERANCE)?;
+            let bound = validation::flat_bound(setup, parameters)?;
+            for face in faces.iter_mut().filter(|f| !f.unfaced.is_empty()) {
+                let mut segments = Vec::new();
+                for pass in passes {
+                    for w in pass.points.windows(2) {
+                        let [a, b] = w else { continue };
+                        if a.a != face.target.angle || b.a != face.target.angle {
+                            continue;
+                        }
+                        let p = face.target.plane.coordinates(a.tip)?;
+                        let q = face.target.plane.coordinates(b.tip)?;
+                        if p[2].max(q[2]) <= face.target.offset + tolerance
+                            && (p[1] - q[1]).abs() < 1e-10
+                            && (p[2] - q[2]).abs() < 1e-10
+                        {
+                            segments.push(([p[0], p[1]], [q[0], q[1]]));
+                        }
+                    }
+                }
+                held::measure_flat(face, &segments, bound);
+            }
+            (faces, true)
+        }
+        description::FacingGeometry::Box { faces } => (faces, false),
+        description::FacingGeometry::Round { unfaced, .. } => {
+            return Ok(held::notes(&[("round".into(), unfaced)], false));
+        }
+        description::FacingGeometry::End { .. } => return Ok(Vec::new()),
+    };
+    let faces: Vec<(String, Vec<held::Unfaced>)> = faces
+        .into_iter()
+        .map(|f| (format!("at A {:.3}°", f.target.angle.0), f.unfaced))
+        .collect();
+    Ok(held::notes(&faces, flat))
+}
+
 fn low_links(parameters: &Parameters) -> Result<bool> {
     use crate::axial::parameter::{LINK_HEIGHT, LOW};
     Ok(parameters.get(LINK_HEIGHT).is_some() && parameters.text(LINK_HEIGHT)? == LOW)
@@ -482,7 +547,7 @@ fn new_specs() -> Vec<ParameterSpec> {
         }
     };
     let mut specs=vec![
-        choice(parameter::EXTENT,"Coverage extent","Part is the entire placed part's projected bounding outline; Part plus tabs includes their bounds while preserving every tab.",&["whole_stock","part","part_plus_tabs"],"whole_stock"),
+        choice(parameter::EXTENT,"Coverage extent","Part is the entire placed part's projected bounding outline; Part plus tabs includes their bounds while preserving every tab. Beside a held region the face stops where the whole tool keeps 0.5 mm clear of the grip; the notes say where and how much is left unfaced.",&["whole_stock","part","part_plus_tabs"],"whole_stock"),
         ParameterSpec {name:parameter::MARGIN.into(),label:"Extent margin".into(),description:"Extra coverage beyond each projected edge; zero by default. Round uses an axial margin at both ends. Independent of stock-edge extension.".into(),kind:ParameterKind::Number {unit:Unit::Millimetres,min:Some(0.0),min_exclusive:false,max:None,default:Some(0.0)}},
         choice(parameter::LAYERS,"Layer distribution","Full stepdown uses the selected depth with a shorter final pass. Equal stepdowns distributes the depth equally without exceeding the selected maximum.",&["full","equal"],"full"),
         ParameterSpec {name:parameter::ARBITRARY.into(),label:"Arbitrary A faces".into(),description:"Additional indexed A angles and per-face offsets in user order, after selected standard faces. Move rows or explicitly sort by displayed A.".into(),kind:ParameterKind::IndexedFaces {default:"[]".into()}},

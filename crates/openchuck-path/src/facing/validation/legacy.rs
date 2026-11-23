@@ -3,6 +3,7 @@
 //! composite-target regions currently refuse rather than masquerade as flats.
 
 use super::super::coverage::{FlatSweep, verify_flat_raster};
+use super::super::description::FaceDescription;
 use super::*;
 use crate::RotaryMapping;
 use openchuck_types::ir::MoveKind;
@@ -19,31 +20,12 @@ pub(in crate::facing) fn verify(
     verify_shank_clearance(setup, group, 0., context)?;
     match describe(setup, parameters)?.geometry {
         FacingGeometry::Flat { faces } => {
-            for face in faces {
-                let mut sweeps: Vec<FlatSweep> = Vec::new();
-                let mut from = group.start;
-                for segment in &group.segments {
-                    context.check_cancelled()?;
-                    let to = segment.end;
-                    if segment.kind == MoveKind::Cutting
-                        && from.a == to.a
-                        && (from.axis.get() - face.target.plane.normal()).length() < 1e-5
-                    {
-                        let a = face.target.plane.coordinates(from.tip)?;
-                        let b = face.target.plane.coordinates(to.tip)?;
-                        if a[2].max(b[2]) <= face.target.offset + tolerance {
-                            if let Some(prior) = sweeps.last_mut().filter(|p| {
-                                p.to == from
-                                    && (a[1] - b[1]).abs() < 1e-10
-                                    && (a[2] - b[2]).abs() < 1e-10
-                            }) {
-                                prior.to = to;
-                            } else {
-                                sweeps.push(FlatSweep { from, to });
-                            }
-                        }
-                    }
-                    from = to;
+            let bound = flat_bound(setup, parameters)?;
+            for mut face in faces {
+                let sweeps = flat_sweeps(&face, group, tolerance, context)?;
+                if !face.unfaced.is_empty() {
+                    let segments = segments(&face, &sweeps)?;
+                    super::super::held::measure_flat(&mut face, &segments, bound);
                 }
                 flat_completion(
                     &face,
@@ -54,12 +36,81 @@ pub(in crate::facing) fn verify(
                 )?;
             }
         }
-        FacingGeometry::Round { diameter, x_extent } => {
-            round(setup, group, diameter * 0.5, x_extent, tolerance, context)?
-        }
+        FacingGeometry::Round {
+            diameter,
+            x_extent,
+            unfaced,
+        } => round(
+            setup,
+            group,
+            diameter * 0.5,
+            crate::facing::description::faced_span(x_extent, &unfaced),
+            tolerance,
+            context,
+        )?,
         _ => return Err(refuse("expected legacy Flat/Round geometry")),
     }
     Ok(())
+}
+
+/// The at-target cutting sweeps of a legacy Flat face, each run along one
+/// line merged into one sweep.
+pub(in crate::facing) fn flat_sweeps(
+    face: &FaceDescription,
+    group: &ToolpathGroup,
+    tolerance: f64,
+    context: &JobContext<'_>,
+) -> Result<Vec<FlatSweep>> {
+    let mut sweeps: Vec<FlatSweep> = Vec::new();
+    let mut from = group.start;
+    for segment in &group.segments {
+        context.check_cancelled()?;
+        let to = segment.end;
+        if segment.kind == MoveKind::Cutting
+            && from.a == to.a
+            && (from.axis.get() - face.target.plane.normal()).length() < 1e-5
+        {
+            let a = face.target.plane.coordinates(from.tip)?;
+            let b = face.target.plane.coordinates(to.tip)?;
+            if a[2].max(b[2]) <= face.target.offset + tolerance {
+                if let Some(prior) = sweeps.last_mut().filter(|p| {
+                    p.to == from && (a[1] - b[1]).abs() < 1e-10 && (a[2] - b[2]).abs() < 1e-10
+                }) {
+                    prior.to = to;
+                } else {
+                    sweeps.push(FlatSweep { from, to });
+                }
+            }
+        }
+        from = to;
+    }
+    Ok(sweeps)
+}
+
+/// The sweeps' ends in the face plane's (X, across) coordinates.
+pub(in crate::facing) fn segments(
+    face: &FaceDescription,
+    sweeps: &[FlatSweep],
+) -> Result<Vec<([f64; 2], [f64; 2])>> {
+    sweeps
+        .iter()
+        .map(|s| {
+            let a = face.target.plane.coordinates(s.from.tip)?;
+            let b = face.target.plane.coordinates(s.to.tip)?;
+            Ok(([a[0], a[1]], [b[0], b[1]]))
+        })
+        .collect()
+}
+
+/// How much further from the grip than its keep-out legacy Flat may be
+/// finished, read from its cut: the tool's diameter, for the lift its
+/// composite target gives beside the held region, and the stock to leave
+/// round it (decision FACING-GRIP-A).
+pub(in crate::facing) fn flat_bound(
+    setup: &FacingSetup<'_>,
+    parameters: &Parameters,
+) -> Result<f64> {
+    Ok(setup.tool.diameter.0 + parameters.number(names::STOCK_TO_LEAVE)?)
 }
 
 #[derive(Clone, Copy)]
@@ -86,7 +137,7 @@ fn round(
     let rotary = RotaryMapping::of_profile(setup.machine);
     // The flute must reach the selected radial tolerance shell. Restrict
     // interpolation error explicitly instead of trusting rounded endpoints.
-    let reserve = 0.001;
+    let reserve = super::ROUND_RESERVE;
     if tolerance < 8. * reserve || setup.tool.flute_length.0 < tolerance {
         return Err(refuse(
             "Round completion has no supported interpolation/flute precision budget at this tolerance",
@@ -208,7 +259,7 @@ fn flat_completion(
     tolerance: f64,
     context: &JobContext<'_>,
 ) -> Result<()> {
-    verify_flat_raster(face.coverage, face.target.plane, face.target.offset,
+    verify_flat_raster(face.faced(), face.target.plane, face.target.offset,
         sweeps, radius, tolerance, context)
         .map_err(|error| match error {
             PathError::Cancelled => error,
@@ -248,6 +299,7 @@ mod tests {
                     0.,
                 )
                 .unwrap(),
+            unfaced: Vec::new(),
         };
         let token = CancelToken::new();
         // Simulate a request arriving after sweep collection but before the

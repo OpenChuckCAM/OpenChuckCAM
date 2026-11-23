@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.60.0 (FACING-GRIP; issue #500; decision FACING-GRIP-A, proposed)
+
+- **Breaking:** `facing::description::FaceDescription` gains the public field `unfaced: Vec<facing::held::Unfaced>` and `FacingGeometry::Round` the field `unfaced`: what of the requested coverage is left unfaced along X beside a held region. A struct literal must add `unfaced: Vec::new()`; a pattern on `Round` must name it or add `..`.
+- **Added:** the module `facing::held` with `Unfaced` (`beside`, `held`, `x`); `FaceDescription::faced()` (the rectangle Facing faces and its completion check proves); `FacingGeometry::unfaced()`; `facing::description::describe_path(setup, parameters, group, context)`, which reads legacy Flat's unfaced spans from the cut, as its completion check does.
+- **Changed output (the owner's decision on #500):** Box facing, and legacy Flat and Round with the Part or Part plus tabs extent or a margin, no longer refuse when the requested coverage reaches a held region. The tool's centre keeps the tool's largest radius and `HELD_CLEARANCE` (0.5 mm) from each held interval, as the host's `keep_out` does. Box rows and Round rings start on that limit and are finished to the tool's edge, the Round check's 0.001 mm reserve less. Legacy Flat counts its face finished from where its passes along X reach the face, read from the cut: the composite target can lift their ends beside the grip. An information note (topic Held region, never a warning) says where each face stops, why, and the unfaced X range and length. Nothing left to face refuses, naming the grip. Generation refuses when the host's `keep_out` is not the one Facing derives from the grip. A gap anywhere else still refuses; the Box gap refusal says only where along X, since the grip is no longer a gap. Without a held region, or where the coverage stays clear of it, paths and G-code are unchanged.
+- **Changed text:** the Coverage extent tooltip says where the face stops beside a held region.
+
 ## 0.59.0
 
 - **Family release (0.59.0; lane Z1-SETUP, PR 2; issue #692; decision 0673):** `openchuck-types`'s `Tool` gains the public field `stick_out`, a breaking change; no change to this crate.

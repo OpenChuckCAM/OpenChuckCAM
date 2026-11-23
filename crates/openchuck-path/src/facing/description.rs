@@ -8,6 +8,7 @@ use openchuck_types::units::Degrees;
 
 use super::extents::FacingExtent;
 use super::geometry::{CoverageRectangle, EndTarget, FacingEnd, FacingPlane};
+use super::held::{self, Unfaced};
 use super::parameter;
 use super::plan::FacingSetup;
 use super::selection::{ResolvedSide, SideSelection};
@@ -22,8 +23,19 @@ pub struct FaceDescription {
     pub target: ResolvedSide,
     /// Requested rectangle, already including the user-entered margin.
     pub coverage: CoverageRectangle,
+    /// What of `coverage` is left unfaced beside a held region, along X;
+    /// empty when the tool reaches all of it (decision FACING-GRIP-A).
+    pub unfaced: Vec<Unfaced>,
 }
 impl FaceDescription {
+    /// The rectangle Facing faces and its completion check proves:
+    /// `coverage` less what is left unfaced beside a held region.
+    pub fn faced(&self) -> CoverageRectangle {
+        let [u0, _] = self.coverage.min();
+        let [u1, _] = self.coverage.max();
+        self.coverage.with_u(faced_span((u0, u1), &self.unfaced))
+    }
+
     /// Four corners in winding order for both host diagrams. No guessed
     /// silhouette, projected AABB or tool-centre offset enters these points.
     pub fn corners(&self) -> Result<[Point3; 4]> {
@@ -69,7 +81,33 @@ pub enum FacingGeometry {
         diameter: f64,
         /// Axial coverage including margin at both ends.
         x_extent: (f64, f64),
+        /// What of `x_extent` is left unfaced beside a held region.
+        unfaced: Vec<Unfaced>,
     },
+}
+
+/// `requested` less the unfaced spans at its ends.
+pub(crate) fn faced_span(requested: (f64, f64), unfaced: &[Unfaced]) -> (f64, f64) {
+    unfaced
+        .iter()
+        .fold(requested, |(lo, hi), u| match u.beside {
+            FacingEnd::Start => (lo.max(u.x.1), hi),
+            FacingEnd::Far => (lo, hi.min(u.x.0)),
+        })
+}
+
+impl FacingGeometry {
+    /// Everything left unfaced beside a held region, face by face.
+    pub fn unfaced(&self) -> Vec<Unfaced> {
+        match self {
+            Self::Flat { faces } | Self::Box { faces } => faces
+                .iter()
+                .flat_map(|f| f.unfaced.iter().copied())
+                .collect(),
+            Self::Round { unfaced, .. } => unfaced.clone(),
+            Self::End { .. } => Vec::new(),
+        }
+    }
 }
 
 /// Coverage choices and source-bound status accompanying nominal geometry.
@@ -84,6 +122,19 @@ pub struct FacingDescription {
     /// Bound from the placed mesh to the original source; None is unknown.
     /// Hosts must not present an unknown STEP projection as certified exact.
     pub source_projection_error: Option<f64>,
+}
+
+/// [`describe`], for a generated path: where legacy Flat passes along X
+/// are lifted off the face beside a held region, its unfaced spans are read
+/// from the cut in `group`, as its completion check reads them (decision
+/// FACING-GRIP-A). The other modes are described as [`describe`] does.
+pub fn describe_path(
+    setup: &FacingSetup<'_>,
+    parameters: &Parameters,
+    group: &openchuck_types::ir::ToolpathGroup,
+    context: &openchuck_types::job::JobContext<'_>,
+) -> Result<FacingDescription> {
+    super::validation::describe_path(setup, parameters, group, context)
 }
 
 /// Describe the stored settings using whole placed geometry. This neither
@@ -105,17 +156,32 @@ pub fn describe(setup: &FacingSetup<'_>, parameters: &Parameters) -> Result<Faci
     let margin = parameters.number(parameter::MARGIN)?;
     let rotary = RotaryMapping::of_profile(setup.machine);
     let coverage = |plane| extent.planar(plane, setup.stock, setup.part, setup.tabs, margin);
+    // How far past the tool's centre each mode's completion check counts the
+    // face finished at the end of its cut along X (decision FACING-GRIP-A).
+    let radius = 0.5 * setup.tool.diameter.0;
+    let counted = match parameters.text(parameter::SHAPE)? {
+        parameter::BOX => radius,
+        parameter::ROUND => radius - super::validation::ROUND_RESERVE,
+        _ => 0.,
+    };
     let face = |target: ResolvedSide| -> Result<FaceDescription> {
+        let coverage = coverage(target.plane)?;
+        let unfaced = held::crop(setup, (coverage.min()[0], coverage.max()[0]), counted)?.unfaced;
         Ok(FaceDescription {
-            coverage: coverage(target.plane)?,
+            coverage,
             target,
+            unfaced,
         })
     };
     let geometry = match parameters.text(parameter::SHAPE)? {
-        parameter::ROUND => FacingGeometry::Round {
-            diameter: parameters.number(parameter::SIZE)?,
-            x_extent: extent.axial(setup.stock, setup.part, setup.tabs, margin)?,
-        },
+        parameter::ROUND => {
+            let x_extent = extent.axial(setup.stock, setup.part, setup.tabs, margin)?;
+            FacingGeometry::Round {
+                diameter: parameters.number(parameter::SIZE)?,
+                x_extent,
+                unfaced: held::crop(setup, x_extent, counted)?.unfaced,
+            }
+        }
         parameter::END => {
             let end = FacingEnd::opposite_held(setup.held[0].is_some(), setup.held[1].is_some())?;
             let part_x = FacingExtent::Part.axial(setup.stock, setup.part, &[], 0.)?;

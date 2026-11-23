@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.60.0
+
+- **Family release (0.60.0; lane FACING-GRIP; issue #500; decision FACING-GRIP-A, proposed):** `openchuck-path`'s `FaceDescription` gains the public field `unfaced` and `FacingGeometry::Round` the field `unfaced`, a breaking change; no change to this crate.
+
 ## 0.59.0
 
 - **Breaking (0.59.0; lane Z1-SETUP, PR 2; issue #692; decision 0673):** `tool::Tool` gains the public field `stick_out: Option<Millimetres>`, how far the tool sticks out of the collet from its tip to the collet face, written only when set; `Tool::validate` and `Tool::profile` refuse one below the flute length or above the overall length. A struct literal of `Tool` must add `stick_out: None`. Tool files and project tool snapshots carry it from project schema 29.
