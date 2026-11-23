@@ -2292,7 +2292,7 @@ fn face_flow(
         let along_outline = match settings.pattern {
             Pattern::AlongGuide => false,
             Pattern::Outline => true,
-            Pattern::Automatic => notched(f, closed),
+            Pattern::Automatic => notched(f),
         };
         cuts.push(if along_outline {
             outline::cut_outline(
@@ -2310,11 +2310,10 @@ fn face_flow(
 /// outline has notches or fingers the blend between its guide and the
 /// opposite boundary runs across), so Automatic follows its outline instead
 /// (the owner's answer of 23 Nov 2026 to Q1). A face that closes round on
-/// itself keeps its rings.
-fn notched(f: &Field<'_>, closed: &Closure) -> bool {
-    if closed.period.iter().any(Option::is_some) {
-        return false;
-    }
+/// itself keeps its rings where they go whole round it, and follows its
+/// outline where they would break (the blisk's outside face, whose rings
+/// break at every blade).
+fn notched(f: &Field<'_>) -> bool {
     const N: usize = 40;
     let mut off = 0;
     let mut all = 0;

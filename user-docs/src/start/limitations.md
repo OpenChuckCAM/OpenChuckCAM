@@ -46,6 +46,10 @@ Project files
 
 Generating toolpaths and simulating are not instant. On the tutorial's small part, generating the two operations and preparing the simulation each took a few minutes on a computer with no graphics card. Fine [stepovers](../glossary.md#stepover) on large parts take much longer, and the simulation's cell size trades accuracy against memory and time. The programmed time the program shows is the sum of the moves at their programmed feeds, not an estimate of the machine's time.
 
+## Projects and older versions
+
+A project saved by this version can hold settings an older version does not know, such as **Steps between rings** on face flow finishing or **Tool diameter** for **Shortest cut** or **Shortest chain**. An older version still opens the project, but refuses to generate an operation that uses one of them, naming the setting. Open the project with this version or a newer one.
+
 ## Systems
 
 Development builds exist for Linux, Windows and macOS (Apple silicon). Most hands-on checking has been done on Linux. The Windows build has had less, and the macOS build has not been tested by hand: it is built and its automatic tests run, but nobody has worked through the program on a Mac.

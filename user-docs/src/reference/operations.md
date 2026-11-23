@@ -298,7 +298,7 @@ After all that, a cut from one lift to the next that is shorter than **Shortest 
 | Pattern | Automatic for a new operation | **Automatic**, **Along the guide** or **Follow the outline**; see above. An operation saved before this setting keeps Along the guide. |
 | Stay down between passes | on for a new operation | Joins the passes along the face instead of lifting, where the way is clear; see above. An operation saved before this setting keeps lifting. |
 | Steps between rings / Blend over | Blended, 45° for a new operation | On a face that closes round on itself only; see [Steps between rings](#settings-some-strategies-share). An operation saved before this setting has sharp steps. |
-| Shortest cut | the tool's diameter for a new operation | A cut from one lift to the next shorter than this is left out and reported; 0 keeps every cut. An operation saved before this setting keeps every cut. It is set from the tool when the operation is added and does not follow a later change of tool. |
+| Shortest cut | **Tool diameter** for a new operation | A cut from one lift to the next shorter than this is left out and reported; 0 keeps every cut. A length in mm, or tick **Tool diameter** to use the operation's tool's diameter, which follows a change of tool (the field then shows the diameter it uses). An operation saved before this setting keeps 0, every cut. |
 
 The notes say how many passes cut on how many faces, and, for each face, its guide and how many passes were planned across it. Where the tool can reach no part of a planned pass, the face's note says how many of its passes cut, and that number is the one in the first note. Where a neighbouring face, such as a blade wall, is in the way of the tool, or the face is too narrow for it, that stretch is left uncut and a warning lists where (up to five places, then how many more). Check those places in the simulation.
 
@@ -316,7 +316,7 @@ Moves the tool along the part's edges to cut lines, for engraving or carving. It
 | Start | `first` | Where each chain starts: as stored (`first`), `reversed`, at the lowest or highest X (`low_x`, `high_x`), or nearest the **Start angle** (`angle`). |
 | Start angle | 0° | From −360° to 360°, measured from +Y towards +Z. |
 | Crease angle | 30° | The smallest turn between two faces that makes a mesh edge one to follow. |
-| Shortest chain | 0 mm | Chains shorter than this are not cut. |
+| Shortest chain | 0 mm | Chains shorter than this are not cut. A length in mm, or tick **Tool diameter** to use the operation's tool's diameter, which follows a change of tool. |
 | Largest step | 0.5 mm | The furthest apart that points of the path are along a chain. |
 
 ## Swarf (flank) machining

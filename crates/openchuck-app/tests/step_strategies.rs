@@ -1416,7 +1416,9 @@ fn req_op_28_face_flow_cuts_a_step_face_that_closes_round_on_itself_in_rings() {
     .into_iter()
     .map(|(k, v)| (k.to_owned(), openchuck_path::ParameterValue::Number(v)))
     .collect();
-    let cut = |model: &BrepModel, face: u32| {
+    let cut_with = |model: &BrepModel,
+                    face: u32,
+                    values: &BTreeMap<String, openchuck_path::ParameterValue>| {
         let surface = BrepSurface::new(model).unwrap();
         let stock = AnalyticStock::Cylinder {
             radius: 30.0,
@@ -1440,7 +1442,7 @@ fn req_op_28_face_flow_cuts_a_step_face_that_closes_round_on_itself_in_rings() {
             shank: None,
         };
         let strategy = FaceFlow::on_brep(Arc::new(model.clone()), vec![FaceId(face)], Vec::new());
-        let parameters = strategy.resolve_parameters(&values).unwrap();
+        let parameters = strategy.resolve_parameters(values).unwrap();
         let cancel = CancelToken::new();
         strategy.passes_with_notes(
             &input,
@@ -1449,6 +1451,7 @@ fn req_op_28_face_flow_cuts_a_step_face_that_closes_round_on_itself_in_rings() {
             &JobContext::new(&cancel, &NoProgress),
         )
     };
+    let cut = |model: &BrepModel, face: u32| cut_with(model, face, &values);
     let cylinder = placed("cylinder", &onto_axis());
     let out = cut(&cylinder, 0).unwrap();
     assert!(out.passes.len() > 40, "{} passes", out.passes.len());
@@ -1476,6 +1479,37 @@ fn req_op_28_face_flow_cuts_a_step_face_that_closes_round_on_itself_in_rings() {
     let rim = cut(&blisk_on_axis(), 1).unwrap();
     let notes = rim.notes().join("\n");
     assert!(notes.contains("cuts 52 passes on 1 face"), "{notes}");
+    // Issue #854 (decision 0xxz item 2): the blisk's outside face, whose
+    // rings break at every blade, follows its outline with Automatic, and
+    // with Stay down between passes it is a few runs, not a run per piece
+    // of ring as above, every contact on the face.
+    use openchuck_path::face_flow::parameter as ff;
+    let mut automatic = values.clone();
+    automatic.insert(
+        ff::PATTERN.to_owned(),
+        openchuck_path::ParameterValue::Text(ff::AUTOMATIC.to_owned()),
+    );
+    automatic.insert(
+        ff::STAY_DOWN.to_owned(),
+        openchuck_path::ParameterValue::Flag(true),
+    );
+    let outline = cut_with(&blisk_on_axis(), 1, &automatic).unwrap();
+    let notes = outline.notes().join("\n");
+    assert!(notes.contains("face 1 follows its outline"), "{notes}");
+    assert!(outline.passes.len() <= 20, "{} runs", outline.passes.len());
+    assert!(
+        outline.passes.len() * 10 < rim.passes.len(),
+        "{} runs against {}",
+        outline.passes.len(),
+        rim.passes.len()
+    );
+    for c in outline.passes.iter().flat_map(|p| &p.points) {
+        assert!(
+            (c.contact.y.hypot(c.contact.z) - 20.0).abs() < 0.01,
+            "{:?} is off the face",
+            c.contact
+        );
+    }
     for part in ["sphere", "torus"] {
         let model = placed(part, &onto_axis());
         let err = cut(&model, 0).unwrap_err().to_string();
