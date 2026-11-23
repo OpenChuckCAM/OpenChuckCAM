@@ -1956,10 +1956,6 @@ impl Application {
         )
     }
 
-    /// Revalidates the reviewed plan and writes in order, stopping at the
-    /// first failure. `replace` confirms the plan's existing paths only.
-    /// Results are retained in Messages; only full success completes Export.
-    /// No atomic batch or machining verification is implied.
     /// Whether `run` was made from the project as it is now, apart from
     /// what only the view uses: a toolpath hidden or shown with its eye
     /// changes no G-code (decision record 0169 item 6; GC-07), so it does not
@@ -1969,6 +1965,10 @@ impl Application {
         run.project.same_output(&self.document.project)
     }
 
+    /// Revalidates the reviewed plan and writes in order, stopping at the
+    /// first failure. `replace` confirms the plan's existing paths only.
+    /// Results are retained in Messages; only full success completes Export.
+    /// No atomic batch or machining verification is implied.
     pub fn write_output(&self, plan: &OutputPlan, replace: bool) -> OutputReport {
         let checks = self.export_checks(Some(&plan.run), Some(&plan.run), None);
         let report = if !self.run_has_project_output(&plan.run) {
