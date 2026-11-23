@@ -161,6 +161,13 @@ pub struct PostOptions {
     /// out writes no notice, as before; both built-in posts set it.
     #[serde(default)]
     pub safety_notice: bool,
+    /// The most characters a line may have, the line end not counted (20 to 4096). The
+    /// controller cuts a longer line short: the Makera Z1 at 63, from its firmware source
+    /// (OI-933). A comment longer than this is wrapped at spaces into comment lines that fit;
+    /// any other line over it is a GC-08 finding, which blocks export (decision 0656). A post
+    /// that leaves it out is neither wrapped nor checked.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_line_length: Option<u32>,
     /// The extension of program files, without the dot (`ngc`, `nc`).
     pub file_extension: String,
 }
@@ -286,6 +293,14 @@ impl PostOptions {
             && !(max.is_finite() && max > 0.0)
         {
             return Err(bad("max_feed", "must be a number greater than 0"));
+        }
+        if let Some(max) = self.max_line_length
+            && !(20..=4096).contains(&max)
+        {
+            return Err(bad(
+                "max_line_length",
+                format!("{max} is outside 20 to 4096 characters"),
+            ));
         }
         if self.safety_notice && !self.comments {
             return Err(bad(

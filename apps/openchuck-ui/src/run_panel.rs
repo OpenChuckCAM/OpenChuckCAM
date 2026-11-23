@@ -131,7 +131,7 @@ pub fn result_lines(run: &Regeneration, project: &Project) -> Vec<ResultLine> {
     let warnings: Vec<String> = run
         .warnings
         .iter()
-        .filter(|w| !(simulated && w.contains("is a rapid that removes")))
+        .filter(|w| !(simulated && w.contains("is a rapid that goes")))
         .cloned()
         .collect();
     for group in openchuck_app::note_groups::group_notes(&warnings) {
@@ -206,12 +206,22 @@ pub fn result_lines(run: &Regeneration, project: &Project) -> Vec<ResultLine> {
                         openchuck_app::path::counted(op.moves, "move", "moves")
                     ),
                 ));
-                for cut in &op.rapid_cuts {
+                // A rapid no deeper than one cell is a note of the run
+                // already (decision record 0661, option C).
+                for cut in op.rapid_cuts.iter().filter(|c| c.deeper_than_cell()) {
                     out.push(line(
                         Severity::Problem,
                         format!(
-                            "  {}: move {} is a rapid that removes {:.3} mm³",
-                            op.operation, cut.segment, cut.volume
+                            "  {}: move {} is a rapid that goes {:.3} mm into the stock ({})",
+                            op.operation,
+                            cut.segment,
+                            cut.depth,
+                            // Never "0.000" (issue #801).
+                            if cut.volume >= 0.0005 {
+                                format!("{:.3} mm³", cut.volume)
+                            } else {
+                                "less than 0.001 mm³".to_owned()
+                            }
                         ),
                     ));
                 }
@@ -1419,7 +1429,8 @@ mod tests {
     fn req_nfr_12_a_real_warning_is_never_merged_into_the_feed_summary() {
         let (mut run, project, name) = limited_run("three", 3);
         let rapid = format!(
-            "Rapid cut (operation '{name}'): move 9 is a rapid that removes 0.100 mm³ of material"
+            "Rapid cut (operation '{name}'): move 9 is a rapid that goes 0.250 mm into the stock, \
+             deeper than the simulation's cell of 0.100 mm, and removes 0.100 mm³ of material"
         );
         // A rapid that removes material is a warning of the run (decision
         // 0536 step 2).

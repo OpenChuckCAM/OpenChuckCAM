@@ -186,6 +186,17 @@ impl CuttingDraft {
     }
 }
 
+/// The act for a committed tool field. A blank Stick-out clears it (the
+/// checks then assume the flute length + 5 mm, decision record 0673); any
+/// other blank field stays a missing value, which the act refuses.
+fn field_act(name: String, value: Option<ParameterValue>) -> Act {
+    let value = match value {
+        None if name == tool_edit::fields::STICK_OUT => Some(ParameterValue::Text(String::new())),
+        value => value,
+    };
+    Act::Field(name, value)
+}
+
 /// Something the user asked for, done after drawing.
 #[derive(Debug, Clone, PartialEq)]
 enum Act {
@@ -801,15 +812,22 @@ impl ToolLibraryWindow {
                 egui::Id::unique(("tool fields", tool.id)),
                 tool.tool.clone(),
                 move |tool, text| {
-                    let value = form_panel::parse(&field.kind, text)?
-                        .ok_or_else(|| "Needs a value. Not applied.".to_owned())?;
+                    // Stick-out may be left blank: the checks then assume
+                    // the flute length + 5 mm (decision record 0673).
+                    let value = match form_panel::parse(&field.kind, text)? {
+                        Some(value) => value,
+                        None if field.name == tool_edit::fields::STICK_OUT => {
+                            openchuck_app::project::ParameterValue::Text(String::new())
+                        }
+                        None => return Err("Needs a value. Not applied.".to_owned()),
+                    };
                     tool_edit::set_tool_field(tool, &field.name, &value)
                         .map_err(|e| form_panel::refusal(&e.to_string()))
                 },
             )
         };
         for edit in form_panel::show_fields(ui, &fields, &[], false, &mut self.fields, preflight) {
-            acts.push(Act::Field(edit.name, edit.value));
+            acts.push(field_act(edit.name, edit.value));
         }
         let mut materials: Vec<String> = MATERIALS.iter().map(|m| (*m).to_owned()).collect();
         if let Some(m) = &tool.tool.material
@@ -2333,6 +2351,17 @@ impl ToolLibraryWindow {
     /// Types `typed` as the tool's number in `machine`'s tool set.
     pub fn set_set_number(&mut self, machine: &str, typed: &str) {
         self.act(Act::SetNumber(machine.to_owned(), typed.to_owned()), None);
+    }
+
+    /// Commits `value` to the tool field `name`, as a field of the form
+    /// does when it loses the keyboard; `None` is a field left blank.
+    pub fn commit_field(
+        &mut self,
+        app: Option<&mut Application>,
+        name: &str,
+        value: Option<ParameterValue>,
+    ) {
+        self.act(field_act(name.to_owned(), value), app);
     }
 
     /// Renames the tool shown, as the Name field does.

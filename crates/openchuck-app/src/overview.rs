@@ -1037,6 +1037,10 @@ struct SetupChecked {
     /// Why the stored workholding cannot be built, if it cannot.
     unbuildable: Option<String>,
     has_machine: bool,
+    /// The machine's rotary reference X the checks ran with, so that
+    /// checks from an earlier revision still convert their machine
+    /// coordinates with the reference they were made against.
+    rotary_reference_x: Option<f64>,
 }
 
 /// What the checks job found: the model files, the mesh checks, the setup
@@ -1130,9 +1134,10 @@ struct Made {
     warnings: Vec<openchuck_path::Notice>,
     /// How many areas its strategy could not reach (decision record 0515).
     unreached: usize,
-    /// The rapid moves the run's stock simulation found removing material,
-    /// as (move, mm³): warnings to acknowledge (decision record 0538).
-    rapid_cuts: Vec<(usize, f64)>,
+    /// The rapid moves the run's stock simulation found going deeper into
+    /// the stock than one cell: warnings to acknowledge (decision records
+    /// 0538 and 0661).
+    rapid_cuts: Vec<openchuck_sim::RapidCut>,
     /// What the post found of short blocks it left in the program (Report
     /// mode): warnings (decision record 0536, the owner's answer (e)).
     short_blocks: Vec<openchuck_post::ShortBlockReport>,
@@ -1237,7 +1242,7 @@ impl GenerationRecord {
                     .groups
                     .iter()
                     .filter(|g| g.operation == *id)
-                    .flat_map(|g| g.rapid_cuts.iter().copied())
+                    .flat_map(|g| g.rapid_cuts.iter().cloned())
                     .collect();
                 let short_blocks = run
                     .short_blocks
@@ -1404,16 +1409,17 @@ pub(crate) fn run_checks(
             .map(|e| e.in_setup(&s.frame));
         let mut notes = Vec::new();
         let warnings = match project.machine() {
-            Some(profile) => {
-                openchuck_types::setup::check_setup(&openchuck_types::setup::SetupCheck {
+            Some(profile) => crate::setup::check_setup(
+                project.machine_id(),
+                &openchuck_types::setup::SetupCheck {
                     profile,
                     frame: &s.frame,
                     stock: s.stock.as_ref(),
                     clearance: s.clearance.as_ref(),
                     rules: &s.clearance_rules,
                     part: part.as_ref(),
-                })
-            }
+                },
+            ),
             None => Vec::new(),
         };
         let mut warnings = warnings;
@@ -1460,6 +1466,7 @@ pub(crate) fn run_checks(
             notes,
             unbuildable,
             has_machine: project.machine().is_some(),
+            rotary_reference_x: project.machine().map(|m| m.rotary_origin.x),
         });
     }
     let keys = status_keys(project);
@@ -1569,11 +1576,20 @@ use crate::lead_in::clause;
 
 /// A setup warning in the one form: "Clearance (setup '<name>'): ...",
 /// the same in Messages and in the export checks.
-pub(crate) fn setup_warning_in_form(setup: &str, warning: &SetupWarning) -> String {
+///
+/// `reference_x` is the machine X of the profile's rotary reference point,
+/// X 0 of the setup: with it, a position past the travel along the rotary
+/// axis is also given in the setup's X, with how to fix it (decision record
+/// 0672, issue #820).
+pub(crate) fn setup_warning_in_form(
+    setup: &str,
+    warning: &SetupWarning,
+    reference_x: Option<f64>,
+) -> String {
     crate::lead_in::in_form(
         setup_topic(&warning.kind),
         &Context::setup(setup),
-        &setup_warning_text(warning),
+        &setup_warning_text(warning, reference_x),
     )
 }
 
@@ -1627,6 +1643,13 @@ fn part_of(kind: &SetupWarningKind) -> Option<SetupPart> {
         | SetupWarningKind::StockNeedsPart
         | SetupWarningKind::ImportedStock
         | SetupWarningKind::PartOutsideStock => Some(SetupPart::Stock),
+        // The stock is fixed by its own position along X, the part by its
+        // Offset along X (decision record 0672).
+        SetupWarningKind::StartsBehindReference { what, .. } => Some(if *what == "the stock" {
+            SetupPart::Stock
+        } else {
+            SetupPart::PartPosition
+        }),
         SetupWarningKind::ClearanceInsideStock { .. }
         | SetupWarningKind::ClearanceInsidePart { .. }
         | SetupWarningKind::ClearanceBelowMinimum { .. }
@@ -1642,10 +1665,27 @@ fn part_of(kind: &SetupWarningKind) -> Option<SetupPart> {
 /// A setup warning in the user's words: the library's text, with the machine
 /// values it used named as the machine panel names them, not by their names
 /// in the profile file (specification section 15).
-pub(crate) fn setup_warning_text(warning: &SetupWarning) -> String {
+pub(crate) fn setup_warning_text(warning: &SetupWarning, reference_x: Option<f64>) -> String {
     let mut plain = warning.clone();
     plain.unconfirmed.clear();
-    let mut text = plain.to_string();
+    let mut text = match (&warning.kind, reference_x) {
+        (
+            SetupWarningKind::OutsideTravel {
+                what,
+                axis: "X",
+                value,
+                min,
+                max,
+            },
+            Some(reference),
+        ) if what.starts_with("the start of")
+            || what.starts_with("the end of")
+            || *what == "the work zero" =>
+        {
+            travel_along_text(what, *value, *min, *max, reference)
+        }
+        _ => plain.to_string(),
+    };
     if !warning.unconfirmed.is_empty() {
         let names: Vec<&str> = warning
             .unconfirmed
@@ -1658,6 +1698,34 @@ pub(crate) fn setup_warning_text(warning: &SetupWarning) -> String {
         ));
     }
     text
+}
+
+/// A position along the rotary axis past the machine's X travel, in the
+/// setup's X as the user typed it and in machine X, with what to do first
+/// (decision record 0672, issue #820). `reference` is the machine X of the
+/// rotary reference point, the setup's X 0.
+fn travel_along_text(what: &str, value: f64, min: f64, max: f64, reference: f64) -> String {
+    let (past, towards) = if value < min {
+        (min - value, "+X")
+    } else {
+        (value - max, "-X")
+    };
+    let fix = if what.ends_with("the stock") {
+        format!(
+            "Move the stock towards {towards} (Start X, or X from and X to for a box), with the part (Offset along X) and the \
+             work zero (Zero at X), or shorten it."
+        )
+    } else if what.ends_with("the part") {
+        format!("Move the part towards {towards} (Offset along X).")
+    } else {
+        format!("Move the work zero towards {towards} (Zero at X).")
+    };
+    format!(
+        "{what}, at X {:.3}, is {past:.3} mm past the machine's X travel: it would be at machine \
+         X {value:.3}, and the machine reaches {min:.3} to {max:.3}. {fix} X is measured from \
+         the machine's rotary reference point, at machine X {reference:.3}",
+        value - reference
+    )
 }
 
 /// How serious `status` is, for choosing the mark to show: an error, then
@@ -2168,8 +2236,8 @@ fn build(app: &Application, checks: Option<&Checks>, jobs: &JobLog) -> Overview 
         // path's warning does (decision record 0536, the owner's answer
         // (e); OI-373).
         if up_to_date && let Some(made) = made {
-            for &(segment, volume) in &made.rapid_cuts {
-                let text = crate::export::rapid_cut_text(&o.name, segment, volume);
+            for cut in &made.rapid_cuts {
+                let text = crate::export::rapid_cut_text(&o.name, cut);
                 if status.state == ItemState::UpToDate
                     || (status.state == ItemState::Warning
                         && !status.cause.starts_with(NEEDS_ACKNOWLEDGING))
@@ -2204,11 +2272,7 @@ fn build(app: &Application, checks: Option<&Checks>, jobs: &JobLog) -> Overview 
         }
         // A strategy that needs a STEP part on a mesh part: said at once,
         // before anything is generated (decision record 0174).
-        // Facing that checks its cut against the part, on a STEP part, is
-        // said the same way (issue #800).
-        if let Some(reason) = crate::operation::brep_only(project, &app.strategies, o)
-            .or_else(|| crate::operation::facing_on_step_part(project, o))
-        {
+        if let Some(reason) = crate::operation::brep_only(project, &app.strategies, o) {
             status = ItemStatus::new(ItemState::Error, sentence(&reason));
             let message = Message::about(
                 Severity::Error,
@@ -2456,11 +2520,11 @@ fn build(app: &Application, checks: Option<&Checks>, jobs: &JobLog) -> Overview 
                             },
                         );
                         // Show setting opens what the text says to change:
-                        // the tool, whose flute length sets how far it
-                        // sticks out, or the setup's safe Z (decision record
-                        // 0536 section 4).
+                        // the tool's stick-out, which the check uses (or
+                        // assumes from the flute length), or the setup's safe
+                        // Z (decision records 0536 section 4 and 0673).
                         let action = MessageAction::ShowSetting(if collision {
-                            SettingRef::tool(snapshot.id, crate::tool_edit::fields::FLUTE_LENGTH)
+                            SettingRef::tool(snapshot.id, crate::tool_edit::fields::STICK_OUT)
                         } else {
                             SettingRef::setup(s.id, crate::setup_form::SetupField::SafeZ)
                         });
@@ -2554,7 +2618,7 @@ fn build(app: &Application, checks: Option<&Checks>, jobs: &JobLog) -> Overview 
             for w in &found.warnings {
                 let part = part_of(&w.kind);
                 let target = part.map_or(setup, at);
-                let text = sentence(&setup_warning_in_form(&s.name, w));
+                let text = sentence(&setup_warning_in_form(&s.name, w, found.rotary_reference_x));
                 // A possible collision must be acknowledged before the
                 // program is written (decision record 0538).
                 let collision = crate::setup::is_possible_collision(&w.kind);
@@ -3363,6 +3427,7 @@ mod tests {
                     flute_count: 2,
                     material: None,
                     centre_cutting: None,
+                    stick_out: None,
                 }
                 .profile()
                 .unwrap(),
@@ -3459,7 +3524,7 @@ mod tests {
     fn made_app(
         name: &str,
         warnings: Vec<openchuck_path::Notice>,
-        rapid_cuts: Vec<(usize, f64)>,
+        rapid_cuts: Vec<openchuck_sim::RapidCut>,
     ) -> (std::path::PathBuf, Application, OperationId) {
         use openchuck_project::{Item, Operation, OrderKey, Placement};
         let dir = std::env::temp_dir().join(format!("openchuck-{name}-{}", std::process::id()));
@@ -3508,6 +3573,7 @@ mod tests {
                     flute_count: 2,
                     material: None,
                     centre_cutting: None,
+                    stick_out: None,
                 }
                 .profile()
                 .unwrap(),
@@ -3590,7 +3656,17 @@ mod tests {
         // the run's stock simulation found removing material reaches
         // Messages as a warning to acknowledge, in the one form, and marks
         // the operation, while its path is current.
-        let (dir, app, op) = made_app("rapid-cut", Vec::new(), vec![(9, 0.1234)]);
+        let (dir, app, op) = made_app(
+            "rapid-cut",
+            Vec::new(),
+            vec![openchuck_sim::RapidCut {
+                segment: 9,
+                volume: 0.1234,
+                end: openchuck_types::geometry::Point3::ORIGIN,
+                depth: 0.25,
+                cell: 0.1,
+            }],
+        );
         let overview = app.overview(None, &JobLog::default());
         let status = &overview.items[&ItemRef::Operation(op)];
         assert_eq!(status.state, ItemState::Warning, "{status:?}");
@@ -3610,7 +3686,8 @@ mod tests {
         assert!(message.to_acknowledge);
         assert_eq!(
             message.text,
-            "Rapid cut (operation 'Walls'): move 9 is a rapid that removes 0.123 mm³ of material."
+            "Rapid cut (operation 'Walls'): move 9 is a rapid that goes 0.250 mm into the stock, \
+             deeper than the simulation's cell of 0.100 mm, and removes 0.123 mm³ of material."
         );
         std::fs::remove_dir_all(&dir).unwrap();
     }
@@ -3672,6 +3749,7 @@ mod tests {
                     flute_count: 2,
                     material: None,
                     centre_cutting: None,
+                    stick_out: None,
                 }
                 .profile()
                 .unwrap(),

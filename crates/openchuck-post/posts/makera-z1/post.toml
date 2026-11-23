@@ -30,6 +30,10 @@ comments = true
 # The NFR-12 notice (the program is yours to check before you run it), written as comment
 # lines after the generator line (decision 0533). Needs comments; false leaves it out.
 safety_notice = true
+# The Z1 firmware source keeps a line in a 64-byte queue item, so a longer line is cut
+# without a warning (OI-933; from the source, not confirmed on the machine). Longer comments
+# are wrapped; any other longer line blocks export (decision 0656).
+max_line_length = 63
 file_extension = "nc"
 
 [options.tool_change]

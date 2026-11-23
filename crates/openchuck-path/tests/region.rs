@@ -469,6 +469,47 @@ fn req_op_02_an_avoid_surface_is_never_cut() {
 }
 
 #[test]
+fn req_op_02_an_avoid_surface_does_not_multiply_the_moves_of_the_rest_of_the_part() {
+    // Issue #608: an area to avoid is seen only where the tool is dropped,
+    // so the seeds are made fine (`CONSTRAINED_SPACING`); the moves between
+    // its edges are no more than the path needs, as without it. A 4 mm strip
+    // of a 40 mm cylinder, on the spiral and in rings.
+    let mesh = cylinder();
+    let f = fixture(&mesh);
+    let strip =
+        MeshSurface::new(&pick(&mesh, |c| (18.0 - 1e-9..22.0 + 1e-9).contains(&c.x))).unwrap();
+    let avoid = RegionConstraint {
+        avoid: Some(&strip),
+        ..Default::default()
+    };
+    for shape in ["helix", "rings"] {
+        let mut v = values_for(&HelicalFinishing);
+        v.insert(
+            "pass_shape".to_owned(),
+            ParameterValue::Text(shape.to_owned()),
+        );
+        let count = |region: &RegionConstraint<'_>| {
+            let path =
+                run(|ctx| generate_in_region(&HelicalFinishing, &f.input(), region, &v, ctx))
+                    .unwrap();
+            path.group
+                .segments
+                .iter()
+                .filter(|s| s.kind == MoveKind::Cutting)
+                .count()
+        };
+        let (free, avoided) = (count(&RegionConstraint::default()), count(&avoid));
+        eprintln!("{shape}: {free} cutting moves, {avoided} with the strip avoided");
+        // It cuts less of the part; a few moves more at the strip's edges at
+        // most.
+        assert!(
+            avoided as f64 <= 1.1 * free as f64,
+            "{shape}: {avoided} cutting moves with the strip avoided, {free} without"
+        );
+    }
+}
+
+#[test]
 fn req_op_02_a_small_avoid_patch_between_two_default_seeds_is_not_missed() {
     // 1 degree wide (0.26 mm) and half a millimetre long: the helix crosses
     // each once, and the default angle step is five times as wide. Patches at

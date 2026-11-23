@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.59.0
+
+- **Family release (0.59.0; lane Z1-SETUP, PR 2; issue #692; decision 0673):** `openchuck-types`'s `Tool` gains the public field `stick_out`, a breaking change; no change to this crate.
+
+## 0.56.0
+
+- **Breaking (0.56.0, POST-SAFETY; issue #703; OI-933; decision 0656, accepted):** `line_length_check(source, max_chars)` returns a `FindingKind::LineTooLong` finding for each line longer than `max_chars` characters (the line end not counted), naming the line and both lengths (GC-08). A `match` on `FindingKind` adds the variant.
+
 ## 0.54.0
 
 - **Family release (0.54.0, or the next free version, as the Merge Manager sequences it; RAMPENTRY; issues #639, #642; decision 0543, accepted):** `openchuck-path`'s `EntryParameters` gains `allow_single_point_plunge` and loses `back_and_forth`, and `StrategyInput::entry_safety` and the `entry_safety` module are removed (decision 0543 D10), a breaking change; no change to this crate.

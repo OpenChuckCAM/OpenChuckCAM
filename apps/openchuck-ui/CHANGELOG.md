@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.57.0
+
+- **Changed (0.57.0; SIM-FINISH, issue #801; decision 0661, accepted, option C):** the Results tab lists as a problem, with its depth, only a rapid that goes deeper into the stock than one cell of the simulation, and counts only those as rapid cuts; a shallower one is a note of the run. `openchuck-cli simulate` fails only on those too, and prints every rapid with its depth and volume.
+
 ## Unreleased (A11Y-FOCUS, decision 0xxx, accepted, built as the owner answered; issues #577, #578, #580, #581)
 
 - **Added:** a tool window that opens (import, New operation, tool library, machine library, Post and export) takes the keyboard with no control focused; the first Tab goes to the first control of its body (#580; the owner's answer Q1 B).

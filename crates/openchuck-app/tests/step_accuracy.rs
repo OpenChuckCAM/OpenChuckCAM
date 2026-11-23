@@ -86,6 +86,7 @@ fn ball(diameter: f64) -> ConvexTool {
         flute_count: 2,
         material: None,
         centre_cutting: Some(true),
+        stick_out: None,
     };
     ConvexTool::new(&tool.profile().unwrap()).unwrap()
 }

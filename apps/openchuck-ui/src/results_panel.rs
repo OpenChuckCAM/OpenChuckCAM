@@ -598,7 +598,7 @@ pub fn summarise(run: &Regeneration) -> Vec<SetupResults> {
                         name: o.operation.clone(),
                         moves: o.moves,
                         removed: o.removed_volume,
-                        rapid_cuts: o.rapid_cuts.len(),
+                        rapid_cuts: o.rapid_cuts.iter().filter(|c| c.deeper_than_cell()).count(),
                     })
                     .collect(),
             )

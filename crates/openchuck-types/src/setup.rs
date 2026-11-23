@@ -451,6 +451,17 @@ pub enum SetupWarningKind {
         /// The X extent they share.
         x: (f64, f64),
     },
+    /// The stock (or, with no stock, the part) starts behind X 0 on a
+    /// machine whose rotary reference point is its headstock face, the
+    /// Makera Z1's: part of it would be inside the headstock
+    /// ([`starts_behind_reference`]; decision record 0672). A warning:
+    /// generation and export still run (NFR-12).
+    StartsBehindReference {
+        /// "the stock" or "the part".
+        what: &'static str,
+        /// The model X where it starts, below 0.
+        x: f64,
+    },
 }
 
 impl std::fmt::Display for SetupWarning {
@@ -523,6 +534,20 @@ impl std::fmt::Display for SetupWarning {
             SetupWarningKind::PartOutsideStock => {
                 f.write_str("some of the part lies outside the stock")?
             }
+            SetupWarningKind::StartsBehindReference { what, x } => write!(
+                f,
+                "{what} starts at X {x:.3}, {:.3} mm inside the headstock (X 0 is the headstock \
+                 face on the Makera Z1). Measure from the headstock face to where your chuck \
+                 grips, with your jaws fitted, and {}",
+                -x,
+                if *what == "the stock" {
+                    "set the stock's Start X (X from, for a box) to at least that; move the part \
+                     (Offset along X) and the work zero (Zero at X) with it"
+                } else {
+                    "set the part's Offset along X so it starts at least that far along; move \
+                     the work zero (Zero at X) with it"
+                }
+            )?,
             SetupWarningKind::HeldRegionCoversPart { at_end, x } => write!(
                 f,
                 "the grip at the {} of the stock covers {:.3} mm of the part (X {:.3} to {:.3}), \
@@ -767,6 +792,31 @@ pub fn check_setup(check: &SetupCheck<'_>) -> Vec<SetupWarning> {
     warnings
 }
 
+/// The stock's start, or with no stock the part's, when it is behind X 0,
+/// the rotary reference point, by more than 0.0005 mm (the G-code's three
+/// places, as the clearance checks): [`SetupWarningKind::StartsBehindReference`]
+/// (decision record 0672). X 0 is the reference point on every machine, but
+/// what that point is on the machine is the profile's choice: the host calls
+/// this only for a machine whose reference point is its headstock face (on a
+/// profile whose reference is the chuck face, a gripped stock rightly starts
+/// behind X 0).
+pub fn starts_behind_reference(check: &SetupCheck<'_>) -> Option<SetupWarning> {
+    let stock = check
+        .stock
+        .filter(|s| !matches!(s, Stock::Imported { .. }))
+        .and_then(|s| s.bounds(check.part))
+        .map(|b| ("the stock", b.min.x));
+    let (what, x) = stock.or(check.part.map(|p| ("the part", p.bounds.min.x)))?;
+    (x < -5e-4).then(|| SetupWarning {
+        kind: SetupWarningKind::StartsBehindReference { what, x },
+        unconfirmed: if check.profile.is_confirmed(ProfileField::RotaryOrigin) {
+            Vec::new()
+        } else {
+            vec![ProfileField::RotaryOrigin]
+        },
+    })
+}
+
 /// Whether `stock` (with model-frame `bounds`) holds every point of `part`.
 /// Relative tolerance of the check that the stock encloses the part: the
 /// 32-bit float epsilon (2^-23, about 1.19e-7) times the size compared,
@@ -820,6 +870,103 @@ mod tests {
             length: Millimetres(60.0),
             x_start: Millimetres(-5.0),
         }
+    }
+
+    /// A stock or part that starts behind X 0 on a machine whose rotary
+    /// reference point is its headstock face warns with what to do first;
+    /// one that starts at X 0, or within the G-code's three places of it,
+    /// does not; `check_setup` itself never raises it, since on a profile
+    /// whose reference point is the chuck face a gripped stock rightly starts
+    /// behind X 0 (SET-05, SET-06, NFR-12; decision record 0672, issue #812).
+    #[test]
+    fn req_set_05_req_set_06_a_stock_behind_the_rotary_reference_point_warns() {
+        let profile = MachineProfile::example_x_rotary();
+        let frame = SetupFrame::default();
+        let part = part();
+        let at = |x: f64| Stock::Cylinder {
+            diameter: Millimetres(30.0),
+            length: Millimetres(60.0),
+            x_start: Millimetres(x),
+        };
+        let rules = ClearanceRules::default();
+        let behind = |stock: Option<&Stock>, part: Option<&PartExtent>| {
+            starts_behind_reference(&SetupCheck {
+                profile: &profile,
+                frame: &frame,
+                stock,
+                clearance: None,
+                rules: &rules,
+                part,
+            })
+        };
+        // The tutorial's fresh stock: 1 mm behind the face.
+        let stock = at(-1.0);
+        let found = behind(Some(&stock), Some(&part)).unwrap();
+        assert_eq!(
+            found.kind,
+            SetupWarningKind::StartsBehindReference {
+                what: "the stock",
+                x: -1.0
+            }
+        );
+        assert_eq!(found.unconfirmed, vec![ProfileField::RotaryOrigin]);
+        let text = found.to_string();
+        for words in [
+            "the stock starts at X -1.000, 1.000 mm inside the headstock (X 0 is the headstock \
+             face on the Makera Z1)",
+            "Measure from the headstock face to where your chuck grips, with your jaws fitted",
+            "set the stock's Start X (X from, for a box) to at least that; move the part \
+             (Offset along X) and the work zero (Zero at X) with it",
+        ] {
+            assert!(text.contains(words), "{words}: {text}");
+        }
+        assert!(
+            !check_setup(&SetupCheck {
+                profile: &profile,
+                frame: &frame,
+                stock: Some(&stock),
+                clearance: None,
+                rules: &rules,
+                part: Some(&part),
+            })
+            .iter()
+            .any(|w| matches!(w.kind, SetupWarningKind::StartsBehindReference { .. }))
+        );
+        for clear in [0.0, -0.0004] {
+            let stock = at(clear);
+            assert_eq!(behind(Some(&stock), Some(&part)), None);
+        }
+        let stock = at(-0.001);
+        assert!(behind(Some(&stock), Some(&part)).is_some());
+        // With no stock, the part's start counts.
+        let mut early = part;
+        early.bounds.min.x = -2.5;
+        let found = behind(None, Some(&early)).unwrap();
+        let text = found.to_string();
+        assert!(text.contains("the part starts at X -2.500"), "{text}");
+        assert!(text.contains("set the part's Offset along X"), "{text}");
+        assert_eq!(behind(None, Some(&part)), None);
+        assert_eq!(behind(None, None), None);
+        // A confirmed reference point is not named as unconfirmed.
+        let mut confirmed = MachineProfile::example_x_rotary();
+        confirmed.provenance.insert(
+            ProfileField::RotaryOrigin,
+            Provenance {
+                state: Confirmation::Confirmed,
+                source: "measured".into(),
+            },
+        );
+        let stock = at(-1.0);
+        let found = starts_behind_reference(&SetupCheck {
+            profile: &confirmed,
+            frame: &frame,
+            stock: Some(&stock),
+            clearance: None,
+            rules: &rules,
+            part: Some(&part),
+        })
+        .unwrap();
+        assert!(found.unconfirmed.is_empty(), "{found:?}");
     }
 
     #[test]

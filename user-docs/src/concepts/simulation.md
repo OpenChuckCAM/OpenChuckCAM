@@ -52,14 +52,15 @@ Unreachable (enclosed)
 Left, not classified
 : Material left that is not shown to be unreachable.
 
-**DEVIATION DISTRIBUTION** splits the surface into bands, with how many points fall in each; untick a band to hide it on the part, or type a range in **Show only from** and **to**. **BY OPERATION** lists each operation's moves and the volume it removed, and says **Clean**, or how many rapid moves cut material: a rapid move that cuts is a fault in the toolpath.
+**DEVIATION DISTRIBUTION** splits the surface into bands, with how many points fall in each; untick a band to hide it on the part, or type a range in **Show only from** and **to**. **BY OPERATION** lists each operation's moves and the volume it removed, and says **Clean**, or how many rapid moves cut deeper than one cell into the stock: such a rapid move is a fault in the toolpath.
 
 ## Reading the result
 
 - Grey where the part is finished, and blue where a later operation will cut, is what you want to see.
 - Red is an overcut: find it, and change the operation, the tool or the tolerance. The simulation measures to about one cell, so a value around the cell size is at the limit of what it can tell.
 - Blue that no later operation removes is material left on the finished part. Inside corners sharper than the tool's radius always keep some.
-- A rapid cut is a fault: do not post the program until it is gone. It is a possible collision, so the export also asks you to acknowledge it before it writes anything.
+- A rapid cut is a rapid move that goes deeper into the stock than one cell. It is a fault: do not post the program until it is gone. It is a possible collision, so the export also asks you to acknowledge it before it writes anything.
+- A rapid move that touches the stock no deeper than one cell is within what the simulation can tell apart: it is listed in the **Results** tab as information, with how deep it went and the volume, and is not counted as a rapid cut. A finer cell shows smaller contacts. Look at it in the playback all the same: the simulation does not say that the move is safe.
 
 The simulation does not model the chuck, a tailstock, the tool holder or the machine, and it does not check them against the part. See [Known limitations](../start/limitations.md).
 

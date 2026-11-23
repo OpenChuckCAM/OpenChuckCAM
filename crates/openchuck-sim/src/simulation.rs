@@ -27,7 +27,9 @@ pub const BATCH_POSES: usize = 32_768;
 /// Removal below this, in cubic millimetres, is rounding, not a cut.
 const VOLUME_EPSILON: f64 = 1e-9;
 
-/// A rapid move that removed material: a fault in the toolpath.
+/// A rapid move that removed material. Deeper than one cell of the stock it
+/// is a fault in the toolpath; no deeper, it is within what the simulation
+/// resolves (decision record 0661, option C).
 #[derive(Debug, Clone, PartialEq)]
 pub struct RapidCut {
     /// Index of the move in its group.
@@ -36,6 +38,22 @@ pub struct RapidCut {
     pub volume: f64,
     /// Where the move ends, in the model frame.
     pub end: Point3,
+    /// How deep the move went into the stock: the most material it removed
+    /// from any one column, mm.
+    pub depth: f64,
+    /// The stock's cell, mm (the finer of its two, SIM-07): the depth the
+    /// simulation resolves.
+    pub cell: f64,
+}
+
+impl RapidCut {
+    /// Whether the move went deeper into the stock than one cell: a fault to
+    /// fail a simulation run on and to acknowledge, not a contact within the
+    /// simulation's resolution (decision record 0661).
+    #[must_use]
+    pub fn deeper_than_cell(&self) -> bool {
+        self.depth > self.cell
+    }
 }
 
 /// What simulating one group did.
@@ -394,12 +412,18 @@ impl Simulator {
             if must_not_cut(segment.kind) {
                 self.flush(&tool, &mut batch, &mut result, context, total)?;
                 sample_move(&self.frame, &prev, &segment.end, &sampling, &mut batch);
-                let removed = self.cut_batch(&tool, &mut batch, &mut result, context)?;
+                let (removed, depth) = self.stock.cut_deepest(&tool, &batch, context.cancel)?;
+                result.poses += batch.len();
+                result.removed_volume += removed;
+                batch.clear();
                 if removed > VOLUME_EPSILON {
+                    let (cx, cy) = self.stock.cell();
                     result.rapid_cuts.push(RapidCut {
                         segment: i,
                         volume: removed,
                         end: segment.end.tip,
+                        depth,
+                        cell: cx.min(cy),
                     });
                 }
             } else {

@@ -35,6 +35,7 @@ fn ball() -> Tool {
         flute_count: 2,
         material: None,
         centre_cutting: None,
+        stick_out: None,
     }
 }
 
@@ -1158,5 +1159,50 @@ fn req_gc_17_req_gc_11_slowdown_with_max_feed_keeps_the_timing_gate() {
         "{:?}",
         wrong.reports
     );
+    std::fs::remove_dir_all(dir).unwrap();
+}
+
+/// GC-08 (issue #703, decision 0656, OI-933): a post's `max_line_length` is checked on every
+/// file before it is written; a longer line is a finding that names the line, so the file
+/// fails its checks (which blocks export); comments are wrapped to fit, so the finding is a
+/// command line. Within the limit the file stays clean.
+#[test]
+fn req_gc_08_a_line_longer_than_the_posts_limit_fails_the_files_checks() {
+    let (dir, mut app, _) = project("post-line-length");
+    let source =
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("../../crates/openchuck-post/posts/linuxcnc");
+    let template = std::fs::read_to_string(source.join("main.post")).unwrap();
+    let manifest = std::fs::read_to_string(source.join("post.toml")).unwrap();
+    for (limit, clean) in [(4096, true), (20, false)] {
+        let post_dir = dir.join(format!("post-{limit}"));
+        std::fs::create_dir_all(&post_dir).unwrap();
+        let edited = manifest.replace(
+            "max_line_length = 255",
+            &format!("max_line_length = {limit}"),
+        );
+        assert_ne!(edited, manifest);
+        std::fs::write(post_dir.join("post.toml"), edited).unwrap();
+        std::fs::write(post_dir.join("main.post"), &template).unwrap();
+        app.set_post(Some(PostSelection::Folder(post_dir)));
+        let result = app.regenerate().unwrap();
+        let (_, text) = &result.gcode[0];
+        let report = &result.reports[0];
+        assert_eq!(report.is_clean(), clean, "{limit}: {:?}", report.findings);
+        if !clean {
+            let (n, longest) = text
+                .lines()
+                .enumerate()
+                .find(|(_, l)| l.len() > 20)
+                .unwrap();
+            assert_eq!(
+                report.findings[0],
+                format!(
+                    "line {}: the line has {} characters; the post allows at most 20",
+                    n + 1,
+                    longest.len()
+                )
+            );
+        }
+    }
     std::fs::remove_dir_all(dir).unwrap();
 }

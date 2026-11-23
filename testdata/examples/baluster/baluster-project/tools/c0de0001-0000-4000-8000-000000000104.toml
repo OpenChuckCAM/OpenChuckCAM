@@ -1,4 +1,4 @@
-schema = 25
+schema = 29
 id = "c0de0001-0000-4000-8000-000000000104"
 order = "V"
 name = "Z1 O-flute 3.175x25"
@@ -7,6 +7,7 @@ name = "Z1 O-flute 3.175x25"
 diameter = 3.175
 flute_length = 25.0
 overall_length = 42.0
+stick_out = 29.3
 shank_diameter = 3.175
 flute_count = 1
 material = "carbide"

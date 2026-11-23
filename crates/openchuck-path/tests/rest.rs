@@ -247,6 +247,7 @@ fn req_op_09_a_closed_crease_clean_at_its_start_is_not_joined_across_the_gap() {
         flute_count: 2,
         material: None,
         centre_cutting: None,
+        stick_out: None,
     }
     .profile()
     .unwrap();

@@ -45,6 +45,7 @@ fn run(strategy: &dyn Strategy, v: &BTreeMap<String, ParameterValue>) -> DexelSt
         flute_count: 2,
         material: None,
         centre_cutting: None,
+        stick_out: None,
     };
     let profile = tool.profile().unwrap();
     let stock = DexelStock::from_stock(

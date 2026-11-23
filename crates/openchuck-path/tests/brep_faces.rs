@@ -936,6 +936,7 @@ fn req_imp_02_source_drop_tool_falls_back_to_the_tessellation() {
         flute_count: 2,
         material: None,
         centre_cutting: None,
+        stick_out: None,
     }
     .profile()
     .unwrap();

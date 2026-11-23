@@ -96,10 +96,11 @@ pub struct GroupInfo {
     pub unreached: std::sync::Arc<[openchuck_path::Unreached]>,
     /// Facing inputs captured with this generation, shared with its cache.
     pub facing: Option<crate::facing::FacingVerification>,
-    /// The rapid moves of the group the run's stock simulation found
-    /// removing material, as (move, mm³): a possible collision (decision
-    /// record 0538). Empty when the run did not simulate the stock.
-    pub rapid_cuts: Vec<(usize, f64)>,
+    /// The rapid moves of the group the run's stock simulation found going
+    /// deeper into the stock than one cell: a possible collision (decision
+    /// records 0538 and 0661). Rapids no deeper are notes of the run. Empty
+    /// when the run did not simulate the stock.
+    pub rapid_cuts: Vec<openchuck_sim::RapidCut>,
 }
 
 /// The result of regenerating a project.
@@ -481,32 +482,58 @@ pub(crate) fn regenerate(
                     }
                 }
             }
-            rapid_cuts = index
+            // A rapid no deeper than one cell is within what the simulation
+            // resolves: a note, with its depth; deeper, a warning (decision
+            // record 0661, option C).
+            let (deeper, within): (Vec<_>, Vec<_>) = index
                 .and_then(|at| setups.get(at))
                 .map(|s| s.last_rapid_cuts())
                 .unwrap_or_default()
                 .iter()
-                .map(|cut| (cut.segment, cut.volume))
-                .collect();
-            for &(segment, volume) in &rapid_cuts {
-                regeneration.warnings.push(crate::export::rapid_cut_text(
-                    &operation.name,
-                    segment,
-                    volume,
-                ));
+                .cloned()
+                .partition(openchuck_sim::RapidCut::deeper_than_cell);
+            for cut in &deeper {
+                regeneration
+                    .warnings
+                    .push(crate::export::rapid_cut_text(&operation.name, cut));
             }
+            for cut in &within {
+                regeneration
+                    .notes
+                    .push(crate::export::rapid_contact_text(&operation.name, cut));
+            }
+            rapid_cuts = deeper;
         }
         regeneration
             .canonical_toolpath
             .groups
             .push(path.group.clone());
+        // The bottom of the Z travel, on every move of the linked path, for
+        // the operation's tool (decision record 0673): a travel limit, so a
+        // warning with nothing to acknowledge (decision record 0538).
+        let mut warnings = path.warnings.clone();
+        if let Some((machine, snapshot)) = project.machine().zip(
+            operation
+                .tool
+                .and_then(|id| project.tools().iter().find(|t| t.id == id)),
+        ) && let Some(found) =
+            crate::setup::spindle_depth(machine, &snapshot.tool, &linked.group)
+        {
+            warnings.push(
+                openchuck_path::Notice::warning(crate::setup::spindle_depth_text(
+                    snapshot.controller.number,
+                    &found,
+                ))
+                .about(crate::lead_in::topic::TOOL_LENGTH),
+            );
+        }
         regeneration.toolpath.groups.push(linked.group);
         regeneration.groups.push(GroupInfo {
             operation: operation.id,
             setup: operation.setup,
             tool: path.tool.clone(),
             part_bounds: path.part_bounds,
-            warnings: path.warnings.clone(),
+            warnings,
             unreached: std::sync::Arc::clone(&path.unreached),
             facing: path.facing.clone(),
             rapid_cuts,
