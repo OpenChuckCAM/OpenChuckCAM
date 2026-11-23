@@ -115,35 +115,41 @@ fn writes_notice(text: &str) -> bool {
         .any(|block| block.iter().zip(&wanted).all(|(line, want)| line == want))
 }
 
-/// Splits `text` at spaces into pieces of at most `budget` characters; a word longer than
-/// that is cut. Runs of spaces become one. Deterministic (GC-07).
-fn wrap_words(text: &str, budget: usize) -> Vec<String> {
-    let budget = budget.max(1);
-    let mut pieces = Vec::new();
-    let mut current = String::new();
+/// Splits `text` at spaces into pieces of at most `first` characters for the first piece and
+/// `rest` for the others; a word longer than its piece's width is cut. Runs of spaces become
+/// one. Deterministic (GC-07).
+fn wrap_words(text: &str, first: usize, rest: usize) -> Vec<String> {
+    let (first, rest) = (first.max(1), rest.max(1));
+    let mut pieces: Vec<String> = Vec::new();
+    let mut current: Vec<char> = Vec::new();
     for word in text.split_whitespace() {
         let mut word: Vec<char> = word.chars().collect();
-        while word.len() > budget {
-            if !current.is_empty() {
-                pieces.push(std::mem::take(&mut current));
+        loop {
+            // The piece being filled is `current`, the first while nothing is pushed.
+            let width = if pieces.is_empty() { first } else { rest };
+            if current.is_empty() {
+                if word.len() <= width {
+                    current = word;
+                    break;
+                }
+                if pieces.is_empty() && word.len() <= rest {
+                    // Too long for the narrow first line but not for a full one: keep it
+                    // whole on the next line, and leave the first line an empty comment.
+                    pieces.push(String::new());
+                    continue;
+                }
+                pieces.push(word.drain(..width).collect());
+            } else if current.len() + 1 + word.len() <= width {
+                current.push(' ');
+                current.append(&mut word);
+                break;
+            } else {
+                pieces.push(std::mem::take(&mut current).into_iter().collect());
             }
-            pieces.push(word.drain(..budget).collect());
-        }
-        if word.is_empty() {
-            continue;
-        }
-        let word: String = word.into_iter().collect();
-        if current.is_empty() {
-            current = word;
-        } else if current.chars().count() + 1 + word.chars().count() <= budget {
-            current.push(' ');
-            current.push_str(&word);
-        } else {
-            pieces.push(std::mem::replace(&mut current, word));
         }
     }
     if !current.is_empty() {
-        pieces.push(current);
+        pieces.push(current.into_iter().collect());
     }
     pieces
 }
@@ -179,12 +185,14 @@ fn wrap_comments(text: &str, max: usize) -> String {
             out.push_str(line);
             continue;
         };
-        let budget = max.saturating_sub(prefix.chars().count() + 2);
-        for (i, piece) in wrap_words(inner, budget).iter().enumerate() {
+        // Only the first line carries the `N` word; the others have the whole width.
+        let first = max.saturating_sub(prefix.chars().count() + 2);
+        let rest = max.saturating_sub(2);
+        for (i, piece) in wrap_words(inner, first, rest).iter().enumerate() {
             if i == 0 {
                 out.push_str(prefix);
             } else {
-                out.push_str(end);
+                out.push('\n');
             }
             out.push('(');
             out.push_str(piece);

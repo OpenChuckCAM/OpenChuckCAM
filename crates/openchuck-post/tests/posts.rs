@@ -945,3 +945,56 @@ fn req_nfr_12_req_nfr_07_a_mixed_comment_and_command_line_ends_the_opening_block
     assert!(e.contains("safety_notice"), "{e}");
     assert!(post_text("linuxcnc").contains(openchuck_post::SAFETY_NOTICE[0]));
 }
+
+/// GC-08 and NFR-12 (decision 0656; CodeRabbit on #840): a long `N` word narrows only the first
+/// line of a wrapped comment; the lines after it carry no `N` word and use the whole width, so a
+/// word that fits there is never split and the notice stays word for word.
+#[test]
+fn req_gc_08_req_nfr_12_a_long_line_number_narrows_only_the_first_wrapped_line() {
+    let manifest = std::fs::read_to_string(posts_path("linuxcnc/post.toml"))
+        .unwrap()
+        .replace("max_line_length = 255", "max_line_length = 20")
+        .replace(
+            "enabled = false\nstart = 10\nstep = 10",
+            "enabled = true\nstart = 1000000000\nstep = 1",
+        );
+    assert!(manifest.contains("start = 1000000000"));
+    let template = std::fs::read_to_string(posts_path("linuxcnc/main.post")).unwrap();
+    let def = PostDefinition::from_parts("t", &manifest, &template).unwrap();
+    let text = TemplatePost::new(def)
+        .post(&small_part(), &job())
+        .unwrap()
+        .text;
+    let comments: Vec<&str> = text
+        .lines()
+        .map(|l| match l.split_once(' ') {
+            Some((n, rest)) if n.starts_with('N') && rest.starts_with('(') => rest,
+            _ => l,
+        })
+        .filter(|l| l.starts_with('(') && l.ends_with(')'))
+        .map(|l| &l[1..l.len() - 1])
+        .collect();
+    let joined = comments.join(" ");
+    for notice in openchuck_post::SAFETY_NOTICE {
+        assert!(joined.contains(notice), "{notice}: {text}");
+    }
+    for line in text.lines().filter(|l| l.contains('(')) {
+        assert!(line.len() <= 20, "{line}");
+    }
+}
+
+/// GC-08 (decision 0656; CodeRabbit on #840): a long comment on the last line of a program that
+/// has no line end is still wrapped onto separate lines.
+#[test]
+fn req_gc_08_a_long_last_comment_without_a_line_end_is_wrapped_onto_lines() {
+    let manifest = std::fs::read_to_string(posts_path("linuxcnc/post.toml"))
+        .unwrap()
+        .replace("max_line_length = 255", "max_line_length = 20")
+        .replace("safety_notice = true", "safety_notice = false");
+    let mut j = job();
+    j.title = "y".repeat(36);
+    let def = PostDefinition::from_parts("t", &manifest, "({{ title }})").unwrap();
+    let text = TemplatePost::new(def).post(&small_part(), &j).unwrap().text;
+    let y = "y".repeat(18);
+    assert_eq!(text, format!("({y})\n({y})"));
+}
