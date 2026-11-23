@@ -163,3 +163,41 @@ fn req_ui_12_req_ui_16_clicking_the_tab_opens_a_dock_the_small_window_rule_colla
     assert_eq!(rig.shell.dock_tab, DockTab::Results);
     assert!(!rig.shell.collapsed(Region::Dock));
 }
+
+/// Hiding a toolpath with its eye changes only the view (decision 0169 item
+/// 6, GC-07): Results does not call the run out of date (issue #607).
+#[test]
+fn req_ui_12_req_sim_01_hiding_a_path_does_not_mark_the_run_changed() {
+    let mut rig = super::pending_edit_tests::generated("results-hidden-path");
+    rig.shell.dock_tab = DockTab::Results;
+    rig.settle();
+    let stale = "The project has changed since this run. Generate again.";
+    assert!(!rig.shows(stale), "fresh run: {:?}", rig.texts());
+    let op = rig.shell.app.as_ref().unwrap().project().operations()[0].id;
+    rig.shell
+        .app
+        .as_mut()
+        .unwrap()
+        .execute(openchuck_app::Command::SetPathsShown {
+            operations: vec![op],
+            shown: false,
+        })
+        .unwrap();
+    rig.shell.overview_dirty = true;
+    rig.settle();
+    assert!(!rig.shows(stale), "after hiding: {:?}", rig.texts());
+    // An edit that does change the output still says so.
+    rig.shell
+        .app
+        .as_mut()
+        .unwrap()
+        .set_parameter(
+            op,
+            "stepover",
+            Some(openchuck_app::project::ParameterValue::Number(0.9)),
+        )
+        .unwrap();
+    rig.shell.overview_dirty = true;
+    rig.settle();
+    assert!(rig.shows(stale), "after an edit: {:?}", rig.texts());
+}

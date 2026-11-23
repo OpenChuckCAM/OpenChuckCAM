@@ -471,9 +471,11 @@ impl ResultsView {
         };
         let text =
             head.map(|head| results_text(&lines, &head, openchuck_buildinfo::current_text()));
+        // A path hidden or shown with its eye is not a change to the run's
+        // output (decision record 0169 item 6, issue #607).
         let changed = run
             .as_ref()
-            .is_some_and(|run| *run.project != *app.project());
+            .is_some_and(|run| !run.project.same_output(app.project()));
         Self {
             run,
             revision: app.revision(),
