@@ -998,3 +998,45 @@ fn req_gc_08_a_long_last_comment_without_a_line_end_is_wrapped_onto_lines() {
     let y = "y".repeat(18);
     assert_eq!(text, format!("({y})\n({y})"));
 }
+
+/// NFR-07, issue #794: the nightly `post_definition` fuzz input, a damaged copy of the LinuxCNC
+/// post whose template stores a namespace inside itself (`{% set st.a = st %}`), loads and posts
+/// to a result, never a crash. The engine frees the namespace after the render (its unit test
+/// watches the memory being freed; the fuzz target's leak check runs this file in the nightly).
+/// The render then stops at a damaged line, after the cycle is made, so the post is refused
+/// with a template error naming the line: the error path frees the namespace too.
+#[test]
+fn req_nfr_07_a_template_with_a_namespace_cycle_posts_without_a_crash() {
+    let data = std::fs::read(repo("testdata/posts/fuzz_namespace_cycle.txt")).unwrap();
+    let text = std::str::from_utf8(&data).unwrap();
+    // Split as the fuzz target does.
+    let (manifest, template) = text.split_once("\n---\n").unwrap();
+    let definition = PostDefinition::from_parts("fuzz", manifest, template).unwrap();
+    let err = TemplatePost::new(definition)
+        .post(&small_part(), &job())
+        .unwrap_err()
+        .to_string();
+    assert!(err.contains("main.post at line 62"), "{err}");
+}
+
+/// NFR-07, issue #794: a template may keep state in a namespace as before, but a namespace key
+/// that is not a name is refused with a template error naming the key.
+#[test]
+fn req_nfr_07_a_namespace_key_that_is_not_a_name_is_a_template_error() {
+    let linux = builtin("linuxcnc").unwrap().unwrap();
+    let template = format!(
+        "{{% set bad = namespace({{'a b': 1}}) %}}\n{}",
+        linux.template
+    );
+    let manifest =
+        std::fs::read_to_string(repo("crates/openchuck-post/posts/linuxcnc/post.toml")).unwrap();
+    let definition = PostDefinition::from_parts("linuxcnc", &manifest, &template).unwrap();
+    let err = TemplatePost::new(definition)
+        .post(&small_part(), &job())
+        .unwrap_err()
+        .to_string();
+    assert!(
+        err.contains("namespace") && err.contains("is not a name"),
+        "{err}"
+    );
+}

@@ -90,4 +90,6 @@ Generated G-code must be verified by you before it is run on a machine. OpenChuc
 
 The *latest* version of this guide describes the nightly build, the [development build](start/install.md#download-a-development-build) made each night from the main branch. Its limits are on [Known limitations](start/limitations.md).
 
+- A tool larger than any real cutter (a diameter above 2000 mm, a length above 1000 mm, or a custom profile point more than 1000 mm from the tip) is refused with a message naming the size, instead of being accepted. A post template's `namespace` keys must be names, and a template that stores a namespace inside itself no longer leaks memory.
+
 Generated G-code must be verified by you before it is run on a machine. OpenChuckCAM does not guarantee that a program is safe or correct for any machine, tool or setup.

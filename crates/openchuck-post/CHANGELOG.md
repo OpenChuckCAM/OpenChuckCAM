@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased (FUZZ-NFR07; issue #794; decision 0xxx, proposed)
+
+- **Fixed:** a template `namespace` that holds itself (directly, in a list or through another namespace) is freed after the render instead of leaking; every namespace a render makes is emptied when it ends. A `namespace` key that is not a name is now a template error. No output changes. No public API changes.
+
 ## 0.56.0
 
 - **Breaking (0.56.0, POST-SAFETY; issue #703; OI-933; decision 0656, accepted):** `PostOptions::max_line_length` (post key `max_line_length`, 20 to 4096 characters, read as unset when a post leaves it out): a comment line longer than it is wrapped at spaces into comment lines that fit (a word longer than a line is cut; an `N` word stays on the first line), after the NFR-12 notice check, so the notice is kept word for word. A post with a value outside 20 to 4096 is refused at load (`options.max_line_length`). The Makera Z1 post sets 63 (the firmware source's 64-byte line, OI-933), the LinuxCNC post 255. Struct literals of `PostOptions` add the field. Every Makera Z1 program writes the notice on four comment lines instead of two, and a title or operation comment longer than 63 characters on more than one line; no other byte changes.

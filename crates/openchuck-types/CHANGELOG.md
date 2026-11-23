@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased (FUZZ-NFR07; issues #628, #627; decision 0xxx, proposed)
+
+- **Added:** `tool::profile::MAX_PROFILE_SIZE` (1000 mm). A profile point, arc centre or arc radius given by size further than that from the tip is refused naming the segment; `Tool::profile` refuses a diameter or shank diameter above twice it and a flute or overall length above it, naming the field. A finite but huge size (the nightly `tool_profile_toml` input, 7.8e307 mm) used to be accepted and overflow the lower envelope.
+
 ## 0.56.0
 
 - **Family release (0.56.0, POST-SAFETY; issue #703; decision 0656, accepted):** `openchuck-post`'s `PostOptions` gains the public field `max_line_length` and `openchuck-gcode`'s `FindingKind` gains `LineTooLong`, a breaking change; no change to this crate.

@@ -146,6 +146,25 @@ impl Tool {
         require_positive("tool.flute_length", self.flute_length.0)?;
         require_positive("tool.overall_length", self.overall_length.0)?;
         require_positive("tool.shank_diameter", self.shank_diameter.0)?;
+        // Sizes no tool has are refused by the field the user typed, before
+        // the profile check would name a segment (NFR-07, issue #628).
+        let max = profile::MAX_PROFILE_SIZE;
+        for (field, value, limit) in [
+            ("tool.diameter", self.diameter.0, 2.0 * max),
+            ("tool.flute_length", self.flute_length.0, max),
+            ("tool.overall_length", self.overall_length.0, max),
+            ("tool.shank_diameter", self.shank_diameter.0, 2.0 * max),
+        ] {
+            if value > limit {
+                return Err(Error::invalid(
+                    field,
+                    format!(
+                        "{} is larger than {limit} mm, the largest size a tool can have",
+                        profile::size_text(value)
+                    ),
+                ));
+            }
+        }
         if self.flute_length.0 > self.overall_length.0 {
             return Err(Error::invalid(
                 "tool.flute_length",

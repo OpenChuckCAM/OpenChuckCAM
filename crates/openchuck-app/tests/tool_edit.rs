@@ -315,3 +315,23 @@ fn req_tl_03_profile_editor_adds_arcs_moves_segments_and_gives_arc_radii() {
     assert_eq!(move_segment(&mut p, 9, true), None);
     assert_eq!(p, before);
 }
+
+/// NFR-07, issue #628: the tool form shows the largest size a tool may have, the same limit the
+/// tool's own check applies, so a value no tool has is caught at the field.
+#[test]
+fn req_tl_04_req_nfr_07_size_fields_show_the_largest_tool_size() {
+    let form = tool_form(&tool(ToolShape::FlatEnd));
+    for (name, max) in [
+        (fields::DIAMETER, 2000.0),
+        (fields::FLUTE_LENGTH, 1000.0),
+        (fields::OVERALL_LENGTH, 1000.0),
+        (fields::SHANK_DIAMETER, 2000.0),
+    ] {
+        let field = form.iter().find(|f| f.name == name).unwrap();
+        assert!(
+            matches!(field.kind, FieldKind::Number { unit: "mm", max: Some(m), .. } if m == max),
+            "{name}: {:?}",
+            field.kind
+        );
+    }
+}
