@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-// Helper behind decision record 9901's blisk measurement: pasted at the end of
+// Helper behind decision record 9921's blisk measurement: pasted at the end of
 // crates/openchuck-app/tests/step_strategies.rs (it uses that file's
 // `blisk_on_axis` and imports) and run as described in README.md.
 

@@ -93,7 +93,7 @@ pub(super) struct Entry {
     /// with each face's number, sampled as swarf samples them (decision
     /// record 0532): a lead or helix may cut them no deeper than the pass
     /// itself cuts them where the move meets it, plus the tolerance
-    /// (decision record 9901; issue #572). Empty for every other strategy.
+    /// (decision record 9921; issue #572). Empty for every other strategy.
     beside: Vec<(Point3, u32)>,
     /// The tool's profile, which the faces next to the face set are
     /// measured against, without the stock to leave, as swarf measures them.
@@ -1195,7 +1195,7 @@ impl Entry {
     /// that, of the faces next to the face set, deeper than the pass itself
     /// cuts them at `join` (the pass's point the move meets) plus the
     /// tolerance, as that cut is the pass's and is measured and warned of
-    /// with it (decision records 0532 item 3 and 9901).
+    /// with it (decision records 0532 item 3 and 9921).
     pub(super) fn gouge_moves(
         &self,
         b: &Builder<'_>,
@@ -1342,7 +1342,7 @@ pub(super) struct Gouge {
     /// The model X of the tool's tip there (NaN when not known).
     x: f64,
     /// The number of the face next to the face set it cuts, deeper than the
-    /// pass does (decision record 9901); `None` for the finished surface.
+    /// pass does (decision record 9921); `None` for the finished surface.
     face: Option<u32>,
 }
 

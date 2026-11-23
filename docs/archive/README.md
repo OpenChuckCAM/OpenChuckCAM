@@ -14,4 +14,4 @@ A task's verification and validation notes live in its decision record's Verific
 | [0256-toolpath-mesh/](0256-toolpath-mesh/) | [0256](../decisions/0256-no-fixed-toolpath-mesh-qualifies.md) | Toolpath-mesh candidate evidence |
 | [0260-exact-face-queries/](0260-exact-face-queries/) | [0260](../decisions/0260-exact-face-and-trim-queries.md) | Benchmark evidence |
 | [0248-rampbudget/](0248-rampbudget/) | [0248](../decisions/0248-ramp-clearance-budget.md) | Baseline, red/green, coverage and released-integration logs |
-| [9901-swarf-entries-and-exits/](9901-swarf-entries-and-exits/) | [9901](../decisions/9901-swarf-entries-and-exits-meet-the-faces-next-to-the-face-set.md) (number provisional) | The blisk entry measurement helper and its two outputs (issue #572) |
+| [9921-swarf-entries-and-exits/](9921-swarf-entries-and-exits/) | [9921](../decisions/9921-swarf-entries-and-exits-meet-the-faces-next-to-the-face-set.md) (number provisional) | The blisk entry measurement helper and its two outputs (issue #572) |

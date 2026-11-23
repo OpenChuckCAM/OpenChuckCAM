@@ -1,6 +1,6 @@
-# 9901: swarf entries and exits against the faces next to the face set (issue #572)
+# 9921: swarf entries and exits against the faces next to the face set (issue #572)
 
-Raw evidence cited by [decision record 9901](../../decisions/9901-swarf-entries-and-exits-meet-the-faces-next-to-the-face-set.md) (number provisional), lane SWARF-LEADS, 23 Nov 2026. Nothing here verifies generated G-code (NFR-12).
+Raw evidence cited by [decision record 9921](../../decisions/9921-swarf-entries-and-exits-meet-the-faces-next-to-the-face-set.md) (number provisional), lane SWARF-LEADS, 23 Nov 2026. Nothing here verifies generated G-code (NFR-12).
 
 | File | What it is |
 | --- | --- |
