@@ -1629,14 +1629,14 @@ impl Guard {
 
 /// How far apart an avoid or check face is sampled, at most, for a tool of
 /// cutting radius `radius` (decision record 0176 item 6).
-fn guard_spacing(radius: f64) -> f64 {
+pub(crate) fn guard_spacing(radius: f64) -> f64 {
     (radius / 8.0).max(0.05)
 }
 
 /// Points of `face`, on a grid of its parameters no coarser than `spacing`
 /// on the face (measured along its middle iso-lines) and no finer than 400
 /// each way.
-fn face_samples(face: &dyn ParametricFace, spacing: f64) -> Vec<(Point3, Vec3, f64)> {
+pub(crate) fn face_samples(face: &dyn ParametricFace, spacing: f64) -> Vec<(Point3, Vec3, f64)> {
     let (lo, hi) = face.uv_bounds();
     let uv = |a: f64, b: f64| Uv {
         u: lo.u + (hi.u - lo.u) * a,

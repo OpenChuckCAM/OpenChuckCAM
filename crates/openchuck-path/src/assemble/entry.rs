@@ -40,6 +40,8 @@ use crate::parallel;
 use crate::params::{CommonParameters, EntryParameters, EntryStyle};
 use crate::rotary::AxisPosition;
 use crate::strategy::{CutPoint, StrategyInput};
+use crate::surface::SurfaceSource;
+use openchuck_types::geometry::{Point3, UnitVec3};
 
 // The lead on a pass that turns A (decision 0544); a child module, so it
 // shares this module's checks.
@@ -86,6 +88,21 @@ pub(super) struct Entry {
     /// ([`crate::Strategy::ramps_round_the_part`]); otherwise it follows
     /// the pass (decision record 0645).
     round_the_part: bool,
+    /// Samples of the faces next to the face set (swarf's
+    /// [`RegionConstraint::neighbours`](crate::RegionConstraint::neighbours)),
+    /// with each face's number, sampled as swarf samples them (decision
+    /// record 0532): a lead or helix may cut them no deeper than the pass
+    /// itself cuts them where the move meets it, plus the tolerance
+    /// (decision record 9901; issue #572). Empty for every other strategy.
+    beside: Vec<(Point3, u32)>,
+    /// The tool's profile, which the faces next to the face set are
+    /// measured against, without the stock to leave, as swarf measures them.
+    cutter: RevolvedProfile,
+    /// How much deeper the tool can cut those faces between their samples
+    /// than at the nearest one: the clearance changes no faster than the
+    /// distance, and a sample is at most `s / sqrt 2` from any point of the
+    /// face, for samples `s` apart (OI-2078 is the same limit for the pass).
+    beside_slack: f64,
 }
 
 impl Entry {
@@ -94,6 +111,7 @@ impl Entry {
         common: &CommonParameters,
         e: &EntryParameters,
         round_the_part: bool,
+        beside: Option<&dyn SurfaceSource>,
     ) -> Result<Self> {
         let radius = input.tool.cutting_radius();
         let leave = common.stock_to_leave.0;
@@ -131,6 +149,14 @@ impl Entry {
                 crate::params::Retract::SafeZ => input.clearance.safe_z.0,
             },
             round_the_part,
+            beside: match (beside, e.style) {
+                (Some(faces), EntryStyle::Lead | EntryStyle::Helix) => {
+                    beside_samples(faces, radius)
+                }
+                _ => Vec::new(),
+            },
+            cutter: input.tool.clone(),
+            beside_slack: crate::swarf::guard_spacing(radius) * std::f64::consts::FRAC_1_SQRT_2,
         })
     }
 
@@ -213,7 +239,7 @@ impl Entry {
             let positions: Vec<AxisPosition> = (1..=m)
                 .map(|j| at(FRAC_PI_2 * j as f64 / m as f64))
                 .collect();
-            if let Some(g) = self.gouge(b, input, last.a, &positions) {
+            if let Some(g) = self.gouge(b, input, last.a, &positions, end) {
                 refusal.get_or_insert(g);
                 continue;
             }
@@ -276,7 +302,7 @@ impl Entry {
             let positions: Vec<AxisPosition> = (0..m)
                 .map(|j| at(FRAC_PI_2 * (1.0 - j as f64 / m as f64)))
                 .collect();
-            if let Some(g) = self.gouge(b, input, head.a, &positions) {
+            if let Some(g) = self.gouge(b, input, head.a, &positions, goal) {
                 refusal.get_or_insert(g);
                 continue;
             }
@@ -695,7 +721,7 @@ impl Entry {
             }
         };
         let positions: Vec<AxisPosition> = (1..count).map(at).collect();
-        if let Some(g) = self.gouge(b, input, head.a, &positions) {
+        if let Some(g) = self.gouge(b, input, head.a, &positions, goal) {
             return Err(self.refuse(
                 crate::topic::HELIX_ENTRY,
                 input,
@@ -1149,28 +1175,53 @@ impl Entry {
         }
     }
 
-    /// The worst gouge of the finished surface over `positions` (tool tip
-    /// positions at angle `a`), if any exceeds the path tolerance:
-    /// `(depth, index)`.
+    /// The worst gouge of the finished surface, or of the faces next to the
+    /// face set, over `positions` (tool tip positions at angle `a`), if any
+    /// exceeds what is allowed; `join` is the pass's point the move meets.
     fn gouge(
         &self,
         b: &Builder<'_>,
         input: &StrategyInput<'_>,
         a: Degrees,
         positions: &[AxisPosition],
+        join: AxisPosition,
+    ) -> Option<Gouge> {
+        let moves: Vec<(AxisPosition, Degrees)> = positions.iter().map(|p| (*p, a)).collect();
+        self.gouge_moves(b, input, &moves, (join, a))
+    }
+
+    /// The worst gouge over `moves`, each a tool tip position at its own A:
+    /// of the finished surface, deeper than the path tolerance; failing
+    /// that, of the faces next to the face set, deeper than the pass itself
+    /// cuts them at `join` (the pass's point the move meets) plus the
+    /// tolerance, as that cut is the pass's and is measured and warned of
+    /// with it (decision records 0532 item 3 and 9901).
+    pub(super) fn gouge_moves(
+        &self,
+        b: &Builder<'_>,
+        input: &StrategyInput<'_>,
+        moves: &[(AxisPosition, Degrees)],
+        join: (AxisPosition, Degrees),
     ) -> Option<Gouge> {
         let grown = self.grown.as_ref()?;
         let rotary = b.rotary;
-        let axis = rotary.tool_axis(a);
-        let (surface, leave) = (input.surface, self.leave);
+        let leave = self.leave;
+        let line = |pos: AxisPosition, a: Degrees| ToolLine {
+            origin: rotary.to_model(pos, a),
+            axis: rotary.tool_axis(a),
+        };
+        let x = |i: usize| {
+            moves
+                .get(i)
+                .map_or(f64::NAN, |(p, a)| rotary.to_model(*p, *a).x)
+        };
         // Every position the tool will be sent to, in parallel and in order
         // (NFR-06); the depth of each below the finished surface.
-        let depths: Vec<Option<f64>> = parallel::map_in_order(positions, |pos| {
-            let line = ToolLine {
-                origin: rotary.to_model(*pos, a),
-                axis,
-            };
-            surface.drop_tool(grown, &line).map(|c| c.offset + leave)
+        let depths: Vec<Option<f64>> = parallel::map_in_order(moves, |(pos, a)| {
+            input
+                .surface
+                .drop_tool(grown, &line(*pos, *a))
+                .map(|c| c.offset + leave)
         });
         let mut worst: Option<Gouge> = None;
         for (i, depth) in depths.into_iter().enumerate() {
@@ -1181,10 +1232,54 @@ impl Entry {
                 worst = Some(Gouge {
                     depth: d,
                     position: i,
-                    x: positions
-                        .get(i)
-                        .map_or(f64::NAN, |p| rotary.to_model(*p, a).x),
+                    x: x(i),
+                    face: None,
                 });
+            }
+        }
+        if worst.is_some() {
+            return worst;
+        }
+        if self.beside.is_empty() {
+            return None;
+        }
+        let at = |(pos, a): (AxisPosition, Degrees)| (rotary.to_model(pos, a), rotary.tool_axis(a));
+        // The pass's own cut there, the tolerance, and how much deeper a cut
+        // can be between the samples than at them.
+        let allowed =
+            self.beside_cut(at(join)).map_or(0.0, |(d, _)| d) + self.tolerance + self.beside_slack;
+        let cuts: Vec<Option<(f64, u32)>> =
+            parallel::map_in_order(moves, |m| self.beside_cut(at(*m)));
+        let mut deepest: Option<Gouge> = None;
+        for (i, cut) in cuts.into_iter().enumerate() {
+            if let Some((d, face)) = cut
+                && d > allowed
+                && deepest.is_none_or(|w| d > w.depth)
+            {
+                deepest = Some(Gouge {
+                    depth: d,
+                    position: i,
+                    x: x(i),
+                    face: Some(face),
+                });
+            }
+        }
+        deepest
+    }
+
+    /// The deepest cut into the faces next to the face set by the tool with
+    /// its tip at `tip` along `axis`, and the face it is in, the lowest
+    /// number on a tie (NFR-06); `None` where it cuts none of them.
+    fn beside_cut(&self, (tip, axis): (Point3, UnitVec3)) -> Option<(f64, u32)> {
+        let mut worst: Option<(f64, u32)> = None;
+        for (p, face) in &self.beside {
+            // Outside the tool's radius or below its tip: not in the tool.
+            if cutter::bound_at(self.tool_radius, tip, axis, *p) >= 0.0 {
+                continue;
+            }
+            let d = -cutter::clearance_at(&self.cutter, tip, axis, *p);
+            if d > 0.0 && worst.is_none_or(|(w, n)| d > w || (d == w && *face < n)) {
+                worst = Some((d, *face));
             }
         }
         worst
@@ -1218,28 +1313,49 @@ impl Entry {
             )
             .with_setting(crate::params::names::ENTRY);
         }
-        PathError::refused(topic, format!(
-            "pass {}: the {name} needs {size}, and the tool would cut {:.3} mm into the finished \
-             surface at position {} of its path (the tolerance is {:.3} mm); try another entry \
-             style, a smaller size or a steeper angle",
-            pass + 1,
-            found.depth,
-            found.position + 1,
-            self.tolerance
-        ))
+        PathError::refused(
+            topic,
+            format!(
+                "pass {}: the {name} needs {size}, and the tool would cut {:.3} mm into {} at \
+             position {} of its path (the tolerance is {:.3} mm); try another entry style, a \
+             smaller size or a steeper angle",
+                pass + 1,
+                found.depth,
+                found.what(),
+                found.position + 1,
+                self.tolerance
+            ),
+        )
         .with_setting(crate::params::names::ENTRY)
     }
 }
 
 /// The deepest point an entry or exit would cut into the finished surface.
 #[derive(Debug, Clone, Copy)]
-struct Gouge {
+pub(super) struct Gouge {
     /// How far into the surface, in millimetres.
     depth: f64,
     /// Its index among the positions checked.
     position: usize,
     /// The model X of the tool's tip there (NaN when not known).
     x: f64,
+    /// The number of the face next to the face set it cuts, deeper than the
+    /// pass does (decision record 9901); `None` for the finished surface.
+    face: Option<u32>,
+}
+
+impl Gouge {
+    /// What is cut, for a refusal: the finished surface, or the face next
+    /// to the face set, named, with the pass's own cut allowed.
+    fn what(&self) -> String {
+        match self.face {
+            None => "the finished surface".to_owned(),
+            Some(n) => format!(
+                "face {n}, which shares an edge with the face set, deeper than the pass itself \
+                 cuts it"
+            ),
+        }
+    }
 }
 
 impl Default for Gouge {
@@ -1248,8 +1364,26 @@ impl Default for Gouge {
             depth: 0.0,
             position: 0,
             x: f64::NAN,
+            face: None,
         }
     }
+}
+
+/// Samples of every exact face of `faces`, in face-number order, each with
+/// its number, as swarf samples the faces next to a face (decision record
+/// 0532 item 1) for a tool of cutting radius `radius`.
+fn beside_samples(faces: &dyn SurfaceSource, radius: f64) -> Vec<(Point3, u32)> {
+    let spacing = crate::swarf::guard_spacing(radius);
+    let mut list = faces.exact_faces();
+    list.sort_by_key(|f| f.number);
+    list.dedup_by_key(|f| f.number);
+    list.into_iter()
+        .flat_map(|f| {
+            crate::swarf::face_samples(f.face, spacing)
+                .into_iter()
+                .map(move |(p, _, _)| (p, f.number))
+        })
+        .collect()
 }
 
 /// The height a rapid descent over the line the tool is on stops at: the
