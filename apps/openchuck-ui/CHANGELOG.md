@@ -1,8 +1,8 @@
 # Changelog
 
-## 0.56.0
+## 0.57.0
 
-- **Changed (0.56.0; SIM-FINISH, issue #801; decision 0661, accepted, option C):** the Results tab lists as a problem, with its depth, only a rapid that goes deeper into the stock than one cell of the simulation, and counts only those as rapid cuts; a shallower one is a note of the run. `openchuck-cli simulate` fails only on those too, and prints every rapid with its depth and volume.
+- **Changed (0.57.0; SIM-FINISH, issue #801; decision 0661, accepted, option C):** the Results tab lists as a problem, with its depth, only a rapid that goes deeper into the stock than one cell of the simulation, and counts only those as rapid cuts; a shallower one is a note of the run. `openchuck-cli simulate` fails only on those too, and prints every rapid with its depth and volume.
 
 ## Unreleased (MSGREVIEW, decision 0644, accepted; decision 0536 step 6; issue #567)
 

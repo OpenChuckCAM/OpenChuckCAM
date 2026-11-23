@@ -1,8 +1,8 @@
 # Changelog
 
-## 0.56.0
+## 0.57.0
 
-- **Breaking, changed output (0.56.0; SIM-FINISH, issue #801; decision 0661, accepted, option C):** `RapidCut` gains the public fields `depth` (the most material the rapid removed from any one column of the stock, mm: how deep it went in) and `cell` (the stock's finer cell, mm), and the method `deeper_than_cell`. A rapid no deeper than one cell is within what the simulation resolves; deeper, it is a fault. Every rapid that removes material is still listed in `GroupResult::rapid_cuts`. A struct literal of `RapidCut` must give the two new fields.
+- **Breaking, changed output (0.57.0; SIM-FINISH, issue #801; decision 0661, accepted, option C):** `RapidCut` gains the public fields `depth` (the most material the rapid removed from any one column of the stock, mm: how deep it went in) and `cell` (the stock's finer cell, mm), and the method `deeper_than_cell`. A rapid no deeper than one cell is within what the simulation resolves; deeper, it is a fault. Every rapid that removes material is still listed in `GroupResult::rapid_cuts`. A struct literal of `RapidCut` must give the two new fields.
 
 ## 0.47.0
 
