@@ -578,7 +578,10 @@ fn req_tl_12_req_tl_02_the_z1_tools_stick_out_the_overall_length_less_12_7_mm() 
         std::fs::read_dir(std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("defaults/z1"))
             .unwrap()
     {
-        let text = std::fs::read_to_string(entry.unwrap().path()).unwrap();
+        // A Windows checkout may give the files CRLF line endings.
+        let text = std::fs::read_to_string(entry.unwrap().path())
+            .unwrap()
+            .replace("\r\n", "\n");
         assert!(
             text.contains("owner-provided: standard tool setup holds\n# 12.7 mm inside the collet (22 Nov 2026)")
                 && text.contains("Not confirmed on the machine."),
