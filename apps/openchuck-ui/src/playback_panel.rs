@@ -11,6 +11,7 @@
 //! coloured by what the simulation found. Everything slow is a job; the
 //! panel only polls them.
 
+use crate::focus::Tip as _;
 use std::sync::Arc;
 
 use eframe::egui::{self, Color32, RichText};
@@ -590,7 +591,7 @@ impl PlaybackPanel {
                 DARK.text,
             );
         }
-        response.on_hover_text(
+        response.tip(
             "Where the cut part shown is in the program. While playing, it may follow behind \
              the tool; when you pause, it catches up.",
         );
@@ -601,7 +602,7 @@ impl PlaybackPanel {
         ui.separator();
         let mut machine = self.view == ViewFrame::Machine;
         if ui.checkbox(&mut machine, "Turn part with A")
-            .on_hover_text("The tool stands upright and the workpiece turns, as on the machine; otherwise the part is fixed and the tool moves round it")
+            .tip("The tool stands upright and the workpiece turns, as on the machine; otherwise the part is fixed and the tool moves round it")
             .changed()
         {
             self.view = if machine { ViewFrame::Machine } else { ViewFrame::Part };
@@ -1155,9 +1156,7 @@ impl PlaybackPanel {
                 available && self.stock.error.is_none(),
                 egui::Checkbox::new(&mut self.bands_on, "Deviation colours"),
             )
-            .on_hover_text(
-                "Show overcut, on the surface, and material left; untick for the plain cut part",
-            )
+            .tip("Show overcut, on the surface, and material left; untick for the plain cut part")
             .on_disabled_hover_text(self.stock.error.as_deref().unwrap_or(NO_STOCK_SIMULATION));
         if let Some(error) = &self.stock.error {
             ui.weak(format!("Deviation colours unavailable: {error}"));
@@ -1680,9 +1679,8 @@ impl PlaybackPanel {
         let full = ui.available_width().max(160.0);
         let (rect, response) =
             ui.allocate_exact_size(egui::vec2(full, 8.0), egui::Sense::click_and_drag());
-        let response = response.on_hover_text(
-            "The playback window: drag its ends to resize it, or its middle to move it",
-        );
+        let response = response
+            .tip("The playback window: drag its ends to resize it, or its middle to move it");
         let painter = ui.painter_at(rect);
         let width = width.max(1.0);
         self.strip = (rect, left, width);
@@ -1750,7 +1748,7 @@ impl PlaybackPanel {
                         .range(1..=moves)
                         .speed(1.0),
                 )
-                .on_hover_text("The first move in the playback window");
+                .tip("The first move in the playback window");
             ui.label("to");
             let to = ui
                 .add(
@@ -1758,7 +1756,7 @@ impl PlaybackPanel {
                         .range(1..=moves)
                         .speed(1.0),
                 )
-                .on_hover_text("The last move in the playback window");
+                .tip("The last move in the playback window");
             if from.changed() || to.changed() {
                 self.playback.set_window(
                     timeline,
@@ -1776,7 +1774,7 @@ impl PlaybackPanel {
                     self.playback.window().is_some(),
                     egui::Button::new("Whole program"),
                 )
-                .on_hover_text("Play and show every move again")
+                .tip("Play and show every move again")
                 .on_disabled_hover_text("The window already holds every move")
                 .clicked()
             {
@@ -1834,14 +1832,14 @@ impl PlaybackPanel {
             let first = current.is_none_or(|g| g == 0);
             if ui
                 .add_enabled(!first, egui::Button::new("⏮"))
-                .on_hover_text("Previous operation (Shift ←)")
+                .tip("Previous operation (Shift ←)")
                 .clicked()
             {
                 self.previous_operation(timeline);
             }
             if ui
                 .button("\u{23f4}")
-                .on_hover_text("Step back one move (←)")
+                .tip("Step back one move (←)")
                 .clicked()
             {
                 self.playback.step(timeline, -1);
@@ -1851,24 +1849,16 @@ impl PlaybackPanel {
             } else {
                 "\u{23f5}"
             };
-            if ui
-                .button(label)
-                .on_hover_text("Play or pause (Space)")
-                .clicked()
-            {
+            if ui.button(label).tip("Play or pause (Space)").clicked() {
                 self.toggle_play(timeline);
             }
-            if ui
-                .button("\u{23f5}|")
-                .on_hover_text("Step on one move (→)")
-                .clicked()
-            {
+            if ui.button("\u{23f5}|").tip("Step on one move (→)").clicked() {
                 self.playback.step(timeline, 1);
             }
             let last = current.is_none_or(|g| g + 1 >= group_count);
             if ui
                 .add_enabled(!last, egui::Button::new("⏭"))
-                .on_hover_text("Next operation (Shift →)")
+                .tip("Next operation (Shift →)")
                 .clicked()
             {
                 self.next_operation(timeline);
@@ -1919,7 +1909,7 @@ impl PlaybackPanel {
                 self.playback.window().is_some(),
                 egui::Checkbox::new(&mut self.hide_outside, HIDE_OUTSIDE),
             )
-            .on_hover_text("Draw only the moves in the window; otherwise the rest of the path is drawn faintly. Drawing less is quicker on slow graphics")
+            .tip("Draw only the moves in the window; otherwise the rest of the path is drawn faintly. Drawing less is quicker on slow graphics")
             .on_disabled_hover_text("Set a window first, by dragging under the timeline");
         });
         ui.horizontal_wrapped(|ui| {
@@ -1968,7 +1958,7 @@ impl PlaybackPanel {
                 pose.work[2],
                 wrapped_a_text(pose.work[3], 3),
             ))
-            .on_hover_text(continuous_a_tip(pose.work[3], 3));
+            .tip(continuous_a_tip(pose.work[3], 3));
         }
         ui.horizontal_wrapped(|ui| {
             self.stock_status(ui, app);
@@ -2053,7 +2043,7 @@ impl PlaybackPanel {
 pub fn skip_box(ui: &mut egui::Ui, app: &Application) -> Option<bool> {
     let mut skip = app.project().skip_stock_simulation();
     ui.checkbox(&mut skip, SKIP_STOCK)
-        .on_hover_text(
+        .tip(
             "Generate only the toolpaths, for a quicker result. The cut is then not simulated, \
              so there is no cut part, no deviation and no simulated check before posting",
         )

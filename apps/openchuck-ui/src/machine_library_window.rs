@@ -16,6 +16,7 @@
 //! `openchuck_app::machine_edit` and `machine_library`; this module only
 //! draws and asks.
 
+use crate::focus::KeepFocus as _;
 use std::path::{Path, PathBuf};
 
 use eframe::egui::{self, RichText};
@@ -32,6 +33,12 @@ use openchuck_app::{Application, Command};
 
 use crate::field_row::{self, FieldState, Outcome, TextRow};
 use crate::floating::{WindowEvent, floating_unscrolled};
+
+/// The window's three parts in Tab order: the machines, the form, then the
+/// footer (Q3 A).
+const LIST: crate::focus::Region = crate::focus::dialog_part("machine library", 0, 3);
+const FORM: crate::focus::Region = crate::focus::dialog_part("machine library", 1, 3);
+const FOOTER: crate::focus::Region = crate::focus::dialog_part("machine library", 2, 3);
 use crate::form_panel;
 use crate::theme::DARK;
 
@@ -278,26 +285,35 @@ impl MachineLibraryWindow {
     ) {
         egui::Panel::bottom("machine library footer")
             .resizable(false)
-            .show(ui, |ui| self.footer(ui, shown, acts));
+            .show(ui, |ui| {
+                crate::focus::region(ui, FOOTER, |ui| self.footer(ui, shown, acts));
+            });
         egui::Panel::left("machine library list")
             .default_size(260.0)
             .resizable(true)
-            .show(ui, |ui| self.list(ui, has_project, acts));
-        egui::CentralPanel::default().show(ui, |ui| {
-            crate::theme::solid_scroll_bar(ui);
-            egui::ScrollArea::vertical()
-                .auto_shrink([false, false])
-                .show(ui, |ui| match shown {
-                    Some((profile, _)) => self.form(ui, profile, acts),
-                    None => {
-                        ui.label(
-                            RichText::new(
-                                "Choose a machine in the list, or make one with New machine.",
-                            )
-                            .color(DARK.muted),
-                        );
-                    }
+            .show(ui, |ui| {
+                crate::focus::region(ui, LIST, |ui| {
+                    crate::floating::focus_starts_here(ui);
+                    self.list(ui, has_project, acts);
                 });
+            });
+        egui::CentralPanel::default().show(ui, |ui| {
+            crate::focus::region(ui, FORM, |ui| {
+                crate::theme::solid_scroll_bar(ui);
+                egui::ScrollArea::vertical()
+                    .auto_shrink([false, false])
+                    .show_keeping_focus(ui, |ui| match shown {
+                        Some((profile, _)) => self.form(ui, profile, acts),
+                        None => {
+                            ui.label(
+                                RichText::new(
+                                    "Choose a machine in the list, or make one with New machine.",
+                                )
+                                .color(DARK.muted),
+                            );
+                        }
+                    });
+            })
         });
         self.dialogs(ui, acts);
     }

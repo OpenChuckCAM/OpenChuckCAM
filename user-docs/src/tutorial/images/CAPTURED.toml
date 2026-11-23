@@ -1,15 +1,15 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 # Written by user-docs/tools/capture.py. Add reviewed_at = "<commit>" after checking the
 # screens against a later build without re-capturing (user-docs/STYLE.md, Figures).
-captured_at = "1eeecbd8aa5f3f42a4aee671767841a7e4bf1a47"
-# captured_at names a commit of lane Z1-SETUP's second pull request (#852) that the squash merge dropped, so it is not
-# in main's history; the screens (and this file) first appear in main at 5e52b0b0, the squash commit of #852.
-captured_on = "2026-11-22"
+captured_at = "867047353f9647fa0796204dc36eba93419df086"
+# captured_at names a commit of lane A11Y-FOCUS (#858) that the squash merge dropped, so it is not in main's history;
+# the screens first appear in main at 445286b, the squash commit of #858.
+captured_on = "2026-11-23"
 renderer = "Mesa lavapipe (software Vulkan) on Xvfb"
 window = "1920x1080"
-# Reviewed at 5e52b0b0 (23 Nov 2026), main after #852: the screens were captured on #852's build (the stick-out wording
-# of figure 17's tool-length warning and the Stick-out of figure 8 are its). The changes to the screen folders since the
-# previous main capture are #838 (stock and Z-travel warnings the tutorial does not raise), #841 (rapid-cut words and
-# count; none of the tutorial's programs has a rapid cut), #843 (Facing bound on a STEP part; the tutorial uses an STL
-# part) and the review fixes to #852 (Stick-out help, shown on hover only, and a blank Stick-out clearing the value).
-reviewed_at = "5e52b0bed65538dce754cb3e9ac8d99361d4a55d"
+# Reviewed at 445286b (23 Nov 2026), main after #858. The screens were captured on #858's build, which includes #852,
+# #841, #843 and #838, so none of those changes is missing from them. #858's own record says its only change to the
+# screen folders after the capture is tests (field_row.rs, shell/focus_tests.rs); its capture and review commits are
+# not in main's history, so that statement is taken from the record and not re-checked commit by commit. The figures
+# were looked at: figure 7 and the earlier read of figure 17 show the same content as the #852 capture.
+reviewed_at = "445286b1203f609d974e8c8deba0d6a066c179be"

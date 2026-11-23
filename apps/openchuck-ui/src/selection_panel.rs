@@ -14,6 +14,7 @@
 //! so it can be undone; the highlights it asks the viewport to draw are plain
 //! meshes from [`triangles_mesh`] and the edges' polylines.
 
+use crate::focus::Tip as _;
 use eframe::egui::{self, Color32, Modifiers};
 use openchuck_app::pick::{EdgeRef, PickMode, SceneEdgePick, ScenePick};
 use openchuck_app::project::id::{ModelId, OperationId, SelectionSetId};
@@ -1366,7 +1367,7 @@ impl SelectionPanel {
     /// ends an edit would otherwise also leave picking); the caller skips it
     /// while a dialog is open.
     pub fn keys(&mut self, ctx: &egui::Context, text_had_focus: bool) -> bool {
-        if text_had_focus || ctx.egui_wants_keyboard_input() {
+        if text_had_focus || ctx.text_edit_focused() {
             return false;
         }
         let pressed = |key: egui::Key| ctx.input_mut(|i| i.consume_key(Modifiers::NONE, key));
@@ -1452,7 +1453,7 @@ impl SelectionPanel {
                                     for (filter, label, tip) in FILTERS {
                                         if ui
                                             .selectable_label(self.filter == filter, label)
-                                            .on_hover_text(tip)
+                                            .tip(tip)
                                             .clicked()
                                         {
                                             self.choose_filter(filter);
@@ -1481,7 +1482,7 @@ impl SelectionPanel {
                             };
                             if ui
                                 .selectable_label(self.choice == choice, format!("{name}{key}"))
-                                .on_hover_text(tip)
+                                .tip(tip)
                                 .clicked()
                             {
                                 self.choice = choice;
@@ -1551,7 +1552,7 @@ impl SelectionPanel {
                 !self.working.is_empty() && self.working_model.is_some() && self.writing.is_none();
             if (ui
                 .add_enabled(ready, egui::Button::new("Save as new set"))
-                .on_hover_text("Name this selection so operations can use it")
+                .tip("Name this selection so operations can use it")
                 .clicked()
                 || deferred == Some(true))
                 && let Some(model) = self.working_model
@@ -1576,7 +1577,7 @@ impl SelectionPanel {
             }
             if (ui
                 .add_enabled(!self.working.is_empty(), egui::Button::new("Clear"))
-                .on_hover_text("Empty the selection")
+                .tip("Empty the selection")
                 .clicked()
                 || deferred == Some(false))
                 && crate::pending_edits::defer_local(ui.ctx(), &mut self.deferred_save, false)
@@ -1655,14 +1656,14 @@ impl SelectionPanel {
                     );
                 }
                 if replace
-                    .on_hover_text("Give the set the new selection; asks first")
+                    .tip("Give the set the new selection; asks first")
                     .clicked()
                 {
                     self.ask_replace(app, summary.id);
                 }
                 if ui
                     .button("Cancel pick")
-                    .on_hover_text("Leave the set as it was (Esc)")
+                    .tip("Leave the set as it was (Esc)")
                     .clicked()
                 {
                     self.cancel_pick_again();
@@ -1680,7 +1681,7 @@ impl SelectionPanel {
             }
             if ui
                 .add_enabled(self.writing.is_none(), egui::Button::new("Pick again"))
-                .on_hover_text("Pick this set's selection afresh, then replace it")
+                .tip("Pick this set's selection afresh, then replace it")
                 .clicked()
             {
                 self.pick_again(summary.id);
@@ -1710,15 +1711,13 @@ impl SelectionPanel {
                 .text("select by angle within")
                 .suffix("°"),
         )
-        .on_hover_text("The edge angle for smooth patch: the most a surface may turn at an edge.");
+        .tip("The edge angle for smooth patch: the most a surface may turn at an edge.");
         ui.add(
             egui::Slider::new(&mut self.direction_angle, 1.0..=90.0)
                 .text("same direction within")
                 .suffix("°"),
         )
-        .on_hover_text(
-            "Same direction: the most a triangle or face may differ from the clicked one.",
-        );
+        .tip("Same direction: the most a triangle or face may differ from the clicked one.");
         if matches!(self.working, SelectionTarget::Edges(_))
             && let Some(choice) = tangent_choice(
                 ui,
@@ -1732,7 +1731,7 @@ impl SelectionPanel {
         let mut keep = app.project().keep_tangent_edges();
         if ui
             .checkbox(&mut keep, "Keep tangent edges by default")
-            .on_hover_text(
+            .tip(
                 "For sets of a STEP model's edges that do not say: whether edge following keeps \
                  the edges where two faces meet smoothly. Saved with the project.",
             )
@@ -1744,7 +1743,7 @@ impl SelectionPanel {
         let mut warn = app.project().warn_on_selection_reset();
         if ui
             .checkbox(&mut warn, "Warn before a click starts a new selection")
-            .on_hover_text(
+            .tip(
                 "Ask before a click without Shift or Ctrl, or a switch of the Pick filter, \
                  clears the selection. Saved with the project.",
             )
@@ -2012,7 +2011,7 @@ impl SelectionPanel {
                     })
                     .inner;
                 if clicked
-                    .on_hover_text(format!("Show this set in {}", hex(rgb)))
+                    .tip(format!("Show this set in {}", hex(rgb)))
                     .clicked()
                 {
                     match app.edit_selection(summary.id, SelectionEdit::Colour(Some(hex(rgb)))) {
@@ -2023,7 +2022,7 @@ impl SelectionPanel {
             }
             if ui
                 .add_enabled(summary.colour.is_some(), egui::Button::new("Default"))
-                .on_hover_text("Take the swatch of the set's place in the list")
+                .tip("Take the swatch of the set's place in the list")
                 .clicked()
             {
                 match app.edit_selection(summary.id, SelectionEdit::Colour(None)) {
@@ -2093,13 +2092,12 @@ fn tangent_choice(
     value: Option<bool>,
     default: bool,
 ) -> Option<Option<bool>> {
+    const WHAT: &str = "Edges where two faces meet smoothly, such as the edge of a fillet. Edge \
+                        following drops them unless they are kept.";
     let mut chosen = None;
     ui.horizontal(|ui| {
-        ui.label("Tangent edges").on_hover_text(
-            "Edges where two faces meet smoothly, such as the edge of a fillet. Edge \
-                 following drops them unless they are kept.",
-        );
-        egui::ComboBox::from_id_salt(salt)
+        ui.label("Tangent edges").tip(WHAT);
+        let list = egui::ComboBox::from_id_salt(salt)
             .selected_text(tangent_label(value, default))
             .show_ui(ui, |ui| {
                 for option in [None, Some(true), Some(false)] {
@@ -2112,6 +2110,10 @@ fn tangent_choice(
                     }
                 }
             });
+        // The label is not a Tab stop: the list shows its words on focus (UI-14).
+        if list.response.has_focus() {
+            list.response.show_tooltip_text(WHAT);
+        }
     });
     chosen
 }

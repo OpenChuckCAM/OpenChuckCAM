@@ -18,6 +18,7 @@
 //! [`tree`] (the project panel) and [`dock`] (Messages, Selection sets, Jobs,
 //! Setup checks and Playback).
 
+use crate::focus::Tip as _;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::Instant;
@@ -78,7 +79,7 @@ mod reminder_tests;
 
 use dock::DockTab;
 pub(crate) use frame::{chip, primary_button};
-pub(crate) use marks::{mark, tick};
+pub(crate) use marks::{mark, mark_beside, tick};
 
 const SAVE: KeyboardShortcut = KeyboardShortcut::new(Modifiers::COMMAND, Key::S);
 const UNDO: KeyboardShortcut = KeyboardShortcut::new(Modifiers::COMMAND, Key::Z);
@@ -1324,10 +1325,18 @@ impl Shell {
         if rename && let Some(item) = self.selected_item() {
             self.begin_rename(item);
         }
-        // Esc cancels the running job when nothing is being picked
-        // (specification section 16); picking takes its own Esc.
+        // Esc cancels the running job when nothing is being picked and no
+        // tool window is open (specification section 16): picking takes its
+        // own Esc, and an open tool window takes Esc first, as its Close
+        // (decision 0677 item 9).
         let picking = matches!(self.selected, Some(Selection::Picking | Selection::Set(_)));
+        let tool_window = self.export.is_open()
+            || self.run.has_window()
+            || self.import.is_some()
+            || self.tool_library.is_open()
+            || self.machine_library.is_open();
         if !picking
+            && !tool_window
             && self.run.is_running()
             && ctx.input_mut(|i| i.consume_key(Modifiers::NONE, Key::Escape))
         {
@@ -2462,7 +2471,7 @@ impl Shell {
                 let mut skip = self.settings.simulate.skip_stock_simulation;
                 if ui
                     .checkbox(&mut skip, "Skip the stock simulation in new projects")
-                    .on_hover_text(
+                    .tip(
                         "New projects then make only their toolpaths when generating. \
                          Each project keeps its own choice, in Simulate",
                     )
@@ -2863,6 +2872,7 @@ impl Shell {
     /// the eframe frame it does not use, so a test can run it.
     fn draw(&mut self, ui: &mut egui::Ui) {
         let ctx = ui.ctx().clone();
+        crate::focus::begin_frame(&ctx);
         self.edit_context = Some(ctx.clone());
         if self.recovery.is_closing() {
             ctx.send_viewport_cmd(egui::ViewportCommand::CancelClose);
@@ -2905,7 +2915,8 @@ impl Shell {
             self.recovery.cancel_install(app.location());
         }
         self.checkpoint_frame(&ctx);
-        self.text_had_focus = ctx.egui_wants_keyboard_input();
+        crate::focus::end_frame(&ctx);
+        self.text_had_focus = ctx.text_edit_focused();
         self.record_actions_frame(&ctx);
     }
 }
@@ -3166,6 +3177,9 @@ mod tool_library_tests;
 
 #[cfg(test)]
 mod tooltip_tests;
+
+#[cfg(test)]
+mod focus_tests;
 
 #[cfg(test)]
 mod import_layout_tests;

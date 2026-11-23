@@ -15,6 +15,7 @@
 //! applies a committed value (one undoable command) and reports the outcome
 //! with [`FieldState::result`].
 
+use crate::focus::Tip as _;
 use std::collections::BTreeMap;
 
 use eframe::egui::{self, Key, RichText, Stroke};
@@ -204,13 +205,20 @@ impl std::fmt::Debug for TextRow<'_> {
     }
 }
 
+/// Shows the row's `description` as the tooltip of its control while the
+/// control has the keyboard: the label beside it, which shows the description
+/// on hover, is not a Tab stop (UI-14). The pointer's tooltips are unchanged.
+fn describe_on_focus(response: egui::Response, description: &str) -> egui::Response {
+    if response.has_focus() && !description.is_empty() {
+        response.show_tooltip_text(description);
+    }
+    response
+}
+
 /// Shows `text` as the tooltip of `response` on hover and while it has
 /// keyboard focus (section 16: tooltips open on focus as well as hover).
 pub fn tip(response: egui::Response, text: &str) -> egui::Response {
-    if response.has_focus() {
-        response.show_tooltip_text(text);
-    }
-    response.on_hover_text(text)
+    response.tip(text)
 }
 
 /// A small outlined chip ("Not applied"): measured first and drawn in one
@@ -355,6 +363,18 @@ fn list_width(ui: &egui::Ui, texts: &[&str], available: f32) -> f32 {
 /// showing or hiding it never moves the label or the value (issue 243).
 /// Returns true when ↺ was clicked.
 fn label_cell(ui: &mut egui::Ui, label: &str, description: &str, reset: bool) -> bool {
+    label_cell_with(ui, label, description, reset, egui::Sense::hover())
+}
+
+/// As [`label_cell`], with the label's own sense: a row with no control
+/// makes its label a Tab stop, so its description opens on focus (UI-14).
+fn label_cell_with(
+    ui: &mut egui::Ui,
+    label: &str,
+    description: &str,
+    reset: bool,
+    sense: egui::Sense,
+) -> bool {
     let height = ui.spacing().interact_size.y;
     need_label_width(ui, label_need(ui, label));
     let size = egui::vec2(label_column(ui), height);
@@ -371,7 +391,7 @@ fn label_cell(ui: &mut egui::Ui, label: &str, description: &str, reset: bool) ->
             .max_rect(text)
             .layout(egui::Layout::left_to_right(egui::Align::Center)),
     );
-    label_text(&mut child, label, description);
+    label_text(&mut child, label, description, sense);
     // A child of its own, so a button wider than the slot cannot push the
     // cursor on. Made whether or not ↺ is shown: each child takes an
     // automatic ID from the row, so a child made only with ↺ would change the
@@ -390,7 +410,7 @@ fn label_cell(ui: &mut egui::Ui, label: &str, description: &str, reset: bool) ->
                 .small()
                 .min_size(slot.size()),
         )
-        .on_hover_text("Reset: the default or the tool's cutting data applies");
+        .tip("Reset: the default or the tool's cutting data applies");
     button.widget_info(|| {
         egui::WidgetInfo::labeled(egui::Role::Button, true, format!("Reset {label}"))
     });
@@ -399,12 +419,13 @@ fn label_cell(ui: &mut egui::Ui, label: &str, description: &str, reset: bool) ->
 
 /// The label, cut with "…" when the column is too narrow for it; a cut label
 /// is also given as the tooltip, so the whole of it can be read (UI-14).
-fn label_text(ui: &mut egui::Ui, label: &str, description: &str) {
+fn label_text(ui: &mut egui::Ui, label: &str, description: &str, sense: egui::Sense) {
     let response = ui.add(
         egui::Label::new(RichText::new(label).color(DARK.muted))
             .truncate()
-            .sense(egui::Sense::hover()),
+            .sense(sense),
     );
+    crate::focus::focus_ring(ui, &response);
     let cut =
         response.rect.width() + 0.5 < label_need(ui, label) - ui.spacing().interact_size.y - 6.0;
     let text = match (cut, description.is_empty()) {
@@ -413,7 +434,7 @@ fn label_text(ui: &mut egui::Ui, label: &str, description: &str) {
         (false, _) => description.to_owned(),
     };
     if !text.is_empty() {
-        response.on_hover_text(text);
+        response.tip(text);
     }
 }
 
@@ -536,6 +557,11 @@ pub fn text_row(ui: &mut egui::Ui, state: &mut FieldState, row: &TextRow<'_>) ->
         // keyboard focus: the default that applies with its source (a compact
         // box cuts a long one), then the allowed range (decision 0440).
         let mut tooltip = Vec::new();
+        // While the box has the keyboard, the description its label shows on
+        // hover comes first (UI-14): the label is not a Tab stop.
+        if response.has_focus() && !row.description.is_empty() {
+            tooltip.push(row.description.to_owned());
+        }
         if row.applied.trim().is_empty()
             && let Some(hint) = &row.hint
         {
@@ -694,7 +720,7 @@ pub fn unreadable_entries(ctx: &egui::Context) -> Vec<String> {
 /// past the label column with the rest flush left.
 pub fn warning_line(ui: &mut egui::Ui, text: &str) {
     ui.horizontal_top(|ui| {
-        crate::shell::mark(ui, openchuck_app::overview::ItemState::Warning, text);
+        crate::shell::mark_beside(ui, openchuck_app::overview::ItemState::Warning, text);
         ui.add(egui::Label::new(RichText::new(text).color(DARK.warning)).wrap());
     });
 }
@@ -785,7 +811,13 @@ pub fn read_only_row(
     value: impl Into<egui::WidgetText>,
 ) -> egui::Response {
     form_row(ui, |ui| {
-        label_cell(ui, label, description, false);
+        // No control here: the label is the Tab stop that shows the description.
+        let sense = if description.is_empty() {
+            egui::Sense::hover()
+        } else {
+            crate::focus::info_sense()
+        };
+        label_cell_with(ui, label, description, false, sense);
         // A point narrower than the room, so wrapped text never runs to the
         // pane's edge and holds the pane open.
         ui.scope(|ui| {
@@ -841,7 +873,10 @@ pub fn flag_row(
     let mut on = value;
     let changed = form_row(ui, |ui| {
         label_cell(ui, label, description, false);
-        let response = ui.add_enabled(enabled, egui::Checkbox::without_text(&mut on));
+        let response = describe_on_focus(
+            ui.add_enabled(enabled, egui::Checkbox::without_text(&mut on)),
+            description,
+        );
         response
             .widget_info(|| egui::WidgetInfo::selected(egui::Role::CheckBox, enabled, on, label));
         crate::pending_edits::track(ui, &response, label, None);
@@ -944,7 +979,8 @@ pub fn choice_row(
                             }
                         }
                     });
-                crate::pending_edits::track(ui, &response.response, label, None);
+                let response = describe_on_focus(response.response, description);
+                crate::pending_edits::track(ui, &response, label, None);
             });
             chosen
         }
@@ -983,7 +1019,7 @@ pub fn list_row(
                 }
             })
             .response
-            .on_hover_text(description);
+            .tip(description);
         crate::pending_edits::track(ui, &response, label, None);
         chosen
     })
@@ -1129,6 +1165,51 @@ mod tests {
             focus,
             ..TextRow::default()
         }
+    }
+
+    /// A field's description, which its label shows on hover, opens on the
+    /// box while the box has the keyboard: the label is not a Tab stop
+    /// (UI-14; CodeRabbit on #858).
+    #[test]
+    fn req_ui_14_a_fields_description_opens_on_its_box_on_focus() {
+        let ctx = egui::Context::default();
+        let mut state = FieldState::default();
+        let row = |focus| TextRow {
+            description: "How far each pass moves over",
+            ..stepover(focus)
+        };
+        let mut texts = Vec::new();
+        for focus in [true, false, false] {
+            let input = egui::RawInput {
+                screen_rect: Some(egui::Rect::from_min_size(
+                    egui::Pos2::ZERO,
+                    egui::vec2(400.0, 300.0),
+                )),
+                ..Default::default()
+            };
+            let mut output = ctx.run_ui(input, |ui| {
+                text_row(ui, &mut state, &row(focus));
+            });
+            output.textures_delta.clear();
+            texts.clear();
+            fn walk(shape: &egui::Shape, out: &mut Vec<String>) {
+                match shape {
+                    egui::Shape::Text(t) => out.push(t.galley.text().to_owned()),
+                    egui::Shape::Vec(v) => v.iter().for_each(|s| walk(s, out)),
+                    _ => {}
+                }
+            }
+            output
+                .shapes
+                .iter()
+                .for_each(|s| walk(&s.shape, &mut texts));
+        }
+        assert!(
+            texts
+                .iter()
+                .any(|t| t.contains("How far each pass moves over")),
+            "{texts:?}"
+        );
     }
 
     /// Focuses the row and types `text` over its value.
