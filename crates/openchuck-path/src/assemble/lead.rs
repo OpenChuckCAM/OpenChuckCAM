@@ -492,6 +492,12 @@ impl Entry {
             let pose = b.pose(tip, *a);
             b.push(MoveKind::LeadIn, pose, None, Some(common.feed))?;
         }
+        // The move that meets the surface is timed for its own travel: its
+        // contact reference starts where the first cut point's contact would
+        // be with the tool at the arc's last point above the surface, as a
+        // lead that holds A starts it (`entry.rs`), so the jump from the tip
+        // to the contact point is not counted (OP-13; issue #685).
+        b.contact = b.pose.tip + (head.contact - head.tip);
         let pose = b.pose(head.tip, head.a);
         b.push(
             MoveKind::LeadIn,

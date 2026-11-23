@@ -274,10 +274,12 @@ impl Strategy for SimultaneousFinishing {
                 "Largest lean on hidden surfaces",
                 "Surfaces a straight approach from outside cannot see, such as the walls of a \
                  slot or the side of a part facing another, are finished with their own passes \
-                 after the main one. There the tool leans from the surface normal as little as \
-                 the part lets it reach, up to this angle: 90 lets it cut a wall with its side, \
-                 0 keeps it on the normal. Anything needing more is left uncut and listed in a \
-                 warning.",
+                 after the main one. Where the tool is placed to reach such a surface, every \
+                 0.2 mm along each pass, it leans from the surface normal (plus the lead) as \
+                 little as the part lets it reach, up to this angle: 90 lets it cut a wall with \
+                 its side, 0 keeps it on the normal there and also holds back the lead. Between \
+                 those places the tool axis turns evenly. Anything needing more is left uncut \
+                 and listed in a warning.",
                 Some(0.0),
                 Some(MAX_HIDDEN_LEAN),
                 90.0,
@@ -862,6 +864,7 @@ fn run(
         })
     };
     plan.contours = found.contours;
+    let reach = hidden_reach(&plan.contours);
     let hidden_count = plan.contours.len() as u64;
     let mut hidden_x = (f64::INFINITY, f64::NEG_INFINITY);
     let mut area = None;
@@ -959,7 +962,7 @@ fn run(
     notes.extend(ring_note);
     notes.extend(faces::note(&turned));
     let mut hidden_warning = None;
-    if let Some((x, a)) = findings.lean_at {
+    if findings.lean_at.is_some() {
         let shank = if plan.body.is_some() {
             "the shank, wider than the cutting part, is kept clear of the part, as on every pass"
         } else {
@@ -973,10 +976,10 @@ fn run(
             Notice::information(format!(
                 "surfaces hidden from the drive (such as the walls of a slot, an undercut, or \
                  sides of the section facing each other) between X {:.3} and {:.3} are finished \
-                 with passes of their own after the main ones, the tool leaning from the surface \
-                 normal as little as the part lets it reach them: up to {:.1} degrees (at \
-                 X {x:.3}, A {a:.3}); {shank}",
-                hidden_x.0, hidden_x.1, findings.lean
+                 with passes of their own after the main ones; {}; {shank}",
+                hidden_x.0,
+                hidden_x.1,
+                hidden_lean_text(&reach, lead, max_lean, findings.lean)
             ))
             .about(topic::HIDDEN_SURFACES),
         );
@@ -1178,6 +1181,76 @@ pub(crate) fn unreached_list(
         String::new()
     };
     format!("{}{more}", listed.join("; "))
+}
+
+/// Where the hidden passes place the tool to reach the surface (OP-20;
+/// decision record 0660): the largest difference from the angle aimed at
+/// (the normal's plus the lead used), and the largest lean from the normal
+/// itself, which the largest lean on hidden surfaces caps, with the X of the
+/// point that needed it.
+#[derive(Debug, Default, Clone, Copy, PartialEq)]
+struct HiddenReach {
+    off_aim: f64,
+    lean: f64,
+    lean_x: Option<f64>,
+}
+
+/// The [`HiddenReach`] of `contours`, from their reach points (not the
+/// probes beyond the runs they cut).
+fn hidden_reach(contours: &[hidden::Contour]) -> HiddenReach {
+    let mut out = HiddenReach::default();
+    for s in contours.iter().flat_map(|c| &c.samples) {
+        if let Some((best, _, _)) = s.gate
+            && !s.probe
+        {
+            out.off_aim = out.off_aim.max((near(best, s.target) - s.target).abs());
+            let lean = (near(best, s.phi_n) - s.phi_n).abs();
+            if out.lean_x.is_none() || lean > out.lean {
+                out.lean = lean;
+                out.lean_x = Some(s.point.x);
+            }
+        }
+    }
+    out
+}
+
+/// How the tool met the hidden surfaces, for their note (decision record
+/// 0660): where it is placed to reach them, what it aims at (the normal plus
+/// the lead the limit allows) and, where the part does not let it, how far
+/// it leans from the normal; along the passes, where the axis turns evenly
+/// between those places, the largest angle `along` of the axis from the
+/// normal, degrees.
+fn hidden_lean_text(reach: &HiddenReach, lead: f64, max_lean: f64, along: f64) -> String {
+    let used = lead.abs().min(max_lean);
+    let lead_text = if lead == 0.0 {
+        String::new()
+    } else if used >= lead.abs() {
+        format!(" plus the {lead} degree lead")
+    } else if used > 0.0 {
+        format!(
+            " plus {used} degrees of the {lead} degree lead (the largest lean on hidden \
+             surfaces is {max_lean} degrees)"
+        )
+    } else {
+        format!(
+            " without the {lead} degree lead (the largest lean on hidden surfaces is \
+             {max_lean} degrees)"
+        )
+    };
+    let placed = match reach.lean_x {
+        Some(x) if reach.off_aim >= 0.05 => format!(
+            "it is on the surface normal{lead_text} where the part lets it, and elsewhere leans \
+             from the normal as little as the part lets it, up to {:.1} degrees (at X {x:.3})",
+            reach.lean
+        ),
+        _ => format!("it is on the surface normal{lead_text}"),
+    };
+    format!(
+        "where the tool is placed to reach them, every {} mm along each pass, {placed}; between \
+         those places the tool axis turns evenly, and along the passes it is up to {along:.1} \
+         degrees from the surface normal",
+        hidden::REACH_SPACING
+    )
 }
 
 /// The tool-axis plan along a contour (OP-20): the reachable axis nearest

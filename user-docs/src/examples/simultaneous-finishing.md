@@ -61,7 +61,7 @@ How far the tool leans
 : "A is smoothed within 10 degrees of the normal; the largest tilt used is 1.3 degrees from that". The tool is allowed to lean up to **Largest tilt** away from the normal so that A turns smoothly; here it needed only 1.3°.
 
 Surfaces it cannot see straight on
-: "surfaces hidden from the drive (such as the walls of a slot, an undercut, or sides of the section facing each other) between X 28.150 and 47.941 are finished with passes of their own after the main ones, the tool leaning from the surface normal as little as the part lets it reach them: up to 2.2 degrees (at X 28.150, A 118.471); the tool above its flutes is taken as no wider than its cutting part". The webs between the pins face each other, so they get passes of their own. A warning of its own goes with it, "Tool holder (operation 'Finish')": "the tool holder is not checked on the passes that finish the surfaces hidden from the drive between X 28.150 and 47.941, where the tool leans up to 2.2 degrees". Check the holder's clearance yourself where the tool leans.
+: "surfaces hidden from the drive (such as the walls of a slot, an undercut, or sides of the section facing each other) between X 28.150 and 47.941 are finished with passes of their own after the main ones; where the tool is placed to reach them, every 0.2 mm along each pass, it is on the surface normal; between those places the tool axis turns evenly, and along the passes it is up to 2.2 degrees from the surface normal; the tool above its flutes is taken as no wider than its cutting part". The webs between the pins face each other, so they get passes of their own. The tool reaches every point of them on its normal; between the places it is put, 0.2 mm apart, the normal of the fillets turns faster than the tool axis, which turns evenly, so the axis is up to 2.2° from the normal there. A warning of its own goes with it, "Tool holder (operation 'Finish')": "the tool holder is not checked on the passes that finish the surfaces hidden from the drive between X 28.150 and 47.941, where the tool leans up to 2.2 degrees". Check the holder's clearance yourself where the tool leans.
 
 Inside corners, a warning
 : "Inside corners (operation 'Finish'): at X 27.990, 32.990, 42.990 and 47.990 faces across the rotary axis meet a section that does not surround the axis in an inside corner: where a corner is sharper than the tool's radius, this tool's round end (radius 1.587 mm) leaves up to about 0.66 mm across it; a flat end can finish them". A ball cannot cut a sharp inside corner; plan another operation if those corners matter.
@@ -87,7 +87,7 @@ Largest angle step
 : The largest change of A between two points of the path. The default is 5°.
 
 Largest lean on hidden surfaces
-: A limit, between 0° and 90° (the default is 90°), on how far the tool may lean from the normal to reach a hidden surface. Read what it did in the note about surfaces hidden from the drive, which gives the largest lean used. On the build these screens were taken with, setting it to 0 did not change this example's path; that is under review (#619).
+: A limit, between 0° and 90° (the default is 90°), on how far the tool may lean from the normal, plus the lead, where it is placed to reach a hidden surface, every 0.2 mm along each pass. Between those places the tool axis turns evenly. 0 keeps the tool on the normal there and also holds back the lead. The note about surfaces hidden from the drive says what it did. On this example no hidden surface needs a lean, so 0 gives the same path as 90.
 
 Now give the finish a lead:
 
@@ -117,10 +117,10 @@ The operation is not generated, and the export is blocked until it is fixed. Set
 
 ## Read the result
 
-| Finish | Moves, both operations | Largest tilt used | Lean on hidden surfaces |
+| Finish | Moves, both operations | Largest tilt used | On hidden surfaces |
 | --- | --- | --- | --- |
-| Defaults (lead 0, tilt 10) | 40,284 | 1.3° | up to 2.2° |
-| **Lead angle** 10 | 40,183 | 1.3° from the normal plus the lead | up to 12.2° |
+| Defaults (lead 0, tilt 10) | 40,284 | 1.3° | on the normal where placed; up to 2.2° from it along the passes |
+| **Lead angle** 10 | 40,183 | 1.3° from the normal plus the lead | on the normal plus the lead where placed; up to 12.2° from the normal along the passes |
 | **Pattern** axial, **Lead angle** 10 | not generated | | |
 
 With the defaults the simulation leaves "Most material left: 2.000 mm at X 57.99", at the free end of the last pin, where the stock reaches past the part. The finish removes 1,357 mm³ after the roughing's 34,227 mm³.
