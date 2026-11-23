@@ -1,6 +1,6 @@
 # 0xxx: A largest tool size, template namespaces freed after a render, and checked mutation-run arguments (TL-02, TL-03, TL-04, GC-03, NFR-05, NFR-07; issues #628, #627, #794, #582; lane FUZZ-NFR07)
 
-- **Status:** Proposed by lane FUZZ-NFR07 on 23 Nov 2026. The owner chose option A for item 1 (a 1000 mm bound) and option A for item 2 (the namespace cleanup), and agreed item 3 (count, seed and max_seconds all checked), on 23 Nov 2026, relayed by the coordinator (decision 0049). The record stays proposed until the owner accepts it. Number provisional (`0xxx`, `OI-xxxx`): the coordinator assigns the real numbers when the pull request is released.
+- **Status:** Accepted by the project owner on 23 Nov 2026, relayed by the coordinator (decision 0049). The owner chose option A for item 1 (a 1000 mm bound) and option A for item 2 (the namespace cleanup), and agreed item 3 (count, seed and max_seconds all checked). Written by lane FUZZ-NFR07.
 - **Date:** 23 Nov 2026.
 - **Requirements:** TL-02 and TL-03 (standard and custom tool shapes), TL-04 (tool fields), GC-03 (user-editable post definitions), NFR-05 (double precision, millimetres), NFR-07 (invalid input gives a clear error, never a crash), GC-07 and NFR-06 (deterministic output).
 - **Open items:** raises OI-xxxx (report the namespace cycle to the template engine's maintainers, and drop the workaround of item 2 when a release frees it). No earlier open item tracks these issues.

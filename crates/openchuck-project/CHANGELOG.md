@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased (FUZZ-NFR07; issue #628; decision 0xxx, proposed)
+## Unreleased (FUZZ-NFR07; issue #628; decision 0xxx, accepted)
 
 - **Changed:** a custom profile file with a size above `openchuck_types::tool::profile::MAX_PROFILE_SIZE` is refused naming the segment (the check is in `openchuck-types`); the corpus gains the nightly fuzz input. No API or schema change.
 
