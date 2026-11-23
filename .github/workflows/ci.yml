@@ -642,14 +642,15 @@ jobs:
       # has a line "No user-visible change: <reason>". Drafts too (decision 0052: Fast checks run on a
       # draft). The description is read from the event, so it is read again when the pull request is
       # opened, on each push and when it is marked ready for review; an edit alone runs nothing. No
-      # `edited` trigger: it would run the whole workflow again. Python only, about 2 s.
+      # `edited` trigger: it would run the whole workflow again. xtask is already built by the
+      # conflicts step; the check itself takes well under a second.
       - name: Changelog since the last release
         id: changelog
         if: always() && github.event_name == 'pull_request'
         env:
           BASE: ${{ github.event.pull_request.base.sha }}
           PR_BODY: ${{ github.event.pull_request.body }}
-        run: python3 user-docs/tools/changelog.py check-pr --base "$BASE"
+        run: cargo xtask changelog check-pr --base "$BASE"
       - name: Traceability report
         id: trace
         if: always() && (needs.changes.outputs.rust == 'true' || needs.changes.outputs.records == 'true')

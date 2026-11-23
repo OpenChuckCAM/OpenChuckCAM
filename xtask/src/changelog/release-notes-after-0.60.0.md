@@ -4,7 +4,7 @@ What changed in each release of OpenChuckCAM. Each release adds a section headed
 
 ## 0.60.0
 
-<!-- release-notes draft: made by changelog.py start-release. Write the release's summary, the known limitations, the unconfirmed Makera Z1 values and the known issues (docs/releasing.md), edit the changes below into groups for users, then delete this comment. -->
+<!-- release-notes draft: made by cargo xtask changelog start-release. Write the release's summary, the known limitations, the unconfirmed Makera Z1 values and the known issues (docs/releasing.md), edit the changes below into groups for users, then delete this comment. -->
 
 ### What has changed
 

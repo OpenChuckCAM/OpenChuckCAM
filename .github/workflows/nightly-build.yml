@@ -72,8 +72,12 @@ jobs:
             echo "build=true" >> "$GITHUB_OUTPUT"
             echo "Building $SHA (last nightly build: ${last:-none})." >> "$GITHUB_STEP_SUMMARY"
           fi
-      # The pre-release notes, from this commit's release notes (decision record CHANGELOG-FLOW-A), shown
-      # in the run's summary so that a run on another branch, which publishes nothing, shows them too.
+      # The pre-release notes, made once here from this commit's release notes (decision record
+      # CHANGELOG-FLOW-A): the build, "not a release", the G-code notice (NFR-12), what has changed since
+      # the last release (the Development version of user-docs/src/release-notes.md, at most 60,000
+      # characters) and the downloads. They go to the run's summary, so a run on another branch, which
+      # publishes nothing, shows them too, and to the `publish` job as an artifact. `cargo xtask` builds
+      # xtask with the toolchain in rust-toolchain.toml (about a minute on a fresh runner).
       - uses: actions/checkout@v7
         if: steps.check.outputs.build == 'true'
         with:
@@ -84,14 +88,22 @@ jobs:
           SHA: ${{ github.sha }}
           DATE: ${{ steps.check.outputs.date }}
           REPO: ${{ github.repository }}
+          CARGO_PROFILE_DEV_DEBUG: "0"
         run: |
-          python3 user-docs/tools/changelog.py nightly-notes --sha "$SHA" --date "$DATE" --repo "$REPO" --out notes.md
+          mkdir -p nightly-notes
+          cargo xtask changelog nightly-notes --sha "$SHA" --date "$DATE" --repo "$REPO" --out nightly-notes/notes.md
           {
             echo
             echo "### Notes of the pre-release"
             echo
-            cat notes.md
+            cat nightly-notes/notes.md
           } >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v7
+        if: steps.check.outputs.build == 'true'
+        with:
+          name: nightly-notes
+          path: nightly-notes/notes.md
+          if-no-files-found: error
 
   # The notices, build, assemble and pack steps are shared with the release workflow
   # (build-archives.yml, decision 0091). The job has no display name, so its jobs show as
@@ -126,6 +138,11 @@ jobs:
           merge-multiple: true
           skip-decompress: true
           path: dist
+      # The notes made by the `changes` job from this commit (decision record CHANGELOG-FLOW-A).
+      - uses: actions/download-artifact@v8
+        with:
+          name: nightly-notes
+          path: nightly-notes
       - name: Replace the nightly pre-release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -138,10 +155,9 @@ jobs:
           ls -l dist
           count=$(find dist -maxdepth 1 -type f -name 'openchuckcam-nightly-*' | wc -l)
           [ "$count" -eq 4 ] || { echo "expected 4 files (3 archives and the examples zip), found $count"; exit 1; }
-          # The notes: the build, "not a release", the G-code notice (NFR-12), what has changed since
-          # the last release (the Development version of user-docs/src/release-notes.md at this commit,
-          # at most 60,000 characters) and the downloads (decision record CHANGELOG-FLOW-A).
-          python3 user-docs/tools/changelog.py nightly-notes --sha "$SHA" --date "$DATE" --repo "$REPO" --out notes.md
+          # The notes, made by the `changes` job from this commit (decision record CHANGELOG-FLOW-A).
+          notes=nightly-notes/notes.md
+          [ -s "$notes" ] || { echo "the notes made by the changes job are missing"; exit 1; }
           # Upload everything to a draft first: a draft creates no tag and is
           # not visible to visitors, so the current `nightly` release stays up
           # until its replacement holds all three archives and the examples zip. A draft left by
@@ -152,7 +168,7 @@ jobs:
             while read -r old; do gh release delete "$old" -R "$REPO" --yes; done
           gh release create "$staging" dist/openchuckcam-nightly-* -R "$REPO" \
             --draft --target "$SHA" --prerelease \
-            --title "Nightly build $DATE ($SHORT)" --notes-file notes.md
+            --title "Nightly build $DATE ($SHORT)" --notes-file "$notes"
           assets=$(gh release view "$staging" -R "$REPO" --json assets --jq '.assets | length')
           [ "$assets" -eq 4 ] || { echo "the draft holds $assets files, expected 4"; exit 1; }
           # Swap: remove the old release, then the tag on its own (it can
