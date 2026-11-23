@@ -5,7 +5,7 @@
 - **Issues:** #631, #614 (widened to swarf by the owner on 14 Nov 2026), #615, #632.
 - **Requirements:** OP-28, OP-02, OP-09, OP-27, UI-12, NFR-07, NFR-12.
 - **Builds on:** [decision 0525](0525-face-flow-finishing.md) D4 (the face note), [decision 0536](0536-message-levels-operation-reference-and-setting-links.md) (one form for messages), [decision 0644](0644-refusals-take-the-one-form.md) (a count agrees with its noun), [decision 0111](0111-swarf-through-the-application.md) item 1 and decision 0525 (swarf and face-flow finishing refuse an empty Cut on), [decision 0526](0526-stepall-close-out-and-exact-contact-setting.md) (Exact STEP surface contact).
-- **Open items:** none raised or closed.
+- **Open items:** raises OI-2190 (the two example figure sets to re-capture).
 
 ## Context and decision
 
@@ -22,7 +22,7 @@
 ## Consequences
 
 - `openchuck-path` (`face_flow.rs`, the notes), `openchuck-app` (`operation.rs`, `selection.rs`), `openchuck-import` (`step.rs`, the notice), `apps/openchuck-ui` (the inspector and the tree). No public type changes; two public functions added in `openchuck-app` (not in the library family).
-- User guide: [Operations and strategies](../../user-docs/src/reference/operations.md) (Geometry and Face flow finishing), the worked examples on face-flow finishing and selection sets (the quoted notes, the alt text and their screenshots), the release notes.
+- User guide: [Operations and strategies](../../user-docs/src/reference/operations.md) (Geometry and Face flow finishing), the worked examples on face-flow finishing and selection sets (the quoted notes and the alt text; their screenshots still show the old wording and are re-captured under OI-2190), the release notes.
 
 ## Verification
 

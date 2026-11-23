@@ -1555,10 +1555,24 @@ fn req_op_28_a_cone_to_its_apex_closes_on_it() {
     let rings = rings(&out.passes);
     assert!(rings[0].0.abs() < 1e-3, "{rings:?}");
     assert!(rings.windows(2).all(|w| w[1].0 > w[0].0));
-    // Rings shorter round than the tool is wide are left out near the apex.
+    // Every ring goes once round, the apex's too (CodeRabbit on #854: a
+    // point end must turn with the guide, or each ring stops short).
+    for (x, turn) in &rings {
+        assert!(
+            (turn - 2.0 * PI).abs() < 0.01,
+            "the ring at X {x} turns {turn}"
+        );
+    }
+    // Rings are left out by their length round, not by the gap between
+    // their ends: every ring at least the tool's diameter long is kept, so
+    // the ones beside the guide are, and only those nearer the apex than a
+    // ring of the tool's diameter are left out.
     let last = rings.last().unwrap().0;
     let r = r0 * (1.0 - last / length);
     assert!(2.0 * PI * r >= 4.0 - 1e-6, "a ring of radius {r} is cut");
+    assert!(rings.len() >= 8, "{} rings; {:?}", rings.len(), out.notes());
+    let apex_gap = length * (1.0 - 4.0 / (2.0 * PI * r0));
+    assert!(last > apex_gap - 1.5, "the last ring at X {last}");
     let notes = out.notes().join("\n");
     assert!(notes.contains("towards the opposite point"), "{notes}");
     assert!(notes.contains("left out"), "{notes}");
@@ -1661,6 +1675,77 @@ fn req_op_28_the_user_chooses_which_end_of_a_closed_face_is_the_guide() {
         .unwrap_err()
         .to_string();
     assert!(err.contains("are not all on one of its ends"), "{err}");
+}
+
+/// Two full cylinders about X, faces 0 (radius 10, X 0 to 10; edges 0,
+/// 1, seam 2) and 1 (radius 12, X 20 to 30; edges 3, 4, seam 5), and, with
+/// `hole`, a small closed edge on face 0's surface that goes nowhere round
+/// it, as the edge of a hole: then edge 3, face 1's edges 4, 5 and 6.
+fn two_cylinders(hole: bool) -> BrepModel {
+    let tau = std::f64::consts::TAU;
+    let mut b = Builder::default();
+    for (id, radius, x0) in [(0u32, 10.0, 0.0), (1, 12.0, 20.0)] {
+        let point = move |u: f64, v: f64| p3(v, radius * u.cos(), radius * u.sin());
+        let mut edges = vec![
+            b.edge(&[id], &|t| point(tau * t, x0), false),
+            b.edge(&[id], &|t| point(tau * t, x0 + 10.0), false),
+            b.edge(&[id], &|t| point(0.0, x0 + 10.0 * t), false),
+        ];
+        if hole && id == 0 {
+            edges.push(b.edge(
+                &[0],
+                &|t| point(2.0 + 0.1 * (tau * t).cos(), 5.0 + 1.0 * (tau * t).sin()),
+                false,
+            ));
+        }
+        b.face(
+            Surface::Cylinder {
+                frame: about_x(),
+                radius,
+            },
+            [0.0, tau, x0, x0 + 10.0],
+            None,
+            edges,
+            &point,
+            &|_, _| true,
+            false,
+        );
+    }
+    b.model
+}
+
+#[test]
+fn req_op_28_a_guide_on_one_closed_face_leaves_the_others_their_own() {
+    // CodeRabbit on #854: the Guide edge set holds an end of face 0 only;
+    // face 1 takes its own default end rather than refusing the operation.
+    let rig = Rig::new(two_cylinders(false), &ball(6.0));
+    let out = rig
+        .output(&rig.strategy(&[0, 1], &[1]), &values(1.0, &[]))
+        .unwrap_or_else(|e| panic!("refused: {e}"));
+    let notes = out.notes().join("\n");
+    assert!(
+        notes.contains("face 0 is cut from its guide, edge 1 "),
+        "{notes}"
+    );
+    assert!(
+        notes.contains("face 1 is cut from its guide, edge 3 "),
+        "{notes}"
+    );
+}
+
+#[test]
+fn req_op_28_req_nfr_07_guide_edges_off_the_chosen_end_are_refused() {
+    // CodeRabbit on #854: an end edge with a hole's edge is not one end;
+    // the hole's edge is not silently ignored.
+    let rig = Rig::new(two_cylinders(true), &ball(6.0));
+    let err = rig
+        .output(&rig.strategy(&[0], &[0, 3]), &values(1.0, &[]))
+        .unwrap_err()
+        .to_string();
+    assert!(err.contains("are not all on one of its ends"), "{err}");
+    // The end's own edges alone are a guide.
+    rig.output(&rig.strategy(&[0], &[0]), &values(1.0, &[]))
+        .unwrap_or_else(|e| panic!("refused: {e}"));
 }
 
 #[test]

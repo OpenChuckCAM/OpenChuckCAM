@@ -835,6 +835,14 @@ struct Closure {
 /// The number of points of an edge or loop read for a seam or a turn.
 const CLOSURE_SAMPLES: usize = 64;
 
+/// The points a ring is measured at to judge whether it is shorter than the
+/// tool.
+const RING_SAMPLES: usize = 64;
+
+/// How far short of a point end, as a share of the way across, the face is
+/// read where the end has no normal.
+const POINT_END_STEP: f64 = 1e-6;
+
 /// At most `n` points of `points`, evenly spread, the first and last kept.
 fn spread(points: &[Point3], n: usize) -> Vec<Point3> {
     if points.len() <= n {
@@ -1024,8 +1032,17 @@ fn ring_boundaries(
     if ends.is_empty() || ends.len() > 2 {
         return Err(no_end());
     }
-    let holds = |l: &Vec<Entry>| l.iter().any(|e| chosen.contains(&e.edge));
-    let guide_at = if chosen.is_empty() {
+    // The user's guide edges on this face: another face's guide is that
+    // face's, and this face then takes its own default end.
+    let local: BTreeSet<EdgeId> = face
+        .edges
+        .iter()
+        .copied()
+        .filter(|e| chosen.contains(e))
+        .collect();
+    // An end is the guide only when every local guide edge is on it.
+    let holds = |l: &Vec<Entry>| local.iter().all(|g| l.iter().any(|e| e.edge == *g));
+    let guide_at = if local.is_empty() {
         let mut best = 0;
         let mut key = (f64::NEG_INFINITY, EdgeId(u32::MAX));
         for (i, l) in ends.iter().enumerate() {
@@ -1047,7 +1064,7 @@ fn ring_boundaries(
                 return Err(refuse(format!(
                     "the guide edges {} of face {} are not all on one of its ends: face {} closes \
                      round on itself, and its passes run round it from one end",
-                    list(chosen.iter().map(|e| e.0)),
+                    list(local.iter().map(|e| e.0)),
                     face.id.0,
                     face.id.0
                 )));
@@ -1239,7 +1256,13 @@ impl Field<'_> {
         if !edge && !self.face.contains(uv) {
             return None;
         }
-        self.face.point_normal(uv)
+        // A point end with no normal there (a cone's apex) is read just
+        // short of it, so the spacing across the face reaches it.
+        self.face.point_normal(uv).or_else(|| {
+            (w >= 1.0 && matches!(self.boundaries.opposite, Opposite::Point(_)))
+                .then(|| self.at(s, 1.0 - POINT_END_STEP))
+                .flatten()
+        })
     }
 }
 
@@ -1315,6 +1338,18 @@ fn field<'a>(
         } else {
             ou.u = unwrap_to(ou.u, gu.u, pu);
             ou.v = unwrap_to(ou.v, gu.v, pv);
+        }
+        // On a face that closes round on itself, a point end turns with the
+        // guide in the direction the face closes in, so every ring goes once
+        // round (CodeRabbit on #854); its other parameter stays the point's.
+        if matches!(boundaries.opposite, Opposite::Point(_)) {
+            let [cu, cv] = closed.period;
+            if cu.is_some() {
+                ou.u = gu.u;
+            }
+            if cv.is_some() {
+                ou.v = gu.v;
+            }
         }
         guide_uv.push(gu);
         opposite_uv.push(ou);
@@ -2160,16 +2195,25 @@ fn cut_face(
     for (k, &w) in weights.iter().enumerate() {
         context.check_cancelled()?;
         let samples = pass_samples(f, tooling, w);
-        // A pass towards a point opposite shorter than the tool is left out.
+        // A pass towards a point opposite shorter than the tool is left out:
+        // on a face that closes round, a ring by its length round (its ends
+        // meet); otherwise by the distance between its ends.
         if point_opposite && w > 0.0 {
-            let pts: Vec<Point3> = [0.0, 1.0]
-                .iter()
-                .filter_map(|s| f.at(*s, w))
-                .map(|p| p.point)
-                .collect();
-            if let [a, b] = pts.as_slice()
-                && a.distance(*b) < diameter
-            {
+            let short = if f.wrap.iter().any(Option::is_some) {
+                let ring: Vec<Point3> = (0..=RING_SAMPLES)
+                    .filter_map(|k| f.at(k as f64 / RING_SAMPLES as f64, w))
+                    .map(|p| p.point)
+                    .collect();
+                Curve::new(ring).length() < diameter
+            } else {
+                let pts: Vec<Point3> = [0.0, 1.0]
+                    .iter()
+                    .filter_map(|s| f.at(*s, w))
+                    .map(|p| p.point)
+                    .collect();
+                matches!(pts.as_slice(), [a, b] if a.distance(*b) < diameter)
+            };
+            if short {
                 dropped_short += 1;
                 continue;
             }
