@@ -5,3 +5,6 @@ captured_at = "867047353f9647fa0796204dc36eba93419df086"
 captured_on = "2026-11-23"
 renderer = "Mesa lavapipe (software Vulkan) on Xvfb"
 window = "1920x1080"
+# Reviewed against lane A11Y-FOCUS 0e157452 (23 Nov 2026): its only change to the screen folders since the capture
+# is three tests added in test modules (field_row.rs and shell/focus_tests.rs); no screen changes.
+reviewed_at = "0e157452639f7fc58b957b262be9e73e2a018963"
