@@ -24,7 +24,12 @@ use crate::strategy::{CutPoint, Pass};
 /// Hosts must not substitute selected surfaces or warn-only geometry here.
 #[derive(Debug)]
 pub struct FacingSetup<'a> {
-    /// Whole placed source mesh, with all referenced facets.
+    /// Whole placed source mesh, with all referenced facets. Facing reads it
+    /// only through bounds over its referenced vertices (supports, extents,
+    /// projected rectangles, radius), so a STEP host passes the
+    /// [`crate::Enclosure`] of the part's exact faces as a mesh
+    /// ([`crate::Enclosure::mesh`]): its points' convex hull holds the part
+    /// (decision 0666, option C).
     pub part: &'a TriangleMesh,
     /// Explicit initial stock definition, not the chosen facing extent.
     pub stock: &'a Stock,
@@ -38,8 +43,11 @@ pub struct FacingSetup<'a> {
     pub protected: &'a [Solid],
     /// Actual gripped model-X intervals at start and far end, before tool growth.
     pub held: [Option<(f64, f64)>; 2],
-    /// Conservative source projection error; exact STL facets use Some(0).
-    /// None means no bound, not zero error. Exact STEP hosts supply a proved bound.
+    /// Conservative source projection error: how far the source can lie
+    /// outside `part`'s bounds. Exact STL facets and the enclosure of a STEP
+    /// part's exact faces use Some(0): no source point lies outside them.
+    /// None means no bound, not zero error; a STEP part's tessellation alone
+    /// is not a bound (decision 0252 section 4).
     pub projection_error: Option<f64>,
 }
 

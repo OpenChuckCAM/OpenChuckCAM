@@ -1513,19 +1513,16 @@ fn req_op_23_req_nfr_07_a_set_a_strategy_cannot_use_on_a_step_part_is_an_error_b
 }
 
 #[test]
-fn req_op_23_req_op_24_req_nfr_07_checked_facing_on_a_step_part_is_refused_plainly_before_generating()
- {
-    // Issue #800 (decision 0666): the Facing modes that check
-    // their cut against the part (End, Box, a Part extent or a margin) have
-    // no proved bound for a STEP part yet, because its tessellation setting
-    // alone is not one (decision 0252 section 4). Until that is built the
-    // operation is in error at once, in plain words that say what to do,
-    // from the same check generation makes; the form says it too. The part
-    // is only named as a STEP file: the check reads the project, never the
-    // model.
-    use openchuck_app::overview::{ItemRef, ItemState};
+fn req_op_23_req_op_24_checked_facing_on_a_step_part_is_not_refused_before_generating() {
+    // Issue #800 (decision 0666, option C): the Facing modes that check
+    // their cut against the part (End, Box, a Part extent or a margin) bound
+    // a STEP part from its exact faces, so nothing refuses them before
+    // generation any more (the interim refusal of #836 is gone). The part is
+    // only named as a STEP file: the overview and the form read the project,
+    // never the model.
+    use openchuck_app::overview::ItemRef;
     use openchuck_app::project::RelativePath;
-    let (dir, mut app, op) = project("step-facing-refused");
+    let (dir, mut app, op) = project("step-facing-allowed");
     let mut operation = app.project().operation(op).unwrap().clone();
     operation.strategy = "facing".into();
     operation.parameters = [
@@ -1543,42 +1540,12 @@ fn req_op_23_req_op_24_req_nfr_07_checked_facing_on_a_step_part_is_refused_plain
     let mut model = app.project().models()[0].clone();
     model.path = RelativePath::new("models/subby.step").unwrap();
     app.execute(Command::Replace(Item::Model(model))).unwrap();
-    let said = "Facing with the End or Box shape, a Part or Part plus tabs extent, or an extent \
-                margin does not work on a STEP part yet";
-    let what_to_do = "use the part as an STL";
-    let overview = app.overview(None, &openchuck_app::JobLog::default());
-    let status = &overview.items[&ItemRef::Operation(op)];
-    assert_eq!(status.state, ItemState::Error, "{status:?}");
-    assert!(
-        status.cause.contains(said) && status.cause.contains(what_to_do),
-        "{}",
-        status.cause
-    );
-    let form = app.parameter_form(op).unwrap();
-    assert!(
-        form.notes
-            .first()
-            .is_some_and(|n| n.contains(said) && n.contains(what_to_do)),
-        "{:?}",
-        form.notes
-    );
-    // Generating refuses with the same words, not with the internal
-    // "no established projection bound".
-    // (The one message form starts the clause in lower case.)
-    let e = app.start_regenerate().wait().unwrap_err().to_string();
-    assert!(
-        e.to_lowercase().contains(&said.to_lowercase()) && e.contains(what_to_do),
-        "{e}"
-    );
-    assert!(!e.contains("projection bound"), "{e}");
-    // Facing that checks nothing against the part (Flat or Round over the
-    // whole stock, no margin) is not refused by this check.
-    for (shape, extent, margin, refused) in [
-        ("flat", "whole_stock", 0.0, false),
-        ("round", "whole_stock", 0.0, false),
-        ("flat", "part", 0.0, true),
-        ("round", "whole_stock", 1.0, true),
-        ("box", "whole_stock", 0.0, true),
+    let interim = "does not work on a STEP part yet";
+    for (shape, extent, margin) in [
+        ("end", "whole_stock", 0.0),
+        ("flat", "part", 0.0),
+        ("round", "whole_stock", 1.0),
+        ("box", "whole_stock", 0.0),
     ] {
         let mut o = operation.clone();
         o.parameters
@@ -1590,10 +1557,15 @@ fn req_op_23_req_op_24_req_nfr_07_checked_facing_on_a_step_part_is_refused_plain
         app.execute(Command::Replace(Item::Operation(o))).unwrap();
         let overview = app.overview(None, &openchuck_app::JobLog::default());
         let cause = &overview.items[&ItemRef::Operation(op)].cause;
-        assert_eq!(
-            cause.contains(said),
-            refused,
+        assert!(
+            !cause.contains(interim),
             "{shape} {extent} {margin}: {cause}"
+        );
+        let form = app.parameter_form(op).unwrap();
+        assert!(
+            form.notes.iter().all(|n| !n.contains(interim)),
+            "{:?}",
+            form.notes
         );
     }
     std::fs::remove_dir_all(&dir).unwrap();
