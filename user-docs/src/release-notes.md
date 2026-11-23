@@ -90,4 +90,6 @@ Generated G-code must be verified by you before it is run on a machine. OpenChuc
 
 The *latest* version of this guide describes the nightly build, the [development build](start/install.md#download-a-development-build) made each night from the main branch. Its limits are on [Known limitations](start/limitations.md).
 
+- **First-cut test project.** The project's first cut on the Makera Z1 now cuts three stepped cylinders with one flat-end tool, in place of the cone, so each diameter can be measured with a micrometer and the faces between the steps give positions along the axis. It is compared with the simulated part. This is the project's own test; it does not change what the program does with your parts.
+
 Generated G-code must be verified by you before it is run on a machine. OpenChuckCAM does not guarantee that a program is safe or correct for any machine, tool or setup.
