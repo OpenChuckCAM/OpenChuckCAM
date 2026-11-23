@@ -20,10 +20,11 @@ use std::collections::{BTreeMap, BinaryHeap};
 
 use super::{
     Closure, Curve, Direction, FaceCut, MAX_GUIDE_SAMPLES, MAX_PASSES, PassLine, SAMPLE_SPACING,
-    Stretch, Tooling, concat, edge_points, loops, pass_samples, split_runs, step_on,
+    Stretch, Tooling, append, concat, edge_points, loops, pass_samples, split_runs, step_on,
 };
 use crate::brep::ExactFace;
 use crate::error::{PathError, Result};
+use crate::rotary::nearest_turn;
 use crate::strategy::CutPoint;
 use crate::surface::{ParametricFace, SurfacePoint, Uv};
 use openchuck_types::brep::{BrepFace, BrepModel, EdgeId, FaceId};
@@ -903,15 +904,22 @@ pub(super) fn cut_outline(
             ) {
                 (true, 0, Some(a), Some(b), Some(pa), Some(pb)) => {
                     let across = UvStep { face, a, b, wrap };
-                    step_on(&across, tooling, 0.0, pa, pb)
+                    let end_a = nearest_turn(pb.a, pa.a);
+                    step_on(
+                        &across,
+                        tooling,
+                        0.0,
+                        pa,
+                        pb,
+                        2.0 * settings.stepover,
+                        end_a,
+                    )
+                    .map(|steps| (steps, end_a))
                 }
                 _ => None,
             };
             match (steps, joined.last_mut()) {
-                (Some(steps), Some(run)) => {
-                    run.extend(steps);
-                    run.extend(points.iter().copied());
-                }
+                (Some((steps, end_a)), Some(run)) => append(run, steps, points, end_a),
                 _ => joined.push(points.clone()),
             }
             open = None;
@@ -945,6 +953,7 @@ pub(super) fn cut_outline(
         dropped_short: 0,
         spacing: step,
         outline: true,
+        ring_words: String::new(),
     })
 }
 

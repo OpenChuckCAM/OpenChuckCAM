@@ -290,13 +290,18 @@ impl Strategy for FaceFlow {
             ParameterSpec {
                 name: STAY_DOWN.to_owned(),
                 label: "Stay down between passes".to_owned(),
-                description: "With Meander, the tool steps along the face from the end of one \
-                              pass to the start of the next instead of lifting, where the step \
-                              is on the face and clear of the part. It lifts where a wall is in \
-                              the way, where the step would leave the face, or where it would be \
-                              longer than twice the stepover."
+                description: "The tool stays on the face from the end of one pass to the \
+                              start of the next instead of lifting, where the way is on the face \
+                              and clear of the part: with Meander, and on a face cut in rings \
+                              (one that closes round on itself) in any direction, as Steps \
+                              between rings sets. It lifts where a wall is in the way, where the \
+                              step would leave the face, or where it would be longer than twice \
+                              the stepover."
                     .to_owned(),
-                kind: ParameterKind::Flag { default: true },
+                // Off for an operation saved without it, so its program is
+                // unchanged; a new operation is written with it on (as
+                // decision 0545 D3 writes blended ring steps).
+                kind: ParameterKind::Flag { default: false },
             },
             ParameterSpec {
                 name: PATTERN.to_owned(),
@@ -318,6 +323,10 @@ impl Strategy for FaceFlow {
                 },
             },
         ]);
+        // How the tool goes from one ring to the next on a face that closes
+        // round on itself, as on the ring strategies (decision 0545's
+        // parameters; the owner's decision of 23 Nov 2026).
+        schema.parameters.extend(crate::helical::ring_step_specs());
         for spec in &mut schema.parameters {
             if spec.name == names::STEPOVER {
                 spec.description = "The largest distance between neighbouring passes, \
@@ -402,6 +411,9 @@ struct Settings {
     /// Steps along the face between meander passes, where clear.
     stay_down: bool,
     pattern: Pattern,
+    /// The blend angle between rings, degrees, with blended steps; `None`
+    /// for sharp steps along the seam.
+    ring_blend: Option<f64>,
 }
 
 /// How a face's passes are laid out.
@@ -437,6 +449,25 @@ impl Settings {
             OUTLINE => Pattern::Outline,
             _ => Pattern::Automatic,
         };
+        let ring_blend = if matches!(
+            parameters.get(crate::helical::parameter::RING_STEP),
+            Some(crate::params::ParameterValue::Text(t)) if t == crate::helical::parameter::BLENDED
+        ) {
+            let phi = match parameters.get(crate::helical::parameter::RING_BLEND_ANGLE) {
+                Some(crate::params::ParameterValue::Number(n)) => *n,
+                None => crate::helical::parameter::DEFAULT_RING_BLEND_ANGLE,
+                Some(_) => f64::NAN,
+            };
+            if !(phi > 0.0 && phi <= 180.0) {
+                return Err(PathError::Parameter {
+                    name: crate::helical::parameter::RING_BLEND_ANGLE.to_owned(),
+                    reason: format!("{phi} degrees is not more than 0 and at most 180"),
+                });
+            }
+            Some(phi)
+        } else {
+            None
+        };
         Ok(Self {
             tolerance,
             stepover,
@@ -447,6 +478,7 @@ impl Settings {
             direction,
             stay_down,
             pattern,
+            ring_blend,
         })
     }
 }
@@ -2113,6 +2145,8 @@ struct FaceCut {
     spacing: f64,
     /// Cut along the face's outline rather than from its guide.
     outline: bool,
+    /// What the face note says of the joins between rings, if anything.
+    ring_words: String,
 }
 
 #[allow(clippy::too_many_lines)]
@@ -2331,9 +2365,35 @@ fn cut_face(
             _ => None,
         })
         .fold(0.0, f64::max);
+    // On a face that closes round on itself, with Stay down between passes,
+    // every ring runs one way and is joined to the next, unless Meander
+    // steps along the seam with each ring back the other way (the owner's
+    // decision of 23 Nov 2026; decision 0545's two shapes).
+    let settings = tooling.settings;
+    let rings_joined = f.wrap.iter().any(Option::is_some)
+        && settings.stay_down
+        && (settings.ring_blend.is_some() || settings.direction != Direction::Meander);
+    let ring_dir = if rings_joined {
+        ring_direction(f, &weights, settings.direction)
+    } else {
+        1.0
+    };
+    let turn = settings.ring_blend.unwrap_or(0.0) / 360.0;
+    let mut kept_k: Vec<usize> = Vec::with_capacity(weights.len());
     for (k, &w) in weights.iter().enumerate() {
         context.check_cancelled()?;
-        let samples = pass_samples(&Blend { field: f, w }, tooling);
+        let samples = if rings_joined {
+            // Ring k starts where the blend before it ends, φ further round.
+            let line = Ring {
+                field: f,
+                w,
+                s0: round01(ring_dir * kept.len() as f64 * turn),
+                dir: ring_dir,
+            };
+            pass_samples(&line, tooling)
+        } else {
+            pass_samples(&Blend { field: f, w }, tooling)
+        };
         // A pass towards a point opposite shorter than the tool is left out:
         // on a face that closes round, a ring by its length round (its ends
         // meet); otherwise by the distance between its ends.
@@ -2372,13 +2432,42 @@ fn cut_face(
             &mut stretches,
         );
         kept.push((w, spans));
+        kept_k.push(k);
         passes.push(runs);
     }
     // With Meander and Stay down between passes, the runs are joined across
     // the passes' ends by steps along the face, where clear (the owner's
     // answer of 23 Nov 2026 to Q2).
-    let joined = (tooling.settings.direction == Direction::Meander && tooling.settings.stay_down)
-        .then(|| join_meander(f, tooling, &passes, &kept));
+    let joined = if rings_joined {
+        Some(join_rings(
+            f,
+            tooling,
+            &passes,
+            &kept,
+            &kept_k,
+            ring_dir,
+            settings.ring_blend,
+        ))
+    } else {
+        (settings.direction == Direction::Meander && settings.stay_down)
+            .then(|| join_meander(f, tooling, &passes, &kept))
+    };
+    // The ring note's words for the joins (decision 0545 item 6's form):
+    // the blend and the steepest angle it makes with the ring, at the
+    // largest radius cut.
+    let mut ring_words = String::new();
+    if rings_joined && let Some(phi) = settings.ring_blend {
+        let radius = passes
+            .iter()
+            .flatten()
+            .flatten()
+            .map(|c| c.contact.y.hypot(c.contact.z))
+            .fold(0.0, f64::max);
+        ring_words.push_str(&crate::helical::blend_words(Some(phi), spacing, radius));
+        if settings.direction == Direction::Meander {
+            ring_words.push_str("; with blended steps every ring runs the same way round");
+        }
+    }
     Ok(FaceCut {
         id: f.id,
         passes,
@@ -2390,6 +2479,7 @@ fn cut_face(
         dropped_short,
         spacing,
         outline: false,
+        ring_words,
     })
 }
 
@@ -2518,8 +2608,11 @@ fn join_meander(
             };
             match (steps, out.last_mut()) {
                 (Some(steps), Some(run)) => {
-                    run.extend(steps);
-                    run.extend(points);
+                    let end_a = run
+                        .last()
+                        .zip(points.first())
+                        .map_or(Degrees(0.0), |(a, b)| nearest_turn(b.a, a.a));
+                    append(run, steps, &points, end_a);
                 }
                 _ => out.push(points),
             }
@@ -2568,12 +2661,214 @@ fn step(
         w0: ws.0,
         w1: ws.1,
     };
-    step_on(&line, tooling, s, a, b)
+    step_on(
+        &line,
+        tooling,
+        s,
+        a,
+        b,
+        2.0 * tooling.settings.stepover,
+        nearest_turn(b.a, a.a),
+    )
+}
+
+/// Adds `steps` and then the run `next` to `run`, `next`'s A moved by whole
+/// turns so it goes on from `end_a`, where the steps end.
+fn append(run: &mut Vec<CutPoint>, steps: Vec<CutPoint>, next: &[CutPoint], end_a: Degrees) {
+    let shift = next.first().map_or(0.0, |b| end_a.0 - b.a.0);
+    run.extend(steps);
+    run.extend(next.iter().map(|c| CutPoint {
+        a: Degrees(c.a.0 + shift),
+        ..*c
+    }));
+}
+
+/// A fraction of the way round brought into 0 to 1.
+fn round01(s: f64) -> f64 {
+    let x = s.rem_euclid(1.0);
+    if x >= 1.0 { 0.0 } else { x }
+}
+
+/// A ring round a face that closes round on itself, at weight `w`, from
+/// guide fraction `s0` once round the way `dir` (+1 with the guide, -1
+/// against it).
+struct Ring<'a, 'f> {
+    field: &'a Field<'f>,
+    w: f64,
+    s0: f64,
+    dir: f64,
+}
+
+impl PassLine for Ring<'_, '_> {
+    fn m(&self) -> usize {
+        self.field.m()
+    }
+
+    fn at(&self, t: f64) -> Option<SurfacePoint> {
+        self.field.at(round01(self.s0 + self.dir * t), self.w)
+    }
+}
+
+/// A blend from a ring's end at guide fraction `s0` and weight `w0` to the
+/// next ring's start, `ds` further round, at `w1`: round and across both
+/// linear (decision 0545 item 2's shape on the face).
+struct RingBlend<'a, 'f> {
+    field: &'a Field<'f>,
+    s0: f64,
+    ds: f64,
+    w0: f64,
+    w1: f64,
+}
+
+impl PassLine for RingBlend<'_, '_> {
+    fn m(&self) -> usize {
+        1
+    }
+
+    fn at(&self, t: f64) -> Option<SurfacePoint> {
+        self.field.at(
+            round01(self.s0 + self.ds * t),
+            self.w0 + (self.w1 - self.w0) * t,
+        )
+    }
+}
+
+/// The way the rings of a face that closes round on itself run, when every
+/// ring runs the same way (blended steps, or Climb and Conventional): +1
+/// with the guide, -1 against it. Meander takes the guide's way; Climb and
+/// Conventional the way that puts the uncut material, towards the next
+/// ring, on the side they ask for (decision 0213, as `material_on_right`).
+fn ring_direction(f: &Field<'_>, weights: &[f64], direction: Direction) -> f64 {
+    if direction == Direction::Meander {
+        return 1.0;
+    }
+    let (Some(&w0), Some(&w1)) = (weights.first(), weights.get(1)) else {
+        return 1.0;
+    };
+    let s = 0.25;
+    let (Some(p), Some(q), Some(next)) = (f.at(s, w0), f.at(s + 1e-3, w0), f.at(s, w1)) else {
+        return 1.0;
+    };
+    let right = (q.point - p.point).cross(p.normal.get());
+    let side = right.dot(next.point - p.point);
+    if (side > 0.0) == (direction == Direction::Climb) {
+        1.0
+    } else {
+        -1.0
+    }
+}
+
+/// The runs of a face cut in rings, every ring the same way `dir`, joined
+/// from each ring's end to the next ring's start: by a step along the seam
+/// with A held (sharp), or by a blend over `blend` degrees (decision 0545's
+/// two shapes; the owner's decision of 23 Nov 2026). A ring's end joins the
+/// next ring's start only where the ring was cut to its end and the next
+/// from its start, and no ring between was left out; elsewhere the tool
+/// lifts.
+#[allow(clippy::too_many_arguments)]
+fn join_rings(
+    f: &Field<'_>,
+    tooling: &Tooling<'_>,
+    passes: &[Vec<Vec<CutPoint>>],
+    kept: &[(f64, Vec<(f64, f64)>)],
+    kept_k: &[usize],
+    dir: f64,
+    blend: Option<f64>,
+) -> Vec<Vec<CutPoint>> {
+    let turn = blend.unwrap_or(0.0) / 360.0;
+    let mut out: Vec<Vec<CutPoint>> = Vec::new();
+    // The ring the last run closed, when it ran to its end: its index among
+    // the kept rings, its weight and its place among all the passes.
+    let mut open: Option<(usize, f64, usize)> = None;
+    for (idx, ((runs, (w, spans)), k)) in passes.iter().zip(kept).zip(kept_k).enumerate() {
+        if runs.is_empty() {
+            open = None;
+            continue;
+        }
+        let last = runs.len() - 1;
+        for (i, (points, (t0, t1))) in runs.iter().zip(spans).enumerate() {
+            let joined = match (i, open, out.last().and_then(|r| r.last()), points.first()) {
+                (0, Some((i0, w0, k0)), Some(a), Some(b)) if *t0 <= 1e-12 && *k == k0 + 1 => {
+                    let s_end = round01(dir * i0 as f64 * turn);
+                    match blend {
+                        None => {
+                            let end_a = nearest_turn(b.a, a.a);
+                            let line = EndStep {
+                                field: f,
+                                s: s_end,
+                                w0,
+                                w1: *w,
+                            };
+                            step_on(
+                                &line,
+                                tooling,
+                                s_end,
+                                a,
+                                b,
+                                2.0 * tooling.settings.stepover,
+                                end_a,
+                            )
+                            .map(|steps| (steps, end_a))
+                        }
+                        Some(phi) => {
+                            let line = RingBlend {
+                                field: f,
+                                s0: s_end,
+                                ds: dir * turn,
+                                w0,
+                                w1: *w,
+                            };
+                            // A turns on the way the ring turned, by about φ.
+                            let travel = runs_turn(passes.get(idx.wrapping_sub(1)));
+                            let end_a = nearest_turn(b.a, Degrees(a.a.0 + travel * phi));
+                            let reach =
+                                1.25 * planned_length(&line) + 2.0 * tooling.settings.tolerance;
+                            step_on(&line, tooling, s_end, a, b, reach, end_a)
+                                .map(|steps| (steps, end_a))
+                        }
+                    }
+                }
+                _ => None,
+            };
+            match (joined, out.last_mut()) {
+                (Some((steps, end_a)), Some(run)) => append(run, steps, points, end_a),
+                _ => out.push(points.clone()),
+            }
+            if i == last {
+                open = (*t1 >= 1.0 - 1e-12).then_some((idx, *w, *k));
+            }
+        }
+    }
+    out
+}
+
+/// The way A turned along a ring's runs: +1 up, -1 down, 0 where it did
+/// not turn.
+fn runs_turn(runs: Option<&Vec<Vec<CutPoint>>>) -> f64 {
+    let Some(runs) = runs else { return 0.0 };
+    let (Some(a), Some(b)) = (
+        runs.first().and_then(|r| r.first()),
+        runs.last().and_then(|r| r.last()),
+    ) else {
+        return 0.0;
+    };
+    let d = b.a.0 - a.a.0;
+    if d.abs() < 1e-9 { 0.0 } else { d.signum() }
+}
+
+/// The length on the part of a line, from 32 of its points.
+fn planned_length(line: &dyn PassLine) -> f64 {
+    let points: Vec<Point3> = (0..=32)
+        .filter_map(|k| line.at(f64::from(k) / 32.0))
+        .map(|p| p.point)
+        .collect();
+    Curve::new(points).length()
 }
 
 /// The points of a step from `a` to `b` along `line` (taken from 0 at `a`
-/// to 1 at `b`); `None` where the tool should lift instead: the step is
-/// longer than twice the stepover, leaves the face, needs the tool to tilt
+/// to 1 at `b`), A going linearly from `a`'s to `end_a` (`b`'s, whole turns
+/// added so the step turns the way it should); `None` where the tool should
+/// lift instead: the step is longer than `reach`, leaves the face, needs the tool to tilt
 /// beyond Maximum tilt, is lifted by the part (a wall in the way), or a move
 /// of it would cut into the part. A goes linearly from `a`'s to `b`'s; each
 /// point is placed by the same drop on the whole part as the passes, and
@@ -2585,15 +2880,15 @@ fn step_on(
     label: f64,
     a: &CutPoint,
     b: &CutPoint,
+    reach: f64,
+    end_a: Degrees,
 ) -> Option<Vec<CutPoint>> {
     let settings = tooling.settings;
-    let reach = 2.0 * settings.stepover;
     let span = a.contact.distance(b.contact);
     if span > reach {
         return None;
     }
     let n = ((span / SAMPLE_SPACING).ceil() as usize).max(1);
-    let end_a = nearest_turn(b.a, a.a);
     let mut out: Vec<CutPoint> = Vec::with_capacity(n);
     let mut prev = *a;
     let mut length = 0.0;
@@ -2763,6 +3058,7 @@ fn assemble(
                  reaches no part of the face it may cut"
             ));
         }
+        note.push_str(&cut.ring_words);
         if cut.dropped_short > 0 {
             note.push_str(&format!(
                 "; {} nearest the point {} left out, being shorter than the tool's \

@@ -1817,6 +1817,49 @@ fn req_op_11_a_new_ring_operation_blends_its_steps() {
 }
 
 #[test]
+fn req_op_28_a_new_face_flow_operation_stays_down_and_blends_its_ring_steps() {
+    // Issue #854 (the owner's answers of 23 Nov 2026, Q2 and the ring
+    // joins): a new face-flow operation is written with Stay down between
+    // passes on and blended steps between rings, as decision 0545 D3 writes
+    // blended steps; one saved without them keeps its program (both off by
+    // default), and other strategies get no Stay down.
+    use openchuck_path::face_flow::parameter::STAY_DOWN;
+    use openchuck_path::helical::parameter::{BLENDED, RING_STEP};
+    let (dir, mut app, op) = project("face-flow-defaults");
+    // Face flow needs a STEP part.
+    let mut model = app.project().models()[0].clone();
+    model.path = openchuck_app::project::RelativePath::new("models/blade.step").unwrap();
+    app.execute(Command::Replace(Item::Model(model))).unwrap();
+    let setup = app.project().operation(op).unwrap().setup;
+    let tool = app.project().operation(op).unwrap().tool;
+    let value = |app: &Application, id, name: &str| {
+        app.project()
+            .operation(id)
+            .unwrap()
+            .parameters
+            .get(name)
+            .cloned()
+    };
+    let added = app
+        .add_operation("face_flow", "face_flow", setup, tool)
+        .unwrap();
+    assert_eq!(
+        value(&app, added, STAY_DOWN),
+        Some(openchuck_app::project::ParameterValue::Flag(true))
+    );
+    assert_eq!(
+        value(&app, added, RING_STEP),
+        Some(openchuck_app::project::ParameterValue::Text(BLENDED.into()))
+    );
+    let helical = app
+        .add_operation("helical_finishing", "helical_finishing", setup, tool)
+        .unwrap();
+    assert_eq!(value(&app, helical, STAY_DOWN), None);
+    assert_eq!(value(&app, op, STAY_DOWN), None);
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+#[test]
 fn req_gc_07_a_saved_ring_operation_keeps_sharp_steps() {
     // Decision 0545 item 1: a ring operation saved before the setting has
     // no `ring_step`, so when its project is opened again its steps are

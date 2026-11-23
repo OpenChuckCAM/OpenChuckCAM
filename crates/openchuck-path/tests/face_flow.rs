@@ -2182,3 +2182,249 @@ fn req_op_28_req_gc_07_following_the_outline_is_the_same_at_1_2_and_n_threads() 
     .unwrap();
     assert_eq!(runs.len(), 4);
 }
+
+// ---- joining rings (the owner's decision of 23 Nov 2026: as the helical rings,
+// a step along the seam or a blend over Blend over degrees; decision 0545's
+// parameters) ----
+
+use openchuck_path::helical::parameter::{BLENDED, RING_BLEND_ANGLE, RING_STEP, SHARP};
+
+/// A along a run, in order, in degrees.
+fn a_of(pass: &Pass) -> Vec<f64> {
+    pass.points.iter().map(|c| c.a.0).collect()
+}
+
+/// Whether A never reverses along `a` (a turn one way, with steps at a
+/// held A allowed).
+fn one_way(a: &[f64]) -> bool {
+    let d: Vec<f64> = a
+        .windows(2)
+        .map(|w| w[1] - w[0])
+        .filter(|d| d.abs() > 1e-6)
+        .collect();
+    d.iter().all(|x| *x > 0.0) || d.iter().all(|x| *x < 0.0)
+}
+
+fn ring_values(
+    join: &str,
+    direction: &str,
+    extra: &[(&str, openchuck_path::ParameterValue)],
+) -> BTreeMap<String, openchuck_path::ParameterValue> {
+    let mut v = values(
+        2.0,
+        &[
+            (p::STAY_DOWN, flag(true)),
+            (RING_STEP, text(join)),
+            (p::DIRECTION, text(direction)),
+        ],
+    );
+    for (k, x) in extra {
+        v.insert((*k).to_owned(), x.clone());
+    }
+    v
+}
+
+#[test]
+fn req_op_28_req_op_14_blended_rings_are_whole_turns_joined_by_diagonal_blends() {
+    for (what, model) in [
+        ("cylinder", full_cylinder(10.0, 20.0)),
+        ("cone", full_cone(10.0, 0.0, 15.0)),
+    ] {
+        let rig = Rig::new(model, &ball(6.0));
+        let rings = rings(&rig.passes(&[0], &[], &values(2.0, &[]))).len();
+        for direction in [p::MEANDER, p::CLIMB, p::CONVENTIONAL] {
+            for phi in [45.0, 90.0] {
+                let out = rig
+                    .output(
+                        &rig.strategy(&[0], &[]),
+                        &ring_values(BLENDED, direction, &[(RING_BLEND_ANGLE, num(phi))]),
+                    )
+                    .unwrap_or_else(|e| panic!("{what} {direction}: refused: {e}"));
+                assert_eq!(out.passes.len(), 1, "{what} {direction} {phi}: one run");
+                let a = a_of(&out.passes[0]);
+                assert!(one_way(&a), "{what} {direction} {phi}: A reverses");
+                // Whole turns, each blend φ more: 360 per ring and φ per blend.
+                let total = (a.last().unwrap() - a[0]).abs();
+                let want = 360.0 * rings as f64 + phi * (rings - 1) as f64;
+                assert!(
+                    (total - want).abs() < 1.0,
+                    "{what} {direction} {phi}: A turns {total}, not {want}"
+                );
+                // X never goes back, and the last ring (no blend after it)
+                // turns a whole turn at its place.
+                let c = contacts(&out.passes[0]);
+                // (to within the contact solve, 1e-4 mm)
+                let back = c.windows(2).map(|w| w[0].x - w[1].x).fold(0.0, f64::max);
+                assert!(back < 1e-4, "{what} {direction}: X goes back {back}");
+                let end = c.last().unwrap().x;
+                let last: Vec<f64> = out.passes[0]
+                    .points
+                    .iter()
+                    .filter(|q| (q.contact.x - end).abs() < 1e-3)
+                    .map(|q| q.a.0)
+                    .collect();
+                let span = last.iter().copied().fold(f64::NEG_INFINITY, f64::max)
+                    - last.iter().copied().fold(f64::INFINITY, f64::min);
+                assert!(
+                    (span - 360.0).abs() < 1.0,
+                    "{what} {direction}: the last ring turns {span}"
+                );
+                // Over a blend X and A move together: no point of the run
+                // moves in X with A held.
+                for w in out.passes[0].points.windows(2) {
+                    let dx = (w[1].contact.x - w[0].contact.x).abs();
+                    if dx > 1e-4 {
+                        assert!(
+                            (w[1].a.0 - w[0].a.0).abs() > 1e-3,
+                            "{what} {direction}: a step with A held"
+                        );
+                    }
+                }
+                let notes = out.notes().join("\n");
+                assert!(
+                    notes.contains(&format!("blended over {phi}")),
+                    "{what}: {notes}"
+                );
+            }
+        }
+    }
+}
+
+#[test]
+fn req_op_28_req_op_14_sharp_ring_steps_go_along_the_seam() {
+    let rig = Rig::new(full_cylinder(10.0, 20.0), &ball(6.0));
+    let n = rings(&rig.passes(&[0], &[], &values(2.0, &[]))).len();
+    for direction in [p::MEANDER, p::CLIMB, p::CONVENTIONAL] {
+        let out = rig
+            .output(
+                &rig.strategy(&[0], &[]),
+                &ring_values(SHARP, direction, &[]),
+            )
+            .unwrap_or_else(|e| panic!("{direction}: refused: {e}"));
+        assert_eq!(out.passes.len(), 1, "{direction}: one run");
+        let points = &out.passes[0].points;
+        // Every move along X is a step at the seam with A held.
+        for w in points.windows(2) {
+            if (w[1].contact.x - w[0].contact.x).abs() > 1e-4 {
+                assert!(
+                    (w[1].a.0 - w[0].a.0).abs() < 1e-6,
+                    "{direction}: A turns on a step"
+                );
+                assert!(
+                    angle(w[0].contact).abs() < 1e-3,
+                    "{direction}: a step off the seam"
+                );
+            }
+        }
+        let a = a_of(&out.passes[0]);
+        let total = (a.last().unwrap() - a[0]).abs();
+        if direction == p::MEANDER {
+            // Each ring back the other way: A unwinds.
+            assert!(!one_way(&a), "Meander does not reverse");
+            assert!(total < 361.0, "{total}");
+        } else {
+            // Every ring the same way, a whole turn each.
+            assert!(one_way(&a), "{direction}: A reverses");
+            assert!(
+                (total - 360.0 * n as f64).abs() < 1.0,
+                "{direction}: {total}"
+            );
+        }
+    }
+}
+
+#[test]
+fn req_op_28_req_op_12_ring_joins_leave_no_strip_and_never_gouge() {
+    let (radius, length, stepover) = (10.0, 20.0, 2.0);
+    let rig = Rig::new(full_cylinder(radius, length), &ball(6.0));
+    for join in [SHARP, BLENDED] {
+        for direction in [p::MEANDER, p::CLIMB] {
+            let passes = rig.passes(&[0], &[], &ring_values(join, direction, &[]));
+            let all: Vec<Point3> = passes.iter().flat_map(contacts).collect();
+            for q in &all {
+                assert!(
+                    (q.y.hypot(q.z) - radius).abs() < 0.005,
+                    "{join} {direction}: {q:?}"
+                );
+                assert!(
+                    q.x > -1e-6 && q.x < length + 1e-6,
+                    "{join} {direction}: {q:?}"
+                );
+            }
+            // Every point of the face is within half the stepover (and a
+            // sample) of a contact, along the seam too.
+            let mut worst: f64 = 0.0;
+            for i in 0..=40 {
+                for j in 0..72 {
+                    let (x, t) = (
+                        length * f64::from(i) / 40.0,
+                        std::f64::consts::TAU * f64::from(j) / 72.0,
+                    );
+                    let q = p3(x, radius * t.cos(), radius * t.sin());
+                    let d = all
+                        .iter()
+                        .map(|c| c.distance(q))
+                        .fold(f64::INFINITY, f64::min);
+                    worst = worst.max(d);
+                }
+            }
+            assert!(
+                worst <= 0.5 * stepover + 0.3,
+                "{join} {direction}: a point {worst} mm from the nearest contact"
+            );
+        }
+    }
+}
+
+#[test]
+fn req_op_28_req_nfr_07_blend_over_out_of_range_is_refused_by_name() {
+    let rig = Rig::new(full_cylinder(10.0, 20.0), &ball(6.0));
+    for phi in [0.0, -10.0, 181.0, f64::NAN] {
+        let e = rig
+            .output(
+                &rig.strategy(&[0], &[]),
+                &ring_values(BLENDED, p::MEANDER, &[(RING_BLEND_ANGLE, num(phi))]),
+            )
+            .err()
+            .unwrap_or_else(|| panic!("{phi} degrees accepted"));
+        assert!(
+            e.to_string().contains(RING_BLEND_ANGLE) || e.to_string().contains("Blend over"),
+            "{phi}: {e}"
+        );
+    }
+}
+
+#[test]
+fn req_op_28_req_gc_07_ring_joins_are_the_same_at_1_2_and_n_threads() {
+    let rig = Rig::new(full_cone(10.0, 0.0, 15.0), &ball(6.0));
+    let strategy = rig.strategy(&[0], &[]);
+    for join in [SHARP, BLENDED] {
+        let v = ring_values(join, p::CLIMB, &[]);
+        openchuck_testkit::determinism::check(|| {
+            let path =
+                run(|ctx| openchuck_path::generate(&strategy, &rig.input(), &v, ctx)).unwrap();
+            format!("{:?} {:?} {:?}", path.group, path.notices, path.unreached).into_bytes()
+        })
+        .unwrap();
+    }
+}
+
+#[test]
+fn req_op_28_face_flow_offers_the_ring_steps_of_the_ring_strategies() {
+    let rig = Rig::new(full_cylinder(10.0, 20.0), &ball(6.0));
+    let schema = rig.strategy(&[0], &[]).schema();
+    let step = schema.get(RING_STEP).expect("Steps between rings");
+    assert_eq!(step.label, "Steps between rings");
+    let blend = schema.get(RING_BLEND_ANGLE).expect("Blend over");
+    assert_eq!(blend.label, "Blend over");
+    // A saved operation without them keeps sharp steps and does not stay
+    // down (decision 0545 D3's pattern); a new one is written with both.
+    match &step.kind {
+        openchuck_path::params::ParameterKind::Choice { default, .. } => assert_eq!(default, SHARP),
+        other => panic!("{other:?}"),
+    }
+    match &schema.get(p::STAY_DOWN).expect("Stay down").kind {
+        openchuck_path::params::ParameterKind::Flag { default } => assert!(!default),
+        other => panic!("{other:?}"),
+    }
+}

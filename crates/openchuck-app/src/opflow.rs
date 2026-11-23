@@ -306,6 +306,20 @@ impl Application {
                 ),
             );
         }
+        // A strategy that can stay down between its passes starts with it
+        // on, written into the operation; one saved without it keeps
+        // lifting between passes (issue #854, the owner's answer of 23 Nov
+        // 2026 to Q2, in decision 0545 D3's pattern).
+        if self.strategies.get(strategy).is_ok_and(|s| {
+            s.schema()
+                .get(openchuck_path::face_flow::parameter::STAY_DOWN)
+                .is_some()
+        }) {
+            parameters.insert(
+                openchuck_path::face_flow::parameter::STAY_DOWN.to_owned(),
+                openchuck_project::ParameterValue::Flag(true),
+            );
+        }
         let id = OperationId::new();
         self.execute(Command::Add {
             item: Item::Operation(Operation {
