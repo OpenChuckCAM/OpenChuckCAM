@@ -3170,3 +3170,82 @@ fn req_op_11_req_op_12_a_ball_on_a_floor_keeps_entries_that_cut_it_no_deeper_tha
         );
     }
 }
+
+#[test]
+fn req_op_07_req_op_12_req_nfr_12_the_reach_past_the_rulings_is_said_after_the_lift() {
+    // Issue #624 (decision record 9902): the face's note said how far the
+    // tool's end reaches past the end of the rulings measured before any
+    // lift, so with the floor in an avoid set, the ball lifted clear all
+    // along, it still said the tool cuts into a floor. The sentence is
+    // information, said after the lift; a real cut into a face next to this
+    // one is measured and warned of on its own (decision record 0532).
+    let f = Fixture::brep(&limit_wall(), ball());
+    let floor = BrepSurface::new(&floor_model()).unwrap();
+    let avoid = RegionConstraint {
+        avoid: Some(&floor),
+        ..RegionConstraint::default()
+    };
+    let lifted = limited(&f, &avoid, &f.settings()).unwrap();
+    let note = lifted.note(TOL, LIMIT);
+    assert!(
+        note.contains(&format!(
+            " The tool's end would reach {:.3} mm beyond the end of the rulings at the tip (its \
+             corner radius and the tip extension); it is lifted at least that far all along the \
+             face, so it ends level with them or short of them.",
+            lifted.limits.end_reach
+        )),
+        "{note}"
+    );
+    assert!(!note.contains("so it cuts into any face"), "{note}");
+    // Not lifted: the sentence is as before.
+    let plain = limited(&f, &RegionConstraint::default(), &f.settings()).unwrap();
+    assert!(
+        plain.note(TOL, LIMIT).contains(
+            " The tool's end reaches 3.000 mm beyond the end of the rulings at the tip (its \
+             corner radius and the tip extension), so it cuts into any face that meets them \
+             there, such as a floor, unless that face is in an avoid or check set."
+        ),
+        "{}",
+        plain.note(TOL, LIMIT)
+    );
+    // Lifted only in part: a flat end 1 mm past the rulings over a floor
+    // that rises along the pass is lifted only where the floor rises, and
+    // the note gives what is left where it is lifted least.
+    let f = Fixture::brep(&limit_wall(), flat());
+    let rising = BrepSurface::new(&rising_floor(5.0)).unwrap();
+    let avoid = RegionConstraint {
+        avoid: Some(&rising),
+        ..RegionConstraint::default()
+    };
+    let settings = Settings {
+        tip_extension: 1.0,
+        ..f.settings()
+    };
+    let part = limited(&f, &avoid, &settings).unwrap();
+    let least = part.poses().map(|p| p.lift).fold(f64::INFINITY, f64::min);
+    assert!(
+        least < 1.0 && part.limits.tip_lifted > 0.0,
+        "{least} {:?}",
+        part.limits
+    );
+    let note = part.note(TOL, LIMIT);
+    assert!(
+        note.contains(&format!(
+            " The tool's end would reach 1.000 mm beyond the end of the rulings at the tip (its \
+             corner radius and the tip extension); where it is lifted least it still reaches \
+             {:.3} mm beyond them, so it cuts into any face that meets them there, such as a \
+             floor, unless that face is in an avoid or check set.",
+            1.0 - least
+        )),
+        "{note}"
+    );
+    // Through the strategy, with the floor lifted clear: no warning.
+    let f = Fixture::brep(&limit_wall(), ball());
+    let avoid = RegionConstraint {
+        avoid: Some(&floor),
+        ..RegionConstraint::default()
+    };
+    let made =
+        run(|ctx| generate_in_region(&Swarf, &f.input(), &avoid, &values(&[]), ctx)).unwrap();
+    assert!(made.warnings().is_empty(), "{:?}", made.warnings());
+}
