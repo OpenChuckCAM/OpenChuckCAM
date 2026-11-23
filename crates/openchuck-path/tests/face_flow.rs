@@ -2035,7 +2035,10 @@ fn to_comb_outline(x: f64, y: f64) -> f64 {
 fn req_op_28_a_face_with_fingers_is_cut_along_its_outline_in_few_runs() {
     let rig = Rig::new(comb(), &ball(3.0));
     let stepover = 0.8;
-    let v = values(stepover, &[(p::STAY_DOWN, flag(true))]);
+    let v = values(
+        stepover,
+        &[(p::STAY_DOWN, flag(true)), (p::PATTERN, text(p::AUTOMATIC))],
+    );
     let out = rig
         .output(&rig.strategy(&[0], &[]), &v)
         .unwrap_or_else(|e| panic!("refused: {e}"));
@@ -2174,7 +2177,10 @@ fn req_op_28_follow_the_outline_offsets_a_rectangle_inwards_at_the_stepover() {
 fn req_op_28_req_gc_07_following_the_outline_is_the_same_at_1_2_and_n_threads() {
     let rig = Rig::new(comb(), &ball(3.0));
     let strategy = rig.strategy(&[0], &[]);
-    let v = values(0.8, &[(p::STAY_DOWN, flag(true))]);
+    let v = values(
+        0.8,
+        &[(p::STAY_DOWN, flag(true)), (p::PATTERN, text(p::AUTOMATIC))],
+    );
     let runs = openchuck_testkit::determinism::check(|| {
         let path = run(|ctx| openchuck_path::generate(&strategy, &rig.input(), &v, ctx)).unwrap();
         format!("{:?} {:?} {:?}", path.group, path.notices, path.unreached).into_bytes()
@@ -2291,7 +2297,7 @@ fn req_op_28_req_op_14_blended_rings_are_whole_turns_joined_by_diagonal_blends()
 }
 
 #[test]
-fn req_op_28_req_op_14_sharp_ring_steps_go_along_the_seam() {
+fn req_op_28_req_op_14_sharp_ring_steps_go_along_the_seam_and_rings_never_reverse() {
     let rig = Rig::new(full_cylinder(10.0, 20.0), &ball(6.0));
     let n = rings(&rig.passes(&[0], &[], &values(2.0, &[]))).len();
     for direction in [p::MEANDER, p::CLIMB, p::CONVENTIONAL] {
@@ -2318,16 +2324,18 @@ fn req_op_28_req_op_14_sharp_ring_steps_go_along_the_seam() {
         }
         let a = a_of(&out.passes[0]);
         let total = (a.last().unwrap() - a[0]).abs();
+        // Rings never reverse (the owner's correction of 23 Nov 2026):
+        // every ring the same way, a whole turn each, Meander too.
+        assert!(one_way(&a), "{direction}: A reverses");
+        assert!(
+            (total - 360.0 * n as f64).abs() < 1.0,
+            "{direction}: {total}"
+        );
         if direction == p::MEANDER {
-            // Each ring back the other way: A unwinds.
-            assert!(!one_way(&a), "Meander does not reverse");
-            assert!(total < 361.0, "{total}");
-        } else {
-            // Every ring the same way, a whole turn each.
-            assert!(one_way(&a), "{direction}: A reverses");
+            let notes = out.notes().join("\n");
             assert!(
-                (total - 360.0 * n as f64).abs() < 1.0,
-                "{direction}: {total}"
+                notes.contains("every ring still runs the same way round"),
+                "{notes}"
             );
         }
     }
@@ -2425,6 +2433,18 @@ fn req_op_28_face_flow_offers_the_ring_steps_of_the_ring_strategies() {
     }
     match &schema.get(p::STAY_DOWN).expect("Stay down").kind {
         openchuck_path::params::ParameterKind::Flag { default } => assert!(!default),
+        other => panic!("{other:?}"),
+    }
+    match &schema.get(p::PATTERN).expect("Pattern").kind {
+        openchuck_path::params::ParameterKind::Choice { default, .. } => {
+            assert_eq!(default, p::ALONG_GUIDE)
+        }
+        other => panic!("{other:?}"),
+    }
+    match &schema.get(p::SHORTEST_CUT).expect("Shortest cut").kind {
+        openchuck_path::params::ParameterKind::Number { default, .. } => {
+            assert_eq!(*default, Some(0.0))
+        }
         other => panic!("{other:?}"),
     }
 }

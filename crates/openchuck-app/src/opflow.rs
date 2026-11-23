@@ -320,6 +320,17 @@ impl Application {
                 openchuck_project::ParameterValue::Flag(true),
             );
         }
+        // Face flow starts with Pattern Automatic; one saved without it
+        // keeps its passes along the guide (the owner's decision of 23 Nov
+        // 2026, decision 0545 D3's pattern).
+        if strategy == openchuck_path::face_flow::NAME {
+            parameters.insert(
+                openchuck_path::face_flow::parameter::PATTERN.to_owned(),
+                openchuck_project::ParameterValue::Text(
+                    openchuck_path::face_flow::parameter::AUTOMATIC.to_owned(),
+                ),
+            );
+        }
         // Face flow starts with a Shortest cut of its tool's diameter; one
         // saved without it keeps every cut (issue #854, the owner's answer
         // of 23 Nov 2026 to Q3, as decision 0205 writes roughing's stock).

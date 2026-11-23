@@ -298,9 +298,10 @@ impl Strategy for FaceFlow {
                               start of the next instead of lifting, where the way is on the face \
                               and clear of the part: with Meander, and on a face cut in rings \
                               (one that closes round on itself) in any direction, as Steps \
-                              between rings sets. It lifts where a wall is in the way, where the \
+                              between rings sets (rings never reverse). It lifts where a wall is in the way, where the \
                               step would leave the face, or where it would be longer than twice \
-                              the stepover."
+                              the stepover. A new operation starts with it on; one saved before \
+                              this setting keeps it off."
                     .to_owned(),
                 // Off for an operation saved without it, so its program is
                 // unchanged; a new operation is written with it on (as
@@ -316,14 +317,19 @@ impl Strategy for FaceFlow {
                               each the stepover inside the last, for a face with fingers, \
                               notches or holes. Automatic takes the guide where its passes stay \
                               whole on the face and the outline where the face's shape would \
-                              break them."
+                              break them. A new operation starts with Automatic; one saved before \
+                              this setting keeps Along the guide."
                     .to_owned(),
                 kind: ParameterKind::Choice {
                     options: [AUTOMATIC, ALONG_GUIDE, OUTLINE]
                         .iter()
                         .map(|o| (*o).to_owned())
                         .collect(),
-                    default: AUTOMATIC.to_owned(),
+                    // Along the guide for an operation saved without it, so
+                    // its program is unchanged; a new operation is written
+                    // with Automatic (the owner's decision of 23 Nov 2026,
+                    // decision 0545 D3's pattern).
+                    default: ALONG_GUIDE.to_owned(),
                 },
             },
         ]);
@@ -2174,6 +2180,8 @@ struct FaceCut {
     outline: bool,
     /// What the face note says of the joins between rings, if anything.
     ring_words: String,
+    /// Its passes are already directed (rings, which never reverse).
+    one_way: bool,
 }
 
 #[allow(clippy::too_many_lines)]
@@ -2396,20 +2404,25 @@ fn cut_face(
     // every ring runs one way and is joined to the next, unless Meander
     // steps along the seam with each ring back the other way (the owner's
     // decision of 23 Nov 2026; decision 0545's two shapes).
+    // Rings never reverse: every ring runs the same way round, for every
+    // direction and either join (the owner's correction of 23 Nov 2026).
     let settings = tooling.settings;
-    let rings_joined = f.wrap.iter().any(Option::is_some)
-        && settings.stay_down
-        && (settings.ring_blend.is_some() || settings.direction != Direction::Meander);
-    let ring_dir = if rings_joined {
+    let closed_face = f.wrap.iter().any(Option::is_some);
+    let rings_joined = closed_face && settings.stay_down;
+    let ring_dir = if closed_face {
         ring_direction(f, &weights, settings.direction)
     } else {
         1.0
     };
-    let turn = settings.ring_blend.unwrap_or(0.0) / 360.0;
+    let turn = if rings_joined {
+        settings.ring_blend.unwrap_or(0.0) / 360.0
+    } else {
+        0.0
+    };
     let mut kept_k: Vec<usize> = Vec::with_capacity(weights.len());
     for (k, &w) in weights.iter().enumerate() {
         context.check_cancelled()?;
-        let samples = if rings_joined {
+        let samples = if closed_face {
             // Ring k starts where the blend before it ends, φ further round.
             let line = Ring {
                 field: f,
@@ -2476,7 +2489,7 @@ fn cut_face(
             settings.ring_blend,
         ))
     } else {
-        (settings.direction == Direction::Meander && settings.stay_down)
+        (!closed_face && settings.direction == Direction::Meander && settings.stay_down)
             .then(|| join_meander(f, tooling, &passes, &kept))
     };
     // The ring note's words for the joins (decision 0545 item 6's form):
@@ -2491,9 +2504,9 @@ fn cut_face(
             .map(|c| c.contact.y.hypot(c.contact.z))
             .fold(0.0, f64::max);
         ring_words.push_str(&crate::helical::blend_words(Some(phi), spacing, radius));
-        if settings.direction == Direction::Meander {
-            ring_words.push_str("; with blended steps every ring runs the same way round");
-        }
+    }
+    if closed_face && settings.direction == Direction::Meander {
+        ring_words.push_str("; with Meander every ring still runs the same way round");
     }
     Ok(FaceCut {
         id: f.id,
@@ -2507,6 +2520,7 @@ fn cut_face(
         spacing,
         outline: false,
         ring_words,
+        one_way: closed_face,
     })
 }
 
@@ -2732,7 +2746,14 @@ impl PassLine for Ring<'_, '_> {
     }
 
     fn at(&self, t: f64) -> Option<SurfacePoint> {
-        self.field.at(round01(self.s0 + self.dir * t), self.w)
+        // Within 0 to 1 as it is, so a ring from the seam ends on it.
+        let s = self.s0 + self.dir * t;
+        let s = if (0.0..=1.0).contains(&s) {
+            s
+        } else {
+            round01(s)
+        };
+        self.field.at(s, self.w)
     }
 }
 
@@ -2996,7 +3017,7 @@ fn assemble(
         // runs in their cutting order.
         let centres: Vec<Option<Point3>> = cut.passes.iter().map(|p| centre(p)).collect();
         let mut forward = true;
-        let directed = if cut.joined.is_some() {
+        let directed = if cut.joined.is_some() || cut.one_way {
             0
         } else {
             cut.passes.len()

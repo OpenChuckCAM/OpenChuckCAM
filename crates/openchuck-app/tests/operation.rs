@@ -1824,7 +1824,7 @@ fn req_op_28_a_new_face_flow_operation_stays_down_blends_its_ring_steps_and_sets
     // passes on and blended steps between rings, as decision 0545 D3 writes
     // blended steps; one saved without them keeps its program (both off by
     // default), and other strategies get no Stay down.
-    use openchuck_path::face_flow::parameter::{SHORTEST_CUT, STAY_DOWN};
+    use openchuck_path::face_flow::parameter::{AUTOMATIC, PATTERN, SHORTEST_CUT, STAY_DOWN};
     use openchuck_path::helical::parameter::{BLENDED, RING_STEP};
     let (dir, mut app, op) = project("face-flow-defaults");
     // Face flow needs a STEP part.
@@ -1852,6 +1852,12 @@ fn req_op_28_a_new_face_flow_operation_stays_down_blends_its_ring_steps_and_sets
         value(&app, added, RING_STEP),
         Some(openchuck_app::project::ParameterValue::Text(BLENDED.into()))
     );
+    assert_eq!(
+        value(&app, added, PATTERN),
+        Some(openchuck_app::project::ParameterValue::Text(
+            AUTOMATIC.into()
+        ))
+    );
     // Shortest cut starts at the tool's diameter (Q3).
     let diameter = app
         .project()
@@ -1869,6 +1875,7 @@ fn req_op_28_a_new_face_flow_operation_stays_down_blends_its_ring_steps_and_sets
         .unwrap();
     assert_eq!(value(&app, helical, STAY_DOWN), None);
     assert_eq!(value(&app, helical, SHORTEST_CUT), None);
+    assert_eq!(value(&app, helical, PATTERN), None);
     assert_eq!(value(&app, op, STAY_DOWN), None);
     std::fs::remove_dir_all(&dir).unwrap();
 }
