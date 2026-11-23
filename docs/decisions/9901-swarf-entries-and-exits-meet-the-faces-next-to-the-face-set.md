@@ -13,6 +13,8 @@ A swarf operation's input surface is its face set (`BrepSurface::with_faces`, de
 
 At an end of a face that stands against a wall, swarf stops the pass short so the tool just keeps off the wall (0532 item 1). A lead-out then carries the tool forward along the pass by the lead radius, into that wall, and nothing measures it.
 
+![Seen down the tool axis at the end of a swarf pass: the pass stops short so the tool keeps off the end wall (face 1, next to the face set); the lead-out arc then carries the tool 2.990 mm into that wall, silently on main. Item 1 measures every lead and helix position against the faces next to the face set; under option B the lead-out is refused, naming face 1.](9901-swarf-entries-and-exits-meet-the-faces-next-to-the-face-set.svg)
+
 ### Measured (public fixtures only)
 
 `crates/openchuck-path/tests/swarf.rs`: the limit wall (`y = 8`, X 22 to 38) with a square end wall at X = 38 as face 1 and/or a floor at Z = 10 as face 2, given as the faces next to the face set, tolerance 0.01 mm, the 6 mm flat end mill and a 6 mm ball end mill, Keep off the end faces on. The cut is the deepest cut of the entry and exit moves alone into the given faces, by the independent checker over each machine move (24 by 24 samples a face, 8 points a move), on `main` `0ff4b13`:

@@ -13,6 +13,8 @@ Each swarf face's note (information) says how far the tool's end reaches past th
 
 Since decision 0532 item 3, with the faces next to the face given (the application always gives them on a STEP part), a real cut into a floor that shares an edge with the face is measured and warned of, naming the face and the depth.
 
+![Across the pass. Left, not lifted: a ball's end reaches 3.000 mm past the end of the wall's rulings into the floor, which decision 0532 measures and warns of; the sentence is unchanged. Right, the floor in an avoid set: the tool is lifted 3.000 mm, and the sentence says the end would reach 3.000 mm but is lifted at least that far all along the face; information, no warning.](9902-swarf-reach-past-the-rulings-is-said-after-the-lift.svg)
+
 ## Options put to the owner
 
 - **(a)** A warning on the reach after the lift (the largest left at any pose). It warns on every face where a ball's end hangs over nothing (an open end), and repeats 0532's measured warning where a floor is there.
