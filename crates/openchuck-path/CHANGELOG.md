@@ -1,12 +1,16 @@
 # Changelog
 
-## Unreleased (SIM-FINISH; issues #619, #685 and #608; decisions 0660, 0662 and 0663, accepted)
+## 0.56.0
+
+- **Family release (0.56.0, POST-SAFETY; issue #703; decision 0656, accepted):** `openchuck-post`'s `PostOptions` gains the public field `max_line_length` and `openchuck-gcode`'s `FindingKind` gains `LineTooLong`, a breaking change; no change to this crate.
+
+### SIM-FINISH; issues #619, #685 and #608; decisions 0660, 0662 and 0663, accepted
 
 - **Changed text (#619; decision 0660, option A, the owner's choice):** simultaneous finishing's note on surfaces hidden from the drive says what the tool aims at where it is placed to reach them (every 0.2 mm along each pass): the surface normal, plus as much of the lead as the largest lean on hidden surfaces allows, saying when it holds the lead back; where the part does not let it, how far it leans from the normal there, never more than the limit. Apart from it, it gives the largest angle of the axis from the normal along the passes, where the axis turns evenly between those places (the figure it gave before). The description of **Largest lean on hidden surfaces** says where the limit applies and that 0 also holds back the lead. Programs are unchanged. No API change.
 - **Fixed, changed output (#685; decision 0662):** on a pass that turns A, the lead-in move that meets the surface is timed for the tool tip's own travel. Its contact reference now starts at the arc's last tip plus the first cut point's offset from tip to contact, as a lead that holds A already did, so the jump from the tip to the contact point is no longer counted. Only that move's F word changes, and only where the contact point is off the tip (a sloping surface under a ball, for example); it was timed slower than needed, never faster. No API change.
 - **Fixed, changed output (#608; decision 0663):** helical finishing with an Avoid or Check set, or a boundary, and no Cut on set (a constraint that cannot be developed) keeps its 0.1 mm seeds only to find the constraint's edges: the runs between them are thinned to the points the chord limit needs, no further apart than the operation's own Largest angle step, on the spiral and on each ring. Such operations make about as many moves as without the constraint (a cylinder with a 4 mm strip avoided: 33,930 cutting moves before, 2,610 after, 2,880 without it) and generate faster. Without a constraint, or with a Cut on set, the output is unchanged. No API change.
 
-## Unreleased (FACING-STEP; issues #650 and #500; decision 0667, accepted)
+### FACING-STEP; issues #650 and #500; decision 0667, accepted
 
 - **Fixed (issue #650):** End facing's completion proof no longer refuses a slab that ends exactly at a sweep's axial edge. The slab boundaries are each sweep's own edge, so recomputing the sweep's reach for that slab put it a rounding error past the tool radius (no margin) or eroded it away (the written-motion margin), and ordinary settings were refused with "the actual end sweeps leave an unfinished required region in an axial layer", at generation or when posted. A sweep now reaches a slab when the slab lies inside the axial span the boundaries were made from, and at its edge it still counts its own across span, eroded by the margin. No path changes; settings that were refused now generate and post. No API change.
 - **Changed (issue #500):** a Box face left unfinished says where along X, and, when that is a held region and the tool's radius beside it, says so with what to change (the Part only extent, or a shorter grip or the part moved away from it). The faces are still refused, never cropped silently (decision 0252). `verify_flat_raster` and its texts are unchanged. No API change.

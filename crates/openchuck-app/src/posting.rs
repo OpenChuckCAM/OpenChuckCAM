@@ -452,8 +452,13 @@ fn check_file(
         require_work_offset: true,
         allow_inverse_time: options.feed_mode == FeedMode::G93,
     };
-    let findings = openchuck_gcode::static_check(&replay, &config)
+    // A line the controller would cut short is a finding too (decision 0656, OI-933).
+    let too_long = options.max_line_length.map_or_else(Vec::new, |max| {
+        openchuck_gcode::line_length_check(text, max as usize)
+    });
+    let findings = too_long
         .into_iter()
+        .chain(openchuck_gcode::static_check(&replay, &config))
         .map(|f| {
             if f.line == 0 {
                 f.message

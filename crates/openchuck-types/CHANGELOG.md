@@ -1,6 +1,10 @@
 # Changelog
 
-## Unreleased
+## 0.56.0
+
+- **Family release (0.56.0, POST-SAFETY; issue #703; decision 0656, accepted):** `openchuck-post`'s `PostOptions` gains the public field `max_line_length` and `openchuck-gcode`'s `FindingKind` gains `LineTooLong`, a breaking change; no change to this crate.
+
+### Unreleased entries merged into 0.56.0
 
 - **`setup::starts_behind_reference` and `SetupWarningKind::StartsBehindReference`** (lane Z1-SETUP; issue #812; decision 0672, accepted): the stock, or with no stock the part, starting behind X 0, for a host to raise on a machine whose rotary reference point is its headstock face (the Makera Z1); `check_setup` does not raise it. A new function and a new variant of a `non_exhaustive` enum, so not a breaking change. The doc comment of `MachineProfile::rotary_origin` names the headstock face, the Z1's, in place of the chuck face.
 
