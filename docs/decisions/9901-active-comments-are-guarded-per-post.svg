@@ -1,5 +1,5 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="720" height="470" viewBox="0 0 720 470" font-family="sans-serif" font-size="13">
-  <rect width="720" height="470" fill="#ffffff"/>
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="560" viewBox="0 0 720 560" font-family="sans-serif" font-size="13">
+  <rect width="720" height="560" fill="#ffffff"/>
   <text x="20" y="24" font-weight="bold">What the LinuxCNC post writes when a name would start an active comment (option B)</text>
   <text x="20" y="42" fill="#555">LinuxCNC skips spaces, then compares the comment's start with MSG, LOGOPEN, PY, and its other openings</text>
   <!-- column heads -->
@@ -44,12 +44,21 @@
   <text x="255" y="346" font-family="monospace">(MSG,direct title)</text>
   <text x="255" y="363" fill="#2a7ab0" font-size="12">unchanged: the Z1 firmware skips every comment, so the post lists no openings</text>
 
+  <!-- the warning (item 3) -->
+  <text x="20" y="408" font-weight="bold">5. The warning for case 1</text>
+  <text x="20" y="426" fill="#555">Messages and the command line</text>
+  <rect x="245" y="392" width="455" height="78" fill="#fff4d6" stroke="#b7791f"/>
+  <text x="255" y="410" font-size="12">setup 'Setup 1': the project name "MSG,direct title" would start a</text>
+  <text x="255" y="426" font-size="12">comment with "MSG,", which the controller of the post 'LinuxCNC</text>
+  <text x="255" y="442" font-size="12">verification' acts on, so the post wrote "_" in front of it; check</text>
+  <text x="255" y="458" font-size="12">where this text came from</text>
+
   <!-- legend -->
-  <rect x="20" y="400" width="14" height="14" fill="#fbe3e1" stroke="#b03a2e"/>
-  <text x="42" y="412">the controller acts on the line</text>
-  <rect x="260" y="400" width="14" height="14" fill="#e3f1e6" stroke="#2e7d32"/>
-  <text x="282" y="412">guarded: read as a comment</text>
-  <rect x="480" y="400" width="14" height="14" fill="#eef2f7" stroke="#2a7ab0"/>
-  <text x="502" y="412">no change</text>
-  <text x="20" y="446" fill="#555" font-size="12">From LinuxCNC's source (master 49d14cb6) and the Z1 firmware source (a9918d95); not run in the simulator or on a machine.</text>
+  <rect x="20" y="490" width="14" height="14" fill="#fbe3e1" stroke="#b03a2e"/>
+  <text x="42" y="502">the controller acts on the line</text>
+  <rect x="260" y="490" width="14" height="14" fill="#e3f1e6" stroke="#2e7d32"/>
+  <text x="282" y="502">guarded: read as a comment</text>
+  <rect x="480" y="490" width="14" height="14" fill="#eef2f7" stroke="#2a7ab0"/>
+  <text x="502" y="502">no change</text>
+  <text x="20" y="536" fill="#555" font-size="12">From LinuxCNC's source (master 49d14cb6) and the Z1 firmware source (a9918d95); not run in the simulator or on a machine.</text>
 </svg>

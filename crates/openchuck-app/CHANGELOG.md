@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased (POST-COMMENTS; issue #851; decision 9901, proposed; number provisional)
+
+- **Added:** when the post writes `_` in front of text from the project because it would have started a comment the controller acts on (LinuxCNC's `MSG,`, `LOGOPEN,` and others), the run has one warning per text and where it came from: the project name, the setup name, the operation name, the name of tool T<n>, the revision, the version line or a comment of the post, with the opening matched and the post's name. The text is quoted, escaped (control characters, quotes, backslashes and non-ASCII) and cut after 48 characters. It is an ordinary run warning (Messages tab, `warning:` on the command line); nothing is saved and nothing needs acknowledging.
+
 ## 0.57.0
 
 - **Breaking, changed output (0.57.0; SIM-FINISH, issue #801; decision 0661, accepted, option C):** `GroupInfo::rapid_cuts` holds `openchuck_sim::RapidCut`s, not `(move, mm³)` pairs, and only the rapids that go deeper into the stock than one cell of the simulation: those stay warnings to acknowledge, and read with their depth first ("Rapid cut (operation 'X'): move N is a rapid that goes D mm into the stock, deeper than the simulation's cell of C mm, and removes V mm³ of material"). A rapid no deeper than one cell is a note of the run ("... is a rapid that touches the stock D mm deep, within the simulation's cell of C mm, and removes V mm³ of material"), with nothing to acknowledge. A volume under 0.001 mm³ reads "less than 0.001 mm³", never 0.000.

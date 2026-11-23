@@ -1248,3 +1248,88 @@ fn req_gc_04_req_nfr_07_bad_active_comment_prefixes_are_refused() {
         );
     assert!(PostDefinition::from_parts("t", &edited, &template).is_ok());
 }
+
+/// NFR-07 and GC-10 (issue #851, the owner's addition of 23 Nov 2026): every text the post
+/// guarded is reported once, with where it came from (the title, an operation's name by its
+/// tag, a tool's name by its tag, or a comment line of the post's own), the opening it matched
+/// as the post lists it, the text as the job gave it and where in that text the mark went, so
+/// the host can warn the user. Ordinary names and the Z1 post report nothing; the report is
+/// deterministic (GC-07).
+#[test]
+fn req_gc_10_req_nfr_07_each_guarded_text_is_reported_once_with_its_source() {
+    use openchuck_post::{CommentSource, GuardedComment};
+    let report = |post: &TemplatePost, j: &openchuck_post::PostJob| {
+        let out = post.post(&small_part(), j).unwrap();
+        assert_eq!(
+            out.guarded_comments,
+            post.post(&small_part(), j).unwrap().guarded_comments,
+            "GC-07"
+        );
+        out.guarded_comments
+    };
+    let guarded = |source: CommentSource, opening: &str, text: &str, at: usize| GuardedComment {
+        source,
+        opening: opening.into(),
+        text: text.into(),
+        at,
+    };
+    assert!(report(&builtin_post("linuxcnc"), &job()).is_empty());
+    let mut j = job();
+    j.title = "  MSG,direct title".into();
+    assert_eq!(
+        report(&builtin_post("linuxcnc"), &j),
+        vec![guarded(
+            CommentSource::Title,
+            "MSG,",
+            "  MSG,direct title",
+            2
+        )]
+    );
+    assert!(report(&builtin_post("makera-z1"), &j).is_empty());
+
+    // Wrapped at 20: the title cut in a word, an operation name and a tool name, each once.
+    let mut j = job();
+    j.title = "abcdefghijklmnopqrMSG,x".into();
+    j.operation_names
+        .insert("groove (finish)".into(), "rough logopen,f".into());
+    j.tools.get_mut("t1").unwrap().name = "PY,abcdefghijklmnopq".into();
+    assert_eq!(
+        report(&linuxcnc_limited(20), &j),
+        vec![
+            guarded(CommentSource::Title, "MSG,", "abcdefghijklmnopqrMSG,x", 18),
+            guarded(
+                CommentSource::Operation("groove (finish)".into()),
+                "LOGOPEN,",
+                "rough logopen,f",
+                6
+            ),
+            guarded(
+                CommentSource::Tool("t1".into()),
+                "PY,",
+                "PY,abcdefghijklmnopq",
+                0
+            ),
+        ]
+    );
+
+    // A wrapped line of the post's own header: its first line is the author's and is kept;
+    // the later line is guarded and reported as the post's.
+    let manifest = std::fs::read_to_string(posts_path("linuxcnc/post.toml")).unwrap();
+    let template = std::fs::read_to_string(posts_path("linuxcnc/main.post")).unwrap();
+    let manifest = manifest
+        .replace("max_line_length = 255", "max_line_length = 20")
+        .replace(
+            "header = [\"G90 G21 G17\", \"G61\"]",
+            "header = [\"G90 G21 G17\", \"(MSG,Check the msg,stock)\"]",
+        );
+    let post = TemplatePost::new(PostDefinition::from_parts("t", &manifest, &template).unwrap());
+    assert_eq!(
+        report(&post, &job()),
+        vec![guarded(
+            CommentSource::Post,
+            "MSG,",
+            "MSG,Check the msg,stock",
+            14
+        )]
+    );
+}

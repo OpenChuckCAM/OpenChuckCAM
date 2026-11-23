@@ -1,12 +1,12 @@
 # 9901: A post lists the comments its controller acts on, and project text never starts one (GC-03, GC-04, GC-10, NFR-07, NFR-12; issue #851; lane POST-COMMENTS)
 
-- **Status:** Proposed by lane POST-COMMENTS on 23 Nov 2026. The owner directed on 23 Nov 2026 (relayed by the coordinator) that the words be defined in the post definition, not hard-coded (item 1). Item 2 (what happens to such text) is the owner's choice; the lane built its recommendation, option B, so the pull request can show it, and changes it if the owner chooses otherwise. **Number provisional** (9901): the coordinator assigns the real number when the pull request is released.
+- **Status:** Proposed by lane POST-COMMENTS on 23 Nov 2026; **not yet accepted**. The owner directed on 23 Nov 2026 (relayed by the coordinator) that the words be defined in the post definition, not hard-coded (item 1), and answered the record's three questions the same day (relayed): option B, the mark `_`, and the post author's own comments stay active (item 2). The owner added a requirement: the user is warned of every text that was changed and where it came from (item 3). All three are built. **Number provisional** (9901): the coordinator assigns the real number when the pull request is released.
 - **Date:** 23 Nov 2026.
 - **Requirements:** GC-03 and GC-04 (post definitions and options), GC-10 (the LinuxCNC post), GC-09 (the Makera Z1 post), GC-07 and NFR-06 (deterministic output), NFR-07 (clear errors, no surprises from input), NFR-12 (the user verifies G-code).
 - **Related:** [decision 0019](0019-sp-10-template-engine.md) item 4 (comment sanitising), [decision 0533](0533-safety-notice-post-option.md) (the NFR-12 notice, word for word), [decision 0656](0656-post-line-length-limit.md) (comment wrapping, issue #840), [decision 0007](0007-sp-12-z1-conventions.md) (the Z1 firmware source).
-- **Open items:** OI-9901 (the owner's choice of item 2 and acceptance; provisional number).
+- **Open items:** OI-9901 (the owner's acceptance of the record; provisional number). The choices it held are made.
 
-Requirements and architecture are not edited by this record. No project or machine schema change: the list is an optional post option with an empty default, like `max_line_length` (decision 0656).
+Requirements and architecture are not edited by this record. No project or machine schema change: the list is an optional post option with an empty default, like `max_line_length` (decision 0656), and the warning is an ordinary run warning with nothing saved.
 
 ## Context
 
@@ -49,7 +49,9 @@ Any other comment goes to the task's `COMMENT` (`src/emc/task/emccanon.cc`), whi
 | NFR-12 notice | fixed text, two lines | only by wrapping, and no word of it starts with a LinuxCNC opening |
 | Header, footer, unwind command | the post author's own lines | not project text: the author's to write, including an intended `(MSG,...)` |
 
-## Decision to take
+## Decision
+
+Items 1 and 2 were put to the owner as below; the choices are under *Owner's answers*, and item 3 is the owner's addition.
 
 1. **Where the list lives (the owner's direction, 23 Nov 2026):** an optional post option `active_comment_prefixes`, a list of the openings of comments the controller acts on. A comment matches when its text, after its leading spaces, starts with one in any case (a superset of LinuxCNC's rule, which is case-insensitive for the interpreter's words and case-sensitive for the task's). The built-in LinuxCNC post lists the fourteen openings above; the Makera Z1 post leaves it out, as does any post whose controller has none. Entries are checked when the post is loaded: 1 to 32 printable ASCII characters without spaces or parentheses, at most 64, none starting with the guard mark of option B, and, with the notice on, none that starts a word of the notice (else a wrapped notice line would change, against decision 0533).
 2. **What happens when project text would start an active comment:**
@@ -58,26 +60,37 @@ Any other comment goes to the task's `COMMENT` (`src/emc/task/emccanon.cc`), whi
    - **C: break the comma.** Replace the character after the opening (`MSG,` becomes `MSG;`). Changes the user's text, and does not work for openings with no comma (`LOGCLOSE`, `PYRELOAD`, `PROBEOPEN`, `PROBECLOSE`, `RPY`), so it needs a second rule for those.
    - **D: a fixed hard-coded word list** in the sanitiser instead of the post option. Rejected by the owner's direction: a post for another controller could not say what its controller does, and the Z1 would lose names it writes correctly.
 
-![What the LinuxCNC post writes, before this change and with option B. 1: a project named "MSG,direct title" gave the title line (MSG,direct title), which LinuxCNC shows as an operator message; with B it is (_MSG,direct title), an ordinary comment. 2: the title "abcdefghijklmnopqrMSG,x" at a line limit of 20 was wrapped to (abcdefghijklmnopqr) and (MSG,x), the second line a message; with B the second line is (_MSG,x), the mark counted in the 20. 3: a header line the post's author writes, (MSG,Check the stock is held), is kept as it is. 4: the Makera Z1 post writes (MSG,direct title) unchanged, because its firmware skips every comment.](9901-active-comments-are-guarded-per-post.svg)
+## Recommendation and owner's answers
 
-No screen of the program shows these comment lines (they are only in the exported file), so the record has a diagram and no screenshot.
+The lane recommended item 1 as directed and option B for item 2: it removes the effect without a refusal that depends on line breaks, keeps every word of the user's text, leaves the post author's own active comments working, keeps the NFR-12 notice word for word (no LinuxCNC opening starts a word of it, and the option check keeps it so for any post), and changes no golden program.
 
-## Recommendation
+**Owner's answers** (23 Nov 2026, relayed by the coordinator):
 
-Item 1 as directed, and option B for item 2. It removes the effect without a refusal that depends on line breaks, keeps every word of the user's text, leaves the post author's own active comments working, keeps the NFR-12 notice word for word (no LinuxCNC opening starts a word of it, and the option check keeps it so for any post), and changes no golden program. Generated G-code is still the user's to verify before it is run (NFR-12).
+1. Item 2: **option B**, a one-character mark.
+2. The mark: **`_`**.
+3. The post author's own header or footer comment that starts with a listed opening **stays active**; only the later lines of one that is wrapped are marked.
+4. **Added:** whenever text is marked, the user is **shown a warning** that says which text was changed and where it came from, so that someone who puts a command into a shared project or an imported tool library is seen. This is item 3.
 
-**Owner questions** (most important first):
+## Item 3: the warning (the owner's addition)
 
-1. Item 2: B (mark, recommended), A (refuse) or C (break the comma)?
-2. The mark: `_`, or another single printable character? It must not be white space, which LinuxCNC skips.
-3. Should a post author's own header or footer comment that starts with a listed opening stay active (recommended: yes, it is the author's text), or be marked too?
+- **What the post reports.** `PostOutput::guarded_comments` lists each mark the post wrote, as a `GuardedComment`: its `CommentSource` (`Title`, `Revision`, `Generator`, `Operation(tag)`, `Tool(tag)`, or `Post` for a comment of the post's own or of the program's own words), the opening matched as the post lists it, the text as the job gave it (before sanitising) and the character in that text where the mark went. A text the template was given and guarded is reported only when the template wrote it at the start of a comment. A wrapped line is attributed to the job text whose span holds the start of the line; a line held by none is the post's own. Each (source, place, text) is reported once, in source order, so the report is deterministic (GC-07, NFR-06).
+- **What the user sees.** `openchuck-app` turns the report into one run warning per field and text, for example:
+  `setup 'Setup 1': the project name "MSG,direct title" would start a comment with "MSG,", which the controller of the post 'LinuxCNC verification' acts on, so the post wrote "_" in front of it; check where this text came from`.
+  The field is the project name, the setup name or the label in the file's title (the title is split by where the mark went), the operation name, `the name of tool T<n>`, the revision, the version line, or a comment of the post. The text is quoted and escaped (control characters, quotes, backslashes and non-ASCII as `\u{..}`), and cut after 48 characters with `...`, so a name can neither write to a terminal nor end the quote. It says nothing about whether the program is safe or checked (NFR-12).
+- **Where it appears.** It is an ordinary warning of the run: in the Results window's Messages and the status count after generating with a post, and as a `warning:` line on the command line. It needs no dismissal and nothing is saved in the project file: no schema change. The G-code changes only by the mark.
 
-## Consequences (option B, as built)
+![What the LinuxCNC post writes, before this change and with option B, and the warning the run shows. 1: a project named "MSG,direct title" gave the title line (MSG,direct title), which LinuxCNC shows as an operator message; with B it is (_MSG,direct title), an ordinary comment. 2: the title "abcdefghijklmnopqrMSG,x" at a line limit of 20 was wrapped to (abcdefghijklmnopqr) and (MSG,x); with B the second line is (_MSG,x), the mark counted in the 20. 3: a header line the post's author writes, (MSG,Check the stock is held), is kept as it is. 4: the Makera Z1 post writes (MSG,direct title) unchanged. Below, the warning for case 1, naming the project name, its text, the opening MSG, and the post.](9901-active-comments-are-guarded-per-post.svg)
 
-- `openchuck-post`: `PostOptions::active_comment_prefixes` (a new public field of a struct built by literal, so breaking for `cargo-semver-checks`: the change needs a workspace minor bump, which the coordinator assigns at release, decision 0048); the public constant `ACTIVE_COMMENT_GUARD`; the guard in `TemplatePost::post` and in the comment wrap. The built-in LinuxCNC `post.toml` lists the openings; the Z1 `post.toml` says why it lists none.
+No screenshot: the comment lines are only in the exported file, and the warning is an ordinary line of the Messages list and of the command line's output, whose wording the diagram shows; the Messages tab itself is unchanged.
+
+Generated G-code is still the user's to verify before it is run (NFR-12).
+
+## Consequences (as built)
+
+- `openchuck-post`: `PostOptions::active_comment_prefixes` and `PostOutput::guarded_comments` (new public fields of structs built by literal, so breaking for `cargo-semver-checks`: the change needs a workspace minor bump, which the coordinator assigns at release, decision 0048); the public constant `ACTIVE_COMMENT_GUARD` and the types `CommentSource` and `GuardedComment`; the guard in `TemplatePost::post` and in the comment wrap. The built-in LinuxCNC `post.toml` lists the openings; the Z1 `post.toml` says why it lists none.
+- `openchuck-app` (`posting.rs`): the warning. No change to the command line or the interface: both already show the run's warnings.
 - No golden program changes: no ordinary name starts with a listed opening.
-- No change to `openchuck-gcode`, `openchuck-app` or the interface; the title is still built in `openchuck-app` (`posting.rs`) and guarded in the post.
-- User guide: `reference/writing-a-post.md` (the option), `reference/gcode-and-posts.md` (what the LinuxCNC post does with such names); `crates/openchuck-post/posts/README.md`; release notes; the post crate's changelog.
+- User guide: `reference/writing-a-post.md` (the option), `reference/gcode-and-posts.md` (what the LinuxCNC post does with such names, the warning and what to do); `crates/openchuck-post/posts/README.md`; the release notes' development version; the post and application crates' changelogs.
 
 ## Verification
 

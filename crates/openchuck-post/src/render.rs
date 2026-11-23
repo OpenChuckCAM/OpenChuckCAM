@@ -66,6 +66,43 @@ pub struct PostOutput {
     pub clamped_feeds: usize,
     /// Sum of posted durations in Slow down; the original IR estimate otherwise, seconds.
     pub estimated_seconds: f64,
+    /// Each text the post wrote with [`ACTIVE_COMMENT_GUARD`] in front, once per source and
+    /// place, in source order, so the host can warn the user (issue #851).
+    pub guarded_comments: Vec<GuardedComment>,
+}
+
+/// Where a text that the post guarded came from (issue #851).
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum CommentSource {
+    /// [`PostJob::title`].
+    Title,
+    /// [`PostJob::revision`].
+    Revision,
+    /// [`PostJob::generator`].
+    Generator,
+    /// An operation's name in [`PostJob::operation_names`], by the IR's operation tag.
+    Operation(String),
+    /// A tool's name in [`PostJob::tools`], by the IR's tool tag.
+    Tool(String),
+    /// A comment of the post's own (its header, footer or template) or of the program's own
+    /// words, such as a wrapped line of a header comment.
+    Post,
+}
+
+/// A text the post wrote with [`ACTIVE_COMMENT_GUARD`] in front, because it would otherwise
+/// have started a comment the controller acts on (issue #851). The program text carries only
+/// the mark; this report is what the host shows the user.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct GuardedComment {
+    /// Where the text came from.
+    pub source: CommentSource,
+    /// The entry of the post's `active_comment_prefixes` it matched, as the post lists it.
+    pub opening: String,
+    /// The text as the job gave it (before sanitising); for [`CommentSource::Post`], the
+    /// comment as the template wrote it.
+    pub text: String,
+    /// Where in `text` the mark was written, in characters.
+    pub at: usize,
 }
 
 /// Something that turns a toolpath into program text (GC-02, GC-13). The
@@ -131,20 +168,18 @@ pub(crate) fn starts_with_prefix(text: &str, prefix: &str) -> bool {
         .is_some_and(|head| head.eq_ignore_ascii_case(prefix.as_bytes()))
 }
 
-/// Whether a comment holding `text` would be acted on by the controller (issue #851).
-fn is_active(text: &str, prefixes: &[String]) -> bool {
-    prefixes.iter().any(|p| starts_with_prefix(text, p))
+/// The first of `prefixes` that a comment holding `text` would start with, so that the
+/// controller would act on it (issue #851).
+fn active_opening<'p>(text: &str, prefixes: &'p [String]) -> Option<&'p String> {
+    prefixes.iter().find(|p| starts_with_prefix(text, p))
 }
 
-/// `text` from the project, made safe to start a comment: when it would start an active
-/// comment, its leading spaces are dropped and [`ACTIVE_COMMENT_GUARD`] is written in front;
-/// any other text is returned as it is (issue #851).
-fn guard_active(text: String, prefixes: &[String]) -> String {
-    if is_active(&text, prefixes) {
-        format!("{ACTIVE_COMMENT_GUARD}{}", text.trim_start())
-    } else {
-        text
-    }
+/// Where a wrapped comment line was guarded: the comment's text, the character in it where
+/// the guarded line starts, and the opening matched.
+struct WrapMark {
+    inner: String,
+    at: usize,
+    opening: String,
 }
 
 /// Splits `text` at spaces into pieces of at most `first` characters for the first piece and
@@ -152,18 +187,49 @@ fn guard_active(text: String, prefixes: &[String]) -> String {
 /// one. A piece that starts anywhere but at the start of `text` and would start an active
 /// comment gets [`ACTIVE_COMMENT_GUARD`] in front, counted in its width (issue #851); the
 /// start of `text` is the template's to write. Deterministic (GC-07).
-fn wrap_words(text: &str, first: usize, rest: usize, prefixes: &[String]) -> Vec<String> {
+/// Also returns, for each guarded piece, the character of `text` where it starts and the
+/// opening matched.
+fn wrap_words(
+    text: &str,
+    first: usize,
+    rest: usize,
+    prefixes: &[String],
+) -> (Vec<String>, Vec<(usize, String)>) {
     let (first, rest) = (first.max(1), rest.max(1));
     let mut pieces: Vec<String> = Vec::new();
+    let mut marks: Vec<(usize, String)> = Vec::new();
     let mut current: Vec<char> = Vec::new();
     let mut at_start = true;
-    for word in text.split_whitespace() {
-        let mut word: Vec<char> = word.chars().collect();
+    let chars: Vec<char> = text.chars().collect();
+    let mut next = 0;
+    while next < chars.len() {
+        // The next word and the character of `text` it starts at, as `split_whitespace`.
+        let Some(skip) = chars
+            .get(next..)
+            .and_then(|rest| rest.iter().position(|c| !c.is_whitespace()))
+        else {
+            break;
+        };
+        let mut start = next + skip;
+        let end = chars
+            .get(start..)
+            .and_then(|rest| rest.iter().position(|c| c.is_whitespace()))
+            .map_or(chars.len(), |n| start + n);
+        next = end;
+        let mut word: Vec<char> = chars.get(start..end).unwrap_or_default().to_vec();
         loop {
             // The piece being filled is `current`, the first while nothing is pushed.
             let width = if pieces.is_empty() { first } else { rest };
             if current.is_empty() {
-                let guard = !at_start && is_active(&word.iter().collect::<String>(), prefixes);
+                let opening = if at_start {
+                    None
+                } else {
+                    active_opening(&word.iter().collect::<String>(), prefixes)
+                };
+                let guard = opening.is_some();
+                if let Some(opening) = opening {
+                    marks.push((start, opening.clone()));
+                }
                 let mark = usize::from(guard);
                 if word.len() + mark <= width {
                     if guard {
@@ -184,7 +250,9 @@ fn wrap_words(text: &str, first: usize, rest: usize, prefixes: &[String]) -> Vec
                 } else {
                     String::new()
                 };
-                piece.extend(word.drain(..width.saturating_sub(mark).max(1)));
+                let taken = width.saturating_sub(mark).max(1);
+                piece.extend(word.drain(..taken));
+                start += taken;
                 pieces.push(piece);
                 at_start = false;
             } else if current.len() + 1 + word.len() <= width {
@@ -199,7 +267,7 @@ fn wrap_words(text: &str, first: usize, rest: usize, prefixes: &[String]) -> Vec
     if !current.is_empty() {
         pieces.push(current.into_iter().collect());
     }
-    pieces
+    (pieces, marks)
 }
 
 /// Wraps every comment line longer than `max` characters (a whole line `(...)`, after an
@@ -207,8 +275,11 @@ fn wrap_words(text: &str, first: usize, rest: usize, prefixes: &[String]) -> Vec
 /// `N` word stays on the first of them, and a later line that would start an active comment
 /// is guarded (issue #851). Other lines are left as they are: one that is too long is the
 /// GC-08 check's to report.
-fn wrap_comments(text: &str, max: usize, prefixes: &[String]) -> String {
+///
+/// Also returns where a wrapped line was guarded.
+fn wrap_comments(text: &str, max: usize, prefixes: &[String]) -> (String, Vec<WrapMark>) {
     let mut out = String::with_capacity(text.len());
+    let mut marks = Vec::new();
     for line in text.split_inclusive('\n') {
         let (body, end) = match line.strip_suffix('\n') {
             Some(body) => (body, "\n"),
@@ -237,7 +308,13 @@ fn wrap_comments(text: &str, max: usize, prefixes: &[String]) -> String {
         // Only the first line carries the `N` word; the others have the whole width.
         let first = max.saturating_sub(prefix.chars().count() + 2);
         let rest = max.saturating_sub(2);
-        for (i, piece) in wrap_words(inner, first, rest, prefixes).iter().enumerate() {
+        let (pieces, guarded) = wrap_words(inner, first, rest, prefixes);
+        marks.extend(guarded.into_iter().map(|(at, opening)| WrapMark {
+            inner: inner.to_owned(),
+            at,
+            opening,
+        }));
+        for (i, piece) in pieces.iter().enumerate() {
             if i == 0 {
                 out.push_str(prefix);
             } else {
@@ -249,7 +326,48 @@ fn wrap_comments(text: &str, max: usize, prefixes: &[String]) -> String {
         }
         out.push_str(end);
     }
-    out
+    (out, marks)
+}
+
+/// Where `needle` occurs in `hay`, by character.
+fn char_spans(hay: &[char], needle: &[char]) -> Vec<usize> {
+    if needle.is_empty() || needle.len() > hay.len() {
+        return Vec::new();
+    }
+    (0..=hay.len() - needle.len())
+        .filter(|&i| hay.get(i..i + needle.len()) == Some(needle))
+        .collect()
+}
+
+/// Whether `value` is written at the start of a comment in `text`: after a `(` and nothing but
+/// spaces.
+fn starts_a_comment(text: &str, value: &str) -> bool {
+    text.match_indices(value).any(|(i, _)| {
+        text[..i]
+            .trim_end_matches(char::is_whitespace)
+            .ends_with('(')
+    })
+}
+
+/// A text from the job that the template may write, as the template is given it.
+struct Given {
+    source: CommentSource,
+    /// The text as the job gave it.
+    original: String,
+    /// The text the template is given: sanitised, and guarded when it started an active comment.
+    given: Vec<char>,
+    /// When it was guarded: the number of leading spaces dropped.
+    guarded_lead: Option<usize>,
+}
+
+impl Given {
+    /// `at` in the given text, as a character of the original.
+    fn original_at(&self, at: usize) -> usize {
+        match self.guarded_lead {
+            Some(lead) => (at + lead).saturating_sub(1),
+            None => at,
+        }
+    }
 }
 
 /// Replaces what a G-code comment cannot hold: parentheses, control
@@ -375,13 +493,45 @@ impl PostProcessor for TemplatePost {
         for r in &mut program.short_blocks {
             r.sources = sources;
         }
-        // Text from the project never starts an active comment (issue #851).
+        // Text from the project never starts an active comment (issue #851): each text the
+        // template is given is guarded where it would start one, and remembered, so a guard
+        // that reaches the program is reported with its source.
         let active = &d.options.active_comment_prefixes;
-        let safe = |text: &str| guard_active(sanitise_comment(text), active);
+        let mut candidates: Vec<(GuardedComment, String)> = Vec::new();
+        let mut safe = |text: &str, source: CommentSource| -> String {
+            let clean = sanitise_comment(text);
+            match active_opening(&clean, active) {
+                Some(opening) => {
+                    let lead = clean.chars().take_while(|c| c.is_whitespace()).count();
+                    let guarded = format!("{ACTIVE_COMMENT_GUARD}{}", clean.trim_start());
+                    candidates.push((
+                        GuardedComment {
+                            source,
+                            opening: opening.clone(),
+                            text: text.to_owned(),
+                            at: lead,
+                        },
+                        guarded.clone(),
+                    ));
+                    guarded
+                }
+                None => clean,
+            }
+        };
+        let tool_tag = |number: u32| {
+            job.tools
+                .iter()
+                .find(|(_, t)| t.number == number)
+                .map(|(tag, _)| tag.clone())
+        };
         for step in &mut program.steps {
             match step {
-                Step::Comment { text } => *text = safe(text),
-                Step::ToolChange { name, .. } => *name = safe(name),
+                // The operation comment is the program's own words around the names.
+                Step::Comment { text } => *text = safe(text, CommentSource::Post),
+                Step::ToolChange { name, number } => {
+                    let source = tool_tag(*number).map_or(CommentSource::Post, CommentSource::Tool);
+                    *name = safe(name, source);
+                }
                 _ => {}
             }
         }
@@ -392,9 +542,15 @@ impl PostProcessor for TemplatePost {
         }
         let steps = apply_a_conventions(&program, &options);
         let context = Context {
-            title: safe(&job.title),
-            revision: job.revision.as_deref().map(safe),
-            generator: job.generator.as_deref().map(safe),
+            title: safe(&job.title, CommentSource::Title),
+            revision: job
+                .revision
+                .as_deref()
+                .map(|t| safe(t, CommentSource::Revision)),
+            generator: job
+                .generator
+                .as_deref()
+                .map(|t| safe(t, CommentSource::Generator)),
             safety_notice: if options.safety_notice {
                 SAFETY_NOTICE
             } else {
@@ -425,10 +581,88 @@ impl PostProcessor for TemplatePost {
         }
         // Long comments are wrapped after the notice check, so the notice is checked as the
         // template wrote it and kept word for word (decision 0656).
-        let text = match options.max_line_length {
+        // A guarded text is reported when the template wrote it at the start of a comment.
+        let mut guarded: BTreeMap<(CommentSource, usize, String), GuardedComment> = BTreeMap::new();
+        for (report, value) in std::mem::take(&mut candidates) {
+            if starts_a_comment(&text, &value) {
+                guarded
+                    .entry((report.source.clone(), report.at, report.text.clone()))
+                    .or_insert(report);
+            }
+        }
+        let (text, marks) = match options.max_line_length {
             Some(max) => wrap_comments(&text, max as usize, active),
-            None => text,
+            None => (text, Vec::new()),
         };
+        // A wrapped line that was guarded is reported against the text from the job that holds
+        // its start; one held by none is the post's own.
+        let sanitised = |s: &str| sanitise_comment(s).chars().collect::<Vec<char>>();
+        let mut sources: Vec<Given> = Vec::new();
+        let mut give = |source: CommentSource, original: &str| {
+            let clean = sanitise_comment(original);
+            let guarded_lead = active_opening(&clean, active)
+                .map(|_| clean.chars().take_while(|c| c.is_whitespace()).count());
+            let given = match guarded_lead {
+                Some(_) => format!("{ACTIVE_COMMENT_GUARD}{}", clean.trim_start()),
+                None => clean,
+            };
+            sources.push(Given {
+                source,
+                original: original.to_owned(),
+                given: given.chars().collect(),
+                guarded_lead,
+            });
+        };
+        give(CommentSource::Title, &job.title);
+        if let Some(revision) = &job.revision {
+            give(CommentSource::Revision, revision);
+        }
+        if let Some(generator) = &job.generator {
+            give(CommentSource::Generator, generator);
+        }
+        // Names inside the program's operation comment are written sanitised, not guarded.
+        for (tag, name) in &job.operation_names {
+            sources.push(Given {
+                source: CommentSource::Operation(tag.clone()),
+                original: name.clone(),
+                given: sanitised(name),
+                guarded_lead: None,
+            });
+        }
+        for (tag, tool) in &job.tools {
+            sources.push(Given {
+                source: CommentSource::Tool(tag.clone()),
+                original: tool.name.clone(),
+                given: sanitised(&tool.name),
+                guarded_lead: None,
+            });
+        }
+        for mark in marks {
+            let inner: Vec<char> = mark.inner.chars().collect();
+            let held = sources.iter().find_map(|given| {
+                char_spans(&inner, &given.given)
+                    .into_iter()
+                    .find(|&start| mark.at >= start && mark.at < start + given.given.len())
+                    .map(|start| (given, mark.at - start))
+            });
+            let report = match held {
+                Some((given, at)) => GuardedComment {
+                    source: given.source.clone(),
+                    opening: mark.opening,
+                    text: given.original.clone(),
+                    at: given.original_at(at),
+                },
+                None => GuardedComment {
+                    source: CommentSource::Post,
+                    opening: mark.opening,
+                    text: mark.inner,
+                    at: mark.at,
+                },
+            };
+            guarded
+                .entry((report.source.clone(), report.at, report.text.clone()))
+                .or_insert(report);
+        }
         let estimated_seconds = if short_blocks.enabled()
             && short_blocks.mode == openchuck_types::machine::ShortBlockMode::SlowDown
         {
@@ -449,6 +683,7 @@ impl PostProcessor for TemplatePost {
             text,
             clamped_feeds: program.clamped_feeds,
             estimated_seconds,
+            guarded_comments: guarded.into_values().collect(),
         })
     }
 }
