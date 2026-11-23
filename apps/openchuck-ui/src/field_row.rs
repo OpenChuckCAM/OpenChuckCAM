@@ -1167,6 +1167,51 @@ mod tests {
         }
     }
 
+    /// A field's description, which its label shows on hover, opens on the
+    /// box while the box has the keyboard: the label is not a Tab stop
+    /// (UI-14; CodeRabbit on #858).
+    #[test]
+    fn req_ui_14_a_fields_description_opens_on_its_box_on_focus() {
+        let ctx = egui::Context::default();
+        let mut state = FieldState::default();
+        let row = |focus| TextRow {
+            description: "How far each pass moves over",
+            ..stepover(focus)
+        };
+        let mut texts = Vec::new();
+        for focus in [true, false, false] {
+            let input = egui::RawInput {
+                screen_rect: Some(egui::Rect::from_min_size(
+                    egui::Pos2::ZERO,
+                    egui::vec2(400.0, 300.0),
+                )),
+                ..Default::default()
+            };
+            let mut output = ctx.run_ui(input, |ui| {
+                text_row(ui, &mut state, &row(focus));
+            });
+            output.textures_delta.clear();
+            texts.clear();
+            fn walk(shape: &egui::Shape, out: &mut Vec<String>) {
+                match shape {
+                    egui::Shape::Text(t) => out.push(t.galley.text().to_owned()),
+                    egui::Shape::Vec(v) => v.iter().for_each(|s| walk(s, out)),
+                    _ => {}
+                }
+            }
+            output
+                .shapes
+                .iter()
+                .for_each(|s| walk(&s.shape, &mut texts));
+        }
+        assert!(
+            texts
+                .iter()
+                .any(|t| t.contains("How far each pass moves over")),
+            "{texts:?}"
+        );
+    }
+
     /// Focuses the row and types `text` over its value.
     fn type_text(ctx: &egui::Context, state: &mut FieldState, text: &str) {
         frame(ctx, state, &stepover(true), Vec::new());

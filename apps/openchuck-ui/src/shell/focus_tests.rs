@@ -655,3 +655,53 @@ fn req_ui_14_a_collapsed_panel_keeps_its_place_in_the_tab_order() {
     assert!(lap.contains(&6), "the dock's rail: {walk:?}");
     assert!(lap.windows(2).all(|w| w[0] < w[1]), "{walk:?}");
 }
+
+/// The G-code status says why only in its tooltip, so Tab reaches it and the
+/// tooltip opens on focus (UI-14; CodeRabbit on #858).
+#[test]
+fn req_ui_14_the_g_code_status_is_a_tab_stop_with_its_reason() {
+    let mut rig = Rig::cube("focus-gcode-status", None);
+    let reason = "No G-code has been written in this session";
+    assert!(!rig.shows(reason), "no tooltip before Tab");
+    let mut found = false;
+    for _ in 0..40 {
+        rig.tab(false);
+        if rig.shows(reason) {
+            found = true;
+            break;
+        }
+    }
+    assert!(found, "Tab reached the G-code status and showed why");
+}
+
+/// Esc in a text field of the window on top ends the edit only, even with
+/// another tool window drawn before it in the same frame: each window reads
+/// the text-field state of the frame before (CodeRabbit on #858).
+#[test]
+fn req_ui_14_esc_in_a_field_of_the_top_window_ends_the_edit_with_another_window_open() {
+    let mut rig = Rig::cube("focus-esc-field-two", None);
+    let dir = super::frame_tests::temp("focus-esc-field-two-libs");
+    rig.shell.machine_library =
+        MachineLibraryWindow::new(Some(dir.join("machines")), Some(dir.join("tools")));
+    rig.dirs.push(dir);
+    rig.shell.open_machine_library();
+    for _ in 0..3 {
+        rig.frame(Vec::new());
+    }
+    open_each(&mut rig, "import model");
+    for _ in 0..3 {
+        rig.frame(Vec::new());
+    }
+    rig.tab(false);
+    assert!(
+        rig.ctx.text_edit_focused(),
+        "Tab reached the import file field"
+    );
+    rig.press(Key::Escape, Modifiers::NONE);
+    rig.frame(Vec::new());
+    assert!(
+        is_open(&rig, "import model"),
+        "the first Esc ends the edit only"
+    );
+    assert!(rig.shell.machine_library.is_open());
+}
