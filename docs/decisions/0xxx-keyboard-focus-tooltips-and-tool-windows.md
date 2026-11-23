@@ -77,4 +77,30 @@ Each has a recommendation. Q1 and Q2 are built as recommended (both are small to
 
 ## Verification
 
-Filled in by the lane before the pull request; see below.
+Lane A11Y-FOCUS, branch `claude/lane-a11y-focus`, from `main` `8f61706`, 23 Nov 2026, Linux container, Rust 1.97.0, egui 0.37.0.
+
+**Tests written from the requirement first** (`openchuck-ui`; each watched failing on the unchanged code unless said otherwise):
+
+| Test | Covers | Before the change |
+| --- | --- | --- |
+| `shell::focus_tests::req_ui_14_a_new_window_takes_the_keyboard` | item 1, #580: each of the five tool windows has the keyboard in its own layer when it opens, and Tab moves on inside it | failed (focus stayed on the main window) |
+| `shell::focus_tests::req_ui_14_tab_scrolls_the_focused_control_into_view` | item 2, #577: Tab through the main window (an operation in the inspector), the export dialog and the machine library at 1366 by 768; no stop is cut by its clip | failed (inspector fields below y 718 stayed out of view); checked again with the fix switched off |
+| `focus::tests::req_ui_14_tab_scrolls_the_focused_control_into_view` | item 2 in a bare scroll area | failed with the fix switched off |
+| `focus::tests::req_ui_14_every_scroll_area_keeps_the_focused_control_in_view` | item 2: no scroll area in the application is shown without it (source scan) | written with the change; it caught a dock scroll area the first pass missed |
+| `focus::tests::req_ui_14_a_tip_opens_on_keyboard_focus` | item 3: a tooltip opens when Tab reaches its control, with no pointer | written with the helper |
+| `focus::tests::req_ui_14_every_tooltip_also_opens_on_focus` | item 3, #578: no hover-only tooltip call is left (source scan) | written with the change; the unchanged sources had 142 such calls |
+| `shell::focus_tests::req_ui_10_req_ui_14_an_unavailable_steps_reason_opens_on_focus` | item 3, UI-10: in the empty state Tab reaches Setup and shows why; Enter does not open it | not run on the unchanged code: written with the change; there the tab took no focus, so Tab could not reach it |
+| `shell::focus_tests::req_ui_14_letter_keys_work_while_a_button_has_the_keyboard` | item 4: with a button focused by Tab, N opens New operation | failed |
+| `shell::focus_tests::req_ui_14_the_shortcut_list_names_every_key` | item 5, #581 F7 | failed (Ctrl Shift Z and the others missing) |
+| `shell::focus_tests::req_ui_14_every_command_is_in_a_menu` | item 6, #581 F8: Project > Add setup adds the setup; Edit > Delete deletes a selected set | failed ("Add setup" not in the menu) |
+| `shell::focus_tests::req_ui_10_the_new_operation_dialog_has_its_primary_action_bottom_right` | item 7, #581 F10: Add right of Cancel, at the foot, right-most, filled; Tab reaches Cancel then Add | failed (Add left of Cancel) |
+
+`shell::tool_library_tests::req_tl_01_esc_closes_the_library_window_unless_a_field_has_the_keyboard` changed with item 1: the window now opens with the search field editing, so the test presses Esc once to end the edit (the window stays open) and once more to close it, as specification 12.1 and OI-536 say.
+
+**Runs (uninstrumented, `cargo nextest run -p openchuck-ui`):** 738 of 738 passed, 1 skipped, 407 s, before the F7, F8 and F10 tests were added; the four slow tests are the existing playback tests over 60 s, untouched. The new tests each take under 3 s alone; the shell scroll walk (about 600 Tab presses) takes about 12 s with other tests running beside it. No new long-running test. `cargo fmt --all`, `cargo clippy --workspace --all-targets` (no warnings), `cargo xtask deps`, `licences` and `trace` (105 of 105 P1 requirements) pass; `cargo xtask records` passes except for the two provisional `OI-xxx` numbers, which it cannot read until they are assigned.
+
+**The real application:** the 18 tutorial screens were re-captured from the release build on Xvfb with Mesa lavapipe (`user-docs/tools/capture.py`, 1920 by 1080; the script clicks "Add" at its new place). The capture ran the whole tutorial through to written G-code; screen 09 shows the New operation dialog with Add filled at the bottom right, and no screen shows a stray tooltip. The user guide builds and `user-docs/tools/check.py --screens strict` passes.
+
+**Coverage (instrumented, `openchuck-ui`'s own tests, a lower bound):** COVERAGE_LINE
+
+**Not verified:** a real keyboard on Windows and macOS, and contrast of the focus ring on a real screen (OI-493, OI-623); the keyboard-only run through every step as a committed test (OI-539); the example figures of the user guide were not re-captured (their windows were opened by the mouse; the only change they could show is a focus outline on a window's first control); F12 c to e (OI-xxx2).
