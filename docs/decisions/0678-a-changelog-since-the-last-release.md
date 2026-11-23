@@ -157,6 +157,16 @@ Environment: the lane's cloud container (four cores), Rust from `rust-toolchain.
   | #865 | DOCS-SPOT-1 | passes (only screenshot records under `user-docs/src/`). It failed before the `*.toml` exception, and that failure led to the exception. |
   | #866 | SWARF-LEADS | passes (a bullet; the `openchuck-path` changelog) |
 
+- **CodeRabbit's review of the released pull request (head `d86d5c5`, 11 findings, all real; fixed in one push).** Each was first written as a failing test (nine tests, all failing before the fix), except the hook isolation of the test repositories and the workflow change:
+  - *Major:* the space kept for the "N more changes" line (120 characters) was less than the line itself (about 136), so a long Development version could make `nightly-notes` fail and stop the nightly build. The notes are now made with as many entries as fit together with that line, counted in full (`changelog_flow_notes_fit_any_limit_with_the_omission_line_counted`, which fails on the old code with "came out longer than 1718 characters").
+  - *Major:* a deleted crate `CHANGELOG.md` counted as the crate's entry. A deletion no longer counts (`changelog_flow_a_deleted_crate_changelog_is_not_an_entry`).
+  - The changed files are read with `git diff --name-status --no-renames -z`: a file moved out of `testdata/examples/` counts as removed from it, and a name Git would quote (`café.md`) is read as it is.
+  - `+ ` bullets are entries; a dated version heading (`## 0.60.0 (2026-11-23)`) names the same release in every command (one rule, `heading_version`); a link with a title is rewritten and keeps its title.
+  - Requirement IDs are caught only with the prefixes `docs/requirements.md` defines, so an "ER-32 collet" passes and "GC-07" still fails.
+  - A release section with nothing written in it (only headings and comments, which can run over lines) fails `check-release`.
+  - The test repositories set `core.hooksPath` to an empty folder, so a developer's own Git hooks do not run on the fixture commits.
+  - `nightly-build.yml`: the notes artifact is uploaded with `overwrite: true`, so "Re-run all jobs" replaces the first attempt's notes (the same commit gives the same notes) and "Re-run failed jobs" keeps them.
+  - After the fixes: `cargo nextest run -p xtask`, 211 passed in 1.2 s (the changelog tests 54, the slowest 0.3 s); `changelog.rs` 97.24% of lines; fmt, clippy, `records`, `deps`, `licences`, `conflicts`, `testdata` and `trace` pass; the notes on the real tree are unchanged; the in-flight pull requests still pass.
 - **Not verified:**
   - the workflow steps on GitHub, beyond the draft pull request's Fast checks, which run `check-pr` on this pull request. The nightly step runs only at the next nightly build after merge, because a manual run is not wanted (answer 4); its toolchain install and xtask build on a fresh runner are estimated, not measured;
   - the release gate step on a real or dry-run release;

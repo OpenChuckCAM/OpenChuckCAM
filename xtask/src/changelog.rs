@@ -19,6 +19,7 @@
 use std::collections::BTreeSet;
 use std::path::Path;
 use std::process::Command;
+use std::sync::OnceLock;
 
 use anyhow::{Context, Result, bail};
 
@@ -32,8 +33,6 @@ const DEV_HEADING: &str = "Development version";
 pub const GUIDE: &str = "https://openchuck.cam/latest/";
 /// GitHub accepts a release body of 125,000 characters; the notes stay well below it.
 pub const NOTES_LIMIT: usize = 60_000;
-/// Room kept for the line that says how many entries were left out.
-const MORE_ROOM: usize = 120;
 /// The crates published to crates.io (`docs/releasing.md`); a change to one needs its own
 /// `CHANGELOG.md` entry (INT-07).
 const FAMILY: [&str; 4] = [
@@ -90,7 +89,7 @@ fn dev_section(lines: &[&str]) -> Option<Section> {
 }
 
 fn is_bullet(line: &str) -> bool {
-    line.starts_with("- ") || line.starts_with("* ")
+    line.starts_with("- ") || line.starts_with("* ") || line.starts_with("+ ")
 }
 
 fn is_blank(line: &str) -> bool {
@@ -170,14 +169,24 @@ fn version_key(v: &str) -> Option<(u64, u64, u64)> {
     }
 }
 
+/// The version a `## ` heading names: its first word when that is `X.Y.Z`, so `## 0.60.0` and
+/// `## 0.60.0 (2026-11-23)` name the same release. One rule for every command.
+fn heading_version(heading: &str) -> Option<&str> {
+    heading
+        .split_whitespace()
+        .next()
+        .filter(|v| version_key(v).is_some())
+}
+
 /// The highest version that has a `## X.Y.Z` section, or None before the first release.
 pub fn latest_release(text: &str) -> Option<String> {
     let lines: Vec<&str> = text.lines().collect();
     sections(&lines)
-        .into_iter()
-        .filter_map(|s| version_key(&s.heading).map(|k| (k, s.heading)))
+        .iter()
+        .filter_map(|s| heading_version(&s.heading))
+        .filter_map(|v| version_key(v).map(|k| (k, v.to_string())))
         .max()
-        .map(|(_, h)| h)
+        .map(|(_, v)| v)
 }
 
 // ---------------------------------------------------------------------------------- nightly notes
@@ -237,6 +246,26 @@ fn rewrite_target(target: &str, guide: &str) -> String {
     out
 }
 
+/// Whether `rest`, what follows a link's destination, closes the link: `)` at once, or a title in
+/// double or single quotes and then `)` (CommonMark), which is kept as it is.
+fn link_end(rest: &str) -> bool {
+    if rest.starts_with(')') {
+        return true;
+    }
+    let title = rest.trim_start();
+    if title.len() == rest.len() {
+        return false;
+    }
+    let Some(quote) = title.chars().next().filter(|c| matches!(c, '"' | '\'')) else {
+        return false;
+    };
+    let after_open = title.get(1..).unwrap_or("");
+    after_open
+        .find(quote)
+        .and_then(|close| after_open.get(close + 1..))
+        .is_some_and(|tail| tail.trim_start().starts_with(')'))
+}
+
 /// Relative links of the guide's source, `](target)`, become links to the latest guide.
 fn rewrite_links(text: &str, guide: &str) -> String {
     let mut out = String::with_capacity(text.len());
@@ -246,7 +275,7 @@ fn rewrite_links(text: &str, guide: &str) -> String {
         out.push_str(before);
         let end = after.find(|c: char| c == ')' || c.is_whitespace());
         match end {
-            Some(e) if e > 0 && after.get(e..).is_some_and(|t| t.starts_with(')')) => {
+            Some(e) if e > 0 && link_end(after.get(e..).unwrap_or("")) => {
                 out.push_str(&rewrite_target(after.get(..e).unwrap_or(""), guide));
                 rest = after.get(e..).unwrap_or("");
             }
@@ -318,32 +347,32 @@ pub fn nightly_notes(
             .to_string(),
         String::new(),
     ];
-    let fixed = chars(&head.join("\n")) + chars(&tail.join("\n")) + 2;
-    if fixed + MORE_ROOM > limit {
-        bail!("the nightly notes cannot fit in {limit} characters");
-    }
-    let mut body: Vec<String> = Vec::new();
-    let mut used = fixed;
-    for (k, e) in entries.iter().enumerate() {
-        if used + chars(e) + 1 + MORE_ROOM > limit {
+    // The notes with the first `kept` entries, and a line for the rest when any are left out.
+    let render = |kept: usize| -> String {
+        let mut body: Vec<String> = entries.iter().take(kept).cloned().collect();
+        if kept < entries.len() {
             body.push(String::new());
             body.push(format!(
                 "{} more changes are in the [release notes of the latest user guide]({notes_link}).",
-                entries.len() - k
+                entries.len() - kept
             ));
-            break;
         }
-        body.push(e.clone());
-        used += chars(e) + 1;
+        let mut out = [head.clone(), body, tail.clone()].concat().join("\n");
+        while out.contains("\n\n\n") {
+            out = out.replace("\n\n\n", "\n\n");
+        }
+        out
+    };
+    // Every entry if they fit; otherwise as many as fit with the line for the rest, which is
+    // counted with them: the first that fits, from the most entries down.
+    let out = (0..=entries.len())
+        .rev()
+        .map(render)
+        .find(|out| chars(out) <= limit);
+    match out {
+        Some(out) => Ok(out),
+        None => bail!("the nightly notes cannot fit in {limit} characters"),
     }
-    let mut out = [head, body, tail].concat().join("\n");
-    while out.contains("\n\n\n") {
-        out = out.replace("\n\n\n", "\n\n");
-    }
-    if chars(&out) > limit {
-        bail!("the nightly notes came out longer than {limit} characters");
-    }
-    Ok(out)
 }
 
 /// The program's own G-code notice (`crates/openchuck-types/src/notice.rs`), as the guide reads it.
@@ -477,8 +506,9 @@ fn internal_number(text: &str) -> Option<String> {
                 }
             }
         }
-        // "OI-933", and requirement IDs such as "GC-07" and "NFR-12": two to four capitals, a
-        // hyphen and two or three digits (an open item any number of digits).
+        // "OI-933", and requirement IDs such as "GC-07" and "NFR-12": a prefix that
+        // docs/requirements.md defines, a hyphen and two or three digits (an open item any number
+        // of digits). Other capitals and a number, such as an ER-32 collet, are not caught.
         let caps = chars
             .get(i..)
             .unwrap_or(&[])
@@ -489,13 +519,45 @@ fn internal_number(text: &str) -> Option<String> {
             let n = digits_from(i + caps + 1);
             let end = i + caps + 1 + n;
             let open_item = chars.get(i..i + caps) == Some(&['O', 'I'][..]) && n >= 1;
-            let requirement = (2..=4).contains(&caps) && (2..=3).contains(&n);
+            let prefix: String = chars.get(i..i + caps).unwrap_or(&[]).iter().collect();
+            let requirement = (2..=3).contains(&n) && is_requirement_prefix(&prefix);
             if (open_item || requirement) && boundary_after(end) {
                 return Some(chars.get(i..end).unwrap_or(&[]).iter().collect());
             }
         }
     }
     None
+}
+
+/// The requirement-ID prefixes that `docs/requirements.md` defines (`GC`, `NFR`, `UI` and so on),
+/// read once. When the file cannot be read, any two to four capitals count, so nothing is missed.
+fn requirement_prefixes() -> Option<&'static BTreeSet<String>> {
+    static PREFIXES: OnceLock<Option<BTreeSet<String>>> = OnceLock::new();
+    PREFIXES
+        .get_or_init(|| {
+            let root = Path::new(env!("CARGO_MANIFEST_DIR")).parent()?;
+            let text = std::fs::read_to_string(root.join("docs/requirements.md")).ok()?;
+            let prefixes: BTreeSet<String> = text
+                .lines()
+                .filter_map(|l| l.strip_prefix("| "))
+                .filter_map(|l| l.split_once('-'))
+                .filter(|(p, rest)| {
+                    (2..=4).contains(&p.len())
+                        && p.bytes().all(|b| b.is_ascii_uppercase())
+                        && rest.starts_with(|c: char| c.is_ascii_digit())
+                })
+                .map(|(p, _)| p.to_string())
+                .collect();
+            (!prefixes.is_empty()).then_some(prefixes)
+        })
+        .as_ref()
+}
+
+fn is_requirement_prefix(prefix: &str) -> bool {
+    match requirement_prefixes() {
+        Some(known) => known.contains(prefix),
+        None => (2..=4).contains(&prefix.len()),
+    }
 }
 
 fn squash(entry: &str) -> String {
@@ -623,27 +685,80 @@ fn git(root: &Path, args: &[&str]) -> Result<String> {
 /// taken from their merge base, so what reached `main` after the branch was made is not counted.
 pub fn check_pr(root: &Path, base: &str, head: &str, body: &str) -> Result<Findings> {
     let merge_base = git(root, &["merge-base", base, head])?.trim().to_string();
-    let files: Vec<String> = git(root, &["diff", "--name-only", &merge_base, head])?
-        .lines()
-        .filter(|l| !l.is_empty())
-        .map(str::to_string)
-        .collect();
+    // NUL-separated, so a name Git would quote (`café.md`) is read as it is; no rename detection,
+    // so a file moved out of a covered folder counts as removed from it.
+    let status = git(
+        root,
+        &[
+            "diff",
+            "--name-status",
+            "--no-renames",
+            "-z",
+            &merge_base,
+            head,
+        ],
+    )?;
+    let mut files = Vec::new();
+    let mut fields = status.split('\0').filter(|f| !f.is_empty());
+    while let (Some(kind), Some(path)) = (fields.next(), fields.next()) {
+        // A deleted crate changelog is not an entry for the crate.
+        if kind == "D" && path.ends_with("/CHANGELOG.md") {
+            continue;
+        }
+        files.push(path.to_string());
+    }
     let show = |rev: &str| git(root, &["show", &format!("{rev}:{NOTES_PATH}")]).unwrap_or_default();
     Ok(pr_problems(&files, &show(&merge_base), &show(head), body))
 }
 
 // --------------------------------------------------------------------------------- the release
 
+/// Whether a section's lines hold written text: a line that is not blank, not a heading and not
+/// inside an HTML comment (which can run over several lines).
+fn has_written_text(lines: &[&str]) -> bool {
+    let mut in_comment = false;
+    for line in lines {
+        let mut rest = *line;
+        let mut text = String::new();
+        loop {
+            if in_comment {
+                match rest.find("-->") {
+                    Some(end) => {
+                        in_comment = false;
+                        rest = rest.get(end + 3..).unwrap_or("");
+                    }
+                    None => break,
+                }
+            } else {
+                match rest.find("<!--") {
+                    Some(start) => {
+                        text.push_str(rest.get(..start).unwrap_or(""));
+                        in_comment = true;
+                        rest = rest.get(start + 4..).unwrap_or("");
+                    }
+                    None => {
+                        text.push_str(rest);
+                        break;
+                    }
+                }
+            }
+        }
+        let text = text.trim();
+        if !text.is_empty() && !text.starts_with('#') {
+            return true;
+        }
+    }
+    false
+}
+
 /// At a release: the version has its own section, written (not `start-release`'s draft), and the
 /// Development version has no entries left.
 pub fn release_problems(text: &str, version: &str) -> Findings {
     let lines: Vec<&str> = text.lines().collect();
     let mut problems = Findings::new();
-    let section = sections(&lines).into_iter().find(|s| {
-        s.heading
-            .strip_prefix(version)
-            .is_some_and(|rest| rest.is_empty() || rest.starts_with(char::is_whitespace))
-    });
+    let section = sections(&lines)
+        .into_iter()
+        .find(|s| heading_version(&s.heading) == Some(version));
     match section {
         None => problems.push(format!(
             "the release notes have no section headed {version}"
@@ -658,6 +773,12 @@ pub fn release_problems(text: &str, version: &str) -> Findings {
             problems.push(format!(
                 "the section for {version} is still the draft made by start-release: write it, then delete the \
                  draft comment"
+            ));
+        }
+        Some(s) if !has_written_text(lines.get(s.start + 1..s.end).unwrap_or(&[])) => {
+            problems.push(format!(
+                "the section for {version} has nothing written in it: write what changed, the known limitations \
+                 and the known issues (docs/releasing.md)"
             ));
         }
         Some(_) => {}
@@ -733,7 +854,7 @@ pub fn start_release(text: &str, version: &str) -> Result<String> {
     };
     let first = sections(&lines)
         .iter()
-        .filter(|s| version_key(&s.heading).is_some() || s.heading == DEV_HEADING)
+        .filter(|s| heading_version(&s.heading).is_some() || s.heading == DEV_HEADING)
         .map(|s| s.start)
         .min()
         .unwrap_or(dev.start);

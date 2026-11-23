@@ -98,12 +98,16 @@ jobs:
             echo
             cat nightly-notes/notes.md
           } >> "$GITHUB_STEP_SUMMARY"
+      # `overwrite`: "Re-run all jobs" runs this job again in the same run, and the notes it makes
+      # then replace those of the first attempt (the same commit, so the same notes); "Re-run failed
+      # jobs" keeps this job's attempt and its artifact.
       - uses: actions/upload-artifact@v7
         if: steps.check.outputs.build == 'true'
         with:
           name: nightly-notes
           path: nightly-notes/notes.md
           if-no-files-found: error
+          overwrite: true
 
   # The notices, build, assemble and pack steps are shared with the release workflow
   # (build-archives.yml, decision 0091). The job has no display name, so its jobs show as

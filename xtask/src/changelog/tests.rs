@@ -700,6 +700,9 @@ impl Repo {
         repo.git(&["config", "user.email", "t@example.invalid"]);
         repo.git(&["config", "user.name", "t"]);
         repo.git(&["config", "commit.gpgsign", "false"]);
+        // The developer's own hooks (a global core.hooksPath) must not run on these fixture commits.
+        std::fs::create_dir_all(repo.dir.join(".no-hooks")).expect("hooks dir");
+        repo.git(&["config", "core.hooksPath", ".no-hooks"]);
         repo.write(NOTES_PATH, &notes(&["- **Old.** Already there."]));
         repo.write(
             "crates/openchuck-types/src/notice.rs",
@@ -863,6 +866,170 @@ fn changelog_flow_the_first_release_takes_the_section_above_the_development_vers
     );
     assert!(
         problems.iter().any(|p| p.contains("2 entries")),
+        "{problems:?}"
+    );
+}
+
+// ------------------------------------------------- the review of the released pull request
+
+#[test]
+fn changelog_flow_notes_fit_any_limit_with_the_omission_line_counted() {
+    let entries: Vec<String> = (0..60)
+        .map(|i| format!("- **Entry {i}.** {}", "words ".repeat(i % 7 * 5 + 3)))
+        .collect();
+    let refs: Vec<&str> = entries.iter().map(String::as_str).collect();
+    let text = notes(&refs);
+    // From the smallest limit that holds the fixed text and the line for the rest, upwards. A larger
+    // limit never fails where a smaller one fits, so the smallest is found by halving.
+    let fits = |l: usize| nightly_notes(&text, NOTICE, SHA, "20261123", REPO, GUIDE, l).is_ok();
+    let (mut low, mut high) = (0_usize, 9000_usize);
+    assert!(fits(high));
+    while low + 1 < high {
+        let mid = (low + high) / 2;
+        if fits(mid) { high = mid } else { low = mid }
+    }
+    let smallest = high;
+    assert!(!fits(smallest - 1));
+    for limit in (smallest..9000).step_by(23) {
+        let out = nightly_notes(&text, NOTICE, SHA, "20261123", REPO, GUIDE, limit)
+            .unwrap_or_else(|e| panic!("limit {limit}: {e}"));
+        assert!(out.chars().count() <= limit, "limit {limit}");
+        let kept = out.matches("- **Entry ").count();
+        if kept < 60 {
+            assert!(
+                out.contains(&format!("{} more changes are in", 60 - kept)),
+                "limit {limit}"
+            );
+        }
+    }
+}
+
+#[test]
+fn changelog_flow_a_plus_bullet_is_an_entry() {
+    let entries = development_entries(&notes(&["+ **A.** One.", "- **B.** Two."]));
+    assert_eq!(entries, vec!["+ **A.** One.", "- **B.** Two."]);
+}
+
+#[test]
+fn changelog_flow_a_dated_version_heading_is_the_same_release() {
+    let text = notes_with(&["- **A.** One."], &["0.60.0 (2026-11-23)"]);
+    assert_eq!(latest_release(&text).as_deref(), Some("0.60.0"));
+    assert!(start_release(&text, "0.60.0").is_err());
+    assert!(release_problems(&notes_with(&[], &["0.60.0 (2026-11-23)"]), "0.60.0").is_empty());
+}
+
+#[test]
+fn changelog_flow_a_link_with_a_title_is_rewritten_and_keeps_its_title() {
+    let out = make(&notes(&[
+        "- **Keys.** See [Keyboard](reference/keyboard.md \"Keyboard reference\").",
+    ]));
+    assert!(
+        out.contains("[Keyboard](https://openchuck.cam/latest/reference/keyboard.html \"Keyboard reference\")"),
+        "{out}"
+    );
+}
+
+#[test]
+fn changelog_flow_only_the_requirement_prefixes_of_the_requirements_are_internal() {
+    let changed = files(&[
+        "apps/openchuck-ui/src/a.rs",
+        "user-docs/src/release-notes.md",
+    ]);
+    for entry in [
+        "- **A.** Support ER-32 collets.",
+        "- **A.** An M6-20 screw, an AB-12 part.",
+    ] {
+        assert!(
+            pr_problems(&changed, &notes(&[]), &notes(&[entry]), "").is_empty(),
+            "{entry}"
+        );
+    }
+    for entry in [
+        "- **A.** Meets GC-07.",
+        "- **A.** UI-14.",
+        "- **A.** SUG-03.",
+        "- **A.** OI-5.",
+    ] {
+        assert!(
+            !pr_problems(&changed, &notes(&[]), &notes(&[entry]), "").is_empty(),
+            "{entry}"
+        );
+    }
+}
+
+#[test]
+fn changelog_flow_a_release_section_with_nothing_written_fails() {
+    let empty = "# Release notes\n\n## 0.60.0\n\n<!-- a comment\nover two lines -->\n\n### What has changed\n\n\
+                 ## 0.55.0\n\nWritten.\n\n## Development version\n\nIntro.\n";
+    let problems = release_problems(empty, "0.60.0");
+    assert!(
+        problems.iter().any(|p| p.contains("nothing written")),
+        "{problems:?}"
+    );
+    let bare = notes_with(&[], &["0.55.0"]).replace(
+        "## Development version",
+        "## 0.60.0\n\n## Development version",
+    );
+    let problems = release_problems(&bare, "0.60.0");
+    assert!(
+        problems.iter().any(|p| p.contains("nothing written")),
+        "{problems:?}"
+    );
+}
+
+#[test]
+fn changelog_flow_a_deleted_crate_changelog_is_not_an_entry() {
+    let repo = Repo::new("deleted-changelog");
+    repo.write("crates/openchuck-path/CHANGELOG.md", "# Changelog\n");
+    let base = repo.commit("changelog");
+    repo.write("crates/openchuck-path/src/lib.rs", "pub fn a() {}\n");
+    repo.write(
+        NOTES_PATH,
+        &notes(&["- **Old.** Already there.", "- **New.** New."]),
+    );
+    repo.git(&["rm", "-q", "crates/openchuck-path/CHANGELOG.md"]);
+    repo.commit("delete the changelog");
+    let problems = check_pr(repo.root(), &base, "HEAD", "").expect("check");
+    assert!(
+        problems
+            .iter()
+            .any(|p| p.contains("crates/openchuck-path/CHANGELOG.md")),
+        "{problems:?}"
+    );
+}
+
+#[test]
+fn changelog_flow_a_file_moved_out_of_the_examples_is_a_change_to_them() {
+    let repo = Repo::new("rename");
+    repo.write(
+        "testdata/examples/sample/project.ocp",
+        "a project with enough text to be a rename\n",
+    );
+    let base = repo.commit("example");
+    repo.git(&[
+        "mv",
+        "testdata/examples/sample/project.ocp",
+        "testdata/archive-project.ocp",
+    ]);
+    repo.commit("move");
+    let problems = check_pr(repo.root(), &base, "HEAD", "").expect("check");
+    assert!(
+        problems
+            .iter()
+            .any(|p| p.contains("testdata/examples/sample/project.ocp")),
+        "{problems:?}"
+    );
+}
+
+#[test]
+fn changelog_flow_a_file_name_git_would_quote_is_read_as_it_is() {
+    let repo = Repo::new("quoted");
+    let base = repo.git(&["rev-parse", "HEAD"]);
+    repo.write("user-docs/src/café.md", "# Café\n");
+    repo.commit("page");
+    let problems = check_pr(repo.root(), &base, "HEAD", "").expect("check");
+    assert!(
+        problems.iter().any(|p| p.contains("user-docs/src/café.md")),
         "{problems:?}"
     );
 }
