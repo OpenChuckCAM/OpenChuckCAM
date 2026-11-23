@@ -1,10 +1,10 @@
 # 9901: A post lists the comments its controller acts on, and project text never starts one (GC-03, GC-04, GC-10, NFR-07, NFR-12; issue #851; lane POST-COMMENTS)
 
-- **Status:** Proposed by lane POST-COMMENTS on 23 Nov 2026; **not yet accepted**. The owner directed on 23 Nov 2026 (relayed by the coordinator) that the words be defined in the post definition, not hard-coded (item 1), and answered the record's three questions the same day (relayed): option B, the mark `_`, and the post author's own comments stay active (item 2). The owner added a requirement: the user is warned of every text that was changed and where it came from (item 3). All three are built. **Number provisional** (9901): the coordinator assigns the real number when the pull request is released.
+- **Status:** Accepted by the project owner on 23 Nov 2026, relayed by the coordinator (decision 0049), at head `8def5f6c`. Proposed by lane POST-COMMENTS on 23 Nov 2026. The owner directed on 23 Nov 2026 (relayed by the coordinator) that the words be defined in the post definition, not hard-coded (item 1), and answered the record's three questions the same day (relayed): option B, the mark `_`, and the post author's own comments stay active (item 2). The owner added a requirement: the user is warned of every text that was changed and where it came from (item 3). All three are built. **Number provisional** (9901): the coordinator assigns the real number when the pull request is released.
 - **Date:** 23 Nov 2026.
 - **Requirements:** GC-03 and GC-04 (post definitions and options), GC-10 (the LinuxCNC post), GC-09 (the Makera Z1 post), GC-07 and NFR-06 (deterministic output), NFR-07 (clear errors, no surprises from input), NFR-12 (the user verifies G-code).
 - **Related:** [decision 0019](0019-sp-10-template-engine.md) item 4 (comment sanitising), [decision 0533](0533-safety-notice-post-option.md) (the NFR-12 notice, word for word), [decision 0656](0656-post-line-length-limit.md) (comment wrapping, issue #840), [decision 0007](0007-sp-12-z1-conventions.md) (the Z1 firmware source).
-- **Open items:** OI-9901 (the owner's acceptance of the record; provisional number). The choices it held are made.
+- **Open items:** OI-9901 (the owner's choices and acceptance; provisional number), closed by the acceptance.
 
 Requirements and architecture are not edited by this record. No project or machine schema change: the list is an optional post option with an empty default, like `max_line_length` (decision 0656), and the warning is an ordinary run warning with nothing saved.
 
