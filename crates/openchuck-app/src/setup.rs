@@ -51,6 +51,10 @@ pub struct SetupReport {
     /// a tab narrower than a tool; each in the one form (decision record
     /// 0644).
     pub notes: Vec<String>,
+    /// The machine X of the profile's rotary reference point, the setup's
+    /// X 0, when the project has a machine: the travel warnings along the
+    /// rotary axis give the setup's X from it (decision record 0672).
+    pub rotary_reference_x: Option<f64>,
 }
 
 impl SetupReport {
@@ -60,7 +64,7 @@ impl SetupReport {
     pub fn warning_lines(&self) -> Vec<String> {
         self.warnings
             .iter()
-            .map(|w| crate::overview::setup_warning_in_form(&self.name, w))
+            .map(|w| crate::overview::setup_warning_in_form(&self.name, w, self.rotary_reference_x))
             .collect()
     }
 }
@@ -149,6 +153,48 @@ pub fn is_possible_collision(kind: &openchuck_types::setup::SetupWarningKind) ->
             | K::ClearanceInsidePart { .. }
             | K::ClearanceBelowMinimum { .. }
     )
+}
+
+/// Whether `profile`, the project's machine copy whose library id is `id`,
+/// is a copy of the built-in Makera Z1 (by its id, or by its name when it has
+/// no id) with the built-in's Rotary reference X,
+/// so its rotary reference point, X 0 of every setup, is the headstock face
+/// (decision records 0649 and 0672). An older copy (reference X -180.4, in
+/// front of the face) or another machine is not: what its reference point
+/// is on the machine is its profile's choice, and the program does not know
+/// it.
+pub fn reference_is_headstock_face(id: Option<&str>, profile: &MachineProfile) -> bool {
+    // Known as the old-copy checks know a Z1 copy: by its library id, or by
+    // its name when it has none (decision records 0647 and 0651).
+    let z1 = match id {
+        Some(id) => id == openchuck_project::machines::MAKERA_Z1_ID,
+        None => profile.name == openchuck_project::machines::MAKERA_Z1_NAME,
+    };
+    z1 && builtin(MAKERA_Z1)
+        .and_then(Result::ok)
+        .is_some_and(|z1| (z1.rotary_origin.x - profile.rotary_origin.x).abs() < 1e-9)
+}
+
+/// The setup checks of [`openchuck_types::setup::check_setup`], and on a
+/// machine whose reference point is its headstock face
+/// ([`reference_is_headstock_face`]) a stock (or part) starting behind it,
+/// before the travel warnings (decision record 0672). `id` is the machine
+/// copy's library id.
+pub fn check_setup(
+    id: Option<&str>,
+    check: &openchuck_types::setup::SetupCheck<'_>,
+) -> Vec<SetupWarning> {
+    let mut found = openchuck_types::setup::check_setup(check);
+    if reference_is_headstock_face(id, check.profile)
+        && let Some(behind) = openchuck_types::setup::starts_behind_reference(check)
+    {
+        let at = found
+            .iter()
+            .position(|w| matches!(w.kind, SetupWarningKind::OutsideTravel { .. }))
+            .unwrap_or(found.len());
+        found.insert(at, behind);
+    }
+    found
 }
 
 /// The length a tool is assumed to stick out beyond its flutes, since the
@@ -245,9 +291,345 @@ pub fn spindle_height_text(number: u32, found: &SpindleHeight) -> String {
     text
 }
 
+/// A tool whose path goes lower than the spindle at the bottom of the Z
+/// travel can take its tip (decision record 0673, decision record 0495 case
+/// c), in millimetres from the rotary axis.
+#[derive(Debug, Clone, PartialEq)]
+pub struct SpindleDepth {
+    /// The tool's assumed stick-out: flute length + 5 mm.
+    pub stick_out: f64,
+    /// The lowest the tool's tip goes in the path, measured along the tool
+    /// axis from the rotary axis (negative below it).
+    pub lowest_tip: f64,
+    /// The lowest the tip can go: the spindle-to-axis distance, less the Z
+    /// travel span, less the stick-out.
+    pub lowest_reach: f64,
+    /// The move of the group whose end is where the tip is lowest, by
+    /// index; `None` when it is lowest at the group's start.
+    pub segment: Option<usize>,
+}
+
+/// Whether the path `group`, cut by `tool`, needs the spindle below the
+/// bottom of the Z travel of `profile` (decision record 0673): only on a
+/// machine that measures tool lengths and gives its spindle-to-axis
+/// distance, as for the top of the travel ([`spindle_height`]). The group's
+/// start and every move count, rapids and links included. The tip's height is measured along
+/// the tool axis from the rotary axis: on a 4-axis machine the tool axis
+/// crosses the rotary axis at right angles, so it is the tip's component
+/// along the tool axis in the model frame. To three places, as the G-code: a
+/// tip within 0.0005 mm of the limit passes.
+pub fn spindle_depth(
+    profile: &MachineProfile,
+    tool: &openchuck_types::tool::Tool,
+    group: &openchuck_types::ir::ToolpathGroup,
+) -> Option<SpindleDepth> {
+    if !profile.automatic_tool_length {
+        return None;
+    }
+    let distance = profile.spindle_to_axis?.0;
+    let span = profile.travel.max.z - profile.travel.min.z;
+    let stick_out = tool.flute_length.0 + STICK_OUT_BEYOND_FLUTES;
+    let lowest_reach = distance - span - stick_out;
+    let height = |pose: &openchuck_types::ir::ToolPose| {
+        let (tip, axis) = (pose.tip, pose.axis.get());
+        tip.y * axis.y + tip.z * axis.z
+    };
+    // The group's start, then the end of each move: the tip goes to all.
+    let (segment, lowest_tip) = std::iter::once((None, height(&group.start)))
+        .chain(
+            group
+                .segments
+                .iter()
+                .enumerate()
+                .map(|(i, s)| (Some(i), height(&s.end))),
+        )
+        .fold(
+            None,
+            |low: Option<(Option<usize>, f64)>, (i, h)| match low {
+                Some((_, l)) if l <= h => low,
+                _ => Some((i, h)),
+            },
+        )?;
+    (lowest_reach - lowest_tip > 5e-4).then_some(SpindleDepth {
+        stick_out,
+        lowest_tip,
+        lowest_reach,
+        segment,
+    })
+}
+
+/// The check's words for a tool of [`spindle_depth`] (decision record 0673,
+/// NFR-12). The lead-in names the topic and the operation
+/// ("Tool length (operation '<name>'): "), so the text names only the tool's
+/// number.
+pub fn spindle_depth_text(number: u32, found: &SpindleDepth) -> String {
+    format!(
+        "tool {number} may need the spindle below the bottom of the Z travel: its tip goes down \
+         to {:.3} mm from the axis, and assuming it sticks out 5 mm beyond its flutes ({:.3} mm in \
+         all; the tool library holds no stick-out), the spindle at the bottom of the travel takes \
+         its tip only down to {:.3} mm. Use a longer tool or a longer stick-out, or keep the cut \
+         further from the axis, and check the Z travel on your machine before running.",
+        found.lowest_tip, found.stick_out, found.lowest_reach
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// A path of one group whose moves end with the tip at `heights` mm above
+    /// the axis, the tool along +Z in the model frame (A 0).
+    fn path(heights: &[f64]) -> openchuck_types::ir::ToolpathGroup {
+        use openchuck_types::ir::{MoveKind, PathTags, Segment, ToolPose, ToolpathGroup};
+        use openchuck_types::units::{Degrees, Seconds};
+        let pose = |z: f64| ToolPose {
+            tip: Point3::new(10.0, 0.0, z),
+            axis: openchuck_types::geometry::UnitVec3::Z,
+            a: Degrees(0.0),
+        };
+        ToolpathGroup {
+            rotary_reset_after: Vec::new(),
+            tags: PathTags {
+                operation: "op".into(),
+                setup: "setup".into(),
+                tool: "tool".into(),
+            },
+            start: pose(50.0),
+            segments: heights
+                .iter()
+                .map(|&z| Segment {
+                    kind: MoveKind::Rapid,
+                    end: pose(z),
+                    contact_feed: None,
+                    duration: Seconds(0.0),
+                    contact_length: Millimetres(0.0),
+                })
+                .collect(),
+        }
+    }
+
+    /// A Z1 whose Z travel is only 80 mm (Z -81 to -1), so the spindle at
+    /// the bottom is 8 mm below the axis (D - T = 72 - 80): a tool that
+    /// sticks out 10 mm takes its tip down to -18 mm and no lower.
+    fn short_z() -> MachineProfile {
+        let mut z1 = builtin_z1();
+        z1.travel.min.z = -81.0;
+        z1
+    }
+
+    /// The group's start is a position the tip goes to as well (decision
+    /// record 0673: every move counts): a start below the reach warns, as
+    /// the start (no move index), when every move ends above it.
+    #[test]
+    fn req_set_01_req_gc_08_a_group_starting_below_the_reach_warns() {
+        let z1 = short_z();
+        let mut group = path(&[45.0, 2.0]);
+        group.start.tip.z = -20.0;
+        let found = spindle_depth(&z1, &tool(5.0), &group).unwrap();
+        assert!((found.lowest_tip - -20.0).abs() < 1e-9, "{found:?}");
+        assert_eq!(found.segment, None);
+        group.start.tip.z = -18.0;
+        assert_eq!(spindle_depth(&z1, &tool(5.0), &group), None);
+    }
+
+    /// The bottom of the Z travel (decision record 0673; SET-01, GC-08,
+    /// NFR-12): a short tool (flute 5, stick-out 10) whose path goes 20 mm
+    /// below the axis needs the spindle 2 mm below the bottom; at -18 within
+    /// the G-code's three places it fits; a longer tool fits; a machine that
+    /// does not measure tool lengths gets no guess.
+    #[test]
+    fn req_set_01_req_gc_08_a_short_tool_deep_below_the_axis_needs_the_spindle_below_the_travel() {
+        let z1 = short_z();
+        let found = spindle_depth(&z1, &tool(5.0), &path(&[45.0, 2.0, -20.0, 45.0])).unwrap();
+        assert!((found.stick_out - 10.0).abs() < 1e-9, "{found:?}");
+        assert!((found.lowest_reach - -18.0).abs() < 1e-9, "{found:?}");
+        assert!((found.lowest_tip - -20.0).abs() < 1e-9, "{found:?}");
+        assert_eq!(found.segment, Some(2));
+        assert_eq!(
+            spindle_depth(&z1, &tool(5.0), &path(&[45.0, -18.0004, 45.0])),
+            None
+        );
+        assert!(spindle_depth(&z1, &tool(5.0), &path(&[45.0, -18.001])).is_some());
+        assert_eq!(spindle_depth(&z1, &tool(8.0), &path(&[-20.0])), None);
+        let mut manual = z1.clone();
+        manual.automatic_tool_length = false;
+        assert_eq!(spindle_depth(&manual, &tool(5.0), &path(&[-20.0])), None);
+        let mut unknown = z1;
+        unknown.spindle_to_axis = None;
+        assert_eq!(spindle_depth(&unknown, &tool(5.0), &path(&[-20.0])), None);
+        let text = spindle_depth_text(7, &found);
+        for words in [
+            "tool 7 may need the spindle below the bottom of the Z travel",
+            "down to -20.000 mm from the axis",
+            "assuming it sticks out 5 mm beyond its flutes (10.000 mm in all; the tool library \
+             holds no stick-out)",
+            "only down to -18.000 mm",
+            "check the Z travel on your machine before running",
+        ] {
+            assert!(text.contains(words), "{words}: {text}");
+        }
+    }
+
+    /// The tip's height is measured along the tool axis: at A 90 the tool
+    /// axis is along the model's Y, so a tip at model Y -20 is 20 mm below
+    /// the axis whatever its model Z (decision record 0673).
+    #[test]
+    fn req_set_01_req_gc_08_the_tip_height_is_along_the_tool_axis() {
+        let mut group = path(&[0.0]);
+        if let Some(segment) = group.segments.first_mut() {
+            segment.end.tip = Point3::new(10.0, -20.0, 30.0);
+            segment.end.axis = openchuck_types::geometry::UnitVec3::Y;
+        }
+        let found = spindle_depth(&short_z(), &tool(5.0), &group).unwrap();
+        assert!((found.lowest_tip - -20.0).abs() < 1e-9, "{found:?}");
+    }
+
+    /// The built-in Z1's spindle reaches 29 mm below the axis at the bottom of
+    /// its travel (D 72, Z -102 to -1), so the tutorial's tools fit a path
+    /// far below the axis (decision record 0649).
+    #[test]
+    fn req_set_01_req_gc_08_the_builtin_z1_reaches_well_below_the_axis() {
+        let z1 = builtin_z1();
+        assert_eq!(spindle_depth(&z1, &tool(22.0), &path(&[0.0, -50.0])), None);
+        // Flute 1 mm, stick-out 6 mm: the tip reaches 72 - 101 - 6 = -35.
+        assert_eq!(spindle_depth(&z1, &tool(1.0), &path(&[0.0, -35.0])), None);
+        assert!(spindle_depth(&z1, &tool(1.0), &path(&[-35.001])).is_some());
+    }
+
+    /// The stock starting behind X 0 warns only on a copy of the built-in
+    /// Makera Z1 with its Rotary reference X (the headstock face): not on an
+    /// older Z1 copy, whose reference is 17.99 mm in front of the face, not
+    /// on a copy saved under another id or name, and not on another machine, whose
+    /// reference point may be its chuck face (SET-05, SET-06, NFR-12;
+    /// decision record 0672, issue #812).
+    #[test]
+    fn req_set_05_req_set_06_only_a_current_z1_copy_warns_of_a_stock_behind_the_headstock() {
+        let z1 = builtin_z1();
+        let id = Some(openchuck_project::machines::MAKERA_Z1_ID);
+        let frame = SetupFrame::default();
+        let rules = ClearanceRules::default();
+        // The tutorial's fresh stock, 1 mm behind X 0.
+        let stock = Stock::Cylinder {
+            diameter: Millimetres(24.0),
+            length: Millimetres(63.0),
+            x_start: Millimetres(-1.0),
+        };
+        let behind = |id: Option<&str>, profile: &MachineProfile| {
+            check_setup(
+                id,
+                &openchuck_types::setup::SetupCheck {
+                    profile,
+                    frame: &frame,
+                    stock: Some(&stock),
+                    clearance: None,
+                    rules: &rules,
+                    part: None,
+                },
+            )
+            .into_iter()
+            .filter(|w| matches!(w.kind, SetupWarningKind::StartsBehindReference { .. }))
+            .count()
+        };
+        assert!(reference_is_headstock_face(id, &z1));
+        assert_eq!(behind(id, &z1), 1);
+        let text = crate::overview::setup_warning_in_form(
+            "Setup 1",
+            &check_setup(
+                id,
+                &openchuck_types::setup::SetupCheck {
+                    profile: &z1,
+                    frame: &frame,
+                    stock: Some(&stock),
+                    clearance: None,
+                    rules: &rules,
+                    part: None,
+                },
+            )[0],
+            Some(z1.rotary_origin.x),
+        );
+        for words in [
+            "Stock (setup 'Setup 1'): ",
+            "he stock starts at X -1.000, 1.000 mm inside the headstock (X 0 is the headstock \
+             face on the Makera Z1).",
+            "set the stock's Start X (X from, for a box) to at least that",
+        ] {
+            assert!(text.contains(words), "{words}: {text}");
+        }
+        let mut old = z1.clone();
+        old.rotary_origin.x = -180.4;
+        assert!(!reference_is_headstock_face(id, &old));
+        assert_eq!(behind(id, &old), 0);
+        assert_eq!(behind(Some("another-id"), &z1), 0);
+        // A copy with no id is known by its name, as the old-copy checks do.
+        assert_eq!(behind(None, &z1), 1);
+        let mut renamed = z1.clone();
+        renamed.name = "My Z1".into();
+        assert_eq!(behind(None, &renamed), 0);
+        assert_eq!(behind(None, &MachineProfile::example_x_rotary()), 0);
+    }
+
+    /// A position past the X travel is given in the setup's X as typed, how
+    /// far past, in machine X, and what to move: issue #820's numbers on the
+    /// Makera Z1 (decision record 0672).
+    #[test]
+    fn req_set_05_req_set_06_the_travel_warning_along_x_says_what_to_move() {
+        let z1 = builtin_z1();
+        let warning = SetupWarning {
+            kind: SetupWarningKind::OutsideTravel {
+                what: "the start of the stock",
+                axis: "X",
+                value: -263.16,
+                min: -207.0,
+                max: -1.0,
+            },
+            unconfirmed: Vec::new(),
+        };
+        let text =
+            crate::overview::setup_warning_in_form("Setup 1", &warning, Some(z1.rotary_origin.x));
+        for words in [
+            "Travel (setup 'Setup 1'): ",
+            "he start of the stock, at X -64.770, is 56.160 mm past the machine's X travel: it \
+             would be at machine X -263.160, and the machine reaches -207.000 to -1.000.",
+            "Move the stock towards +X (Start X, or X from and X to for a box), with the part \
+             (Offset along X) and the work zero (Zero at X), or shorten it.",
+            "X is measured from the machine's rotary reference point, at machine X -198.390.",
+        ] {
+            assert!(text.contains(words), "{words}: {text}");
+        }
+        let at_end = |what: &'static str| SetupWarning {
+            kind: SetupWarningKind::OutsideTravel {
+                what,
+                axis: "X",
+                value: 4.0,
+                min: -207.0,
+                max: -1.0,
+            },
+            unconfirmed: Vec::new(),
+        };
+        let text = crate::overview::setup_warning_in_form(
+            "S",
+            &at_end("the end of the part"),
+            Some(-198.39),
+        );
+        assert!(text.contains("at X 202.390, is 5.000 mm past"), "{text}");
+        assert!(
+            text.contains("Move the part towards -X (Offset along X)."),
+            "{text}"
+        );
+        let text =
+            crate::overview::setup_warning_in_form("S", &at_end("the work zero"), Some(-198.39));
+        assert!(
+            text.contains("Move the work zero towards -X (Zero at X)."),
+            "{text}"
+        );
+        // Without the reference point, and across the axis, the words are
+        // the library's.
+        let plain = crate::overview::setup_warning_in_form("S", &warning, None);
+        assert!(
+            plain.contains("is at machine X -263.160, outside the travel"),
+            "{plain}"
+        );
+    }
 
     /// A flat end mill with `flute` mm of flute, as the Z1 defaults are.
     fn tool(flute: f64) -> openchuck_types::tool::Tool {

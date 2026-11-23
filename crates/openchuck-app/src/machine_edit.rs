@@ -260,7 +260,9 @@ const SPECS: &[Spec] = &[
     spec(
         f::ORIGIN_X,
         "Rotary reference X",
-        "Machine X of the rotary reference point, a point on the axis such as the chuck face centre.",
+        "Machine X of the rotary reference point, a point on the axis such as the centre of \
+         the headstock face (the Makera Z1's). It is X 0 of every setup: the stock, the part and \
+         the work zero are measured from it.",
         G::RotaryAxis,
         Some(P::RotaryOrigin),
     ),

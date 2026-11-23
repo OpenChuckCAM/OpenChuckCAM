@@ -176,10 +176,10 @@ cp -r testdata/examples/baluster/baluster-project baluster
 openchuck-cli validate baluster
 openchuck-cli tool-numbers baluster
 openchuck-cli simulate baluster
-openchuck-cli regenerate baluster --post makera-z1 --tool-numbers keep --out baluster-out --setup-sheet
+openchuck-cli regenerate baluster --post makera-z1 --tool-numbers keep --out baluster-out --setup-sheet --acknowledge-collision-warnings
 ```
 
-`tool-numbers` shows `T104 Z1 O-flute 3.175x25` and `T204 Z1 ball 3.175x22`. The last command checks the program, writes `01-setup-1.nc`, `baluster-setup-sheet.html` and `baluster-setup-sheet.pdf` into `baluster-out`, and prints:
+`tool-numbers` shows `T104 Z1 O-flute 3.175x25` and `T204 Z1 ball 3.175x22`. The project's roughing tool, T104, may be too long to clear the workholding within the Z travel on the Makera Z1 (the [tutorial](../tutorial/07-operations.md) explains it), which is a possible collision, so `regenerate` writes the files only with `--acknowledge-collision-warnings`: read the warning first. The last command checks the program, writes `01-setup-1.nc`, `baluster-setup-sheet.html` and `baluster-setup-sheet.pdf` into `baluster-out`, and prints:
 
 ```text
   01-setup-1.nc: 27964 moves; replay matches the toolpath (tip 0.0007 mm, A 0.0005 deg; cut 2808.6 s, toolpath 2808.6 s)
@@ -201,8 +201,10 @@ note: Rotary axis (operation 'Finish'): moves 19077 to 19148 (72 moves): A turns
 short-block settings: Report (machine profile), 7.000 ms (machine profile), 32 blocks (machine profile)
 checks before writing the G-code:
 warning: Held region (operation 'Finish'): nothing within one tool radius of the held region at the start of the stock is cut: no part of the tool reaches over the gripped length of the stock.
+warning: Tool length (tool 'Z1 O-flute 3.175x25', setup 'Setup 1'): tool 104 may be too long to clear the workholding within the Z travel: ... A possible collision: acknowledge it before the files are written
 warning: Operation 'Rough' has not been simulated. Run the simulation to see what it removes.
 warning: Operation 'Finish' has not been simulated. Run the simulation to see what it removes.
+warning: writing with 1 possible collision acknowledged for this run: check each before running the program
 ```
 
 `validate`, `regenerate` and `simulate` print each message of the run as the program's **Results** tab shows it: a `warning:` line for something that may be a problem when you machine, and a `note:` line for information, where the goal was met with a compromise. Each line starts with what it is about, as in Messages: "Held region (operation 'Finish'): …". The moves the machine's feed limits slowed are one `note:` line for each operation, and notes about consecutive moves that say the same thing are one line, with the moves' numbers ("moves 19077 to 19148 (72 moves)").

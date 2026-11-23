@@ -84,9 +84,10 @@ pub fn verify_end_coverage(
             if previous.a == to.a {
                 let a = rotary.to_axis(previous.tip, previous.a);
                 let b = rotary.to_axis(to.tip, to.a);
-                let s = Sweep {
+                let mut s = Sweep {
                     angle: to.a,
                     x: [previous.tip.x, to.tip.x],
+                    span: [0.; 2],
                     u: [a.across.min(b.across), a.across.max(b.across)],
                     h: [
                         a.height.max(b.height) + margin,
@@ -103,6 +104,7 @@ pub fn verify_end_coverage(
                     };
                     if hi > low && lo < outer && hi > lo {
                         boundaries.extend([lo.max(low), hi.min(outer)]);
+                        s.span = [lo, hi];
                         sweeps.push(s);
                     }
                 }
@@ -137,24 +139,35 @@ pub fn verify_end_coverage(
         let mut views = std::collections::BTreeMap::<u64, (Degrees, Vec<[f64; 4]>)>::new();
         for sweep in &sweeps {
             spend(&mut budget, 1)?;
-            let dx = physical
+            // Axial reach is decided by the sweep's own span, the same
+            // numbers the slab boundaries were made from, so a slab that
+            // ends at a sweep's edge is not lost to the rounding of
+            // recomputing that edge (issue #650). A boundary is within
+            // arithmetic roundoff of the true edge, inside the precision
+            // budget checked above.
+            if lo < sweep.span[0] || hi > sweep.span[1] {
+                continue;
+            }
+            let dx = (physical
                 .into_iter()
                 .flat_map(|x| sweep.x.map(|c| (x - c).abs()))
                 .fold(0., f64::max)
-                + margin;
-            if dx > radius {
-                continue;
-            }
+                + margin)
+                .min(radius);
+            // At the slab's farther end the flat tool still covers the
+            // centreline's across span, widened by the chord there: eroded
+            // by the motion margin, that is a guaranteed removal however
+            // short the chord (a negative width shrinks the span).
             let width = ((radius - dx) * (radius + dx)).max(0.).sqrt() - margin;
-            if width < 0. {
-                continue;
-            }
             let rect = [
                 sweep.u[0] - width,
                 sweep.u[1] + width,
                 sweep.h[0],
                 sweep.h[1],
             ];
+            if rect[0] >= rect[1] {
+                continue;
+            }
             let angle = sweep.angle.0.rem_euclid(360.);
             let key = if angle == 0. { 0 } else { angle.to_bits() };
             let (_, rectangles) = views
@@ -268,6 +281,8 @@ pub fn verify_end_coverage(
 struct Sweep {
     angle: Degrees,
     x: [f64; 2],
+    /// Signed axial interval this sweep removes, eroded by the margin.
+    span: [f64; 2],
     u: [f64; 2],
     h: [f64; 2],
 }

@@ -608,10 +608,25 @@ fn req_gc_17_req_set_01_req_set_03_req_set_05_req_set_06_cli_sets_machine_and_se
         out.stdout
     );
     // The Z1 profile's axis height is the owner's (45 mm above the bed, OI-60), so the safe Z
-    // fits the travel and the setup has nothing to warn about.
-    assert!(out.stdout.contains("no problems found"), "{}", out.stdout);
+    // fits the travel. The stock starts at X -2, behind the Z1's headstock face, so that is
+    // the one warning, with what to do first (decision record 0672, issue #812).
+    let warnings: Vec<&str> = out
+        .stdout
+        .lines()
+        .filter(|l| l.starts_with("  - "))
+        .collect();
+    assert_eq!(warnings.len(), 1, "{}", out.stdout);
     assert!(
-        !out.stdout.lines().any(|l| l.starts_with("  - ")),
+        warnings[0].contains(
+            "Stock (setup 'Setup 1'): The stock starts at X -2.000, 2.000 mm inside the headstock"
+        ) || warnings[0].contains(
+            "Stock (setup 'Setup 1'): the stock starts at X -2.000, 2.000 mm inside the headstock"
+        ),
+        "{}",
+        out.stdout
+    );
+    assert!(
+        warnings[0].contains("set the stock's Start X"),
         "{}",
         out.stdout
     );

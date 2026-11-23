@@ -77,7 +77,9 @@ pub fn step_tessellation_notice(settings: TessellationSettings) -> String {
         "STEP keeps its exact faces and edges, which radial drilling, swarf and edge following \
 read; pencil clean-up finds its inside corners on the exact edges. The other strategies, and \
 pencil clean-up, drop the tool on the tessellation ({} mm, {} rad) for now, and each \
-operation's notes say so; the display and the mesh checks use it too.",
+operation's notes say so; the display and the mesh checks use it too. Facing works on a STEP \
+part only as Flat or Round over the whole stock with no margin for now: its other modes check \
+the cut against a proved bound of the part, which the tessellation is not.",
         settings.linear, settings.angular
     )
 }
@@ -613,6 +615,13 @@ mod tests {
         assert!(
             notice.contains("drop the tool on the tessellation (0.01 mm, 0.1 rad)")
                 && notice.contains("radial drilling, swarf and edge following"),
+            "{notice}"
+        );
+        // Facing's checked modes do not run on a STEP part yet (issue
+        // #800, decision 0666), and the notice says so.
+        assert!(
+            notice
+                .contains("Facing works on a STEP part only as Flat or Round over the whole stock"),
             "{notice}"
         );
         // Pencil clean-up reads the exact edges for its inside corners only

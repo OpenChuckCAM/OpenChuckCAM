@@ -508,13 +508,32 @@ pub(crate) fn regenerate(
             .canonical_toolpath
             .groups
             .push(path.group.clone());
+        // The bottom of the Z travel, on every move of the linked path, for
+        // the operation's tool (decision record 0673): a travel limit, so a
+        // warning with nothing to acknowledge (decision record 0538).
+        let mut warnings = path.warnings.clone();
+        if let Some((machine, snapshot)) = project.machine().zip(
+            operation
+                .tool
+                .and_then(|id| project.tools().iter().find(|t| t.id == id)),
+        ) && let Some(found) =
+            crate::setup::spindle_depth(machine, &snapshot.tool, &linked.group)
+        {
+            warnings.push(
+                openchuck_path::Notice::warning(crate::setup::spindle_depth_text(
+                    snapshot.controller.number,
+                    &found,
+                ))
+                .about(crate::lead_in::topic::TOOL_LENGTH),
+            );
+        }
         regeneration.toolpath.groups.push(linked.group);
         regeneration.groups.push(GroupInfo {
             operation: operation.id,
             setup: operation.setup,
             tool: path.tool.clone(),
             part_bounds: path.part_bounds,
-            warnings: path.warnings.clone(),
+            warnings,
             unreached: std::sync::Arc::clone(&path.unreached),
             facing: path.facing.clone(),
             rapid_cuts,
