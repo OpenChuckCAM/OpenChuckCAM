@@ -52,6 +52,8 @@ Option A. It answers the report (the strategy "machines within the bounds" of a 
 
 ## Decision
 
+![Before: the seam bounds the face twice and the boundary does not close. Option A: the seam is not a boundary; rings run round the face from the longer end to the other.](0xxx-face-flow-closed-face-rings.svg)
+
 The owner chose **option A** (23 Nov 2026, relayed by the coordinator): face-flow finishing cuts a face that closes round on itself in rings round the face, from one end to the other.
 
 1. **Seams.** A seam is recognised from the face and the edge (*Context*); it is not a boundary.
@@ -75,4 +77,5 @@ Environment: Linux container, Rust toolchain of `rust-toolchain.toml`, OpenCASCA
 - Reproduced before any fix: `face_flow::req_op_28_a_full_cylinder_with_a_seam_edge_is_not_refused` (a hand-built full cylinder) failed with "the boundary of face 0 does not close: its edges are not joined end to end". On the public STEP corpus the same refusal met `cylinder.step`, `cone.step` and the blisk's outside cylinder (face 1).
 - Option A, built on the lane's branch while the owner decided and kept on the owner's choice. Tests, written first and seen to fail against `main`'s `face_flow.rs` (all eight below, and the kernel test): `face_flow::req_op_28_a_full_cylinder_is_cut_in_rings_from_one_end_to_the_other` (replaces the reproduction), `..._a_cone_between_two_diameters_is_cut_in_rings_from_its_larger_end`, `..._a_cone_to_its_apex_closes_on_it`, `..._req_nfr_07_the_seam_as_guide_and_a_face_with_no_end_are_refused_plainly`, `..._rings_blend_between_ends_that_run_opposite_ways`, `..._the_user_chooses_which_end_of_a_closed_face_is_the_guide`, `..._req_gc_07_rings_are_the_same_at_1_2_and_n_threads`; kernel test `step_strategies::req_op_28_face_flow_cuts_a_step_face_that_closes_round_on_itself_in_rings` (9 s, debug): `cylinder.step` in rings at constant X on its 10 mm radius, `cone.step` in rings at constant X, the blisk's face 1 in 52 rings, a full sphere and torus refused. All 31 face-flow tests pass, and the whole suites of `openchuck-path`, `openchuck-app`, `openchuck-import` and `openchuck-ui` (2578 tests).
 - Coverage of `face_flow.rs` from its own tests: 94.0 % of lines. The new lines left uncovered are defensive (NFR-07): a face whose closure has no period, more than two ends, an end with no evaluable point, an edge with no points.
+- On the program itself (release build at `e4ac7b31`, public blisk, 1 mm stepover, 3 mm ball): the blisk's outside cylinder (face 1) in 52 rings, broken at the blades, and a blade (face 7) cut along its tip edge as before. Screenshots and what each shows: [docs/archive/0xxx-face-flow-closed-faces](../archive/0xxx-face-flow-closed-faces/README.md).
 - Not verified: closed B-spline faces (none in the public corpus); the reporter's project (not opened).
