@@ -61,7 +61,7 @@ pub struct CylinderStep {
 }
 
 /// Cylinders end to end along X from x = 0, joined by faces square to the
-/// axis: the gate 5 first-cut part (decision record 0xxx, issue #826). Each
+/// axis: the gate 5 first-cut part (decision record STEPPED-CYL-A, issue #826). Each
 /// step's diameter can be measured anywhere along it, and each face gives a
 /// position along X. Its mesh has two rings at each face, so the faces are
 /// exact annuli; the shared ring mesh of [`RadialPart::mesh`] spaces its rings

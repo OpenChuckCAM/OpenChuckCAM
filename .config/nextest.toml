@@ -201,7 +201,7 @@ priority = 79
 # container beside other builds: 482 s (1 thread), 471 s (2) and 458 s (N).
 # First-cut committed-project determinism, focused rerun after reviewed main golden update:
 # 293.759 s uninstrumented (both posts at 1, 2 and N threads); remains long/coverage-excluded.
-# STEPPED-CYL 23 Nov 2026 (decision 0xxx): the first-cut part is now the stepped cylinder, roughed
+# STEPPED-CYL 23 Nov 2026 (decision STEPPED-CYL-A): the first-cut part is now the stepped cylinder, roughed
 # and finished with the flat end 104. Uninstrumented, 4 vCPU, the first-cut module side by side
 # (`cargo nextest run -p openchuck-cli --test e2e -E 'test(/^first_cut::/)'`): 97.0 s (1 thread),
 # 83.7 s (2) and 76.8 s (N); the simulation test, renamed by suffix to

@@ -170,7 +170,7 @@ fn req_op_20_a_revolved_profile_may_turn_back_for_an_undercut() {
     assert!(volume(&mesh) > 0.0);
 }
 
-/// The gate 5 reference part is a stepped cylinder (decision record 0xxx,
+/// The gate 5 reference part is a stepped cylinder (decision record STEPPED-CYL-A,
 /// issue #826): each step is a cylinder of its own radius, and the faces
 /// between steps are square to the axis, so a micrometer reads a step's
 /// diameter wherever along it it sits and a face gives a position along X.

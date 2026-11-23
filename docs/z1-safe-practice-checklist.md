@@ -35,7 +35,7 @@ Use with the [air-cut procedure](z1-air-cut-procedure.md). Tick each box; stop a
 ## 3. Gate 5: first cut (wax, foam or tooling board), only after gate 4 has passed
 
 - [ ] The air cut for this program passed, with the sheet stored.
-- [ ] The first-cut limit is ±0.1 mm ([decision 0221](decisions/0221-gate-5-first-cut-project-and-limit.md): no 3-axis test part): on the stepped first-cut part, ±0.1 mm on a diameter, ±0.05 mm on a radius and ±0.1 mm on positions and lengths, each against the simulated part ([decision 0xxx](decisions/0xxx-the-gate-5-reference-part-is-a-stepped-cylinder.md)).
+- [ ] The first-cut limit is ±0.1 mm ([decision 0221](decisions/0221-gate-5-first-cut-project-and-limit.md): no 3-axis test part): on the stepped first-cut part, ±0.1 mm on a diameter, ±0.05 mm on a radius and ±0.1 mm on positions and lengths, each against the simulated part ([decision STEPPED-CYL-A](decisions/STEPPED-CYL-A-the-gate-5-reference-part-is-a-stepped-cylinder.md)).
 - [ ] The material is soft and low-cost (wax, foam or tooling board), held firmly and square in the chuck. I have checked it cannot slip or loosen as A turns.
 - [ ] The stock is no larger than the stock in the project, and the stock position (X0, centre on the axis) is checked by hand.
 - [ ] The tool is the tool in the project (3 mm ball end mill, 8 mm flute length, for the reference jobs), fitted with the correct stick-out and tightened. The tool number in the program is the tool in the spindle.
@@ -66,4 +66,4 @@ Use with the [air-cut procedure](z1-air-cut-procedure.md). Tick each box; stop a
 
 **22 Nov 2026** (lane AIRCUT-DOC; the owner's approval of the air-cut procedure update, 22 Nov 2026, relayed by the coordinator). Checked against the same sources as the [air-cut procedure](z1-air-cut-procedure.md)'s change note (the 0.55.0-rc3 test record on issue #586, decisions 0647, 0649 and 0651). Two statements were wrong and are corrected: the firmware recheck now applies to a version other than 1.1.2 or 1.1.3 (decision 0649 item 3), and the note that no generated program had run on a Z1 now says that gates 4 and 5 have been run on one Z1. Everything else is unchanged: it states no travel, safe Z or spindle-to-axis value, and its feed limits already follow decision 0647 and its first-cut limit decision 0221.
 
-**23 Nov 2026** (lane STEPPED-CYL, [decision 0xxx](decisions/0xxx-the-gate-5-reference-part-is-a-stepped-cylinder.md), accepted by the owner, relayed): the first-cut limit line states the limits on the stepped first-cut part against the simulated part. Decision 0221's ±0.1 mm is unchanged.
+**23 Nov 2026** (lane STEPPED-CYL, [decision STEPPED-CYL-A](decisions/STEPPED-CYL-A-the-gate-5-reference-part-is-a-stepped-cylinder.md), accepted by the owner, relayed): the first-cut limit line states the limits on the stepped first-cut part against the simulated part. Decision 0221's ±0.1 mm is unchanged.
