@@ -5,6 +5,7 @@
 //! `openchuck_app::setup_panes`. The interface works out nothing: every
 //! length, position and label comes from the view model.
 
+use crate::focus::Tip as _;
 use eframe::egui::{
     self, Align2, Color32, FontFamily, FontId, Painter, Pos2, Rect, Sense, Shape, Stroke, pos2,
     vec2,
@@ -1037,7 +1038,7 @@ fn fit_button(ui: &mut egui::Ui, rect: Rect, pane: Pane) -> bool {
         Pane::End => "end",
     };
     ui.put(button, egui::Button::new("Fit").small())
-        .on_hover_text(format!(
+        .tip(format!(
             "Fit the {name} view to its pane again (double-click does the same). Scroll to \
              zoom, drag to move."
         ))
@@ -1178,7 +1179,7 @@ pub fn show(
         }
     }
     if let Some((_, _, text)) = hovered {
-        response.clone().on_hover_text(text);
+        response.clone().tip(text);
     }
     Interaction {
         hovered: item,

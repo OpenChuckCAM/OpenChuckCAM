@@ -2,6 +2,7 @@
 //! Ordered indexed-face controls (OP-24, UI-07/26; decision0252).
 //! Persistence is one validated parent parameter edit, never exposed JSON.
 
+use crate::focus::Tip as _;
 use eframe::egui::{self, RichText};
 use openchuck_app::form::{Degrees, FaceOffset, Field, SideRequest, decode_rows, encode_rows};
 use openchuck_app::project::ParameterValue;
@@ -35,7 +36,7 @@ pub fn show(ui: &mut egui::Ui, field: &Field, state: &mut FieldState) -> Option<
     let decoded = decode_rows(data);
     let valid = decoded.is_ok();
     ui.label(RichText::new(&field.label).strong())
-        .on_hover_text(&field.description);
+        .tip(&field.description);
     if let Err(error) = &decoded {
         ui.colored_label(DARK.error, format!("Cannot read these faces: {error}"));
     }

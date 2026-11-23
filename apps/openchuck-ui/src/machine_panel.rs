@@ -9,6 +9,7 @@
 //! (OI-53). Choosing or updating the machine is a command, so it can be
 //! undone.
 
+use crate::focus::Tip as _;
 use std::path::PathBuf;
 
 use eframe::egui::{self, Color32, Pos2, RichText, Stroke};
@@ -446,7 +447,7 @@ impl MachinePanel {
                 // path is in the tooltip.
                 let path = format!("Library: {}", dir.display());
                 ui.add(egui::Label::new(RichText::new(&path).color(DARK.muted)).truncate())
-                    .on_hover_text(&path);
+                    .tip(&path);
                 if dir.is_dir() {
                     ui.horizontal_wrapped(|ui| {
                         if ui.button("Open the library folder").clicked() {

@@ -7,6 +7,7 @@
 //! points are highlighted. Only Apply changes the tool: one undoable step on
 //! a project tool, a saved file for a library tool.
 
+use crate::focus::Tip as _;
 use eframe::egui::{self, Color32, Pos2, RichText, Sense, Stroke, pos2, vec2};
 use openchuck_app::tool_edit::{
     arc_radius, check_profile, insert_arc, insert_segment, move_segment, profile_outline,
@@ -66,14 +67,14 @@ pub fn editor(
             ui.horizontal_wrapped(|ui| {
                 if ui
                     .small_button("+ Line")
-                    .on_hover_text("Add a line after the selected segment")
+                    .tip("Add a line after the selected segment")
                     .clicked()
                 {
                     change = Some(Change::Line);
                 }
                 if ui
                     .small_button("+ Arc")
-                    .on_hover_text("Add a quarter-turn arc after the selected segment")
+                    .tip("Add a quarter-turn arc after the selected segment")
                     .clicked()
                 {
                     change = Some(Change::NewArc);
@@ -81,14 +82,14 @@ pub fn editor(
                 let some = selected.is_some_and(|i| i < profile.segments.len());
                 if ui
                     .add_enabled(some, egui::Button::new("↑").small())
-                    .on_hover_text("Move up")
+                    .tip("Move up")
                     .clicked()
                 {
                     change = Some(Change::Up);
                 }
                 if ui
                     .add_enabled(some, egui::Button::new("↓").small())
-                    .on_hover_text("Move down")
+                    .tip("Move down")
                     .clicked()
                 {
                     change = Some(Change::Down);
@@ -221,7 +222,7 @@ fn table(
                 let chosen = *selected == Some(i);
                 if ui
                     .selectable_label(chosen, (i + 1).to_string())
-                    .on_hover_text("Select this segment")
+                    .tip("Select this segment")
                     .clicked()
                 {
                     *selected = Some(i);
