@@ -372,6 +372,27 @@ pub fn end_frame(ctx: &egui::Context) {
     store(ctx, router);
 }
 
+/// The sense of a widget that only shows something and whose tooltip says
+/// more than is written beside it (a status mark, a badge, a readout): a Tab
+/// stop that cannot be clicked, so its tooltip opens on keyboard focus as well
+/// as hover (UI-14; the rule of the owner's answer Q2 A for unavailable steps).
+pub fn info_sense() -> egui::Sense {
+    egui::Sense::hover() | egui::Sense::FOCUSABLE
+}
+
+/// Draws the focus ring round a widget that draws itself, while it has the
+/// keyboard.
+pub fn focus_ring(ui: &egui::Ui, response: &egui::Response) {
+    if response.has_focus() {
+        ui.painter().rect_stroke(
+            response.rect,
+            2.0,
+            egui::Stroke::new(2.0, crate::theme::DARK.accent),
+            egui::StrokeKind::Inside,
+        );
+    }
+}
+
 /// A row of controls at the right end of `ui`, drawn left to right so Tab
 /// reads them in reading order (the owner's answer Q3 A), where a right-to-left
 /// layout would reverse them. The row's width is measured as it is drawn and
@@ -518,6 +539,58 @@ mod tests {
             }
         }
         assert!(shown, "the tooltip opened on focus");
+    }
+
+    /// A status mark says its cause only in its tooltip, so it is a Tab stop
+    /// that shows the cause on focus; a mark with the same words beside it is
+    /// not a stop of its own (CodeRabbit on #858; the rule of answer Q2 A).
+    #[test]
+    fn req_ui_14_a_marks_cause_opens_on_focus_unless_it_is_written_beside_it() {
+        use openchuck_app::overview::ItemState;
+        let ctx = egui::Context::default();
+        let tab = || {
+            let key = |pressed| egui::Event::Key {
+                key: egui::Key::Tab,
+                physical_key: None,
+                pressed,
+                repeat: false,
+                modifiers: egui::Modifiers::NONE,
+            };
+            vec![key(true), key(false)]
+        };
+        let mut texts = Vec::new();
+        let mut marked = None;
+        for frame in 0..4 {
+            let events = if frame == 1 { tab() } else { Vec::new() };
+            let input = egui::RawInput {
+                events,
+                ..Default::default()
+            };
+            let mut output = ctx.run_ui(input, |ui| {
+                crate::shell::mark_beside(ui, ItemState::Warning, "Said beside");
+                ui.label("Said beside");
+                marked = Some(crate::shell::mark(ui, ItemState::Stale, "Hidden cause").id);
+            });
+            output.textures_delta.clear();
+            texts.clear();
+            fn walk(shape: &egui::Shape, out: &mut Vec<String>) {
+                match shape {
+                    egui::Shape::Text(t) => out.push(t.galley.text().to_owned()),
+                    egui::Shape::Vec(v) => v.iter().for_each(|s| walk(s, out)),
+                    _ => {}
+                }
+            }
+            output
+                .shapes
+                .iter()
+                .for_each(|s| walk(&s.shape, &mut texts));
+        }
+        assert_eq!(
+            ctx.memory(egui::Memory::focused),
+            marked,
+            "the first Tab stop is the mark"
+        );
+        assert!(texts.iter().any(|t| t == "Hidden cause"), "{texts:?}");
     }
 
     /// Every tooltip in the application opens on focus too: none is given

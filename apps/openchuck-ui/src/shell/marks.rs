@@ -90,11 +90,28 @@ fn triangle(centre: Pos2, r: f32) -> Vec<Pos2> {
 }
 
 /// A mark as a widget of its own size, with the cause on hover and on
-/// keyboard focus (specification section 16).
+/// keyboard focus (specification section 16): a Tab stop that cannot be
+/// clicked, since the cause is not written beside it.
 pub fn mark(ui: &mut egui::Ui, state: ItemState, cause: &str) -> egui::Response {
-    let (rect, response) =
-        ui.allocate_exact_size(egui::vec2(SIZE + 4.0, SIZE + 4.0), egui::Sense::hover());
+    mark_with(ui, state, cause, crate::focus::info_sense())
+}
+
+/// A mark with the same words written beside it (a warning line): its cause
+/// shows on hover, and it is not a Tab stop of its own, since the words
+/// beside it already say it.
+pub fn mark_beside(ui: &mut egui::Ui, state: ItemState, cause: &str) -> egui::Response {
+    mark_with(ui, state, cause, egui::Sense::hover())
+}
+
+fn mark_with(
+    ui: &mut egui::Ui,
+    state: ItemState,
+    cause: &str,
+    sense: egui::Sense,
+) -> egui::Response {
+    let (rect, response) = ui.allocate_exact_size(egui::vec2(SIZE + 4.0, SIZE + 4.0), sense);
     paint(ui.painter(), rect.center(), state, SIZE);
+    crate::focus::focus_ring(ui, &response);
     response.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Label, true, cause.to_owned()));
     response.tip(cause)
 }
@@ -102,8 +119,11 @@ pub fn mark(ui: &mut egui::Ui, state: ItemState, cause: &str) -> egui::Response 
 /// The severity icon of a message: a red triangle, an amber triangle
 /// outline, or a blue "i" (specification section 9).
 pub fn severity(ui: &mut egui::Ui, severity: Severity) -> egui::Response {
-    let (rect, response) =
-        ui.allocate_exact_size(egui::vec2(SIZE + 6.0, SIZE + 6.0), egui::Sense::hover());
+    let (rect, response) = ui.allocate_exact_size(
+        egui::vec2(SIZE + 6.0, SIZE + 6.0),
+        crate::focus::info_sense(),
+    );
+    crate::focus::focus_ring(ui, &response);
     let painter = ui.painter();
     let c = rect.center();
     match severity {
@@ -183,7 +203,7 @@ pub fn legend(ui: &mut egui::Ui) {
         ui.horizontal(|ui| {
             ui.spacing_mut().item_spacing.x = 4.0;
             for state in row {
-                mark(ui, state, state.name());
+                mark_beside(ui, state, state.name());
                 ui.add(
                     egui::Label::new(egui::RichText::new(state.name()).small().color(DARK.muted))
                         .extend(),

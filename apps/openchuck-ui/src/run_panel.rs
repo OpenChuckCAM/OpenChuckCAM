@@ -337,7 +337,7 @@ fn preset_row(
     });
     if let Some(why) = &preset.differs {
         ui.horizontal_wrapped(|ui| {
-            crate::shell::mark(ui, openchuck_app::overview::ItemState::Warning, why);
+            crate::shell::mark_beside(ui, openchuck_app::overview::ItemState::Warning, why);
             ui.label(why);
         });
     }
@@ -901,7 +901,7 @@ impl RunPanel {
                             .and_then(|c| c.unavailable.clone());
                         if let Some(why) = &unavailable {
                             ui.horizontal_wrapped(|ui| {
-                                crate::shell::mark(
+                                crate::shell::mark_beside(
                                     ui,
                                     openchuck_app::overview::ItemState::Warning,
                                     why,
@@ -929,43 +929,29 @@ impl RunPanel {
                 };
                 crate::focus::region(ui, ADD_FOOTER, |ui| {
                     ui.horizontal(|ui| {
-                        let font = egui::TextStyle::Button.resolve(ui.style());
-                        let width = |text: &str| {
-                            ui.painter()
-                                .layout_no_wrap(
-                                    text.to_owned(),
-                                    font.clone(),
-                                    egui::Color32::PLACEHOLDER,
+                        crate::focus::row_at_right(ui, "add operation footer", |ui| {
+                            if ui.button("Cancel").clicked() {
+                                close = true;
+                            }
+                            let button = if blocked.is_none() {
+                                egui::Button::new(
+                                    egui::RichText::new("Add")
+                                        .color(crate::theme::DARK.primary_text)
+                                        .strong(),
                                 )
-                                .size()
-                                .x
-                                + 2.0 * ui.spacing().button_padding.x
-                        };
-                        // A few points spare: "Add" is drawn in the strong face.
-                        let buttons =
-                            width("Cancel") + width("Add") + ui.spacing().item_spacing.x + 4.0;
-                        ui.add_space((ui.available_width() - buttons).max(0.0));
-                        if ui.button("Cancel").clicked() {
-                            close = true;
-                        }
-                        let button = if blocked.is_none() {
-                            egui::Button::new(
-                                egui::RichText::new("Add")
-                                    .color(crate::theme::DARK.primary_text)
-                                    .strong(),
-                            )
-                            .fill(crate::theme::DARK.primary)
-                            .stroke(egui::Stroke::new(1.0, crate::theme::DARK.primary_border))
-                        } else {
-                            egui::Button::new("Add")
-                        };
-                        if ui
-                            .add_enabled(blocked.is_none(), button)
-                            .on_disabled_hover_text(blocked.unwrap_or_default())
-                            .clicked()
-                        {
-                            add = true;
-                        }
+                                .fill(crate::theme::DARK.primary)
+                                .stroke(egui::Stroke::new(1.0, crate::theme::DARK.primary_border))
+                            } else {
+                                egui::Button::new("Add")
+                            };
+                            if ui
+                                .add_enabled(blocked.is_none(), button)
+                                .on_disabled_hover_text(blocked.unwrap_or_default())
+                                .clicked()
+                            {
+                                add = true;
+                            }
+                        });
                     })
                 });
             },

@@ -2092,13 +2092,12 @@ fn tangent_choice(
     value: Option<bool>,
     default: bool,
 ) -> Option<Option<bool>> {
+    const WHAT: &str = "Edges where two faces meet smoothly, such as the edge of a fillet. Edge \
+                        following drops them unless they are kept.";
     let mut chosen = None;
     ui.horizontal(|ui| {
-        ui.label("Tangent edges").tip(
-            "Edges where two faces meet smoothly, such as the edge of a fillet. Edge \
-                 following drops them unless they are kept.",
-        );
-        egui::ComboBox::from_id_salt(salt)
+        ui.label("Tangent edges").tip(WHAT);
+        let list = egui::ComboBox::from_id_salt(salt)
             .selected_text(tangent_label(value, default))
             .show_ui(ui, |ui| {
                 for option in [None, Some(true), Some(false)] {
@@ -2111,6 +2110,10 @@ fn tangent_choice(
                     }
                 }
             });
+        // The label is not a Tab stop: the list shows its words on focus (UI-14).
+        if list.response.has_focus() {
+            list.response.show_tooltip_text(WHAT);
+        }
     });
     chosen
 }

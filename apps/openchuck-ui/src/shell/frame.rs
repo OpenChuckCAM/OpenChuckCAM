@@ -426,16 +426,26 @@ impl Shell {
                 .exact_size(RAIL)
                 .resizable(false)
                 .show(ui, |ui| {
-                    ui.vertical_centered(|ui| {
-                        let chevron = if left { "»" } else { "«" };
-                        if ui
-                            .button(chevron)
-                            .tip(format!("Open the {} ({})", region.name(), region.key()))
-                            .clicked()
-                        {
-                            self.toggle_region(region);
-                        }
-                    });
+                    crate::focus::region(
+                        ui,
+                        if matches!(region, Region::Project) {
+                            crate::focus::main_window::PROJECT
+                        } else {
+                            crate::focus::main_window::INSPECTOR
+                        },
+                        |ui| {
+                            ui.vertical_centered(|ui| {
+                                let chevron = if left { "»" } else { "«" };
+                                if ui
+                                    .button(chevron)
+                                    .tip(format!("Open the {} ({})", region.name(), region.key()))
+                                    .clicked()
+                                {
+                                    self.toggle_region(region);
+                                }
+                            });
+                        },
+                    )
                 });
             return;
         }
@@ -548,30 +558,35 @@ impl Shell {
                 .exact_size(RAIL)
                 .resizable(false)
                 .show(ui, |ui| {
-                    // The show button is at the right end, where the hide
-                    // button of the open dock is (issue 433). Its width is
-                    // taken first, so a narrow window clips the tabs and
-                    // never the button (issue 468, OI-2040).
-                    ui.horizontal_centered(|ui| {
-                        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                            if ui
-                                .small_button("\u{23f6}")
-                                .tip("Open the dock (Ctrl 3)")
-                                .clicked()
-                            {
-                                self.toggle_region(Region::Dock);
-                            }
-                            // The tabs fill what is left of the row, from the
-                            // left, and are cut off at its edge.
+                    crate::focus::region(ui, crate::focus::main_window::DOCK, |ui| {
+                        // The show button is at the right end, where the hide
+                        // button of the open dock is (issue 433). Its width is
+                        // taken first, so a narrow window clips the tabs and
+                        // never the button (issue 468, OI-2040).
+                        ui.horizontal_centered(|ui| {
                             ui.with_layout(
-                                egui::Layout::left_to_right(egui::Align::Center),
+                                egui::Layout::right_to_left(egui::Align::Center),
                                 |ui| {
-                                    ui.shrink_clip_rect(ui.max_rect());
-                                    self.dock_tabs(ui);
+                                    if ui
+                                        .small_button("\u{23f6}")
+                                        .tip("Open the dock (Ctrl 3)")
+                                        .clicked()
+                                    {
+                                        self.toggle_region(Region::Dock);
+                                    }
+                                    // The tabs fill what is left of the row, from the
+                                    // left, and are cut off at its edge.
+                                    ui.with_layout(
+                                        egui::Layout::left_to_right(egui::Align::Center),
+                                        |ui| {
+                                            ui.shrink_clip_rect(ui.max_rect());
+                                            self.dock_tabs(ui);
+                                        },
+                                    );
                                 },
                             );
                         });
-                    });
+                    })
                 });
             return;
         }
@@ -1174,7 +1189,7 @@ impl Shell {
             ui.strong(format!("Overall status: {label}"));
             for (step, health, reason) in &lines {
                 ui.horizontal(|ui| {
-                    marks::mark(ui, health.mark(), health.name());
+                    marks::mark_beside(ui, health.mark(), health.name());
                     ui.label(format!("{}: {reason}", step.name()));
                 });
             }
@@ -1432,7 +1447,9 @@ impl Shell {
             .painter()
             .layout_no_wrap(label.to_owned(), font, Color32::PLACEHOLDER);
         let size = egui::vec2(galley.size().x + 40.0, WORKFLOW_BAR - 4.0);
-        let (rect, response) = ui.allocate_exact_size(size, egui::Sense::hover());
+        // A Tab stop that cannot be clicked: its tooltip says why (UI-14).
+        let (rect, response) = ui.allocate_exact_size(size, crate::focus::info_sense());
+        crate::focus::focus_ring(ui, &response);
         let painter = ui.painter();
         let centre = egui::pos2(rect.left() + 18.0, rect.center().y);
         let text = if written { DARK.ok } else { DARK.muted };

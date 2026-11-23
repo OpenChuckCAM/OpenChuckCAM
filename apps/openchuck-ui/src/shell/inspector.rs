@@ -299,7 +299,7 @@ impl Shell {
         let mut jump_to = None;
         if let Some(first) = needs.first() {
             ui.horizontal(|ui| {
-                marks::mark(ui, ItemState::Warning, "Required values are missing");
+                marks::mark_beside(ui, ItemState::Warning, "Required values are missing");
                 let text = match needs.len() {
                     1 => "1 value is missing".to_owned(),
                     n => format!("{n} values are missing"),
@@ -955,7 +955,7 @@ impl Shell {
             .collect();
         if let Some(first) = needs.first() {
             ui.horizontal(|ui| {
-                marks::mark(ui, ItemState::Warning, "Required values are missing");
+                marks::mark_beside(ui, ItemState::Warning, "Required values are missing");
                 let text = match needs.len() {
                     1 => "1 value is missing".to_owned(),
                     n => format!("{n} values are missing"),
@@ -1396,7 +1396,7 @@ fn set_options(
                     // (OI-970). Explain its limitation even without a hit.
                     ui.horizontal_wrapped(|ui| {
                         ui.add_space(indent);
-                        marks::mark(ui, ItemState::Warning, "Warning");
+                        marks::mark_beside(ui, ItemState::Warning, "Warning");
                         ui.label(
                             RichText::new(
                                 "Warn only samples the path and can miss a narrow set. No warning \
@@ -1417,7 +1417,7 @@ fn set_options(
 fn limits_nothing(ui: &mut egui::Ui, indent: f32, set: &str) {
     ui.horizontal_wrapped(|ui| {
         ui.add_space(indent);
-        marks::mark(ui, ItemState::Warning, "Warning");
+        marks::mark_beside(ui, ItemState::Warning, "Warning");
         ui.label(RichText::new(format!("The set '{set}' limits nothing.")).color(DARK.warning));
     });
 }
@@ -1526,10 +1526,14 @@ fn geometry(
                     ),
                     egui::Sense::hover(),
                 );
+                // A Tab stop that cannot be clicked, so the role's description
+                // opens on keyboard focus too (UI-14).
                 let label = ui.put(
                     rect,
-                    egui::Label::new(RichText::new(row_label).color(DARK.muted)),
+                    egui::Label::new(RichText::new(row_label).color(DARK.muted))
+                        .sense(crate::focus::info_sense()),
                 );
+                crate::focus::focus_ring(ui, &label);
                 label.tip(row_description);
                 for id in &row_sets {
                     let summary = summaries.iter().find(|s| s.id == *id);
@@ -1592,7 +1596,7 @@ fn geometry(
         for refusal in notes.refusals.iter().filter(|r| r.role == role) {
             ui.horizontal_wrapped(|ui| {
                 ui.add_space(crate::field_row::label_column(ui) + ui.spacing().item_spacing.x);
-                marks::mark(ui, ItemState::Warning, "Warning");
+                marks::mark_beside(ui, ItemState::Warning, "Warning");
                 ui.label(RichText::new(&refusal.text).color(DARK.warning));
             });
         }
@@ -1605,7 +1609,7 @@ fn geometry(
             for note in reach.iter().filter(|n| n.contains(&quoted)) {
                 ui.horizontal_wrapped(|ui| {
                     ui.add_space(crate::field_row::label_column(ui) + ui.spacing().item_spacing.x);
-                    marks::mark(ui, ItemState::Warning, "Warning");
+                    marks::mark_beside(ui, ItemState::Warning, "Warning");
                     ui.label(RichText::new(note).color(DARK.warning));
                     if ui.link("Show in view").clicked() {
                         action = Some(ReachAction::Show(

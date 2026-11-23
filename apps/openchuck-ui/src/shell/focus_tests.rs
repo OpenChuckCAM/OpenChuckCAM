@@ -516,6 +516,8 @@ fn req_ui_14_tab_follows_reading_order() {
     // The primary button is the footer's last stop.
     let mut rig = Rig::cube("focus-order-back", None);
     rig.press(Key::Num3, Modifiers::ALT);
+    // This project's own operation: each project makes its own IDs.
+    let op = rig.shell.app.as_ref().unwrap().project().operations()[0].id;
     rig.shell.select(Selection::Operation(op));
     rig.settle();
     let back = region_walk(&mut rig, true, 400);
@@ -569,4 +571,87 @@ fn req_ui_14_a_dialog_reads_its_body_then_its_footer() {
             "{window}: round to the start: {lap:?}"
         );
     }
+}
+
+/// Esc closes the tool window on top of those still shown: with the tool
+/// library over the machine library, Esc closes the tool library, and Esc
+/// again closes the machine library (egui keeps a closed window's place in
+/// its order, which must not hold the second Esc back; CodeRabbit on #858).
+#[test]
+fn req_ui_14_esc_closes_the_window_left_when_the_top_one_has_closed() {
+    let mut rig = Rig::cube("focus-esc-two", None);
+    let dir = super::frame_tests::temp("focus-esc-two-libs");
+    rig.shell.tool_library = ToolLibraryWindow::new(Some(dir.join("tools")));
+    rig.shell.machine_library =
+        MachineLibraryWindow::new(Some(dir.join("machines")), Some(dir.join("tools")));
+    rig.dirs.push(dir);
+    rig.shell.open_machine_library();
+    for _ in 0..3 {
+        rig.frame(Vec::new());
+    }
+    rig.shell.open_tool_library(Purpose::Add, None);
+    for _ in 0..3 {
+        rig.frame(Vec::new());
+    }
+    rig.press(Key::Escape, Modifiers::NONE);
+    rig.frame(Vec::new());
+    assert!(!rig.shell.tool_library.is_open(), "the top window closed");
+    assert!(rig.shell.machine_library.is_open(), "only the top one");
+    for _ in 0..3 {
+        rig.frame(Vec::new());
+    }
+    rig.press(Key::Escape, Modifiers::NONE);
+    rig.frame(Vec::new());
+    assert!(
+        !rig.shell.machine_library.is_open(),
+        "the window left closed"
+    );
+}
+
+/// While a job runs, an open tool window takes Esc first (as its Close), and
+/// the job goes on; with no tool window open, Esc cancels the job
+/// (specification section 16; CodeRabbit on #858).
+#[test]
+fn req_ui_14_an_open_tool_window_takes_esc_before_a_running_job() {
+    let mut rig = Rig::cube("focus-esc-running", None);
+    let dir = super::frame_tests::temp("focus-esc-running-libs");
+    rig.shell.machine_library =
+        MachineLibraryWindow::new(Some(dir.join("machines")), Some(dir.join("tools")));
+    rig.dirs.push(dir);
+    rig.shell.open_machine_library();
+    for _ in 0..3 {
+        rig.frame(Vec::new());
+    }
+    rig.shell.generate(true);
+    assert!(rig.shell.run.is_running());
+    rig.press(Key::Escape, Modifiers::NONE);
+    assert!(
+        !rig.shell.machine_library.is_open(),
+        "Esc closed the window"
+    );
+    assert!(rig.shell.run.is_running(), "and left the job running");
+    // With no tool window open, Esc cancels the job.
+    rig.press(Key::Escape, Modifiers::NONE);
+    rig.settle();
+    assert!(!rig.shell.run.is_running());
+}
+
+/// A collapsed panel keeps its place in the order: its rail's open button
+/// is the region's Tab stop (CodeRabbit on #858).
+#[test]
+fn req_ui_14_a_collapsed_panel_keeps_its_place_in_the_tab_order() {
+    let mut rig = Rig::cube("focus-order-collapsed", None);
+    rig.press(Key::Num3, Modifiers::ALT);
+    rig.press(Key::Num1, Modifiers::COMMAND);
+    rig.press(Key::Num3, Modifiers::COMMAND);
+    rig.settle();
+    let walk = region_walk(&mut rig, false, 200);
+    let lap: Vec<usize> = walk
+        .iter()
+        .map(|(_, i)| *i)
+        .take_while(|i| *i != 8)
+        .collect();
+    assert!(lap.contains(&4), "the project panel's rail: {walk:?}");
+    assert!(lap.contains(&6), "the dock's rail: {walk:?}");
+    assert!(lap.windows(2).all(|w| w[0] < w[1]), "{walk:?}");
 }

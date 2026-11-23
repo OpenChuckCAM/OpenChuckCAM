@@ -79,7 +79,7 @@ mod reminder_tests;
 
 use dock::DockTab;
 pub(crate) use frame::{chip, primary_button};
-pub(crate) use marks::{mark, tick};
+pub(crate) use marks::{mark, mark_beside, tick};
 
 const SAVE: KeyboardShortcut = KeyboardShortcut::new(Modifiers::COMMAND, Key::S);
 const UNDO: KeyboardShortcut = KeyboardShortcut::new(Modifiers::COMMAND, Key::Z);
@@ -1325,10 +1325,18 @@ impl Shell {
         if rename && let Some(item) = self.selected_item() {
             self.begin_rename(item);
         }
-        // Esc cancels the running job when nothing is being picked
-        // (specification section 16); picking takes its own Esc.
+        // Esc cancels the running job when nothing is being picked and no
+        // tool window is open (specification section 16): picking takes its
+        // own Esc, and an open tool window takes Esc first, as its Close
+        // (decision 0677 item 9).
         let picking = matches!(self.selected, Some(Selection::Picking | Selection::Set(_)));
+        let tool_window = self.export.is_open()
+            || self.run.has_window()
+            || self.import.is_some()
+            || self.tool_library.is_open()
+            || self.machine_library.is_open();
         if !picking
+            && !tool_window
             && self.run.is_running()
             && ctx.input_mut(|i| i.consume_key(Modifiers::NONE, Key::Escape))
         {

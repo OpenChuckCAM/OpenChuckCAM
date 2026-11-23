@@ -151,10 +151,33 @@ fn end_opening(ctx: &egui::Context, window: egui::Id) {
     }
 }
 
-/// The key of what Esc found at the end of the last frame: whether a text
-/// field had the keyboard, and whether a pop-up was open.
+/// What Esc has to know of a frame: whether a text field had the keyboard
+/// and whether a pop-up was open, at the end of the frame `pass`, and the
+/// same of the frame before it.
+#[derive(Debug, Clone, Copy, Default)]
+struct EscState {
+    pass: u64,
+    now: (bool, bool),
+    before: (bool, bool),
+}
+
 fn esc_state_id() -> egui::Id {
     egui::Id::unique("dialog esc state")
+}
+
+/// The state at the end of the last frame. Several dialogs note it in one
+/// frame, so the one drawn later must not read what the one drawn earlier
+/// noted after egui had already let go of a field for this Esc.
+fn esc_state_before(ctx: &egui::Context) -> (bool, bool) {
+    let pass = ctx.cumulative_pass_nr();
+    let state = ctx
+        .data(|d| d.get_temp::<EscState>(esc_state_id()))
+        .unwrap_or_default();
+    if state.pass == pass {
+        state.before
+    } else {
+        state.now
+    }
 }
 
 /// Whether Esc this frame closes the dialog on `layer` (UI-14, specification
@@ -163,27 +186,35 @@ fn esc_state_id() -> egui::Id {
 /// field had the keyboard at the end of the last frame (that Esc only ends
 /// the edit; egui lets go of the field before this frame is drawn), not when
 /// a pop-up was open (that Esc closes the pop-up), not while a question is
-/// open in front of the dialog, and only for the dialog on top.
+/// open in front of the dialog, and only for the dialog on top of those still
+/// shown (egui keeps a closed window's place in its order).
 fn esc_closes(ctx: &egui::Context, layer: egui::LayerId) -> bool {
     if !ctx.input(|i| i.key_pressed(egui::Key::Escape)) {
         return false;
     }
-    let (text, popup) = ctx
-        .data(|d| d.get_temp::<(bool, bool)>(esc_state_id()))
-        .unwrap_or_default();
+    let (text, popup) = esc_state_before(ctx);
     let (modal, top) = ctx.memory(|m| {
-        (
-            m.top_modal_layer(),
-            m.areas().top_layer_id(egui::Order::Middle),
-        )
+        let top = m
+            .layer_ids()
+            .filter(|l| l.order == egui::Order::Middle && m.areas().is_visible(l))
+            .last();
+        (m.top_modal_layer(), top)
     });
     !text && !popup && modal.is_none_or(|m| m == layer) && top.is_none_or(|t| t == layer)
 }
 
 /// Notes, after a dialog is drawn, what the next frame's Esc has to know.
 fn note_esc_state(ctx: &egui::Context) {
-    let state = (ctx.text_edit_focused(), egui::Popup::is_any_open(ctx));
-    ctx.data_mut(|d| d.insert_temp(esc_state_id(), state));
+    let pass = ctx.cumulative_pass_nr();
+    let now = (ctx.text_edit_focused(), egui::Popup::is_any_open(ctx));
+    ctx.data_mut(|d| {
+        let state = d.get_temp_mut_or_default::<EscState>(esc_state_id());
+        if state.pass != pass {
+            state.before = state.now;
+            state.pass = pass;
+        }
+        state.now = now;
+    });
 }
 
 /// The room a dialog leaves round it inside the main window, in points.

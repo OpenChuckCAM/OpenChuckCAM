@@ -744,7 +744,7 @@ impl ModelPanel {
         }
         for p in &problems {
             ui.horizontal_wrapped(|ui| {
-                crate::shell::mark(ui, openchuck_app::overview::ItemState::Warning, p);
+                crate::shell::mark_beside(ui, openchuck_app::overview::ItemState::Warning, p);
                 ui.label(RichText::new(p).color(DARK.warning));
             });
         }
