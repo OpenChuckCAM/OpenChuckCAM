@@ -7,4 +7,6 @@ renderer = "Mesa lavapipe (software Vulkan) on Xvfb"
 window = "1920x1080"
 # Reviewed against main d763edf (22 Nov 2026): its only change to the screen folders since the capture is a test value in
 # crates/openchuck-app/src/facing.rs, and none of these screens shows the rotary reference Y it changed.
-reviewed_at = "d763edfe42578d54c6015570c61a525fef4c8f37"
+# Reviewed against lane A11Y-FOCUS e3cf7da (23 Nov 2026): it changes keyboard focus, tooltips on focus and the
+# New operation dialog's buttons; the two hero screens show the 3D view with no window open and no control focused.
+reviewed_at = "e3cf7da3ff504e398a8039ecb370a2fe48960137"
