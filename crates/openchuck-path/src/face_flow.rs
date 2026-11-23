@@ -117,10 +117,12 @@ pub mod parameter {
     /// Passes that follow the face's outline, each the stepover inside the
     /// last, measured on the face.
     pub const OUTLINE: &str = "outline";
-    /// The shortest cut kept, mm: a run (what is cut between one lift and
-    /// the next) shorter than this is left out and reported; 0 keeps every
-    /// run. A new operation is written with its tool's diameter.
-    pub const SHORTEST_CUT: &str = "shortest_cut";
+    /// Shortest cut, mm or the tool's diameter
+    /// ([`crate::params::ParameterKind::LengthOrTool`]): a run (what is cut
+    /// between one lift and the next) shorter than this is left out and
+    /// reported; 0 keeps every run. The key is edge following's and pencil
+    /// clean-up's, one setting across the three.
+    pub const SHORTEST_CUT: &str = crate::edge_following::parameter::MIN_LENGTH;
 }
 
 /// The turn between two edges, in degrees, above which their junction is a
@@ -339,18 +341,17 @@ impl Strategy for FaceFlow {
             description: "A cut from one lift to the next that is shorter than this is left \
                           out and marked on the part as not cut, as an area the tool cannot \
                           reach is, and a warning names it. Nothing inside a longer cut is \
-                          removed. A new operation starts at its tool's diameter; 0 keeps \
-                          every cut."
+                          removed. Tool diameter: the operation's tool's diameter, following a \
+                          change of tool. 0 keeps every cut. A new operation starts with Tool \
+                          diameter; one saved before this setting keeps 0."
                 .to_owned(),
             // 0 for an operation saved without it, so its program is
-            // unchanged; a new operation is written with its tool's
-            // diameter (as decision 0205 writes roughing's stock to leave).
-            kind: ParameterKind::Number {
-                unit: Unit::Millimetres,
+            // unchanged; a new operation is written with Tool diameter (the
+            // owner's decision of 23 Nov 2026, decision 0545 D3's pattern).
+            kind: ParameterKind::LengthOrTool {
                 min: Some(0.0),
-                min_exclusive: false,
                 max: None,
-                default: Some(0.0),
+                default: crate::params::LengthOrTool::Millimetres(0.0),
             },
         });
         // How the tool goes from one ring to the next on a face that closes
@@ -511,7 +512,7 @@ impl Settings {
             stay_down,
             pattern,
             ring_blend,
-            shortest: parameters.number(SHORTEST_CUT)?,
+            shortest: parameters.length_or_tool(SHORTEST_CUT, 2.0 * tool.cutting_radius())?,
         })
     }
 }

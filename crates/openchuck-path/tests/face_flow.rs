@@ -2441,9 +2441,15 @@ fn req_op_28_face_flow_offers_the_ring_steps_of_the_ring_strategies() {
         }
         other => panic!("{other:?}"),
     }
+    // Shortest cut is a length or the tool's diameter, 0 for a saved
+    // operation (a new one is written with Tool diameter).
     match &schema.get(p::SHORTEST_CUT).expect("Shortest cut").kind {
-        openchuck_path::params::ParameterKind::Number { default, .. } => {
-            assert_eq!(*default, Some(0.0))
+        openchuck_path::params::ParameterKind::LengthOrTool { default, min, .. } => {
+            assert_eq!(
+                *default,
+                openchuck_path::params::LengthOrTool::Millimetres(0.0)
+            );
+            assert_eq!(*min, Some(0.0));
         }
         other => panic!("{other:?}"),
     }
@@ -2560,5 +2566,27 @@ fn req_op_28_req_nfr_07_a_negative_shortest_cut_is_refused_by_name() {
             .err()
             .unwrap_or_else(|| panic!("{bad} accepted"));
         assert!(e.to_string().contains(p::SHORTEST_CUT), "{bad}: {e}");
+    }
+}
+
+#[test]
+fn req_op_28_a_shortest_cut_of_tool_diameter_is_the_tools_diameter() {
+    // The owner's decision of 23 Nov 2026: Tool diameter is a choice of its
+    // own, read from the operation's tool when it is generated.
+    let word = text(openchuck_path::params::TOOL_DIAMETER);
+    for d in [3.0, 4.0] {
+        let rig = Rig::new(comb(), &ball(d));
+        let run_with = |x: openchuck_path::ParameterValue| {
+            let v = values(
+                0.8,
+                &[
+                    (p::STAY_DOWN, flag(true)),
+                    (p::PATTERN, text(p::ALONG_GUIDE)),
+                    (p::SHORTEST_CUT, x),
+                ],
+            );
+            format!("{:?}", rig.passes(&[0], &[], &v))
+        };
+        assert_eq!(run_with(word.clone()), run_with(num(d)), "a {d} mm ball");
     }
 }

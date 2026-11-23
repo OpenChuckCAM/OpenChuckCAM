@@ -1858,7 +1858,16 @@ fn req_op_28_a_new_face_flow_operation_stays_down_blends_its_ring_steps_and_sets
             AUTOMATIC.into()
         ))
     );
-    // Shortest cut starts at the tool's diameter (Q3).
+    // Shortest cut starts at Tool diameter (Q3; the owner's decision of 23
+    // Nov 2026: a true Tool diameter choice that follows the tool).
+    assert_eq!(
+        value(&app, added, SHORTEST_CUT),
+        Some(openchuck_app::project::ParameterValue::Text(
+            openchuck_path::params::TOOL_DIAMETER.into()
+        ))
+    );
+    // The form offers it as a length or Tool diameter, with the tool's
+    // diameter to show beside it.
     let diameter = app
         .project()
         .tools()
@@ -1866,10 +1875,37 @@ fn req_op_28_a_new_face_flow_operation_stays_down_blends_its_ring_steps_and_sets
         .find(|t| Some(t.id) == tool)
         .map(|t| t.tool.diameter.0)
         .unwrap();
+    let form = app.parameter_form(added).unwrap();
+    let field = form.fields.iter().find(|f| f.name == SHORTEST_CUT).unwrap();
+    assert_eq!(field.label, "Shortest cut");
+    match &field.kind {
+        openchuck_app::form::FieldKind::LengthOrTool {
+            min, tool_diameter, ..
+        } => {
+            assert_eq!(*min, Some(0.0));
+            assert!((tool_diameter.unwrap() - diameter).abs() < 1e-9);
+        }
+        other => panic!("{other:?}"),
+    }
+    // A number and the word are both accepted; another word is refused by
+    // name, and the project is unchanged.
+    app.set_parameter(added, SHORTEST_CUT, Some(ParameterValue::Number(2.5)))
+        .unwrap();
     assert_eq!(
         value(&app, added, SHORTEST_CUT),
-        Some(openchuck_app::project::ParameterValue::Number(diameter))
+        Some(ParameterValue::Number(2.5))
     );
+    let word = ParameterValue::Text(openchuck_path::params::TOOL_DIAMETER.into());
+    app.set_parameter(added, SHORTEST_CUT, Some(word.clone()))
+        .unwrap();
+    assert_eq!(value(&app, added, SHORTEST_CUT), Some(word.clone()));
+    let refused = app.set_parameter(
+        added,
+        SHORTEST_CUT,
+        Some(ParameterValue::Text("wide".into())),
+    );
+    assert!(refused.unwrap_err().to_string().contains(SHORTEST_CUT));
+    assert_eq!(value(&app, added, SHORTEST_CUT), Some(word));
     let helical = app
         .add_operation("helical_finishing", "helical_finishing", setup, tool)
         .unwrap();

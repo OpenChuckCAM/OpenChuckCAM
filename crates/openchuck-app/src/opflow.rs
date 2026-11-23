@@ -331,16 +331,16 @@ impl Application {
                 ),
             );
         }
-        // Face flow starts with a Shortest cut of its tool's diameter; one
-        // saved without it keeps every cut (issue #854, the owner's answer
-        // of 23 Nov 2026 to Q3, as decision 0205 writes roughing's stock).
-        if strategy == openchuck_path::face_flow::NAME
-            && let Some(snapshot) =
-                tool.and_then(|id| self.document.project.tools().iter().find(|t| t.id == id))
-        {
+        // Face flow starts with a Shortest cut of Tool diameter, which follows
+        // the operation's tool; one saved without it keeps every cut (issue
+        // #854, the owner's decisions of 23 Nov 2026, decision 0545 D3's
+        // pattern).
+        if strategy == openchuck_path::face_flow::NAME {
             parameters.insert(
                 openchuck_path::face_flow::parameter::SHORTEST_CUT.to_owned(),
-                openchuck_project::ParameterValue::Number(snapshot.tool.diameter.0),
+                openchuck_project::ParameterValue::Text(
+                    openchuck_path::params::TOOL_DIAMETER.to_owned(),
+                ),
             );
         }
         let id = OperationId::new();

@@ -1043,9 +1043,16 @@ fn generate_unnamed(
     // decision 0056); on a mesh part's chosen edges it follows only them (OP-08,
     // OI-204; decision record 0066).
     let brep_edges = match (&placed.brep, &brep_choice) {
-        (Some(brep), Some(choice)) if operation.strategy == edge_following::NAME => Some(
-            brep_curves(operation, brep, &choice.edges, &parameters, edges)?,
-        ),
+        (Some(brep), Some(choice)) if operation.strategy == edge_following::NAME => {
+            Some(brep_curves(
+                operation,
+                brep,
+                &choice.edges,
+                &parameters,
+                edges,
+                2.0 * profile.cutting_radius(),
+            )?)
+        }
         _ => None,
     };
     let registry_strategy = strategy;
@@ -1078,7 +1085,10 @@ fn generate_unnamed(
         (None, Some(segments)) => {
             with_edges = EdgeFollowing::with_source(
                 ChosenSegments::new(segments)?
-                    .with_min_length(parameters.number(edge_following::parameter::MIN_LENGTH)?)
+                    .with_min_length(parameters.length_or_tool(
+                        edge_following::parameter::MIN_LENGTH,
+                        2.0 * profile.cutting_radius(),
+                    )?)
                     .shared(),
             );
             &with_edges
@@ -2112,7 +2122,8 @@ fn limit_faces(
 /// The edges edge following follows on a STEP part: the chosen edges, or
 /// every real edge, at the operation's crease angle (the B-rep default of
 /// [`openchuck_path::brep_edges::DEFAULT_CREASE_DEGREES`] when the operation
-/// does not set one) and its shortest chain (decision 0056); at a crease
+/// does not set one) and its shortest chain (decision 0056; a length or the
+/// tool's diameter `tool_diameter`, issue #854); at a crease
 /// angle of zero when `options` keeps tangent edges (decision 0057).
 fn brep_curves(
     operation: &Operation,
@@ -2120,6 +2131,7 @@ fn brep_curves(
     edges: &[EdgeId],
     parameters: &openchuck_path::params::Parameters,
     options: EdgeOptions,
+    tool_diameter: f64,
 ) -> Result<Arc<dyn CurveSource>, AppError> {
     use openchuck_path::edge_following::parameter::{CREASE_ANGLE, MIN_LENGTH};
     let source = if edges.is_empty() {
@@ -2136,7 +2148,7 @@ fn brep_curves(
     };
     Ok(source
         .with_crease(crease)
-        .with_min_length(parameters.number(MIN_LENGTH)?)
+        .with_min_length(parameters.length_or_tool(MIN_LENGTH, tool_diameter)?)
         .shared())
 }
 

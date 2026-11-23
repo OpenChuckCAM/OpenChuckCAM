@@ -272,18 +272,20 @@ impl Strategy for EdgeFollowing {
                 },
                 30.0,
             ),
-            number(
-                MIN_LENGTH,
-                "Shortest chain",
-                "Chains shorter than this are not cut.",
-                Unit::Millimetres,
-                Range {
+            // A length or the tool's diameter (issue #854), 0 by default, so a
+            // saved operation's chains are unchanged.
+            ParameterSpec {
+                name: MIN_LENGTH.to_owned(),
+                label: "Shortest chain".to_owned(),
+                description: "Chains shorter than this are not cut. Tool diameter: the \
+                              operation's tool's diameter, following a change of tool."
+                    .to_owned(),
+                kind: ParameterKind::LengthOrTool {
                     min: Some(0.0),
-                    min_exclusive: false,
                     max: None,
+                    default: crate::params::LengthOrTool::Millimetres(0.0),
                 },
-                0.0,
-            ),
+            },
             number(
                 MAX_STEP,
                 "Largest step",
@@ -299,10 +301,16 @@ impl Strategy for EdgeFollowing {
         ])
     }
 
-    fn parameter_warnings(&self, _tool: &RevolvedProfile, parameters: &Parameters) -> Vec<String> {
+    fn parameter_warnings(&self, tool: &RevolvedProfile, parameters: &Parameters) -> Vec<String> {
         let mut out = Vec::new();
         let carve = parameters.text(parameter::MODE).is_ok_and(|m| m == "carve");
-        let positive = |name: &str| parameters.number(name).is_ok_and(|v| v > 0.0);
+        let diameter = 2.0 * tool.cutting_radius();
+        let positive = |name: &str| {
+            parameters
+                .number(name)
+                .or_else(|_| parameters.length_or_tool(name, diameter))
+                .is_ok_and(|v| v > 0.0)
+        };
         if positive(parameter::LINE_WIDTH) {
             out.push(
                 "edge following: the depth is set by the line width, so the depth parameter is \
@@ -366,7 +374,8 @@ impl Strategy for EdgeFollowing {
             None => {
                 mesh_edges = MeshFeatureEdges {
                     crease_degrees: parameters.number(parameter::CREASE_ANGLE)?,
-                    min_length: parameters.number(parameter::MIN_LENGTH)?,
+                    min_length: parameters
+                        .length_or_tool(parameter::MIN_LENGTH, 2.0 * input.tool.cutting_radius())?,
                 };
                 &mesh_edges
             }
@@ -386,7 +395,9 @@ impl Strategy for EdgeFollowing {
                     "edge following has no edge to follow: the part has no edge turning {} degrees \
                  or more and at least {} mm long; lower {} or {}",
                     parameters.number(parameter::CREASE_ANGLE).unwrap_or(0.0),
-                    parameters.number(parameter::MIN_LENGTH).unwrap_or(0.0),
+                    parameters
+                        .length_or_tool(parameter::MIN_LENGTH, 2.0 * input.tool.cutting_radius())
+                        .unwrap_or(0.0),
                     parameter::CREASE_ANGLE,
                     parameter::MIN_LENGTH,
                 ),

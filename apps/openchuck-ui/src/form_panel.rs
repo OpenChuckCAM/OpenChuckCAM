@@ -423,6 +423,11 @@ fn row(
                 },
             }
         }
+        FieldKind::LengthOrTool {
+            min,
+            max,
+            tool_diameter,
+        } => length_or_tool_rows(ui, field, (*min, *max, *tool_diameter), state, reset, mark),
         _ => {
             field_row::read_only_row(
                 ui,
@@ -471,6 +476,137 @@ pub fn refusal(message: &str) -> String {
         first.unwrap_or_default(),
         chars.as_str()
     )
+}
+
+/// A length or the tool's diameter (issue #854): a number row, read-only
+/// with the tool's diameter shown while Tool diameter is ticked, and the
+/// Tool diameter tick box under it. Ticking stores the word; unticking
+/// stores the diameter as a number, to edit from.
+fn length_or_tool_rows(
+    ui: &mut egui::Ui,
+    field: &Field,
+    (min, max, tool_diameter): (Option<f64>, Option<f64>, Option<f64>),
+    state: &mut FormState,
+    reset: bool,
+    mark: field_row::Mark<'_>,
+) -> Option<Edit> {
+    let by_tool = matches!(
+        &field.value,
+        Some(ParameterValue::Text(t)) if t == openchuck_app::form::TOOL_DIAMETER
+    );
+    let name = || field.name.clone();
+    let mut edit = None;
+    if by_tool {
+        let shown = match tool_diameter {
+            Some(d) => format!(
+                "{} mm, the tool's diameter",
+                field_row::number(d, field_row::places("mm"))
+            ),
+            None => "Tool diameter: no tool chosen".to_owned(),
+        };
+        field_row::marked(ui, mark, |ui| {
+            field_row::read_only_row(ui, &field.label, &field.description, shown);
+        });
+    } else {
+        let range = match (min, max) {
+            (Some(lo), Some(hi)) => Some(format!("at least {lo} mm and at most {hi} mm")),
+            (Some(lo), None) => Some(format!("at least {lo} mm")),
+            (None, Some(hi)) => Some(format!("at most {hi} mm")),
+            (None, None) => None,
+        };
+        let validate = |typed: &str| {
+            if let Some(ParameterValue::Number(v)) = parse(
+                &FieldKind::Number {
+                    unit: "mm",
+                    min,
+                    min_exclusive: false,
+                    max,
+                },
+                typed,
+            )? && (min.is_some_and(|m| v < m) || max.is_some_and(|m| v > m))
+            {
+                return Err(format!(
+                    "{}: {}. Not applied.",
+                    field.label,
+                    range.as_deref().unwrap_or("outside the allowed range")
+                ));
+            }
+            Ok(())
+        };
+        let row = TextRow {
+            key: &field.name,
+            label: &field.label,
+            description: &field.description,
+            unit: "mm",
+            range: range.as_deref(),
+            applied: field
+                .set
+                .as_ref()
+                .map(|v| text(v, "mm"))
+                .unwrap_or_default(),
+            hint: hint(field),
+            problem: None,
+            reset: reset && field.set.is_some(),
+            enabled: true,
+            focus: false,
+            needs: None,
+            warned: mark.warned,
+            scroll_to: mark.scroll_to,
+            number: true,
+            compact: false,
+            validate: Some(&validate),
+            preflight: None,
+        };
+        edit = match field_row::text_row(ui, state, &row) {
+            Outcome::None => None,
+            Outcome::Reset => Some(Edit {
+                name: name(),
+                value: None,
+                reset_to_default: true,
+            }),
+            Outcome::Commit(typed) => match parse(
+                &FieldKind::Number {
+                    unit: "mm",
+                    min,
+                    min_exclusive: false,
+                    max,
+                },
+                &typed,
+            ) {
+                Ok(value) => Some(Edit {
+                    name: name(),
+                    value,
+                    reset_to_default: false,
+                }),
+                Err(e) => {
+                    state.refuse(&field.name, &typed, format!("{e} Not applied."));
+                    None
+                }
+            },
+        };
+    }
+    let ticked = field_row::flag_row(
+        ui,
+        "Tool diameter",
+        "Use the operation's tool's diameter, which follows a change of tool.",
+        by_tool,
+        true,
+    );
+    match ticked {
+        Some(true) => Some(Edit {
+            name: name(),
+            value: Some(ParameterValue::Text(
+                openchuck_app::form::TOOL_DIAMETER.to_owned(),
+            )),
+            reset_to_default: false,
+        }),
+        Some(false) => Some(Edit {
+            name: name(),
+            value: Some(ParameterValue::Number(tool_diameter.unwrap_or(0.0))),
+            reset_to_default: false,
+        }),
+        None => edit,
+    }
 }
 
 #[cfg(test)]
@@ -614,6 +750,68 @@ mod tests {
         }
         assert!(
             !shown.iter().any(|s| s == "retract" || s == "low"),
+            "{shown:?}"
+        );
+    }
+
+    /// A length or the tool's diameter (issue #854): with Tool diameter
+    /// ticked the row shows the tool's diameter read-only, with no tool it
+    /// says so, and with a number it is an ordinary number row; the Tool
+    /// diameter tick box is there in each case.
+    #[test]
+    fn req_ui_07_a_length_or_tool_field_shows_the_tools_diameter_or_a_number() {
+        let shown_for = |value: ParameterValue, tool: Option<f64>| {
+            let ctx = egui::Context::default();
+            let field = Field {
+                name: "min_length".into(),
+                label: "Shortest cut".into(),
+                description: String::new(),
+                kind: FieldKind::LengthOrTool {
+                    min: Some(0.0),
+                    max: None,
+                    tool_diameter: tool,
+                },
+                set: Some(value.clone()),
+                value: Some(value),
+                source: Source::Operation,
+                section: FormSection::Advanced,
+                problem: None,
+            };
+            let mut state = FormState::default();
+            let mut output = ctx.run_ui(
+                egui::RawInput {
+                    screen_rect: Some(egui::Rect::from_min_size(
+                        egui::Pos2::ZERO,
+                        egui::vec2(900., 300.),
+                    )),
+                    ..Default::default()
+                },
+                |ui| {
+                    row(ui, &field, true, &mut state, None, None, false, None);
+                },
+            );
+            output.textures_delta.clear();
+            texts(&output.shapes)
+        };
+        let word = ParameterValue::Text(openchuck_app::form::TOOL_DIAMETER.into());
+        let shown = shown_for(word.clone(), Some(3.0));
+        assert!(shown.iter().any(|s| s == "Shortest cut"), "{shown:?}");
+        assert!(shown.iter().any(|s| s == "Tool diameter"), "{shown:?}");
+        assert!(
+            shown
+                .iter()
+                .any(|s| s.contains("the tool's diameter") && s.contains('3')),
+            "{shown:?}"
+        );
+        let shown = shown_for(word, None);
+        assert!(
+            shown.iter().any(|s| s.contains("no tool chosen")),
+            "{shown:?}"
+        );
+        let shown = shown_for(ParameterValue::Number(2.5), Some(3.0));
+        assert!(shown.iter().any(|s| s == "Tool diameter"), "{shown:?}");
+        assert!(
+            !shown.iter().any(|s| s.contains("the tool's diameter")),
             "{shown:?}"
         );
     }
