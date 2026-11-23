@@ -1,6 +1,6 @@
 # 9922 (provisional, SWARF-LEADS-B, PR #866): Swarf's reach past the end of the rulings is said after the lift, as information (OP-07, OP-12, NFR-12, UI-12; issue #624; lane SWARF-LEADS)
 
-- **Status:** Proposed by lane SWARF-LEADS on 23 Nov 2026. The owner chose option (c) on 23 Nov 2026, relayed by the coordinator (decision 0049), and it is built; the owner's acceptance of the record is not yet given. The number 9922 and OI-9922 are provisional: the coordinator assigns the real ones at release.
+- **Status:** Accepted by the project owner on 23 Nov 2026, relayed by the coordinator (decision 0049). Proposed by lane SWARF-LEADS on 23 Nov 2026; the owner chose option (c) the same day (relayed), and it is built. The numbers 9922 and OI-9922 are provisional: the coordinator assigns the real ones at release.
 - **Date:** 23 Nov 2026.
 - **Requirements:** OP-07 (swarf), OP-12 (gouge checks), NFR-12 (the user verifies the program), UI-12 (messages).
 - **What it amends:** the message inventory row P75c (`docs/message-review/path.md`; decision [0536](0536-message-levels-operation-reference-and-setting-links.md) step 2 left it to this issue), and the note sentence of [0491](0491-swarf-keeps-the-tip-off-a-floor.md) item 2, which was measured before the lift.

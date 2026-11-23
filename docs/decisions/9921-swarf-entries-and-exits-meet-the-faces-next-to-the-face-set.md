@@ -1,6 +1,6 @@
 # 9921 (provisional, SWARF-LEADS-A, PR #866): A swarf entry or exit that would cut a face next to the face set (OP-07, OP-11, OP-12, NFR-07, NFR-12; issue #572; lane SWARF-LEADS)
 
-- **Status:** Proposed by lane SWARF-LEADS on 23 Nov 2026. The owner chose option B on 23 Nov 2026, relayed by the coordinator (decision 0049), and it is built; the owner's acceptance of the record is not yet given. The number 9921 and OI-9921 are provisional: the coordinator assigns the real ones at release.
+- **Status:** Accepted by the project owner on 23 Nov 2026, relayed by the coordinator (decision 0049). Proposed by lane SWARF-LEADS on 23 Nov 2026; the owner chose option B the same day (relayed), and it is built. The numbers 9921 and OI-9921 are provisional: the coordinator assigns the real ones at release.
 - **Date:** 23 Nov 2026.
 - **Requirements:** OP-07 (swarf), OP-11 (entry and exit moves), OP-12 (gouge checks where defined), NFR-07 (invalid input gives a clear error), NFR-12 (the user verifies the program).
 - **What it amends:** [0532](0532-swarf-keeps-off-the-faces-at-its-ends.md) OI-2081 (the entry and exit moves are checked against the face set only), and the module rule of [0026](0026-entry-moves.md) item 7 only if option D is chosen.
