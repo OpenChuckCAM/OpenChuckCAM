@@ -794,6 +794,7 @@ fn flat(flute: f64) -> ToolSnapshot {
             flute_count: 1,
             material: None,
             centre_cutting: Some(true),
+            stick_out: None,
         },
         0.03,
         10000.0,

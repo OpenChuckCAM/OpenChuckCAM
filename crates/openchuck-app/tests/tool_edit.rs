@@ -338,7 +338,7 @@ fn req_tl_02_req_ui_07_the_stick_out_is_set_or_left_blank() {
     // (decision record 0673; NFR-12): the help says to measure.
     assert!(
         row.description
-            .contains("not measured: measure your tool as fitted")
+            .contains("not measured: measure your tool as held and set it")
     );
     let before = app.project().clone();
     for bad in [11.0, 50.5] {

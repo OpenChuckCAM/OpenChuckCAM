@@ -58,6 +58,7 @@
 //!     flute_count: 2,
 //!     material: None,
 //!     centre_cutting: None,
+//!     stick_out: None,
 //! }
 //! .profile()?;
 //! let rotary = RotaryMapping::of_profile(&MachineProfile::example_x_rotary());
