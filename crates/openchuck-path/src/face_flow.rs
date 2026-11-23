@@ -2225,7 +2225,9 @@ fn face_flow(
             Pattern::Automatic => notched(f, closed),
         };
         cuts.push(if along_outline {
-            outline::cut_outline(model, brep, f.id, f.face, closed, &tooling, &profile, context)?
+            outline::cut_outline(
+                model, brep, f.id, f.face, closed, &tooling, &profile, context,
+            )?
         } else {
             cut_face(f, &tooling, &profile, context)?
         });

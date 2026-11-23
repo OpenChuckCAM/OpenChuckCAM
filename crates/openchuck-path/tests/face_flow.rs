@@ -2045,15 +2045,22 @@ fn req_op_28_a_face_with_fingers_is_cut_along_its_outline_in_few_runs() {
     let all: Vec<Point3> = out.passes.iter().flat_map(contacts).collect();
     for q in &all {
         assert!((q.z - 10.0).abs() < 1e-6, "{q:?}");
-        assert!(inside_polygon(&COMB, q.x, q.y) || to_comb_outline(q.x, q.y) < 0.01, "{q:?} is off the face");
+        assert!(
+            inside_polygon(&COMB, q.x, q.y) || to_comb_outline(q.x, q.y) < 0.01,
+            "{q:?} is off the face"
+        );
     }
     // The face is covered: every point of it is within a stepover of a
     // contact (where offsets from both sides meet, the last pass can be up
     // to a stepover from the middle), the fingers' tips too.
     let mut worst: f64 = 0.0;
+    let mut at = (0.0, 0.0);
     for i in 0..=60 {
         for j in 0..=40 {
-            let (x, y) = (30.0 * f64::from(i) / 60.0, -10.0 + 20.0 * f64::from(j) / 40.0);
+            let (x, y) = (
+                30.0 * f64::from(i) / 60.0,
+                -10.0 + 20.0 * f64::from(j) / 40.0,
+            );
             if !inside_polygon(&COMB, x, y) {
                 continue;
             }
@@ -2061,22 +2068,41 @@ fn req_op_28_a_face_with_fingers_is_cut_along_its_outline_in_few_runs() {
                 .iter()
                 .map(|q| (q.x - x).hypot(q.y - y))
                 .fold(f64::INFINITY, f64::min);
-            worst = worst.max(d);
+            if d > worst {
+                worst = d;
+                at = (x, y);
+            }
         }
     }
-    assert!(worst <= stepover + 0.1, "a point {worst} mm from the nearest contact");
+    assert!(
+        worst <= stepover + 0.1,
+        "a point at {at:?} is {worst} mm from the nearest contact"
+    );
     // The first pass follows the outline, round the fingers and their tips.
     let first = contacts(&out.passes[0]);
-    assert!(first.iter().filter(|q| q.y > 9.9).count() >= 10, "the fingers' tips are not followed");
+    assert!(
+        first.iter().filter(|q| q.y > 9.9).count() >= 10,
+        "the fingers' tips are not followed"
+    );
     // Few runs: the tool stays down from one offset to the next where it can.
     assert!(out.passes.len() <= 4, "{} runs", out.passes.len());
     // Along the guide, the same face's passes break at the notches.
     let blend = rig.passes(
         &[0],
         &[],
-        &values(stepover, &[(p::STAY_DOWN, flag(true)), (p::PATTERN, text(p::ALONG_GUIDE))]),
+        &values(
+            stepover,
+            &[
+                (p::STAY_DOWN, flag(true)),
+                (p::PATTERN, text(p::ALONG_GUIDE)),
+            ],
+        ),
     );
-    assert!(blend.len() > 4 * out.passes.len(), "{} runs along the guide", blend.len());
+    assert!(
+        blend.len() > 4 * out.passes.len(),
+        "{} runs along the guide",
+        blend.len()
+    );
 }
 
 #[test]
@@ -2085,7 +2111,11 @@ fn req_op_28_a_plain_face_keeps_the_passes_along_its_guide() {
     // trapezoid's passes are as before.
     let rig = Rig::new(trapezoid(), &ball(6.0));
     let auto = rig.passes(&[0], &[], &values(0.7, &[]));
-    let guide = rig.passes(&[0], &[], &values(0.7, &[(p::PATTERN, text(p::ALONG_GUIDE))]));
+    let guide = rig.passes(
+        &[0],
+        &[],
+        &values(0.7, &[(p::PATTERN, text(p::ALONG_GUIDE))]),
+    );
     assert_eq!(auto, guide);
     let full = rig.passes(&[0], &[], &values(0.7, &[(p::PATTERN, text(p::AUTOMATIC))]));
     assert_eq!(auto, full);
@@ -2104,10 +2134,19 @@ fn req_op_28_follow_the_outline_offsets_a_rectangle_inwards_at_the_stepover() {
     // Chosen by the user on a plain rectangle: closed loops, each the
     // stepover inside the last, measured on the face.
     let mut b = Builder::default();
-    flat(&mut b, 10.0, &[(0.0, 0.0), (20.0, 0.0), (20.0, 12.0), (0.0, 12.0)], &[]);
+    flat(
+        &mut b,
+        10.0,
+        &[(0.0, 0.0), (20.0, 0.0), (20.0, 12.0), (0.0, 12.0)],
+        &[],
+    );
     let rig = Rig::new(b.model, &ball(3.0));
     let stepover = 1.0;
-    let passes = rig.passes(&[0], &[], &values(stepover, &[(p::PATTERN, text(p::OUTLINE))]));
+    let passes = rig.passes(
+        &[0],
+        &[],
+        &values(stepover, &[(p::PATTERN, text(p::OUTLINE))]),
+    );
     // Each pass is a loop at a constant distance from the outline.
     let edge = |q: &Point3| q.x.min(20.0 - q.x).min(q.y).min(12.0 - q.y);
     let mut levels: Vec<f64> = Vec::new();
@@ -2123,7 +2162,10 @@ fn req_op_28_follow_the_outline_offsets_a_rectangle_inwards_at_the_stepover() {
     levels.sort_by(f64::total_cmp);
     assert!(levels[0] < 0.05, "{levels:?}");
     for w in levels.windows(2) {
-        assert!(w[1] - w[0] <= stepover * 1.05 + 0.1 && w[1] - w[0] > 0.5 * stepover, "{levels:?}");
+        assert!(
+            w[1] - w[0] <= stepover * 1.05 + 0.1 && w[1] - w[0] > 0.5 * stepover,
+            "{levels:?}"
+        );
     }
     assert!(*levels.last().unwrap() > 5.0 - stepover, "{levels:?}");
 }

@@ -115,7 +115,11 @@ impl<'a> UvLine<'a> {
         }
         let (a, b) = (*self.uv.get(i - 1)?, *self.uv.get(i)?);
         let (ca, cb) = (*self.cum.get(i - 1)?, *self.cum.get(i)?);
-        let f = if cb > ca { (target - ca) / (cb - ca) } else { 0.0 };
+        let f = if cb > ca {
+            (target - ca) / (cb - ca)
+        } else {
+            0.0
+        };
         Some(Uv {
             u: a.u + (b.u - a.u) * f,
             v: a.v + (b.v - a.v) * f,
@@ -181,6 +185,8 @@ struct Grid {
     /// closes in, one less otherwise).
     nu: usize,
     nv: usize,
+    /// The spacing of the grid's points on the part, about.
+    h: f64,
     wrap_u: bool,
     wrap_v: bool,
     lo: Uv,
@@ -366,6 +372,7 @@ fn grid(
         nj,
         nu,
         nv,
+        h,
         wrap_u,
         wrap_v,
         lo,
@@ -425,7 +432,9 @@ fn grid(
     }
     let mut settled = vec![false; ni * nj];
     while let Some(Queued { d, node }) = heap.pop() {
-        if settled.get(node).copied().unwrap_or(true) || d > g.distance.get(node).copied().unwrap_or(0.0) {
+        if settled.get(node).copied().unwrap_or(true)
+            || d > g.distance.get(node).copied().unwrap_or(0.0)
+        {
             continue;
         }
         if let Some(s) = settled.get_mut(node) {
@@ -436,7 +445,16 @@ fn grid(
         let Some(q) = samples.get(from).copied() else {
             continue;
         };
-        for (di, dj) in [(-1, 0), (1, 0), (0, -1), (0, 1), (-1, -1), (1, -1), (-1, 1), (1, 1)] {
+        for (di, dj) in [
+            (-1, 0),
+            (1, 0),
+            (0, -1),
+            (0, 1),
+            (-1, -1),
+            (1, -1),
+            (-1, 1),
+            (1, 1),
+        ] {
             let Some(nb) = g.at(i + di, j + dj) else {
                 continue;
             };
@@ -451,7 +469,10 @@ fn grid(
                 if let Some(s) = seed.get_mut(nb) {
                     *s = from;
                 }
-                heap.push(Queued { d: candidate, node: nb });
+                heap.push(Queued {
+                    d: candidate,
+                    node: nb,
+                });
             }
         }
     }
@@ -484,8 +505,16 @@ fn level_lines(g: &Grid, value: f64, level: usize) -> Vec<Path> {
             .filter(|d| d.is_finite())
             .unwrap_or(-1.0)
     };
-    let ci = if g.wrap_u { g.ni } else { g.ni.saturating_sub(1) };
-    let cj = if g.wrap_v { g.nj } else { g.nj.saturating_sub(1) };
+    let ci = if g.wrap_u {
+        g.ni
+    } else {
+        g.ni.saturating_sub(1)
+    };
+    let cj = if g.wrap_v {
+        g.nj
+    } else {
+        g.nj.saturating_sub(1)
+    };
     // Each crossing is keyed by the two grid points of its edge.
     type Key = (usize, usize);
     let mut points: BTreeMap<Key, (f64, f64)> = BTreeMap::new();
@@ -508,7 +537,11 @@ fn level_lines(g: &Grid, value: f64, level: usize) -> Vec<Path> {
                 let (pa, pb) = (*corners.get(a)?, *corners.get(b)?);
                 let (ka, kb) = (g.at(pa.0, pa.1)?, g.at(pb.0, pb.1)?);
                 let (va, vb) = (*vals.get(a)?, *vals.get(b)?);
-                let t = if (vb - va).abs() > 1e-15 { (value - va) / (vb - va) } else { 0.5 };
+                let t = if (vb - va).abs() > 1e-15 {
+                    (value - va) / (vb - va)
+                } else {
+                    0.5
+                };
                 let key = (ka.min(kb), ka.max(kb));
                 points.entry(key).or_insert((
                     pa.0 as f64 + (pb.0 - pa.0) as f64 * t,
@@ -576,15 +609,23 @@ fn level_lines(g: &Grid, value: f64, level: usize) -> Vec<Path> {
         // Forward from b, then backward from a.
         for forward in [true, false] {
             loop {
-                let end = if forward { *chain.last().unwrap_or(&b) } else { *chain.first().unwrap_or(&a) };
+                let end = if forward {
+                    *chain.last().unwrap_or(&b)
+                } else {
+                    *chain.first().unwrap_or(&a)
+                };
                 let next = by_key.get(&end).and_then(|list| {
-                    list.iter().copied().find(|k| !used.get(*k).copied().unwrap_or(true))
+                    list.iter()
+                        .copied()
+                        .find(|k| !used.get(*k).copied().unwrap_or(true))
                 });
                 let Some(k) = next else { break };
                 if let Some(u) = used.get_mut(k) {
                     *u = true;
                 }
-                let Some(&(p, q)) = segments.get(k) else { break };
+                let Some(&(p, q)) = segments.get(k) else {
+                    break;
+                };
                 let other = if p == end { q } else { p };
                 if forward {
                     chain.push(other);
@@ -597,7 +638,10 @@ fn level_lines(g: &Grid, value: f64, level: usize) -> Vec<Path> {
         if closed {
             chain.pop();
         }
-        let mut xy: Vec<(f64, f64)> = chain.iter().filter_map(|k| points.get(k).copied()).collect();
+        let mut xy: Vec<(f64, f64)> = chain
+            .iter()
+            .filter_map(|k| points.get(k).copied())
+            .collect();
         unwrap_path(g, &mut xy);
         if xy.len() >= 2 {
             out.push(Path { xy, closed, level });
@@ -610,7 +654,9 @@ fn level_lines(g: &Grid, value: f64, level: usize) -> Vec<Path> {
 fn unwrap_path(g: &Grid, xy: &mut [(f64, f64)]) {
     let (nu, nv) = (g.nu as f64, g.nv as f64);
     for k in 1..xy.len() {
-        let Some(prev) = xy.get(k - 1).copied() else { continue };
+        let Some(prev) = xy.get(k - 1).copied() else {
+            continue;
+        };
         if let Some(p) = xy.get_mut(k) {
             if g.wrap_u {
                 p.0 += ((prev.0 - p.0) / nu).round() * nu;
@@ -630,7 +676,8 @@ fn orient(g: &Grid, path: &mut Path) {
         return;
     }
     let m = n / 2;
-    let (Some(a), Some(b), Some(c)) = (path.xy.get(m - 1), path.xy.get(m), path.xy.get(m + 1)) else {
+    let (Some(a), Some(b), Some(c)) = (path.xy.get(m - 1), path.xy.get(m), path.xy.get(m + 1))
+    else {
         return;
     };
     let (tx, ty) = (c.0 - a.0, c.1 - a.1);
@@ -669,9 +716,9 @@ pub(super) fn cut_outline(
     let step = match settings.scallop {
         // The spacing that leaves the scallop height on a flat, for the
         // ball or bull-nose's cutting arc.
-        Some((height, rho)) if height < rho => {
-            settings.stepover.min(2.0 * (2.0 * rho * height - height * height).sqrt())
-        }
+        Some((height, rho)) if height < rho => settings
+            .stepover
+            .min(2.0 * (2.0 * rho * height - height * height).sqrt()),
         _ => settings.stepover,
     };
     let g = grid(model, brep, face, closed, step, context)?;
@@ -712,10 +759,16 @@ pub(super) fn cut_outline(
         .copied()
         .filter(|d| d.is_finite())
         .fold(0.0, f64::max);
+    // Each offset is taken half a grid spacing short of its whole stepover:
+    // between two grid points the distance can peak (a ridge, where offsets
+    // from both sides meet) up to that much above what the points hold, so
+    // the last offset is not lost there and no pass is more than a stepover
+    // from the last.
+    let level_at = |level: usize| level as f64 * step - 0.5 * g.h;
     let mut level = 1;
-    while (level as f64) * step < deepest {
+    while level_at(level) < deepest {
         context.check_cancelled()?;
-        paths.extend(level_lines(&g, level as f64 * step, level));
+        paths.extend(level_lines(&g, level_at(level), level));
         if paths.len() > MAX_PASSES {
             return Err(PathError::refused(
                 crate::topic::FACE_FLOW,
@@ -799,7 +852,9 @@ pub(super) fn cut_outline(
     // The direction: the inside of the face on the left in (u, v) to start
     // with; Climb and Conventional keep the material on the side they ask
     // for, and Meander alternates.
-    let inside_right = ordered.first().and_then(|p| inside_on_right(&g, face, p, wrap));
+    let inside_right = ordered
+        .first()
+        .and_then(|p| inside_on_right(&g, face, p, wrap));
     let flip_all = match (settings.direction, inside_right) {
         (Direction::Climb, Some(right)) => !right,
         (Direction::Conventional, Some(right)) => right,
@@ -819,7 +874,15 @@ pub(super) fn cut_outline(
         }
         let line = UvLine::new(face, uv, wrap);
         let samples = pass_samples(&line, tooling);
-        let (runs, spans) = split_runs(samples, id, k, step, &|_| step.max(diameter), diameter, &mut stretches);
+        let (runs, spans) = split_runs(
+            samples,
+            id,
+            k,
+            step,
+            &|_| step.max(diameter),
+            diameter,
+            &mut stretches,
+        );
         passes.push(runs);
         spans_of.push(spans);
         lines.push(line);
@@ -830,7 +893,14 @@ pub(super) fn cut_outline(
     for ((runs, spans), line) in passes.iter().zip(&spans_of).zip(&lines) {
         for (i, (points, (s0, s1))) in runs.iter().zip(spans).enumerate() {
             let start = line.uv_at(*s0);
-            let steps = match (settings.stay_down, i, open, start, joined.last().and_then(|r| r.last()), points.first()) {
+            let steps = match (
+                settings.stay_down,
+                i,
+                open,
+                start,
+                joined.last().and_then(|r| r.last()),
+                points.first(),
+            ) {
                 (true, 0, Some(a), Some(b), Some(pa), Some(pb)) => {
                     let across = UvStep { face, a, b, wrap };
                     step_on(&across, tooling, 0.0, pa, pb)
@@ -881,7 +951,12 @@ pub(super) fn cut_outline(
 /// Whether, along `path` as oriented (the inside of the face on its left in
 /// (u, v)), the inside is on the tool's right looking along the feed from
 /// the spindle; `None` where it cannot be told.
-fn inside_on_right(g: &Grid, face: &ExactFace, path: &Path, wrap: [Option<(f64, f64)>; 2]) -> Option<bool> {
+fn inside_on_right(
+    g: &Grid,
+    face: &ExactFace,
+    path: &Path,
+    wrap: [Option<(f64, f64)>; 2],
+) -> Option<bool> {
     let m = path.xy.len() / 2;
     let a = *path.xy.get(m.checked_sub(1)?)?;
     let b = *path.xy.get(m)?;
