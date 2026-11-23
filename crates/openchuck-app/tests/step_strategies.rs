@@ -1311,3 +1311,173 @@ fn req_op_11_req_op_07_a_swarf_ramp_on_the_blisk_cuts_no_deeper_than_its_pass() 
         -entry.0, -cutting
     );
 }
+
+/// The cutting runs of the last operation's toolpath and their moves, and
+/// the tips of its cutting moves.
+fn last_runs(app: &Application) -> (usize, usize, Vec<Point3>) {
+    let result = app.regenerate().unwrap();
+    let segments = &result.toolpath.groups.last().unwrap().segments;
+    let mut runs = 0;
+    let mut cutting = false;
+    for s in segments {
+        let now = s.kind == MoveKind::Cutting;
+        runs += usize::from(now && !cutting);
+        cutting = now;
+    }
+    let tips: Vec<Point3> = segments
+        .iter()
+        .filter(|s| s.kind == MoveKind::Cutting)
+        .map(|s| s.end.tip)
+        .collect();
+    (runs, tips.len(), tips)
+}
+
+#[test]
+fn req_op_27_req_op_09_pencil_with_a_flat_end_cuts_the_same_passes_with_exact_contact_on_or_off() {
+    // Issue #632: with no finishing operation before it, the corner has
+    // material all round, and the exact drop, which moves the tool by at
+    // most the tessellation's deflection, gives the same passes as the
+    // tessellation, alone or after roughing. (After axial finishing with a
+    // tapered ball the ridge left in the corner sits at the remaining-
+    // material threshold, and the two differ: decision 0xxy item 4.)
+    for before in [
+        Vec::new(),
+        vec![("rotary_roughing", vec![("stock_to_leave", n(0.5))])],
+    ] {
+        let mut counts = Vec::new();
+        for exact in [false, true] {
+            let mut operations = before.clone();
+            operations.push((
+                "pencil_finishing",
+                vec![("exact_contact", ParameterValue::Flag(exact))],
+            ));
+            let job = Job {
+                part: "shouldered_shaft",
+                transform: onto_axis(),
+                operations,
+            };
+            let (dir, mut app, _) = build(&job, &format!("pencil-flat-{exact}-{}", before.len()));
+            let mut tool = ball();
+            tool.id = app.project().tools().first().unwrap().id;
+            tool.name = "2 mm flat".into();
+            tool.tool.shape = ToolShape::FlatEnd;
+            tool.tool.diameter = Millimetres(2.0);
+            tool.tool.shank_diameter = Millimetres(2.0);
+            app.execute(Command::Replace(Item::Tool(tool))).unwrap();
+            let (runs, moves, tips) = last_runs(&app);
+            for tip in &tips {
+                assert!((tip.x - 11.0).abs() < 1e-3, "a cut at X {}", tip.x);
+                let r = tip.y.hypot(tip.z);
+                assert!((r - 8.0).abs() <= 0.011, "a cut at radius {r}");
+            }
+            counts.push((runs, moves));
+            std::fs::remove_dir_all(dir).unwrap();
+        }
+        assert_eq!(counts[0], counts[1], "off, on: {counts:?}");
+        assert_eq!(counts[0].0, 1, "{counts:?}");
+    }
+}
+
+/// Issue #791 (decision 0xxx, option A): a STEP face that closes round on
+/// itself is cut in rings from one end to the other: the sides of
+/// `cylinder.step` and `cone.step` in rings at constant X, the cylinder's on
+/// its radius, the blisk's
+/// outside cylinder (face 1, between its wavy end and the disc's edge) in
+/// as many rings as its width needs; a full sphere and a full torus, which
+/// have no end, are refused plainly.
+#[test]
+fn req_op_28_face_flow_cuts_a_step_face_that_closes_round_on_itself_in_rings() {
+    use std::sync::Arc;
+
+    use openchuck_path::face_flow::FaceFlow;
+    use openchuck_path::params::names;
+    use openchuck_path::{AcceptAll, AnalyticStock, RotaryMapping, Strategy, StrategyInput};
+    use openchuck_types::brep::FaceId;
+    use openchuck_types::ir::PathTags;
+    use openchuck_types::machine::Clearance;
+
+    let tool = ball().tool.profile().unwrap();
+    let machine = builtin("makera-z1").unwrap().unwrap();
+    let tags = PathTags {
+        operation: "op".into(),
+        setup: "setup".into(),
+        tool: "tool".into(),
+    };
+    let values: BTreeMap<String, openchuck_path::ParameterValue> = [
+        (names::STEPOVER, 1.0),
+        (names::TOLERANCE, 0.01),
+        (names::FEED, 300.0),
+        (names::PLUNGE_FEED, 100.0),
+    ]
+    .into_iter()
+    .map(|(k, v)| (k.to_owned(), openchuck_path::ParameterValue::Number(v)))
+    .collect();
+    let cut = |model: &BrepModel, face: u32| {
+        let surface = BrepSurface::new(model).unwrap();
+        let stock = AnalyticStock::Cylinder {
+            radius: 30.0,
+            x_start: -60.0,
+            x_end: 120.0,
+        };
+        let input = StrategyInput {
+            surface: &surface,
+            stock: &stock,
+            collision: &AcceptAll,
+            tool: &tool,
+            rotary: RotaryMapping::of_profile(&machine),
+            clearance: Clearance {
+                radius: Millimetres(36.0),
+                safe_z: Millimetres(46.0),
+            },
+            max_feeds: machine.max_feeds,
+            tags: &tags,
+            facing: None,
+            keep_out: &[],
+            shank: None,
+        };
+        let strategy = FaceFlow::on_brep(Arc::new(model.clone()), vec![FaceId(face)], Vec::new());
+        let parameters = strategy.resolve_parameters(&values).unwrap();
+        let cancel = CancelToken::new();
+        strategy.passes_with_notes(
+            &input,
+            None,
+            &parameters,
+            &JobContext::new(&cancel, &NoProgress),
+        )
+    };
+    let cylinder = placed("cylinder", &onto_axis());
+    let out = cut(&cylinder, 0).unwrap();
+    assert!(out.passes.len() > 40, "{} passes", out.passes.len());
+    for pass in &out.passes {
+        let x = pass.points[0].contact.x;
+        for c in &pass.points {
+            let q = c.contact;
+            assert!((q.x - x).abs() < 1e-3, "a ring leaves X {x} at {q:?}");
+            assert!(
+                (q.y.hypot(q.z) - 10.0).abs() < 0.01,
+                "{q:?} is off the cylinder"
+            );
+        }
+    }
+    let cone = placed("cone", &onto_axis());
+    let out = cut(&cone, 0).unwrap();
+    assert!(out.passes.len() > 20, "{} passes", out.passes.len());
+    for pass in &out.passes {
+        let x = pass.points[0].contact.x;
+        assert!(
+            pass.points.iter().all(|c| (c.contact.x - x).abs() < 1e-3),
+            "a ring on the cone leaves X {x}"
+        );
+    }
+    let rim = cut(&blisk_on_axis(), 1).unwrap();
+    let notes = rim.notes().join("\n");
+    assert!(notes.contains("cuts 52 passes on 1 face"), "{notes}");
+    for part in ["sphere", "torus"] {
+        let model = placed(part, &onto_axis());
+        let err = cut(&model, 0).unwrap_err().to_string();
+        assert!(
+            err.contains("closes round on itself with no end edge"),
+            "{part}: {err}"
+        );
+    }
+}

@@ -19,6 +19,14 @@
 //! - **The opposite boundary** is what is left of the loop without the guide
 //!   and the two sides next to it; with only two sides left it is the point
 //!   where they meet (a three-sided face), and with one it is that side.
+//! - **A face that closes round on itself** (a full cylinder or cone; issue
+//!   #791, decision record 0xxx) is bounded by a seam, an edge along which
+//!   the face meets itself, listed once though the boundary runs along it
+//!   twice. Its seams are not boundaries: its two ends are the guide (the
+//!   longer, or the one holding the user's guide edges) and the opposite
+//!   boundary, or a point where an end closes on one, and each pass is a
+//!   ring round the face. A face with no end, a seam as the guide, and
+//!   guide edges on no end are refused.
 //! - **The blend.** Guide and opposite are both taken by arc-length fraction
 //!   `s` and put on the face's (u, v); the pass at weight `w` is the face's
 //!   point at `(1 - w) uv_guide(s) + w uv_opposite(s)` (owner's point 2), so
@@ -485,10 +493,16 @@ fn edge_points(model: &BrepModel, edge: EdgeId) -> Option<(Vec<Point3>, End, End
     ))
 }
 
-/// The face's boundary loops, each joined end to end, the lowest edge first
-/// and each loop starting at its lowest edge.
-fn loops(model: &BrepModel, face: &BrepFace) -> Result<Vec<Vec<Entry>>> {
-    let ids: BTreeSet<EdgeId> = face.edges.iter().copied().collect();
+/// The face's boundary loops, without the edges in `skip` (its seams), each
+/// joined end to end, the lowest edge first and each loop starting at its
+/// lowest edge.
+fn loops(model: &BrepModel, face: &BrepFace, skip: &BTreeSet<EdgeId>) -> Result<Vec<Vec<Entry>>> {
+    let ids: BTreeSet<EdgeId> = face
+        .edges
+        .iter()
+        .copied()
+        .filter(|e| !skip.contains(e))
+        .collect();
     let mut pieces = Vec::new();
     for id in ids {
         let (points, a, b) = edge_points(model, id).ok_or_else(|| {
@@ -666,8 +680,17 @@ fn oriented(guide: &Curve, opposite: Curve) -> Curve {
 
 /// The guide and opposite boundary of `face`, the guide made of `chosen`
 /// where any of them bound it.
-fn boundaries(model: &BrepModel, face: &BrepFace, chosen: &BTreeSet<EdgeId>) -> Result<Boundaries> {
-    let mut all = loops(model, face)?;
+fn boundaries(
+    model: &BrepModel,
+    face: &BrepFace,
+    chosen: &BTreeSet<EdgeId>,
+    closed: &Closure,
+    exact: &ExactFace,
+) -> Result<Boundaries> {
+    if !closed.seams.is_empty() {
+        return ring_boundaries(model, face, chosen, closed, exact);
+    }
+    let mut all = loops(model, face, &BTreeSet::new())?;
     if all.is_empty() {
         return Err(PathError::refused(
             crate::topic::FACE_FLOW,
@@ -796,6 +819,274 @@ fn boundaries(model: &BrepModel, face: &BrepFace, chosen: &BTreeSet<EdgeId>) -> 
     })
 }
 
+// ---------------------------------------------------------------------------
+// A face that closes round on itself (issue #791; decision record 0xxx).
+
+/// How a face closes round on itself: its seams, the edges along which it
+/// meets itself, and the parameter period in u and in v in each direction
+/// it closes, from the start of its parameter box.
+#[derive(Debug, Clone, Default)]
+struct Closure {
+    seams: BTreeSet<EdgeId>,
+    /// (start, period) in u and in v.
+    period: [Option<(f64, f64)>; 2],
+}
+
+/// The number of points of an edge or loop read for a seam or a turn.
+const CLOSURE_SAMPLES: usize = 64;
+
+/// At most `n` points of `points`, evenly spread, the first and last kept.
+fn spread(points: &[Point3], n: usize) -> Vec<Point3> {
+    if points.len() <= n {
+        return points.to_vec();
+    }
+    (0..n)
+        .filter_map(|k| points.get(k * (points.len() - 1) / (n - 1)).copied())
+        .collect()
+}
+
+/// Whether and how `face` closes round on itself (decision record 0xxx):
+/// it closes in u where the two ends of its parameter box are the same
+/// curve on the part, and a seam is an edge of no other face, not a point,
+/// lying along that curve.
+fn closure(model: &BrepModel, face: &BrepFace, exact: &ExactFace) -> Closure {
+    let (lo, hi) = exact.uv_bounds();
+    let closes = |dir: usize| -> bool {
+        // Inside the box only: a cone's apex or a sphere's pole has no
+        // normal.
+        (1..8).all(|k| {
+            let t = f64::from(k) / 8.0;
+            let (a, b) = if dir == 0 {
+                let v = lo.v + (hi.v - lo.v) * t;
+                (Uv { u: lo.u, v }, Uv { u: hi.u, v })
+            } else {
+                let u = lo.u + (hi.u - lo.u) * t;
+                (Uv { u, v: lo.v }, Uv { u, v: hi.v })
+            };
+            match (exact.point_normal(a), exact.point_normal(b)) {
+                (Some(a), Some(b)) => a.point.distance(b.point) < JOIN,
+                _ => false,
+            }
+        })
+    };
+    let mut out = Closure::default();
+    for dir in 0..2 {
+        if !closes(dir) {
+            continue;
+        }
+        if let Some(slot) = out.period.get_mut(dir) {
+            *slot = Some(if dir == 0 {
+                (lo.u, hi.u - lo.u)
+            } else {
+                (lo.v, hi.v - lo.v)
+            });
+        }
+        for id in &face.edges {
+            let Some(edge) = model.edges.get(id.0 as usize) else {
+                continue;
+            };
+            if edge.faces.as_slice() != [face.id] {
+                continue;
+            }
+            let Some((points, _, _)) = edge_points(model, *id) else {
+                continue;
+            };
+            if Curve::new(points.clone()).length() <= JOIN {
+                continue;
+            }
+            let (start, end) = if dir == 0 { (lo.u, hi.u) } else { (lo.v, hi.v) };
+            let near = 1e-7 * (1.0 + (end - start).abs());
+            // Each point is on the face, at the start or end of the box
+            // across the seam, or on the part where the start would be.
+            let on_seam = spread(&points, 17).iter().all(|p| {
+                exact.closest(*p).is_some_and(|c| {
+                    let x = if dir == 0 { c.uv.u } else { c.uv.v };
+                    let at = if dir == 0 {
+                        Uv { u: lo.u, v: c.uv.v }
+                    } else {
+                        Uv { u: c.uv.u, v: lo.v }
+                    };
+                    c.distance < JOIN
+                        && ((x - start).abs() <= near
+                            || (x - end).abs() <= near
+                            || exact
+                                .point_normal(at)
+                                .is_some_and(|q| q.point.distance(*p) < JOIN))
+                })
+            });
+            if on_seam {
+                out.seams.insert(*id);
+            }
+        }
+    }
+    out
+}
+
+/// Whether the closed loop `points` goes once round a face that closes with
+/// `period` in the parameter `dir`: an end of the face, not a hole in it.
+fn goes_round(points: &[Point3], exact: &ExactFace, dir: usize, period: f64) -> bool {
+    let mut total = 0.0;
+    let mut last: Option<f64> = None;
+    for p in spread(points, CLOSURE_SAMPLES) {
+        let Some(c) = exact.closest(p) else {
+            return false;
+        };
+        let x = if dir == 0 { c.uv.u } else { c.uv.v };
+        if let Some(prev) = last {
+            let x = unwrap_to(x, prev, Some(period));
+            total += x - prev;
+            last = Some(x);
+        } else {
+            last = Some(x);
+        }
+    }
+    total.abs() > 0.5 * period
+}
+
+/// The closed polyline `points` started at its point nearest `at`.
+fn started_at(points: &[Point3], at: &[Point3]) -> Vec<Point3> {
+    let mut ring: Vec<Point3> = points.to_vec();
+    if ring.len() > 1
+        && let (Some(a), Some(b)) = (ring.first(), ring.last())
+        && a.distance(*b) < JOIN
+    {
+        ring.pop();
+    }
+    let nearest = |p: &Point3| {
+        at.iter()
+            .map(|q| p.distance(*q))
+            .fold(f64::INFINITY, f64::min)
+    };
+    let start = ring
+        .iter()
+        .enumerate()
+        .min_by(|a, b| nearest(a.1).total_cmp(&nearest(b.1)))
+        .map_or(0, |(i, _)| i);
+    let n = ring.len();
+    let mut out: Vec<Point3> = (0..n)
+        .filter_map(|k| ring.get((start + k) % n).copied())
+        .collect();
+    if let Some(first) = out.first().copied() {
+        out.push(first);
+    }
+    out
+}
+
+/// The guide and opposite end of a face that closes round on itself
+/// (decision record 0xxx, option A): its seams are not boundaries; its two
+/// ends are the guide (the longer, or the one holding the user's guide
+/// edges) and the opposite boundary, or a point where an end closes on one.
+/// Each pass is then a ring round the face.
+fn ring_boundaries(
+    model: &BrepModel,
+    face: &BrepFace,
+    chosen: &BTreeSet<EdgeId>,
+    closed: &Closure,
+    exact: &ExactFace,
+) -> Result<Boundaries> {
+    let refuse = |text: String| PathError::refused(crate::topic::FACE_FLOW, text);
+    if let Some(seam) = chosen.iter().find(|e| closed.seams.contains(e)) {
+        return Err(refuse(format!(
+            "edge {} is the seam of face {}, where the face meets itself, not one of its ends: \
+             choose an end edge as the guide, or leave the Guide edge set empty",
+            seam.0, face.id.0
+        )));
+    }
+    let no_end = || {
+        refuse(format!(
+            "face {} closes round on itself with no end edge to cut from: choose a face with \
+             an end, or cut it with simultaneous or helical finishing",
+            face.id.0
+        ))
+    };
+    // The direction the face closes in: across the seams.
+    let Some((dir, (_, period))) = closed
+        .period
+        .iter()
+        .enumerate()
+        .find_map(|(d, p)| p.map(|p| (d, p)))
+    else {
+        return Err(no_end());
+    };
+    if closed.period.iter().all(Option::is_some) {
+        return Err(no_end());
+    }
+    let mut ends: Vec<Vec<Entry>> = Vec::new();
+    let mut points: Vec<Point3> = Vec::new();
+    for l in loops(model, face, &closed.seams)? {
+        let ring = concat(&l);
+        if entries_length(&l) <= JOIN {
+            points.extend(ring.first().copied());
+        } else if goes_round(&ring, exact, dir, period) {
+            ends.push(l);
+        }
+    }
+    if ends.is_empty() || ends.len() > 2 {
+        return Err(no_end());
+    }
+    let holds = |l: &Vec<Entry>| l.iter().any(|e| chosen.contains(&e.edge));
+    let guide_at = if chosen.is_empty() {
+        let mut best = 0;
+        let mut key = (f64::NEG_INFINITY, EdgeId(u32::MAX));
+        for (i, l) in ends.iter().enumerate() {
+            let length = entries_length(l);
+            let lowest = l.iter().map(|e| e.edge).min().unwrap_or(EdgeId(u32::MAX));
+            if length > key.0 * (1.0 + 1e-6) || (length >= key.0 * (1.0 - 1e-6) && lowest < key.1) {
+                best = i;
+                key = (length, lowest);
+            }
+        }
+        best
+    } else {
+        let at: Vec<usize> = (0..ends.len())
+            .filter(|i| ends.get(*i).is_some_and(holds))
+            .collect();
+        match at.as_slice() {
+            [i] => *i,
+            _ => {
+                return Err(refuse(format!(
+                    "the guide edges {} of face {} are not all on one of its ends: face {} closes \
+                     round on itself, and its passes run round it from one end",
+                    list(chosen.iter().map(|e| e.0)),
+                    face.id.0,
+                    face.id.0
+                )));
+            }
+        }
+    };
+    let guide_entries = ends.swap_remove(guide_at);
+    let seam_ends: Vec<Point3> = closed
+        .seams
+        .iter()
+        .filter_map(|e| edge_points(model, *e))
+        .flat_map(|(_, a, b)| [a.point, b.point])
+        .collect();
+    let guide = Curve::new(started_at(&concat(&guide_entries), &seam_ends));
+    let opposite = match (ends.first(), points.first()) {
+        (Some(other), _) => {
+            let curve = Curve::new(started_at(&concat(other), &seam_ends));
+            // The same way round as the guide.
+            let reversed = curve.reversed();
+            let near = |c: &Curve| match (guide.at(0.25), c.at(0.25)) {
+                (Some(a), Some(b)) => a.distance(b),
+                _ => f64::INFINITY,
+            };
+            Opposite::Side(if near(&reversed) < near(&curve) {
+                reversed
+            } else {
+                curve
+            })
+        }
+        (None, Some(p)) => Opposite::Point(*p),
+        (None, None) => return Err(no_end()),
+    };
+    Ok(Boundaries {
+        guide,
+        guide_edges: guide_entries.iter().map(|e| e.edge).collect(),
+        opposite,
+    })
+}
+
 /// The start and count of `indices` as one run of the cyclic range `0..n`,
 /// or `None` when they are not one run.
 fn contiguous(indices: &[usize], n: usize) -> Option<(usize, usize)> {
@@ -904,6 +1195,9 @@ struct Field<'a> {
     /// (u, v) of the guide and of the opposite boundary at `s = j / m`.
     guide_uv: Vec<Uv>,
     opposite_uv: Vec<Uv>,
+    /// (start, period) in u and in v where the face closes round on itself,
+    /// to bring a blended (u, v) back into its parameter box.
+    wrap: [Option<(f64, f64)>; 2],
 }
 
 impl Field<'_> {
@@ -925,9 +1219,14 @@ impl Field<'_> {
             })
         };
         let (g, o) = (lerp(&self.guide_uv)?, lerp(&self.opposite_uv)?);
+        let back = |x: f64, wrap: Option<(f64, f64)>| match wrap {
+            Some((start, period)) if period > 0.0 => start + (x - start).rem_euclid(period),
+            _ => x,
+        };
+        let [wu, wv] = self.wrap;
         Some(Uv {
-            u: g.u + (o.u - g.u) * w,
-            v: g.v + (o.v - g.v) * w,
+            u: back(g.u + (o.u - g.u) * w, wu),
+            v: back(g.v + (o.v - g.v) * w, wv),
         })
     }
 
@@ -950,6 +1249,7 @@ fn field<'a>(
     face_id: FaceId,
     face: &'a ExactFace,
     boundaries: Boundaries,
+    closed: &Closure,
 ) -> Result<Field<'a>> {
     let brep = model.faces.get(face_id.0 as usize).ok_or_else(|| {
         PathError::refused(
@@ -958,6 +1258,10 @@ fn field<'a>(
         )
     })?;
     let (pu, pv) = periods(&brep.geometry);
+    // A face that closes round with no period of its own (a closed B-spline)
+    // takes its parameter box's as its period.
+    let [cu, cv] = closed.period;
+    let (pu, pv) = (pu.or(cu.map(|c| c.1)), pv.or(cv.map(|c| c.1)));
     let length = boundaries.guide.length().max(match &boundaries.opposite {
         Opposite::Side(c) => c.length(),
         Opposite::Point(_) => 0.0,
@@ -1021,6 +1325,7 @@ fn field<'a>(
         boundaries,
         guide_uv,
         opposite_uv,
+        wrap: closed.period,
     })
 }
 
@@ -1764,8 +2069,9 @@ fn face_flow(
                 format!("the model has no face {}", id.0),
             )
         })?;
-        let b = boundaries(model, brep, &guide)?;
-        fields.push(field(model, *id, face, b)?);
+        let closed = closure(model, brep, face);
+        let b = boundaries(model, brep, &guide, &closed, face)?;
+        fields.push(field(model, *id, face, b, &closed)?);
     }
     let order = face_order(model, &fields);
     let total = fields.len();
@@ -1986,8 +2292,13 @@ fn assemble(
     let mut notes: Vec<Notice> = Vec::new();
     let mut stretches: Vec<Stretch> = Vec::new();
     let mut face_notes: Vec<String> = Vec::new();
+    // Passes that cut something, one per line across a face however many
+    // pieces its unreached stretches split it into (issue #631).
+    let mut cutting = 0;
     for mut cut in cuts {
         let geometric = cut.passes.len();
+        let reaching = cut.passes.iter().filter(|runs| !runs.is_empty()).count();
+        cutting += reaching;
         // Directions (decision 0525 D1).
         let centres: Vec<Option<Point3>> = cut.passes.iter().map(|p| centre(p)).collect();
         let mut forward = true;
@@ -2048,6 +2359,12 @@ fn assemble(
             crate::counted(geometric, "pass", "passes"),
             cut.spacing
         );
+        if reaching < geometric {
+            note.push_str(&format!(
+                "; {reaching} of them cut and the rest are left out: along them the tool \
+                 reaches no part of the face it may cut"
+            ));
+        }
         if cut.dropped_short > 0 {
             note.push_str(&format!(
                 "; {} nearest the point {} left out, being shorter than the tool's \
@@ -2084,7 +2401,7 @@ fn assemble(
     notes.push(
         Notice::information(format!(
             "cuts {} on {}",
-            crate::counted(out_passes.len(), "pass", "passes"),
+            crate::counted(cutting, "pass", "passes"),
             crate::counted(face_notes.len(), "face", "faces")
         ))
         .about(topic::FACE_FLOW),

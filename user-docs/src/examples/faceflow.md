@@ -38,11 +38,11 @@ The edge set is optional: without it, each face starts from its longest side. It
 
 The Results list three lines for the operation:
 
-"Face-flow finishing (operation 'Floor finish'): face 20 is cut from its guide, edge 65 (49.1 mm long), towards the opposite side in 17 passes up to 0.953 mm apart along the face"
-: The guide is the floor's longest side, the root of the blade above it. The 17 passes are laid out across the floor, never more than the 1.000 mm **Stepover** apart, measured along the face.
+"Face-flow finishing (operation 'Floor finish'): face 20 is cut from its guide, edge 65 (49.1 mm long), towards the opposite side in 17 passes up to 0.953 mm apart along the face; 12 of them cut and the rest are left out: along them the tool reaches no part of the face it may cut"
+: The guide is the floor's longest side, the root of the blade above it. The 17 passes are laid out across the floor, never more than the 1.000 mm **Stepover** apart, measured along the face. The 5 that lie wholly in the area the tool cannot reach, along the blade walls, are not cut.
 
 "Face-flow finishing (operation 'Floor finish'): cuts 12 passes on 1 face"
-: The passes that are cut, after the stretches the tool cannot reach are left out. A pass that lies wholly in that area is not cut.
+: The passes that are cut, on all the selected faces together: the same 12. A pass that is cut only in part, where the tool cannot reach the rest of it, counts once.
 
 "Unreached areas (operation 'Floor finish'): face-flow finishing cannot reach 1 area of the selected faces, which stay uncut: X 37.990 to 77.990 near A 282 (173.8 mm2), a neighbouring face is in the way of the tool; check them in the simulation before running the program"
 : The floor is a narrow strip between two blade walls, and a 3 mm ball cannot reach into the corners where the floor meets them without touching a wall. That strip, along the whole floor from X 37.99 to X 77.99, is not cut and is drawn hatched in the view, labelled **Unreachable (Floor finish)** in the legend: black diagonal lines in a white casing, painted on the surface, so they turn and stretch with it as you orbit and zoom. "A neighbouring face is in the way" means a blade wall, not the stock. The same line appears under **Messages**, with a link to the operation.
@@ -65,7 +65,7 @@ A [scallop](../glossary.md#scallop) height sets the spacing by the ridge a ball 
 </figure>
 
 <figure>
-<a href="images/blisk_faceflow/04-scallop.png"><img src="images/blisk_faceflow/04-scallop.png" width="1920" height="1080" alt="The floor with about twice as many orange passes. Results: 1 operation, 4803 moves, 31.9 s to generate; face 20 is cut from its guide, edge 65 (49.1 mm long), towards the opposite side in 34 passes up to 0.462 mm apart along the face; face-flow finishing cuts 25 passes on 1 face; 170.3 mm2 unreached."></a>
+<a href="images/blisk_faceflow/04-scallop.png"><img src="images/blisk_faceflow/04-scallop.png" width="1920" height="1080" alt="The floor with about twice as many orange passes. Results: 1 operation, 4803 moves, 31.9 s to generate; face 20 is cut from its guide, edge 65 (49.1 mm long), towards the opposite side in 34 passes up to 0.462 mm apart along the face, 25 of them cut; face-flow finishing cuts 25 passes on 1 face; 170.3 mm2 unreached."></a>
 <figcaption><b>Figure 4.</b> A 0.02 mm scallop height with a 3 mm ball puts the passes up to 0.462 mm apart.</figcaption>
 </figure>
 

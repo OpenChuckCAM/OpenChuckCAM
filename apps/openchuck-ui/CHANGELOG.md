@@ -1,5 +1,10 @@
 # Changelog
 
+
+## Unreleased (FACEFLOW; issues #614 and #615)
+
+- **Changed text:** the Geometry section's first line says, for swarf and face-flow finishing, that they cut only the faces chosen and are not generated with no face set in Cut on, instead of that the whole part is cut. A selection set of one face or edge reads "1 face", "1 edge" in the tree, the set inspector and the Geometry section.
+
 ## Unreleased (MSGREVIEW, decision 0644, accepted; decision 0536 step 6; issue #567)
 
 - **Changed text (the owner's answer (3)):** the Results tab's Facing line reads "Facing (operation '<name>'): facing covered the end faces it was asked to." (with "; the simulation shows what it removed" for a simulated run), and the note of what was left unfaced is shown in the same form. The Tool number tooltip no longer names TL-06. A count of one takes the singular in the Results summary ("1 operation, 1 move"), the export's short-block line, the tool library and the hidden-labels line.

@@ -1,5 +1,10 @@
 # Changelog
 
+
+## Unreleased (FACEFLOW; issues #614 and #615)
+
+- **Added:** `operation::empty_cut_on_hint(strategy)`, the Geometry section's line on an empty Cut on: the whole part is cut, except for swarf and face-flow finishing, which are not generated with no face set there (the refusal they share is now one list). `SelectionSummary::counted()`, the set's count with its noun agreeing ("1 face", "3 edges").
+
 ## Unreleased (POST-SAFETY, issue #703; decision 0656, accepted)
 
 - **Added:** the G-code checks of every file include the post's `max_line_length` (GC-08): a line longer than it is a finding, so the file fails its checks and export is blocked, in the dialog and on the command line.

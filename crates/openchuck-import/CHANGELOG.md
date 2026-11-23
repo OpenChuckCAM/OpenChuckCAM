@@ -1,5 +1,10 @@
 # Changelog
 
+
+## Unreleased (FACEFLOW; issue #615)
+
+- **Changed text:** the STEP import notice names face-flow finishing among the strategies that read the exact faces ("radial drilling, swarf, edge following and face-flow finishing read").
+
 ## Unreleased (FACING-STEP; issue #800; decision 0666, accepted)
 
 - **Changed:** the STEP import notice adds that Facing works on a STEP part only as Flat or Round over the whole stock with no margin for now.

@@ -79,7 +79,7 @@ When a required value is empty and no cutting data fills it, the operation canno
 
 ## Geometry: the surfaces an operation works on
 
-Selection sets are named groups of faces, triangles or edges, made in **Selection sets**. The Geometry section puts them in four roles. With nothing in **Cut on**, the operation cuts the whole part, except Swarf (flank) machining and Face flow finishing: they cut only the faces you choose, so with no face set in **Cut on** they are not generated, and the message says so ("swarf needs a face set: ..." or "Face-flow finishing needs a face set: ..."). The Geometry section's own line, "With nothing in Cut on, the operation cuts the whole part.", is shown for these two strategies as well; it does not apply to them.
+Selection sets are named groups of faces, triangles or edges, made in **Selection sets**. The Geometry section puts them in four roles. With nothing in **Cut on**, the operation cuts the whole part, except Swarf (flank) machining and Face flow finishing: they cut only the faces you choose, so with no face set in **Cut on** they are not generated, and the message says so ("swarf needs a face set: ..." or "Face-flow finishing needs a face set: ..."). The Geometry section's first line says which applies to the operation's strategy.
 
 Cut on
 : The operation cuts only on these surfaces.
@@ -279,6 +279,8 @@ Guide edge
 
 Each face is cut on its own, longest guide first, then the faces that share an edge with it. No pass crosses from one face to the next.
 
+A face that closes round on itself, such as the whole side of a cylinder or a cone, has no sides to step between: it is cut in rings round the face, from one end to the other. The guide is the longer end, or the end that holds the edges in **Guide edge**. Where the other end narrows to a point, such as the tip of a cone, the rings close on it. The edge along which such a face meets itself, its seam, cannot be the guide. A face with no end at all, such as a whole sphere or a whole ring, is not cut, and the message says so.
+
 | Setting | Default | What it does |
 | --- | --- | --- |
 | Scallop height | 0 mm | The highest ridge left between passes for a ball-end or bull-nose tool; passes are put closer than the stepover where it needs it. 0 leaves the stepover alone. With other tool shapes it is ignored, and a note says so. |
@@ -286,7 +288,7 @@ Each face is cut on its own, longest guide first, then the faces that share an e
 | Lead angle | 0° | From −30° to 30°. How far the tool leans from the normal towards the travel round the axis. Passes along the axis cannot lean. |
 | Maximum tilt | 5° | From 0° to 30°. How far the tool may leave its leaned direction to smooth the turning of the part. |
 
-The notes say how many passes were cut on how many faces, and the guide of each face. Where a neighbouring face, such as a blade wall, is in the way of the tool, or the face is too narrow for it, that stretch is left uncut and a warning lists where (up to five places, then how many more). Check those places in the simulation.
+The notes say how many passes cut on how many faces, and, for each face, its guide and how many passes were planned across it. Where the tool can reach no part of a planned pass, the face's note says how many of its passes cut, and that number is the one in the first note. Where a neighbouring face, such as a blade wall, is in the way of the tool, or the face is too narrow for it, that stretch is left uncut and a warning lists where (up to five places, then how many more). Check those places in the simulation.
 
 ## Edge and curve following
 

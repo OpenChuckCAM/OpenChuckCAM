@@ -1,5 +1,14 @@
 # Changelog
 
+
+## Unreleased (FACEFLOW; issues #791 and #631)
+
+- **Fixed, changed output (issue #791; decision 0xxx, option A):** face-flow finishing cuts a face that closes round on itself (a full cylinder or cone, or a B-spline face closed in one direction) instead of refusing it because its seam edge, listed once, kept its boundary from closing. Its seams are recognised from the face and edge themselves, its two ends are the guide (the longer, or the one holding the user's guide edges) and the opposite boundary, and each pass is a ring round the face, blended and spaced as before; an end that is a point (a cone's apex) is an opposite point. A face with no end (a full sphere or torus), a seam chosen as the guide, and guide edges not on one end are refused, naming the face or edge. Faces that do not close round are cut as before. No API change.
+
+- **Changed text:** face-flow finishing's first note counts the passes that cut, one per line across a face however many pieces the unreached stretches split it into, not the pieces; a face note whose planned passes do not all cut adds how many did ("; 12 of them cut and the rest are left out: along them the tool reaches no part of the face it may cut"), so the two counts read as one account. No path or API change.
+
+## Unreleased (FACING-STEP; issues #650 and #500; decision 0667, accepted)
+
 ## 0.56.0
 
 - **Family release (0.56.0, POST-SAFETY; issue #703; decision 0656, accepted):** `openchuck-post`'s `PostOptions` gains the public field `max_line_length` and `openchuck-gcode`'s `FindingKind` gains `LineTooLong`, a breaking change; no change to this crate.

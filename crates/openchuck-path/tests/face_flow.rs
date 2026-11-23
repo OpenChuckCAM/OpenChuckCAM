@@ -1381,3 +1381,349 @@ fn req_op_28_nfr_06_the_path_is_identical_at_1_2_and_n_threads() {
     .unwrap();
     assert_eq!(runs.len(), 4);
 }
+
+// ---- issue #791: a face that closes round on itself ---------------------------------
+
+/// A face of revolution about the model X axis that closes round on itself,
+/// as a STEP file gives it: `surface` evaluated by `point(u, v)` over u from
+/// 0 to a full turn and v from `v0` to `v1`; edge 0 the end at `v0`, edge 1
+/// the end at `v1` (a single point where `point` collapses there), each
+/// starting and ending at its one vertex on the seam, and edge 2 the seam
+/// at u 0, which bounds the face twice but is listed once.
+fn revolved(surface: Surface, v0: f64, v1: f64, point: &dyn Fn(f64, f64) -> Point3) -> BrepModel {
+    let tau = std::f64::consts::TAU;
+    let mut b = Builder::default();
+    let edges = vec![
+        b.edge(&[0], &|t| point(tau * t, v0), false),
+        b.edge(&[0], &|t| point(tau * t, v1), false),
+        b.edge(&[0], &|t| point(0.0, v0 + (v1 - v0) * t), false),
+    ];
+    b.face(
+        surface,
+        [0.0, tau, v0, v1],
+        None,
+        edges,
+        point,
+        &|_, _| true,
+        false,
+    );
+    b.model
+}
+
+/// The frame of a surface of revolution about the model X axis.
+fn about_x() -> Frame {
+    Frame {
+        origin: p3(0.0, 0.0, 0.0),
+        x: Vec3::new(0.0, 1.0, 0.0),
+        y: Vec3::new(0.0, 0.0, 1.0),
+        z: Vec3::new(1.0, 0.0, 0.0),
+    }
+}
+
+/// The full cylinder of `radius` about X from X 0 to `length`.
+fn full_cylinder(radius: f64, length: f64) -> BrepModel {
+    revolved(
+        Surface::Cylinder {
+            frame: about_x(),
+            radius,
+        },
+        0.0,
+        length,
+        &|u, v| p3(v, radius * u.cos(), radius * u.sin()),
+    )
+}
+
+/// The full cone about X from `r0` at X 0 to `r1` at X `length` (0 for its
+/// apex).
+fn full_cone(r0: f64, r1: f64, length: f64) -> BrepModel {
+    let angle = ((r1 - r0) / length).atan();
+    let slant = length / angle.cos();
+    revolved(
+        Surface::Cone {
+            frame: about_x(),
+            radius: r0,
+            semi_angle: angle,
+        },
+        0.0,
+        slant,
+        &move |u, v| {
+            let w = r0 + v * angle.sin();
+            p3(v * angle.cos(), w * u.cos(), w * u.sin())
+        },
+    )
+}
+
+/// The rings of `passes`: for each, its X (every contact within 1e-3 of it)
+/// and the angle it turns through round X.
+fn rings(passes: &[Pass]) -> Vec<(f64, f64)> {
+    passes
+        .iter()
+        .map(|p| {
+            let c = contacts(p);
+            let x = c[0].x;
+            assert!(
+                c.iter().all(|q| (q.x - x).abs() < 1e-3),
+                "a pass leaves X {x}"
+            );
+            let mut turn = 0.0;
+            for w in c.windows(2) {
+                let mut d = angle(w[1]) - angle(w[0]);
+                if d > PI {
+                    d -= 2.0 * PI;
+                } else if d < -PI {
+                    d += 2.0 * PI;
+                }
+                turn += d;
+            }
+            (x, turn.abs())
+        })
+        .collect()
+}
+
+#[test]
+fn req_op_28_a_full_cylinder_is_cut_in_rings_from_one_end_to_the_other() {
+    // Decision 0xxx option A: the seam is not a boundary; the passes are
+    // rings round the face from its guide end (the end circles are equally
+    // long, so the one with the lower edge ID, at X 0) to the other end.
+    let (radius, length, stepover) = (10.0, 20.0, 1.0);
+    let rig = Rig::new(full_cylinder(radius, length), &ball(6.0));
+    let out = rig.output(&rig.strategy(&[0], &[]), &values(stepover, &[]));
+    let out = out.unwrap_or_else(|e| panic!("refused: {e}"));
+    for q in out.passes.iter().flat_map(contacts) {
+        assert!(
+            ((q.y * q.y + q.z * q.z).sqrt() - radius).abs() < 0.005,
+            "{q:?}"
+        );
+        assert!(q.x > -1e-6 && q.x < length + 1e-6, "{q:?}");
+    }
+    let rings = rings(&out.passes);
+    let fewest = (length / stepover).ceil() as usize + 1;
+    assert!(
+        rings.len() == fewest || rings.len() == fewest + 1,
+        "{} rings",
+        rings.len()
+    );
+    assert!(rings[0].0.abs() < 1e-3 && (rings.last().unwrap().0 - length).abs() < 1e-3);
+    for (x, turn) in &rings {
+        assert!(
+            (turn - 2.0 * PI).abs() < 0.01,
+            "the ring at X {x} turns {turn}"
+        );
+    }
+    for w in rings.windows(2) {
+        let step = w[1].0 - w[0].0;
+        assert!(
+            step > 0.5 * stepover && step <= stepover * 1.0005,
+            "{step} mm apart"
+        );
+    }
+    let notes = out.notes().join("\n");
+    assert!(
+        notes.contains("face 0 is cut from its guide, edge 0 "),
+        "{notes}"
+    );
+}
+
+#[test]
+fn req_op_28_a_cone_between_two_diameters_is_cut_in_rings_from_its_larger_end() {
+    let (r0, r1, length) = (6.0, 10.0, 12.0);
+    let rig = Rig::new(full_cone(r0, r1, length), &ball(4.0));
+    let out = rig
+        .output(&rig.strategy(&[0], &[]), &values(1.0, &[]))
+        .unwrap_or_else(|e| panic!("refused: {e}"));
+    let radius_at = |x: f64| r0 + (r1 - r0) * x / length;
+    for q in out.passes.iter().flat_map(contacts) {
+        let r = (q.y * q.y + q.z * q.z).sqrt();
+        assert!((r - radius_at(q.x)).abs() < 0.005, "{q:?} is off the cone");
+    }
+    let rings = rings(&out.passes);
+    // The guide is the larger end, edge 1 at X 12.
+    assert!((rings[0].0 - length).abs() < 1e-3, "{rings:?}");
+    assert!(rings.last().unwrap().0.abs() < 1e-3, "{rings:?}");
+    assert!(rings.windows(2).all(|w| w[1].0 < w[0].0));
+    let notes = out.notes().join("\n");
+    assert!(notes.contains("edge 1 "), "{notes}");
+}
+
+#[test]
+fn req_op_28_a_cone_to_its_apex_closes_on_it() {
+    let (r0, length) = (8.0, 10.0);
+    let rig = Rig::new(full_cone(r0, 0.0, length), &ball(4.0));
+    let out = rig
+        .output(&rig.strategy(&[0], &[]), &values(1.0, &[]))
+        .unwrap_or_else(|e| panic!("refused: {e}"));
+    let rings = rings(&out.passes);
+    assert!(rings[0].0.abs() < 1e-3, "{rings:?}");
+    assert!(rings.windows(2).all(|w| w[1].0 > w[0].0));
+    // Rings shorter round than the tool is wide are left out near the apex.
+    let last = rings.last().unwrap().0;
+    let r = r0 * (1.0 - last / length);
+    assert!(2.0 * PI * r >= 4.0 - 1e-6, "a ring of radius {r} is cut");
+    let notes = out.notes().join("\n");
+    assert!(notes.contains("towards the opposite point"), "{notes}");
+    assert!(notes.contains("left out"), "{notes}");
+}
+
+#[test]
+fn req_op_28_req_nfr_07_the_seam_as_guide_and_a_face_with_no_end_are_refused_plainly() {
+    let rig = Rig::new(full_cylinder(10.0, 20.0), &ball(6.0));
+    let err = rig
+        .output(&rig.strategy(&[0], &[2]), &values(1.0, &[]))
+        .unwrap_err()
+        .to_string();
+    assert!(err.contains("edge 2 is the seam of face 0"), "{err}");
+    // A full torus: two seams and no end.
+    let (major, minor) = (12.0, 3.0);
+    let tau = std::f64::consts::TAU;
+    let point = move |u: f64, v: f64| {
+        let w = major + minor * v.cos();
+        p3(minor * v.sin(), w * u.cos(), w * u.sin())
+    };
+    let mut b = Builder::default();
+    let edges = vec![
+        b.edge(&[0], &|t| point(tau * t, 0.0), false),
+        b.edge(&[0], &|t| point(0.0, tau * t), false),
+    ];
+    b.face(
+        Surface::Torus {
+            frame: about_x(),
+            major,
+            minor,
+        },
+        [0.0, tau, 0.0, tau],
+        None,
+        edges,
+        &point,
+        &|_, _| true,
+        false,
+    );
+    let rig = Rig::new(b.model, &ball(4.0));
+    let err = rig
+        .output(&rig.strategy(&[0], &[]), &values(1.0, &[]))
+        .unwrap_err()
+        .to_string();
+    assert!(
+        err.contains("face 0 closes round on itself with no end edge"),
+        "{err}"
+    );
+}
+
+#[test]
+fn req_op_28_rings_blend_between_ends_that_run_opposite_ways() {
+    // The end at X 20 is stored running the other way round the axis, as a
+    // CAD file may store it: the passes are still rings, not twisted.
+    let (radius, length) = (10.0, 20.0);
+    let tau = std::f64::consts::TAU;
+    let point = move |u: f64, v: f64| p3(v, radius * u.cos(), radius * u.sin());
+    let mut b = Builder::default();
+    let edges = vec![
+        b.edge(&[0], &|t| point(tau * t, 0.0), false),
+        b.edge(&[0], &|t| point(tau * (1.0 - t), length), false),
+        b.edge(&[0], &|t| point(0.0, length * t), false),
+    ];
+    b.face(
+        Surface::Cylinder {
+            frame: about_x(),
+            radius,
+        },
+        [0.0, tau, 0.0, length],
+        None,
+        edges,
+        &point,
+        &|_, _| true,
+        false,
+    );
+    let rig = Rig::new(b.model, &ball(6.0));
+    let out = rig
+        .output(&rig.strategy(&[0], &[]), &values(1.0, &[]))
+        .unwrap_or_else(|e| panic!("refused: {e}"));
+    for (x, turn) in rings(&out.passes) {
+        assert!(
+            (turn - 2.0 * PI).abs() < 0.01,
+            "the ring at X {x} turns {turn}"
+        );
+    }
+}
+
+#[test]
+fn req_op_28_the_user_chooses_which_end_of_a_closed_face_is_the_guide() {
+    let rig = Rig::new(full_cylinder(10.0, 20.0), &ball(6.0));
+    // Edge 1, the end at X 20, as the guide: the rings start there.
+    let out = rig
+        .output(&rig.strategy(&[0], &[1]), &values(1.0, &[]))
+        .unwrap_or_else(|e| panic!("refused: {e}"));
+    let rings = rings(&out.passes);
+    assert!((rings[0].0 - 20.0).abs() < 1e-3, "{rings:?}");
+    assert!(rings.last().unwrap().0.abs() < 1e-3, "{rings:?}");
+    // Edges on both ends are not one guide.
+    let err = rig
+        .output(&rig.strategy(&[0], &[0, 1]), &values(1.0, &[]))
+        .unwrap_err()
+        .to_string();
+    assert!(err.contains("are not all on one of its ends"), "{err}");
+}
+
+#[test]
+fn req_op_28_req_gc_07_rings_are_the_same_at_1_2_and_n_threads() {
+    let rig = Rig::new(full_cone(6.0, 10.0, 12.0), &ball(4.0));
+    let strategy = rig.strategy(&[0], &[]);
+    let v = values(1.0, &[]);
+    let runs = openchuck_testkit::determinism::check(|| {
+        let path = run(|ctx| openchuck_path::generate(&strategy, &rig.input(), &v, ctx)).unwrap();
+        format!("{:?} {:?}", path.group, path.notices).into_bytes()
+    })
+    .unwrap();
+    assert_eq!(runs.len(), 4);
+}
+
+// ---- issue #631: the two pass counts of the notes agree ------------------------------
+
+/// The first number in `text` after `after`.
+fn number_after(text: &str, after: &str) -> usize {
+    let rest = &text[text
+        .find(after)
+        .unwrap_or_else(|| panic!("{after:?} in {text}"))
+        + after.len()..];
+    rest.trim_start()
+        .chars()
+        .take_while(char::is_ascii_digit)
+        .collect::<String>()
+        .parse()
+        .unwrap_or_else(|_| panic!("a number after {after:?} in {text}"))
+}
+
+#[test]
+fn req_op_28_req_nfr_07_the_summary_counts_the_passes_the_face_note_says_cut() {
+    // On the channel, the passes along the walls reach no part of the floor
+    // the ball can touch: they are planned but cut nothing.
+    let rig = Rig::new(channel(4.0), &ball(6.0));
+    let out = rig
+        .output(&rig.strategy(&[0], &[]), &values(0.5, &[]))
+        .unwrap();
+    let notes = out.notes();
+    let summary = notes
+        .iter()
+        .find(|n| n.starts_with("cuts "))
+        .unwrap_or_else(|| panic!("{notes:?}"));
+    let face = notes
+        .iter()
+        .find(|n| n.starts_with("face 0 is cut from its guide"))
+        .unwrap_or_else(|| panic!("{notes:?}"));
+    let cut = number_after(summary, "cuts");
+    let planned = number_after(face, "towards the opposite side in");
+    assert!(cut < planned, "{summary} / {face}");
+    // The face note says how many of its planned passes cut, and that is
+    // the summary's number: the two read as one account.
+    assert!(
+        face.contains(&format!("{cut} of them cut")),
+        "{summary} / {face}"
+    );
+    // The summary counts passes that cut, one per line across the face,
+    // however many pieces the unreached stretches split it into.
+    let lines: std::collections::BTreeSet<i64> = out
+        .passes
+        .iter()
+        .map(|p| (middle(p).y * 1000.0).round() as i64)
+        .collect();
+    assert_eq!(lines.len(), cut, "{summary}");
+}

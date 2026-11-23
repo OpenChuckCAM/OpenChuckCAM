@@ -90,4 +90,8 @@ Generated G-code must be verified by you before it is run on a machine. OpenChuc
 
 The *latest* version of this guide describes the nightly build, the [development build](start/install.md#download-a-development-build) made each night from the main branch. Its limits are on [Known limitations](start/limitations.md).
 
+- Face flow finishing cuts a face that closes round on itself, such as the whole side of a cylinder, in rings from one end to the other, instead of refusing it (#791).
+- Known issue: after a finishing pass that leaves a thin ridge in a sharp inside corner, pencil clean-up can cut only a small part of the corner, and with **Exact STEP surface contact** on it cuts much more of it. Check such corners in the simulation (#632).
+- Face flow finishing: the two pass counts in the Results now agree, the face's line saying how many of its passes cut (#631). The Geometry line for face flow and swarf says they are not generated with no face set in **Cut on** (#614). A set of one face reads "1 face", and the STEP import message names face flow among the strategies that use the exact faces (#615).
+
 Generated G-code must be verified by you before it is run on a machine. OpenChuckCAM does not guarantee that a program is safe or correct for any machine, tool or setup.
