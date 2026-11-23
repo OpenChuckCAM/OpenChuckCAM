@@ -58,6 +58,10 @@ Any other comment goes to the task's `COMMENT` (`src/emc/task/emccanon.cc`), whi
    - **C: break the comma.** Replace the character after the opening (`MSG,` becomes `MSG;`). Changes the user's text, and does not work for openings with no comma (`LOGCLOSE`, `PYRELOAD`, `PROBEOPEN`, `PROBECLOSE`, `RPY`), so it needs a second rule for those.
    - **D: a fixed hard-coded word list** in the sanitiser instead of the post option. Rejected by the owner's direction: a post for another controller could not say what its controller does, and the Z1 would lose names it writes correctly.
 
+![What the LinuxCNC post writes, before this change and with option B. 1: a project named "MSG,direct title" gave the title line (MSG,direct title), which LinuxCNC shows as an operator message; with B it is (_MSG,direct title), an ordinary comment. 2: the title "abcdefghijklmnopqrMSG,x" at a line limit of 20 was wrapped to (abcdefghijklmnopqr) and (MSG,x), the second line a message; with B the second line is (_MSG,x), the mark counted in the 20. 3: a header line the post's author writes, (MSG,Check the stock is held), is kept as it is. 4: the Makera Z1 post writes (MSG,direct title) unchanged, because its firmware skips every comment.](9901-active-comments-are-guarded-per-post.svg)
+
+No screen of the program shows these comment lines (they are only in the exported file), so the record has a diagram and no screenshot.
+
 ## Recommendation
 
 Item 1 as directed, and option B for item 2. It removes the effect without a refusal that depends on line breaks, keeps every word of the user's text, leaves the post author's own active comments working, keeps the NFR-12 notice word for word (no LinuxCNC opening starts a word of it, and the option check keeps it so for any post), and changes no golden program. Generated G-code is still the user's to verify before it is run (NFR-12).

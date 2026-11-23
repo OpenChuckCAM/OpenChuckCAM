@@ -1,0 +1,55 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="470" viewBox="0 0 720 470" font-family="sans-serif" font-size="13">
+  <rect width="720" height="470" fill="#ffffff"/>
+  <text x="20" y="24" font-weight="bold">What the LinuxCNC post writes when a name would start an active comment (option B)</text>
+  <text x="20" y="42" fill="#555">LinuxCNC skips spaces, then compares the comment's start with MSG, LOGOPEN, PY, and its other openings</text>
+  <!-- column heads -->
+  <text x="250" y="72" font-weight="bold">Before (main)</text>
+  <text x="490" y="72" font-weight="bold">After (this change)</text>
+
+  <!-- row 1: project name -->
+  <text x="20" y="104" font-weight="bold">1. Project name</text>
+  <text x="20" y="122" fill="#555">"MSG,direct title"</text>
+  <rect x="245" y="88" width="215" height="44" fill="#fbe3e1" stroke="#b03a2e"/>
+  <text x="255" y="108" font-family="monospace">(MSG,direct title)</text>
+  <text x="255" y="125" fill="#b03a2e" font-size="12">shown as an operator message</text>
+  <rect x="485" y="88" width="215" height="44" fill="#e3f1e6" stroke="#2e7d32"/>
+  <text x="495" y="108" font-family="monospace">(<tspan font-weight="bold" fill="#2e7d32">_</tspan>MSG,direct title)</text>
+  <text x="495" y="125" fill="#2e7d32" font-size="12">an ordinary comment</text>
+
+  <!-- row 2: wrapped comment -->
+  <text x="20" y="174" font-weight="bold">2. A wrapped comment</text>
+  <text x="20" y="192" fill="#555">title "abcdefghijklmnopqrMSG,x",</text>
+  <text x="20" y="208" fill="#555">line limit 20 (decision 0656)</text>
+  <rect x="245" y="158" width="215" height="66" fill="#fbe3e1" stroke="#b03a2e"/>
+  <text x="255" y="178" font-family="monospace">(abcdefghijklmnopqr)</text>
+  <text x="255" y="196" font-family="monospace">(MSG,x)</text>
+  <text x="255" y="215" fill="#b03a2e" font-size="12">the second line is a message</text>
+  <rect x="485" y="158" width="215" height="66" fill="#e3f1e6" stroke="#2e7d32"/>
+  <text x="495" y="178" font-family="monospace">(abcdefghijklmnopqr)</text>
+  <text x="495" y="196" font-family="monospace">(<tspan font-weight="bold" fill="#2e7d32">_</tspan>MSG,x)</text>
+  <text x="495" y="215" fill="#2e7d32" font-size="12">the mark counts in the 20</text>
+
+  <!-- row 3: post author's header -->
+  <text x="20" y="266" font-weight="bold">3. The post's own header</text>
+  <text x="20" y="284" fill="#555">header line written by the</text>
+  <text x="20" y="300" fill="#555">post's author</text>
+  <rect x="245" y="250" width="455" height="44" fill="#eef2f7" stroke="#2a7ab0"/>
+  <text x="255" y="270" font-family="monospace">(MSG,Check the stock is held)</text>
+  <text x="255" y="287" fill="#2a7ab0" font-size="12">kept as it is, before and after: the author means it as a message</text>
+
+  <!-- row 4: Z1 -->
+  <text x="20" y="342" font-weight="bold">4. Makera Z1 post</text>
+  <text x="20" y="360" fill="#555">same project name</text>
+  <rect x="245" y="326" width="455" height="44" fill="#eef2f7" stroke="#2a7ab0"/>
+  <text x="255" y="346" font-family="monospace">(MSG,direct title)</text>
+  <text x="255" y="363" fill="#2a7ab0" font-size="12">unchanged: the Z1 firmware skips every comment, so the post lists no openings</text>
+
+  <!-- legend -->
+  <rect x="20" y="400" width="14" height="14" fill="#fbe3e1" stroke="#b03a2e"/>
+  <text x="42" y="412">the controller acts on the line</text>
+  <rect x="260" y="400" width="14" height="14" fill="#e3f1e6" stroke="#2e7d32"/>
+  <text x="282" y="412">guarded: read as a comment</text>
+  <rect x="480" y="400" width="14" height="14" fill="#eef2f7" stroke="#2a7ab0"/>
+  <text x="502" y="412">no change</text>
+  <text x="20" y="446" fill="#555" font-size="12">From LinuxCNC's source (master 49d14cb6) and the Z1 firmware source (a9918d95); not run in the simulator or on a machine.</text>
+</svg>
