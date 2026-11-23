@@ -785,6 +785,7 @@ fn req_op_20_the_largest_lean_says_where_it_applies_in_the_program_and_the_guide
         "Where the tool is placed to reach such a surface, every 0.2 mm along each pass",
         "0 keeps it on the normal there and also holds back the lead",
         "Between those places the tool axis turns evenly",
+        "never more than this angle from the normal itself",
     ] {
         assert!(spec.description.contains(words), "{}", spec.description);
     }
@@ -798,7 +799,8 @@ fn req_op_20_the_largest_lean_says_where_it_applies_in_the_program_and_the_guide
         .find(|l| l.starts_with("| Largest lean on hidden surfaces |"))
         .unwrap();
     for words in [
-        "where it is placed to reach a surface a straight approach cannot see, every 0.2 mm",
+        "is placed to reach a surface a straight approach cannot see, every 0.2 mm",
+        "never more than this angle from the normal itself",
         "between those places the tool axis turns evenly",
         "0 keeps it on the normal there and also holds back the lead",
     ] {

@@ -235,7 +235,7 @@ Turns the part while the tool moves, so the tool meets the surface from differen
 | Largest angle step | 5° | The most the path turns round the axis between two points. |
 | Lead angle | 0° | From −30° to 30°. Leans the tool from the normal towards the direction of travel round the axis, for example to keep the centre of a ball, where it barely cuts, off the surface. Axial passes need 0. |
 | Largest tilt | 10° | From 0° to 30°. How far the tool may lean away from the normal so that A turns smoothly. A larger value cuts with more of the tool's side. |
-| Largest lean on hidden surfaces | 90° | From 0° to 90°. How far the tool may lean from the normal (plus the lead) where it is placed to reach a surface a straight approach cannot see, every 0.2 mm along each pass; between those places the tool axis turns evenly. 0 keeps it on the normal there and also holds back the lead. Anything that needs more is left uncut and listed in a warning. |
+| Largest lean on hidden surfaces | 90° | From 0° to 90°. Where the tool is placed to reach a surface a straight approach cannot see, every 0.2 mm along each pass, it aims at the normal plus the lead and leans from that as little as the part lets it, never more than this angle from the normal itself; between those places the tool axis turns evenly. 0 keeps it on the normal there and also holds back the lead. Anything that needs more is left uncut and listed in a warning. |
 | Passes | Spiral | Spiral pattern: **Spiral** or **Rings**. |
 
 Also: **Exact STEP surface contact** (on), **Pass order** and **Links between passes**, and with the axial pattern **Adaptive spacing**. It has no Extend past the stock.

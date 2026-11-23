@@ -87,7 +87,7 @@ Largest angle step
 : The largest change of A between two points of the path. The default is 5°.
 
 Largest lean on hidden surfaces
-: A limit, between 0° and 90° (the default is 90°), on how far the tool may lean from the normal, plus the lead, where it is placed to reach a hidden surface, every 0.2 mm along each pass. Between those places the tool axis turns evenly. 0 keeps the tool on the normal there and also holds back the lead. The note about surfaces hidden from the drive says what it did. On this example no hidden surface needs a lean, so 0 gives the same path as 90.
+: A limit, between 0° and 90° (the default is 90°), on how far the tool may lean from the normal itself where it is placed to reach a hidden surface, every 0.2 mm along each pass; there it aims at the normal plus the lead, within that limit. Between those places the tool axis turns evenly. 0 keeps the tool on the normal there and also holds back the lead. The note about surfaces hidden from the drive says what it did. On this example no hidden surface needs a lean, so 0 gives the same path as 90.
 
 Now give the finish a lead:
 
