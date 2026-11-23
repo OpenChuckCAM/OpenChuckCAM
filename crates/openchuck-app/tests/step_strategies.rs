@@ -1338,8 +1338,9 @@ fn req_op_27_req_op_09_pencil_with_a_flat_end_cuts_the_same_passes_with_exact_co
     // material all round, and the exact drop, which moves the tool by at
     // most the tessellation's deflection, gives the same passes as the
     // tessellation, alone or after roughing. (After axial finishing with a
-    // tapered ball the ridge left in the corner sits at the remaining-
-    // material threshold, and the two differ: decision 0xxy item 4.)
+    // tapered ball the two differ, because pencil judges the material left
+    // from a flat end's contact point, which is arbitrary along its flat:
+    // decision 0xxy item 4, lane PENCIL-REST.)
     for before in [
         Vec::new(),
         vec![("rotary_roughing", vec![("stock_to_leave", n(0.5))])],
