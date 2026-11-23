@@ -3185,3 +3185,5 @@ mod focus_tests;
 mod import_layout_tests;
 #[cfg(test)]
 mod model_copy_tests;
+#[cfg(test)]
+mod setup_conflict_tests;

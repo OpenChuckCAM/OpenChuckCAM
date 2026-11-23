@@ -1668,10 +1668,18 @@ fn rows(
         let validate = |text: &str| setup_form::apply(setup, machine, row.field, text).map(|_| ());
         let field = row.field;
         let machine_copy = machine.cloned();
-        let preflight = crate::pending_edits::preflight(
+        // The setup as it would be stored is checked once every pending
+        // field is in it, with the same checks the change makes, tabs and
+        // held regions included: Keep refuses before it applies any value
+        // (decision record 0233 item 4; issue #870).
+        let preflight = crate::pending_edits::preflight_whole(
             egui::Id::unique(("setup fields", setup.id)),
             setup.clone(),
             move |setup, text| setup_form::apply(setup, machine_copy.as_ref(), field, text),
+            |setup| {
+                openchuck_app::project::check_setup_values(setup)
+                    .map_err(|e| form_panel::refusal(&openchuck_app::AppError::from(e).to_string()))
+            },
         );
         let outcome = field_row::text_row(
             ui,

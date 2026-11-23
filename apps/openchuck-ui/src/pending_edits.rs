@@ -21,8 +21,16 @@ pub struct Entry {
 #[derive(Clone)]
 pub struct Preflight(Arc<Check>);
 
-type Candidates = BTreeMap<u64, Box<dyn Any>>;
-type Check = dyn Fn(&mut Candidates, &str) -> Result<(), String> + Send + Sync;
+/// The private copies of the enclosing values, by group, and each group's
+/// check of its copy once every entry has been applied to it.
+#[derive(Default)]
+struct Candidates {
+    values: BTreeMap<u64, Box<dyn Any>>,
+    finish: BTreeMap<u64, (Id, Arc<Finish>)>,
+}
+
+type Check = dyn Fn(&mut Candidates, Id, &str) -> Result<(), String> + Send + Sync;
+type Finish = dyn Fn(&dyn Any) -> Result<(), String> + Send + Sync;
 
 impl std::fmt::Debug for Preflight {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -35,8 +43,9 @@ pub fn preflight<T: Clone + Send + Sync + 'static>(
     original: T,
     apply: impl Fn(&T, &str) -> Result<T, String> + Send + Sync + 'static,
 ) -> Preflight {
-    Preflight(Arc::new(move |candidates, text| {
+    Preflight(Arc::new(move |candidates, _, text| {
         let candidate = candidates
+            .values
             .entry(group.value())
             .or_insert_with(|| Box::new(original.clone()));
         let Some(value) = candidate.downcast_mut::<T>() else {
@@ -47,15 +56,47 @@ pub fn preflight<T: Clone + Send + Sync + 'static>(
     }))
 }
 
+/// [`preflight`], and `finish` checks the group's copy once every pending
+/// field of the group has been applied to it: a check of the whole value
+/// (a setup with its tabs) that no single field can pass alone. A refusal
+/// is shown at the group's first field (issue #870).
+pub fn preflight_whole<T: Clone + Send + Sync + 'static>(
+    group: Id,
+    original: T,
+    apply: impl Fn(&T, &str) -> Result<T, String> + Send + Sync + 'static,
+    finish: impl Fn(&T) -> Result<(), String> + Send + Sync + 'static,
+) -> Preflight {
+    let each = preflight(group, original, apply);
+    let finish: Arc<Finish> = Arc::new(move |value: &dyn Any| {
+        value.downcast_ref::<T>().map_or_else(
+            || Err("The form changed; confirm the fields again. Not applied.".to_owned()),
+            &finish,
+        )
+    });
+    Preflight(Arc::new(move |candidates, id, text| {
+        (each.0)(candidates, id, text)?;
+        candidates
+            .finish
+            .entry(group.value())
+            .or_insert_with(|| (id, Arc::clone(&finish)));
+        Ok(())
+    }))
+}
+
 pub fn validate(entries: &[Entry]) -> Result<(), (Id, String)> {
-    let mut candidates = Candidates::new();
+    let mut candidates = Candidates::default();
     for entry in entries {
         let text = entry
             .checked
             .as_ref()
             .map_err(|reason| (entry.id, reason.clone()))?;
         if let Some(check) = &entry.preflight {
-            (check.0)(&mut candidates, text).map_err(|reason| (entry.id, reason))?;
+            (check.0)(&mut candidates, entry.id, text).map_err(|reason| (entry.id, reason))?;
+        }
+    }
+    for (group, (id, finish)) in &candidates.finish {
+        if let Some(value) = candidates.values.get(group) {
+            finish(value.as_ref()).map_err(|reason| (*id, reason))?;
         }
     }
     Ok(())
