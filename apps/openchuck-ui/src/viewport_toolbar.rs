@@ -5,6 +5,7 @@
 //! from the shell but the viewport. Section, Measure and Turn part are P2
 //! (UI-21) and not built.
 
+use crate::focus::Tip as _;
 use eframe::egui;
 use openchuck_viewport::{DisplayMode, Projection, StandardView};
 
@@ -117,7 +118,7 @@ pub fn show(ui: &mut egui::Ui, viewport: &mut Viewport, strip: egui::Rect) {
                 for (view, name) in VIEWS {
                     if ui
                         .button(name)
-                        .on_hover_text(format!("{} view", view.name()))
+                        .tip(format!("{} view", view.name()))
                         .clicked()
                     {
                         viewport.set_view(view);
@@ -125,7 +126,7 @@ pub fn show(ui: &mut egui::Ui, viewport: &mut Viewport, strip: egui::Rect) {
                 }
             }
             ui.separator();
-            if ui.button("Fit").on_hover_text("Fit all (F)").clicked() {
+            if ui.button("Fit").tip("Fit all (F)").clicked() {
                 viewport.fit();
             }
             // Simulate's "Show" choices stay in the strip while they fit after the other
@@ -138,7 +139,7 @@ pub fn show(ui: &mut egui::Ui, viewport: &mut Viewport, strip: egui::Rect) {
                 let mut show = viewport.visibility();
                 if ui
                     .toggle_value(&mut show.findings, "Show findings")
-                    .on_hover_text("What the mesh check found, outlined on the part")
+                    .tip("What the mesh check found, outlined on the part")
                     .changed()
                 {
                     viewport.set_visibility(show);
@@ -190,7 +191,7 @@ fn simulate_ticks(ui: &mut egui::Ui, viewport: &mut Viewport) {
         let ticked = *field(&mut show);
         let locked = ticked && last;
         ui.add_enabled(!locked, egui::Checkbox::new(field(&mut show), name))
-            .on_hover_text(tip)
+            .tip(tip)
             .on_disabled_hover_text(format!("{tip}. {LAST_TICK}"));
     }
     viewport.set_simulate_show(show);
@@ -201,15 +202,14 @@ fn segments<T: Copy + PartialEq>(ui: &mut egui::Ui, choices: &[(T, &str, &str)],
     ui.scope(|ui| {
         ui.spacing_mut().item_spacing.x = 0.0;
         for (choice, name, tip) in choices {
-            ui.selectable_value(value, *choice, *name)
-                .on_hover_text(*tip);
+            ui.selectable_value(value, *choice, *name).tip(*tip);
         }
     });
 }
 
 /// The "Show or hide" button and its list (V).
 fn show_or_hide(ui: &mut egui::Ui, viewport: &mut Viewport) {
-    let button = ui.button("Show \u{23f7}").on_hover_text(
+    let button = ui.button("Show \u{23f7}").tip(
         "Show or hide: part, stock, axes, held regions and tabs, selections, toolpaths, unreachable \
          areas (V)",
     );

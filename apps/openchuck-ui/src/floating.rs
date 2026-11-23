@@ -6,6 +6,7 @@
 //! window, and can be dragged only within it. A dialog draws no 3D: a preview
 //! stays in the main window's viewport.
 
+use crate::focus::KeepFocus as _;
 use eframe::egui;
 
 /// What the user did to the dialog's window this frame.
@@ -56,6 +57,83 @@ pub fn floating_fixed<T: Default>(
     run(ctx, key, title, size, false, false, contents)
 }
 
+/// The id of the window of the dialog keyed `key`.
+fn window_id(key: &str) -> egui::Id {
+    egui::Id::unique(("dialog", key))
+}
+
+/// The layer the dialog keyed `key` is drawn on.
+#[cfg(test)]
+pub fn window_layer(key: &str) -> egui::LayerId {
+    egui::LayerId::new(egui::Order::Middle, window_id(key))
+}
+
+/// How many frames a dialog that has just opened keeps trying to give the
+/// keyboard to its first control: a window is laid out unseen in its first
+/// frame, and its controls take focus only once it is shown.
+const OPENING_FRAMES: u8 = 4;
+
+/// The key under which a dialog's window keeps how many frames it still
+/// tries to take the keyboard, and the frame it was last drawn in.
+fn opening_id(window: egui::Id) -> egui::Id {
+    window.with("takes the keyboard")
+}
+
+fn shown_id(window: egui::Id) -> egui::Id {
+    window.with("last drawn in pass")
+}
+
+/// Marks where a dialog's body starts: in the frames after the dialog opens,
+/// the first control drawn after this call takes the keyboard (UI-14,
+/// specification section 16; issue #580). A dialog calls it before its body,
+/// so focus goes to the body's first control and not to the title bar's
+/// close box or the footer's buttons.
+pub fn focus_starts_here(ui: &egui::Ui) {
+    let id = opening_id(ui.layer_id().id);
+    let frames = ui.data(|d| d.get_temp::<u8>(id)).unwrap_or(0);
+    if frames == 0 || ui.is_sizing_pass() || !ui.is_visible() {
+        return;
+    }
+    ui.memory_mut(|m| {
+        // Nothing keeps the keyboard behind the dialog: a field that had it
+        // sees it lost, and applies its value as on any focus loss.
+        m.stop_text_input();
+        m.move_focus(egui::FocusDirection::Next);
+    });
+}
+
+/// Before a dialog's window is drawn: if it was not drawn in the frame
+/// before, it has just opened, and its body is to take the keyboard.
+fn begin_opening(ctx: &egui::Context, window: egui::Id) {
+    let pass = ctx.cumulative_pass_nr();
+    let previous = ctx.data_mut(|d| {
+        let previous = d.get_temp::<u64>(shown_id(window));
+        d.insert_temp(shown_id(window), pass);
+        previous
+    });
+    // Not drawn in the frame before: closed until now.
+    if previous.is_none_or(|p| p.saturating_add(1) < pass) {
+        ctx.data_mut(|d| d.insert_temp(opening_id(window), OPENING_FRAMES));
+    }
+}
+
+/// After a dialog's window is drawn: stops trying to give it the keyboard
+/// once a control in it has it, or after [`OPENING_FRAMES`].
+fn end_opening(ctx: &egui::Context, window: egui::Id) {
+    let id = opening_id(window);
+    let Some(frames) = ctx.data(|d| d.get_temp::<u8>(id)).filter(|f| *f > 0) else {
+        return;
+    };
+    // A Tab press this frame is not carried past the dialog's body.
+    ctx.memory_mut(|m| m.move_focus(egui::FocusDirection::None));
+    let inside = ctx
+        .memory(egui::Memory::focused)
+        .and_then(|focused| ctx.read_response(focused))
+        .is_some_and(|r| r.layer_id.id == window);
+    let left = if inside { 0 } else { frames - 1 };
+    ctx.data_mut(|d| d.insert_temp(id, left));
+}
+
 /// The room a dialog leaves round it inside the main window, in points.
 const MARGIN: f32 = 24.0;
 
@@ -99,9 +177,10 @@ fn run<T: Default>(
     mut contents: impl FnMut(&mut egui::Ui) -> T,
 ) -> (T, WindowEvent) {
     let (fit, position) = place(ctx, size);
+    begin_opening(ctx, window_id(key));
     let mut open = true;
     let window = egui::Window::new(title)
-        .id(egui::Id::unique(("dialog", key)))
+        .id(window_id(key))
         .open(&mut open)
         .collapsible(false)
         .default_pos(position);
@@ -116,12 +195,15 @@ fn run<T: Default>(
     let shown = window.show(ctx, |ui| {
         crate::pending_edits::form(ctx, egui::Id::unique(("dialog form", key)), || {
             if scroll {
-                egui::ScrollArea::vertical().show(ui, &mut contents).inner
+                egui::ScrollArea::vertical()
+                    .show_keeping_focus(ui, &mut contents)
+                    .inner
             } else {
                 contents(ui)
             }
         })
     });
+    end_opening(ctx, window_id(key));
     let value = shown.and_then(|r| r.inner).unwrap_or_default();
     let event = if open {
         WindowEvent::None

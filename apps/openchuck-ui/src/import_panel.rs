@@ -9,6 +9,7 @@
 //! red. Nothing reaches the project until "Add to project", which adds the
 //! model with its units and placement as one undoable step.
 
+use crate::focus::KeepFocus as _;
 use std::path::PathBuf;
 
 use eframe::egui::{self, Color32, RichText};
@@ -400,6 +401,7 @@ impl ImportSession {
             egui::Panel::top("import header")
                 .resizable(false)
                 .show(ui, |ui| {
+                    crate::floating::focus_starts_here(ui);
                     ui.add_space(4.0);
                     ui.label(RichText::new("FILE").small().strong().color(DARK.muted));
                     ui.horizontal(|ui| {
@@ -486,7 +488,7 @@ impl ImportSession {
                 });
             egui::ScrollArea::vertical()
                 .auto_shrink([false, false])
-                .show(ui, |ui| {
+                .show_keeping_focus(ui, |ui| {
                     if let Some(preview) = &self.preview {
                         let i = &preview.inspection;
                         ui.label(RichText::new("1 UNITS").small().strong().color(DARK.muted));

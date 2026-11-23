@@ -15,6 +15,7 @@
 //! applies a committed value (one undoable command) and reports the outcome
 //! with [`FieldState::result`].
 
+use crate::focus::Tip as _;
 use std::collections::BTreeMap;
 
 use eframe::egui::{self, Key, RichText, Stroke};
@@ -207,10 +208,7 @@ impl std::fmt::Debug for TextRow<'_> {
 /// Shows `text` as the tooltip of `response` on hover and while it has
 /// keyboard focus (section 16: tooltips open on focus as well as hover).
 pub fn tip(response: egui::Response, text: &str) -> egui::Response {
-    if response.has_focus() {
-        response.show_tooltip_text(text);
-    }
-    response.on_hover_text(text)
+    response.tip(text)
 }
 
 /// A small outlined chip ("Not applied"): measured first and drawn in one
@@ -390,7 +388,7 @@ fn label_cell(ui: &mut egui::Ui, label: &str, description: &str, reset: bool) ->
                 .small()
                 .min_size(slot.size()),
         )
-        .on_hover_text("Reset: the default or the tool's cutting data applies");
+        .tip("Reset: the default or the tool's cutting data applies");
     button.widget_info(|| {
         egui::WidgetInfo::labeled(egui::Role::Button, true, format!("Reset {label}"))
     });
@@ -413,7 +411,7 @@ fn label_text(ui: &mut egui::Ui, label: &str, description: &str) {
         (false, _) => description.to_owned(),
     };
     if !text.is_empty() {
-        response.on_hover_text(text);
+        response.tip(text);
     }
 }
 
@@ -983,7 +981,7 @@ pub fn list_row(
                 }
             })
             .response
-            .on_hover_text(description);
+            .tip(description);
         crate::pending_edits::track(ui, &response, label, None);
         chosen
     })

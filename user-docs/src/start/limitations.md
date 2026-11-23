@@ -54,4 +54,4 @@ The programs are not signed, so Windows and macOS warn or refuse the first time 
 
 ## Accessibility
 
-There is no screen reader support: the program does not expose its controls to a screen reader. Most of the program can be used from the keyboard, but a run through every step with the keyboard alone has not been tested, and some controls may not show their tooltip when they get keyboard focus.
+There is no screen reader support: the program does not expose its controls to a screen reader. Most of the program can be used from the keyboard ([Keyboard and shortcuts](../reference/keyboard.md)), but a run through every step with the keyboard alone has not been tested. A disabled button cannot get keyboard focus, so its reason shows only when you hold the mouse over it; the main button's reason is also in the bottom bar.

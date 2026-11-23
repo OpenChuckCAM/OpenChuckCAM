@@ -3,6 +3,7 @@
 //! specification section 6): each state has a shape as well as a colour, so
 //! no state is shown by colour alone (NFR-15).
 
+use crate::focus::Tip as _;
 use std::f32::consts::{FRAC_PI_2, TAU};
 
 use eframe::egui::{self, Color32, Pos2, Stroke, epaint};
@@ -95,7 +96,7 @@ pub fn mark(ui: &mut egui::Ui, state: ItemState, cause: &str) -> egui::Response 
         ui.allocate_exact_size(egui::vec2(SIZE + 4.0, SIZE + 4.0), egui::Sense::hover());
     paint(ui.painter(), rect.center(), state, SIZE);
     response.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Label, true, cause.to_owned()));
-    response.on_hover_text(cause)
+    response.tip(cause)
 }
 
 /// The severity icon of a message: a red triangle, an amber triangle
@@ -119,7 +120,7 @@ pub fn severity(ui: &mut egui::Ui, severity: Severity) -> egui::Response {
             );
         }
     }
-    response.on_hover_text(severity.name())
+    response.tip(severity.name())
 }
 
 /// A green tick, for a passed check.

@@ -8,6 +8,7 @@
 //! (Operations, Simulate).
 //! Held regions and tabs join the legend of the step (7.5).
 
+use crate::focus::Tip as _;
 use eframe::egui::{self, Color32, Pos2, Rect, Stroke, pos2, vec2};
 use openchuck_app::pathview::DeviationBand;
 use openchuck_app::scene::{SceneRole, SceneView};
@@ -659,7 +660,7 @@ pub fn paint(ui: &egui::Ui, viewport: &Viewport, rect: Rect) {
             ui.scope_id().with("cube caption"),
             egui::Sense::hover(),
         )
-        .on_hover_text(crate::orient::cube_tooltip(frame_of_cube));
+        .tip(crate::orient::cube_tooltip(frame_of_cube));
     }
     if let Some(triad) = b.triad {
         let (right, up, _) = viewport.camera.basis();
@@ -689,7 +690,7 @@ pub fn paint(ui: &egui::Ui, viewport: &Viewport, rect: Rect) {
         // The continuous A, as the G-code gives it, on hovering the box
         // (issue 207).
         ui.interact(r, ui.scope_id().with("readout"), egui::Sense::hover())
-            .on_hover_text(crate::playback_panel::continuous_a_tip(work[3], 2));
+            .tip(crate::playback_panel::continuous_a_tip(work[3], 2));
         let colours = [
             roles::WORK_X,
             roles::WORK_Y,

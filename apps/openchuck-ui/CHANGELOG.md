@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased (A11Y-FOCUS, decision 0xxx, proposed; issues #577, #578, #580, #581)
+
+- **Added:** a tool window that opens (import, New operation, tool library, machine library, Post and export) gives the keyboard to the first control of its body (#580).
+- **Added:** Tab scrolls the control it reaches into view in every scroll area (`focus::KeepFocus`) (#577).
+- **Changed:** every tooltip opens on keyboard focus as well as on hover (`focus::Tip`); an unavailable step tab is a Tab stop that shows its reason on focus and draws the focus ring (#578; UI-10, UI-14).
+- **Fixed:** the single-letter and function keys (N, G, F5, F2, Del, F, V, Q to R) work while a button or menu has the keyboard; only a text field takes them, as intended.
+- **Changed:** Help > Keyboard shortcuts lists every built key; Project > Add setup; Edit > Delete deletes a selected selection set; the New operation dialog's Add is the filled button at the bottom right, after Cancel in Tab order (#581 F7, F8, F10).
+
 ## Unreleased (MSGREVIEW, decision 0644, accepted; decision 0536 step 6; issue #567)
 
 - **Changed text (the owner's answer (3)):** the Results tab's Facing line reads "Facing (operation '<name>'): facing covered the end faces it was asked to." (with "; the simulation shows what it removed" for a simulated run), and the note of what was left unfaced is shown in the same form. The Tool number tooltip no longer names TL-06. A count of one takes the singular in the Results summary ("1 operation, 1 move"), the export's short-block line, the tool library and the hidden-labels line.

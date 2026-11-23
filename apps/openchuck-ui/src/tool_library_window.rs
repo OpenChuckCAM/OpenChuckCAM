@@ -19,6 +19,8 @@
 //! and a deleted one stays deleted (TL-12).
 //! Unused project copies have a guarded checklist and confirmation (0236).
 
+use crate::focus::KeepFocus as _;
+use crate::focus::Tip as _;
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::PathBuf;
 
@@ -525,7 +527,7 @@ impl ToolLibraryWindow {
         if event == WindowEvent::CloseRequested {
             acts.push(Act::Close);
         }
-        self.field_had_keyboard = ctx.egui_wants_keyboard_input();
+        self.field_had_keyboard = ctx.text_edit_focused();
         for act in acts {
             if (act.leaves()
                 || matches!(
@@ -575,6 +577,7 @@ impl ToolLibraryWindow {
         egui::Panel::bottom("tool library footer")
             .resizable(false)
             .show(ui, |ui| self.footer(ui, project, acts));
+        crate::floating::focus_starts_here(ui);
         let Some(lib) = &self.library else {
             if project.is_some() && ui.button("Remove unused tools…").clicked() {
                 acts.push(Act::AskCleanup);
@@ -607,7 +610,7 @@ impl ToolLibraryWindow {
                 crate::theme::solid_scroll_bar(ui);
                 egui::ScrollArea::vertical()
                     .auto_shrink([false, false])
-                    .show(ui, |ui| match &tool {
+                    .show_keeping_focus(ui, |ui| match &tool {
                         Some(tool) => self.data(ui, tool, project, acts),
                         None => {
                             ui.label(RichText::new("Choose a tool.").color(DARK.muted));
@@ -618,7 +621,7 @@ impl ToolLibraryWindow {
             crate::theme::solid_scroll_bar(ui);
             egui::ScrollArea::vertical()
                 .auto_shrink([false, false])
-                .show(ui, |ui| match &tool {
+                .show_keeping_focus(ui, |ui| match &tool {
                     Some(tool) => self.tool_form(ui, tool, acts),
                     None => {
                         ui.label(
@@ -639,16 +642,14 @@ impl ToolLibraryWindow {
             let readable = self.library.is_some();
             if ui
                 .add_enabled(readable, egui::Button::new("Import library…"))
-                .on_hover_text("Copy tools from another library folder")
+                .tip("Copy tools from another library folder")
                 .clicked()
             {
                 acts.push(Act::ImportLibrary);
             }
             if ui
                 .add_enabled(readable, egui::Button::new("Export library…"))
-                .on_hover_text(
-                    "Write every tool of this library into a folder another user can import",
-                )
+                .tip("Write every tool of this library into a folder another user can import")
                 .clicked()
             {
                 acts.push(Act::ExportLibrary);
@@ -891,12 +892,7 @@ impl ToolLibraryWindow {
                         row.feed,
                         if read_only { "" } else { " Click to edit." }
                     );
-                    if ui
-                        .selectable_label(open, &row.material)
-                        .on_hover_text(tip)
-                        .clicked()
-                        && !read_only
-                    {
+                    if ui.selectable_label(open, &row.material).tip(tip).clicked() && !read_only {
                         self.cutting = if open {
                             None
                         } else {
@@ -1022,7 +1018,7 @@ impl ToolLibraryWindow {
             let differs = matches!(row.copy, CopyState::Differs(_));
             if ui
                 .add_enabled(differs, egui::Button::new("Update from library"))
-                .on_hover_text(
+                .tip(
                     "Replace the project's copy with the library's tool, keeping the tool \
                      number (one undoable step)",
                 )
@@ -1033,7 +1029,7 @@ impl ToolLibraryWindow {
             let saveable = matches!(row.copy, CopyState::Differs(_) | CopyState::NotInLibrary);
             if ui
                 .add_enabled(saveable, egui::Button::new("Save to library"))
-                .on_hover_text("Write the project's copy into the tool library")
+                .tip("Write the project's copy into the tool library")
                 .clicked()
             {
                 acts.push(Act::AskSaveToLibrary);
@@ -1081,7 +1077,7 @@ impl ToolLibraryWindow {
                 crate::theme::solid_scroll_bar(ui);
                 egui::ScrollArea::vertical()
                     .max_height((ui.ctx().content_rect().height() * 0.4).min(320.0))
-                    .show(ui, |ui| {
+                    .show_keeping_focus(ui, |ui| {
                         for tool in &cleanup.reviewed {
                             let label = format!("{} — T{}", tool.name, tool.controller.number);
                             if cleanup.confirming {
@@ -1224,7 +1220,7 @@ impl ToolLibraryWindow {
                     });
                     egui::ScrollArea::vertical()
                         .max_height(300.0)
-                        .show(ui, |ui| {
+                        .show_keeping_focus(ui, |ui| {
                             for (_, conflict) in &preview.conflicts {
                                 let words: Vec<String> = conflict
                                     .fields
@@ -1850,7 +1846,7 @@ fn list(
                 });
                 if ui
                     .add_enabled(chosen.is_some(), egui::Button::new("Duplicate"))
-                    .on_hover_text("Copy the tool as a new library tool")
+                    .tip("Copy the tool as a new library tool")
                     .clicked()
                 {
                     acts.push(Act::Duplicate);
@@ -1858,7 +1854,7 @@ fn list(
                 let library_tool = matches!(chosen, Some(Chosen::Library(_)));
                 if ui
                     .add_enabled(library_tool, egui::Button::new("Delete"))
-                    .on_hover_text("Delete the tool from the library; a project keeps its copy")
+                    .tip("Delete the tool from the library; a project keeps its copy")
                     .on_disabled_hover_text(
                         "Choose a library tool; a project tool is removed from the project",
                     )
@@ -1872,7 +1868,7 @@ fn list(
     crate::theme::solid_scroll_bar(ui);
     egui::ScrollArea::vertical()
         .auto_shrink([false, false])
-        .show(ui, |ui| {
+        .show_keeping_focus(ui, |ui| {
             if let Some(project) = project {
                 let rows = library::project_rows(project, Some(lib), search);
                 group_title(ui, "This project");
@@ -1902,7 +1898,7 @@ fn list(
                         format!("Used by {}.", row.used_by.join(", "))
                     };
                     if response
-                        .on_hover_text(format!("{}\n{}\n{used}", row.summary, row.copy.text()))
+                        .tip(format!("{}\n{}\n{used}", row.summary, row.copy.text()))
                         .clicked()
                     {
                         acts.push(Act::Choose(Chosen::Project(row.id)));
@@ -1952,7 +1948,7 @@ fn list(
                                 r
                             })
                             .inner;
-                        if response.on_hover_text(&row.summary).clicked() {
+                        if response.tip(&row.summary).clicked() {
                             acts.push(Act::Choose(Chosen::Library(row.id)));
                         }
                     }
@@ -2037,7 +2033,7 @@ fn cutting_editor(
                         }
                     })
                     .response
-                    .on_hover_text("Materials the project and the library already use");
+                    .tip("Materials the project and the library already use");
             }
         });
         egui::Grid::new("cutting draft")
@@ -2121,7 +2117,7 @@ fn default_tool_view(ui: &mut egui::Ui, tool: &LibraryTool, dirty: bool, acts: &
     ui.horizontal(|ui| {
         heading(ui, "Tool");
         if crate::shell::primary_button(ui, "Copy to edit", true)
-            .on_hover_text("Make an editable copy in the library; this tool stays as it is")
+            .tip("Make an editable copy in the library; this tool stays as it is")
             .clicked()
         {
             acts.push(Act::Duplicate);
@@ -2215,7 +2211,7 @@ fn size_filter(ui: &mut egui::Ui, filter: &mut library::ToolFilter) {
                         .hint_text(hint)
                         .desired_width(44.0),
                 )
-                .on_hover_text(tip);
+                .tip(tip);
             }
         });
     }
@@ -2229,7 +2225,7 @@ fn size_filter(ui: &mut egui::Ui, filter: &mut library::ToolFilter) {
     let on = !filter.is_empty();
     if ui
         .add_enabled(on, egui::Button::new("Clear filter").small())
-        .on_hover_text("Empty the size fields; the filter is kept until you do")
+        .tip("Empty the size fields; the filter is kept until you do")
         .clicked()
     {
         *filter = library::ToolFilter::default();
@@ -2262,7 +2258,7 @@ fn fold_title(
             ui.add(egui::Label::new(text).sense(egui::Sense::click()))
         })
         .inner
-        .on_hover_text(if folded { "Unfold" } else { "Fold" });
+        .tip(if folded { "Unfold" } else { "Fold" });
     if response.clicked() {
         view.set_folded(key, !folded);
         ui.ctx().request_repaint();

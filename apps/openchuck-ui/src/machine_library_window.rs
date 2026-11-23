@@ -16,6 +16,7 @@
 //! `openchuck_app::machine_edit` and `machine_library`; this module only
 //! draws and asks.
 
+use crate::focus::KeepFocus as _;
 use std::path::{Path, PathBuf};
 
 use eframe::egui::{self, RichText};
@@ -282,12 +283,15 @@ impl MachineLibraryWindow {
         egui::Panel::left("machine library list")
             .default_size(260.0)
             .resizable(true)
-            .show(ui, |ui| self.list(ui, has_project, acts));
+            .show(ui, |ui| {
+                crate::floating::focus_starts_here(ui);
+                self.list(ui, has_project, acts);
+            });
         egui::CentralPanel::default().show(ui, |ui| {
             crate::theme::solid_scroll_bar(ui);
             egui::ScrollArea::vertical()
                 .auto_shrink([false, false])
-                .show(ui, |ui| match shown {
+                .show_keeping_focus(ui, |ui| match shown {
                     Some((profile, _)) => self.form(ui, profile, acts),
                     None => {
                         ui.label(

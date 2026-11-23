@@ -7,6 +7,8 @@
 //! (section 11.1). The panel layout and the scale are kept per user (UI-15,
 //! UI-16; decision record 0117).
 
+use crate::focus::KeepFocus as _;
+use crate::focus::Tip as _;
 use std::time::{Duration, Instant};
 
 use eframe::egui::{self, Color32, RichText, Stroke};
@@ -78,20 +80,27 @@ const WORKFLOW_BAR: f32 = 44.0;
 const FOOTER: f32 = 48.0;
 const LEGEND_STRIP: f32 = 36.0;
 
-/// The keys, for Help > Keyboard shortcuts (specification section 16). The
-/// viewport's F, V and numpad keys and playback's Space and arrows come with
-/// the viewport toolbar and the playback dock (lanes X3 and X6).
+/// The keys, for Help > Keyboard shortcuts (specification section 16), each
+/// key written once so the list can be checked against the section. The keys
+/// the section names that are not built yet (Ctrl H, Ctrl K, S, M, B and the
+/// numpad views) are left out.
 pub(super) const KEY_MAP: &[(&str, &str)] = &[
     ("Ctrl N, Ctrl O, Ctrl S", "New, open, save project"),
     ("Ctrl I", "Import model"),
     ("Ctrl E", "Post and export"),
-    ("Ctrl Z, Ctrl Y", "Undo, redo"),
+    ("Ctrl Z", "Undo"),
+    ("Ctrl Y, Ctrl Shift Z", "Redo"),
     ("Alt 1 to Alt 4", "Workflow steps"),
     ("Alt 5", "Post and export (as Ctrl E)"),
     (
         "Ctrl 1, Ctrl 2, Ctrl 3",
         "Collapse the project panel, inspector, dock",
     ),
+    (
+        "Ctrl +, Ctrl −, Ctrl 0",
+        "Scale the interface up, down, back to 100 %",
+    ),
+    ("F, V", "Fit the view; show or hide"),
     ("N", "New operation"),
     (
         "G or F5",
@@ -108,7 +117,15 @@ pub(super) const KEY_MAP: &[(&str, &str)] = &[
     ),
     (
         "Q, W, E, R",
-        "Select one, flood fill, by angle, same direction (while picking)",
+        "Select one, flood fill, by angle, same direction (while picking); on an edge, Q, W and E are select one, chain and smooth chain",
+    ),
+    ("Ctrl Enter", "Apply the workholding draft"),
+    ("Space", "Play or pause the simulation"),
+    ("←, →", "Step the simulation back or on"),
+    ("Shift ←, Shift →", "Go to the previous or next operation"),
+    (
+        "Tab, Shift Tab",
+        "Move to the next or previous control; its tooltip opens with it",
     ),
     ("Esc", "Cancel the running job, or leave picking"),
 ];
@@ -398,7 +415,7 @@ impl Shell {
                         let chevron = if left { "»" } else { "«" };
                         if ui
                             .button(chevron)
-                            .on_hover_text(format!("Open the {} ({})", region.name(), region.key()))
+                            .tip(format!("Open the {} ({})", region.name(), region.key()))
                             .clicked()
                         {
                             self.toggle_region(region);
@@ -429,7 +446,7 @@ impl Shell {
                         .id_salt("inspector scroll")
                         // The pane's width is the user's, not the content's.
                         .auto_shrink([false, false])
-                        .show(ui, |ui| {
+                        .show_keeping_focus(ui, |ui| {
                             let ctx = ui.ctx().clone();
                             crate::pending_edits::form(
                                 &ctx,
@@ -491,7 +508,7 @@ impl Shell {
                 };
                 if ui
                     .small_button(chevron)
-                    .on_hover_text(format!("Collapse the {} ({})", region.name(), region.key()))
+                    .tip(format!("Collapse the {} ({})", region.name(), region.key()))
                     .clicked()
                 {
                     self.toggle_region(region);
@@ -517,7 +534,7 @@ impl Shell {
                         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                             if ui
                                 .small_button("\u{23f6}")
-                                .on_hover_text("Open the dock (Ctrl 3)")
+                                .tip("Open the dock (Ctrl 3)")
                                 .clicked()
                             {
                                 self.toggle_region(Region::Dock);
@@ -597,7 +614,7 @@ impl Shell {
                 .map(|a| a.location().display().to_string());
             let label = ui.label(RichText::new(name).strong());
             if let Some(folder) = folder {
-                label.on_hover_text(folder);
+                label.tip(folder);
             }
             if self.app.is_some() {
                 // A neutral dot and "Edited", or "· saved"; amber is kept
@@ -610,7 +627,7 @@ impl Shell {
                 }
                 let label = ui.label(RichText::new(text).color(DARK.muted));
                 if let Some(tip) = tip {
-                    label.on_hover_text(tip);
+                    label.tip(tip);
                 }
             }
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
@@ -621,14 +638,14 @@ impl Shell {
                     .map_or((false, false), |a| (a.can_undo(), a.can_redo()));
                 if ui
                     .add_enabled(can_redo, egui::Button::new("↷"))
-                    .on_hover_text(format!("Redo ({})", ctx.format_shortcut(&REDO)))
+                    .tip(format!("Redo ({})", ctx.format_shortcut(&REDO)))
                     .clicked()
                 {
                     self.redo();
                 }
                 if ui
                     .add_enabled(can_undo, egui::Button::new("↶"))
-                    .on_hover_text(format!("Undo ({})", ctx.format_shortcut(&UNDO)))
+                    .tip(format!("Undo ({})", ctx.format_shortcut(&UNDO)))
                     .clicked()
                 {
                     self.undo();
@@ -654,7 +671,7 @@ impl Shell {
                 let clicked = ui
                     .push_id(index, |ui| {
                         ui.button(recent_label(folder))
-                            .on_hover_text(super::checkpoints::shown(folder))
+                            .tip(super::checkpoints::shown(folder))
                             .clicked()
                     })
                     .inner;
@@ -750,11 +767,17 @@ impl Shell {
                     self.tree_action(super::TreeAction::Duplicate(id));
                     ui.close();
                 }
+                // As the Del key: the selected operation or selection set.
+                let deletes = match self.selected {
+                    Some(Selection::Operation(id)) => Some(super::TreeAction::Delete(id)),
+                    Some(Selection::Set(id)) => Some(super::TreeAction::DeleteSet(id)),
+                    _ => None,
+                };
                 let delete = egui::Button::new("Delete").shortcut_text("Del");
-                if ui.add_enabled(operation.is_some(), delete).clicked()
-                    && let Some(id) = operation
+                if ui.add_enabled(deletes.is_some(), delete).clicked()
+                    && let Some(action) = deletes
                 {
-                    self.tree_action(super::TreeAction::Delete(id));
+                    self.tree_action(action);
                     ui.close();
                 }
                 let item = self.selected_item();
@@ -825,9 +848,7 @@ impl Shell {
                     egui::Button::new("Previous view"),
                 );
                 if back
-                    .on_hover_text(
-                        "Back to the view before the last Fit, standard view or Show in view",
-                    )
+                    .tip("Back to the view before the last Fit, standard view or Show in view")
                     .clicked()
                 {
                     self.viewport.undo_camera();
@@ -871,12 +892,27 @@ impl Shell {
                     self.new_operation();
                     ui.close();
                 }
+                // As "+ Add setup" on the Setup step's workflow bar.
+                let blocked = self
+                    .app
+                    .as_ref()
+                    .map_or(Some("Open or start a project first"), |a| {
+                        openchuck_app::add_setup_blocked(a.project())
+                    });
+                if ui
+                    .add_enabled(blocked.is_none(), egui::Button::new("Add setup"))
+                    .on_disabled_hover_text(blocked.unwrap_or_default())
+                    .clicked()
+                {
+                    self.add_setup();
+                    ui.close();
+                }
                 ui.separator();
                 let selected = matches!(self.selected, Some(Selection::Operation(_)));
                 let generate = egui::Button::new("Generate selected").shortcut_text("G");
                 if ui
                     .add_enabled(open && idle && selected, generate)
-                    .on_hover_text("The selected operation, and the operations before it")
+                    .tip("The selected operation, and the operations before it")
                     .clicked()
                 {
                     self.generate_selected();
@@ -979,7 +1015,7 @@ impl Shell {
                 Step::Model if self.app.is_some() => {
                     if ui
                         .add_enabled(self.import.is_none(), egui::Button::new("+ Import model…"))
-                        .on_hover_text("Import model (Ctrl I)")
+                        .tip("Import model (Ctrl I)")
                         .clicked()
                     {
                         self.import_model();
@@ -992,7 +1028,7 @@ impl Shell {
                         if ui
                             .add_enabled(blocked.is_none(), egui::Button::new("+ Add setup"))
                             .on_disabled_hover_text(tip)
-                            .on_hover_text(tip)
+                            .tip(tip)
                             .clicked()
                         {
                             self.add_setup();
@@ -1009,20 +1045,20 @@ impl Shell {
                 Step::Operations => {
                     if ui
                         .button("Tool library…")
-                        .on_hover_text("Open the tool library to add, edit or import tools")
+                        .tip("Open the tool library to add, edit or import tools")
                         .clicked()
                     {
                         self.open_tool_library(super::Purpose::Add, None);
                     }
                     if ui
                         .button("+ New operation")
-                        .on_hover_text("New operation (N)")
+                        .tip("New operation (N)")
                         .clicked()
                     {
                         self.new_operation();
                     }
                     if let Some(Selection::Operation(id)) = self.selected
-                        && ui.button("Duplicate").on_hover_text("Ctrl D").clicked()
+                        && ui.button("Duplicate").tip("Ctrl D").clicked()
                     {
                         self.tree_action(super::TreeAction::Duplicate(id));
                     }
@@ -1033,7 +1069,7 @@ impl Shell {
                 egui::ScrollArea::horizontal()
                     .id_salt("steps")
                     .scroll_bar_visibility(egui::scroll_area::ScrollBarVisibility::AlwaysHidden)
-                    .show(ui, |ui| {
+                    .show_keeping_focus(ui, |ui| {
                         ui.horizontal_centered(|ui| {
                             for step in Step::ALL {
                                 let state = steps
@@ -1097,7 +1133,7 @@ impl Shell {
             .filter_map(|s| Some((s.step, s.health, s.reason.clone()?)))
             .collect();
         let first = first_problem;
-        let response = response.on_hover_ui(|ui| {
+        let response = response.tip_ui(|ui| {
             ui.strong(format!("Overall status: {label}"));
             for (step, health, reason) in &lines {
                 ui.horizontal(|ui| {
@@ -1145,7 +1181,7 @@ impl Shell {
                     }
                 }
             }
-            if self.run.is_running() && ui.button("Cancel").on_hover_text("Esc").clicked() {
+            if self.run.is_running() && ui.button("Cancel").tip("Esc").clicked() {
                 self.run.cancel();
             }
             ui.separator();
@@ -1158,7 +1194,7 @@ impl Shell {
             if let Some(text) = text
                 && ui
                     .link(RichText::new(text).color(DARK.warning))
-                    .on_hover_text(format!(
+                    .tip(format!(
                         "{}. Open the machine in Setup.",
                         warnings.join(", ")
                     ))
@@ -1171,7 +1207,7 @@ impl Shell {
             if let Some(tolerance) = self.footer_tolerance() {
                 ui.monospace(format!("Tol {tolerance:.3} mm"));
             }
-            ui.label("mm · deg").on_hover_text("Display units");
+            ui.label("mm · deg").tip("Display units");
             ui.with_layout(egui::Layout::left_to_right(egui::Align::Center), |ui| {
                 // The current job, with its one percentage and the
                 // operation it works on; choosing it opens the Jobs tab, with
@@ -1192,7 +1228,7 @@ impl Shell {
                 };
                 if ui
                     .add(egui::Label::new(text).sense(egui::Sense::click()))
-                    .on_hover_text("Show the Jobs tab: every job, with its progress and Cancel")
+                    .tip("Show the Jobs tab: every job, with its progress and Cancel")
                     .clicked()
                 {
                     self.show_jobs();
@@ -1348,7 +1384,7 @@ impl Shell {
             text,
         );
         response.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Label, true, label));
-        response.on_hover_text(format!(
+        response.tip(format!(
             "{label}: {tip}.\nPast write results are in Messages."
         ));
     }
@@ -1462,10 +1498,12 @@ fn step_tab(
         ui.painter()
             .layout_no_wrap(step.name().to_owned(), font.clone(), Color32::PLACEHOLDER);
     let size = egui::vec2(galley.size().x + 68.0, WORKFLOW_BAR - 4.0);
+    // A step out of reach is still a Tab stop, so a keyboard user can read
+    // why on focus (UI-10, UI-14); Enter on it does nothing.
     let sense = if available {
         egui::Sense::click()
     } else {
-        egui::Sense::hover()
+        egui::Sense::hover() | egui::Sense::FOCUSABLE
     };
     let (rect, response) = ui.allocate_exact_size(size, sense);
     let text = if active {
@@ -1506,6 +1544,14 @@ fn step_tab(
             Stroke::new(2.0, DARK.accent),
         );
     }
+    if response.has_focus() {
+        painter.rect_stroke(
+            rect.shrink(1.0),
+            RADIUS,
+            Stroke::new(2.0, DARK.accent),
+            egui::StrokeKind::Inside,
+        );
+    }
     // The step's own health, by shape as well as colour (issue 210; UI-11).
     // A step out of reach shows none: its reason is the tooltip.
     if available {
@@ -1537,7 +1583,7 @@ fn step_tab(
             tip.push_str(&format!(": {reason}"));
         }
     }
-    response.on_hover_text(tip)
+    response.tip(tip)
 }
 
 /// What each step is for, for the empty state's list.

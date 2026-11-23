@@ -18,6 +18,7 @@
 //! [`tree`] (the project panel) and [`dock`] (Messages, Selection sets, Jobs,
 //! Setup checks and Playback).
 
+use crate::focus::Tip as _;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::Instant;
@@ -2462,7 +2463,7 @@ impl Shell {
                 let mut skip = self.settings.simulate.skip_stock_simulation;
                 if ui
                     .checkbox(&mut skip, "Skip the stock simulation in new projects")
-                    .on_hover_text(
+                    .tip(
                         "New projects then make only their toolpaths when generating. \
                          Each project keeps its own choice, in Simulate",
                     )
@@ -2905,7 +2906,7 @@ impl Shell {
             self.recovery.cancel_install(app.location());
         }
         self.checkpoint_frame(&ctx);
-        self.text_had_focus = ctx.egui_wants_keyboard_input();
+        self.text_had_focus = ctx.text_edit_focused();
         self.record_actions_frame(&ctx);
     }
 }
@@ -3166,6 +3167,9 @@ mod tool_library_tests;
 
 #[cfg(test)]
 mod tooltip_tests;
+
+#[cfg(test)]
+mod focus_tests;
 
 #[cfg(test)]
 mod import_layout_tests;

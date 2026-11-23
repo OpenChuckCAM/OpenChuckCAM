@@ -1824,7 +1824,7 @@ impl Viewport {
     /// keyboard.
     fn keys(&mut self, ui: &egui::Ui) {
         let ctx = ui.ctx();
-        if ctx.egui_wants_keyboard_input() {
+        if ctx.text_edit_focused() {
             return;
         }
         if ctx.input_mut(|i| i.consume_key(Modifiers::NONE, egui::Key::F)) {

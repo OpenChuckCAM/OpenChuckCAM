@@ -7,6 +7,7 @@
 //! the content hash, "Replace file…" and "Show in folder" (PRJ-02). Every
 //! change is a command, so it can be undone.
 
+use crate::focus::Tip as _;
 use eframe::egui::{self, RichText};
 use openchuck_app::model::{
     Axis, AxisDirection, Degrees, LengthUnit, ModelFormat, ModelInspection, PreparedModel,
@@ -476,13 +477,13 @@ impl ModelPanel {
                         egui::Label::new(RichText::new("\u{2630}").color(DARK.muted))
                             .sense(egui::Sense::drag()),
                     )
-                    .on_hover_text("Drag to reorder");
+                    .tip("Drag to reorder");
                 handle.dnd_set_drag_payload(i);
                 ui.label(format!("{}. {}", i + 1, describe(step)));
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                     if ui
                         .small_button("\u{d7}")
-                        .on_hover_text("Remove this step (it can be undone)")
+                        .tip("Remove this step (it can be undone)")
                         .clicked()
                     {
                         let mut steps = reference.transform.clone();
@@ -494,14 +495,14 @@ impl ModelPanel {
                             i + 1 < reference.transform.len(),
                             egui::Button::new("\u{2193}").small(),
                         )
-                        .on_hover_text("Move later")
+                        .tip("Move later")
                         .clicked()
                     {
                         moved_to = Some((i, i + 1));
                     }
                     if ui
                         .add_enabled(i > 0, egui::Button::new("\u{2191}").small())
-                        .on_hover_text("Move earlier")
+                        .tip("Move earlier")
                         .clicked()
                     {
                         moved_to = Some((i, i - 1));
@@ -800,7 +801,7 @@ impl ModelPanel {
         } else {
             RichText::new(source_line(reference))
         });
-        line.on_hover_text(reference.path.as_str());
+        line.tip(reference.path.as_str());
         let mut copy = false;
         if linked && self.copying {
             ui.horizontal(|ui| {
@@ -810,7 +811,7 @@ impl ModelPanel {
         } else if linked
             && ui
                 .button(COPY_MODEL_LABEL)
-                .on_hover_text(COPY_MODEL_TOOLTIP)
+                .tip(COPY_MODEL_TOOLTIP)
                 .clicked()
         {
             self.copy_error = None;
@@ -827,7 +828,7 @@ impl ModelPanel {
             "The hash of the file as it was added; a changed file is reported.",
             RichText::new(format!("{short}\u{2026}")).monospace(),
         )
-        .on_hover_text(&hash);
+        .tip(&hash);
         let mut choose = false;
         ui.horizontal(|ui| {
             if self.replacing.is_some() {
@@ -835,7 +836,7 @@ impl ModelPanel {
                 ui.label(RichText::new("Reading the file\u{2026}").color(DARK.muted));
             } else if ui
                 .button("Replace file\u{2026}")
-                .on_hover_text("Use another file for this model, keeping its unit and placement")
+                .tip("Use another file for this model, keeping its unit and placement")
                 .clicked()
             {
                 choose = true;

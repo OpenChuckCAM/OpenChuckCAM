@@ -10,6 +10,8 @@
 //! checks and, after a simulation, the material removed and the worst
 //! remaining and overcut values (SIM-05).
 
+use crate::focus::KeepFocus as _;
+use crate::focus::Tip as _;
 use std::sync::Arc;
 use std::time::Instant;
 
@@ -303,7 +305,7 @@ fn preset_row(
         return;
     }
     ui.horizontal(|ui| {
-        ui.label("Material preset").on_hover_text(PRESET_HELP);
+        ui.label("Material preset").tip(PRESET_HELP);
         let shown = preset
             .choices
             .iter()
@@ -767,7 +769,8 @@ impl RunPanel {
                     .id_salt("add operation body")
                     .max_height(body_height)
                     .auto_shrink([false, false])
-                    .show(ui, |ui| {
+                    .show_keeping_focus(ui, |ui| {
+                        crate::floating::focus_starts_here(ui);
                         ui.horizontal(|ui| {
                             ui.label("Name");
                             crate::pending_edits::name_edit(ui, &mut form.name, "Operation name");
@@ -854,7 +857,7 @@ impl RunPanel {
                             crate::pending_edits::track(ui, &combo.response, "Tool", None);
                             if ui
                                 .button("From the library…")
-                                .on_hover_text("Choose a tool in the tool library and add it to the project")
+                                .tip("Choose a tool in the tool library and add it to the project")
                                 .clicked()
                             {
                                 wants_library = true;
@@ -898,18 +901,54 @@ impl RunPanel {
                     .iter()
                     .find(|c| c.name == form.strategy)
                     .is_none_or(|c| c.unavailable.is_some());
+                // The primary action, filled and bottom right, with Cancel to
+                // its left (specification section 5). Drawn left to right,
+                // pushed right by the buttons' width, so Tab reads Cancel and
+                // then Add.
+                let blocked = if form.setup.is_none() {
+                    Some("Choose a setup first")
+                } else if unavailable {
+                    Some("Choose a strategy this setup can use")
+                } else {
+                    None
+                };
                 ui.horizontal(|ui| {
-                    if ui
-                        .add_enabled(
-                            form.setup.is_some() && !unavailable,
-                            egui::Button::new("Add"),
+                    let font = egui::TextStyle::Button.resolve(ui.style());
+                    let width = |text: &str| {
+                        ui.painter()
+                            .layout_no_wrap(
+                                text.to_owned(),
+                                font.clone(),
+                                egui::Color32::PLACEHOLDER,
+                            )
+                            .size()
+                            .x
+                            + 2.0 * ui.spacing().button_padding.x
+                    };
+                    // A few points spare: "Add" is drawn in the strong face.
+                    let buttons =
+                        width("Cancel") + width("Add") + ui.spacing().item_spacing.x + 4.0;
+                    ui.add_space((ui.available_width() - buttons).max(0.0));
+                    if ui.button("Cancel").clicked() {
+                        close = true;
+                    }
+                    let button = if blocked.is_none() {
+                        egui::Button::new(
+                            egui::RichText::new("Add")
+                                .color(crate::theme::DARK.primary_text)
+                                .strong(),
                         )
+                        .fill(crate::theme::DARK.primary)
+                        .stroke(egui::Stroke::new(1.0, crate::theme::DARK.primary_border))
+                    } else {
+                        egui::Button::new("Add")
+                    };
+                    if ui
+                        .add_enabled(blocked.is_none(), button)
+                        .on_disabled_hover_text(blocked.unwrap_or_default())
                         .clicked()
                     {
                         add = true;
-                    }
-                    if ui.button("Cancel").clicked() {
-                        close = true;
                     }
                 });
             },
@@ -975,7 +1014,7 @@ impl RunPanel {
                 ui.label(summary);
             }
             if let Some(text) = &text
-                && ui.button("Copy all").on_hover_text(COPY_ALL_TIP).clicked()
+                && ui.button("Copy all").tip(COPY_ALL_TIP).clicked()
             {
                 ui.ctx().copy_text(text.clone());
             }
@@ -986,7 +1025,7 @@ impl RunPanel {
                     .color(if on { colour } else { DARK.muted });
                 if ui
                     .selectable_label(on, label)
-                    .on_hover_text(format!(
+                    .tip(format!(
                         "Show or hide {}. Copy all and the plain text always hold every line.",
                         name.to_lowercase()
                     ))
@@ -1002,7 +1041,7 @@ impl RunPanel {
             // The default 64 pt minimum would push the viewport past a
             // short dock and clip the end of the content (review of #480).
             .min_scrolled_height(0.0)
-            .show(ui, |ui| {
+            .show_keeping_focus(ui, |ui| {
                 if let Some(error) = &self.last_error
                     && (!self.failed || filter.errors)
                 {
@@ -1048,7 +1087,7 @@ impl RunPanel {
                             }
                         })
                         .header_response
-                        .on_hover_text(GROUP_HINT);
+                        .tip(GROUP_HINT);
                 }
                 if shown == 0 && !lines.is_empty() {
                     ui.weak("No lines at this level.");

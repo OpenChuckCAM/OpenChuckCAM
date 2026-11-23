@@ -10,6 +10,7 @@
 //! remembered per item kind. Every value comes from a view model in
 //! `openchuck-app`; every change is one undoable command.
 
+use crate::focus::Tip as _;
 use eframe::egui::{self, RichText, Stroke};
 use openchuck_app::overview::{ItemRef, ItemState, MessageAction, SetupPart, Severity, Step};
 use openchuck_app::project::id::{ModelId, OperationId, SelectionSetId, SetupId, ToolId};
@@ -306,7 +307,7 @@ impl Shell {
                 ui.label(RichText::new(text).color(DARK.warning));
                 if ui
                     .small_button("Show first")
-                    .on_hover_text(format!("Go to: {}", first.label))
+                    .tip(format!("Go to: {}", first.label))
                     .clicked()
                 {
                     jump_to = Some(section_of(&first.field));
@@ -748,7 +749,7 @@ impl Shell {
                             let differs = matches!(tool.copy, tool_library::CopyState::Differs(_));
                             if ui
                                 .add_enabled(differs, egui::Button::new("Update from library"))
-                                .on_hover_text(
+                                .tip(
                                     "Replace the project's copy with the library's tool, \
                                      keeping the tool number (one undoable step)",
                                 )
@@ -763,7 +764,7 @@ impl Shell {
                             );
                             if ui
                                 .button("Edit tool…")
-                                .on_hover_text(
+                                .tip(
                                     "Edit the project's copy of the tool in the tool library window",
                                 )
                                 .clicked()
@@ -772,7 +773,7 @@ impl Shell {
                             }
                             if ui
                                 .add_enabled(saveable, egui::Button::new("Save to library…"))
-                                .on_hover_text("Write the project's copy into the tool library")
+                                .tip("Write the project's copy into the tool library")
                                 .clicked()
                             {
                                 act = Some(ToolAct::SaveToLibrary(tool.id));
@@ -799,7 +800,7 @@ impl Shell {
                         });
                     if ui
                         .button("From the library…")
-                        .on_hover_text("Choose a tool in the tool library and use it here")
+                        .tip("Choose a tool in the tool library and use it here")
                         .clicked()
                     {
                         act = Some(ToolAct::Library);
@@ -922,7 +923,7 @@ impl Shell {
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                 if ui
                     .small_button("Delete")
-                    .on_hover_text("Remove this operation (it can be undone)")
+                    .tip("Remove this operation (it can be undone)")
                     .clicked()
                 {
                     delete = true;
@@ -962,7 +963,7 @@ impl Shell {
                 ui.label(RichText::new(text).color(DARK.warning));
                 if ui
                     .small_button("Show first")
-                    .on_hover_text(format!("Go to: {}", first.label))
+                    .tip(format!("Go to: {}", first.label))
                     .clicked()
                 {
                     self.requirement_jump = Some(first.field.clone());
@@ -1347,17 +1348,15 @@ fn set_options(
                 ui.add_space(indent);
                 let pass = ui
                     .checkbox(&mut boundary.limits_pass, "Limits the pass")
-                    .on_hover_text(
+                    .tip(
                         "Cut only the rulings that lie inside the boundary, whole, so the pass \
                          stops, or splits with a retract, where the rulings leave it.",
                     );
-                let tip = ui
-                    .checkbox(&mut boundary.limits_tip, "Limits the tip")
-                    .on_hover_text(
-                        "Raise the tool tip along each ruling so the bottom of the flank stops \
+                let tip = ui.checkbox(&mut boundary.limits_tip, "Limits the tip").tip(
+                    "Raise the tool tip along each ruling so the bottom of the flank stops \
                          where the ruling enters the boundary. The far end of a ruling cannot \
                          be limited.",
-                    );
+                );
                 if pass.changed() || tip.changed() {
                     edit = Some(GeometryEdit::Boundary(boundary));
                 }
@@ -1382,7 +1381,7 @@ fn set_options(
                         let tip = cut_short_tip(choice, role, shown).unwrap_or(tip);
                         if ui
                             .selectable_label(current == choice, label)
-                            .on_hover_text(tip)
+                            .tip(tip)
                             .clicked()
                             && current != choice
                         {
@@ -1531,7 +1530,7 @@ fn geometry(
                     rect,
                     egui::Label::new(RichText::new(row_label).color(DARK.muted)),
                 );
-                label.on_hover_text(row_description);
+                label.tip(row_description);
                 for id in &row_sets {
                     let summary = summaries.iter().find(|s| s.id == *id);
                     let name = summary.map_or("(missing set)", |s| s.name.as_str());
@@ -1788,7 +1787,7 @@ fn material_pick(
                 }
             })
             .response
-            .on_hover_text(
+            .tip(
                 "Materials the project's and the library's tools have cutting data for. A \
                  material that matches one of them gets that tool's speeds and feeds.",
             );

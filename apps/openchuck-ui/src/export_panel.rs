@@ -12,6 +12,8 @@
 //! missing. The dialog only draws and wires: the checks, the plan, the tool
 //! numbering and the writing are in `openchuck-app`.
 
+use crate::focus::KeepFocus as _;
+use crate::focus::Tip as _;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
@@ -912,7 +914,8 @@ impl ExportPanel {
         // its own strip (UI-16, issue 311). Future preview content belongs
         // inside this body, without changing the footer or its scroll bounds.
         crate::theme::solid_scroll_bar(ui);
-        egui::ScrollArea::vertical().show(ui, |ui| {
+        egui::ScrollArea::vertical().show_keeping_focus(ui, |ui| {
+            crate::floating::focus_starts_here(ui);
             ui.columns(2, |columns| {
                 let [left, right] = columns else { return };
                 self.left(left, app, checks, acts);
@@ -949,7 +952,7 @@ impl ExportPanel {
             });
         if self.post_index >= self.posts.len() {
             crate::pending_edits::text_edit(ui, &mut self.custom, "Post folder")
-                .on_hover_text("The folder that holds the post's files.");
+                .tip("The folder that holds the post's files.");
         }
         match self.summary().cloned() {
             Some(Ok(post)) => {
@@ -1009,7 +1012,7 @@ impl ExportPanel {
                     "Each setup has its own work offset, so a project with more than one setup cannot go in one file.",
                 )
             } else {
-                response.on_hover_text(hint)
+                response.tip(hint)
             };
             if response.clicked() {
                 self.grouping = grouping;
@@ -1130,7 +1133,7 @@ impl ExportPanel {
             };
             if ui
                 .add_enabled(pending.is_ok(), egui::Button::new(label))
-                .on_hover_text("The numbers are saved in the project, so the next export gives the same G-code. Undo with Ctrl Z.")
+                .tip("The numbers are saved in the project, so the next export gives the same G-code. Undo with Ctrl Z.")
                 .clicked()
                 && let Ok(numbering) = self.numbering()
             {
