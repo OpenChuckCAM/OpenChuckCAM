@@ -163,7 +163,7 @@ error: 1 check(s) above stop the G-code from being written; nothing was written
 ```
 
 `simulate PROJECT [--cell MM]`
-: Regenerates and simulates the material removal of every operation, then compares the stock left with each setup's part: the most material left and the deepest overcut, and any rapid move that removes material. It exits with 1 if it finds an overcut deeper than one cell or a rapid move through material. `--cell` sets the simulation's cell size, from 0.025 mm to 1 mm (default 0.1 mm), and saves it in the project: finer costs time and memory.
+: Regenerates and simulates the material removal of every operation, then compares the stock left with each setup's part: the most material left and the deepest overcut, and every rapid move that removes material, with how deep it goes into the stock and the volume. It exits with 1 if it finds an overcut deeper than one cell or a rapid move that goes deeper than one cell into the stock; a rapid no deeper is listed only. `--cell` sets the simulation's cell size, from 0.025 mm to 1 mm (default 0.1 mm), and saves it in the project: finer costs time and memory.
 
 `gcode-sim PROGRAM REPORT [--tolerance T] [--source-lines FIRST:LAST]`
 : A check the project uses: compares the report of a run in the LinuxCNC simulator with the program it ran.

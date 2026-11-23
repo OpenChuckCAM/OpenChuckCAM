@@ -275,11 +275,11 @@ impl Strategy for SimultaneousFinishing {
                 "Surfaces a straight approach from outside cannot see, such as the walls of a \
                  slot or the side of a part facing another, are finished with their own passes \
                  after the main one. Where the tool is placed to reach such a surface, every \
-                 0.2 mm along each pass, it leans from the surface normal (plus the lead) as \
-                 little as the part lets it reach, up to this angle: 90 lets it cut a wall with \
-                 its side, 0 keeps it on the normal there and also holds back the lead. Between \
-                 those places the tool axis turns evenly. Anything needing more is left uncut \
-                 and listed in a warning.",
+                 0.2 mm along each pass, it aims at the surface normal plus the lead and leans \
+                 from that as little as the part lets it reach, never more than this angle from \
+                 the normal itself: 90 lets it cut a wall with its side, 0 keeps it on the normal \
+                 there and also holds back the lead. Between those places the tool axis turns \
+                 evenly. Anything needing more is left uncut and listed in a warning.",
                 Some(0.0),
                 Some(MAX_HIDDEN_LEAN),
                 90.0,
@@ -864,7 +864,7 @@ fn run(
         })
     };
     plan.contours = found.contours;
-    let reach = hidden_reach(&plan.contours);
+    let reach = hidden_reach(&plan);
     let hidden_count = plan.contours.len() as u64;
     let mut hidden_x = (f64::INFINITY, f64::NEG_INFINITY);
     let mut area = None;
@@ -1195,13 +1195,15 @@ struct HiddenReach {
     lean_x: Option<f64>,
 }
 
-/// The [`HiddenReach`] of `contours`, from their reach points (not the
-/// probes beyond the runs they cut).
-fn hidden_reach(contours: &[hidden::Contour]) -> HiddenReach {
+/// The [`HiddenReach`] of the plan's contours, from their reach points:
+/// not the probes beyond the runs they cut, nor points the operation's
+/// region, boundary or avoid sets keep the tool from, where no pass cuts.
+fn hidden_reach(plan: &Plan<'_>) -> HiddenReach {
     let mut out = HiddenReach::default();
-    for s in contours.iter().flat_map(|c| &c.samples) {
+    for s in plan.contours.iter().flat_map(|c| &c.samples) {
         if let Some((best, _, _)) = s.gate
             && !s.probe
+            && plan.in_scope(s.point)
         {
             out.off_aim = out.off_aim.max((near(best, s.target) - s.target).abs());
             let lean = (near(best, s.phi_n) - s.phi_n).abs();

@@ -1405,7 +1405,7 @@ impl Plan<'_> {
 
     /// Whether the operation's region, boundary and avoid sets let a
     /// strategy cut at `p` (OP-02): an area outside them is not reported.
-    fn in_scope(&self, p: Point3) -> bool {
+    pub(super) fn in_scope(&self, p: Point3) -> bool {
         let Some(region) = self.region else {
             return true;
         };

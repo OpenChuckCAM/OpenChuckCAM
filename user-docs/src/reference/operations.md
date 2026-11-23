@@ -180,7 +180,7 @@ Prepares the stock: flat faces along it, a round diameter, the end opposite the 
 
 For the unheld end, **Stepover** is labelled **Stepover (slice thickness along X)**: the thickness of each slice taken off the end, at most the tool's cutting diameter. Where there is room beside the stock, each band is entered from the air; where there is not, at the plunge feed. Facing also has **Extend past the stock** with **Also past the sides**, and flat facing has **Adaptive spacing**.
 
-On a STEP part, Facing works for now only as **Flat along stock** or **Round** over the **Whole stock** with no extent margin. The unheld end, box sides, **Part only** and **Part plus tabs**, and an extent margin check the cut against the part, and a STEP part has no proved bound of its shape for that check yet (its triangles are an approximation), so the operation is shown in error before anything is generated, with what to do instead: use the part as an STL for that setup, or have the stock cut to length so its end is flush with the part's end.
+On a STEP part, Facing takes the part's ends, outline and radius from its exact faces, not from the triangles made from them. Its bounds may lie a little outside the part, never inside it: at most 0.0005 mm for flat, cylindrical, conical, spherical and toroidal faces. A face that is a free-form surface (a B-spline) is bounded by its control points, so where the part's furthest point lies on one, Facing may stop a little short of it and leave that much more stock; the operation's notes give the figure. These figures are measured from each face's whole surface: where the part's furthest point lies on a trimmed face, or on a flat face whose edges have no exact curve, Facing may stop further short and leave more stock.
 
 ## Helical finishing
 
@@ -235,7 +235,7 @@ Turns the part while the tool moves, so the tool meets the surface from differen
 | Largest angle step | 5° | The most the path turns round the axis between two points. |
 | Lead angle | 0° | From −30° to 30°. Leans the tool from the normal towards the direction of travel round the axis, for example to keep the centre of a ball, where it barely cuts, off the surface. Axial passes need 0. |
 | Largest tilt | 10° | From 0° to 30°. How far the tool may lean away from the normal so that A turns smoothly. A larger value cuts with more of the tool's side. |
-| Largest lean on hidden surfaces | 90° | From 0° to 90°. How far the tool may lean from the normal (plus the lead) where it is placed to reach a surface a straight approach cannot see, every 0.2 mm along each pass; between those places the tool axis turns evenly. 0 keeps it on the normal there and also holds back the lead. Anything that needs more is left uncut and listed in a warning. |
+| Largest lean on hidden surfaces | 90° | From 0° to 90°. Where the tool is placed to reach a surface a straight approach cannot see, every 0.2 mm along each pass, it aims at the normal plus the lead and leans from that as little as the part lets it, never more than this angle from the normal itself; between those places the tool axis turns evenly. 0 keeps it on the normal there and also holds back the lead. Anything that needs more is left uncut and listed in a warning. |
 | Passes | Spiral | Spiral pattern: **Spiral** or **Rings**. |
 
 Also: **Exact STEP surface contact** (on), **Pass order** and **Links between passes**, and with the axial pattern **Adaptive spacing**. It has no Extend past the stock.
@@ -390,7 +390,7 @@ These warnings may be a collision, so the export asks you to tick "I have read t
 | Swarf cutting into a face next to it | The ring of stock left at a faced end |
 | A check set the tool touches (**Warn only**) | A move beyond the machine's travel |
 | A part that can be cut free at a free end and thrown | Areas simultaneous finishing could not reach |
-| A rapid move that removes material, found by the simulation | A shank wider than the cutting part, where the path is broken |
+| A rapid move that goes deeper than one cell into the stock, found by the simulation | A shank wider than the cutting part, where the path is broken |
 | A safe cylinder that does not enclose the stock or the part, or is inside the minimum clearance | |
 | A tool that may be too long to clear the workholding at the safe Z | |
 

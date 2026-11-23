@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.58.0 (FACING-STEP; issue #800; decision 0666 option C, accepted)
+
+- **Added:** `enclose(&BrepModel) -> Result<Enclosure>`, with `Enclosure` (its `points`, `analytic_excess` and `spline_excess`, and `mesh()`) and the constants `ANALYTIC_EXCESS` (0.0005 mm) and `SPLINE_TARGET` (0.001 mm). The enclosure's points hold every face of a B-rep part, bounded from its exact geometry, never its tessellation:
+  - planes, from their exact edges (or, without them, their parameter box);
+  - cylinders, cones, spheres and tori, from circumscribed arcs over the face's parameter box, at most `ANALYTIC_EXCESS` outside;
+  - B-spline faces and edges, from their control points, split exactly worst first until within `SPLINE_TARGET` or a work limit, with the excess reached reported.
+  
+  `Enclosure::mesh` is the prism over the points' outline seen along X between their X extremes: exact along X and across it, as Facing reads a part. A face it cannot bound (a weight that is not positive, geometry that is not finite, a flat face with neither exact edges nor a finite parameter box) is refused, naming the face; so is a face that would need more points than the work limit, before its points are built.
+- **Changed (docs only):** `FacingSetup::part` and `projection_error` document that a STEP host passes the enclosure's mesh with `Some(0)`.
+- No existing signature changes; the workspace minor bump to 0.58.0 is this change's own (decision 0048).
+
 ## 0.56.0
 
 - **Family release (0.56.0, POST-SAFETY; issue #703; decision 0656, accepted):** `openchuck-post`'s `PostOptions` gains the public field `max_line_length` and `openchuck-gcode`'s `FindingKind` gains `LineTooLong`, a breaking change; no change to this crate.

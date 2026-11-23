@@ -1448,8 +1448,14 @@ fn find_library_tool<'a>(
 
 /// Runs a `library` subcommand on the tool library folder at `path` (TL-01,
 /// TL-11).
+/// How many of an operation's rapid cuts fail a simulation run: those that
+/// go deeper into the stock than one cell (decision record 0661, option C).
+fn rapid_failures(cuts: &[openchuck_app::sim::RapidCut]) -> usize {
+    cuts.iter().filter(|c| c.deeper_than_cell()).count()
+}
+
 /// Prints a simulation report and returns how many problems it shows:
-/// overcut places and rapid moves that cut.
+/// overcut places and rapid moves that go deeper than a cell into the stock.
 fn print_simulation(
     report: &SimulationReport,
     leaves: &std::collections::BTreeMap<SetupId, f64>,
@@ -1477,11 +1483,20 @@ fn print_simulation(
                 openchuck_app::path::counted(op.poses, "pose", "poses"),
                 op.removed_volume
             );
+            // Deeper into the stock than one cell, a rapid fails the run; no
+            // deeper, it is within what the simulation resolves and is
+            // listed only (decision record 0661, option C).
+            failures += rapid_failures(&op.rapid_cuts);
             for cut in &op.rapid_cuts {
-                failures += 1;
+                let within = if cut.deeper_than_cell() {
+                    String::new()
+                } else {
+                    format!(", within the {:.3} mm cell", cut.cell)
+                };
                 println!(
-                    "      rapid move {} removes {:.3} mm3, ending at ({:.3}, {:.3}, {:.3})",
-                    cut.segment, cut.volume, cut.end.x, cut.end.y, cut.end.z
+                    "      rapid move {} goes {:.3} mm into the stock{within} and removes {:.4} \
+                     mm3, ending at ({:.3}, {:.3}, {:.3})",
+                    cut.segment, cut.depth, cut.volume, cut.end.x, cut.end.y, cut.end.z
                 );
             }
         }
@@ -2415,6 +2430,21 @@ fn confirm_tool_numbers(app: &mut Application, choice: Option<NumberChoice>) -> 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn req_sim_03_req_sim_07_only_a_rapid_deeper_than_one_cell_fails_the_simulation() {
+        // Decision record 0661, option C (issue #801): a rapid no deeper than
+        // the simulation's cell is listed, not counted as a problem.
+        let cut = |depth: f64| openchuck_app::sim::RapidCut {
+            segment: 1,
+            volume: 0.0004,
+            end: Point3::ORIGIN,
+            depth,
+            cell: 0.1,
+        };
+        assert_eq!(rapid_failures(&[cut(0.04), cut(0.1)]), 0);
+        assert_eq!(rapid_failures(&[cut(0.04), cut(0.16), cut(1.6)]), 2);
+    }
 
     /// The internal terms the help text must not use (decision record 0536
     /// step 4, the owner's answer (f)): a requirement ID such as "SET-09",

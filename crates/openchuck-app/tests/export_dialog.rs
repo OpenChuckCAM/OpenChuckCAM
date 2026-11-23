@@ -289,7 +289,13 @@ fn req_gc_16_a_rapid_that_cuts_reads_as_a_possible_collision_at_writing() {
     // (CodeRabbit on #659: it read "... of material.: a possible ...").
     let (dir, mut app) = project("checks-rapid-cut", false);
     let mut run = post(&mut app, OutputGrouping::Setup);
-    run.groups[0].rapid_cuts.push((9, 0.1234));
+    run.groups[0].rapid_cuts.push(openchuck_sim::RapidCut {
+        segment: 9,
+        volume: 0.1234,
+        end: openchuck_types::geometry::Point3::ORIGIN,
+        depth: 0.25,
+        cell: 0.1,
+    });
     let name = app
         .project()
         .operation(run.groups[0].operation)
@@ -299,7 +305,8 @@ fn req_gc_16_a_rapid_that_cuts_reads_as_a_possible_collision_at_writing() {
     let checks = app.export_checks(Some(&run), None, None);
     let w = warnings(&checks);
     let expected = format!(
-        "Rapid cut (operation '{name}'): move 9 is a rapid that removes 0.123 mm³ of material. A \
+        "Rapid cut (operation '{name}'): move 9 is a rapid that goes 0.250 mm into the stock, \
+         deeper than the simulation's cell of 0.100 mm, and removes 0.123 mm³ of material. A \
          possible collision: acknowledge it before the files are written"
     );
     assert!(w.iter().any(|t| *t == expected), "{w:?}");
