@@ -7,7 +7,7 @@
   - cylinders, cones, spheres and tori, from circumscribed arcs over the face's parameter box, at most `ANALYTIC_EXCESS` outside;
   - B-spline faces and edges, from their control points, split exactly worst first until within `SPLINE_TARGET` or a work limit, with the excess reached reported.
   
-  `Enclosure::mesh` is the prism over the points' outline seen along X between their X extremes: exact along X and across it, as Facing reads a part. A face it cannot bound (a weight that is not positive, geometry that is not finite, a flat face with neither exact edges nor a finite parameter box) is refused, naming the face.
+  `Enclosure::mesh` is the prism over the points' outline seen along X between their X extremes: exact along X and across it, as Facing reads a part. A face it cannot bound (a weight that is not positive, geometry that is not finite, a flat face with neither exact edges nor a finite parameter box) is refused, naming the face; so is a face that would need more points than the work limit, before its points are built.
 - **Changed (docs only):** `FacingSetup::part` and `projection_error` document that a STEP host passes the enclosure's mesh with `Some(0)`.
 - No existing signature changes; the workspace minor bump to 0.58.0 is this change's own (decision 0048).
 

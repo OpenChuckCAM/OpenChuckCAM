@@ -529,3 +529,28 @@ fn req_op_23_req_nfr_07_a_flat_face_with_an_edge_it_cannot_bound_falls_back_to_i
     let r = e.points.iter().map(|p| p.y.hypot(p.z)).fold(0.0, f64::max);
     assert!((r - 5.0 * 2f64.sqrt()).abs() < 1e-9, "{r}");
 }
+
+#[test]
+fn req_nfr_07_a_face_too_large_to_bound_is_refused_before_its_points_are_built() {
+    // A full torus 500 mm across its tube centre and 150 mm across its tube
+    // would need far more points than the work limit at the analytic
+    // excess: it is refused at once, naming the face, without building
+    // them first (CodeRabbit, PR #843).
+    let model = ruled::single_face(
+        Surface::Torus {
+            frame: frame(
+                Point3::new(0.0, 0.0, 0.0),
+                Vec3::new(1.0, 0.0, 0.0),
+                Vec3::new(0.0, 0.0, 1.0),
+            ),
+            major: 500.0,
+            minor: 150.0,
+        },
+        [0.0, TAU, 0.0, TAU],
+        false,
+    );
+    let start = std::time::Instant::now();
+    let e = enclose(&model).unwrap_err().to_string();
+    assert!(e.contains("face 0") && e.contains("work limit"), "{e}");
+    assert!(start.elapsed().as_secs() < 20, "{:?}", start.elapsed());
+}

@@ -1391,23 +1391,32 @@ fn contact_note(
 /// (decision 0666, option C; OP-23): it bounds the part from its exact faces,
 /// how far outside them a bound can lie, and, for B-spline faces, how far
 /// Facing may stop short of the part's extreme, leaving that much more
-/// stock. Figures are rounded up.
+/// stock. Figures are rounded up; they are measured from each face's
+/// surface over its parameter range, and the note says a trimmed face or a
+/// flat face without exact edges can be bounded further out.
 fn facing_bound_note(enclosure: &openchuck_path::Enclosure) -> String {
     let up = |x: f64| (x * 1e4).ceil() / 1e4;
     let mut note = format!(
         "The STEP part is bounded from its exact faces, not its tessellation: a bound may lie \
-         outside the part, never inside it, by at most {:.4} mm on its planes, cylinders, cones, \
-         spheres and tori",
+         outside the part, never inside it, by at most {:.4} mm from the surface of its planes, \
+         cylinders, cones, spheres and tori",
         up(openchuck_path::ANALYTIC_EXCESS)
     );
     if let Some(spline) = enclosure.spline_excess {
         note.push_str(&format!(
             "; its B-spline faces are bounded by their control points, so where the part's \
-             extreme lies on one of them Facing may stop up to {:.4} mm short of it, leaving that \
-             much more stock",
+             extreme lies on one of them Facing may stop up to {:.4} mm short of its surface",
             up(spline)
         ));
     }
+    // Each face is bounded over its whole parameter range, not only its
+    // trimmed part, and a flat face without exact edges by its parameter
+    // range: the figures above do not cover that (CodeRabbit, PR #843).
+    note.push_str(
+        ". Each face is bounded over the whole of its surface's parameter range, so where the \
+         part's extreme lies on a trimmed face, or on a flat face without exact edges, the bound \
+         can lie further out and Facing may stop further short, leaving more stock",
+    );
     note
 }
 

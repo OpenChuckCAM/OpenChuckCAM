@@ -182,11 +182,12 @@ pub fn enclose(model: &BrepModel) -> Result<Enclosure> {
     let edges: BTreeMap<EdgeId, &BrepEdge> = model.edges.iter().map(|e| (e.id, e)).collect();
     let mut b = Builder::default();
     for face in &model.faces {
+        b.face = face.id.0;
         b.face(face, &edges)?;
-        if b.points.len() > MAX_POINTS {
-            return Err(PathError::refused(
-                crate::topic::SURFACE,
-                "the part's bound needs more points than the work limit allows",
+        if let Some(n) = b.full {
+            return Err(bad(
+                n,
+                "bounding it needs more points than the work limit allows",
             ));
         }
     }
@@ -212,6 +213,23 @@ struct Builder {
     points: Vec<Point3>,
     analytic: f64,
     spline: Option<f64>,
+    /// The face being bounded, and the first face that would take the
+    /// points past [`MAX_POINTS`]: its points are not appended.
+    face: u32,
+    full: Option<u32>,
+}
+
+impl Builder {
+    /// Whether `n` more points fit in [`MAX_POINTS`]; when not, the face is
+    /// marked and nothing more is appended, so no batch is built before the
+    /// refusal.
+    fn room(&mut self, n: usize) -> bool {
+        if self.full.is_none() && self.points.len().saturating_add(n) <= MAX_POINTS {
+            return true;
+        }
+        self.full.get_or_insert(self.face);
+        false
+    }
 }
 
 fn finite_frame(f: &Frame) -> bool {
@@ -236,6 +254,9 @@ impl Builder {
                         n,
                         "a flat face needs exact edges or a finite parameter box to be bounded",
                     ));
+                }
+                if !self.room(4) {
+                    return Ok(());
                 }
                 for (u, v) in [(u0, v0), (u1, v0), (u1, v1), (u0, v1)] {
                     self.points.push(frame.origin + frame.x * u + frame.y * v);
@@ -312,6 +333,9 @@ impl Builder {
                 first,
                 last,
             }) => {
+                if !self.room(2) {
+                    return Ok(true);
+                }
                 self.points.push(*origin + *direction * *first);
                 self.points.push(*origin + *direction * *last);
                 Ok(true)
@@ -363,7 +387,9 @@ impl Builder {
                     .iter()
                     .all(|q| q.is_finite() && q.distance(p) <= 1e-9)
                 {
-                    self.points.push(p);
+                    if self.room(1) {
+                        self.points.push(p);
+                    }
                     Ok(true)
                 } else {
                     Ok(false)
@@ -380,10 +406,12 @@ impl Builder {
         let lo = t0.min(t1);
         let span = (t0.max(t1) - lo).min(TAU);
         let hi = lo + span;
-        self.points.push(at(lo));
-        self.points.push(at(hi));
         let scale = a.length().max(b.length());
         if scale.is_nan() || scale <= 0.0 || span.is_nan() || span <= 0.0 {
+            if self.room(2) {
+                self.points.push(at(lo));
+                self.points.push(at(hi));
+            }
             return 0.0;
         }
         // The largest sub-arc whose corners stay within `target`: 1 / cos(d
@@ -396,6 +424,11 @@ impl Builder {
         let k = 1.0 / (0.5 * d).cos();
         let mut excess = 0.0f64;
         let steps = count as usize;
+        if !self.room(steps.saturating_add(2)) {
+            return 0.0;
+        }
+        self.points.push(at(lo));
+        self.points.push(at(hi));
         for i in 0..steps {
             let m = lo + (i as f64 + 0.5) * d;
             let dir = a * m.cos() + b * m.sin();
@@ -493,6 +526,9 @@ impl Builder {
         pieces.sort_by_key(|p| p.order);
         let worst = pieces.iter().map(|p| p.excess).fold(0.0f64, f64::max);
         for p in pieces {
+            if !self.room(p.net.pts.len()) {
+                return Ok(());
+            }
             self.points.extend(p.net.pts.iter().map(|&h| project(h)));
         }
         self.spline = Some(self.spline.unwrap_or(0.0).max(worst));
@@ -541,6 +577,9 @@ impl Builder {
                 continue;
             }
             worst = worst.max(excess);
+            if !self.room(pts.len()) {
+                return Ok(true);
+            }
             self.points.extend(pts.iter().map(|&h| project(h)));
         }
         self.spline = Some(self.spline.unwrap_or(0.0).max(worst));
