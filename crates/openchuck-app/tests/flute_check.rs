@@ -69,6 +69,7 @@ fn crankshaft(name: &str, flute: f64, operations: &[(&str, Vec<(&str, f64)>)]) -
             flute_count: 2,
             material: None,
             centre_cutting: Some(true),
+            stick_out: None,
         },
         controller: ControllerMapping {
             number: 1,

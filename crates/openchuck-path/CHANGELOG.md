@@ -3,11 +3,26 @@
 
 ## Unreleased (FACEFLOW; issues #791 and #631)
 
-- **Fixed, changed output (issue #791; decision 0xxx, option A):** face-flow finishing cuts a face that closes round on itself (a full cylinder or cone, or a B-spline face closed in one direction) instead of refusing it because its seam edge, listed once, kept its boundary from closing. Its seams are recognised from the face and edge themselves, its two ends are the guide (the longer, or the one holding the user's guide edges) and the opposite boundary, and each pass is a ring round the face, blended and spaced as before; an end that is a point (a cone's apex) is an opposite point. A face with no end (a full sphere or torus), a seam chosen as the guide, and guide edges not on one end are refused, naming the face or edge. Faces that do not close round are cut as before. No API change.
+- **Fixed, changed output (issue #791; decision 0675, option A):** face-flow finishing cuts a face that closes round on itself (a full cylinder or cone, or a B-spline face closed in one direction) instead of refusing it because its seam edge, listed once, kept its boundary from closing. Its seams are recognised from the face and edge themselves, its two ends are the guide (the longer, or the one holding the user's guide edges) and the opposite boundary, and each pass is a ring round the face, blended and spaced as before; an end that is a point (a cone's apex) is an opposite point. A face with no end (a full sphere or torus), a seam chosen as the guide, and guide edges not on one end are refused, naming the face or edge. Faces that do not close round are cut as before. No API change.
 
 - **Changed text:** face-flow finishing's first note counts the passes that cut, one per line across a face however many pieces the unreached stretches split it into, not the pieces; a face note whose planned passes do not all cut adds how many did ("; 12 of them cut and the rest are left out: along them the tool reaches no part of the face it may cut"), so the two counts read as one account. No path or API change.
 
 ## Unreleased (FACING-STEP; issues #650 and #500; decision 0667, accepted)
+
+## 0.59.0
+
+- **Family release (0.59.0; lane Z1-SETUP, PR 2; issue #692; decision 0673):** `openchuck-types`'s `Tool` gains the public field `stick_out`, a breaking change; no change to this crate.
+
+## 0.58.0 (FACING-STEP; issue #800; decision 0666 option C, accepted)
+
+- **Added:** `enclose(&BrepModel) -> Result<Enclosure>`, with `Enclosure` (its `points`, `analytic_excess` and `spline_excess`, and `mesh()`) and the constants `ANALYTIC_EXCESS` (0.0005 mm) and `SPLINE_TARGET` (0.001 mm). The enclosure's points hold every face of a B-rep part, bounded from its exact geometry, never its tessellation:
+  - planes, from their exact edges (or, without them, their parameter box);
+  - cylinders, cones, spheres and tori, from circumscribed arcs over the face's parameter box, at most `ANALYTIC_EXCESS` outside;
+  - B-spline faces and edges, from their control points, split exactly worst first until within `SPLINE_TARGET` or a work limit, with the excess reached reported.
+  
+  `Enclosure::mesh` is the prism over the points' outline seen along X between their X extremes: exact along X and across it, as Facing reads a part. A face it cannot bound (a weight that is not positive, geometry that is not finite, a flat face with neither exact edges nor a finite parameter box) is refused, naming the face; so is a face that would need more points than the work limit, before its points are built.
+- **Changed (docs only):** `FacingSetup::part` and `projection_error` document that a STEP host passes the enclosure's mesh with `Some(0)`.
+- No existing signature changes; the workspace minor bump to 0.58.0 is this change's own (decision 0048).
 
 ## 0.56.0
 

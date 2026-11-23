@@ -233,6 +233,7 @@ fn fixture(name: &str, file: &str) -> Fixture {
             flute_count: 2,
             material: None,
             centre_cutting: None,
+            stick_out: None,
         },
         controller: ControllerMapping {
             number: 1,
@@ -368,6 +369,7 @@ fn req_ui_10_req_ui_11_req_ui_14_post_and_export_names_the_first_thing_missing()
                 flute_count: 2,
                 material: None,
                 centre_cutting: None,
+                stick_out: None,
             },
             controller: ControllerMapping {
                 number: 1,

@@ -20,7 +20,7 @@
 //!   and the two sides next to it; with only two sides left it is the point
 //!   where they meet (a three-sided face), and with one it is that side.
 //! - **A face that closes round on itself** (a full cylinder or cone; issue
-//!   #791, decision record 0xxx) is bounded by a seam, an edge along which
+//!   #791, decision record 0675) is bounded by a seam, an edge along which
 //!   the face meets itself, listed once though the boundary runs along it
 //!   twice. Its seams are not boundaries: its two ends are the guide (the
 //!   longer, or the one holding the user's guide edges) and the opposite
@@ -820,7 +820,7 @@ fn boundaries(
 }
 
 // ---------------------------------------------------------------------------
-// A face that closes round on itself (issue #791; decision record 0xxx).
+// A face that closes round on itself (issue #791; decision record 0675).
 
 /// How a face closes round on itself: its seams, the edges along which it
 /// meets itself, and the parameter period in u and in v in each direction
@@ -845,7 +845,7 @@ fn spread(points: &[Point3], n: usize) -> Vec<Point3> {
         .collect()
 }
 
-/// Whether and how `face` closes round on itself (decision record 0xxx):
+/// Whether and how `face` closes round on itself (decision record 0675):
 /// it closes in u where the two ends of its parameter box are the same
 /// curve on the part, and a seam is an edge of no other face, not a point,
 /// lying along that curve.
@@ -973,7 +973,7 @@ fn started_at(points: &[Point3], at: &[Point3]) -> Vec<Point3> {
 }
 
 /// The guide and opposite end of a face that closes round on itself
-/// (decision record 0xxx, option A): its seams are not boundaries; its two
+/// (decision record 0675, option A): its seams are not boundaries; its two
 /// ends are the guide (the longer, or the one holding the user's guide
 /// edges) and the opposite boundary, or a point where an end closes on one.
 /// Each pass is then a ring round the face.

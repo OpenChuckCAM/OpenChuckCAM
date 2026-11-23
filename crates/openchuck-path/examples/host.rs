@@ -119,6 +119,7 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
         flute_count: 2,
         material: None,
         centre_cutting: None,
+        stick_out: None,
     }
     .profile()?;
     let machine = MachineProfile::example_x_rotary();

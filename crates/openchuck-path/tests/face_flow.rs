@@ -1482,7 +1482,7 @@ fn rings(passes: &[Pass]) -> Vec<(f64, f64)> {
 
 #[test]
 fn req_op_28_a_full_cylinder_is_cut_in_rings_from_one_end_to_the_other() {
-    // Decision 0xxx option A: the seam is not a boundary; the passes are
+    // Decision 0675 option A: the seam is not a boundary; the passes are
     // rings round the face from its guide end (the end circles are equally
     // long, so the one with the lower edge ID, at X 0) to the other end.
     let (radius, length, stepover) = (10.0, 20.0, 1.0);

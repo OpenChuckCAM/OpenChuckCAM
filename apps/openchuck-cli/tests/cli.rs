@@ -1664,3 +1664,45 @@ fn req_ui_12_the_command_line_says_every_check_in_the_one_form() {
     assert!(checked >= 4, "{checked}");
     std::fs::remove_dir_all(&project).ok();
 }
+
+/// `tool --stick-out` sets a project tool's stick-out, between its flute
+/// length and its overall length, and `none` clears it; the tool line shows
+/// it (TL-02, NFR-07; decision record 0673).
+#[test]
+fn req_tl_02_req_nfr_07_cli_sets_and_clears_a_tool_s_stick_out() {
+    let from = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../testdata/examples/baluster/baluster-project");
+    let dir = std::env::temp_dir().join(format!("openchuck-stick-out-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    for entry in walk(&from) {
+        let target = dir.join(entry.strip_prefix(&from).unwrap());
+        std::fs::create_dir_all(target.parent().unwrap()).unwrap();
+        std::fs::copy(&entry, target).unwrap();
+    }
+    let p = dir.to_str().unwrap();
+    let out = run(&args(&["tool", p, "T104", "--stick-out", "28"]));
+    assert_eq!(out.code, Some(0), "{}", out.stderr);
+    assert!(out.stdout.contains("stick-out 28 mm"), "{}", out.stdout);
+    // Shorter than the 25 mm of flute: refused, naming the field.
+    let out = run(&args(&["tool", p, "T104", "--stick-out", "20"]));
+    assert_ne!(out.code, Some(0));
+    assert!(out.stderr.contains("stick_out"), "{}", out.stderr);
+    let out = run(&args(&["tool", p, "T104", "--stick-out", "none"]));
+    assert_eq!(out.code, Some(0), "{}", out.stderr);
+    assert!(!out.stdout.contains("stick-out"), "{}", out.stdout);
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+/// Every file under `dir`.
+fn walk(dir: &std::path::Path) -> Vec<std::path::PathBuf> {
+    let mut out = Vec::new();
+    for entry in std::fs::read_dir(dir).unwrap() {
+        let path = entry.unwrap().path();
+        if path.is_dir() {
+            out.extend(walk(&path));
+        } else {
+            out.push(path);
+        }
+    }
+    out
+}

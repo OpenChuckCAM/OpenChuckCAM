@@ -18,6 +18,9 @@
 # profiles Carvera-Community/Carvera_Community_Profiles at 186e7b9,
 # CAM_Post_Processors/Fusion360-profiles/Tool Files/csv/Makera O Flute
 # Bits.csv only.
+# Stick-out (decision record 0673): owner-provided: standard tool setup holds
+# 12.7 mm inside the collet (22 Nov 2026), so stick_out = overall_length - 12.7
+# (tip to collet face). Not confirmed on the machine.
 schema = 1
 id = "c0de0001-0000-4000-8000-000000000104"
 name = "Z1 O-flute 3.175x25"
@@ -26,6 +29,7 @@ name = "Z1 O-flute 3.175x25"
 diameter = 3.175
 flute_length = 25.0
 overall_length = 42.0
+stick_out = 29.3
 shank_diameter = 3.175
 flute_count = 1
 material = "carbide"

@@ -140,6 +140,7 @@ fn tool(shape: ToolShape, diameter: f64) -> RevolvedProfile {
         flute_count: 2,
         material: None,
         centre_cutting: None,
+        stick_out: None,
     }
     .profile()
     .unwrap()

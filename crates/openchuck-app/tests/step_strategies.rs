@@ -114,6 +114,7 @@ fn ball() -> ToolSnapshot {
             flute_count: 2,
             material: None,
             centre_cutting: Some(true),
+            stick_out: None,
         },
         controller: ControllerMapping {
             number: 1,
@@ -833,6 +834,7 @@ fn req_op_07_req_op_12_swarf_on_the_blisk_keeps_off_the_wall_at_the_end_of_a_twi
         flute_count: 2,
         material: None,
         centre_cutting: None,
+        stick_out: None,
     }
     .profile()
     .unwrap();
@@ -1196,6 +1198,7 @@ fn req_op_11_req_op_07_a_swarf_ramp_on_the_blisk_cuts_no_deeper_than_its_pass() 
         flute_count: 2,
         material: None,
         centre_cutting: Some(true),
+        stick_out: None,
     }
     .profile()
     .unwrap();
@@ -1340,7 +1343,7 @@ fn req_op_27_req_op_09_pencil_with_a_flat_end_cuts_the_same_passes_with_exact_co
     // tessellation, alone or after roughing. (After axial finishing with a
     // tapered ball the two differ, because pencil judges the material left
     // from a flat end's contact point, which is arbitrary along its flat:
-    // decision 0xxy item 4, lane PENCIL-REST.)
+    // decision 0676 item 4, lane PENCIL-REST.)
     for before in [
         Vec::new(),
         vec![("rotary_roughing", vec![("stock_to_leave", n(0.5))])],
@@ -1379,7 +1382,7 @@ fn req_op_27_req_op_09_pencil_with_a_flat_end_cuts_the_same_passes_with_exact_co
     }
 }
 
-/// Issue #791 (decision 0xxx, option A): a STEP face that closes round on
+/// Issue #791 (decision 0675, option A): a STEP face that closes round on
 /// itself is cut in rings from one end to the other: the sides of
 /// `cylinder.step` and `cone.step` in rings at constant X, the cylinder's on
 /// its radius, the blisk's

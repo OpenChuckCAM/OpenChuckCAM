@@ -121,6 +121,7 @@ fn build(name: &str) -> Built {
             flute_count: 2,
             material: None,
             centre_cutting: None,
+            stick_out: None,
         },
         controller: ControllerMapping {
             number: 1,

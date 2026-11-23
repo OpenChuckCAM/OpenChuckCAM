@@ -1,6 +1,6 @@
-# 0xxy: Face-flow finishing's pass counts, the empty Cut on line, set counts and the STEP notice; pencil clean-up's passes with exact contact investigated (issues #631, #614, #615, #632; lane FACEFLOW)
+# 0676: Face-flow finishing's pass counts, the empty Cut on line, set counts and the STEP notice; pencil clean-up's passes with exact contact investigated (issues #631, #614, #615, #632; lane FACEFLOW)
 
-- **Status:** proposed 23 Nov 2026 by lane FACEFLOW. Wording fixes with no design choice and an investigation whose follow-up the owner sent to lane PENCIL-REST (23 Nov 2026, relayed); no path, G-code, API or schema change. The number is provisional: the coordinator assigns the final number at release.
+- **Status:** Accepted by the project owner on 23 Nov 2026, relayed by the coordinator (decision 0049). Proposed 23 Nov 2026 by lane FACEFLOW: wording fixes with no design choice and an investigation whose follow-up the owner sent to lane PENCIL-REST (23 Nov 2026, relayed); no path, G-code, API or schema change. Written as 0xxy; numbered 0676 at the release of #854 (23 Nov 2026), assigned by the coordinator.
 - **Date:** 23 Nov 2026.
 - **Issues:** #631, #614 (widened to swarf by the owner on 14 Nov 2026), #615, #632.
 - **Requirements:** OP-28, OP-02, OP-09, OP-27, UI-12, NFR-07, NFR-12.
