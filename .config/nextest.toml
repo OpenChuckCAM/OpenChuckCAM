@@ -201,6 +201,12 @@ priority = 79
 # container beside other builds: 482 s (1 thread), 471 s (2) and 458 s (N).
 # First-cut committed-project determinism, focused rerun after reviewed main golden update:
 # 293.759 s uninstrumented (both posts at 1, 2 and N threads); remains long/coverage-excluded.
+# STEPPED-CYL 23 Nov 2026 (decision 0xxx): the first-cut part is now the stepped cylinder, roughed
+# and finished with the flat end 104. Uninstrumented, 4 vCPU, the first-cut module side by side
+# (`cargo nextest run -p openchuck-cli --test e2e -E 'test(/^first_cut::/)'`): 97.0 s (1 thread),
+# 83.7 s (2) and 76.8 s (N); the simulation test, renamed by suffix to
+# `..._simulates_without_overcut_and_to_the_model_at_the_stations` (the filters below still
+# select it), 62.6 s. All four stay over a minute, so they stay listed.
 # ROUGHPATH 24 Oct 2026, four test workers: req_op_21_default_tabs_follow_the_owners_answers, 62.697 s uninstrumented.
 # ROUGHPATH 24 Oct 2026, four test workers: req_gc_07_req_nfr_06_workholding_gives_the_same_gcode_at_any_thread_count, 96.301 s uninstrumented.
 # ROUGHPATH 24 Oct 2026, four test workers: req_op_13_req_op_14_req_gc_07_req_nfr_06_default_tabs_pass_gates_1_and_2, 97.045 s uninstrumented.

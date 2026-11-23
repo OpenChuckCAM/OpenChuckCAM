@@ -236,64 +236,83 @@ Section numbers: Part A B1 = 20 ms, B2 = 10, B3 = 7, B4 = 5, B5 = 3, B6 = 2, B7 
 
 ## 5. Gate 5: the first cut
 
-Gate 5 cuts soft, low-cost material, attended, and compares the result with the model. It passes when the part matches the model within the first-cut limit of [verification plan 4.1](verification-plan.md), **±0.1 mm**, and the findings are recorded. The owner chose (22 Oct 2026) to skip the 3-axis repeatability part and keep ±0.1 mm, and to cut a new first-cut project in tooling board rather than the reference job set. Both change slice 20 item 11, so they are in [decision 0221](decisions/0221-gate-5-first-cut-project-and-limit.md) (accepted by the owner, 22 Oct 2026); the verification plan, the work breakdown and the safe-practice checklist are edited to match.
+Gate 5 cuts soft, low-cost material, attended, and compares the result with **the simulated part**. It passes when every measurement of 5.7 is within the first-cut limit of [verification plan 4.1](verification-plan.md) and the findings are recorded.
+
+**The limit:**
+
+| Measured | Limit |
+| --- | --- |
+| A diameter (micrometer) | ±0.1 mm |
+| A radius (probe) | ±0.05 mm |
+| A position along X, or a step length | ±0.1 mm |
+
+Each is measured against the simulated part at the same X. The simulation's own deviation from the model is reported beside it.
+
+**Where this comes from:**
+
+- **[Decision 0221](decisions/0221-gate-5-first-cut-project-and-limit.md)** (accepted by the owner, 22 Oct 2026): no 3-axis repeatability part, a ±0.1 mm limit, and a first-cut project in tooling board rather than the reference job set.
+- **[Decision 0xxx](decisions/0xxx-the-gate-5-reference-part-is-a-stepped-cylinder.md)** (accepted by the owner, 23 Nov 2026):
+  - the cone of the rc3 first cut is replaced by stepped cylinders;
+  - the part is compared with the simulated part, not the model;
+  - the part is measured with the probe in the machine, then with a micrometer;
+  - X0 is set from the probed tail end face;
+  - the part is finished with the flat end 104, the only tool.
+
+The reasons are in the rc3 test record (issue #586, archived under `docs/archive/0653-release-0-55-verification/`). On the cone, a 1.4 mm error in where the part sat read as 0.56 mm of diameter. The readings could not tell a work-zero error from a size error.
 
 ### 5.1 Before gate 5
 
 | Step | Do | Pass when |
 | --- | --- | --- |
-| F1 | Gate 4 for this program | The first-cut project's own Z1 program (5.2) has passed gate 4 (air cut, no tool, no material, every step of section 4), at the same commit, with the same profile and post. Any change since: back to gate 1. |
-| F2 | Safe-practice checklist section 3 | Every box ticked. Its first-cut limit line reads ±0.1 mm (decision 0221). |
-| F3 | Tool change test with a real tool (OI-41) | The tool change (`M5`, `T<n> M6`) has been run attended with a real tool and its length measurement watched. Gate 4 ran `T1 M6` with no tool (OI-912), which shows the controller accepts the line but not what it does with a tool fitted, so this test is still needed. |
-| F4 | First-cut limit | ±0.1 mm on every measurement of 5.7 (OI-916, decision 0221). |
-| F5 | The first-cut project | The project of 5.2 exists, its geometry has been confirmed with the owner (5.2, item G0), and it passes gates 1 to 3 like any other program. |
-| F6 | The tools confirmed with the owner | **Stop here and confirm the tools with the owner** once the project is generated (5.3, T0). Do not go on until they have agreed them. |
+| F1 | Gate 4 for this program | The first-cut project's own Z1 program (5.2) has passed gate 4 (air cut, no tool, no material, every step of section 4), at the same commit, with the same profile and post. Any change since (the tool, its speeds, the stock): back to gate 1. |
+| F2 | Safe-practice checklist section 3 | Every box ticked. Its first-cut limit line reads as above. |
+| F3 | Tool change with a real tool | Done: tested attended with a real tool at the rc3 first cut (OI-41, closed; rc3 record E-03). This program has one tool, changed once at the start (`T1 M6`). |
+| F4 | First-cut limit | As at the top of this section, on every measurement of 5.7 (decisions 0221 and 0xxx). |
+| F5 | The first-cut project | The project of 5.2 exists and passes gates 1 to 3 like any other program. |
+| F6 | The tool and its speeds confirmed with the owner (OI-9903) | **Stop here until the owner has said which 3.175 mm flat end is fitted and confirmed its finishing preset** (5.3, T0). The project must hold the tool that is fitted. |
 
 ### 5.2 The first-cut project
 
-The owner's specification (22 Oct 2026, OI-914):
+**The project.** It is committed in `testdata/projects/first_cut/`, built by `apps/openchuck-cli/tests/e2e.rs` (`build_first_cut`). `cargo run -p openchuck-cli --example sample_projects -- <folder> first_cut` writes it out with its part, `models/part.stl`: open that folder, or cut the model from stock. Its programs are in `testdata/golden/first_cut/`:
 
-| Item | Value |
-| --- | --- |
-| Stock | Box, 35 x 35 x 100 mm, tooling board |
-| Where the job sits | At the **end** of the stock (the tailstock end), not over the whole length |
-| Part | 25 mm long |
-| Tab | 5 mm long, joining the part to the rest of the stock |
-| Tailstock tab | Very thin: 2 mm long, 10 mm diameter, at the tailstock end, to give the tailstock clearance |
-| Workholding | Chuck at one end, **tailstock** at the other |
-| Tools | Only the Z1 library's 3.175 mm single-flute or ball-nose tools (5.3) |
-| Material | "Plastic" (OI-915, 5.3) |
-
-**G0. The geometry, as the owner answered it (22 Oct 2026, relayed by the coordinator) and as this lane read it.** The project is committed in `testdata/projects/first_cut/`, built by `apps/openchuck-cli/tests/e2e.rs` (`build_first_cut`), and written out with its part by `cargo run -p openchuck-cli --example sample_projects -- <folder> first_cut`. Its programs are `testdata/golden/first_cut/`, checked by gates 1 and 2 in the end-to-end suite and replayed by gate 3 (`cargo xtask replay`).
+- gates 1 and 2 check them in the end-to-end suite;
+- gate 3 replays the LinuxCNC program in bounded chunks ([decision 0244](decisions/0244-bounded-first-cut-linuxcnc-replay.md)).
 
 | From X 0 (the head end, the chuck) | What | Source |
 | --- | --- | --- |
-| X 0 | Work zero X0: the head end of the stock, on the axis | Owner |
-| X 0 to 10 | Gripped by the chuck jaws (at most 10 mm) | Owner |
-| X 10 to 68 | Free stock, **left uncut** | Owner ("do not use the whole length"); X positions the coordinator's proposed layout |
-| X 0 to 68 | **One held region at the start, 68 mm, box section** (no holding diameter, decision 0160): the 10 mm in the jaws plus the 58 mm left uncut, so the setup sheet reads "Held at the start: 68 mm" though the chuck grips 10 mm. Nothing else in the software keeps a tool off a length of stock (OP-22 is not built, OI-923). Accepted by the owner (22 Oct 2026) | This lane's reading, accepted |
-| X 68 to 73 | Tab, cylinder 10 mm diameter, 5 mm long, on the axis | Owner |
-| X 73 to 98 | Part: a cone 25 mm long, **20 mm diameter at X 73 (the head side), 10 mm at X 98 (the tailstock side)**, so its small end meets the 10 mm tailstock piece flush and the tailstock side has no shoulder | Owner: a cone 25 mm long, 20 mm largest; the small diameter and the direction are this lane's reading |
-| X 98 to 100 | Tailstock piece, 10 mm diameter, 2 mm long: **a held region at the end** (the owner's answer to OI-924, option A), so every cutting move keeps clear of it and of the tailstock beyond it (decision 0161): the fed moves stay between X 70.1 and 95.9, and the cone's last 2 mm (X 95.9 to 98) are left unfinished. As a tab (rejected), the program cut past the stock's end: roughing 544 fed moves to X 101.02, the finishing ball's edge to about X 101.6 | Owner (a 10 mm, 2 mm piece; OI-924 A) |
+| X 0 | Work zero X0: the head end of the stock, on the axis. It is set from the probed tail end face (M4) | Owner (decision 0xxx, Q4, X2) |
+| X 0 to 10 | Gripped by the chuck jaws (at most 10 mm) | Owner (OI-914) |
+| X 0 to 68 | **One held region at the start, 68 mm, box section** (decision 0160): the 10 mm in the jaws plus 58 mm of free stock left uncut | Owner (OI-914, OI-923) |
+| X 68 to 73 | Tab, cylinder 10 mm diameter, 5 mm long, on the axis | Owner (OI-914) |
+| X 73 to 80 | **Step 1: cylinder 24 mm diameter**, 7 mm long. Its face at X 73 faces the chuck | Owner (decision 0xxx, Q1, A) |
+| X 80 to 88 | **Step 2: cylinder 17 mm diameter**, 8 mm long. The face at X 80 faces the tailstock | Owner (decision 0xxx) |
+| X 88 to 98 | **Step 3: cylinder 10 mm diameter**, 10 mm long. The face at X 88 faces the tailstock. It meets the tailstock piece flush | Owner (decision 0xxx) |
+| X 98 to 100 | Tailstock piece, 10 mm diameter, 2 mm long: **a held region at the end** (OI-924, option A), so every cutting move keeps clear of it and of the tailstock beyond it (decision 0161). The fed moves stay between X 70.1 and 95.9 | Owner (OI-924) |
 | X 100 | End of the stock; the tailstock centre | Owner |
 
-Stock box 35 x 35 x 100 mm, X 0 to 100, Y and Z -17.5 to 17.5; material "Plastic"; roughing (rotary roughing) with tool 104, finishing (helical, 5 degree steps) with tool 204, both with the Plastic presets (OI-921). The program numbers them **T1 (104, roughing) and T2 (204, finishing)**, as the owner decided (22 Oct 2026): the Z1 profile carries no tool set, so fit 104 as T1 and 204 as T2.
+![Side view of the stepped first-cut part at A0, to scale: the held region, the tab, the three steps, the tailstock piece, the fed-move limits, the flat end on a face turn and the probe stations.](decisions/0xxx-the-gate-5-reference-part-is-a-stepped-cylinder.svg)
 
-**Still for the owner to confirm:** the cone's direction, its 10 mm small end on the tailstock side (in the draft pull request's review). The 68 mm held region, the tailstock piece as a held region and the tool numbers are confirmed (22 Oct 2026).
+**The rest of the project:**
 
-Read them on the setup sheet (its Setup section's "Held at the start", "Held at the end" and "Tabs" lines and the "Tabs: <setup>" table, OI-918) and check them against the application's **Workholding and tabs** section (specification section 11.7). Write them on the form.
+- **Stock:** box 35 x 35 x 100 mm, X 0 to 100, Y and Z −17.5 to 17.5; material "Plastic".
+- **Roughing:** rotary roughing with tool 104.
+- **Finishing:** helical, 5 degree steps, with the **same tool 104** (decision 0xxx, Q5, F2).
+- **One tool:** the program numbers it **T1** and changes it once, at the start. There is no second tool.
+- **The face turns:** finishing turns A once round, without moving along X, beside each face: X 71.41 (the face at X 73), 81.59 (X 80) and 89.59 (X 88) ([decision 0297](decisions/0297-helix-strategies-turn-at-faces-across-the-axis.md)). The side of the flat end cuts each face square, with no radius at its root.
+
+Read the workholding on the setup sheet (its Setup section's "Held at the start", "Held at the end" and "Tabs" lines and the "Tabs: <setup>" table, OI-918). Check it against the application's **Workholding and tabs** section (specification section 11.7). Write it on the form.
 
 | Step | Check | Pass when |
 | --- | --- | --- |
-| W1 | Held region at the start: 68 mm, box section | The chuck grips 10 mm or less of it (measure the jaw depth); the rest, X 10 to 68, is the free stock left uncut (G0). |
-| W2 | The grip warning | No amber warning under **Grip length**. If there is one, it names how much of the part the held region covers (OI-554): that length of the part will **not** be machined. With the job at the far end of a 100 mm stock there should be none. |
-| W3 | Tab and the tailstock piece | The 10 mm tab at X 68 to 73; "Held at the end" reads "2 mm of the stock, X 98 to 100 mm, at diameter 10 mm" (OI-924). A tab with no room shows a warning (decision 0202). |
-| W4 | Setup checks and messages | No error. Read every warning and write it down. "Safe Z cannot be checked against the Z travel" means the axis height is still the placeholder (OI-60): go back to gate 4 P8. |
-| W5 | Stock and part | Box 35 x 35 x 100 mm from X 0; the setup sheet's Part offset reads "part moved 73 mm", so the cone spans X 73 to 98. |
+| W1 | Held region at the start: 68 mm, box section | The chuck grips 10 mm or less of it (measure the jaw depth and record it); the rest, X 10 to 68, is free stock left uncut. |
+| W2 | The grip warning | No amber warning under **Grip length**. If there is one, it names how much of the part the held region covers (OI-554). With the job at the far end of a 100 mm stock there should be none. |
+| W3 | Tab and the tailstock piece | The 10 mm tab at X 68 to 73; "Held at the end" reads "2 mm of the stock, X 98 to 100 mm, at diameter 10 mm" (OI-924). |
+| W4 | Setup checks and messages | No error. Read every warning and write it down. The "Tool length" warning (a 30 mm stick-out assumed inside the 45 mm clearance radius) is expected: check the clearance over the chuck and the Z travel by jogging (P10). |
+| W5 | Stock and part | Box 35 x 35 x 100 mm from X 0. The setup sheet's Part offset reads "part moved 73 mm", so the steps span X 73 to 98. |
 
-### 5.3 Tools, material and speeds
+### 5.3 Tool, material and speeds
 
-The Z1 tool library (built-in defaults, `crates/openchuck-project/defaults/z1/`) holds five 3.175 mm tools. Every one has cutting data for **"Plastic"** and **"Softwood"** (checked on `main`, 22 Oct 2026; 32 of the library's 54 tools have Plastic data; material names match ignoring case, decision 0197):
+The Z1 tool library (built-in defaults, `crates/openchuck-project/defaults/z1/`) holds five 3.175 mm tools. Every one has cutting data for **"Plastic"** and **"Softwood"**:
 
 | No. | Tool | Type, flutes | Flute length | "Plastic" preset: rpm, mm per tooth (feed), plunge, stepover, stepdown |
 | --- | --- | --- | --- | --- |
@@ -303,76 +322,116 @@ The Z1 tool library (built-in defaults, `crates/openchuck-project/defaults/z1/`)
 | 201 | Z1 ball metal 3.175x10 | Ball end, 2 flutes | 10 mm | 12000, 0.0208 (500 mm/min), 200 mm/min, 0.4536 mm, 1.0 mm |
 | 204 | Z1 ball 3.175x22 | Ball end, 2 flutes | 22 mm | 12000, 0.0208 (500 mm/min), 200 mm/min, 0.4536 mm, 1.0 mm |
 
-The library has no single-flute ball-nose tool at 3.175 mm: the ball-nose tools are two-flute.
+**The project's tool is 104 (Z1 O-flute 3.175x25, single flute, flat end) for both operations** (decision 0xxx, Q5, F2). This replaces OI-921's finishing tool, 204. Both operations take its "Plastic" preset. The finishing helix's pitch is the preset's stepover, 2.2225 mm.
 
-**The owner's choice (OI-921, 22 Oct 2026): rough with 104 (Z1 O-flute 3.175x25, single flute) and finish with 204 (Z1 ball 3.175x22, two flutes), both with the "Plastic" presets.** Write on the form that the finishing tool is two-flute. The "Softwood" presets of these tools differ from "Plastic" only in the stepdown (2.0 mm).
+**Unconfirmed: the finishing preset (OI-9903).** The owner confirmed 104's "Plastic" preset for roughing (OI-921). For finishing it is the library's value, not yet confirmed by the owner. Do not cut until the owner has confirmed it or given another (F6).
+
+**The tool must reach the depth.** The deepest cut, from the box's corners (24.7 mm from the axis) to the tab and step 3 (5 mm), is 19.7 mm. 104 has 25 mm of flute. 101 has 12 mm, which is not enough.
 
 | Step | Check | Pass when |
 | --- | --- | --- |
-| T0 | **Confirm the tools with the owner** (the owner's instruction). When the project is generated, show the owner the setup sheet's Tools and Operations tables (number, name, type, diameter, flute length, spindle rpm, Speed from) | Roughing uses 104 and finishing 204, as the owner chose (OI-921), and the owner has agreed the generated project. Record who agreed and when. |
-| T1 | Each operation's tool | One of the five tools above, and the tool number matches the program's `T<n>` (GC-14). |
-| T2 | Material | The setup's material is **Plastic**, so the operations take the Plastic presets: the setup sheet's **Speed from** reads "tool data: Plastic" (decision 0196, OI-755). If an operation sets its own speed, Speed from reads "operation": check the value with the owner. |
-| T3 | A tool with no Plastic data | None of the five lacks it. If a tool without Plastic data is ever used: copy its Softwood data to a new Plastic entry in the tool library; if it has no Softwood data either, **ask the owner before** using settings from a similar tool (OI-915). |
+| T0 | **Confirm the tool with the owner** (OI-9903). When the project is generated, show the owner the setup sheet's Tools and Operations tables (number, name, type, diameter, flute length, spindle rpm, Speed from) | The tool fitted is the project's tool (104, or the project has been changed to the tool fitted and has passed gates 1 to 4 again), and the owner has confirmed its finishing preset. Record who confirmed and when. |
+| T1 | The tool | One tool, T1, and the tool number matches the program's `T1` (GC-14). |
+| T2 | Material | The setup's material is **Plastic**, so both operations take the Plastic preset: the setup sheet's **Speed from** reads "tool data: Plastic" (decision 0196). If an operation sets its own speed, Speed from reads "operation": check the value with the owner. |
+| T3 | A tool with no Plastic data | None of the five lacks it. If one is ever used: copy its Softwood data to a new Plastic entry in the tool library; if it has no Softwood data either, **ask the owner before** using settings from a similar tool (OI-915). |
 | T4 | Feeds | The program's F words are within the profile's limits (R10); the plunge F matches the preset. |
-| T5 | Stick-out | The tool sticks out of the holder at least as far as the deepest cut plus a margin, and the flute length covers the depth from the stock's surface to the part (the box's corners are 24.7 mm from the axis). The Z1 measures tool length itself (decision 0007: no `G43`); follow the machine's own procedure. |
+| T5 | Stick-out | The tool sticks out of the holder at least as far as the deepest cut (19.7 mm) plus a margin, and its flute length covers it. The Z1 measures tool length itself (decision 0007: no `G43`); follow the machine's own procedure. |
 
 ### 5.4 Simulate before cutting
 
 | Step | Do | Pass when |
 | --- | --- | --- |
-| V1 | Run **Simulate** in the application (or `openchuck-cli simulate <project>`), at the default cell (0.1 mm) or finer | It completes. No banner saying the result is out of date (decision 0192). |
-| V2 | Overcut | The results inspector shows no overcut beyond the tolerance, and the command line reports no "OVERCUT" and no rapid move that removes material. |
-| V3 | Material left | Write down the largest material left and where it is (the probe and "Go to largest left" show it). Material left on a held region or tab face is not counted; a cut **into** one is (decision 0194). |
-| V4 | Held region and tabs | They stay whole in the simulated stock (SET-09, OP-21); the 2 mm tailstock tab is not cut through. |
-| V5 | Playback | Play the program through. No fed move goes below X 70.1 or above X 95.9: the tool stays clear of the held regions at both ends (decision 0161, OI-924). |
-| V6 | Keep | A screenshot of the coloured part, the histogram and the worst values, for the comparison in 5.7. |
+| V1 | Run **Simulate** in the application (or `openchuck-cli simulate <project>`), at the default cell (0.1 mm) or finer (0.05 mm runs; 0.025 mm is refused on this stock size) | It completes. No banner saying the result is out of date (decision 0192). |
+| V2 | Overcut | No overcut beyond the tolerance, and the command line reports no "OVERCUT" and no rapid move that removes material. An overcut of up to about half the cell on the steps is the simulation's resolution (decision 0xxx: 0.046 mm at 0.1 mm, 0.023 mm at 0.05 mm). |
+| V3 | Material left, and the simulated part at the stations | Write down the largest material left and where it is (the probe and "Go to largest left" show it). Expect about 0.5 mm at the very end of step 3 (X 98, against the held end). With the probe, read the simulated deviation at each station of 5.7 and write it on the form: on the steps it is about 0. The end-to-end test checks a mean within ±0.05 mm. |
+| V4 | Held region and tabs | They stay whole in the simulated stock (SET-09, OP-21); the 2 mm tailstock piece is not cut through. |
+| V5 | Playback | Play the program through. No fed move goes below X 70.1 or above X 95.9 (decision 0161, OI-924). Finishing turns once round at X 71.41, 81.59 and 89.59. |
+| V6 | Keep | A screenshot of the coloured part, the histogram and the worst values, for 5.7. |
 
-The simulation is a check on the program, not a promise about the machine (NFR-12): it does not model the bodies of the chuck, the jaws and the tailstock (the held regions stand for them, SET-09), or the machine's own errors.
+The simulation is a check on the program, not a promise about the machine (NFR-12). It does not model the bodies of the chuck, the jaws and the tailstock (the held regions stand for them, SET-09), or the machine's own errors.
 
 ### 5.5 On the machine: stock and offsets
 
 | Step | Do | Pass when |
 | --- | --- | --- |
-| M1 | Measure the stock (35 x 35 x 100 mm) | It matches the project's stock within what you consider safe; never larger. |
-| M2 | Load the stock in the chuck with the gripped length the project says (W1), and bring up the tailstock; tighten both | It does not move when you try to turn or pull it by hand. Turn A by jog a full turn at low feed: it turns true by eye and nothing touches. **Tailstock clearance (OI-924): jog the tool, in the air, to X 95.9 at the radius of the cone's tail end and up to safe Z, and check that the tailstock's body clears the tool and the holder at both.** The held region at the end keeps every cutting move clear of the tailstock end (SET-09, decision 0161); the tailstock's body itself is checked here, by eye. |
-| M3 | Fit the tool (T1, T5) | The tool number in the controller is the program's `T<n>`. |
-| M4 | Set the work zero with **Makera's own routine** (OI-917): Y and Z on the A axis, X0, and A0 | G54 Y0 Z0 on the axis centreline, X0 where the setup sheet's work offset line says, A0 as the routine sets it. Record on the form: which face X0 was taken from, how A0 was set, and G54 X, Y, Z in machine coordinates. The machine Z of G54 is the axis height (OI-60): compare it with the profile. |
+| M1 | Measure the stock (35 x 35 x 100 mm), its length to 0.05 mm | It is never larger than the project's stock, and **no more than about 1 mm shorter** than 100 mm (decision 0xxx, Q4). |
+| M2 | Load the stock in the chuck with the gripped length the project says (W1), and bring up the tailstock; tighten both | It does not move when you try to turn or pull it by hand. Turn A by jog a full turn at low feed: it turns true by eye and nothing touches. **Tailstock clearance (OI-924):** jog the tool, in the air, to X 95.9 at the radius of step 3 (5 mm) and up to safe Z, and check that the tailstock's body clears the tool and the holder at both. |
+| M3 | Fit the tool (T0, T5) | The tool number in the controller is the program's `T1`. |
+| M4 | **Set the work zero.** Y and Z on the A axis by Makera's routine (OI-917) or, as at rc3, from the axis measured with the probe (C2P). **X0 from the stock's tail end face** (decision 0xxx, Q4, X2; OI-2152), with the Makera 3D Probe: touch the end face moving −X, off the tailstock centre (5.7, probe notes). Then X0 = that machine X − the probe's tip radius (its calibration value) − **100** (the project's stock length). If the probe will not fit between the face and the tailstock centre with the tailstock up, touch the face before bringing the tailstock up (M2), then bring it up. A0 as the routine sets it | G54 Y0 Z0 on the axis centreline and X0 as above. Record on the form: the face touch (machine X), the tip radius used, X0, the measured stock length, how A0 was set, and G54 X, Y, Z in machine coordinates. The machine Z of G54 is the axis height: compare it with the profile. |
 | M5 | Check by hand that the first rapid position is clear: jog to the program's first `G0` position in G54 (X, Y0, safe Z, A0) at low feed | The tool is above the stock at the X the program starts at, and clears the jaws and the tailstock body. |
 | M6 | Protection | Eye and ear protection on; loose clothing, hair and jewellery secured; dust extraction or a mask for tooling board dust. |
 
 ### 5.6 The first cut
 
-- **C1.** Reread the program (section 4.2) one more time. It must be the file you air-cut for F1, regenerated only if you changed the tool, speeds or stock, in which case read it again from the start and air-cut it again.
+- **C1.** Reread the program (section 4.2) one more time. It must be the file you air-cut for F1, unchanged. If the tool, speeds or stock changed, regenerate it, read it again from the start and air-cut it again.
 - **C2.** Feed override at 10 %. Hand near feed hold and emergency stop.
-- **C3.** Start. Watch the tool change and the spindle start.
+- **C3.** Start. Watch the tool change (`M5`, `T1 M6`) and the spindle start (`S10000 M3`). There is no second tool change. The spindle starts again with the same `S10000 M3` at the finishing operation.
 - **C4.** Watch the first plunge: the tool comes down at the plunge feed to the first cut, no faster.
-- **C5.** Raise the override slowly, only while the cut sounds and looks steady.
-- **C6.** Stop at any unexpected sound, vibration, smell, smoke, or motion (section 7): for tooling board, tearing, the stock moving, or the tailstock tab breaking.
+- **C5.** Raise the override slowly, only while the cut sounds and looks steady. Record the override steps.
+- **C6.** Stop at any unexpected sound, vibration, smell, smoke, or motion (section 7): for tooling board, tearing, the stock moving, or the tailstock piece breaking.
 - **C7.** At the end, wait until everything has stopped before opening the enclosure.
 
-### 5.7 Inspect against the model and the simulation
+### 5.7 Measure against the simulated part
+
+Measure in this order:
+
+1. With the probe, before the stock leaves the machine.
+2. With a micrometer, after the stock leaves the chuck, with the part still on it. Do not cut the part off the stock; the tab stays whole.
+
+The measuring points are in program X.
+
+**Stations:**
+
+| Step | Stations (program X) |
+| --- | --- |
+| Step 1 (24 mm) | 74.5, 76.5, 78.5 |
+| Step 2 (17 mm) | 82, 84, 86 |
+| Step 3 (10 mm) | 90, 93, 96 |
+
+**Faces for the X touches:**
+
+| Face | Faces | Touch at radius |
+| --- | --- | --- |
+| X 80 | the tailstock | about 10.25 mm |
+| X 88 | the tailstock | about 6.75 mm |
+| X 100 (the stock's tail end face) | the tailstock | clear of the tailstock centre |
+
+The face at X 73 faces the chuck, in a groove about 4.5 mm wide, and is not touched.
+
+**Probe notes.** These commands are from the Z1 firmware source and the rc3 C2P notes (rc3 test record part 2). They are **unverified on a Z1**: nothing here says they are safe. Run them attended and stop at anything unexpected.
+
+- Use the Makera 3D Probe, with `M499` and the controller's probe selection.
+- Use `G38.2` only, at F 20 to 60. The X, Y and Z words of `G38.2` are relative distances, at most 5 mm, and soft limits are not checked during a probe move.
+- Send `M119` before each touch and check it prints `Probe: 0`.
+- Read the `[PRB:x,y,z:flag]` reply, in machine coordinates.
+- Back off with `G91` and `G0`, then `G90`.
+- Turn A only with the probe well above the part, always in the same direction.
 
 | Step | Do | Pass when |
 | --- | --- | --- |
-| I1 | Look at the part before you remove it | Both tabs whole, no marks on the gripped length (decision 0161), no gouges. Photograph it from four sides (A 0, 90, 180, 270). |
-| I2 | Measure the part's diameters (or widths) at stations along X: at least 5 over its 25 mm, away from the tabs | Each is within ±0.1 mm of the model at that X. |
-| I3 | Length and positions | The part's length (25 mm) and the tabs' positions and diameters within ±0.1 mm. |
-| I4 | Compare with the simulation (V3, V6) | Where the simulation showed material left, the part has it too, about as much; where it showed none, there is none. A difference larger than 0.1 mm is a finding. |
-| I5 | Surface | Write down anything that looks wrong: steps, chatter, a seam where A wraps. |
+| I1 | Look at the part before anything else. Photograph it from four sides (A 0, 90, 180, 270) | The tab and the tailstock piece whole, no marks on the gripped length (decision 0161), no gouges. |
+| I2 | **Probe the radii.** At each station, top touches at A0 and A180, three touches each (the mean of the final two slow touches, as C2P). The radius is the mean of the A0 and A180 tops, in G54 Z (G54 Z0 on the axis) | Each radius is within **±0.05 mm** of the simulated radius at that X (the model's radius plus the simulation's deviation read at V3). |
+| I3 | **Probe the faces.** Move −X: the face at X 80, the face at X 88, and the stock's tail end face, at the radii above, three touches each. The tip's diameter cancels between touches made in the same direction | The distance from the tail end face to each step face (20 and 12 mm), and the step length between them (8 mm), are each within **±0.1 mm**. Each face's G54 X (the touch less the tip radius) is within ±0.1 mm of 80 and 88. A difference here with the lengths right is a work-zero error (M4), not a size error. |
+| I4 | **Micrometer.** With the stock out of the chuck and the part still on it: a 0–25 mm micrometer across each step at the middle station, at A0 and at A90. Record the instrument and its resolution | Each diameter is within **±0.1 mm** of twice the simulated radius. The probe and the micrometer agree within about 0.02 mm on a radius. A larger difference is a finding: the probe's axis Z, or the probe itself. |
+| I5 | Lengths and the tabs | The tab is 10 mm in diameter at X 68 to 73 and the tailstock piece 10 mm at X 98 to 100, each within ±0.1 mm. The part is 25 mm long (X 73 to 98). |
+| I6 | Compare with the simulation (V3, V6) | Where the simulation showed material left, the part has it too, about as much (about 0.5 mm at the very end of step 3); where it showed none, there is none. A difference larger than 0.1 mm is a finding. |
+| I7 | Surface | Write down anything that looks wrong: steps, chatter, a seam where A wraps. Record the finish the single-flute flat end left on the steps and the faces. |
+
+**Reading the results.** If the radii are all off by about the same amount, the cause is the same at every radius: the tool length measurement (about ±0.02 mm alone) or the axis height. If they are off in proportion to the radius, it is a Z scale error. Report beside the results the known contributions the rc3 record lists: Z tilt after re-setting G54 (about 0.004 mm over this length), the tool length measurement (about ±0.02 mm), yaw (second order on a round section).
 
 ### 5.8 Gate 5 pass and fail
 
-- **Pass**: every check in 5.1 to 5.5 passed; the cut ran with no unexpected event; I1 to I4 within ±0.1 mm; the findings recorded.
-- **Fail**: any step above, or any measurement outside the limit. Follow section 7. A machine-side cause (stock slipped, wrong offset) is recorded and the cut repeated; a cause in the program is a defect.
+- **Pass:** every check in 5.1 to 5.5 passed; the cut ran with no unexpected event; I1 to I6 within the limits of 5.7; the findings recorded.
+- **Fail:** any step above, or any measurement outside its limit. Follow section 7. A machine-side cause (stock slipped, wrong offset) is recorded and the cut repeated; a cause in the program is a defect.
 
 ### 5.9 What to keep from gate 5
 
 - The filled results form (section 8.2).
 - The gate 4 issue number for the first-cut program.
-- The record of G0 (the geometry agreed) and T0 (the tools agreed).
-- The program, setup sheet and simulation screenshots (V6).
+- The record of T0: the tool fitted and the finishing preset confirmed, by whom and when (OI-9903).
+- The program, setup sheet and simulation screenshots (V6), and the simulated deviation at each station (V3).
 - Photos of the setup in the machine (stock in the chuck, tailstock, tool), and the finished part from four sides.
-- The measurements and the instrument used.
+- The probe console logs (the `[PRB:...]` lines), the micrometer readings and the instruments used.
 
 ## 6. One-page checklists
 
@@ -403,17 +462,16 @@ The simulation is a check on the program, not a promise about the machine (NFR-1
 
 - [ ] Gate 4 passed for the first-cut program, same commit, profile and post.
 - [ ] Safe-practice checklist section 3 complete.
-- [ ] First-cut project's geometry agreed with the owner (G0, OI-914); first-cut limit ±0.1 mm (decision 0221).
-- [ ] Tools agreed with the owner (T0): rough with 104 (single flute), finish with 204 (two flutes) (OI-921); material Plastic, Speed from "tool data: Plastic".
-- [ ] Tool change tested attended with a real tool (OI-41).
-- [ ] Workholding: grip length matches the chuck; no grip warning; the 5 mm tab and the 2 mm, 10 mm tailstock tab as agreed.
-- [ ] Stick-out, spindle speed and feeds checked against the Plastic presets.
-- [ ] Simulated: up to date; no overcut; no rapid removes material; held regions and tabs whole; screenshots kept.
-- [ ] Stock 35 x 35 x 100 mm measured, loaded to the grip length, tailstock up, turns true.
-- [ ] G54 by Makera's routine; X0 face and A0 recorded; first rapid position jogged and clear of jaws and tailstock.
+- [ ] The first-cut project is the stepped part of decision 0xxx (24, 17 and 10 mm at X 73 to 98); the limits: ±0.1 mm on a diameter, ±0.05 mm on a radius, ±0.1 mm on positions and lengths, against the simulated part.
+- [ ] The tool confirmed with the owner (T0, OI-9903): one tool, the flat end 104 as T1, for roughing and finishing; its finishing preset confirmed; material Plastic, Speed from "tool data: Plastic".
+- [ ] Workholding: grip length matches the chuck and is recorded; no grip warning; the 5 mm tab and the 2 mm, 10 mm tailstock piece as agreed.
+- [ ] Stick-out at least 19.7 mm plus a margin; spindle speed and feeds checked against the preset.
+- [ ] Simulated: up to date; no overcut beyond the cell; no rapid removes material; held regions and tabs whole; the simulated deviation at each station written down; screenshots kept.
+- [ ] Stock measured: no longer than 100 mm, at most about 1 mm shorter; loaded to the grip length, tailstock up, turns true.
+- [ ] G54 Y and Z on the axis; X0 from the probed tail end face (touch, tip radius, X0 recorded); A0 recorded; first rapid position jogged and clear of jaws and tailstock.
 - [ ] Protection on.
 - [ ] Program reread; override 10 %; hand on the stop.
-- [ ] Part inspected and measured; compared with the simulation.
+- [ ] Part measured: probe radii (A0 and A180) and face touches in the machine, then micrometer with the part still on the stock; compared with the simulated part.
 - [ ] Results form filled; issue raised with the attachments.
 
 ## 7. When something surprises you
@@ -524,31 +582,51 @@ Build information:
 Gate 4 issue for this program:
 Program:                                  Setup sheet fingerprint:
 Material: tooling board, setup material Plastic
-Stock measured (35 x 35 x 100 mm):
-Geometry agreed with the owner (G0), by and date:
-Tools agreed with the owner (T0), by and date:
-Grip length at the chuck:                 Tabs (5 mm; 2 mm x 10 mm tailstock tab):
-X0 taken from:                            A0 set by:
-Tools: roughing 104 (single flute), finishing 204 (TWO flutes); stick-out of each:
+Stock measured (35 x 35 x 100 mm; length to 0.05 mm):
+Tool confirmed with the owner (T0, OI-9903), by and date:
+Tool fitted (one tool, T1; 104 unless the project was changed):     stick-out:
 Spindle rpm and Speed from:               Cutting feed / plunge feed:
-First-cut limit: ±0.1 mm (decision 0221)
+Grip length at the chuck (measured):      Tabs (5 mm; 2 mm x 10 mm tailstock piece):
+X0: tail end face touch (machine X):      tip radius:      X0 (machine X):
+G54 X, Y, Z (machine):                    A0 set by:
+Limits: ±0.1 mm diameter, ±0.05 mm radius, ±0.1 mm positions and lengths, against the simulated part (decisions 0221, 0xxx)
 Simulation: cell (mm), worst material left (mm, where), overcut:
+Override used, and its steps:
+Probe and micrometer used, with resolution:
 ```
 
-| Station X (mm) | Model diameter (mm) | Measured diameter (mm) | Difference (mm) | Simulation's material left there (mm) | Within limit? |
+| Station X (mm) | Step | Model radius (mm) | Simulated deviation at V3 (mm) | Simulated radius (mm) | Probe radius (mean of A0 and A180 tops, mm) | Difference (mm) | Within ±0.05 mm? |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| 74.5 | 1 | 12.0 | | | | | |
+| 76.5 | 1 | 12.0 | | | | | |
+| 78.5 | 1 | 12.0 | | | | | |
+| 82 | 2 | 8.5 | | | | | |
+| 84 | 2 | 8.5 | | | | | |
+| 86 | 2 | 8.5 | | | | | |
+| 90 | 3 | 5.0 | | | | | |
+| 93 | 3 | 5.0 | | | | | |
+| 96 | 3 | 5.0 | | | | | |
+
+| Micrometer (part on the stock) | Simulated diameter (mm) | At A0 (mm) | At A90 (mm) | Difference (mm) | Within ±0.1 mm? |
 | --- | --- | --- | --- | --- | --- |
-| | | | | | |
-| | | | | | |
-| | | | | | |
-| | | | | | |
-| | | | | | |
+| Step 1, X 76.5 | | | | | |
+| Step 2, X 84 | | | | | |
+| Step 3, X 93 | | | | | |
+
+| Face touches (probe moving −X) | Machine X (mean of three) | Distance from the tail end face (mm) | Expected (mm) | Within ±0.1 mm? |
+| --- | --- | --- | --- | --- |
+| Tail end face (X 100) | | — | — | — |
+| Face at X 88 | | | 12 | |
+| Face at X 80 | | | 20 | |
+| Step 2 length (X 80 to 88) | — | | 8 | |
 
 | Check | Result |
 | --- | --- |
-| Tabs whole | |
+| Tab and tailstock piece whole | |
 | Gripped length unmarked | |
-| Length and tab positions within the limit | |
-| Surface notes | |
+| Tab and tailstock piece diameters and positions within the limit | |
+| Matches the simulation's material left (I6) | |
+| Surface notes (single-flute flat end) | |
 | Pass / fail, issue | |
 
 ## 9. Owner decisions and open items
@@ -561,17 +639,18 @@ The owner answered the questions of OI-910 to OI-919 on 22 Oct 2026 (relayed by 
 | OI-911 | Whether the spindle runs in the air cut | A: it runs as generated, with no tool; the program is tested exactly as generated | P7 | No |
 | OI-912 | How `T1 M6` is handled with no tool | B: run as generated and watch, ready on the stop; the tool change with a real tool is still tested before gate 5 (OI-41) | P7, F3 | No (OI-41 stays open) |
 | OI-913 | Where the reference jobs come from | A: committed as project folders (built in lane GATES); OI-920 A: without their generated meshes, which a generator example writes | P2 | No (OI-922: `drilling` and `swarf`) |
-| OI-914 | Which job gate 5 cuts | C: a new first-cut project to the owner's specification and geometry (5.2), built in lane GATES | 5.2, F5 | No (OI-923, OI-924) |
+| OI-914 | Which job gate 5 cuts | C: a new first-cut project to the owner's specification and geometry (5.2), built in lane GATES; its part changed from a cone to stepped cylinders by [decision 0xxx](decisions/0xxx-the-gate-5-reference-part-is-a-stepped-cylinder.md) (23 Nov 2026) | 5.2, F5 | No (OI-923, OI-924) |
 | OI-915 | Material and cutting data for gate 5 | Tooling board with the "Plastic" presets; Softwood copied where Plastic is missing; ask the owner before using a similar tool's data | 5.3 | No |
 | OI-916 | The 3-axis test part | B: skip it; the first-cut limit stays ±0.1 mm | F4, 5.7 | No ([decision 0221](decisions/0221-gate-5-first-cut-project-and-limit.md) accepted) |
 | OI-917 | How the axis height and work zero are found | Makera's own routine for Y and Z on the axis, X0 and A0; the form records the X0 face and A0 | P8, P9, M4 | No |
 | OI-920 | The meshes are too large to commit | A: commit the project files, generate the parts (`sample_projects` example) | P2 | No |
-| OI-921 | The first-cut project's tools | A: rough with 104, finish with 204, Plastic presets | 5.3 | No |
+| OI-921 | The first-cut project's tools | A: rough with 104, finish with 204, Plastic presets. Finishing changed to 104 by [decision 0xxx](decisions/0xxx-the-gate-5-reference-part-is-a-stepped-cylinder.md) (Q5, F2, 23 Nov 2026): one tool | 5.3 | No |
 | OI-923 | Free stock to leave uncut | Accepted: the 68 mm held region at the start (G0) | 5.2 | Yes, for OP-22 volumes |
 | OI-924 | The tailstock | A: the 2 mm, 10 mm piece is a held region at the end; the tailstock body's clearance is checked by the operator (V5, M2, M5) | 5.2, V5, M2, M5 | No |
 | OI-925 | How the block-rate air cut program is checked before it runs, since it is written by a script and has not passed gates 1 to 3 (verification plan policy 6 excepts only the SP-12 program) | A: as SP-12 was, read by hand and replayed by gate 3 as a LinuxCNC copy ([decision 0232](decisions/0232-block-rate-program-checked-as-sp-12-was.md), accepted) | 4.8 K1 to K4, G4-8 | No (accepted); execution gap recorded with OI-930 in section 10 |
 | OI-918 | The setup sheet does not show held regions or tabs | Show them, in plain wording (owner, 22 Oct 2026); built in lane GATES: the Setup section's held-region and tab lines and a tab table per setup, HTML and PDF | S8, 5.2 | No |
 | OI-919 | Single block on the Z1 | B: no single block; 10 % override with a hand on feed hold | 4.3 | No |
+| OI-9903 | Which 3.175 mm flat end is fitted for the stepped first cut, and its finishing preset ([decision 0xxx](decisions/0xxx-the-gate-5-reference-part-is-a-stepped-cylinder.md)) | Not yet answered: the preset is marked unconfirmed for finishing | F6, T0 | Yes |
 
 ### 9.1 Register audit after the submitted results
 

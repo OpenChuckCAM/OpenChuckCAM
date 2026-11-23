@@ -169,3 +169,78 @@ fn req_op_20_a_revolved_profile_may_turn_back_for_an_undercut() {
     assert_closed(&mesh, "dovetail groove");
     assert!(volume(&mesh) > 0.0);
 }
+
+/// The gate 5 reference part is a stepped cylinder (decision record 0xxx,
+/// issue #826): each step is a cylinder of its own radius, and the faces
+/// between steps are square to the axis, so a micrometer reads a step's
+/// diameter wherever along it it sits and a face gives a position along X.
+#[test]
+fn req_nfr_08_a_stepped_cylinder_has_cylindrical_steps_and_square_faces() {
+    use openchuck_testkit::parts::{CylinderStep, SteppedCylinder};
+    let part = SteppedCylinder {
+        steps: vec![
+            CylinderStep {
+                radius: 12.0,
+                length: 7.0,
+            },
+            CylinderStep {
+                radius: 8.5,
+                length: 8.0,
+            },
+            CylinderStep {
+                radius: 5.0,
+                length: 10.0,
+            },
+        ],
+    };
+    assert_eq!(part.x_range(), (0.0, 25.0));
+    assert_eq!(part.faces(), vec![7.0, 15.0]);
+    // The radius is the step's at every angle, from its start face up to
+    // (not including) the next; the last step includes the end.
+    for (x, r) in [
+        (0.0, 12.0),
+        (3.5, 12.0),
+        (6.999, 12.0),
+        (7.0, 8.5),
+        (14.999, 8.5),
+        (15.0, 5.0),
+        (25.0, 5.0),
+    ] {
+        for angle in [0.0, 1.0, 4.0] {
+            assert_eq!(part.radius_at(x, angle), r, "x {x}, angle {angle}");
+        }
+    }
+    let around = 360;
+    let mesh = part.mesh(2, around);
+    mesh.validate().unwrap();
+    assert_closed(&mesh, "stepped cylinder");
+    // Every vertex is on a step's circle at one of the step boundaries,
+    // or on the axis at a cap; the faces are exact annuli at X 7 and 15.
+    let boundaries = [0.0, 7.0, 15.0, 25.0];
+    for v in &mesh.vertices {
+        assert!(boundaries.contains(&v.x), "vertex off a boundary: {v:?}");
+        let r = v.y.hypot(v.z);
+        assert!(
+            r < 1e-12 || [12.0, 8.5, 5.0].iter().any(|s| (r - s).abs() < 1e-9),
+            "vertex off the steps: {v:?}"
+        );
+    }
+    // Each triangle is on one step's side (radius constant) or on one face
+    // or cap (X constant): no face is sloped.
+    for t in &mesh.triangles {
+        let [a, b, c] = t.map(|i| mesh.vertices[i as usize]);
+        let flat = a.x == b.x && b.x == c.x;
+        let side = [a, b, c]
+            .map(|p| p.y.hypot(p.z))
+            .windows(2)
+            .all(|w| (w[0] - w[1]).abs() < 1e-9);
+        assert!(flat || side, "sloped triangle {a:?} {b:?} {c:?}");
+    }
+    // The volume is the steps' cylinders within the facets' chord error.
+    let exact = std::f64::consts::PI * (144.0 * 7.0 + 72.25 * 8.0 + 25.0 * 10.0);
+    let v = volume(&mesh);
+    assert!(
+        v > 0.0 && v < exact && (exact - v) / exact < 1e-3,
+        "{v} against {exact}"
+    );
+}

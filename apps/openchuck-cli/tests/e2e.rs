@@ -459,9 +459,19 @@ fn files(folder: &Path) -> BTreeMap<String, Vec<u8>> {
 /// Regenerates with `post` at `threads` into `out`, requires gates 1 and 2
 /// to pass, and returns the one program written.
 fn regenerate(project: &Path, post: &str, threads: usize, out: &Path) -> String {
-    let result = cli_ok(&[
+    regenerate_with(project, post, threads, out, &[]).0
+}
+
+/// [`regenerate`] with `extra` arguments; also returns what it printed.
+fn regenerate_with(
+    project: &Path,
+    post: &str,
+    threads: usize,
+    out: &Path,
+    extra: &[&str],
+) -> (String, String) {
+    let mut args: Vec<&std::ffi::OsStr> = vec![
         "--threads".as_ref(),
-        threads.to_string().as_ref(),
         "regenerate".as_ref(),
         project.as_os_str(),
         "--post".as_ref(),
@@ -470,7 +480,11 @@ fn regenerate(project: &Path, post: &str, threads: usize, out: &Path) -> String 
         "keep".as_ref(),
         "--out".as_ref(),
         out.as_os_str(),
-    ]);
+    ];
+    let threads = threads.to_string();
+    args.insert(1, threads.as_ref());
+    args.extend(extra.iter().map(|a| std::ffi::OsStr::new(*a)));
+    let result = cli_ok(&args);
     assert!(
         result.stdout.contains("replay matches the toolpath") && !result.stdout.contains("check:"),
         "{}",
@@ -483,7 +497,10 @@ fn regenerate(project: &Path, post: &str, threads: usize, out: &Path) -> String 
     );
     let written = files(out);
     assert_eq!(written.len(), 1, "{:?}", written.keys());
-    String::from_utf8(written.into_values().next().unwrap()).unwrap()
+    (
+        String::from_utf8(written.into_values().next().unwrap()).unwrap(),
+        format!("{}{}", result.stdout, result.stderr),
+    )
 }
 
 /// The sample of that name.
@@ -640,14 +657,16 @@ fn z1_library() -> PathBuf {
 /// start is 68 mm: the 10 mm the chuck grips and the 58 mm of free stock the
 /// owner wants left uncut, since nothing else keeps a tool off a length of
 /// stock (OP-22 is not built; OI-923). A 10 mm cylinder tab, X 68 to 73,
-/// joins it to the part; the cone (20 mm to 10 mm) spans X 73 to 98; the
+/// joins it to the part; the stepped part (24, 17 and 10 mm, decision record
+/// 0xxx, which replaced the cone of 0221) spans X 73 to 98; the
 /// 10 mm, 2 mm piece the tailstock centres on, X 98 to 100, is a held region
 /// at the end, so every cutting move keeps clear of it and of the tailstock
 /// beyond it (decision record 0161): as a tab, the program cut past X 100
 /// (OI-924, the owner's option A: a tailstock end is a held region at the
 /// end, SET-09).
-/// Tooling board with the "Plastic" presets; roughing with tool 104 (single
-/// flute) and finishing with tool 204 (two flutes).
+/// Tooling board with the "Plastic" presets; roughing and finishing with
+/// tool 104 (single flute, flat end), the owner's option F2 of decision
+/// record 0xxx, so the program has one tool.
 fn build_first_cut(root: &Path) -> PathBuf {
     let project = root.join(FIRST_CUT);
     let p = project.as_os_str();
@@ -683,16 +702,16 @@ fn build_first_cut(root: &Path) -> PathBuf {
     ]);
     assert!(out.stdout.contains("no problems found"), "{}", out.stdout);
     let library = z1_library();
-    for name in ["Z1 O-flute 3.175x25", "Z1 ball 3.175x22"] {
-        cli_ok(&[
-            "tool".as_ref(),
-            p,
-            name.as_ref(),
-            "--add".as_ref(),
-            "--library".as_ref(),
-            library.as_os_str(),
-        ]);
-    }
+    // One tool for both operations: the flat end 104 also finishes, so each
+    // face between the steps is square (decision record 0xxx, option F2).
+    cli_ok(&[
+        "tool".as_ref(),
+        p,
+        "Z1 O-flute 3.175x25".as_ref(),
+        "--add".as_ref(),
+        "--library".as_ref(),
+        library.as_os_str(),
+    ]);
 
     let mut app = Application::open(&project, Threads::Exactly(1)).unwrap();
     let setup = app.project().setups()[0].id;
@@ -704,10 +723,21 @@ fn build_first_cut(root: &Path) -> PathBuf {
             .unwrap_or_else(|| panic!("no tool {name}"))
             .id
     };
-    let (rough, finish) = (tool("Z1 O-flute 3.175x25"), tool("Z1 ball 3.175x22"));
+    let flat_end = tool("Z1 O-flute 3.175x25");
+    // The settings the owner accepted the part on (decision record 0xxx):
+    // the operations as the project held them before, with fixed passes
+    // (no adaptive spacing, which on a flat end left the finishing path
+    // partial) and no facing of free ends.
+    let fixed = ("adaptive_spacing", ParameterValue::Flag(false));
+    let mut finish = angle_step(5.0);
+    finish.extend([
+        fixed.clone(),
+        ("face_free_ends", ParameterValue::Flag(false)),
+        ("exact_contact", ParameterValue::Flag(true)),
+    ]);
     for (name, strategy, tool, parameters) in [
-        ("Rough", "rotary_roughing", rough, Vec::new()),
-        ("Finish", "helical_finishing", finish, angle_step(5.0)),
+        ("Rough", "rotary_roughing", flat_end, vec![fixed.clone()]),
+        ("Finish", "helical_finishing", flat_end, finish),
     ] {
         app.execute(Command::Add {
             item: Item::Operation(Operation {
@@ -738,7 +768,7 @@ fn build_first_cut(root: &Path) -> PathBuf {
     project
 }
 
-/// The gate 5 first-cut project (decision record 0221, OI-914).
+/// The gate 5 first-cut project (decision records 0221 and 0xxx, OI-914).
 mod first_cut {
     use super::*;
 
@@ -822,7 +852,26 @@ mod first_cut {
         cli_ok(&["validate".as_ref(), project.as_os_str()]);
         for (post, ext) in POSTS {
             let out = root.join(format!("{post}-{threads}"));
-            let program = regenerate(project, post, threads, &out);
+            // The one possible collision is the Z1 tool-length check on the
+            // 25 mm-flute tool 104 (a 30 mm stick-out assumed inside the 45 mm
+            // clearance radius), which gate 5 checks on the machine (W4,
+            // decision record 0xxx); any other stops the test.
+            let (program, printed) = regenerate_with(
+                project,
+                post,
+                threads,
+                &out,
+                &["--acknowledge-collision-warnings"],
+            );
+            let collisions: Vec<&str> = printed
+                .lines()
+                .filter(|l| l.contains("A possible collision"))
+                .collect();
+            assert!(
+                collisions.len() == 1
+                    && collisions[0].contains("Tool length (tool 'Z1 O-flute 3.175x25'"),
+                "{post}: {collisions:?}"
+            );
             let golden = golden_path(FIRST_CUT, post, ext);
             openchuck_testkit::golden::check(&golden, &program).unwrap_or_else(|m| {
                 panic!("first_cut / {post} at {threads} threads (NFR-06, NFR-08): {m}")
@@ -854,19 +903,165 @@ mod first_cut {
 
     /// The material removal simulation finds no overcut and no rapid move
     /// through material, with the held region and the tabs kept (SIM-03,
-    /// SIM-05, SET-09, OP-21).
+    /// SIM-05, SET-09, OP-21). At each station where gate 5 measures the part
+    /// (decision record 0xxx, Q3), the simulated part is the model within
+    /// the radius limit (±0.05 mm, Q2, L1), so a measurement compared with
+    /// the simulated part is close to one compared with the model.
     #[test]
-    fn req_sim_03_req_sim_05_req_set_09_req_op_21_simulates_without_overcut() {
+    fn req_sim_03_req_sim_05_req_set_09_req_op_21_simulates_without_overcut_and_to_the_model_at_the_stations()
+     {
         let root = scratch("first-cut-simulate");
         let project = &write_projects(&root, &[FIRST_CUT.to_owned()]).unwrap()[0];
-        let out = cli_ok(&["simulate".as_ref(), project.as_os_str()]);
-        assert!(!out.stdout.contains("no operations"), "{}", out.stdout);
+        let app = Application::open(project, Threads::All).unwrap();
+        let cell = app.project().simulation().cell.0;
+        let result = app.simulate().unwrap();
+        let report = result.simulation.expect("a simulation report");
+        let [setup] = report.setups.as_slice() else {
+            panic!("one setup expected");
+        };
+        assert_eq!(setup.operations.len(), 2);
+        for op in &setup.operations {
+            assert!(
+                op.rapid_cuts.is_empty(),
+                "{}: a rapid move removes material",
+                op.operation
+            );
+        }
+        let deviation = setup
+            .deviation
+            .as_ref()
+            .expect("a comparison with the part");
+        if let Some(worst) = &deviation.worst_overcut {
+            assert!(
+                -worst.value <= cell,
+                "overcut {} mm at {:?}",
+                -worst.value,
+                worst.point
+            );
+        }
+        // The stock starts 17.990234375 mm along the setup's X (decision
+        // record 0649); program X is the setup's less that.
+        let work_x = 17.990234375;
+        for (station, radius) in [
+            (74.5, 12.0),
+            (76.5, 12.0),
+            (78.5, 12.0),
+            (82.0, 8.5),
+            (84.0, 8.5),
+            (86.0, 8.5),
+            (90.0, 5.0),
+            (93.0, 5.0),
+            (96.0, 5.0),
+        ] {
+            let x = station + work_x;
+            let samples: Vec<f64> = deviation
+                .points
+                .iter()
+                .filter(|p| {
+                    p.counts()
+                        && (p.point.x - x).abs() <= 0.25
+                        && p.normal.x.abs() < 0.1
+                        && (p.point.y.hypot(p.point.z) - radius).abs() < 0.01
+                })
+                .map(|p| p.value)
+                .collect();
+            assert!(
+                samples.len() >= 100,
+                "station X {station}: {} samples",
+                samples.len()
+            );
+            let mean = samples.iter().sum::<f64>() / samples.len() as f64;
+            let worst = samples.iter().fold(0.0f64, |w, v| w.max(v.abs()));
+            assert!(
+                mean.abs() <= 0.05 && worst <= cell,
+                "station X {station}, Ø{}: simulated part off the model by {mean:.4} mm on average, {worst:.4} mm at worst",
+                2.0 * radius
+            );
+        }
         std::fs::remove_dir_all(root).ok();
     }
 
+    /// The finishing operation's lines of the committed Z1 program, from its
+    /// operation line to the end, as (X, A) after each motion line (modal).
+    fn finish_positions() -> Vec<(f64, f64)> {
+        let program = std::fs::read_to_string(golden_path(FIRST_CUT, "makera-z1", "nc")).unwrap();
+        let start = program
+            .find("(operation Finish")
+            .expect("a Finish operation");
+        let (mut x, mut a) = (f64::NAN, 0.0);
+        let mut positions = Vec::new();
+        for line in program[start..].lines() {
+            let word = |letter: char| {
+                line.split_whitespace()
+                    .find_map(|w| w.strip_prefix(letter).and_then(|v| v.parse::<f64>().ok()))
+            };
+            if !(line.starts_with("G0")
+                || line.starts_with("G1")
+                || line.starts_with('X')
+                || line.starts_with('A')
+                || line.starts_with('Z')
+                || line.starts_with('Y'))
+            {
+                continue;
+            }
+            x = word('X').unwrap_or(x);
+            a = word('A').unwrap_or(a);
+            positions.push((x, a));
+        }
+        positions
+    }
+
+    /// The program has one tool, the flat end 104 as T1, changed once at the
+    /// start, as option F2 of decision record 0xxx chose (GC-09, GC-14).
+    #[test]
+    fn req_gc_09_req_gc_14_the_first_cut_program_has_one_tool() {
+        for (post, ext) in POSTS {
+            let program = std::fs::read_to_string(golden_path(FIRST_CUT, post, ext)).unwrap();
+            let changes: Vec<&str> = program.lines().filter(|l| l.contains("M6")).collect();
+            assert_eq!(changes, ["T1 M6"], "{post}");
+            for line in program.lines().filter(|l| l.starts_with("(operation")) {
+                assert!(
+                    line.contains("tool T1 Z1 O-flute 3.175x25"),
+                    "{post}: {line}"
+                );
+            }
+        }
+    }
+
+    /// Helical finishing turns A once round at each face between the steps,
+    /// at the X where the side of the tool touches the face, a tenth of the
+    /// tolerance clear (decision record 0297, item 1), so each face is cut
+    /// square (OP-04): X 73 (facing the chuck), 80 and 88 (facing the
+    /// tailstock), less or plus the flat end's radius of 1.5875 mm.
+    #[test]
+    fn req_op_04_finishing_turns_once_round_at_each_face_between_the_steps() {
+        let positions = finish_positions();
+        let radius = 3.175 / 2.0;
+        let clear = 0.001;
+        for face_turn in [
+            73.0 - radius - clear,
+            80.0 + radius + clear,
+            88.0 + radius + clear,
+        ] {
+            let at: Vec<f64> = positions
+                .iter()
+                .filter(|(x, _)| (x - face_turn).abs() <= 0.001)
+                .map(|&(_, a)| a)
+                .collect();
+            let turned = at.iter().fold(f64::NEG_INFINITY, |m, &a| m.max(a))
+                - at.iter().fold(f64::INFINITY, |m, &a| m.min(a));
+            assert!(
+                turned >= 359.9,
+                "no whole turn at X {face_turn:.4}: A spans {turned:.3} deg over {} lines",
+                at.len()
+            );
+        }
+    }
+
     /// The setup the owner specified, as the setup sheet states it: the box
-    /// stock, the material, the grip and both tabs, and the two tools with
-    /// their "Plastic" presets (GC-12, SET-09, OP-21, TL-05; OI-921).
+    /// stock, the material, the grip and both tabs, and the one tool with its
+    /// "Plastic" preset (GC-12, SET-09, OP-21, TL-05; OI-921 and decision
+    /// record 0xxx, option F2).
     #[test]
     fn req_gc_12_req_set_09_req_op_21_req_tl_05_the_sheet_states_the_owners_setup() {
         let root = scratch("first-cut-sheet");
@@ -882,11 +1077,11 @@ mod first_cut {
             "68 mm of the stock, X 17.99 to 85.99 mm, at the stock&#39;s own section",
             "2 mm of the stock, X 115.99 to 117.99 mm, at diameter 10 mm",
             "Z1 O-flute 3.175x25",
-            "Z1 ball 3.175x22",
             "tool data: Plastic",
         ] {
             assert!(html.contains(expected), "{expected}\n{html}");
         }
+        assert!(!html.contains("Z1 ball 3.175x22"), "{html}");
         std::fs::remove_dir_all(root).ok();
     }
 }

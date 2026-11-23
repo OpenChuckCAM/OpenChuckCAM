@@ -1,13 +1,13 @@
 # 0xxx: The gate 5 reference part is a stepped cylinder finished with a flat end, compared with the simulated part (issue #826; lane STEPPED-CYL)
 
-- **Status:** Accepted by the project owner on 23 Nov 2026, relayed by the coordinator (decision 0049), at head `a104154d`. Proposed by lane STEPPED-CYL the same day (phase 1, documents only) and written to the owner's answers to Q1 to Q7, also relayed: Q1 A, Q2 L1, Q3 M1, Q4 X2, **Q5 F2** (not the lane's recommendation: finishing with the flat end 104), Q6 P1, Q7 R1. OI-9901 is closed by the acceptance. The finishing preset of tool 104 stays marked unconfirmed until the owner answers OI-9903. Phase 2 builds it (OI-9902). The number is provisional: the coordinator assigns the final record and `OI-` numbers when the Merge Manager releases the pull request.
+- **Status:** Accepted by the project owner on 23 Nov 2026, relayed by the coordinator (decision 0049), at head `a104154d`. Proposed by lane STEPPED-CYL the same day (phase 1, documents only) and written to the owner's answers to Q1 to Q7, also relayed: Q1 A, Q2 L1, Q3 M1, Q4 X2, **Q5 F2** (not the lane's recommendation: finishing with the flat end 104), Q6 P1, Q7 R1. OI-9901 is closed by the acceptance. The finishing preset of tool 104 stays marked unconfirmed until the owner answers OI-9903. Phase 2 is built in the same pull request (#845) and closes OI-9902; see *Verification (phase 2)*. It raises OI-9904. The number is provisional: the coordinator assigns the final record and `OI-` numbers when the Merge Manager releases the pull request.
 - **What it amends:** [decision 0221](0221-gate-5-first-cut-project-and-limit.md) item 2 (the part: a cone becomes stepped cylinders) and the comparison behind its ±0.1 mm limit (the model becomes the simulated part); [verification plan](../verification-plan.md) section 4.1, row "First-cut part (gate 5)", and section 5, gate 5 row; the method of OI-2152 for setting X0 (Q4); the first-cut project's finishing tool chosen in OI-921 (204 becomes 104, Q5). Decision 0221's ±0.1 mm limit is **not** changed by this proposal unless the owner chooses so in Q2.
 - **Date:** 23 Nov 2026.
 - **Requirements:** none covers a gate 5 reference part (decision 0221 said the same of the cone), and the owner chose none (Q7, R1). The phase 2 tests trace to the IDs the cone's tests already use: GC-07, NFR-06 and NFR-08 (golden programs), GC-10 (gate 3), SIM-03 and SIM-05 (simulation), SET-09 and OP-21 (held regions and tabs), GC-12 (setup sheet). NFR-12 throughout: generated G-code is the user's to verify before it is run, and nothing here says a program is safe or verified.
 - **Builds on:** [decision 0221](0221-gate-5-first-cut-project-and-limit.md) (accepted; the first-cut project, tooling board, the ±0.1 mm limit); [0297](0297-helix-strategies-turn-at-faces-across-the-axis.md) (accepted; a helix turns once at each face across the axis); [0161](0161-tools-keep-clear-of-the-gripped-length.md) and [0160](0160-held-region-is-the-stock-section.md) (held regions); [0244](0244-bounded-first-cut-linuxcnc-replay.md) (bounded gate 3 replay of the first-cut program); [0649](0649-the-z1-profile-takes-the-firmware-1-1-3-measurements.md) and [0651](0651-the-z1-rotary-reference-y-is-the-firmware-g54-y.md) (the Z1 reference setup); [0653](0653-verification-report-for-release-0-55-0.md) (the 0.55.0 verification report and the waiver of the partial rc3 first cut, OI-2151).
-- **Open items:** adds OI-9901 (acceptance of this record with the owner's answers; closed 23 Nov 2026 by the acceptance), OI-9902 (phase 2: the build) and OI-9903 (the finishing tool's identity and preset under F2). Depends on OI-2152 (the repeat first cut; Q4 refines its X0 method and leaves the decision to the owner) and OI-2154 (the gates 4 and 5 instructions are stale; phase 2 rewrites their section 5, and the rest of OI-2154 stays with its docs lane unless the owner asks this lane to take it). Neither is closed here.
+- **Open items:** adds OI-9901 (acceptance of this record with the owner's answers; closed 23 Nov 2026 by the acceptance), OI-9902 (phase 2: the build; closed by it), OI-9903 (the finishing tool's identity and preset under F2; open) and OI-9904 (adaptive spacing on this part with a flat end; open). Depends on OI-2152 (the repeat first cut; Q4 refines its X0 method and leaves the decision to the owner) and OI-2154 (the gates 4 and 5 instructions are stale; phase 2 rewrites their section 5, and the rest of OI-2154 stays with its docs lane unless the owner asks this lane to take it). Neither is closed here.
 
-Numbering: provisional ("0xxx"; OI-9901 to OI-9903 are numeric placeholders, because `cargo xtask records` refuses an `OI-` number that is not a number), on the owner's rule of 23 Nov 2026 (reference numbers are monotonic in merge order; no reserved blocks). No project schema number: the phase 2 project is written at the current schema and nothing stored changes format. No spike.
+Numbering: provisional ("0xxx"; OI-9901 to OI-9904 are numeric placeholders, because `cargo xtask records` refuses an `OI-` number that is not a number), on the owner's rule of 23 Nov 2026 (reference numbers are monotonic in merge order; no reserved blocks). No project schema number: the phase 2 project is written at the current schema and nothing stored changes format. No spike.
 
 ## Context
 
@@ -149,7 +149,7 @@ Under R1 `docs/requirements.md` is not edited. The phase 2 tests trace to existi
 
 ## Phase 2: what is built after acceptance (OI-9902)
 
-One code and test pull request, as a draft, from `main`:
+Built on the same branch and pull request (#845), since this record is not on `main` yet. What was built is under *Verification (phase 2)*; the plan was:
 
 1. **The part.** A stepped-cylinder test part in `openchuck-testkit` with an exact radius function and its own mesh, with two rings at each wall at the same X so the faces are square to the axis. The shared `radial_mesh` spaces rings evenly and would slope the walls. `first_cut_part` in `apps/openchuck-cli/tests/common/sample_projects.rs` returns it, and `sample_projects` writes `models/part.stl` for the owner to open and cut from stock. Tests first: the radius at each step, a closed mesh with no inside-out pieces, and walls exactly square to the axis.
 2. **The project and golden programs** (P1, F2). `build_first_cut` adds only tool 104 and makes both operations with it (finishing: helical, 5 degree steps), numbered T1. `testdata/projects/first_cut/` is rebuilt with `OPENCHUCK_BLESS_PROJECTS=1` and `testdata/golden/first_cut/` re-blessed (both posts). The existing `first_cut` tests (gates 1 and 2 at 1, 2 and N threads; simulation without overcut; the setup sheet) keep their names. The setup-sheet test changes to one tool. Gate 3 re-chunks the LinuxCNC program (decision 0244), and the chunk count is recorded.
@@ -205,3 +205,48 @@ On acceptance:
   - Times are program estimates.
   - Nothing here says any program is safe or correct for a machine (NFR-12).
 - **Records checks:** `cargo xtask records` and `cargo xtask trace` were run before each push.
+
+## Verification (phase 2)
+
+Built on `claude/lane-stepped-cyl` from `main` `8f61706`, Linux x86_64, 4 vCPU, 23 Nov 2026.
+
+**What was built:**
+
+- **The part.** `openchuck-testkit` gains `SteppedCylinder` and `CylinderStep`: an exact radius function, and a mesh from the existing `revolve`, with two rings at each face. `first_cut_part` (`apps/openchuck-cli/tests/common/sample_projects.rs`) returns Ø24 x 7, Ø17 x 8, Ø10 x 10. `cargo run -p openchuck-cli --example sample_projects -- <folder> first_cut` writes the part as `models/part.stl` for the owner.
+- **The project.** `build_first_cut` (`apps/openchuck-cli/tests/e2e.rs`) adds only tool 104 and makes both operations with it. Their parameters are the ones the owner accepted the part on: the old project's settings as migrated, with no adaptive spacing on either operation, and on the finish `face_free_ends = false`, `exact_contact = true` and 5 degree steps. See OI-9904 for why adaptive spacing is set explicitly.
+- **Re-blessed.** `testdata/projects/first_cut/` with `OPENCHUCK_BLESS_PROJECTS=1` (new item IDs; tool 204 removed), and `testdata/golden/first_cut/` with `OPENCHUCK_BLESS=1`, both posts.
+- **The machine copy.** The project's `machine.toml` is now a copy of today's built-in Makera Z1 profile (the decision 0649 values: spindle range, 7 ms blocks, the tool-length and clearance fields). It replaces the 0221-era copy.
+- **The golden Z1 program:** 12,169 lines; one `T1 M6`; Rough "about 3779 s", Finish "about 227 s". These are the figures in *What this lane measured*. The LinuxCNC program is 12,147 lines.
+
+**Tests, written from the record before the code and seen to fail first:**
+
+- `openchuck-testkit` `req_nfr_08_a_stepped_cylinder_has_cylindrical_steps_and_square_faces`. It failed to compile before `SteppedCylinder` existed.
+- `first_cut::req_gc_09_req_gc_14_the_first_cut_program_has_one_tool`. On the cone golden it failed: `["T1 M6", "T2 M6"]`.
+- `first_cut::req_op_04_finishing_turns_once_round_at_each_face_between_the_steps`. The turn X come from decision 0297's rule (face ∓ tool radius ∓ a tenth of the tolerance), not from the program. On the cone golden it failed: no turn at X 81.5885.
+- `first_cut::req_sim_03_req_sim_05_req_set_09_req_op_21_simulates_without_overcut_and_to_the_model_at_the_stations`. It replaces the CLI simulation test and keeps its name as a prefix, so `.config/nextest.toml` still selects it. Through the application API it checks:
+  - no rapid move cuts material;
+  - no overcut deeper than one cell;
+  - at each station of Q3, at least 100 samples, a mean simulated deviation within ±0.05 mm, and none beyond one cell.
+- **Changed:** `first_cut::req_gc_12_req_set_09_req_op_21_req_tl_05_the_sheet_states_the_owners_setup` now expects one tool and no ball.
+- **The determinism tests** (`..._the_committed_project_writes_the_golden_programs_at_{1_thread,2_threads,n_threads}`) acknowledge exactly one possible collision and fail on any other. That one is the Z1 tool-length warning on tool 104 (a 30 mm stick-out assumed inside the 45 mm clearance radius). The old project was written before the Z1 profile had the fields that check needs, so it never raised it. Gate 5 checks it on the machine (W4).
+
+**Results:**
+
+- `cargo nextest run -p openchuck-cli --test e2e -E 'test(/^first_cut::/)'`: 8 passed. Uninstrumented, side by side: 97.0 s (1 thread), 83.7 s (2), 76.8 s (N), 62.6 s (simulation); the rest under 0.1 s. The cone's were about 350 to 400 s each. The four long ones stay in `.config/nextest.toml`; the times are noted there.
+- `cargo nextest run -p openchuck-testkit`: 43 passed.
+- `cargo test -p xtask replay`: 12 passed.
+- `cargo fmt --all`; `cargo clippy --workspace --all-targets`: clean.
+- `cargo xtask deps`, `licences`, `records`, `trace`: ok.
+- **Gate 3 chunking** (decision 0244), counted with a throwaway test of `plan`, not committed: the new LinuxCNC program splits into 15 bounded chunks, about 4298 s of simulator time. The cone's split into 16, about 4759 s.
+
+**Built differently from the plan.** Item 3's separate check that no fed move goes below X 70.1 or above X 95.9 was not added. It is decision 0161's rule, which its own tests already cover, and the simulation test checks that the held regions and the tab stay whole (SET-09, OP-21). The air-cut procedure's tool-change line is general and needed no change.
+
+**Not verified:**
+
+- Gate 3 itself: LinuxCNC is not installed in this container. The pull request's Gate 3 job runs it.
+- Coverage: `openchuck-testkit` is excluded from the coverage gate (`xtask/coverage.toml`), and `cargo llvm-cov` is not installed here. The other changes are test code.
+- Nothing was air-cut or cut. The new program goes through gate 4 before gate 5.
+- Nothing here says any program is safe or correct for a machine (NFR-12).
+
+**Found while building (OI-9904).** Created afresh, the finishing operation takes today's defaults, which include adaptive spacing. Its path was then partial: "adaptive spacing could not confirm that the material left between the passes is within the allowed excess of 0.010 mm at 23 places, the first near X 52.900 A 5653.3: the limit of 1000000 geometry queries was met". The X reported is not on the part. It was not investigated here: the project fixes the accepted settings instead.
+
