@@ -1,13 +1,13 @@
 # PENCIL-REST-A: Pencil clean-up judges material left from the tool, rests clear of a wall it touches, and does not cut stretches shorter than a set length (issue #632; pull request #856; lane PENCIL-REST)
 
-- **Status:** accepted by the project owner on 23 Nov 2026, relayed by the coordinator (decision 0049). Proposed the same day by lane PENCIL-REST, phase 1. The owner's answers, all of 23 Nov 2026 (relayed): **Q1 M1**; **Q2 P1 only**, rejecting P2 after the lane measured it (Q2 below); **Q3 D2**, plus an option for the shortest stretch to cut; **Q4 E1**, with the setting moved to *Advanced* for every strategy that has it and its tooltip explaining the trade-off; **Q5 K2**, the 0.55.0 known-issue line amended in this pull request. Figures of causes A and B, of the shortest cut and of P2 are included under the owner's standing rule that records carry diagrams (relayed). Phase 2, the build, is in the same pull request (OI-9942).
+- **Status:** accepted by the project owner on 23 Nov 2026, relayed by the coordinator (decision 0049). Proposed the same day by lane PENCIL-REST, phase 1. The owner's answers, all of 23 Nov 2026 (relayed): **Q1 M1**; **Q2 P1 only**, rejecting P2 after the lane measured it (Q2 below); **Q3 D2**, plus an option for the shortest stretch to cut; **Q4 E1**, with the setting moved to *Advanced* for every strategy that has it and its tooltip explaining the trade-off; **Q5 K2**, the 0.55.0 known-issue line amended in this pull request. Figures of causes A and B, of the shortest cut and of P2 are included under the owner's standing rule that records carry diagrams (relayed). Phase 2, the build, is in the same pull request (OI-9942; *As built* and *Verification of the build* below).
 - **Number:** provisional. Under the owner's rule of 23 Nov 2026, provisional numbers are unique across lanes, and real numbers follow `main` in merge order. The record is `PENCIL-REST-A`, carrying the lane's name. The open items are OI-9941 and OI-9942, from the numbers the coordinator set aside for this lane (OI-9941 to OI-9943), because `cargo xtask records` accepts only a number after `OI-`. The coordinator assigns the record and `OI-` numbers when the Merge Manager releases the pull request. No project schema number: nothing stored changes format (item 3's value is an ordinary strategy parameter). No spike.
 - **Date:** 23 Nov 2026.
 - **Lane:** PENCIL-REST, branch `claude/lane-pencil-rest`, from `main` at `286472a` (library family 0.56.0). Issue #632 (milestone 2026.2), which refers to #351 and #257.
 - **Requirements:** OP-09 (rest machining and pencil clean-up), OP-27 (exact surface contact for STEP parts), OP-23, UI-07 and UI-19 (the inspector's fields and its Advanced section), NFR-06, GC-07, NFR-07, NFR-12. No requirement change. `docs/requirements.md` and `docs/architecture.md` are not edited.
 - **Amends (on acceptance):** [decision 0526](0526-stepall-close-out-and-exact-contact-setting.md) item 2 (where *Exact STEP surface contact* sits: *Advanced*, not *Pattern and tolerance*) and item 3 (its words). It also amends the UI specification, section 11.4, where it names that row's place.
 - **Builds on:** [0044](0044-slice-15-rest-and-pencil.md) items 1 and 5 (the remaining-material map, the pencil rest), [0162](0162-simulation-results-histogram-and-probe.md) item 6 (each pencil move checked against drops along it), [0226](0226-pencil-on-the-inside-corners-of-a-step-part.md) (pencil on a STEP part's inside corners), [0209](0209-step-geometry-for-every-strategy.md), [0211](0211-step-accuracy-measured.md), [0256](0256-no-fixed-toolpath-mesh-qualifies.md), [0277](0277-exact-ball-drops.md), [0297](0297-helix-strategies-turn-at-faces-across-the-axis.md) (a helix turns once at each face the tool's side touches), [0338](0338-exact-outline-drops-not-adopted.md) (the exact outline drop for a flat end), [0526](0526-stepall-close-out-and-exact-contact-setting.md) (Exact STEP surface contact, off by default for pencil; OI-1351).
-- **Open items:** adds OI-9941 (the owner's answers and acceptance; closed 23 Nov 2026) and OI-9942 (phase 2, the build). No open item is kept for P2: the owner rejected it. Relates to OI-1351 (pencil's exact contact is over the 2-times limit) without closing it, and to OI-192 (pencil makes one pass per crease) without changing it.
+- **Open items:** adds OI-9941 (the owner's answers and acceptance) and OI-9942 (phase 2, the build), both closed in this pull request. No open item is kept for P2: the owner rejected it. Relates to OI-1351 (pencil's exact contact is over the 2-times limit) without closing it, and to OI-192 (pencil makes one pass per crease) without changing it.
 
 ## Context
 
@@ -198,6 +198,21 @@ One code and test pull request, as a draft, from `main`. Tests are written from 
    - The decision index, and `docs/open-items.md` (OI-9942 closed).
    - Screenshots: any user guide figure that shows the *Pattern and tolerance* section of a STEP operation is re-captured, with its `CAPTURED.toml` hash naming the branch commit. None shows a pencil path today.
 
+### As built (phase 2, OI-9942, in this pull request)
+
+Built on branch `claude/lane-pencil-rest`, from `main` at `286472a`. Where the build differs from the plan above, or fixes a detail the plan left open:
+
+- **Item 1.** `RemainingMap::near_segment(a, b)` (`rest.rs`); pencil asks it from the tool's tip up its axis by the tool's flute length (`RevolvedProfile::top`), at the reach it already used.
+- **Item 2.** `Placement` keeps a `clearance` of a tenth of the tolerance. A rest that met something on its way to the crease is moved back from it by that much after the bisection. A rest that reached the crease with nothing in the way is unchanged.
+- **Item 3.**
+  - The rule is `long_enough` and the note `short_note` in `pencil.rs`. A stretch's length is the length of its tool path, tip to tip.
+  - The note is information level and reads "pencil clean-up left N stretches uncut, each a single point or shorter than the shortest cut (L mm): at X x, A a; …. Lower min_length to cut the longer ones". Like pencil's other messages, it names the setting by its key.
+  - When every stretch is left uncut, the operation is refused ("found material left only in stretches shorter than the shortest cut (L mm) or at single points; lower min_length"), naming the setting. This was not in the plan, but an empty path that said nothing would break NFR-07.
+  - The library's own default is 0, as `extend_distance`'s is (decision 0212 part B). The application puts in the tool's diameter where the operation sets none, both in the form (`default_override`, so the field shows it as its default) and when the path is made (`parameter_values`).
+  - The tooltip reads "… Starts at the tool's diameter. …" in place of the plan's "Empty: the tool's diameter", matching *Distance past the stock*.
+- **Item 4.** `FormSection::of("exact_contact")` is *Advanced*. The two descriptions in `contact.rs` are as worded in item 4. The schema's order is unchanged, so the row still follows Tolerance within the parameter list.
+- **Item 5:** in the first push of this record. The development-version line is added in this one.
+
 ## Alternatives considered
 
 - **Judge material from the crease point** (the B-rep edge point the rest came from) in place of the tool's axis: simple, but the crease is not where a tool resting beside a wall cuts. In a V-corner the axis and the crease are close, but a flat end cuts a band its diameter wide, which the axis segment describes.
@@ -214,7 +229,35 @@ On acceptance:
 - No requirement, architecture, schema or dependency change. Library: expected not breaking (to be confirmed with the coordinator before the build).
 - Documents: as phase 2 item 5; the 0.55.0 known-issue line is already amended here.
 
-## Verification (of this proposal)
+## Verification of the build (phase 2)
+
+Linux x86_64, 4 vCPU, the branch at the code commit (named in the pull request).
+
+- **Tests written first and watched failing.** On today's code, before items 1 to 3, the sim tests failed as expected: the off case refused, the on case gave 31 passes, and the shortest cut had no effect.
+  - `openchuck-sim` `tests/rest.rs`: `req_op_09_req_op_27_req_nfr_12_a_flat_end_cleans_the_sharp_corner_off_and_on_without_lifting` and `req_op_09_req_nfr_12_a_corner_shorter_than_the_shortest_cut_is_refused_and_said`.
+  - The first one asserts, off and on: one pass covering more than 359 degrees; every tip within 0.01 mm of the bar's radius; and its side between 0.0005 and 0.01 mm clear of the wall. With exact contact off, the simulated pass cuts the corner's samples with more than 0.15 mm left to under a tenth, adds no overcut and cuts on no rapid.
+  - Three tests were written from this record's definitions, with the code they test already in place:
+    - `openchuck-path` `pencil.rs`: `req_op_09_req_nfr_12_short_stretches_and_single_points_are_left_and_said`.
+    - `openchuck-path` `tests/rest.rs`: `req_op_09_near_a_segment_finds_material_beside_any_point_of_it`.
+    - `openchuck-app` `operation.rs`: `req_op_09_req_ui_07_the_shortest_cut_starts_at_the_tools_diameter`.
+  - Two tests changed to the owner's answer to Q4: `req_op_27_req_ui_07_exact_contact_is_shown_in_advanced_on_a_step_part_only` (was `..._next_to_tolerance_...`) and `req_ui_12_the_exact_contact_tooltip_states_the_trade_off` (was `..._is_short`). `tests/exact_contact.rs` now looks for the new words.
+- **Times, uninstrumented, each test alone.** The sim corner test took 29 s; most of it is the axial tapered-ball finish and its simulation, which it shares across its cases. Two corner tests in one keeps that cost to one run under nextest. The shortest-cut test took 15 s. The rest are under a second. None is over a minute.
+- **The crate suites:** `cargo test -p openchuck-path -p openchuck-sim -p openchuck-app`, with the results in the pull request.
+- **The STEP kernel** (OpenCASCADE built here with `--features kernel-tests`, 23 minutes cold, and the STEP reader built):
+  - `openchuck-app` `tests/step_strategies.rs` pencil tests pass: `req_op_09_req_imp_02_pencil_on_a_step_part_follows_its_inside_corner_without_gouging`, and `req_imp_02_req_op_03_req_op_09_roughing_then_rest_and_pencil_on_a_step_part_do_not_gouge`, which took 109 s for the two together, as on `main`.
+- **The OWNERCHECKS project of #632** (public `shouldered_shaft.step`, synthetic project). Copied from `owner-checks/2026.1-alpha`, resaved to the current schema, then run with `openchuck-cli --threads 4 regenerate --post linuxcnc --tool-numbers keep --grouping operation` (debug build):
+  - Off (pencil's default): "1 concave crease along the part's edges, 1 pass"; 514 cutting moves; every one at X 10.999 (the corner less the tool's radius and the 0.001 mm clearance) and on the bar (radius 7.998 to 8.000), A 180 to 540 (one whole turn), except the one entry move from the approach. 41 s for the project.
+  - Pencil's exact contact on (axial left off): "1 pass"; 325 cutting moves at X 10.999 on the bar at radius 8.000, A 180 to 540. 52 s.
+  - Before (relayed): 6 passes and 40 moves off; 31 passes and 390 moves on.
+  - The tessellation gives more moves than the exact faces because its drops follow the facets.
+- **Time on the blisk** (public `blisk.step`): `step_accuracy --only m3 --ops pencil --parts blisk --forms b --threads all --runs 1 --skip-probe`, release build, one run each, so indicative only. Pencil took 1.36 s at `286472a` and 1.39 s with this change (361,377 and 360,842 drops). Exact contact on for pencil was not re-timed; OI-1351's figure stands.
+- **Not verified:**
+  - The owner's check on the machine.
+  - Exact contact on for pencil on the blisk.
+  - A gate 3 replay (no golden program changes).
+  - The simulation of the OWNERCHECKS program (`simulate` was not run; the closed-form test simulates the same corner).
+
+## Verification of the proposal (phase 1)
 
 - **What was checked.** A scratch test in `openchuck-sim` (not committed), `cargo test --release -p openchuck-sim`, at `main` `286472a`, Linux x86_64, 4 vCPU:
   - The closed-form `shouldered_shaft(4)` in 26 mm stock from X −10, at a 0.1 mm dexel cell.

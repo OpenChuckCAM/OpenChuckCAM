@@ -128,7 +128,7 @@ Scallop height
 : On helical and axial finishing with **Adaptive spacing** off: the largest cusp between passes for a ball-end or bull-nose tool. The passes are as close as the smaller of this and the stepover needs. 0 turns it off. With **Adaptive spacing** on, the same field is **Allowed excess**.
 
 Exact STEP surface contact
-: Only on a STEP part. Drops the tool on the part's exact surfaces instead of the triangles made from them: more accurate, and slower. On by default for helical, indexed and simultaneous finishing and rest machining; off for axial finishing and pencil clean-up, where it is much slower. Some tool shapes always use the triangles, and a line under the field says so.
+: Only on a STEP part, in the **Advanced** section. Drops the tool on the part's exact surfaces instead of the triangles made from them. The tool then sits closer to the true surface, but generation takes longer. On by default for helical, indexed and simultaneous finishing and rest machining, where it costs little; off for axial finishing and pencil clean-up, where it is much slower. It does not change which corners or areas an operation cuts. Its tooltip gives the times measured on test parts. Some tool shapes always use the triangles, and a line under the field says so.
 
 Links between passes
 : **Retract to the clearance**, or **Stay low where clear**, the default for new operations: links stay the approach distance above the stock where the whole link is clear of the stock, the held regions and the part. The stock is checked at points along each link, so a very thin piece of stock between them could be missed. A link that cannot stay low retracts, and a note says how many did. Facing (end and box shapes), helical, axial, indexed and simultaneous finishing, and rest machining.
@@ -257,11 +257,14 @@ Also: **Exact STEP surface contact** (on), **Face free ends**, **Stepdown**, **P
 
 Follows sharp inside corners to remove ridges left by other finishing operations. Use it as a final clean-up, not to cut large areas. It does not cover every inside corner. It ignores selections.
 
+It cuts a stretch of a corner where material is left within reach of the tool as it rests there, and keeps the tool just clear of a wall it rests against. It does not cut a stretch shorter than **Shortest cut**, or a single point: a short dab is a plunge and a retract, not a cut along the corner. The operation's notes say how many stretches it left and where each starts, so you can check them in the simulation.
+
 | Setting | Default | What it does |
 | --- | --- | --- |
 | Smallest material to clean | 0.15 mm | As for rest machining. |
 | Crease angle | 30° | The smallest turn between two faces that counts as an inside corner. |
 | Largest step | 0.5 mm | The furthest apart that points of the path are along the corner. |
+| Shortest cut | The tool's diameter | Stretches of a corner shorter than this are not cut. Enter 0 to cut every stretch longer than a single point. |
 
 Also: **Exact STEP surface contact** (off).
 

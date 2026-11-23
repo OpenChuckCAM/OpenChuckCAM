@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased (PENCIL-REST; issue #632; decision PENCIL-REST-A, accepted)
+
+- **Changed:** the Exact STEP surface contact row is in the operation inspector's Advanced section for every strategy that has it (it was in Pattern and tolerance, after Tolerance).
+- **Added, changed output:** pencil clean-up's Shortest cut (`min_length`) starts at the tool's diameter where the operation sets none, in the form (as its default) and when the path is made, as the distance past the stock follows the tool. A saved pencil operation takes it, so stretches of a corner shorter than the tool's diameter, and single points, are no longer cut; the notes say where.
+
 ## Unreleased (POST-SAFETY, issue #703; decision 0656, accepted)
 
 - **Added:** the G-code checks of every file include the post's `max_line_length` (GC-08): a line longer than it is a finding, so the file fails its checks and export is blocked, in the dialog and on the command line.

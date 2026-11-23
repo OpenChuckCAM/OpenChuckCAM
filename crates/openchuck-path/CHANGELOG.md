@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased (PENCIL-REST; issue #632; decision PENCIL-REST-A, accepted)
+
+- **Fixed, changed output (#632):** pencil clean-up judges the material left from the tool as it rests, its axis over its cutting length, not from the one contact point the drop reports. A flat end on a surface along its flat bottom touches it along a line, and the drop could report any point of it: the tessellation its far edge, out of reach of the corner's material, and the exact faces a point that moved with A. A flat end in a sharp inside corner of a STEP part now cuts the whole corner in one pass with Exact STEP surface contact off and on alike, where the closed-form shouldered shaft gave a refusal off and 31 passes on.
+- **Fixed, changed output (#632):** a pencil rest stopped by a wall on its way to the crease is kept a tenth of the operation's tolerance back from it (0.001 mm at the default). Flush with the wall, a drop could read the tool as resting on the wall's top, and the moves between rests rode up onto it or ended the pass.
+- **Added, changed output:** pencil clean-up's `min_length` (Shortest cut, millimetres, default 0): a stretch of a corner shorter than it is not cut, and a single point never is. A note says how many stretches were left and where each starts (up to five); when every stretch is left, the operation is refused, naming the setting. The application starts it at the tool's diameter.
+- **Added:** `RemainingMap::near_segment(a, b)`, whether a sample with material left lies within the reach of a segment. Additive.
+- **Changed text:** the Exact STEP surface contact descriptions state the trade-off with the measured examples: how much closer to the true surface the tool sits and how much slower generation is on test parts, and, for the outline kind, that it does not change which corners or areas are cut.
+- Every pencil operation can change, on mesh and STEP parts; no golden program or reference job holds one. No other strategy changes. Generated G-code remains the user's to verify before running it on a machine.
+
 ## 0.56.0
 
 - **Family release (0.56.0, POST-SAFETY; issue #703; decision 0656, accepted):** `openchuck-post`'s `PostOptions` gains the public field `max_line_length` and `openchuck-gcode`'s `FindingKind` gains `LineTooLong`, a breaking change; no change to this crate.

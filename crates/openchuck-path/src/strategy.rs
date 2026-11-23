@@ -1005,10 +1005,11 @@ mod tests {
     }
 
     /// The Exact STEP surface contact tooltip says what the setting does,
-    /// what it costs and that a mesh part is not affected, and nothing more
-    /// (issue #634, the owner's answer of 8 Nov 2026).
+    /// what it costs, with the measured examples, and that a mesh part is
+    /// not affected (issue #634; the owner's answer of 23 Nov 2026 asked for
+    /// the cost to be stated, decision record PENCIL-REST-A item 4).
     #[test]
-    fn req_ui_12_the_exact_contact_tooltip_is_short() {
+    fn req_ui_12_the_exact_contact_tooltip_states_the_trade_off() {
         let registry = Registry::builtin();
         let tooltip = |strategy: &str| {
             registry
@@ -1023,14 +1024,20 @@ mod tests {
         };
         assert_eq!(
             tooltip("helical_finishing"),
-            "On a STEP part, drop a ball-end tool on the part's exact surfaces instead of its \
-             tessellation. More accurate and can be slower. No effect on a mesh part."
+            "On a STEP part, drop a ball-end tool on the part's exact surfaces instead of the \
+             triangles made from them. The tool then sits closer to the true surface: on a test \
+             part, the deepest cut into it fell from about 0.04 to under 0.005 mm. Generation can \
+             be slower: up to about 1.8 times on the parts measured. No effect on a mesh part."
         );
+        assert_eq!(tooltip("pencil_finishing"), tooltip("axial_finishing"));
         assert_eq!(
             tooltip("axial_finishing"),
             "On a STEP part, drop the tool (a ball, tapered ball or flat end) on the part's exact \
-             surfaces instead of its tessellation. More accurate and much slower. No effect on a \
-             mesh part."
+             surfaces instead of the triangles made from them. The tool then sits closer to the \
+             true surface: on a test part, the deepest cut into it fell from about 0.03 to under \
+             0.01 mm. Generation is much slower: on the parts measured, about 7 times for axial \
+             finishing and 16 to 31 times for pencil clean-up. It does not change which corners \
+             or areas are cut. No effect on a mesh part."
         );
     }
 

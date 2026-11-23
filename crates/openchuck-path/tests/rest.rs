@@ -77,6 +77,33 @@ fn req_op_09_near_finds_a_sample_within_the_reach_and_not_beyond_it() {
 }
 
 #[test]
+fn req_op_09_near_a_segment_finds_material_beside_any_point_of_it() {
+    // Decision record PENCIL-REST-A item 1: pencil asks whether material is
+    // within reach of the tool's axis over its cutting length. A sample is
+    // near a segment when it is within the reach (1 mm here) of any point of
+    // it, the far end included, and not beyond; a segment of no length is
+    // a point.
+    let map = detect(&cylinder(12.0), 0.15);
+    let sample = map.samples()[0];
+    let along = |dx: f64, dy: f64| {
+        let mut p = sample;
+        p.x += dx;
+        p.y += dy;
+        p
+    };
+    // From 20 mm away to 0.5 mm past the sample: its nearest point is
+    // within reach though both ends are far from it.
+    assert!(map.near_segment(along(-20.0, 0.5), along(20.0, 0.5)));
+    // The same segment 50 mm off is not near anything.
+    assert!(!map.near_segment(along(-20.0, 50.0), along(20.0, 50.0)));
+    // Ending at the sample counts; a point is near as `near` says.
+    assert!(map.near_segment(along(-30.0, 0.0), sample));
+    assert_eq!(map.near_segment(sample, sample), map.near(sample));
+    let away = along(100.0, 0.0);
+    assert_eq!(map.near_segment(away, away), map.near(away));
+}
+
+#[test]
 fn req_op_09_detection_is_deterministic() {
     let a = detect(&cylinder(15.0), 0.15);
     let b = detect(&cylinder(15.0), 0.15);

@@ -150,9 +150,11 @@ impl FormSection {
             | "chip_break_retract"
             | "peck_mode"
             | "peck_depth" => Self::EntryLinksAndRetract,
+            // Exact STEP surface contact is in Advanced for every strategy
+            // that has it (decision record PENCIL-REST-A item 4).
             "diameter_tolerance" | "crease_angle" | "min_length" | "min_remaining" | "min_cut"
             | "max_material_left" | "through_allowance" | "max_step" | "max_x_step"
-            | "depth_reference" => Self::Advanced,
+            | "depth_reference" | "exact_contact" => Self::Advanced,
             _ => Self::PatternAndTolerance,
         }
     }
@@ -469,6 +471,7 @@ mod section_tests {
         assert_eq!(FormSection::of("max_tilt"), FormSection::ToolAxisAndA);
         assert_eq!(FormSection::of("entry"), FormSection::EntryLinksAndRetract);
         assert_eq!(FormSection::of("min_length"), FormSection::Advanced);
+        assert_eq!(FormSection::of("exact_contact"), FormSection::Advanced);
         assert_eq!(
             FormSection::of("stepover"),
             FormSection::PatternAndTolerance

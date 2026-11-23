@@ -252,6 +252,51 @@ impl RemainingMap {
         false
     }
 
+    /// Whether a sample with material left lies within the reach of the
+    /// segment from `a` to `b`: of a tool's axis over its cutting length, so
+    /// that what counts is the material the tool's body covers, widened by
+    /// the reach less its radius, not the one point a drop reports
+    /// (decision record PENCIL-REST-A item 1). `near_segment(p, p)` is
+    /// [`near`](Self::near).
+    pub fn near_segment(&self, a: Point3, b: Point3) -> bool {
+        let ab = b - a;
+        let length2 = ab.dot(ab);
+        let distance = |q: Point3| {
+            let t = if length2 > 0.0 {
+                ((q - a).dot(ab) / length2).clamp(0.0, 1.0)
+            } else {
+                0.0
+            };
+            q.distance(a + ab * t)
+        };
+        let [lx, ly, lz] = self.key(Point3::new(a.x.min(b.x), a.y.min(b.y), a.z.min(b.z)));
+        let [hx, hy, hz] = self.key(Point3::new(a.x.max(b.x), a.y.max(b.y), a.z.max(b.z)));
+        // A segment far longer than the reach would visit too many cells:
+        // the samples are tried one by one instead (NFR-07).
+        let cells = (hx - lx + 3)
+            .saturating_mul(hy - ly + 3)
+            .saturating_mul(hz - lz + 3);
+        if cells > 4096 {
+            return self
+                .cells
+                .values()
+                .flatten()
+                .any(|s| distance(s.point) <= self.reach);
+        }
+        for kx in lx - 1..=hx + 1 {
+            for ky in ly - 1..=hy + 1 {
+                for kz in lz - 1..=hz + 1 {
+                    if let Some(points) = self.cells.get(&[kx, ky, kz])
+                        && points.iter().any(|s| distance(s.point) <= self.reach)
+                    {
+                        return true;
+                    }
+                }
+            }
+        }
+        false
+    }
+
     /// How many samples have material left.
     pub fn len(&self) -> usize {
         self.count

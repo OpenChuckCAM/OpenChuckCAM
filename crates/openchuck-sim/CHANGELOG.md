@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased (PENCIL-REST; issue #632; decision PENCIL-REST-A, accepted)
+
+- **Tests only:** pencil clean-up with a flat end in the sharp corner of the closed-form shouldered shaft, after an axial tapered-ball finish, against the simulated stock (one pass right round, off and on, clear of the wall, the corner cleaned, no overcut added), and the shortest cut's refusal. No change to this crate's code.
+
 ## 0.47.0
 
 - **Family release (0.47.0, TABCUT; issue #555; decision 0527, accepted):** `openchuck-path`'s `RegionConstraint` gains the public field `outside`, a breaking change; no change to this crate.

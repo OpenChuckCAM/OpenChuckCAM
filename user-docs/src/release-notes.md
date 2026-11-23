@@ -90,4 +90,7 @@ Generated G-code must be verified by you before it is run on a machine. OpenChuc
 
 The *latest* version of this guide describes the nightly build, the [development build](start/install.md#download-a-development-build) made each night from the main branch. Its limits are on [Known limitations](start/limitations.md).
 
+- **Pencil clean-up.** With a flat end it now cleans a sharp inside corner of a STEP part in one pass, with **Exact STEP surface contact** off or on: it judges the material left from the tool as it rests, and rests just clear of the wall beside it. A new setting, **Shortest cut** (by default the tool's diameter), leaves stretches shorter than it, and single points, uncut, and the notes say where (#632).
+- **Exact STEP surface contact** has moved to the **Advanced** section of every operation that has it, and its tooltip now says how much closer to the surface and how much slower it was on test parts.
+
 Generated G-code must be verified by you before it is run on a machine. OpenChuckCAM does not guarantee that a program is safe or correct for any machine, tool or setup.
