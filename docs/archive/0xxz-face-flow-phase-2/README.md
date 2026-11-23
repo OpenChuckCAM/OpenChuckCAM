@@ -1,0 +1,10 @@
+# Decision 0xxz: face-flow finishing's phase 2 on the public blisk, screenshots
+
+Cited by [decision record 0xxz](../../decisions/0xxz-face-flow-stays-down-follows-outlines-and-drops-short-cuts.md) (issue #854).
+
+Both images are screenshots of the program itself: the release build of branch `claude/lane-faceflow` at commit `239acd1a`, Linux, Xvfb with Mesa's lavapipe software Vulkan, window 1920 x 1080, front view as the guide's blisk examples set it, the viewport cropped. Each stacks two captures: above, "before" (Pattern Along the guide, Stay down between passes off, Steps between rings Sharp, Shortest cut 0: today's program, which a saved operation keeps); below, "after" (what a new operation gets: Automatic, Stay down on, Blended, Shortest cut Tool diameter). They were taken on copies of the public reference project `testdata/projects/face_flow` (`testdata/step/valid/blisk.step`, 3 mm ball) with a 1 mm stepover and the face set changed as each line says; no private project was used. Colours: orange cuts, green links, lilac entries, hatching unreached.
+
+- [face1-outside-before-after.png](face1-outside-before-after.png): face 1, the outside face (the rim and every blade's tip), which closes round on itself. Before: 52 rings, broken at every blade, each piece entered and left (298 rapid moves in the LinuxCNC program). After: Automatic follows the face's outline, round the rim and along each blade's tip, inwards at the stepover, with the tool staying down between passes (11 rapid moves).
+- [face7-blade-before-after.png](face7-blade-before-after.png): face 7, a blade, cut along its tip edge (a plain face: Automatic keeps the guide). Before: an entry at the start of every pass (the lilac lines at the blade's end). After: the passes are joined along the face (7 rapid moves against 12); it lifts at the X 20 end, where the rim is in the way.
+
+The images are reduced to 256 colours to keep the files small. The driver was a scratch copy of `user-docs/tools/capture_example.py` (open the project, front view, Generate stale, capture), not kept.
