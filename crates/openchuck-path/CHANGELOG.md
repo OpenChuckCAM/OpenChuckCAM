@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.59.0
+
+- **Family release (0.59.0; lane Z1-SETUP, PR 2; issue #692; decision 0673):** `openchuck-types`'s `Tool` gains the public field `stick_out`, a breaking change; no change to this crate.
+
 ## 0.58.0 (FACING-STEP; issue #800; decision 0666 option C, accepted)
 
 - **Added:** `enclose(&BrepModel) -> Result<Enclosure>`, with `Enclosure` (its `points`, `analytic_excess` and `spline_excess`, and `mesh()`) and the constants `ANALYTIC_EXCESS` (0.0005 mm) and `SPLINE_TARGET` (0.001 mm). The enclosure's points hold every face of a B-rep part, bounded from its exact geometry, never its tessellation:
@@ -14,7 +18,6 @@
 ## 0.56.0
 
 - **Family release (0.56.0, POST-SAFETY; issue #703; decision 0656, accepted):** `openchuck-post`'s `PostOptions` gains the public field `max_line_length` and `openchuck-gcode`'s `FindingKind` gains `LineTooLong`, a breaking change; no change to this crate.
-- **Family release (0.56.0; lane Z1-SETUP, PR 2; issue #692; decision 0673):** `openchuck-types`'s `Tool` gains the public field `stick_out`, a breaking change; no change to this crate.
 
 ### SIM-FINISH; issues #619, #685 and #608; decisions 0660, 0662 and 0663, accepted
 

@@ -5,3 +5,8 @@ captured_at = "1eeecbd8aa5f3f42a4aee671767841a7e4bf1a47"
 captured_on = "2026-11-22"
 renderer = "Mesa lavapipe (software Vulkan) on Xvfb"
 window = "1920x1080"
+reviewed_at = "2e1a798fbbf225eab6de63c2b096ed699acdfdbb"
+# Reviewed at 2e1a798f (23 Nov 2026), the merge of main at ce03b33c into lane Z1-SETUP's second pull request: the
+# screen-folder changes since the capture (#841 and #843) are the rapid-cut words and count, which the tutorial's
+# programs do not raise, and Facing's bound on a STEP part, which the tutorial's mesh part does not use. After the
+# squash merge, main needs this stamp again at the merge commit.
