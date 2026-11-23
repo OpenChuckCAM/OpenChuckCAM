@@ -3139,7 +3139,10 @@ fn assemble(
             let length: f64 = pass
                 .points
                 .windows(2)
-                .map(|w| w[0].contact.distance(w[1].contact))
+                .filter_map(|w| match w {
+                    [a, b] => Some(a.contact.distance(b.contact)),
+                    _ => None,
+                })
                 .sum();
             if length < settings.shortest {
                 short.push(short_area(pass, length, settings.stepover));

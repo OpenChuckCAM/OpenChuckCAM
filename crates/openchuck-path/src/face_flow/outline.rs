@@ -330,7 +330,7 @@ fn outline_samples(model: &BrepModel, face: &BrepFace, closed: &Closure, h: f64)
             continue;
         };
         for w in points.windows(2) {
-            let (a, b) = (w[0], w[1]);
+            let [a, b] = [w.first(), w.last()].map(|p| p.copied().unwrap_or(Point3::ORIGIN));
             let n = ((a.distance(b) / h).ceil() as usize).max(1);
             for k in 0..n {
                 out.push(a + (b - a) * (k as f64 / n as f64));

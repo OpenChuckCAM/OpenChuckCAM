@@ -839,6 +839,8 @@ impl CommonParameters {
 }
 
 #[cfg(test)]
+// The values are passed through unchanged, so they compare exactly.
+#[allow(clippy::float_cmp)]
 mod length_or_tool_tests {
     //! The length-or-Tool-diameter kind (issue #854; the owner's decision of
     //! 23 Nov 2026, relayed): a number in millimetres or the word
