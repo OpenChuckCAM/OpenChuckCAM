@@ -1,6 +1,10 @@
 # Changelog
 
 
+## Unreleased (FACEFLOW phase 2; issue #854; decision 0xxz)
+
+- **Changed:** a new face-flow finishing operation is written with Stay down between passes on, Pattern Automatic, Steps between rings Blended (decision 0545's rule, now reaching face flow) and a Shortest cut of its tool's diameter. An operation saved without them keeps its program.
+
 ## Unreleased (FACEFLOW; issues #614 and #615)
 
 - **Added:** `operation::empty_cut_on_hint(strategy)`, the Geometry section's line on an empty Cut on: the whole part is cut, except for swarf and face-flow finishing, which are not generated with no face set there (the refusal they share is now one list). `SelectionSummary::counted()`, the set's count with its noun agreeing ("1 face", "3 edges").

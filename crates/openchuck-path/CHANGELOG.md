@@ -1,6 +1,12 @@
 # Changelog
 
 
+## Unreleased (FACEFLOW phase 2; issue #854; decision 0xxz)
+
+- **Breaking (decision 0048; minor bump at release):** `assemble::UnreachedReason` gains `TooShort { length }`, an area left uncut because the only cut there, from one lift to the next, is shorter than the operation's Shortest cut. An exhaustive `match` on `UnreachedReason` needs an arm for it.
+- **Added:** face-flow finishing's parameters `face_flow::parameter::STAY_DOWN` (Stay down between passes), `PATTERN` with `AUTOMATIC`, `ALONG_GUIDE` and `OUTLINE`, and `SHORTEST_CUT`; its schema also offers decision 0545's `ring_step` and `ring_blend_angle` for faces that close round on themselves.
+- **Changed output, only for operations that set them:** with Stay down between passes, the tool goes from one pass to the next along the face (a square step, A linear over it) instead of lifting, where the way is on the face and clear of the part; Follow the outline cuts a face in offsets of its own edges inwards at the stepover, and Automatic takes it where the guide's passes would break on the face; rings on a face that closes round on itself never reverse and are joined by a step along the seam (Sharp) or a blend over Blend over degrees (Blended); a run shorter than Shortest cut is left out and reported, hatched, with a warning. The schema's defaults keep a saved operation's program unchanged.
+
 ## Unreleased (FACEFLOW; issues #791 and #631)
 
 - **Fixed, changed output (issue #791; decision 0675, option A):** face-flow finishing cuts a face that closes round on itself (a full cylinder or cone, or a B-spline face closed in one direction) instead of refusing it because its seam edge, listed once, kept its boundary from closing. Its seams are recognised from the face and edge themselves, its two ends are the guide (the longer, or the one holding the user's guide edges) and the opposite boundary, and each pass is a ring round the face, blended and spaced as before; an end that is a point (a cone's apex) is an opposite point that turns with the guide, so every ring goes once round, and a ring is left out only when its length round is shorter than the tool. A Guide edge set applies to the faces its edges lie on; another closed face takes its own default end. A face with no end (a full sphere or torus), a seam chosen as the guide, and guide edges not on one end are refused, naming the face or edge. Faces that do not close round are cut as before. No API change.
