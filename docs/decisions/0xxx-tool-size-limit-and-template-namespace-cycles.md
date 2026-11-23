@@ -1,4 +1,4 @@
-# 0xxx: A largest tool size, template namespaces freed after a render, and checked mutation-run arguments (TL-02, TL-03, TL-04, GC-03, NFR-05, NFR-07; issues #628, #627, #794, #582; lane FUZZ-NFR07)
+# 0xxx: A largest tool size, template namespaces freed after a render, and checked mutation-run arguments (TL-02, TL-03, TL-04, GC-03, NFR-05, NFR-07; issues #628, #627, #794, #582; lane FUZZ-NFR07, pull request #853)
 
 - **Status:** Accepted by the project owner on 23 Nov 2026, relayed by the coordinator (decision 0049). The owner chose option A for item 1 (a 1000 mm bound) and option A for item 2 (the namespace cleanup), and agreed item 3 (count, seed and max_seconds all checked). Written by lane FUZZ-NFR07.
 - **Date:** 23 Nov 2026.
