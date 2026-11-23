@@ -271,7 +271,19 @@ fn req_op_24_req_nfr_12_baluster_end_is_faced_from_both_sides_within_the_flutes(
 /// both posts.
 #[test]
 fn req_op_24_req_nfr_05_whole_number_of_slices_posts_with_both_posts() {
-    let dir = project("whole-slices", "");
+    let dir = round_bar("whole-slices", 66.0, 2.2225, 1.0);
+    for name in ["makera-z1", "linuxcnc"] {
+        let run = post(&dir, name);
+        assert_eq!(run.gcode.len(), 1, "{name}");
+    }
+    std::fs::remove_dir_all(dir).unwrap();
+}
+
+/// The Baluster at its own size on the example's round bar, `length` long
+/// from the example's start, End faced with `stepdown` along X and
+/// `stepover` across.
+fn round_bar(name: &str, length: f64, stepdown: f64, stepover: f64) -> PathBuf {
+    let dir = project(name, "");
     let setup = dir.join(format!("setups/{SETUP}.toml"));
     let text = std::fs::read_to_string(&setup).unwrap();
     let start = text.find("[stock]").unwrap();
@@ -288,13 +300,12 @@ fn req_op_24_req_nfr_05_whole_number_of_slices_posts_with_both_posts() {
     std::fs::write(
         &setup,
         format!(
-            "{}[stock]\ntype = \"cylinder\"\ndiameter = 24.000000238343276\nlength = 66.0\n\
+            "{}[stock]\ntype = \"cylinder\"\ndiameter = 24.000000238343276\nlength = {length:?}\n\
              x_start = 16.990234375\n{rest}",
             &text[..start]
         ),
     )
     .unwrap();
-    // The Baluster at its own size, not scaled.
     let file = dir.join("project.toml");
     let text = std::fs::read_to_string(&file).unwrap();
     std::fs::write(
@@ -311,13 +322,107 @@ fn req_op_24_req_nfr_05_whole_number_of_slices_posts_with_both_posts() {
         &operation,
         text.replace("schema = 25\n", "schema = 28\n").replace(
             "stepdown = 2.0\nstepover = 2.2225\n",
-            "stepdown = 2.2225\nstepover = 1.0\n",
+            &format!("stepdown = {stepdown:?}\nstepover = {stepover:?}\n"),
         ),
     )
     .unwrap();
-    for name in ["makera-z1", "linuxcnc"] {
-        let run = post(&dir, name);
-        assert_eq!(run.gcode.len(), 1, "{name}");
+    dir
+}
+
+/// Issue #650: on the example's round bar 66.3 mm long, ordinary End
+/// settings the generator accepts were refused when posted, with "the
+/// actual end sweeps leave an unfinished required region in an axial
+/// layer". The issue gives the slice along X as Stepdown; today it is
+/// Stepover (slice thickness along X) and Stepdown is the band along the
+/// tool, so both readings are run. Each posts through both posts. Split by
+/// case to keep each test short (docs/ci-performance.md).
+#[test]
+fn req_op_24_req_nfr_07_end_facing_on_round_bar_posts_the_issue_settings() {
+    posts_on_round_bar(&[(2.2225, 1.0), (1.0, 2.2225)]);
+}
+
+/// Issue #650's thicker slices (3.17 and 3.1 mm along X) with long bands.
+#[test]
+fn req_op_24_req_nfr_07_end_facing_on_round_bar_posts_thick_slices() {
+    posts_on_round_bar(&[(25.0, 3.17), (25.0, 3.1), (10.0, 3.1)]);
+}
+
+/// Each `(stepdown, stepover)` End facing on the 66.3 mm round bar
+/// generates and posts through both posts.
+fn posts_on_round_bar(cases: &[(f64, f64)]) {
+    for &(stepdown, stepover) in cases {
+        let dir = round_bar("round-bar-66-3", 66.3, stepdown, stepover);
+        for name in ["makera-z1", "linuxcnc"] {
+            let mut app = Application::open(&dir, Threads::Exactly(2)).unwrap();
+            let run = app
+                .start_regenerate_with_post(
+                    PostSelection::Builtin(name.into()),
+                    OutputGrouping::Setup,
+                )
+                .wait();
+            assert!(
+                run.is_ok(),
+                "stepdown {stepdown}, stepover {stepover}, {name}: {}",
+                run.err().map(|e| e.to_string()).unwrap_or_default()
+            );
+        }
+        std::fs::remove_dir_all(dir).unwrap();
     }
-    std::fs::remove_dir_all(dir).unwrap();
+}
+
+/// Issue #500: Facing with the Box shape on +Z of the owner's Baluster set-up
+/// (box stock, start held for 8 mm, the part starting inside the grip) was
+/// refused with "an unfinished strip remains inside the requested extent".
+/// The strip is real: Facing keeps off the held start and the tool's radius
+/// beside it, and never crops the extent silently (decision 0252). The
+/// refusal now says where, why and what to change (NFR-07). With no grip the
+/// same faces generate.
+#[test]
+fn req_op_24_req_nfr_07_baluster_box_facing_names_the_held_start_it_keeps_off() {
+    let box_facing = |extent: &str, held: bool| {
+        let dir = project(
+            "box",
+            &format!("positive_z = true\nextent = \"{extent}\"\n"),
+        );
+        let operation = dir.join(format!("operations/{FACING}.toml"));
+        let text = std::fs::read_to_string(&operation).unwrap();
+        std::fs::write(
+            &operation,
+            text.replace("shape = \"end\"", "shape = \"box\""),
+        )
+        .unwrap();
+        if !held {
+            let setup = dir.join(format!("setups/{SETUP}.toml"));
+            let text = std::fs::read_to_string(&setup).unwrap();
+            assert!(text.contains("[workholding.start]\nlength = 8.0\n"));
+            std::fs::write(
+                &setup,
+                text.replace("[workholding.start]\nlength = 8.0\n", ""),
+            )
+            .unwrap();
+        }
+        let app = Application::open(&dir, Threads::Exactly(2)).unwrap();
+        let run = app.start_regenerate().wait().map_err(|e| e.to_string());
+        std::fs::remove_dir_all(dir).unwrap();
+        run
+    };
+    for (extent, advice) in [
+        ("whole_stock", "Use the Part only extent"),
+        ("part", "Shorten the held length"),
+    ] {
+        let e = box_facing(extent, true).unwrap_err();
+        assert!(
+            e.contains("the Box faces cannot be finished from X")
+                && e.contains("the held start (X 16.990 to 24.990)")
+                && e.contains(advice),
+            "{extent}: {e}"
+        );
+    }
+    let run = box_facing("whole_stock", false).unwrap();
+    assert!(
+        facing(&run)
+            .segments
+            .iter()
+            .any(|s| s.kind == MoveKind::Cutting)
+    );
 }

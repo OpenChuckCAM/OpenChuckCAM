@@ -716,3 +716,57 @@ fn req_set_10_req_ui_16_a_long_library_path_keeps_the_machine_panel_height() {
         "the Stock section moved with the path's length"
     );
 }
+
+/// SET-10 and NFR-07 (issue #603, sev3 part): a refused value's message at the foot of the
+/// window goes once the same value is set to one that is accepted; it does not wait for Save.
+/// A refusal of another value stays.
+#[test]
+fn req_set_10_req_nfr_07_a_corrected_value_clears_its_refusal() {
+    let dir = folder("corrected");
+    let mut window = MachineLibraryWindow::new(Some(dir.clone()), Some(folder("corrected-tools")));
+    window.open(false);
+    window.click(Selected::BuiltIn("built-in makera-z1".into()));
+    window.duplicate(None);
+    assert!(window.set_value(None, fields::FEED_Z, num(-1.0)).is_some());
+    assert!(window.message().is_some_and(|m| m.1));
+    // Another value accepted: the refusal of Z feed stays.
+    window.set_value(None, fields::FEED_LINEAR, num(5000.0));
+    assert!(
+        window.message().is_some_and(|m| m.1),
+        "{:?}",
+        window.message()
+    );
+    // The refused value corrected: its message goes.
+    assert_eq!(window.set_value(None, fields::FEED_Z, num(500.0)), None);
+    assert!(
+        window.message().is_none_or(|m| !m.1),
+        "{:?}",
+        window.message()
+    );
+    std::fs::remove_dir_all(&dir).ok();
+}
+
+/// SET-10, UI-13 and NFR-12 (issue #603, decision 0655, the owner's option C): Copy to edit on
+/// the built-in Z1 keeps its confirmed marks, and the window warns above the form, naming the
+/// Z1, that they were made there; drawn, the window shows it. The built-in itself has no warning.
+#[test]
+fn req_set_10_req_ui_13_a_copy_says_its_confirmed_marks_were_made_on_the_source() {
+    let dir = folder("copy-warning");
+    let mut window =
+        MachineLibraryWindow::new(Some(dir.clone()), Some(folder("copy-warning-tools")));
+    window.open(false);
+    window.click(Selected::BuiltIn("built-in makera-z1".into()));
+    assert_eq!(window.copy_warning(), None);
+    window.duplicate(None);
+    let warning = window.copy_warning().expect("a copy of the Z1 warns");
+    assert!(
+        warning.starts_with("This machine is a copy of Makera Z1."),
+        "{warning}"
+    );
+    assert_eq!(
+        window.draft().unwrap().profile.provenance,
+        z1().provenance,
+        "the marks are kept"
+    );
+    std::fs::remove_dir_all(&dir).ok();
+}
