@@ -1,7 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="760" height="380" viewBox="0 0 760 380" font-family="Helvetica, Arial, sans-serif" font-size="12">
   <title>Decision PENCIL-REST-A, option P2: only what comes inside the tool's rim can hold it up</title>
   <rect width="760" height="380" fill="#ffffff"/>
-  <text x="20" y="22" font-weight="bold" font-size="13">Option P2 (measured, not recommended): in the shared drop, only what comes inside the rim holds the tool up</text>
+  <text x="20" y="22" font-weight="bold" font-size="13">Option P2 (measured; rejected by the owner): in the shared drop, only what comes inside the rim holds the tool up</text>
   <text x="20" y="40" fill="#555">Looking down the tool axis. The circle is the tool's rim (its cutting radius R). Helical finishing finds the faces it turns at by the left case.</text>
   <text x="20" y="80" font-weight="bold" fill="#2c3e50">A wall flush with the rim</text>
   <circle cx="130" cy="180" r="70" fill="#d6eaf8" fill-opacity="0.6" stroke="#2c3e50" stroke-width="2"/>

@@ -1,13 +1,13 @@
 # PENCIL-REST-A: Pencil clean-up judges material left from the tool, rests clear of a wall it touches, and does not cut stretches shorter than a set length (issue #632; pull request #856; lane PENCIL-REST)
 
-- **Status:** proposed (23 Nov 2026) by lane PENCIL-REST, phase 1 (documents only). The owner answered Q1, Q3, Q4 and Q5 on 23 Nov 2026 (relayed by the coordinator, decision 0049): **Q1 M1**; **Q3 D2** plus an option for the shortest stretch to cut; **Q4 E1**, with the setting moved to *Advanced* and its tooltip explaining the trade-off; **Q5 K2** (the 0.55.0 known-issue line amended in this pull request). Q2 was not answered: the owner asked whether P2 would harm any other strategy. The lane's measured answer is under Q2. It recommends **P1**, with P2 not adopted. The owner's answer to Q2 and acceptance of the record are still to come (OI-9941). Figures of causes A and B, and of the shortest cut and P2, are included under the owner's standing rule that records carry diagrams (relayed). Nothing is built until the record is accepted.
-- **Number:** provisional. Under the owner's rule of 23 Nov 2026, provisional numbers are unique across lanes, and real numbers follow `main` in merge order. The record is `PENCIL-REST-A`, carrying the lane's name. The open items are OI-9941 to OI-9943, which the coordinator set aside for this lane, because `cargo xtask records` accepts only a number after `OI-`. The coordinator assigns the record and `OI-` numbers when the Merge Manager releases the pull request. No project schema number: nothing stored changes format (item 3's value is an ordinary strategy parameter). No spike.
+- **Status:** proposed (23 Nov 2026) by lane PENCIL-REST, phase 1 (documents only). The owner answered Q1, Q3, Q4 and Q5 on 23 Nov 2026 (relayed by the coordinator, decision 0049): **Q1 M1**; **Q3 D2** plus an option for the shortest stretch to cut; **Q4 E1**, with the setting moved to *Advanced* and its tooltip explaining the trade-off; **Q5 K2** (the 0.55.0 known-issue line amended in this pull request). On Q2 the owner first asked whether P2 would harm any other strategy. The lane measured that it would (under Q2), and the owner then answered **Q2 P1 only**, rejecting P2, on 23 Nov 2026 (relayed). Still to come: the owner's confirmation that the exact-contact row moves to *Advanced* for every strategy that has it, and acceptance of the record (OI-9941). Figures of causes A and B, and of the shortest cut and P2, are included under the owner's standing rule that records carry diagrams (relayed). Nothing is built until the record is accepted.
+- **Number:** provisional. Under the owner's rule of 23 Nov 2026, provisional numbers are unique across lanes, and real numbers follow `main` in merge order. The record is `PENCIL-REST-A`, carrying the lane's name. The open items are OI-9941 and OI-9942, from the numbers the coordinator set aside for this lane (OI-9941 to OI-9943), because `cargo xtask records` accepts only a number after `OI-`. The coordinator assigns the record and `OI-` numbers when the Merge Manager releases the pull request. No project schema number: nothing stored changes format (item 3's value is an ordinary strategy parameter). No spike.
 - **Date:** 23 Nov 2026.
 - **Lane:** PENCIL-REST, branch `claude/lane-pencil-rest`, from `main` at `286472a` (library family 0.56.0). Issue #632 (milestone 2026.2), which refers to #351 and #257.
 - **Requirements:** OP-09 (rest machining and pencil clean-up), OP-27 (exact surface contact for STEP parts), OP-23, UI-07 and UI-19 (the inspector's fields and its Advanced section), NFR-06, GC-07, NFR-07, NFR-12. No requirement change. `docs/requirements.md` and `docs/architecture.md` are not edited.
 - **Amends (on acceptance):** [decision 0526](0526-stepall-close-out-and-exact-contact-setting.md) item 2 (where *Exact STEP surface contact* sits: *Advanced*, not *Pattern and tolerance*) and item 3 (its words). It also amends the UI specification, section 11.4, where it names that row's place.
 - **Builds on:** [0044](0044-slice-15-rest-and-pencil.md) items 1 and 5 (the remaining-material map, the pencil rest), [0162](0162-simulation-results-histogram-and-probe.md) item 6 (each pencil move checked against drops along it), [0226](0226-pencil-on-the-inside-corners-of-a-step-part.md) (pencil on a STEP part's inside corners), [0209](0209-step-geometry-for-every-strategy.md), [0211](0211-step-accuracy-measured.md), [0256](0256-no-fixed-toolpath-mesh-qualifies.md), [0277](0277-exact-ball-drops.md), [0297](0297-helix-strategies-turn-at-faces-across-the-axis.md) (a helix turns once at each face the tool's side touches), [0338](0338-exact-outline-drops-not-adopted.md) (the exact outline drop for a flat end), [0526](0526-stepall-close-out-and-exact-contact-setting.md) (Exact STEP surface contact, off by default for pencil; OI-1351).
-- **Open items:** adds OI-9941 (the owner's answer to Q2 and acceptance), OI-9942 (phase 2, the build) and OI-9943 (a tool whose side is flush with a face is a knife edge for every drop, and some strategies rely on it). Relates to OI-1351 (pencil's exact contact is over the 2-times limit) without closing it, and to OI-192 (pencil makes one pass per crease) without changing it.
+- **Open items:** adds OI-9941 (the owner's confirmation of item 4's placement, and acceptance) and OI-9942 (phase 2, the build). No open item is kept for P2: the owner rejected it. Relates to OI-1351 (pencil's exact contact is over the 2-times limit) without closing it, and to OI-192 (pencil makes one pass per crease) without changing it.
 
 ## Context
 
@@ -52,14 +52,14 @@ Both causes were confirmed by changing the scratch build, then reverted. A clear
 
 The STEP project differs in counts (6 passes off, not a refusal) because its tessellation is the importer's (0.01 mm deflection, exact circular trims), so some contacts land within reach. Phase 2 confirms the STEP project with the kernel (Verification).
 
-## Decision (the owner's answers of 23 Nov 2026, relayed; Q2 still open)
+## Decision (the owner's answers of 23 Nov 2026, relayed)
 
 1. **Material is judged from the tool as placed, not from its contact point (Q1, M1; the owner's answer).** A placed point is cut when a sample with material left lies within reach of the **tool's axis over its cutting length**: the distance from the sample to the axis segment is at most the tool's cutting radius plus the sampling spacing. This is the same `reach`, measured from the axis: the material the tool's own body covers, widened by the sampling spacing. For a flat end it no longer depends on which point of a line contact the drop reports.
 
    It is not a superset of today's test. A ball's contact can lie up to its radius from the axis, so a sample just beyond the contact's far side counts today and not under M1. In a corner the material lies between the axis and the corner, so little change is expected for a ball; phase 2 measures it.
 
    `RemainingMap` gains a query by segment (`near_segment`, or the like). `near` by point stays for rest machining, whose contact is unique. This applies on mesh and STEP parts alike.
-2. **The rest stays clear of a wall it touches (Q2: the lane recommends P1; the owner's answer is awaited).** After the bisection, the rest is backed away from the crease by a tenth of the operation's tolerance (0.001 mm at the default 0.01 mm). The material left on the wall is within the tolerance the user set. Bridge points are dropped from the same cleared line. The shared drop is not changed: Q2 below shows that changing it (P2) changes other strategies' output.
+2. **The rest stays clear of a wall it touches (Q2, P1; the owner's answer).** After the bisection, the rest is backed away from the crease by a tenth of the operation's tolerance (0.001 mm at the default 0.01 mm). The material left on the wall is within the tolerance the user set. Bridge points are dropped from the same cleared line. The shared drop is not changed: Q2 below shows that changing it (P2) changes other strategies' output.
 3. **Short stretches are not cut, and the notes say where (Q3, D2 with the owner's option).**
    - Pencil gains a setting, *Shortest cut* (key `min_length`, the key and convention of edge following's *Shortest chain*; millimetres; *Advanced* section, where `min_length` already sits).
    - A stretch of the corner is cut only when its length along the crease, from its first wanted point to its last, is at least *Shortest cut*.
@@ -96,7 +96,7 @@ The STEP project differs in counts (6 passes off, not a refusal) because its tes
 
 ## The owner's questions
 
-Q1, Q3, Q4 and Q5 are answered (marked). Q2 is open, with the analysis the owner asked for.
+All five are answered (marked). Q2 keeps the analysis the owner asked for before answering it.
 
 ### Q1. How pencil decides "material left" across a crease: **answer M1**
 
@@ -107,13 +107,13 @@ Q1, Q3, Q4 and Q5 are answered (marked). Q2 is open, with the analysis the owner
 | M3: change the threshold or the tessellation handling | Lower `min_remaining`, or a finer drop surface | None on the closed form (0.10 to 0.20 identical) | Finer tessellation: decision 0256's cost | Does not address the cause |
 | M1 + M2 | Both | As M1, with any remaining gap closed | As M1 | As M1 and M2 |
 
-### Q2. Where the rest sits against a wall: **open; the lane recommends P1, with P2 not adopted**
+### Q2. Where the rest sits against a wall: **answer P1 only; P2 rejected by the owner**
 
 | Option | What | Output change | Risk |
 | --- | --- | --- | --- |
-| **P1 (recommended): back off by a tenth of the tolerance** | Item 2: 0.001 mm at the default | Pencil only: passes stay on the bar; no point lifted onto the shoulder | Leaves at most 0.001 mm on the wall |
-| P2: make the shared drop treat a flush side as no touch | Change the drop used by every strategy (tessellation and exact) so a part that only touches the tool's rim, never coming inside it, does not hold the tool up | Pencil fixed as by P1 (measured); **16 tests in other strategies fail and two sets of golden programs change** (measured, below) | Breaks face detection and facing that rely on the flush contact (decision 0297); needs its own redesign |
-| P1 now, P2 as a separate decision later | P1 in phase 2; P2 investigated under OI-9943 with its own record | As P1 now | As P1 now; P2's cost is paid only if a later decision wants it |
+| **P1 (recommended; chosen): back off by a tenth of the tolerance** | Item 2: 0.001 mm at the default | Pencil only: passes stay on the bar; no point lifted onto the shoulder | Leaves at most 0.001 mm on the wall |
+| P2 (rejected by the owner): make the shared drop treat a flush side as no touch | Change the drop used by every strategy (tessellation and exact) so a part that only touches the tool's rim, never coming inside it, does not hold the tool up | Pencil fixed as by P1 (measured); **16 tests in other strategies fail and two sets of golden programs change** (measured, below) | Breaks face detection and facing that rely on the flush contact (decision 0297); needs its own redesign |
+| P1 now, P2 as a separate decision later (not chosen) | P1 in phase 2; P2 investigated later with its own record | As P1 now | As P1 now |
 | P3: leave it | — | 31 passes, 4 mm lifts on the closed form with exact contact | The defect stays |
 
 **The owner's question: would P2 adversely affect any other strategy? Yes.** The lane built P2 in the scratch build and ran the whole workspace's tests with it, then reverted it.
@@ -147,9 +147,9 @@ P2 was built in its narrowest form: a vertex lying within 1e-6 mm of the rim, an
 - **Determinism:** unchanged in kind. P2 is a fixed rule, so the same input gives the same output at any thread count, and the existing 1, 2 and N thread tests passed with P2 except where the output itself changed.
 - **P2 alone does not remove pencil's own knife edge in general.** The rest's bisection would find the new boundary (1e-6 mm inside the wall) instead. On this rotationally symmetric part that boundary depends on X alone, so P2 alone fixed the closed form: one pass at 360 degrees, off and on, nothing lifted. On a part whose wall is not square to X (a blisk blade), the bridge points between two rests at that boundary can still fall either side of it. P1's clearance of a tenth of the tolerance keeps them on one side.
 
-**Cost of P2.** Two golden sets re-blessed (`first_cut` on both posts, so the gate 3 replay and the gate 5 programs change; the blisk helical end-to-end programs). A redesign of how decision 0297's face turns, free-end facing and helical wall moves find a face the tool's side touches. Per-face rules in the exact outline and ball drops. Accuracy re-measured where decisions 0211, 0277 and 0338 measured it. That is a decision of its own, beyond this lane. P1 costs one line in `pencil.rs` and changes pencil only.
+**Cost of P2.** Two golden sets re-blessed (`first_cut` on both posts, so the gate 3 replay and the gate 5 programs change; the blisk helical end-to-end programs). A redesign of how decision 0297's face turns, free-end facing and helical wall moves find a face the tool's side touches. Per-face rules in the exact outline and ball drops. Accuracy re-measured where decisions 0211, 0277 and 0338 measured it. P1 costs one line in `pencil.rs` and changes pencil only.
 
-**Recommendation: P1 now.** P2 is not adopted. Whether the shared drop should treat a flush side as no touch, and how face detection would then work, is left to a separate decision under OI-9943 if the owner wants it.
+**The lane recommended P1, and the owner chose P1 only (23 Nov 2026, relayed).** P2 is rejected, not deferred: the shared drop keeps counting a part that touches the tool's rim, as the strategies above rely on. The measurements stay here as the reason.
 
 ### Q3. Single-point passes: **answer D2, with a shortest-cut option**
 
@@ -195,7 +195,7 @@ One code and test pull request, as a draft, from `main`. Tests are written from 
    - The development-version release-notes line.
    - The `openchuck-path` and `openchuck-app` CHANGELOG entries.
    - The verification plan's OP-09 row, if its method changes (it should not).
-   - The decision index, and `docs/open-items.md` (OI-9942 closed; OI-9943 updated).
+   - The decision index, and `docs/open-items.md` (OI-9942 closed).
    - Screenshots: any user guide figure that shows the *Pattern and tolerance* section of a STEP operation is re-captured, with its `CAPTURED.toml` hash naming the branch commit. None shows a pencil path today.
 
 ## Alternatives considered
@@ -208,7 +208,7 @@ One code and test pull request, as a draft, from `main`. Tests are written from 
 ## Consequences
 
 On acceptance:
-- Phase 2 (OI-9942) builds items 1 to 4, and item 2 as the owner answers Q2, with the tests above.
+- Phase 2 (OI-9942) builds items 1 to 4 with the tests above.
 - Pencil output changes for every pencil operation (no golden, reference job or example project holds one).
 - Decision 0526 items 2 and 3 are amended (the row's place and its words), and the UI specification's section 11.4 with them.
 - No requirement, architecture, schema or dependency change. Library: expected not breaking (to be confirmed with the coordinator before the build).
@@ -235,6 +235,6 @@ On acceptance:
   - The simulation of the changed pencil path (overcut and material left).
   - The STEP kernel tests with P2 (not built).
 
-  These are phase 2's tests, except P2, which is not proposed.
+  These are phase 2's tests, except P2, which the owner rejected.
 - **Records checks:** `cargo xtask records` and `cargo xtask trace` were run before the push.
 - Generated G-code is the user's to verify before it is run on a machine (NFR-12); nothing here says a pencil path is safe.
