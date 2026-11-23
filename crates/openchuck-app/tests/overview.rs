@@ -2762,3 +2762,57 @@ fn req_set_06_req_nfr_12_a_tool_too_long_for_the_minimum_clearance_warns_on_the_
         found[0]
     );
 }
+
+/// On a copy of the built-in Makera Z1, a stock that starts behind X 0 (the
+/// headstock face) is a warning on the setup's Stock row, the row whose
+/// Start X fixes it; and checks made before the machine's Rotary reference X
+/// changed still give their travel message in the reference they were made
+/// with, so its setup X stays the setup's own (SET-05, SET-06, UI-11,
+/// UI-12; decision record 0672).
+#[test]
+fn req_set_05_req_ui_11_a_stock_behind_the_headstock_warns_on_the_stock_row() {
+    let mut f = fixture("behind-headstock", "cube_ascii.stl");
+    let mut z1 = openchuck_project::machines::builtin(openchuck_project::machines::MAKERA_Z1)
+        .unwrap()
+        .unwrap();
+    f.app
+        .execute(Command::SetMachine(Some(Box::new(z1.clone()))))
+        .unwrap();
+    // The fixture's stock starts at X -7, inside the headstock.
+    let o = f.overview();
+    let behind = o
+        .messages
+        .iter()
+        .find(|m| m.text.contains("the stock starts at X -7.000"))
+        .unwrap_or_else(|| panic!("{:?}", o.messages));
+    assert_eq!(
+        behind.source,
+        Some(ItemRef::SetupPart(f.setup, SetupPart::Stock))
+    );
+    // A stock far past the X travel, then the reference moved after the
+    // checks ran: the stale checks keep their own reference.
+    let mut setup = f.app.project().setup(f.setup).unwrap().clone();
+    setup.stock = Some(Stock::Cylinder {
+        diameter: Millimetres(20.0),
+        length: Millimetres(14.0),
+        x_start: Millimetres(-64.77),
+    });
+    f.app.execute(Command::Replace(Item::Setup(setup))).unwrap();
+    let checks = f.app.start_checks(None).wait().unwrap();
+    z1.rotary_origin.x = -180.4;
+    f.app
+        .execute(Command::SetMachine(Some(Box::new(z1))))
+        .unwrap();
+    let o = f.app.overview(Some(&checks), &JobLog::default());
+    let travel = o
+        .messages
+        .iter()
+        .find(|m| m.text.contains("past the machine's X travel"))
+        .unwrap_or_else(|| panic!("{:?}", o.messages));
+    assert!(
+        travel.text.contains("the start of the stock, at X -64.770")
+            && travel.text.contains("at machine X -198.390"),
+        "{}",
+        travel.text
+    );
+}

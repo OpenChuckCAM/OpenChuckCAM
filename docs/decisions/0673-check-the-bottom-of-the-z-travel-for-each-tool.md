@@ -59,3 +59,4 @@ Run by lane Z1-SETUP on 22 Nov 2026 in a Linux cloud container (4 cores), branch
 - **Test times:** every new test takes under 1 s uninstrumented; none is long-running (AGENTS.md).
 - **Coverage:** every line of `spindle_depth` and `spindle_depth_text` is reached by these tests. The two lines in `pipeline.rs` that push the warning are not reached by any test: no project in the suite has a machine and tool for which it fires. They were read and match the tested function.
 - **Not verified:** on a machine with a short Z travel; the stick-out field (D1, second pull request).
+- **After review** (CodeRabbit on `63d3f332`, 23 Nov 2026): the group's start pose counts as well as each move's end (the tip goes there too), and is reported as the start rather than as a move; test `req_set_01_req_gc_08_a_group_starting_below_the_reach_warns`, written before the change.

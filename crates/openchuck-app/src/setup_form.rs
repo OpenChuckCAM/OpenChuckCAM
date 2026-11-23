@@ -209,8 +209,9 @@ pub fn stock_rows(setup: &Setup) -> Vec<SetupRow> {
                 SetupField::StartX,
                 "Start X",
                 "Where the stock starts along the rotary axis, measured from the machine's rotary \
-                 reference point (X 0: the headstock face on the Makera Z1). It moves the stock, \
-                 with its held regions and tabs; it does not move the part or the work zero.",
+                 reference point (X 0: the headstock face on the Makera Z1). It moves the stock \
+                 with its held regions, and the tabs placed from them; tabs placed by hand stay \
+                 where they are on the part. It does not move the part or the work zero.",
                 Some(x_start.0),
                 None,
             ));
@@ -267,7 +268,7 @@ pub const PART_OFFSET_EXPLAINED: &str = "Moves the part along the rotary axis in
      part. Use it to choose where the part sits in the stock. To move the part in every \
      setup, change the placement in the Model step instead. X is measured from the machine's \
      rotary reference point (the headstock face on the Makera Z1); to move the stock, change \
-     its Start X.";
+     its Start X (X from and X to for a box).";
 
 /// What the read-only position row shows (decision record 0201).
 pub const POSITION_EXPLAINED: &str = "Where the part is along the rotary axis in this setup: \

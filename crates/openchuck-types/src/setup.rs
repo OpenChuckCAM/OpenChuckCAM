@@ -541,8 +541,8 @@ impl std::fmt::Display for SetupWarning {
                  grips, with your jaws fitted, and {}",
                 -x,
                 if *what == "the stock" {
-                    "set the stock's Start X to at least that; move the part (Offset along X) \
-                     and the work zero (Zero at X) with it"
+                    "set the stock's Start X (X from, for a box) to at least that; move the part \
+                     (Offset along X) and the work zero (Zero at X) with it"
                 } else {
                     "set the part's Offset along X so it starts at least that far along; move \
                      the work zero (Zero at X) with it"
@@ -915,8 +915,8 @@ mod tests {
             "the stock starts at X -1.000, 1.000 mm inside the headstock (X 0 is the headstock \
              face on the Makera Z1)",
             "Measure from the headstock face to where your chuck grips, with your jaws fitted",
-            "set the stock's Start X to at least that; move the part (Offset along X) and the \
-             work zero (Zero at X) with it",
+            "set the stock's Start X (X from, for a box) to at least that; move the part \
+             (Offset along X) and the work zero (Zero at X) with it",
         ] {
             assert!(text.contains(words), "{words}: {text}");
         }

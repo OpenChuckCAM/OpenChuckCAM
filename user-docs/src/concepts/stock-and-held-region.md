@@ -24,7 +24,7 @@ Four values of the setup are measured from X 0, and each moves only one thing:
 
 | Value | Where | What it moves |
 | --- | --- | --- |
-| **Start X** | Stock | The stock, with its held regions and tabs. |
+| **Start X** (**X from** and **X to** for a box) | Stock | The stock, with its held regions and the tabs placed from them. Tabs you placed by hand stay where they are on the part. |
 | **Offset along X** | Part position | The part only, within the stock. **Position** shows where the part is then. |
 | **Zero at X** | Work offset and clearance | The work zero: the program's X0, which you set on the machine as the work offset (G54). |
 | **Rotary reference X** | Machine profile | Where X 0 is on the machine, in machine X. It is the machine's, not the setup's. |
@@ -73,7 +73,7 @@ The Z1's **Rotary reference X** is −198.39 and its X travel is −207.000 to �
 
 - A stock with **Start X** −64.770 starts at machine X −198.390 + (−64.770) = −263.160. That is 56.160 mm past the travel, and the setup checks say so: "the start of the stock, at X −64.770, is 56.160 mm past the machine's X travel …".
 - Any **Start X** of −8.610 or more is inside the travel, but anything below 0 is inside the headstock. On a copy of the built-in Makera Z1 the setup checks warn about that too: "the stock starts at X −1.000, 1.000 mm inside the headstock …".
-- To be clear of the chuck, the stock must start at least the chuck's length from the face. That length depends on your chuck and on how the jaws are fitted and grip, so measure it, on your machine, from the headstock face to where the jaws grip the stock. Set **Start X** to at least that, and move the part (**Offset along X**) and the work zero (**Zero at X**) with it.
+- To be clear of the chuck, the stock must start at least the chuck's length from the face. That length depends on your chuck and on how the jaws are fitted and grip, so measure it, on your machine, from the headstock face to where the jaws grip the stock. Set **Start X** (**X from**, for a box) to at least that, and move the part (**Offset along X**) and the work zero (**Zero at X**) with it.
 
 The warning for a stock behind X 0 is given only on a copy of the built-in Makera Z1, whose X 0 is known to be the headstock face. On another machine's profile, X 0 may be the chuck face, where a gripped stock rightly starts behind it, so no such warning is given there: check it yourself. No check covers the chuck itself.
 

@@ -1037,6 +1037,10 @@ struct SetupChecked {
     /// Why the stored workholding cannot be built, if it cannot.
     unbuildable: Option<String>,
     has_machine: bool,
+    /// The machine's rotary reference X the checks ran with, so that
+    /// checks from an earlier revision still convert their machine
+    /// coordinates with the reference they were made against.
+    rotary_reference_x: Option<f64>,
 }
 
 /// What the checks job found: the model files, the mesh checks, the setup
@@ -1461,6 +1465,7 @@ pub(crate) fn run_checks(
             notes,
             unbuildable,
             has_machine: project.machine().is_some(),
+            rotary_reference_x: project.machine().map(|m| m.rotary_origin.x),
         });
     }
     let keys = status_keys(project);
@@ -1637,8 +1642,13 @@ fn part_of(kind: &SetupWarningKind) -> Option<SetupPart> {
         | SetupWarningKind::StockNeedsPart
         | SetupWarningKind::ImportedStock
         | SetupWarningKind::PartOutsideStock => Some(SetupPart::Stock),
-        // Fixed by moving the part along X (decision record 0672).
-        SetupWarningKind::StartsBehindReference { .. } => Some(SetupPart::PartPosition),
+        // The stock is fixed by its own position along X, the part by its
+        // Offset along X (decision record 0672).
+        SetupWarningKind::StartsBehindReference { what, .. } => Some(if *what == "the stock" {
+            SetupPart::Stock
+        } else {
+            SetupPart::PartPosition
+        }),
         SetupWarningKind::ClearanceInsideStock { .. }
         | SetupWarningKind::ClearanceInsidePart { .. }
         | SetupWarningKind::ClearanceBelowMinimum { .. }
@@ -1701,7 +1711,7 @@ fn travel_along_text(what: &str, value: f64, min: f64, max: f64, reference: f64)
     };
     let fix = if what.ends_with("the stock") {
         format!(
-            "Move the stock towards {towards} (Start X), with the part (Offset along X) and the \
+            "Move the stock towards {towards} (Start X, or X from and X to for a box), with the part (Offset along X) and the \
              work zero (Zero at X), or shorten it."
         )
     } else if what.ends_with("the part") {
@@ -2611,11 +2621,7 @@ fn build(app: &Application, checks: Option<&Checks>, jobs: &JobLog) -> Overview 
             for w in &found.warnings {
                 let part = part_of(&w.kind);
                 let target = part.map_or(setup, at);
-                let text = sentence(&setup_warning_in_form(
-                    &s.name,
-                    w,
-                    project.machine().map(|m| m.rotary_origin.x),
-                ));
+                let text = sentence(&setup_warning_in_form(&s.name, w, found.rotary_reference_x));
                 // A possible collision must be acknowledged before the
                 // program is written (decision record 0538).
                 let collision = crate::setup::is_possible_collision(&w.kind);

@@ -36,7 +36,7 @@ None of these can be told apart without a field that says what the reference poi
 
 **W. The words** (short, what to do first; the tutorial's fresh stock). With R-A:
 
-> Stock (setup 'Setup 1'): the stock starts at X −1.000, 1.000 mm inside the headstock (X 0 is the headstock face on the Makera Z1). Measure from the headstock face to where your chuck grips, with your jaws fitted, and set the stock's Start X to at least that; move the part (Offset along X) and the work zero (Zero at X) with it.
+> Stock (setup 'Setup 1'): the stock starts at X −1.000, 1.000 mm inside the headstock (X 0 is the headstock face on the Makera Z1). Measure from the headstock face to where your chuck grips, with your jaws fitted, and set the stock's Start X (X from, for a box) to at least that; move the part (Offset along X) and the work zero (Zero at X) with it.
 
 With no stock: "the part starts at X …", and "set the part's Offset along X so it starts at least that far along, and move the work zero (Zero at X) with it". With R-C the first sentence would read "… 1.000 mm behind the machine's rotary reference point (X 0)", naming no headstock.
 
@@ -44,7 +44,7 @@ The first proposal said "move the part along X (Offset along X and Zero at X), o
 
 **M. The travel message along the rotary axis** (#820). Today: "the start of the stock is at machine X −263.160, outside the travel −207.000 to −1.000". Proposed, worked out in the application from the profile's Rotary reference X, so `openchuck-types` and its public API do not change:
 
-> Travel (setup 'Setup 1'): the start of the stock, at X −64.770, is 56.160 mm past the machine's X travel: it would be at machine X −263.160, and the machine reaches −207.000 to −1.000. Move the stock towards +X (Start X), with the part (Offset along X) and the work zero (Zero at X), or shorten it. X is measured from the machine's rotary reference point, at machine X −198.390.
+> Travel (setup 'Setup 1'): the start of the stock, at X −64.770, is 56.160 mm past the machine's X travel: it would be at machine X −263.160, and the machine reaches −207.000 to −1.000. Move the stock towards +X (Start X, or X from and X to for a box), with the part (Offset along X) and the work zero (Zero at X), or shorten it. X is measured from the machine's rotary reference point, at machine X −198.390.
 
 The same for the end of the stock ("towards −X"), the part (Offset along X only) and the work zero (Zero at X only). The first proposal's version needed a new field in `SetupWarningKind::OutsideTravel`, a breaking change; this one does not.
 
@@ -80,3 +80,4 @@ Run by lane Z1-SETUP on 22 Nov 2026 in a Linux cloud container (4 cores), branch
 - **Coverage** (`cargo llvm-cov`, each crate on its own tests, the new tests in `openchuck-app`): every new line of `starts_behind_reference`, `reference_is_headstock_face`, `check_setup` (application) and `travel_along_text` is reached; `openchuck-types/src/setup.rs` is at 93.9 % of lines. Not reached: the `?` of the new `write!` arm (a formatter error).
 - **Screens:** none of the user guide's screenshots shows a changed text (the warnings do not fire on any guide project; tooltips show on hover only), so every `CAPTURED.toml` is marked reviewed at `00ec98ea`.
 - **Not verified:** the words on a machine; R-B's field is not built (OI-2187).
+- **After review** (CodeRabbit on `63d3f332`, 23 Nov 2026; `main` at `90a1fe0a` merged in first): the warning for a stock behind X 0 now marks the setup's Stock row, not Part position (the part's still marks Part position); the overview converts a setup check's machine X with the rotary reference X that check was made with, so checks from an earlier revision do not mix in a reference changed since; the words and the guide name a box stock's X from and X to beside Start X; the Start X tooltip and the guide say that tabs placed by hand stay where they are on the part (they are held in model X). Test `crates/openchuck-app/tests/overview.rs` `req_set_05_req_ui_11_a_stock_behind_the_headstock_warns_on_the_stock_row`, written for the two code findings and seen to fail on the old code for each.

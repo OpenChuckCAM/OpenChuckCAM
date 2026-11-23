@@ -304,15 +304,16 @@ pub struct SpindleDepth {
     /// The lowest the tip can go: the spindle-to-axis distance, less the Z
     /// travel span, less the stick-out.
     pub lowest_reach: f64,
-    /// The move of the group where the tip is lowest, by index.
-    pub segment: usize,
+    /// The move of the group whose end is where the tip is lowest, by
+    /// index; `None` when it is lowest at the group's start.
+    pub segment: Option<usize>,
 }
 
 /// Whether the path `group`, cut by `tool`, needs the spindle below the
 /// bottom of the Z travel of `profile` (decision record 0673): only on a
 /// machine that measures tool lengths and gives its spindle-to-axis
-/// distance, as for the top of the travel ([`spindle_height`]). Every move
-/// counts, rapids and links included. The tip's height is measured along
+/// distance, as for the top of the travel ([`spindle_height`]). The group's
+/// start and every move count, rapids and links included. The tip's height is measured along
 /// the tool axis from the rotary axis: on a 4-axis machine the tool axis
 /// crosses the rotary axis at right angles, so it is the tip's component
 /// along the tool axis in the model frame. To three places, as the G-code: a
@@ -333,15 +334,22 @@ pub fn spindle_depth(
         let (tip, axis) = (pose.tip, pose.axis.get());
         tip.y * axis.y + tip.z * axis.z
     };
-    let (segment, lowest_tip) = group
-        .segments
-        .iter()
-        .enumerate()
-        .map(|(i, s)| (i, height(&s.end)))
-        .fold(None, |low: Option<(usize, f64)>, (i, h)| match low {
-            Some((_, l)) if l <= h => low,
-            _ => Some((i, h)),
-        })?;
+    // The group's start, then the end of each move: the tip goes to all.
+    let (segment, lowest_tip) = std::iter::once((None, height(&group.start)))
+        .chain(
+            group
+                .segments
+                .iter()
+                .enumerate()
+                .map(|(i, s)| (Some(i), height(&s.end))),
+        )
+        .fold(
+            None,
+            |low: Option<(Option<usize>, f64)>, (i, h)| match low {
+                Some((_, l)) if l <= h => low,
+                _ => Some((i, h)),
+            },
+        )?;
     (lowest_reach - lowest_tip > 5e-4).then_some(SpindleDepth {
         stick_out,
         lowest_tip,
@@ -409,6 +417,21 @@ mod tests {
         z1
     }
 
+    /// The group's start is a position the tip goes to as well (decision
+    /// record 0673: every move counts): a start below the reach warns, as
+    /// the start (no move index), when every move ends above it.
+    #[test]
+    fn req_set_01_req_gc_08_a_group_starting_below_the_reach_warns() {
+        let z1 = short_z();
+        let mut group = path(&[45.0, 2.0]);
+        group.start.tip.z = -20.0;
+        let found = spindle_depth(&z1, &tool(5.0), &group).unwrap();
+        assert!((found.lowest_tip - -20.0).abs() < 1e-9, "{found:?}");
+        assert_eq!(found.segment, None);
+        group.start.tip.z = -18.0;
+        assert_eq!(spindle_depth(&z1, &tool(5.0), &group), None);
+    }
+
     /// The bottom of the Z travel (decision record 0673; SET-01, GC-08,
     /// NFR-12): a short tool (flute 5, stick-out 10) whose path goes 20 mm
     /// below the axis needs the spindle 2 mm below the bottom; at -18 within
@@ -421,7 +444,7 @@ mod tests {
         assert!((found.stick_out - 10.0).abs() < 1e-9, "{found:?}");
         assert!((found.lowest_reach - -18.0).abs() < 1e-9, "{found:?}");
         assert!((found.lowest_tip - -20.0).abs() < 1e-9, "{found:?}");
-        assert_eq!(found.segment, 2);
+        assert_eq!(found.segment, Some(2));
         assert_eq!(
             spindle_depth(&z1, &tool(5.0), &path(&[45.0, -18.0004, 45.0])),
             None
@@ -528,7 +551,7 @@ mod tests {
             "Stock (setup 'Setup 1'): ",
             "he stock starts at X -1.000, 1.000 mm inside the headstock (X 0 is the headstock \
              face on the Makera Z1).",
-            "set the stock's Start X to at least that",
+            "set the stock's Start X (X from, for a box) to at least that",
         ] {
             assert!(text.contains(words), "{words}: {text}");
         }
@@ -567,8 +590,8 @@ mod tests {
             "Travel (setup 'Setup 1'): ",
             "he start of the stock, at X -64.770, is 56.160 mm past the machine's X travel: it \
              would be at machine X -263.160, and the machine reaches -207.000 to -1.000.",
-            "Move the stock towards +X (Start X), with the part (Offset along X) and the work \
-             zero (Zero at X), or shorten it.",
+            "Move the stock towards +X (Start X, or X from and X to for a box), with the part \
+             (Offset along X) and the work zero (Zero at X), or shorten it.",
             "X is measured from the machine's rotary reference point, at machine X -198.390.",
         ] {
             assert!(text.contains(words), "{words}: {text}");
