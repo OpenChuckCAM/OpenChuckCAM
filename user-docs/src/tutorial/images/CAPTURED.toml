@@ -2,13 +2,14 @@
 # Written by user-docs/tools/capture.py. Add reviewed_at = "<commit>" after checking the
 # screens against a later build without re-capturing (user-docs/STYLE.md, Figures).
 captured_at = "1eeecbd8aa5f3f42a4aee671767841a7e4bf1a47"
+# captured_at names a commit of lane Z1-SETUP's second pull request (#852) that the squash merge dropped, so it is not
+# in main's history; the screens (and this file) first appear in main at 5e52b0b0, the squash commit of #852.
 captured_on = "2026-11-22"
 renderer = "Mesa lavapipe (software Vulkan) on Xvfb"
 window = "1920x1080"
-reviewed_at = "057906496bdc5670394e2df05311b94577970e3d"
-# Reviewed at 2e1a798f (23 Nov 2026), the merge of main at ce03b33c into lane Z1-SETUP's second pull request: the
-# screen-folder changes since the capture (#841 and #843) are the rapid-cut words and count, which the tutorial's
-# programs do not raise, and Facing's bound on a STEP part, which the tutorial's mesh part does not use. After the
-# squash merge, main needs this stamp again at the merge commit.
-# Reviewed again at 05790649 (23 Nov 2026), after the review fixes: they change the Stick-out help, shown only on
-# hover, and let a blank Stick-out clear the value; no tutorial screen shows either.
+# Reviewed at 5e52b0b0 (23 Nov 2026), main after #852: the screens were captured on #852's build (the stick-out wording
+# of figure 17's tool-length warning and the Stick-out of figure 8 are its). The changes to the screen folders since the
+# previous main capture are #838 (stock and Z-travel warnings the tutorial does not raise), #841 (rapid-cut words and
+# count; none of the tutorial's programs has a rapid cut), #843 (Facing bound on a STEP part; the tutorial uses an STL
+# part) and the review fixes to #852 (Stick-out help, shown on hover only, and a blank Stick-out clearing the value).
+reviewed_at = "5e52b0bed65538dce754cb3e9ac8d99361d4a55d"
