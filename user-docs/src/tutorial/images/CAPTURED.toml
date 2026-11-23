@@ -5,6 +5,11 @@ captured_at = "e9e3472b3a4d36bbf9fe09d7fadbb82f7eb88850"
 captured_on = "2026-11-15"
 renderer = "Mesa lavapipe (software Vulkan) on Xvfb"
 window = "1920x1080"
-# Reviewed against main d763edf (22 Nov 2026): its only change to the screen folders since the capture is a test value in
-# crates/openchuck-app/src/facing.rs, and none of these screens shows the rotary reference Y it changed.
-reviewed_at = "d763edfe42578d54c6015570c61a525fef4c8f37"
+# Reviewed against lane Z1-SETUP at 00ec98ea (22 Nov 2026): its changes to the screen folders are a stock-behind-the-headstock
+# warning and a bottom-of-Z-travel warning that none of these projects raises, the travel warning's words, which none of
+# them shows, and tooltips, which show only on hover. Reviewed again at the merge of main 90a1fe0 into it, 8abdda7
+# (23 Nov 2026): main had been reviewed at d763edf, and its changes since are a warning for a machine library copy
+# with confirmed marks and a refusal of some Facing on a STEP part; the tutorial uses the built-in Z1 and an STL part.
+# Reviewed again at 1c661f1 (23 Nov 2026), the answers to review: warning words, a tooltip and where a warning
+# shows, none of which these screens show.
+reviewed_at = "1c661f1ff54c2c2ff57facce137581e3bbd50b64"

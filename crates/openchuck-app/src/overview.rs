@@ -1037,6 +1037,10 @@ struct SetupChecked {
     /// Why the stored workholding cannot be built, if it cannot.
     unbuildable: Option<String>,
     has_machine: bool,
+    /// The machine's rotary reference X the checks ran with, so that
+    /// checks from an earlier revision still convert their machine
+    /// coordinates with the reference they were made against.
+    rotary_reference_x: Option<f64>,
 }
 
 /// What the checks job found: the model files, the mesh checks, the setup
@@ -1404,16 +1408,17 @@ pub(crate) fn run_checks(
             .map(|e| e.in_setup(&s.frame));
         let mut notes = Vec::new();
         let warnings = match project.machine() {
-            Some(profile) => {
-                openchuck_types::setup::check_setup(&openchuck_types::setup::SetupCheck {
+            Some(profile) => crate::setup::check_setup(
+                project.machine_id(),
+                &openchuck_types::setup::SetupCheck {
                     profile,
                     frame: &s.frame,
                     stock: s.stock.as_ref(),
                     clearance: s.clearance.as_ref(),
                     rules: &s.clearance_rules,
                     part: part.as_ref(),
-                })
-            }
+                },
+            ),
             None => Vec::new(),
         };
         let mut warnings = warnings;
@@ -1460,6 +1465,7 @@ pub(crate) fn run_checks(
             notes,
             unbuildable,
             has_machine: project.machine().is_some(),
+            rotary_reference_x: project.machine().map(|m| m.rotary_origin.x),
         });
     }
     let keys = status_keys(project);
@@ -1569,11 +1575,20 @@ use crate::lead_in::clause;
 
 /// A setup warning in the one form: "Clearance (setup '<name>'): ...",
 /// the same in Messages and in the export checks.
-pub(crate) fn setup_warning_in_form(setup: &str, warning: &SetupWarning) -> String {
+///
+/// `reference_x` is the machine X of the profile's rotary reference point,
+/// X 0 of the setup: with it, a position past the travel along the rotary
+/// axis is also given in the setup's X, with how to fix it (decision record
+/// 0672, issue #820).
+pub(crate) fn setup_warning_in_form(
+    setup: &str,
+    warning: &SetupWarning,
+    reference_x: Option<f64>,
+) -> String {
     crate::lead_in::in_form(
         setup_topic(&warning.kind),
         &Context::setup(setup),
-        &setup_warning_text(warning),
+        &setup_warning_text(warning, reference_x),
     )
 }
 
@@ -1627,6 +1642,13 @@ fn part_of(kind: &SetupWarningKind) -> Option<SetupPart> {
         | SetupWarningKind::StockNeedsPart
         | SetupWarningKind::ImportedStock
         | SetupWarningKind::PartOutsideStock => Some(SetupPart::Stock),
+        // The stock is fixed by its own position along X, the part by its
+        // Offset along X (decision record 0672).
+        SetupWarningKind::StartsBehindReference { what, .. } => Some(if *what == "the stock" {
+            SetupPart::Stock
+        } else {
+            SetupPart::PartPosition
+        }),
         SetupWarningKind::ClearanceInsideStock { .. }
         | SetupWarningKind::ClearanceInsidePart { .. }
         | SetupWarningKind::ClearanceBelowMinimum { .. }
@@ -1642,10 +1664,27 @@ fn part_of(kind: &SetupWarningKind) -> Option<SetupPart> {
 /// A setup warning in the user's words: the library's text, with the machine
 /// values it used named as the machine panel names them, not by their names
 /// in the profile file (specification section 15).
-pub(crate) fn setup_warning_text(warning: &SetupWarning) -> String {
+pub(crate) fn setup_warning_text(warning: &SetupWarning, reference_x: Option<f64>) -> String {
     let mut plain = warning.clone();
     plain.unconfirmed.clear();
-    let mut text = plain.to_string();
+    let mut text = match (&warning.kind, reference_x) {
+        (
+            SetupWarningKind::OutsideTravel {
+                what,
+                axis: "X",
+                value,
+                min,
+                max,
+            },
+            Some(reference),
+        ) if what.starts_with("the start of")
+            || what.starts_with("the end of")
+            || *what == "the work zero" =>
+        {
+            travel_along_text(what, *value, *min, *max, reference)
+        }
+        _ => plain.to_string(),
+    };
     if !warning.unconfirmed.is_empty() {
         let names: Vec<&str> = warning
             .unconfirmed
@@ -1658,6 +1697,34 @@ pub(crate) fn setup_warning_text(warning: &SetupWarning) -> String {
         ));
     }
     text
+}
+
+/// A position along the rotary axis past the machine's X travel, in the
+/// setup's X as the user typed it and in machine X, with what to do first
+/// (decision record 0672, issue #820). `reference` is the machine X of the
+/// rotary reference point, the setup's X 0.
+fn travel_along_text(what: &str, value: f64, min: f64, max: f64, reference: f64) -> String {
+    let (past, towards) = if value < min {
+        (min - value, "+X")
+    } else {
+        (value - max, "-X")
+    };
+    let fix = if what.ends_with("the stock") {
+        format!(
+            "Move the stock towards {towards} (Start X, or X from and X to for a box), with the part (Offset along X) and the \
+             work zero (Zero at X), or shorten it."
+        )
+    } else if what.ends_with("the part") {
+        format!("Move the part towards {towards} (Offset along X).")
+    } else {
+        format!("Move the work zero towards {towards} (Zero at X).")
+    };
+    format!(
+        "{what}, at X {:.3}, is {past:.3} mm past the machine's X travel: it would be at machine \
+         X {value:.3}, and the machine reaches {min:.3} to {max:.3}. {fix} X is measured from \
+         the machine's rotary reference point, at machine X {reference:.3}",
+        value - reference
+    )
 }
 
 /// How serious `status` is, for choosing the mark to show: an error, then
@@ -2554,7 +2621,7 @@ fn build(app: &Application, checks: Option<&Checks>, jobs: &JobLog) -> Overview 
             for w in &found.warnings {
                 let part = part_of(&w.kind);
                 let target = part.map_or(setup, at);
-                let text = sentence(&setup_warning_in_form(&s.name, w));
+                let text = sentence(&setup_warning_in_form(&s.name, w, found.rotary_reference_x));
                 // A possible collision must be acknowledged before the
                 // program is written (decision record 0538).
                 let collision = crate::setup::is_possible_collision(&w.kind);
