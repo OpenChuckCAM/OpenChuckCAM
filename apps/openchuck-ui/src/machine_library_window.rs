@@ -117,6 +117,9 @@ pub struct MachineLibraryWindow {
     ask: Option<Ask>,
     /// The last thing done, or why it was not (and whether it is a problem).
     message: Option<(String, bool)>,
+    /// The value whose refusal `message` is, so that setting it to an
+    /// accepted value clears the message (issue #603).
+    refused: Option<&'static str>,
 }
 
 impl MachineLibraryWindow {
@@ -127,6 +130,15 @@ impl MachineLibraryWindow {
             folder,
             tools_folder,
             ..Self::default()
+        }
+    }
+
+    /// The warning shown above the form while the library draft is a copy
+    /// that still has values confirmed on the machine (decision 0655).
+    pub fn copy_warning(&self) -> Option<String> {
+        match (&self.selected, &self.draft) {
+            (Some(Selected::Library(_)), Some(d)) => d.copied_marks_warning(),
+            _ => None,
         }
     }
 
@@ -172,6 +184,7 @@ impl MachineLibraryWindow {
 
     fn choose(&mut self, selected: Selected) {
         self.fields.clear();
+        self.refused = None;
         self.draft = match &selected {
             Selected::Library(Some(path)) => match MachineDraft::open(path) {
                 Ok(d) => Some(d),
@@ -459,6 +472,10 @@ impl MachineLibraryWindow {
                 None => {}
             }
         });
+        // A copy keeps the source's confirmed marks; say where they were made (decision 0655).
+        if let Some(text) = self.copy_warning() {
+            field_row::warning_line(ui, &text);
+        }
         let form = match &self.draft {
             Some(d) if matches!(self.selected, Some(Selected::Library(_))) => d.form(),
             _ => machine_edit::machine_form(profile),
@@ -662,6 +679,10 @@ impl MachineLibraryWindow {
             return None;
         }
         let folder = self.folder();
+        let field = match &act {
+            Act::Set(name, _) => Some(*name),
+            _ => None,
+        };
         let result: Result<Option<String>, String> = match act {
             Act::Choose(selected) => {
                 self.choose(selected);
@@ -870,11 +891,17 @@ impl MachineLibraryWindow {
             Ok(status) => {
                 if let Some(s) = &status {
                     self.message = Some((s.clone(), false));
+                    self.refused = None;
+                } else if field.is_some() && self.refused == field {
+                    // The refused value now has one that is accepted.
+                    self.message = None;
+                    self.refused = None;
                 }
                 status
             }
             Err(e) => {
                 self.message = Some((e, true));
+                self.refused = field;
                 None
             }
         }

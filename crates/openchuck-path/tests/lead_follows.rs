@@ -343,6 +343,45 @@ fn req_op_11_req_op_13_a_turning_lead_is_fed_at_the_cutting_feed_with_a_contact_
 }
 
 #[test]
+fn req_op_13_req_op_11_the_lead_in_move_that_meets_a_sloping_surface_is_timed_for_its_own_travel() {
+    // Issue #685: on a cone the ball's contact point is not at its tip, so
+    // a move timed from the tip above the surface to the first contact point
+    // would count the jump between them. The move that meets the surface is
+    // timed for its own travel, as the arc above it is.
+    let cone = Cone {
+        start_radius: 8.0,
+        end_radius: 12.0,
+        length: 30.0,
+    };
+    let f = Fixture::new(
+        MeshSurface::new(&cone.mesh(40, 180)).unwrap(),
+        16.0,
+        &ball(6.0),
+    );
+    let path = make(&f, &HelicalFinishing, &finishing("rings"), &[]).unwrap();
+    let ins = lead_ins(&path);
+    assert!(!ins.is_empty());
+    let mut checked = 0;
+    for lead in &ins {
+        let n = lead.moves.len();
+        let (Some(last), Some(before)) = (lead.moves.last(), lead.moves.get(n.wrapping_sub(2)))
+        else {
+            continue;
+        };
+        assert_eq!(last.kind, MoveKind::LeadIn);
+        // The cone slopes, so the contact point of the cut is off the tip.
+        let travel = before.end.tip.distance(last.end.tip);
+        assert!(
+            (last.contact_length.0 - travel).abs() < 1e-9,
+            "the move meeting the surface is counted {} mm for {travel} mm of travel",
+            last.contact_length.0
+        );
+        checked += 1;
+    }
+    assert!(checked > 0);
+}
+
+#[test]
 fn req_op_11_req_set_09_a_turning_lead_never_reaches_a_held_region_at_the_starting_end() {
     // The arcs on main reach 3 mm beyond the part's end along X; here the
     // held region starts 0.5 mm beyond it.

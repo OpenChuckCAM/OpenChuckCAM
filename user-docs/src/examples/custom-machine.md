@@ -25,7 +25,7 @@ The library folder does not exist until you save a profile in it, or click **Cre
 
 ## 2. Copy the built-in profile
 
-Starting from a copy is quicker than **New machine**, which leaves 18 values for you to fill in. A copy keeps every value of the profile it came from until you change it, including the marks that say a value was confirmed on that machine.
+Starting from a copy is quicker than **New machine**, which leaves 18 values for you to fill in. A copy keeps every value of the profile it came from until you change it, including the marks that say a value was confirmed on that machine. While you edit the copy, an amber line above its values says so: the marks were made on the machine it was copied from, and if the copy is for another machine you check each value on that machine.
 
 1. Click **Manage machines...**. The machine library window opens.
 2. Under **BUILT IN**, click **Makera Z1**. It says "Built in: it cannot be edited".
@@ -77,7 +77,7 @@ Scroll further, and set **Highest spindle speed** to `24000` and **Lowest spindl
 <figcaption><b>Figure 5.</b> The values below were left as the Z1's. They still carry the Z1's ticks, such as Minimum block time, Block window and Tool length measurement, although nobody measured them on the router.</figcaption>
 </figure>
 
-Figure 5 shows the trap of a copy. **Minimum block time**, **Tool length measurement**, **Spindle to axis** and **Recommended minimum safe Z** were not changed, so they are still the Z1's values, and every one of them still says "Confirmed on the machine". Go through every field, and type in your own machine's value even where it looks right. A typed value is marked unconfirmed until you confirm it.
+Figure 5 shows the trap of a copy. **Minimum block time**, **Tool length measurement**, **Spindle to axis** and **Recommended minimum safe Z** were not changed, so they are still the Z1's values, and every one of them still says "Confirmed on the machine". The amber line above the values says the same. Go through every field, and type in your own machine's value even where it looks right. A typed value is marked unconfirmed until you confirm it.
 
 ## 4. Save the profile
 
@@ -140,7 +140,7 @@ A value is refused with a red message
 : For example "The safe Z (45 mm) must not be below the safe cylinder radius (50 mm)." Change the other value first, then type this one again.
 
 The profile was copied, but not every value was checked
-: Values you do not change keep the source machine's values and marks. Go through every field.
+: Values you do not change keep the source machine's values and marks, as the amber line above the copy's values says while you edit it. Go through every field.
 
 A in the feed word does not match the post
 : The profile's **A in the feed word** must match the feed rule of the post you export with (**Separate** for the LinuxCNC post, **Makera** for the Makera Z1 post). The program does not check that they match.

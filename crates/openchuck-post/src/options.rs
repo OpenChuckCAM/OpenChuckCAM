@@ -14,7 +14,11 @@ use crate::error::{PostError, Result};
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum UnwindMode {
-    /// A rapid rotation of A by whole turns.
+    /// Nothing is written at an operation boundary: the controller keeps the
+    /// accumulated A, and every following A word carries the whole turns.
+    /// No physical return by whole turns is written (decision 0241 item 6:
+    /// a rotate-only post never substitutes a full-turn rotation for the
+    /// drop-turns bookkeeping; issue #599).
     Rotate,
     /// The controller drops whole turns with no motion, by `unwind_command`
     /// (the Z1's `G92.4 A0 S0`, decision 0007 item 4).
@@ -39,15 +43,18 @@ pub enum Units {
     Mm,
 }
 
-/// Coolant in the program.
+/// Coolant in the program. With flood or mist, the built-in template turns
+/// coolant on after every spindle start and off with `M9` before every tool
+/// change and before the footer, so no tool change or program end leaves it
+/// running (decision 0654, issue #598).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Coolant {
     /// No coolant codes.
     Off,
-    /// Flood, M8, off with M9.
+    /// Flood: `M8` after each `S<rpm> M3`, off with `M9`.
     Flood,
-    /// Mist, M7, off with M9.
+    /// Mist: `M7` after each `S<rpm> M3`, off with `M9`.
     Mist,
 }
 
