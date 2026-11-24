@@ -996,5 +996,20 @@ mod tests {
             !text.contains("setup.") && !text.contains("Invalid"),
             "{text}"
         );
+        // The held region at the end is named so.
+        let mut end = s.clone();
+        end.workholding.tabs.clear();
+        end.workholding.end = Some(HeldRegion {
+            length: Millimetres(10.0),
+            diameter: None,
+        });
+        let short = apply(&end, None, SetupField::Length, "8").unwrap();
+        let error = openchuck_project::check_setup_values(&short).unwrap_err();
+        let text = refusal(&short, "Length", &error);
+        assert!(
+            text.contains("the held region at the end does not fit")
+                && text.contains("change the held region at the end under Workholding"),
+            "{text}"
+        );
     }
 }
