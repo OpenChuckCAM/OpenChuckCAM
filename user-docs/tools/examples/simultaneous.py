@@ -40,9 +40,9 @@ def run(cap, work):
     cap.shot("03-finish-path")
     cap.scroll(1740, 600, 15)                  # the Inspector down to TOOL AXIS AND A
     cap.shot("04-tool-axis")
-    cap.fill(1810, 952, "10")                  # Lead angle
+    cap.fill(1810, 922, "10")                  # Lead angle
     cap.click(1855, 1057, GENERATE)
     cap.shot("05-lead-10")
-    cap.click(1840, 697, 1)                    # Pattern: axial, with the lead still at 10
+    cap.click(1840, 668, 1)                    # Pattern: axial, with the lead still at 10
     cap.click(1855, 1057, 30)
     cap.shot("06-axial-with-lead")
