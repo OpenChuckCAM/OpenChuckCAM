@@ -256,6 +256,7 @@ pub(crate) fn regenerate(
     cache: &PipelineCache,
     record: &crate::overview::GenerationRecord,
     until: Option<OperationId>,
+    force: bool,
     context: &JobContext<'_>,
 ) -> Result<Regeneration, AppError> {
     // Playback's checkpoints are kept only by a run that simulates every
@@ -352,7 +353,10 @@ pub(crate) fn regenerate(
         } else {
             None
         };
-        let hit = key.and_then(|k| cache.get(operation.id, k));
+        let kept = key.and_then(|k| cache.get(operation.id, k));
+        // "Regenerate all" makes every operation again and keeps what the
+        // cache held only to compare (issue #559).
+        let (hit, kept) = if force { (None, kept) } else { (kept, None) };
         let cached_path = hit.is_some();
         let (path, cached_stock) = if let Some(hit) = hit {
             regeneration.reused.push(operation.id);
@@ -380,6 +384,13 @@ pub(crate) fn regenerate(
                 carried,
                 &within,
             )?);
+            if let Some((kept, key)) = kept.zip(key)
+                && *kept.path != *made
+            {
+                regeneration
+                    .warnings
+                    .push(not_noticed(&operation.name, key, &kept.path, &made));
+            }
             if let Some(key) = key
                 && files.unchanged(location, project, operation)
             {
@@ -652,6 +663,42 @@ pub(crate) fn regenerate(
     Ok(regeneration)
 }
 
+/// The warning of "Regenerate all" for an operation whose toolpath came out
+/// differently from the one kept for the same inputs (issue #559, record
+/// SIM-UX-F): a change the cache key did not notice, which is a fault to
+/// report. It names the operation and gives what a report needs (the build,
+/// the start of the key, the move counts and the first move that differs),
+/// and nothing else from the project.
+fn not_noticed(
+    name: &str,
+    key: crate::cache::Key,
+    kept: &crate::operation::OperationPath,
+    made: &crate::operation::OperationPath,
+) -> String {
+    let (before, after) = (&kept.group.segments, &made.group.segments);
+    let first = if kept.group.start == made.group.start {
+        before
+            .iter()
+            .zip(after.iter())
+            .position(|(a, b)| a != b)
+            .unwrap_or_else(|| before.len().min(after.len()))
+            + 1
+    } else {
+        0
+    };
+    let key = key.to_string();
+    format!(
+        "Regenerate all (operation '{name}'): its toolpath came out differently from the one \
+         kept, although nothing it is made from had changed, so a change was not noticed. \
+         The new toolpath is the one used now. Please report it, with this message: build {}, \
+         key {}, {} moves kept, {} moves now, first difference at move {first}.",
+        env!("CARGO_PKG_VERSION"),
+        key.get(..19).unwrap_or(&key),
+        before.len(),
+        after.len(),
+    )
+}
+
 #[cfg(test)]
 mod tests {
     #![allow(clippy::unwrap_used, clippy::indexing_slicing)]
@@ -808,6 +855,7 @@ mod tests {
             &app.cache,
             &app.record,
             None,
+            false,
             &context,
         )
         .unwrap();
@@ -900,6 +948,7 @@ mod tests {
             &p.app.cache,
             &p.app.record,
             None,
+            false,
             &context,
         )
     }
@@ -988,6 +1037,7 @@ mod tests {
                 &p.app.cache,
                 &p.app.record,
                 None,
+                false,
                 &context,
             );
             let regeneration = result.unwrap_or_else(|e| panic!("simulate {simulate}: {e}"));

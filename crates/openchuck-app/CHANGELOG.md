@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased (SIM-UX-F; issue #559; record SIM-UX-F, proposed)
+
+- **Added:** `Application::start_regenerate_all`, which makes every enabled operation again whatever the cache holds and simulates as `start_generate` does. An operation whose new toolpath differs from the one kept for the same key gets a run warning ("Regenerate all (operation '<name>'): … a change was not noticed … Please report it …") with the build, the start of the key, the move counts and the first move that differs. The G-code of an operation that was up to date is unchanged.
+
 ## 0.63.0 (FACEFLOW; issues #791, #631, #614, #615 and #854; decisions 0675, 0676 and 0686, accepted)
 
 - **Changed:** a new face-flow finishing operation is written with Stay down between passes on, Pattern Automatic, Steps between rings Blended (decision 0545's rule, now reaching face flow) and a Shortest cut of its tool's diameter. An operation saved without them keeps its program.

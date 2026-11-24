@@ -550,6 +550,14 @@ impl RunPanel {
         }
     }
 
+    /// Starts "Regenerate all": every operation made again, whatever the
+    /// cache holds (issue #559, record SIM-UX-F).
+    pub fn start_regenerate_all(&mut self, app: &Application) {
+        if self.job.is_none() {
+            self.begin(app.start_regenerate_all(), app.simulates());
+        }
+    }
+
     fn begin(&mut self, handle: JobHandle<Regeneration>, simulate: bool) {
         self.last_error = None;
         self.failed = false;

@@ -998,6 +998,7 @@ Dark is the default. The light theme *(UI-20)* changes the panels, bars and dial
 | 1, 3, 7, 0 (top row or numpad) | Front, right, top, isometric, while no text field has the keyboard; with Alt or Ctrl the digits keep their own meanings ([decision 0677](../decisions/0677-keyboard-focus-tooltips-and-tool-windows.md), Q4) |
 | N | New operation |
 | G, or F5 | Generate selected; Shift G, or Shift F5, generates every stale operation |
+| Ctrl Shift G | Regenerate all: every enabled operation made again, whatever the kept results; a warning names any operation whose toolpath comes out differently ([record SIM-UX-F](../decisions/SIM-UX-F-regenerate-all.md)) |
 | Ctrl D, Del, F2 | Duplicate, delete, rename the selected item |
 | Alt ↑, Alt ↓ | Move the selected operation earlier or later |
 | Q, W, E, R, B | Select one, flood fill, by angle, same direction, box (while picking); on an edge, Q, W and E are select one, chain and smooth chain |

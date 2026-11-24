@@ -90,6 +90,10 @@ const NEW: KeyboardShortcut = KeyboardShortcut::new(Modifiers::COMMAND, Key::N);
 const OPEN: KeyboardShortcut = KeyboardShortcut::new(Modifiers::COMMAND, Key::O);
 const IMPORT: KeyboardShortcut = KeyboardShortcut::new(Modifiers::COMMAND, Key::I);
 const EXPORT: KeyboardShortcut = KeyboardShortcut::new(Modifiers::COMMAND, Key::E);
+// "Regenerate all" (issue #559, record SIM-UX-F; the owner's choice of 26 Nov
+// 2026): with Ctrl, so it is never pressed by accident.
+const REGENERATE_ALL: KeyboardShortcut =
+    KeyboardShortcut::new(Modifiers::COMMAND.plus(Modifiers::SHIFT), Key::G);
 const GENERATE: KeyboardShortcut = KeyboardShortcut::new(Modifiers::NONE, Key::G);
 const GENERATE_F5: KeyboardShortcut = KeyboardShortcut::new(Modifiers::NONE, Key::F5);
 const GENERATE_STALE: KeyboardShortcut = KeyboardShortcut::new(Modifiers::SHIFT, Key::G);
@@ -851,6 +855,18 @@ impl Shell {
         }
     }
 
+    /// Makes every operation again whatever the cache holds ("Regenerate
+    /// all", Ctrl Shift G; issue #559, record SIM-UX-F).
+    fn regenerate_all(&mut self) {
+        if self.defer(Self::regenerate_all) {
+            return;
+        }
+        if let Some(app) = &self.app {
+            self.run.start_regenerate_all(app);
+            self.overview_dirty = true;
+        }
+    }
+
     fn save(&mut self) -> bool {
         if self.defer(|s| {
             s.save();
@@ -1227,14 +1243,18 @@ impl Shell {
         if redo {
             self.redo();
         }
-        let (new, open, import, export) = ctx.input_mut(|i| {
+        let (new, open, import, export, regenerate_all) = ctx.input_mut(|i| {
             (
                 i.consume_shortcut(&NEW),
                 i.consume_shortcut(&OPEN),
                 i.consume_shortcut(&IMPORT),
                 i.consume_shortcut(&EXPORT),
+                i.consume_shortcut(&REGENERATE_ALL),
             )
         });
+        if regenerate_all {
+            self.regenerate_all();
+        }
         if new {
             self.request(Next::New, ctx);
         }
