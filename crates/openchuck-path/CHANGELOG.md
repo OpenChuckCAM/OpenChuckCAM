@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased (MOPUP-1, PR B1; issues #859 and #860; not breaking)
+
+- **Fixed (#859 item 1):** a B-spline whose knots write zero as `-0.0` is split into its Bezier pieces like the same B-spline written with `0.0`, so `enclose` bounds the face instead of refusing it, and the exact queries' piece bounds apply to it.
+- **Fixed (#859 item 2):** `enclose` refuses a B-spline face or edge whose weight is so small that a pole's coordinate times it is subnormal or zero (the pole would be lost), naming the face. It used to accept it, with a bound that could miss part of the face. The weights are never adjusted.
+- **Fixed (#860 item 1):** a flat face whose exact edges ran out of room and then met an edge with no exact curve is bounded by its parameter box when that fits, instead of being refused.
+- **Fixed (#860 item 2):** a rational Bezier curve is its last control point exactly at its end, however unequal the weights; very unequal weights no longer make a valid B-spline edge or face fail as "not finite".
+- **Changed (#860 item 3):** `enclose` counts a B-spline face's pieces from its knots before it builds them, and refuses a face whose pieces cannot fit in the work limit without building them first (a degree-24 face of 81 by 81 spans is refused at once instead of after about 29 seconds and about 4 million points). Refining stops while the pieces still fit; the stated spline excess is that of the pieces kept.
+
 ## 0.63.0 (FACEFLOW; issues #791, #631, #614, #615 and #854; decisions 0675, 0676 and 0686, accepted)
 
 - **Breaking (decision 0048; the workspace's minor bump to 0.63.0 is this change's own):** `assemble::UnreachedReason` gains `TooShort { length }`, an area left uncut because the only cut there, from one lift to the next, is shorter than the operation's Shortest cut. An exhaustive `match` on `UnreachedReason` needs an arm for it.
