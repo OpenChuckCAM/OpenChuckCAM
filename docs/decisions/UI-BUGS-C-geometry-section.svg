@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="760" height="400" viewBox="0 0 760 400" font-family="sans-serif" font-size="12">
+  <title>Issue 759: the Geometry section today, where each set appears twice and buttons wrap under the label, and the proposed layout with one line per set</title>
+  <rect width="760" height="400" fill="#1e1f22"/>
+  <text x="20" y="24" fill="#e8eaed" font-weight="bold" font-size="13">Today (340 px inspector)</text>
+  <rect x="20" y="34" width="340" height="312" rx="4" fill="#26282c" stroke="#3a3d42"/>
+  <text x="30" y="56" fill="#9aa0a6" font-size="11" font-weight="bold">GEOMETRY</text>
+  <text x="30" y="78" fill="#9aa0a6">Cut on</text>
+  <rect x="120" y="66" width="62" height="18" rx="3" fill="#33363b"/><text x="126" y="79" fill="#e8eaed">Body ×</text>
+  <rect x="188" y="66" width="62" height="18" rx="3" fill="#33363b"/><text x="194" y="79" fill="#e8eaed">Neck ×</text>
+  <rect x="256" y="66" width="90" height="18" rx="3" fill="#17181b" stroke="#3a3d42"/><text x="262" y="79" fill="#9aa0a6">add… ▾</text>
+  <text x="30" y="108" fill="#9aa0a6">Avoid</text>
+  <rect x="120" y="96" width="98" height="18" rx="3" fill="#33363b"/><text x="126" y="109" fill="#e8eaed">Finial ball ×</text>
+  <rect x="224" y="96" width="62" height="18" rx="3" fill="#33363b"/><text x="230" y="109" fill="#e8eaed">Bead ×</text>
+  <rect x="30" y="120" width="90" height="18" rx="3" fill="#17181b" stroke="#3a3d42"/><text x="36" y="133" fill="#9aa0a6">add… ▾</text>
+  <text x="126" y="160" fill="#80868b">Finial ball</text>
+  <rect x="196" y="148" width="66" height="18" rx="3" fill="#4c8bf5"/><text x="202" y="161" fill="#fff">Cut short</text>
+  <text x="30" y="184" fill="#e8eaed">Warn only   Ignore</text>
+  <text x="126" y="210" fill="#80868b">Bead</text>
+  <text x="166" y="210" fill="#e8eaed">Cut short  Warn only</text>
+  <rect x="30" y="220" width="52" height="18" rx="3" fill="#4c8bf5"/><text x="36" y="233" fill="#fff">Ignore</text>
+  <text x="126" y="258" fill="#fdd663">⚠ The set 'Bead' limits nothing.</text>
+  <text x="30" y="300" fill="#f28b82" font-size="11">each set twice; buttons and choices wrap</text>
+  <text x="30" y="316" fill="#f28b82" font-size="11">under the label; long warnings repeat</text>
+  <text x="400" y="24" fill="#e8eaed" font-weight="bold" font-size="13">Proposed (same width)</text>
+  <rect x="400" y="34" width="340" height="312" rx="4" fill="#26282c" stroke="#3a3d42"/>
+  <text x="410" y="56" fill="#9aa0a6" font-size="11" font-weight="bold">GEOMETRY</text>
+  <text x="410" y="78" fill="#9aa0a6">Cut on</text>
+  <rect x="500" y="66" width="120" height="18" rx="3" fill="#17181b" stroke="#3a3d42"/><text x="506" y="79" fill="#9aa0a6">Add a set… ▾</text>
+  <circle cx="506" cy="100" r="4" fill="#81c995"/><text x="516" y="104" fill="#e8eaed">Body</text><text x="718" y="104" fill="#9aa0a6">×</text>
+  <circle cx="506" cy="122" r="4" fill="#81c995"/><text x="516" y="126" fill="#e8eaed">Neck</text><text x="718" y="126" fill="#9aa0a6">×</text>
+  <text x="410" y="156" fill="#9aa0a6">Avoid</text>
+  <rect x="500" y="144" width="120" height="18" rx="3" fill="#17181b" stroke="#3a3d42"/><text x="506" y="157" fill="#9aa0a6">Add a set… ▾</text>
+  <circle cx="506" cy="178" r="4" fill="#f28b82"/><text x="516" y="182" fill="#e8eaed">Finial ball</text><text x="718" y="182" fill="#9aa0a6">×</text>
+  <rect x="516" y="190" width="62" height="18" rx="3" fill="#4c8bf5"/><text x="521" y="203" fill="#fff">Cut short</text>
+  <rect x="580" y="190" width="64" height="18" rx="3" fill="#33363b"/><text x="585" y="203" fill="#e8eaed">Warn only</text>
+  <rect x="646" y="190" width="46" height="18" rx="3" fill="#33363b"/><text x="651" y="203" fill="#e8eaed">Ignore</text>
+  <circle cx="506" cy="226" r="4" fill="#f28b82"/><text x="516" y="230" fill="#e8eaed">Bead</text><text x="718" y="230" fill="#9aa0a6">×</text>
+  <rect x="516" y="238" width="62" height="18" rx="3" fill="#33363b"/><text x="521" y="251" fill="#e8eaed">Cut short</text>
+  <rect x="580" y="238" width="64" height="18" rx="3" fill="#33363b"/><text x="585" y="251" fill="#e8eaed">Warn only</text>
+  <rect x="646" y="238" width="46" height="18" rx="3" fill="#4c8bf5"/><text x="651" y="251" fill="#fff">Ignore</text>
+  <text x="516" y="276" fill="#fdd663">⚠ Limits nothing.</text>
+  <text x="410" y="300" fill="#81c995" font-size="11">one line per set, in its colour, × at the right;</text>
+  <text x="410" y="316" fill="#81c995" font-size="11">its choice and its one warning just under it,</text>
+  <text x="410" y="332" fill="#81c995" font-size="11">all in the value column; shared notes once per role</text>
+  <text x="20" y="378" fill="#9aa0a6" font-size="11">Synthetic example: Cut on Body and Neck; Avoid Finial ball (Cut short) and Bead (Ignore). Not to scale.</text>
+</svg>
