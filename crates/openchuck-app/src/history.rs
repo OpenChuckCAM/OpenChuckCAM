@@ -165,10 +165,10 @@ fn batch(commands: &[Command], project: &Project, registry: &Registry) -> String
         [one] => label(one, project, registry),
         [first, rest @ ..] => {
             let target = target(first);
-            if target.is_some() && rest.iter().all(|c| self::target(c) == target) {
-                if let Some(id) = target {
-                    return format!("Edit {} {}", id.kind(), quoted(project, id));
-                }
+            if let Some(id) = target
+                && rest.iter().all(|c| self::target(c) == Some(id))
+            {
+                return format!("Edit {} {}", id.kind(), quoted(project, id));
             }
             format!(
                 "{} and {} more",
