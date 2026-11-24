@@ -434,8 +434,12 @@ impl ResultsView {
 
     fn make(panel: &RunPanel, app: &Application) -> Self {
         let run = panel.last.clone();
-        let lines = run
-            .as_ref()
+        // After a refused run, Results shows the refusal alone: the earlier
+        // run's summary, lines and count are left out, so they cannot be read
+        // as the refused run's (issue #766). The view keeps the earlier paths,
+        // marked out of date.
+        let shown = run.as_ref().filter(|_| !panel.failed);
+        let lines = shown
             .map(|run| result_lines(run, app.project()))
             .unwrap_or_default();
         let mut counts = LevelCounts::default();
@@ -443,7 +447,7 @@ impl ResultsView {
             counts.add(line.severity);
         }
         counts.errors += usize::from(panel.failed);
-        let summary = run.as_ref().map(|run| {
+        let summary = shown.map(|run| {
             format!(
                 "{}, {}, {:.1} s to generate",
                 openchuck_app::path::counted(run.toolpath.groups.len(), "operation", "operations"),
@@ -473,9 +477,7 @@ impl ResultsView {
             head.map(|head| results_text(&lines, &head, openchuck_buildinfo::current_text()));
         // A path hidden or shown with its eye is not a change to the run's
         // output (decision record 0169 item 6, issue #607).
-        let changed = run
-            .as_ref()
-            .is_some_and(|run| !run.project.same_output(app.project()));
+        let changed = shown.is_some_and(|run| !run.project.same_output(app.project()));
         Self {
             run,
             revision: app.revision(),
@@ -678,6 +680,9 @@ impl RunPanel {
     pub(crate) fn record_failure(&mut self, message: String) {
         self.last_error = Some(message);
         self.failed = true;
+        // The tab counts the refusal alone, not the earlier run's warnings
+        // (issue #766).
+        self.counts = LevelCounts::default();
         self.wants_tab = true;
     }
 
@@ -1053,7 +1058,9 @@ impl RunPanel {
                     ui.add(egui::Label::new(RichText::new(error).color(PROBLEM)).selectable(true));
                     ui.separator();
                 }
-                if self.last.is_some() {
+                if self.failed {
+                    // The refusal above is the whole result (issue #766).
+                } else if self.last.is_some() {
                     if view.changed {
                         ui.colored_label(
                             NOTE,
@@ -2021,7 +2028,8 @@ mod tests {
             frames.shows("Results as plain text"),
             "the keyboard route too"
         );
-        // With an earlier run kept, its summary and the error are both there.
+        // With an earlier run kept, the error alone is copied: the earlier
+        // run's summary is not the refused run's (issue #766).
         let mut with_run = Frames::new("failed-after-run");
         with_run.panel.record_failure("then it failed".to_owned());
         with_run.frame(Vec::new());
@@ -2029,7 +2037,7 @@ mod tests {
         with_run.click(at);
         let text = with_run.copied.last().expect("copied");
         assert!(
-            text.contains("s to generate") && text.contains("then it failed"),
+            !text.contains("s to generate") && text.contains("then it failed"),
             "{text}"
         );
     }

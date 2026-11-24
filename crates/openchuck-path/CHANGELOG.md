@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.61.0 (UI-BUGS, PR 2; issue #774; not breaking)
+
+- **Changed text and level (#774; the owner's answer of 24 Nov 2026):** the note an operation gets when a held region cuts its path short (topic Held region) is information, not a warning, and says what the tool keeps: "No part of the tool comes within 0.500 mm of {the held region at the start of the stock}, so the surface beside it is not cut there, and corners beside it may keep more. The setup's Workholding section shows where the tools keep clear." It said "Nothing within one tool radius of … is cut", which understated the zone by `HELD_CLEARANCE`. The note on holes not drilled beside a held region stays a warning. No public API change.
+
 ## 0.61.0 (PENCIL-REST; issue #632; decision 0684, accepted; not breaking)
 
 - **Fixed, changed output (#632):** pencil clean-up judges the material left from the tool as it rests, its axis over its cutting length, not from the one contact point the drop reports. A flat end on a surface along its flat bottom touches it along a line, and the drop could report any point of it: the tessellation its far edge, out of reach of the corner's material, and the exact faces a point that moved with A. A flat end in a sharp inside corner of a STEP part now cuts the whole corner in one pass with Exact STEP surface contact off and on alike, where the closed-form shouldered shaft gave a refusal off and 31 passes on.

@@ -25,7 +25,8 @@ use openchuck_app::workholding::{
     PartFacts, SetupTool, WorkholdingFinding, ZoneDefault, setup_tools,
 };
 use openchuck_app::workholding_view::{
-    DefaultTabsState, Draft, End, Field, FieldProblem, Zone, check_draft, default_chips,
+    DefaultTabsState, Draft, End, Field, FieldProblem, KEPT_CLEAR_NOTE, Zone, check_draft,
+    default_chips, kept_clear,
     default_tabs_state, display_items, end_tab, grip_warning, held_span, holding_hint,
     narrowest_line, new_held_region, new_tab, no_default_line, no_room, no_tabs_warning,
     part_facing, set_layout, set_shape, set_tab_auto, set_tab_span, tab_zone, zone_lines,
@@ -561,12 +562,12 @@ impl WorkholdingPanel {
         }
 
         let problem = check_draft(self.draft.workholding(), setup.stock.as_ref());
-        self.held_block(ui, setup, End::Start, problem.as_ref(), context);
-        self.held_block(ui, setup, End::End, problem.as_ref(), context);
+        let tools = setup_tools(app.project(), setup.id);
+        self.held_block(ui, setup, End::Start, problem.as_ref(), context, &tools);
+        self.held_block(ui, setup, End::End, problem.as_ref(), context, &tools);
         ui.separator();
         self.zones(ui, setup);
         ui.separator();
-        let tools = setup_tools(app.project(), setup.id);
         self.tab_list(ui, setup, problem.as_ref(), &tools, context);
         ui.separator();
 
@@ -683,6 +684,7 @@ impl WorkholdingPanel {
         end: End,
         problem: Option<&FieldProblem>,
         context: &Context,
+        tools: &[SetupTool],
     ) {
         let (label, item, key) = match end {
             End::Start => ("Held at the start", HeldItem::Start, "start"),
@@ -769,6 +771,23 @@ impl WorkholdingPanel {
             && let Some(span) = held_span(self.draft.workholding(), end, stock)
         {
             field_row::read_only_row(ui, "Held span", "", format!("{span} mm"));
+        }
+        // Where the tools keep clear of the grip, from the widest tool of
+        // the setup, as the draft stands (issue #774; information).
+        if let Some(stock) = &setup.stock {
+            let [start, at_end] = kept_clear(self.draft.workholding(), stock, tools);
+            let value = match end {
+                End::Start => start,
+                End::End => at_end,
+            };
+            field_row::read_only_row(
+                ui,
+                "Kept clear",
+                "Where the tools' tips stay clear of the grip: the widest tool of this setup's \
+                 operations, with the 0.500 mm every tool keeps.",
+                value.unwrap_or_else(|| "Depends on the tools".to_owned()),
+            );
+            field_row::note_line(ui, KEPT_CLEAR_NOTE, DARK.muted);
         }
         reached_line(ui, &context.reach, item);
     }
@@ -1984,6 +2003,32 @@ mod tests {
         panel.poll_facts(&ctx, &app, &bare);
         assert!(panel.part_extent().is_none());
         assert!(panel.viewport_draft(&bare).is_none());
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    /// Issue #774, the owner's approved design: each held region says where
+    /// the tools keep clear of it, from the widest tool of the setup, with the
+    /// note under it, following the draft as it is typed.
+    #[test]
+    fn req_set_09_req_ui_25_a_held_region_says_where_the_tools_keep_clear() {
+        let (dir, app, _, setup_id) = cube_project("workholding-kept-clear");
+        let setup = app.project().setup(setup_id).unwrap().clone();
+        let mut panel = WorkholdingPanel::new(&setup);
+        let ctx = egui::Context::default();
+        settle(&mut panel, &ctx, &app, &setup);
+        // Stock from X -7; the 4 mm ball (shank 4 mm) keeps its tip 2.5 mm
+        // from a 3 mm grip, so clear from X -1.5.
+        panel.draft.edit().start = Some(HeldRegion {
+            length: Millimetres(3.0),
+            diameter: None,
+        });
+        let text = painted(&mut panel, &ctx, &app, &setup);
+        assert!(text.contains("Kept clear"), "{text}");
+        assert!(text.contains("to X \u{2212}1.500 mm"), "{text}");
+        assert!(
+            text.contains(openchuck_app::workholding_view::KEPT_CLEAR_NOTE),
+            "{text}"
+        );
         std::fs::remove_dir_all(dir).unwrap();
     }
 

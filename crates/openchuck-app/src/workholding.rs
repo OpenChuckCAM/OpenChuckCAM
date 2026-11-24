@@ -301,6 +301,10 @@ pub struct SetupTool {
     pub tool: String,
     /// Its cutting diameter.
     pub diameter: f64,
+    /// Its largest radius, its cutting profile or its shank: how far its
+    /// middle keeps from a held region, before the 0.5 mm every tool keeps
+    /// (decision 0161).
+    pub reach: f64,
     /// The operation that uses it: "1 Rough".
     pub operation: String,
 }
@@ -324,6 +328,7 @@ pub fn setup_tools(
             Some(SetupTool {
                 tool: format!("T{} {}", snapshot.controller.number, snapshot.name),
                 diameter: 2.0 * profile.cutting_radius(),
+                reach: crate::operation::tool_reach(&profile, &snapshot.tool),
                 operation: operation_label(project, operation),
             })
         })
@@ -1738,6 +1743,7 @@ mod tests {
         [SetupTool {
             tool: "T1 Ball".into(),
             diameter: 4.0,
+            reach: 2.0,
             operation: "1 Rough".into(),
         }]
     }

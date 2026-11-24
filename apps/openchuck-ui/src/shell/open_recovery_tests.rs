@@ -588,3 +588,39 @@ fn req_prj_08_a_cancelled_open_from_a_recovery_line_leaves_no_folder_for_a_later
         other => panic!("expected the Open dialog, got {other:?}"),
     }
 }
+
+/// Issue #681 (the owner's answer A): the recovery line of a project whose
+/// folder was deleted can be forgotten from its Locate dialog. Only this
+/// computer's note of it goes; the line does not come back at the next
+/// launch.
+#[test]
+fn req_prj_08_a_deleted_projects_recovery_line_can_be_forgotten() {
+    let root = temp("open-recovery-forget");
+    let config = root.join("config");
+    let gone = root.join("deleted");
+    crashed(&gone, &config, "Deleted");
+    std::fs::remove_dir_all(&gone).unwrap();
+    let mut rig = launch(&root, &config, None);
+    until(&mut rig, "startup discovery", |r| {
+        !r.shell.recovery.elsewhere.is_empty()
+    });
+    assert!(rig.shows("Locate folder"));
+    click(&mut rig, "Locate folder");
+    until(&mut rig, "the Locate dialog", |r| {
+        r.shows("Locate moved project")
+    });
+    click_exact(&mut rig, "Forget this project");
+    until(&mut rig, "forgetting", |r| {
+        r.shell.recovery.locate.is_none() && !r.shell.recovery.reading()
+    });
+    assert!(rig.shell.recovery.elsewhere.is_empty());
+    assert!(!rig.shows("Locate folder"));
+    drop(rig);
+    let mut again = launch(&root, &config, None);
+    until(&mut again, "startup discovery", |r| !r.shell.recovery.reading());
+    for _ in 0..5 {
+        again.frame(Vec::new());
+    }
+    assert!(again.shell.recovery.elsewhere.is_empty());
+    assert!(!again.shows("Locate folder"));
+}

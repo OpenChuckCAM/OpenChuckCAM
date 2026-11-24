@@ -201,3 +201,24 @@ fn req_ui_12_req_sim_01_hiding_a_path_does_not_mark_the_run_changed() {
     rig.settle();
     assert!(rig.shows(stale), "after an edit: {:?}", rig.texts());
 }
+
+/// After a refused Generate, Results shows the refusal alone: nothing of the
+/// previous run's summary, lines or count, so its figures cannot be read as
+/// the refused run's (issue #766, the owner's answer A).
+#[test]
+fn req_ui_12_req_nfr_12_a_refused_generate_shows_only_the_refusal() {
+    let mut rig = super::pending_edit_tests::generated("results-refused");
+    rig.shell.dock_tab = DockTab::Results;
+    rig.settle();
+    assert!(rig.shows("s to generate"), "{:?}", rig.texts());
+    rig.shell
+        .run
+        .record_failure("Generation (operation 'Finish'): refused for the test.".to_owned());
+    rig.frame(Vec::new());
+    rig.frame(Vec::new());
+    assert!(rig.shows("Generation (operation 'Finish'): refused for the test."));
+    assert!(!rig.shows("s to generate"), "{:?}", rig.texts());
+    assert!(!rig.shows("The project has changed since this run. Generate again."));
+    assert_eq!(rig.shell.run.results_count(), 1, "the refusal alone is counted");
+    assert_eq!(exact(&rig, "Results (1)"), 1);
+}

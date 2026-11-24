@@ -821,12 +821,15 @@ fn keep_clear(
         ));
     }
     if cut_short {
-        // What is left uncut beside the grip is a warning (decision record
-        // 0536 step 2), and so is a hole not drilled.
+        // What is left uncut beside the grip is information: the tool keeps
+        // HELD_CLEARANCE from the grip by design (the owner's answer to
+        // #774, amending decision record 0536 step 2's row P65). A hole not
+        // drilled stays a warning.
         notes.push(
-            Notice::warning(format!(
-                "Nothing within one tool radius of {names} is cut: no part of the tool reaches \
-             over the gripped length of the stock."
+            Notice::information(format!(
+                "No part of the tool comes within {HELD_CLEARANCE:.3} mm of {names}, so the \
+                 surface beside it is not cut there, and corners beside it may keep more. The \
+                 setup's Workholding section shows where the tools keep clear."
             ))
             .about(topic::HELD_REGION),
         );
@@ -1133,16 +1136,18 @@ mod tests {
                 vec![0.0, 10.0]
             ]
         );
-        // What is left uncut beside the grip is a warning (decision record
-        // 0536 step 2; UI-12).
+        // What is left uncut beside the grip is information: the tool keeps
+        // its 0.5 mm from the grip by design (the owner's answer to #774,
+        // amending decision record 0536 step 2's row P65).
         assert_eq!(
             notes,
             vec![
                 Notice::information("first"),
-                Notice::warning(
-                    "Nothing within one tool radius of the held region at the start of the \
-                     stock is cut: no part of the tool reaches over the gripped length of the \
-                     stock."
+                Notice::information(
+                    "No part of the tool comes within 0.500 mm of the held region at the start \
+                     of the stock, so the surface beside it is not cut there, and corners beside \
+                     it may keep more. The setup's Workholding section shows where the tools \
+                     keep clear."
                 )
                 .about(topic::HELD_REGION)
             ]
@@ -1252,9 +1257,10 @@ mod tests {
         )
         .unwrap();
         assert!(
-            notes[0].is_warning()
+            !notes[0].is_warning()
                 && notes[0].text.starts_with(
-                    "Nothing within one tool radius of the held regions at both ends of the stock"
+                    "No part of the tool comes within 0.500 mm of the held regions at both ends \
+                     of the stock"
                 ),
             "{:?}",
             notes[0]

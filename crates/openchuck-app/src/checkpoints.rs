@@ -476,6 +476,34 @@ pub fn locate(config: &Path, missing: &Candidate, folder: &Path) -> Result<Candi
     })
 }
 
+/// Forgets this computer's note that `missing` kept recovery data, so its
+/// Messages line goes for good (issue #681). Only the note is removed: the
+/// recovery data itself was kept inside the project's folder, which is not
+/// there now (or no longer holds it). Refused while the folder still holds
+/// this project's recovery data: that project is opened to recover or
+/// discard it. Such a project's line offers Open, not Locate, so the refusal
+/// only guards against a folder put back meanwhile.
+pub fn forget(config: &Path, missing: &Candidate) -> Result<(), String> {
+    if Catalog::read(&missing.folder)
+        .is_ok_and(|catalog| catalog.project_id.as_deref() == Some(missing.project_id.as_str()))
+    {
+        return Err(format!(
+            "'{}' still holds this project's recovery data: open that project to recover or \
+             discard its kept changes.",
+            missing.folder.display()
+        ));
+    }
+    let key = index_key(&missing.folder, &missing.project_id);
+    let path = config
+        .join("checkpoint-projects")
+        .join(format!("{key}.toml"));
+    match std::fs::remove_file(path) {
+        Ok(()) => Ok(()),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()),
+        Err(e) => Err(e.to_string()),
+    }
+}
+
 fn index_key(folder: &Path, project_id: &str) -> String {
     let mut bytes = folder.as_os_str().as_encoded_bytes().to_vec();
     bytes.push(0);
@@ -513,5 +541,41 @@ mod failure_tests {
                 .iter()
                 .any(|n| matches!(n, Notice::Closed { problem: Some(_) }))
         );
+    }
+}
+
+#[cfg(test)]
+mod forget_tests {
+    #![allow(clippy::unwrap_used)]
+    use super::*;
+
+    /// Issue #681: the note of a project whose folder was deleted, or no
+    /// longer holds its recovery data, is forgotten, and discovery no longer
+    /// finds it; another project's note stays.
+    #[test]
+    fn req_prj_08_forgetting_a_deleted_projects_recovery_removes_only_its_note() {
+        let root = std::env::temp_dir().join(format!("openchuck-forget-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        let config = root.join("config");
+        let (gone, kept) = (root.join("gone"), root.join("kept"));
+        std::fs::create_dir_all(&gone).unwrap();
+        std::fs::create_dir_all(&kept).unwrap();
+        register(&config, &gone, "gone-id").unwrap();
+        register(&config, &kept, "kept-id").unwrap();
+        std::fs::remove_dir_all(&gone).unwrap();
+        let found = discover(&config);
+        assert_eq!(found.projects.len(), 2);
+        let missing = found.projects.iter().find(|c| c.project_id == "gone-id").unwrap();
+        let present = found.projects.iter().find(|c| c.project_id == "kept-id").unwrap();
+        forget(&config, missing).unwrap();
+        let after = discover(&config);
+        assert_eq!(after.projects.len(), 1, "another project's note stays");
+        assert_eq!(after.projects[0].project_id, "kept-id");
+        // A folder that is there but holds no recovery data is forgotten too.
+        forget(&config, present).unwrap();
+        assert!(discover(&config).projects.is_empty());
+        // Forgetting again changes nothing.
+        forget(&config, missing).unwrap();
+        std::fs::remove_dir_all(&root).unwrap();
     }
 }
