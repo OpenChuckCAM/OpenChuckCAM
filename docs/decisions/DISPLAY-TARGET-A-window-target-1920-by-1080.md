@@ -1,10 +1,10 @@
 # DISPLAY-TARGET-A: The window's verified size becomes 1920 by 1080, smaller windows are best effort, and the window opens centred or maximised (UI-16, UI-15, UI-14; lane DISPLAY-TARGET)
 
-- **Status:** Proposed by lane DISPLAY-TARGET on 25 Nov 2026. It records the owner's decision of 25 Nov 2026 ("I think we can change the 1366x768 requirement … I would expect most displays to be minimum 1920x1080 so we can update to target that") and the owner's answers Q1 B, Q2 B, Q3 C, Q4 A, Q5 A, Q6 A and Q7 A (26 Nov 2026, relayed by the coordinator). The exact UI-16 wording below waits for the owner's agreement (OI-9931); `docs/requirements.md` is not edited until then. Only the project owner accepts this record (decision 0049).
+- **Status:** Accepted by the project owner on 26 Nov 2026, relayed by the coordinator (decision 0049), at head `eba24590`; the acceptance covers the Decision section as written, including the UI-16 wording of item 1. Proposed by lane DISPLAY-TARGET on 25 Nov 2026, recording the owner's decision of 25 Nov 2026 ("I think we can change the 1366x768 requirement … I would expect most displays to be minimum 1920x1080 so we can update to target that") and the owner's answers Q1 B, Q2 B, Q3 C, Q4 A, Q5 A, Q6 A and Q7 A (26 Nov 2026, relayed by the coordinator). The edits of items 1, 3 and 4 are made in this pull request.
 - **Date:** 25 Nov 2026.
 - **Requirements:** UI-16 (the window's size, resizable and collapsible panels), UI-15 (the window's layout kept per user), UI-14 (Tab never stops on a control out of view), NFR-15 (scale 80% to 200%).
 - **Amends:** [decision 0038](0038-ui-specification-and-requirements.md), its amendment of 15 Oct 2026 (UI-16 stated at 1366 by 768 at 100% scale). It replaces the 1366 by 768 reasoning in [decision 0148](0148-menus-and-view-directions.md) item 3 (the default scale stays 100%, unchanged) and leaves the sizes that [decision 0187](0187-default-dock-height.md) (dock 260) and OI-431 (the import dialog's fixed size) chose for 1366 by 768 as they are (Q5 A).
-- **Open items:** adds OI-9931 (the owner's agreement to the UI-16 wording and acceptance of this record), OI-9932 (the owner's check of the window's opening on Windows), OI-9933 (revisit the rules sized for 1366 by 768), OI-9934 (the build of the test move, option C). Re-scopes OI-431, OI-523, OI-529, OI-623 and OI-2192 to best effort once the wording is agreed.
+- **Open items:** adds OI-9931 (the owner's agreement to the UI-16 wording and acceptance of this record; closed by the acceptance of 26 Nov 2026), OI-9932 (the owner's check of the window's opening on Windows), OI-9933 (revisit the rules sized for 1366 by 768), OI-9934 (the build of the test move, option C). Re-scopes the open OI-431, OI-623 and OI-2192 to best effort; OI-523 and OI-529 are already closed and stay as history.
 
 Numbering: provisional. The coordinator assigns the record number and the OI numbers at release, in merge order. No project schema number: the per-user settings file gains one additive field (`maximised`), and no project file changes. No library-family change.
 
@@ -34,7 +34,7 @@ Three facts shape the new wording:
 
 ## Decision
 
-1. **UI-16 is restated.** Proposed wording (OI-9931; `requirements.md` is edited only once the owner agrees it):
+1. **UI-16 is restated.** Wording agreed by the owner with the acceptance (26 Nov 2026), now in `requirements.md`:
 
    > | UI-16 | The window is usable at 1920 by 1080 logical pixels at 100% scale, and when maximised on a 1920 by 1080 display at 100% scale; its panels can be resized and collapsed. In a smaller window, or at a larger scale, nothing fails and every command stays reachable (by collapsing a panel, scrolling or the menus); no smaller size is promised. | P1 |
 
@@ -42,13 +42,13 @@ Three facts shape the new wording:
 
 2. **"Usable" below the target** means three things: nothing crashes or panics (NFR-07); no control is out of reach, because it can be got at by collapsing a panel, by scrolling or from the menus; and the step's primary action stays whole. It does not promise that nothing overlaps or that no text is clipped. Those checks are made at the target. A failure found at a smaller size is still fixed, but it does not define the requirement.
 
-3. **Verification plan, row UI-16** (proposed, applied with the wording):
+3. **Verification plan, row UI-16** (applied):
 
    > | UI-16 | P1 | D, T | System | Automated layout tests at 1920 by 1080 and at 1920 by 1000 (maximised with a task bar) logical pixels at 100% scale: no overlay overlaps another, no text is clipped, panels resize and collapse. Best-effort regression tests at 1366 by 768, at 100% and 120% scale, guard small and scaled screens: nothing fails, no control is out of reach, the primary action stays whole; a failure there is fixed but does not define the requirement. The window opens maximised the first time and when it was closed maximised, otherwise centred at its kept size (`req_ui_15_req_ui_16_*` in `openchuck-app` `tests/settings.rs`, `window_start` and `shell::frame_tests`). There is no manual reference-screen check (removed by the owner, 2 Nov 2026). *(The SIMUI and export-dialog clauses of today's row are kept with their sizes.)* |
 
    **Row UI-14, UI-10, UI-16:** "Tab through the main window, the export dialog and the machine library at 1366 by 768 never stops on a control out of view" becomes "… at 1920 by 1080, and at 1366 by 768 as best effort, never stops on a control out of view".
 
-4. **The UI specification** (applied with the wording):
+4. **The UI specification and the work breakdown** (applied):
    - Section 3, "Smallest window" becomes **"Window size."**: "The window is laid out for 1920 × 1080 logical pixels at 100% scale, and for a window maximised on such a display (about 1920 × 1000) (UI-16). There the panels keep their defaults and nothing overlaps or is clipped. A smaller window, or a larger scale, is best effort: nothing fails and every command stays reachable. Below 1366 × 768, the *compact window* threshold, the dock collapses, and the inspector too when the viewport would be narrower than 420 pixels. Neither is kept as the user's choice: the user can open either again, and the rule applies afresh once the window is large again. *(UI-16)*". This also removes the stale sentence "At the default 100% a 1366 × 768 screen gives the full 1366 × 768 logical pixels".
    - Section 3, **"Opening the window"**: added in lane DISPLAY-TARGET's first pull request together with the code (item 6).
    - Section 11.2, the import dialog's size: "…that fits 1366 by 768 at 120% scale…" becomes "…kept from the 1366 by 768 layout (OI-9933)…". The size itself is not changed (Q5 A).
