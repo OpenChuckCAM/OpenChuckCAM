@@ -1010,9 +1010,21 @@ fn closure(model: &BrepModel, face: &BrepFace, exact: &ExactFace) -> Closure {
             }
         })
     };
+    // Where the surface has a period in a direction, the face closes in it
+    // only if it spans the whole period: a sliver whose two sides happen to
+    // lie within the join distance is open (CodeRabbit on #854).
+    let (pu, pv) = periods(&face.geometry);
+    let whole = |dir: usize| -> bool {
+        let (span, period) = if dir == 0 {
+            (hi.u - lo.u, pu)
+        } else {
+            (hi.v - lo.v, pv)
+        };
+        period.is_none_or(|p| (span - p).abs() <= 1e-6 * p)
+    };
     let mut out = Closure::default();
     for dir in 0..2 {
-        if !closes(dir) {
+        if !whole(dir) || !closes(dir) {
             continue;
         }
         if let Some(slot) = out.period.get_mut(dir) {
@@ -2261,8 +2273,12 @@ fn face_flow(
             Ok((*id, ExactFace::new(face)?))
         })
         .collect::<Result<_>>()?;
-    let mut fields = Vec::with_capacity(exact.len());
+    // Each face's guide field, which Along the guide and Automatic need;
+    // Follow the outline takes none, so a guide that would be refused does
+    // not stop it (CodeRabbit on #854).
+    let mut fields: Vec<Option<Field<'_>>> = Vec::with_capacity(exact.len());
     let mut closures = Vec::with_capacity(exact.len());
+    let mut lengths: Vec<(FaceId, f64)> = Vec::with_capacity(exact.len());
     for (id, face) in &exact {
         context.check_cancelled()?;
         let brep = model.faces.get(id.0 as usize).ok_or_else(|| {
@@ -2272,34 +2288,50 @@ fn face_flow(
             )
         })?;
         let closed = closure(model, brep, face);
-        let b = boundaries(model, brep, &guide, &closed, face)?;
-        fields.push(field(model, *id, face, b, &closed)?);
+        let f = if settings.pattern == Pattern::Outline {
+            None
+        } else {
+            let b = boundaries(model, brep, &guide, &closed, face)?;
+            Some(field(model, *id, face, b, &closed)?)
+        };
+        // The faces are ordered by their guide's length, or, following the
+        // outline, by the outline's.
+        let length = match &f {
+            Some(f) => f.boundaries.guide.length(),
+            None => brep
+                .edges
+                .iter()
+                .filter(|e| !closed.seams.contains(e))
+                .filter_map(|e| edge_points(model, *e))
+                .map(|(points, _, _)| Curve::new(points).length())
+                .sum(),
+        };
+        lengths.push((*id, length));
+        fields.push(f);
         closures.push(closed);
     }
-    let order = face_order(model, &fields);
+    let order = face_order(model, &lengths);
     let total = fields.len();
     let mut cuts: Vec<FaceCut> = Vec::with_capacity(total);
     for (done, index) in order.iter().enumerate() {
         context.check_cancelled()?;
         context.report("face-flow finishing", done as u64, Some(total as u64));
-        let Some(f) = fields.get(*index) else {
-            continue;
-        };
-        let (Some(closed), Some(brep)) = (closures.get(*index), model.faces.get(f.id.0 as usize))
+        let (Some(f), Some((id, face)), Some(closed)) =
+            (fields.get(*index), exact.get(*index), closures.get(*index))
         else {
             continue;
         };
-        let along_outline = match settings.pattern {
-            Pattern::AlongGuide => false,
-            Pattern::Outline => true,
-            Pattern::Automatic => notched(f),
+        let Some(brep) = model.faces.get(id.0 as usize) else {
+            continue;
         };
-        cuts.push(if along_outline {
-            outline::cut_outline(
-                model, brep, f.id, f.face, closed, &tooling, &profile, context,
-            )?
-        } else {
-            cut_face(f, &tooling, &profile, context)?
+        let along_outline = match (settings.pattern, f) {
+            (Pattern::AlongGuide, _) => false,
+            (Pattern::Automatic, Some(f)) => notched(f),
+            _ => true,
+        };
+        cuts.push(match f {
+            Some(f) if !along_outline => cut_face(f, &tooling, &profile, context)?,
+            _ => outline::cut_outline(model, brep, *id, face, closed, &tooling, &profile, context)?,
         });
     }
     context.report("face-flow finishing", total as u64, Some(total as u64));
@@ -2332,11 +2364,11 @@ fn notched(f: &Field<'_>) -> bool {
 /// The order the faces are cut in (decision 0525 D2): the face with the
 /// longest guide first (the lowest ID on a tie), then a face sharing an
 /// edge with the face just cut, then with any face cut, lowest ID first.
-fn face_order(model: &BrepModel, fields: &[Field<'_>]) -> Vec<usize> {
-    let edges_of = |f: &Field<'_>| -> BTreeSet<EdgeId> {
+fn face_order(model: &BrepModel, fields: &[(FaceId, f64)]) -> Vec<usize> {
+    let edges_of = |f: &(FaceId, f64)| -> BTreeSet<EdgeId> {
         model
             .faces
-            .get(f.id.0 as usize)
+            .get(f.0.0 as usize)
             .map(|face| face.edges.iter().copied().collect())
             .unwrap_or_default()
     };
@@ -2348,7 +2380,7 @@ fn face_order(model: &BrepModel, fields: &[Field<'_>]) -> Vec<usize> {
     let start = |left: &BTreeSet<usize>| -> Option<usize> {
         let mut best: Option<(usize, f64)> = None;
         for &i in left {
-            let len = fields.get(i).map_or(0.0, |f| f.boundaries.guide.length());
+            let len = fields.get(i).map_or(0.0, |f| f.1);
             if best.is_none_or(|(_, l)| len > l * (1.0 + 1e-6)) {
                 best = Some((i, len));
             }
@@ -2422,12 +2454,21 @@ fn cut_face(
     let mut kept_k: Vec<usize> = Vec::with_capacity(weights.len());
     for (k, &w) in weights.iter().enumerate() {
         context.check_cancelled()?;
+        // A ring's own fraction t is the guide's round01(s0 + dir t).
+        let ring_s0 = round01(ring_dir * kept.len() as f64 * turn);
+        let to_guide = |t: f64| {
+            if closed_face {
+                round01(ring_s0 + ring_dir * t)
+            } else {
+                t
+            }
+        };
         let samples = if closed_face {
             // Ring k starts where the blend before it ends, φ further round.
             let line = Ring {
                 field: f,
                 w,
-                s0: round01(ring_dir * kept.len() as f64 * turn),
+                s0: ring_s0,
                 dir: ring_dir,
             };
             pass_samples(&line, tooling)
@@ -2462,15 +2503,26 @@ fn cut_face(
         let below = gap(k.checked_sub(1)).map_or(0.0, |x| w - x);
         let above = gap(Some(k + 1)).map_or(0.0, |x| x - w);
         let share = 0.5 * (below + above);
+        let first_stretch = stretches.len();
         let (runs, spans) = split_runs(
             samples,
             f.id,
             k,
             share,
-            &|s| across.width(s),
+            &|t| across.width(to_guide(t)),
             diameter,
             &mut stretches,
         );
+        // The unreached stretches in guide fractions, so the areas of
+        // neighbouring rings, which start at different places round the face,
+        // are compared in one frame (CodeRabbit on #854); the runs' spans
+        // stay the ring's own, for the joins.
+        if closed_face {
+            for st in stretches.iter_mut().skip(first_stretch) {
+                let (a, b) = (to_guide(st.s.0), to_guide(st.s.1));
+                st.s = (a.min(b), a.max(b));
+            }
+        }
         kept.push((w, spans));
         kept_k.push(k);
         passes.push(runs);
@@ -2793,17 +2845,25 @@ fn ring_direction(f: &Field<'_>, weights: &[f64], direction: Direction) -> f64 {
     let (Some(&w0), Some(&w1)) = (weights.first(), weights.get(1)) else {
         return 1.0;
     };
-    let s = 0.25;
-    let (Some(p), Some(q), Some(next)) = (f.at(s, w0), f.at(s + 1e-3, w0), f.at(s, w1)) else {
-        return 1.0;
-    };
-    let right = (q.point - p.point).cross(p.normal.get());
-    let side = right.dot(next.point - p.point);
-    if (side > 0.0) == (direction == Direction::Climb) {
-        1.0
-    } else {
-        -1.0
+    // The first place round the face where both rings are on it (a trimmed
+    // face can be off at some; CodeRabbit on #854).
+    for k in 0..16 {
+        let s = (0.25 + f64::from(k) / 16.0).rem_euclid(1.0).min(1.0 - 2e-3);
+        let (Some(p), Some(q), Some(next)) = (f.at(s, w0), f.at(s + 1e-3, w0), f.at(s, w1)) else {
+            continue;
+        };
+        let right = (q.point - p.point).cross(p.normal.get());
+        let side = right.dot(next.point - p.point);
+        if side.abs() <= 1e-12 {
+            continue;
+        }
+        return if (side > 0.0) == (direction == Direction::Climb) {
+            1.0
+        } else {
+            -1.0
+        };
     }
+    1.0
 }
 
 /// The runs of a face cut in rings, every ring the same way `dir`, joined
@@ -2866,12 +2926,18 @@ fn join_rings(
                                 w0,
                                 w1: *w,
                             };
-                            // A turns on the way the ring turned, by about φ.
+                            // A turns on the way the ring turned, by about φ; a
+                            // blend that would turn A back, or a ring along
+                            // which A did not turn, lifts instead (CodeRabbit on
+                            // #854).
                             let travel = runs_turn(passes.get(idx.wrapping_sub(1)));
                             let end_a = nearest_turn(b.a, Degrees(a.a.0 + travel * phi));
+                            let onward = travel != 0.0 && (end_a.0 - a.a.0) * travel > 0.0;
                             let reach =
                                 1.25 * planned_length(&line) + 2.0 * tooling.settings.tolerance;
-                            step_on(&line, tooling, s_end, a, b, reach, end_a)
+                            onward
+                                .then(|| step_on(&line, tooling, s_end, a, b, reach, end_a))
+                                .flatten()
                                 .map(|steps| (steps, end_a))
                         }
                     }
@@ -2936,7 +3002,10 @@ fn step_on(
     if span > reach {
         return None;
     }
-    let n = ((span / SAMPLE_SPACING).ceil() as usize).max(1);
+    // At least its middle is placed and checked, however short the step
+    // (CodeRabbit on #854: a step shorter than one sample was checked only
+    // at its ends).
+    let n = ((span / SAMPLE_SPACING).ceil() as usize).max(2);
     let mut out: Vec<CutPoint> = Vec::with_capacity(n);
     let mut prev = *a;
     let mut length = 0.0;
@@ -3005,14 +3074,26 @@ fn assemble(
     let mut out_passes: Vec<Pass> = Vec::new();
     let mut notes: Vec<Notice> = Vec::new();
     let mut stretches: Vec<Stretch> = Vec::new();
-    let mut face_notes: Vec<String> = Vec::new();
-    // Passes that cut something, one per line across a face however many
-    // pieces its unreached stretches split it into (issue #631).
-    let mut cutting = 0;
+    // Each face's note, written once Shortest cut has run: its words before
+    // and after the count of passes that cut, its planned passes, and each
+    // reaching pass's runs by their first contact, to count the passes that
+    // still cut (issue #631; CodeRabbit on #854).
+    let mut plans: Vec<(String, usize, Vec<Vec<[u64; 3]>>, String, bool)> = Vec::new();
+    let key = |c: &CutPoint| {
+        [
+            c.contact.x.to_bits(),
+            c.contact.y.to_bits(),
+            c.contact.z.to_bits(),
+        ]
+    };
     for mut cut in cuts {
         let geometric = cut.passes.len();
-        let reaching = cut.passes.iter().filter(|runs| !runs.is_empty()).count();
-        cutting += reaching;
+        let pass_keys: Vec<Vec<[u64; 3]>> = cut
+            .passes
+            .iter()
+            .filter(|runs| !runs.is_empty())
+            .map(|runs| runs.iter().filter_map(|r| r.first()).map(key).collect())
+            .collect();
         // Directions (decision 0525 D1), unless Meander already joined the
         // runs in their cutting order.
         let centres: Vec<Option<Point3>> = cut.passes.iter().map(|p| centre(p)).collect();
@@ -3065,14 +3146,20 @@ fn assemble(
             }
         }
         if cut.outline {
-            face_notes.push(format!(
-                "face {} follows its outline, edges {} ({:.1} mm long), inwards in {} up to {:.3} \
-                 mm apart along the face",
-                cut.id.0,
-                list(cut.guide_edges.iter().map(|e| e.0)),
-                cut.guide_length,
-                crate::counted(geometric, "pass", "passes"),
-                cut.spacing
+            plans.push((
+                format!(
+                    "face {} follows its outline, edges {} ({:.1} mm long), inwards in {} up to \
+                     {:.3} mm apart along the face",
+                    cut.id.0,
+                    list(cut.guide_edges.iter().map(|e| e.0)),
+                    cut.guide_length,
+                    crate::counted(geometric, "pass", "passes"),
+                    cut.spacing
+                ),
+                geometric,
+                pass_keys,
+                String::new(),
+                true,
             ));
             let runs = cut.joined.take().unwrap_or_default();
             for points in runs {
@@ -3092,7 +3179,7 @@ fn assemble(
         } else {
             "the opposite side"
         };
-        let mut note = format!(
+        let note = format!(
             "face {} is cut from its guide, edge{plural} {edges} ({:.1} mm long), towards {towards} \
              in {} up to {:.3} mm apart along the face",
             cut.id.0,
@@ -3100,22 +3187,16 @@ fn assemble(
             crate::counted(geometric, "pass", "passes"),
             cut.spacing
         );
-        if reaching < geometric {
-            note.push_str(&format!(
-                "; {reaching} of them cut and the rest are left out: along them the tool \
-                 reaches no part of the face it may cut"
-            ));
-        }
-        note.push_str(&cut.ring_words);
+        let mut after = cut.ring_words.clone();
         if cut.dropped_short > 0 {
-            note.push_str(&format!(
+            after.push_str(&format!(
                 "; {} nearest the point {} left out, being shorter than the tool's \
                  diameter",
                 crate::counted(cut.dropped_short, "pass", "passes"),
                 if cut.dropped_short == 1 { "is" } else { "are" }
             ));
         }
-        face_notes.push(note);
+        plans.push((note, geometric, pass_keys, after, false));
         let runs: Vec<Vec<CutPoint>> = match cut.joined.take() {
             Some(joined) => joined,
             None => cut.passes.into_iter().flatten().collect(),
@@ -3155,7 +3236,48 @@ fn assemble(
             pass.low_link = i > 0;
         }
     }
+    // The passes that still cut, per face and in all.
+    let kept: BTreeSet<[u64; 3]> = out_passes
+        .iter()
+        .flat_map(|p| p.points.iter().map(key))
+        .collect();
+    let mut cutting = 0;
+    let mut face_notes: Vec<String> = Vec::with_capacity(plans.len());
+    for (mut note, geometric, pass_keys, after, outline) in plans {
+        let reaching = pass_keys
+            .iter()
+            .filter(|keys| keys.iter().any(|k| kept.contains(k)))
+            .count();
+        cutting += reaching;
+        if !outline && reaching < geometric {
+            note.push_str(&format!(
+                "; {reaching} of them cut and the rest are left out: along them the tool \
+                 reaches no part of the face it may cut{}",
+                if short.is_empty() {
+                    ""
+                } else {
+                    ", or only for less than the Shortest cut"
+                }
+            ));
+        }
+        note.push_str(&after);
+        face_notes.push(note);
+    }
     let diameter = 2.0 * input.tool.cutting_radius();
+    if out_passes.is_empty() && !short.is_empty() {
+        // Every run left was shorter than the Shortest cut.
+        return Err(PathError::refused(
+            crate::topic::FACE_FLOW,
+            format!(
+                "face-flow finishing leaves nothing to cut on the selected faces: every cut is \
+                 shorter than the Shortest cut ({:.3} mm): {}; lower the Shortest cut (0 keeps \
+                 every cut)",
+                settings.shortest,
+                unreached_list(&short, diameter)
+            ),
+        )
+        .with_setting(parameter::SHORTEST_CUT));
+    }
     if out_passes.is_empty() {
         let why = if unreached.is_empty() {
             "nothing on them is left to cut after the avoid and check sets".to_owned()

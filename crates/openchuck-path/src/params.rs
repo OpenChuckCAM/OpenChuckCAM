@@ -284,7 +284,13 @@ fn resolve_one(spec: &ParameterSpec, value: Option<&ParameterValue>) -> Result<P
         }
         ParameterKind::LengthOrTool { min, max, default } => {
             let v = match value {
-                None => return Ok(default.stored()),
+                // A default is checked as a value is (a number in range).
+                None => match default {
+                    LengthOrTool::ToolDiameter => {
+                        return Ok(ParameterValue::Text(TOOL_DIAMETER.to_owned()));
+                    }
+                    LengthOrTool::Millimetres(v) => *v,
+                },
                 Some(ParameterValue::Text(t)) if t == TOOL_DIAMETER => {
                     return Ok(ParameterValue::Text(TOOL_DIAMETER.to_owned()));
                 }
@@ -892,6 +898,19 @@ mod length_or_tool_tests {
         assert_eq!(
             p.get("min_length"),
             Some(&ParameterValue::Text(TOOL_DIAMETER.to_owned()))
+        );
+    }
+
+    #[test]
+    fn req_nfr_07_a_length_or_tool_default_out_of_range_is_refused_by_name() {
+        // CodeRabbit on #854: a default is checked as a value is.
+        let s = schema(LengthOrTool::Millimetres(-1.0));
+        let e = s.resolve(&BTreeMap::new()).err().expect("refused");
+        assert!(e.to_string().contains("min_length"), "{e}");
+        assert!(
+            schema(LengthOrTool::ToolDiameter)
+                .resolve(&BTreeMap::new())
+                .is_ok()
         );
     }
 

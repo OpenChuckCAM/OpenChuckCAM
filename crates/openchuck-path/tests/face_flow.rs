@@ -2122,10 +2122,13 @@ fn req_op_28_a_plain_face_keeps_the_passes_along_its_guide() {
     assert_eq!(auto, guide);
     let full = rig.passes(&[0], &[], &values(0.7, &[(p::PATTERN, text(p::AUTOMATIC))]));
     assert_eq!(auto, full);
-    // A full cylinder keeps its rings.
+    // A full cylinder keeps its rings with Automatic.
     let rig = Rig::new(full_cylinder(10.0, 20.0), &ball(6.0));
     let notes = rig
-        .output(&rig.strategy(&[0], &[]), &values(1.0, &[]))
+        .output(
+            &rig.strategy(&[0], &[]),
+            &values(1.0, &[(p::PATTERN, text(p::AUTOMATIC))]),
+        )
         .unwrap()
         .notes()
         .join("\n");
@@ -2643,4 +2646,155 @@ fn req_op_28_req_op_25_following_the_outline_climb_and_conventional_run_opposite
         meander.windows(2).all(|w| w[0].signum() != w[1].signum()),
         "{meander:?}"
     );
+}
+
+#[test]
+fn req_op_28_req_nfr_07_a_shortest_cut_that_leaves_nothing_is_refused_naming_it() {
+    // CodeRabbit on #854: when Shortest cut leaves out every run, the
+    // refusal says so and names the setting, rather than that the faces
+    // cannot be reached.
+    let rig = Rig::new(comb(), &ball(3.0));
+    let v = values(
+        0.8,
+        &[
+            (p::STAY_DOWN, flag(true)),
+            (p::PATTERN, text(p::ALONG_GUIDE)),
+            (p::SHORTEST_CUT, num(10_000.0)),
+        ],
+    );
+    let e = rig
+        .output(&rig.strategy(&[0], &[]), &v)
+        .err()
+        .expect("every run left out is refused");
+    let text = e.to_string();
+    assert!(text.contains("Shortest cut"), "{text}");
+    assert!(!text.contains("cannot reach"), "{text}");
+}
+
+#[test]
+fn req_op_28_req_nfr_07_an_outline_needing_too_many_levels_is_refused() {
+    // CodeRabbit on #854: a stepover so fine that the outline would need
+    // more offsets than the pass limit is refused before they are traced.
+    let mut b = Builder::default();
+    flat(
+        &mut b,
+        10.0,
+        &[(0.0, 0.0), (20.0, 0.0), (20.0, 12.0), (0.0, 12.0)],
+        &[],
+    );
+    let rig = Rig::new(b.model, &ball(3.0));
+    let v = values(0.0001, &[(p::PATTERN, text(p::OUTLINE))]);
+    let started = std::time::Instant::now();
+    let e = rig
+        .output(&rig.strategy(&[0], &[]), &v)
+        .err()
+        .expect("refused");
+    assert!(e.to_string().contains("raise the stepover"), "{e}");
+    assert!(started.elapsed().as_secs() < 20, "{:?}", started.elapsed());
+}
+
+#[test]
+fn req_op_28_req_nfr_07_a_sliver_of_a_cylinder_is_not_taken_for_a_closed_face() {
+    // CodeRabbit on #854: a cylinder face whose two straight edges lie within
+    // the join distance of each other (a sliver a few millionths of a turn
+    // wide) is not a face that closes round on itself: only a span of a whole
+    // turn is.
+    let (radius, length, span) = (10.0, 20.0, 5e-5);
+    let point = move |u: f64, v: f64| p3(v, radius * u.cos(), radius * u.sin());
+    let mut b = Builder::default();
+    let edges = vec![
+        b.edge(&[0], &|t| point(span * t, 0.0), false),
+        b.edge(&[0], &|t| point(span, length * t), true),
+        b.edge(&[0], &|t| point(span * (1.0 - t), length), false),
+        b.edge(&[0], &|t| point(0.0, length * (1.0 - t)), true),
+    ];
+    b.face(
+        Surface::Cylinder {
+            frame: about_x(),
+            radius,
+        },
+        [0.0, span, 0.0, length],
+        None,
+        edges,
+        &point,
+        &|_, _| true,
+        false,
+    );
+    let rig = Rig::new(b.model, &ball(6.0));
+    let said = match rig.output(
+        &rig.strategy(&[0], &[]),
+        &values(1.0, &[(p::DIRECTION, text(p::MEANDER))]),
+    ) {
+        Ok(out) => out.notes().join("\n"),
+        Err(e) => e.to_string(),
+    };
+    // Taken for a closed face, its straight edges were read as seams and its
+    // boundary did not close.
+    assert!(!said.contains("does not close"), "{said}");
+    assert!(!said.contains("every ring"), "{said}");
+    assert!(!said.contains("closes round on itself"), "{said}");
+}
+
+#[test]
+fn req_op_28_req_nfr_07_the_pass_counts_agree_after_the_shortest_cut() {
+    // CodeRabbit on #854: the first note counts the passes that still cut
+    // once Shortest cut has left runs out, and the face's note says the same
+    // number (issue #631's agreement).
+    let rig = Rig::new(comb(), &ball(3.0));
+    let counts = |shortest: f64| {
+        let v = values(
+            0.8,
+            &[
+                (p::STAY_DOWN, flag(false)),
+                (p::PATTERN, text(p::ALONG_GUIDE)),
+                (p::SHORTEST_CUT, num(shortest)),
+            ],
+        );
+        let notes = rig
+            .output(&rig.strategy(&[0], &[]), &v)
+            .unwrap()
+            .notes()
+            .join("\n");
+        let number = |after: &str, before: &str| -> Option<usize> {
+            let i = notes.find(after)? + after.len();
+            let j = notes[i..].find(before)? + i;
+            notes[i..j].trim().parse().ok()
+        };
+        let summary = number("cuts ", " pass").expect("summary");
+        let planned = number(" in ", " passes up to").expect("planned");
+        let cut = number("; ", " of them cut").unwrap_or(planned);
+        (summary, cut, notes)
+    };
+    let (all, all_face, _) = counts(0.0);
+    assert_eq!(all, all_face);
+    let (fewer, face, notes) = counts(20.0);
+    assert_eq!(fewer, face, "{notes}");
+    assert!(fewer < all, "{fewer} against {all}: {notes}");
+}
+
+#[test]
+fn req_op_28_follow_the_outline_needs_no_guide() {
+    // CodeRabbit on #854: Follow the outline takes no guide, so a guide that
+    // Along the guide refuses (here a full cylinder's seam, edge 2) does not
+    // stop it.
+    let rig = Rig::new(full_cylinder(10.0, 20.0), &ball(6.0));
+    let guide = rig.output(
+        &rig.strategy(&[0], &[2]),
+        &values(1.0, &[(p::PATTERN, text(p::ALONG_GUIDE))]),
+    );
+    assert!(
+        guide.is_err(),
+        "the seam as guide is refused along the guide"
+    );
+    let out = rig
+        .output(
+            &rig.strategy(&[0], &[2]),
+            &values(1.0, &[(p::PATTERN, text(p::OUTLINE))]),
+        )
+        .unwrap_or_else(|e| panic!("refused: {e}"));
+    let notes = out.notes().join("\n");
+    assert!(notes.contains("face 0 follows its outline"), "{notes}");
+    for q in out.passes.iter().flat_map(contacts) {
+        assert!((q.y.hypot(q.z) - 10.0).abs() < 0.01, "{q:?}");
+    }
 }

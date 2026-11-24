@@ -52,6 +52,10 @@ pub(super) struct UvLine<'a> {
     uv: Vec<Uv>,
     cum: Vec<f64>,
     wrap: [Option<(f64, f64)>; 2],
+    /// Whether a point must be inside the face's trim: so for an offset,
+    /// which can cross a hole or notch between grid points; not for the
+    /// outline itself, which lies on the trim.
+    trimmed: bool,
 }
 
 fn wrap_back(x: f64, wrap: Option<(f64, f64)>) -> f64 {
@@ -62,12 +66,13 @@ fn wrap_back(x: f64, wrap: Option<(f64, f64)>) -> f64 {
 }
 
 impl<'a> UvLine<'a> {
-    fn new(face: &'a ExactFace, uv: Vec<Uv>, wrap: [Option<(f64, f64)>; 2]) -> Self {
+    fn new(face: &'a ExactFace, uv: Vec<Uv>, wrap: [Option<(f64, f64)>; 2], trimmed: bool) -> Self {
         let mut line = Self {
             face,
             uv,
             cum: Vec::new(),
             wrap,
+            trimmed,
         };
         let mut total = 0.0;
         let mut last: Option<Point3> = None;
@@ -134,8 +139,11 @@ impl PassLine for UvLine<'_> {
     }
 
     fn at(&self, s: f64) -> Option<SurfacePoint> {
-        let uv = self.uv_at(s)?;
-        self.face.point_normal(self.wrapped(uv))
+        let uv = self.wrapped(self.uv_at(s)?);
+        if self.trimmed && !self.face.contains(uv) {
+            return None;
+        }
+        self.face.point_normal(uv)
     }
 }
 
@@ -766,20 +774,18 @@ pub(super) fn cut_outline(
     // the last offset is not lost there and no pass is more than a stepover
     // from the last.
     let level_at = |level: usize| level as f64 * step - 0.5 * g.h;
+    // Every level adds at least one path where it has any, so more levels
+    // than the pass limit is refused before they are traced.
+    let levels = ((deepest + 0.5 * g.h) / step).ceil();
+    if !levels.is_finite() || levels > MAX_PASSES as f64 {
+        return Err(too_many(id));
+    }
     let mut level = 1;
     while level_at(level) < deepest {
         context.check_cancelled()?;
         paths.extend(level_lines(&g, level_at(level), level));
         if paths.len() > MAX_PASSES {
-            return Err(PathError::refused(
-                crate::topic::FACE_FLOW,
-                format!(
-                    "face {} would need more than {} along its outline: raise the stepover",
-                    id.0,
-                    crate::counted(MAX_PASSES, "pass", "passes")
-                ),
-            )
-            .with_setting(crate::params::names::STEPOVER));
+            return Err(too_many(id));
         }
         level += 1;
     }
@@ -790,7 +796,7 @@ pub(super) fn cut_outline(
     // nearest where the last ended, a closed one started at that point.
     let point_of = |xy: (f64, f64)| -> Option<Point3> {
         let uv = g.uv(xy.0, xy.1);
-        let line = UvLine::new(face, vec![uv], wrap);
+        let line = UvLine::new(face, vec![uv], wrap, false);
         line.point(uv)
     };
     let mut ordered: Vec<Path> = Vec::with_capacity(paths.len());
@@ -873,7 +879,7 @@ pub(super) fn cut_outline(
         if flip_all != alternate {
             uv.reverse();
         }
-        let line = UvLine::new(face, uv, wrap);
+        let line = UvLine::new(face, uv, wrap, p.level > 0);
         let samples = pass_samples(&line, tooling);
         let (runs, spans) = split_runs(
             samples,
@@ -977,11 +983,25 @@ fn inside_on_right(
         return None;
     }
     let left = (b.0 - ty / len * 0.75, b.1 + tx / len * 0.75);
-    let line = UvLine::new(face, Vec::new(), wrap);
+    let line = UvLine::new(face, Vec::new(), wrap, false);
     let p = |xy: (f64, f64)| face.point_normal(line.wrapped(g.uv(xy.0, xy.1)));
     let (pa, pb, pc, pl) = (p(a)?, p(b)?, p(c)?, p(left)?);
     let feed: Vec3 = pc.point - pa.point;
     // The tool axis points out of the material, along the face's normal.
     let right = feed.cross(pb.normal.get());
     Some(right.dot(pl.point - pb.point) > 0.0)
+}
+
+/// The refusal of a face whose outline would need more passes than the
+/// limit (NFR-07).
+fn too_many(id: FaceId) -> PathError {
+    PathError::refused(
+        crate::topic::FACE_FLOW,
+        format!(
+            "face {} would need more than {} along its outline: raise the stepover",
+            id.0,
+            crate::counted(MAX_PASSES, "pass", "passes")
+        ),
+    )
+    .with_setting(crate::params::names::STEPOVER)
 }

@@ -504,9 +504,24 @@ fn length_or_tool_rows(
             ),
             None => "Tool diameter: no tool chosen".to_owned(),
         };
-        field_row::marked(ui, mark, |ui| {
-            field_row::read_only_row(ui, &field.label, &field.description, shown);
+        // Reset is offered here as on an editable row (CodeRabbit on #854):
+        // it clears the operation's value, so the default applies.
+        let reset_clicked = field_row::marked(ui, mark, |ui| {
+            field_row::read_only_row_with_reset(
+                ui,
+                &field.label,
+                &field.description,
+                shown,
+                reset && field.set.is_some(),
+            )
         });
+        if reset_clicked {
+            edit = Some(Edit {
+                name: name(),
+                value: None,
+                reset_to_default: true,
+            });
+        }
     } else {
         let range = match (min, max) {
             (Some(lo), Some(hi)) => Some(format!("at least {lo} mm and at most {hi} mm")),
@@ -803,6 +818,8 @@ mod tests {
                 .any(|s| s.contains("the tool's diameter") && s.contains('3')),
             "{shown:?}"
         );
+        // Ticked and set, the row still offers Reset (↺).
+        assert!(shown.iter().any(|s| s.contains('↺')), "{shown:?}");
         let shown = shown_for(word, None);
         assert!(
             shown.iter().any(|s| s.contains("no tool chosen")),
