@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased (MOPUP-1, PR M3; issues #887 and #895)
+
+- **Breaking (decision 0048; the version is assigned at release):** `swarf::Limits` gains the public field `least_lift_along_axis: f64`, the least the tool's end is lifted along the tool axis at any pose (each pose's lift up its ruling times the cosine of the angle between the ruling and the axis; zero when no pose is lifted). A struct literal must add it (or use `..Limits::default()`).
+- **Fixed, changed text (#887):** a swarf face's note gives the tool's reach past the end of the rulings where it is lifted least as `end_reach` less that lift along the tool axis, not less the lift up the ruling. On a tapered flank the two differ by the cosine of the flank half angle. A straight tool's note is unchanged. No path or G-code change.
+- **Fixed (#895 item 2):** restricted Facing beside a held region refuses when the host's `keep_out` holds a span the grip does not give, as well as when it lacks one the grip gives, in any order (decision 0685). The application gives exactly the grip's spans, so its output is unchanged.
+
 ## 0.63.0 (FACEFLOW; issues #791, #631, #614, #615 and #854; decisions 0675, 0676 and 0686, accepted)
 
 - **Breaking (decision 0048; the workspace's minor bump to 0.63.0 is this change's own):** `assemble::UnreachedReason` gains `TooShort { length }`, an area left uncut because the only cut there, from one lift to the next, is shorter than the operation's Shortest cut. An exhaustive `match` on `UnreachedReason` needs an arm for it.
