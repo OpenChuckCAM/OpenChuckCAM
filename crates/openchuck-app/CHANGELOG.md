@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.60.0 (POST-COMMENTS; issue #851; decision 0681, accepted)
+
+- **Added:** when the post writes `_` in front of text from the project because it would have started a comment the controller acts on (LinuxCNC's `MSG,`, `LOGOPEN,` and others), the run has one warning per text and where it came from: the project name, the setup name, the operation name, the name of tool T<n>, the revision, the version line or a comment of the post, with the opening matched and the post's name. The text is quoted, escaped (control characters, quotes, backslashes and non-ASCII) and cut after 48 characters. It is an ordinary run warning (Messages tab, `warning:` on the command line); nothing is saved and nothing needs acknowledging. The setup name in its prefix is escaped the same way, and each warning is said once per setup, field and text in a run, whatever the output grouping.
+
+## Unreleased (FUZZ-NFR07; issue #628; decision 0679, accepted)
+
+- **Changed:** the tool form's Diameter and Shank diameter fields have a maximum of 2000 mm and Flute length and Overall length 1000 mm, the sizes the tool check accepts. No API change.
+
 ## 0.58.0 (FACING-STEP; issue #800; decision 0666 option C, accepted)
 
 - **Changed output:** Facing with the End or Box shape, a Part or Part plus tabs extent, or an extent margin now generates on a STEP part, bounding the part from its exact faces (`openchuck_path::enclose`), not its tessellation. The interim refusal before generating (#836) is removed. Each such operation's notes say so, and, where the part has B-spline faces, how far Facing may stop short of an extreme on one, leaving that much more stock.

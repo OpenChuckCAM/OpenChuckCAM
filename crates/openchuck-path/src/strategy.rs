@@ -593,7 +593,7 @@ fn generate_with(
             strategy.ramps_round_the_part(),
             // The faces next to the face set, which swarf alone is given:
             // its entries and exits are checked against them as well
-            // (decision record 9921; issue #572).
+            // (decision record 0682; issue #572).
             region.and_then(|r| r.neighbours),
             context,
         )?

@@ -141,6 +141,11 @@ fn req_tl_03_req_nfr_07_profile_corpus_reads_or_names_the_fault() {
             let expected = match name.as_str() {
                 "broken_undercut.toml" | "broken_half_circle.toml" => "segment 2",
                 "broken_arc_both_forms.toml" => "segment 1",
+                // The nightly fuzz input of issue #628: finite, but larger than any tool.
+                "broken_too_large.toml" => {
+                    "segment 1: the radius 7.777717777777778e307 mm is \
+                                            larger than 1000 mm"
+                }
                 _ => "",
             };
             assert!(err.contains(expected), "{name}: {err}");

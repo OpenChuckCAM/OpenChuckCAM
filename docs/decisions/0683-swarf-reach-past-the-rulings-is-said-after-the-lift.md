@@ -1,11 +1,11 @@
-# 9922 (provisional, SWARF-LEADS-B, PR #866): Swarf's reach past the end of the rulings is said after the lift, as information (OP-07, OP-12, NFR-12, UI-12; issue #624; lane SWARF-LEADS)
+# 0683 (SWARF-LEADS-B, PR #866): Swarf's reach past the end of the rulings is said after the lift, as information (OP-07, OP-12, NFR-12, UI-12; issue #624; lane SWARF-LEADS)
 
-- **Status:** Accepted by the project owner on 23 Nov 2026, relayed by the coordinator (decision 0049). Proposed by lane SWARF-LEADS on 23 Nov 2026; the owner chose option (c) the same day (relayed), and it is built. The numbers 9922 and OI-9922 are provisional: the coordinator assigns the real ones at release.
+- **Status:** Accepted by the project owner on 23 Nov 2026, relayed by the coordinator (decision 0049). Proposed by lane SWARF-LEADS on 23 Nov 2026; the owner chose option (c) the same day (relayed), and it is built.
 - **Date:** 23 Nov 2026.
 - **Requirements:** OP-07 (swarf), OP-12 (gouge checks), NFR-12 (the user verifies the program), UI-12 (messages).
 - **What it amends:** the message inventory row P75c (`docs/message-review/path.md`; decision [0536](0536-message-levels-operation-reference-and-setting-links.md) step 2 left it to this issue), and the note sentence of [0491](0491-swarf-keeps-the-tip-off-a-floor.md) item 2, which was measured before the lift.
 - **Builds on:** [0491](0491-swarf-keeps-the-tip-off-a-floor.md) (the lift clear of avoid and check sets), [0532](0532-swarf-keeps-off-the-faces-at-its-ends.md) item 3 (every face next to the cut face is measured and a cut into it warned of).
-- **Open items:** OI-9922 (closed: the owner chose option (c) on 23 Nov 2026, relayed).
+- **Open items:** OI-2201 (closed: the owner chose option (c) on 23 Nov 2026, relayed).
 
 ## Context
 
@@ -13,7 +13,7 @@ Each swarf face's note (information) says how far the tool's end reaches past th
 
 Since decision 0532 item 3, with the faces next to the face given (the application always gives them on a STEP part), a real cut into a floor that shares an edge with the face is measured and warned of, naming the face and the depth.
 
-![Across the pass. Left, not lifted: a ball's end reaches 3.000 mm past the end of the wall's rulings into the floor, which decision 0532 measures and warns of; the sentence is unchanged. Right, the floor in an avoid set: the tool is lifted 3.000 mm, and the sentence says the end would reach 3.000 mm but is lifted at least that far all along the face; information, no warning.](9922-swarf-reach-past-the-rulings-is-said-after-the-lift.svg)
+![Across the pass. Left, not lifted: a ball's end reaches 3.000 mm past the end of the wall's rulings into the floor, which decision 0532 measures and warns of; the sentence is unchanged. Right, the floor in an avoid set: the tool is lifted 3.000 mm, and the sentence says the end would reach 3.000 mm but is lifted at least that far all along the face; information, no warning.](0683-swarf-reach-past-the-rulings-is-said-after-the-lift.svg)
 
 ## Options put to the owner
 

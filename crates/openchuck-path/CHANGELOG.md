@@ -1,10 +1,14 @@
 # Changelog
 
-## Unreleased (SWARF-LEADS; issues #572, #624 and #510; decisions 9921 and 9922, numbers provisional)
+## 0.61.0 (SWARF-LEADS; issues #572, #624 and #510; decisions 0682 and 0683, accepted)
 
-- **Fixed, changed output (#572; decision 9921, option B, the owner's choice):** the entry and exit moves of a strategy given the faces next to its face set (`RegionConstraint::neighbours`; swarf) are measured against those faces as well as the face set: a lead (straight, or on a pass that turns A) or a helix that would cut one deeper than the pass itself cuts it where the move joins it, plus the tolerance and the sampling slack, is refused with the existing entry refusal, naming the face. A swarf lead-out at a pass that stops short of an end wall ran on into the wall (2.990 mm on the library fixture) with no warning; it is now refused. A ramp follows the pass and is unchanged. No public API change.
-- **Changed text (#624; decision 9922, option (c), the owner's choice):** swarf's face note gives the tool's reach past the end of the rulings after the lift clear of avoid and check sets: "would reach … ; it is lifted at least that far all along the face …" or "… where it is lifted least it still reaches … mm beyond them …". It stays information; with no lift the sentence is unchanged.
+- **Fixed, changed output (#572; decision 0682, option B, the owner's choice):** the entry and exit moves of a strategy given the faces next to its face set (`RegionConstraint::neighbours`; swarf) are measured against those faces as well as the face set: a lead (straight, or on a pass that turns A) or a helix that would cut one deeper than the pass itself cuts it where the move joins it, plus the tolerance and the sampling slack, is refused with the existing entry refusal, naming the face. A swarf lead-out at a pass that stops short of an end wall ran on into the wall (2.990 mm on the library fixture) with no warning; it is now refused. A ramp follows the pass and is unchanged. No public API change.
+- **Changed text (#624; decision 0683, option (c), the owner's choice):** swarf's face note gives the tool's reach past the end of the rulings after the lift clear of avoid and check sets: "would reach … ; it is lifted at least that far all along the face …" or "… where it is lifted least it still reaches … mm beyond them …". It stays information; with no lift the sentence is unchanged.
 - **Tests (#510):** a free-end turn on the rotary axis in helical, axial and rest machining is told as a turn at the axis, never as a feed of zero, and every fed move keeps a positive feed (fixed by decision 0536 step 2, issue #600).
+
+## 0.60.0
+
+- **Family release (0.60.0; POST-COMMENTS; issue #851; decision 0681, accepted):** `openchuck-post`'s `PostOptions` gains the public field `active_comment_prefixes` and `PostOutput` the public field `guarded_comments`, a breaking change; no change to this crate.
 
 ## 0.59.0
 

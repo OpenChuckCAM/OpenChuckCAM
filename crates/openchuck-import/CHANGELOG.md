@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased (FUZZ-NFR07; issue #582; decision 0679, accepted)
+
+- **Fixed (`step_mutations` example):** a `count`, `seed` or `max_seconds` that is given but is not a whole number stops the run with exit code 2 and says which, instead of using the default (a mistyped `max_seconds` meant no time budget). No library change.
+
 ## 0.58.0 (FACING-STEP; issue #800; decision 0666 option C, accepted)
 
 - **Changed:** the STEP import notice says Facing takes its bounds of the part from the exact faces, in place of the interim sentence that its checked modes did not work on a STEP part.

@@ -2,6 +2,8 @@
 # Written by user-docs/tools/capture.py. Add reviewed_at = "<commit>" after checking the
 # screens against a later build without re-capturing (user-docs/STYLE.md, Figures).
 captured_at = "1eeecbd8aa5f3f42a4aee671767841a7e4bf1a47"
+# captured_at names a commit of lane Z1-SETUP's second pull request (#852) that the squash merge dropped, so it is not
+# in main's history; the screens (and this file) first appear in main at 5e52b0b0, the squash commit of #852.
 captured_on = "2026-11-22"
 renderer = "Mesa lavapipe (software Vulkan) on Xvfb"
 window = "1920x1080"

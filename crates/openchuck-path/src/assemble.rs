@@ -460,7 +460,7 @@ pub fn assemble_with_entry(
 /// `beside` is the faces next to the face set
 /// ([`RegionConstraint::neighbours`](crate::RegionConstraint::neighbours)),
 /// which the entry and exit moves are checked against as well as the
-/// finished surface (decision record 9921).
+/// finished surface (decision record 0682).
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn assemble_limited(
     passes: &[Pass],

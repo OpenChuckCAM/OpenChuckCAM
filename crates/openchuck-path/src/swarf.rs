@@ -717,7 +717,7 @@ impl Limits {
             ));
         }
         // Information, said after the lift (issue #624; decision record
-        // 9922): a real cut into a face next to this one is measured and
+        // 0683): a real cut into a face next to this one is measured and
         // warned of on its own (decision record 0532 item 3).
         let least_lift = least_lift.unwrap_or(0.0).max(0.0);
         if self.end_reach >= 0.0005 && self.tip_lifted <= SAME_POINT {

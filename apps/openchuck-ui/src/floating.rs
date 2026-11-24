@@ -6,6 +6,7 @@
 //! window, and can be dragged only within it. A dialog draws no 3D: a preview
 //! stays in the main window's viewport.
 
+use crate::focus::KeepFocus as _;
 use eframe::egui;
 
 /// What the user did to the dialog's window this frame.
@@ -56,6 +57,166 @@ pub fn floating_fixed<T: Default>(
     run(ctx, key, title, size, false, false, contents)
 }
 
+/// The id of the window of the dialog keyed `key`.
+fn window_id(key: &str) -> egui::Id {
+    egui::Id::unique(("dialog", key))
+}
+
+/// The layer the dialog keyed `key` is drawn on.
+pub fn window_layer(key: &str) -> egui::LayerId {
+    egui::LayerId::new(egui::Order::Middle, window_id(key))
+}
+
+/// The key under which a dialog's window keeps whether it waits for the first
+/// Tab (it opened and no control in it has had the keyboard yet), and the
+/// frame it was last drawn in.
+fn armed_id(window: egui::Id) -> egui::Id {
+    window.with("first tab enters")
+}
+
+fn shown_id(window: egui::Id) -> egui::Id {
+    window.with("last drawn in pass")
+}
+
+/// Whether Tab or Shift Tab was pressed this frame.
+fn tab_pressed(ctx: &egui::Context) -> bool {
+    ctx.input(|i| i.key_pressed(egui::Key::Tab))
+}
+
+/// Marks where a dialog's body starts (UI-14, specification section 16; issue
+/// #580; the owner's answer Q1 B of 23 Nov 2026). A dialog that has opened is
+/// focused as a whole, with no control: the first Tab after it opens goes to
+/// the first control drawn after this call, whatever egui would have given it
+/// to behind the window. A dialog calls it before its body, so the first Tab
+/// reaches the body's first control and not the title bar's close box or the
+/// footer's buttons.
+pub fn focus_starts_here(ui: &egui::Ui) {
+    let armed = ui.data(|d| d.get_temp::<bool>(armed_id(ui.layer_id().id))) == Some(true);
+    if !armed || ui.is_sizing_pass() || !ui.is_visible() || !tab_pressed(ui.ctx()) {
+        return;
+    }
+    let layer = ui.layer_id();
+    let inside = ui
+        .memory(egui::Memory::focused)
+        .and_then(|focused| ui.ctx().read_response(focused))
+        .is_some_and(|r| r.layer_id == layer);
+    if !inside {
+        ui.memory_mut(|m| {
+            m.stop_text_input();
+            m.move_focus(egui::FocusDirection::Next);
+        });
+    }
+}
+
+/// Before a dialog's window is drawn: if it was not drawn in the frame
+/// before, it has just opened. Nothing behind it keeps the keyboard (a field
+/// that had it sees it lost and applies its value, as on any focus loss), and
+/// the dialog waits for the first Tab.
+fn begin_opening(ctx: &egui::Context, window: egui::Id) {
+    let pass = ctx.cumulative_pass_nr();
+    let previous = ctx.data_mut(|d| {
+        let previous = d.get_temp::<u64>(shown_id(window));
+        d.insert_temp(shown_id(window), pass);
+        previous
+    });
+    // Not drawn in the frame before: closed until now.
+    if previous.is_none_or(|p| p.saturating_add(1) < pass) {
+        ctx.memory_mut(egui::Memory::stop_text_input);
+        ctx.data_mut(|d| d.insert_temp(armed_id(window), true));
+    }
+}
+
+/// After a dialog's window is drawn: it stops waiting for the first Tab once
+/// a control in it has the keyboard, or once the user has given the keyboard
+/// to something else without Tab (a click behind the window).
+fn end_opening(ctx: &egui::Context, window: egui::Id) {
+    let id = armed_id(window);
+    if ctx.data(|d| d.get_temp::<bool>(id)) != Some(true) {
+        return;
+    }
+    let tab = tab_pressed(ctx);
+    if tab {
+        // The Tab is not carried past the dialog's body.
+        ctx.memory_mut(|m| m.move_focus(egui::FocusDirection::None));
+    }
+    let focused = ctx
+        .memory(egui::Memory::focused)
+        .and_then(|focused| ctx.read_response(focused));
+    let done = match focused {
+        Some(r) => r.layer_id.id == window || !tab,
+        None => false,
+    };
+    if done {
+        ctx.data_mut(|d| d.insert_temp(id, false));
+    }
+}
+
+/// What Esc has to know of a frame: whether a text field had the keyboard
+/// and whether a pop-up was open, at the end of the frame `pass`, and the
+/// same of the frame before it.
+#[derive(Debug, Clone, Copy, Default)]
+struct EscState {
+    pass: u64,
+    now: (bool, bool),
+    before: (bool, bool),
+}
+
+fn esc_state_id() -> egui::Id {
+    egui::Id::unique("dialog esc state")
+}
+
+/// The state at the end of the last frame. Several dialogs note it in one
+/// frame, so the one drawn later must not read what the one drawn earlier
+/// noted after egui had already let go of a field for this Esc.
+fn esc_state_before(ctx: &egui::Context) -> (bool, bool) {
+    let pass = ctx.cumulative_pass_nr();
+    let state = ctx
+        .data(|d| d.get_temp::<EscState>(esc_state_id()))
+        .unwrap_or_default();
+    if state.pass == pass {
+        state.before
+    } else {
+        state.now
+    }
+}
+
+/// Whether Esc this frame closes the dialog on `layer` (UI-14, specification
+/// section 16; the owner's answer Q6 A, issue #581 F11): Esc does what the
+/// dialog's Close or Cancel does, through the same guard. Not when a text
+/// field had the keyboard at the end of the last frame (that Esc only ends
+/// the edit; egui lets go of the field before this frame is drawn), not when
+/// a pop-up was open (that Esc closes the pop-up), not while a question is
+/// open in front of the dialog, and only for the dialog on top of those still
+/// shown (egui keeps a closed window's place in its order).
+fn esc_closes(ctx: &egui::Context, layer: egui::LayerId) -> bool {
+    if !ctx.input(|i| i.key_pressed(egui::Key::Escape)) {
+        return false;
+    }
+    let (text, popup) = esc_state_before(ctx);
+    let (modal, top) = ctx.memory(|m| {
+        let top = m
+            .layer_ids()
+            .filter(|l| l.order == egui::Order::Middle && m.areas().is_visible(l))
+            .last();
+        (m.top_modal_layer(), top)
+    });
+    !text && !popup && modal.is_none_or(|m| m == layer) && top.is_none_or(|t| t == layer)
+}
+
+/// Notes, after a dialog is drawn, what the next frame's Esc has to know.
+fn note_esc_state(ctx: &egui::Context) {
+    let pass = ctx.cumulative_pass_nr();
+    let now = (ctx.text_edit_focused(), egui::Popup::is_any_open(ctx));
+    ctx.data_mut(|d| {
+        let state = d.get_temp_mut_or_default::<EscState>(esc_state_id());
+        if state.pass != pass {
+            state.before = state.now;
+            state.pass = pass;
+        }
+        state.now = now;
+    });
+}
+
 /// The room a dialog leaves round it inside the main window, in points.
 const MARGIN: f32 = 24.0;
 
@@ -99,9 +260,10 @@ fn run<T: Default>(
     mut contents: impl FnMut(&mut egui::Ui) -> T,
 ) -> (T, WindowEvent) {
     let (fit, position) = place(ctx, size);
+    begin_opening(ctx, window_id(key));
     let mut open = true;
     let window = egui::Window::new(title)
-        .id(egui::Id::unique(("dialog", key)))
+        .id(window_id(key))
         .open(&mut open)
         .collapsible(false)
         .default_pos(position);
@@ -116,14 +278,19 @@ fn run<T: Default>(
     let shown = window.show(ctx, |ui| {
         crate::pending_edits::form(ctx, egui::Id::unique(("dialog form", key)), || {
             if scroll {
-                egui::ScrollArea::vertical().show(ui, &mut contents).inner
+                egui::ScrollArea::vertical()
+                    .show_keeping_focus(ui, &mut contents)
+                    .inner
             } else {
                 contents(ui)
             }
         })
     });
+    end_opening(ctx, window_id(key));
+    let esc = esc_closes(ctx, window_layer(key));
+    note_esc_state(ctx);
     let value = shown.and_then(|r| r.inner).unwrap_or_default();
-    let event = if open {
+    let event = if open && !esc {
         WindowEvent::None
     } else {
         WindowEvent::CloseRequested

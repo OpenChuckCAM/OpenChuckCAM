@@ -15,7 +15,7 @@
 <circle cx="364" cy="156" r="54" fill="#c0392b" fill-opacity="0.15" stroke="#c0392b" stroke-width="2"/>
 <text x="58" y="111.0" fill="#c0392b">the lead-out arc carries the tool</text>
 <text x="58" y="127.0" fill="#c0392b">2.990 mm into face 1: silent on main</text>
-<text x="500" y="70" font-weight="bold">Decision 9921</text>
+<text x="500" y="70" font-weight="bold">Decision 0682</text>
 <text x="500" y="94">Item 1 (built): every lead and helix</text>
 <text x="500" y="112">position is measured against the</text>
 <text x="500" y="130">faces next to the face set, sampled</text>

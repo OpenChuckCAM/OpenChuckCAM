@@ -3102,7 +3102,7 @@ fn made_beside(
 
 #[test]
 fn req_op_11_req_op_12_req_nfr_07_a_swarf_lead_out_never_runs_silently_into_an_end_wall() {
-    // Issue #572 (decision record 9921): the pass stops short of the end
+    // Issue #572 (decision record 0682): the pass stops short of the end
     // wall so the tool just keeps off it (decision record 0532 item 1), and
     // the lead-out then carried the tool on along the pass into the wall by
     // about its radius (2.990 mm, or 1.010 mm with a 1 mm lead), with no
@@ -3143,7 +3143,7 @@ fn req_op_11_req_op_12_req_nfr_07_a_swarf_lead_out_never_runs_silently_into_an_e
 
 #[test]
 fn req_op_11_req_op_12_a_ball_on_a_floor_keeps_entries_that_cut_it_no_deeper_than_the_pass() {
-    // Decision record 9921: a ball's straight side starts a ball radius
+    // Decision record 0682: a ball's straight side starts a ball radius
     // above its tip, so the pass itself cuts the floor about that deep, and
     // that cut is measured and warned of (decision record 0532 item 3). The
     // entries and exits cut the floor no deeper than the pass where they
@@ -3173,7 +3173,7 @@ fn req_op_11_req_op_12_a_ball_on_a_floor_keeps_entries_that_cut_it_no_deeper_tha
 
 #[test]
 fn req_op_07_req_op_12_req_nfr_12_the_reach_past_the_rulings_is_said_after_the_lift() {
-    // Issue #624 (decision record 9922): the face's note said how far the
+    // Issue #624 (decision record 0683): the face's note said how far the
     // tool's end reaches past the end of the rulings measured before any
     // lift, so with the floor in an avoid set, the ball lifted clear all
     // along, it still said the tool cuts into a floor. The sentence is

@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.61.0
+
+- **Family release (0.61.0; SWARF-LEADS; issues #572 and #624; decisions 0682 and 0683, accepted):** `openchuck-path` changes output (a swarf lead or helix that would cut a face next to the face set deeper than the pass is refused; swarf's note gives the reach past the rulings after the lift); no public API change and no change to this crate.
+
+## 0.60.0
+
+- **Family release (0.60.0; POST-COMMENTS; issue #851; decision 0681, accepted):** `openchuck-post`'s `PostOptions` gains the public field `active_comment_prefixes` and `PostOutput` the public field `guarded_comments`, a breaking change; no change to this crate.
+
+## Unreleased (FUZZ-NFR07; issues #628, #627; decision 0679, accepted)
+
+- **Added:** `tool::profile::MAX_PROFILE_SIZE` (1000 mm). A profile point, arc centre or arc radius given by size further than that from the tip is refused naming the segment; `Tool::profile` refuses a diameter or shank diameter above twice it and a flute or overall length above it, naming the field. A finite but huge size (the nightly `tool_profile_toml` input, 7.8e307 mm) used to be accepted and overflow the lower envelope.
+
 ## 0.59.0
 
 - **Breaking (0.59.0; lane Z1-SETUP, PR 2; issue #692; decision 0673):** `tool::Tool` gains the public field `stick_out: Option<Millimetres>`, how far the tool sticks out of the collet from its tip to the collet face, written only when set; `Tool::validate` and `Tool::profile` refuse one below the flute length or above the overall length. A struct literal of `Tool` must add `stick_out: None`. Tool files and project tool snapshots carry it from project schema 29.

@@ -40,7 +40,7 @@ Partial paths
 : New finishing operations have [adaptive spacing](../glossary.md#adaptive-spacing) on. Where it cannot confirm the material left between passes before it reaches its limits, it keeps the path made so far, warns you, and asks you to accept the partial path before it writes any G-code. A partial path is not complete. On the tutorial's part with the default settings this happens, so the tutorial turns adaptive spacing off.
 
 Project files
-: The project format may still change before the first release.
+: The project format may still change in a later release.
 
 ## Time and size
 
@@ -54,4 +54,4 @@ The programs are not signed, so Windows and macOS warn or refuse the first time 
 
 ## Accessibility
 
-There is no screen reader support: the program does not expose its controls to a screen reader. Most of the program can be used from the keyboard, but a run through every step with the keyboard alone has not been tested, and some controls may not show their tooltip when they get keyboard focus.
+There is no screen reader support: the program does not expose its controls to a screen reader. Most of the program can be used from the keyboard ([Keyboard and shortcuts](../reference/keyboard.md)), but a run through every step with the keyboard alone has not been tested. A disabled button cannot get keyboard focus, so its reason shows only when you hold the mouse over it; the main button's reason is also in the bottom bar.
