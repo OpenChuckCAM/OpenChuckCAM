@@ -1,9 +1,9 @@
-# 0xxx: A largest tool size, template namespaces freed after a render, and checked mutation-run arguments (TL-02, TL-03, TL-04, GC-03, NFR-05, NFR-07; issues #628, #627, #794, #582; lane FUZZ-NFR07, pull request #853)
+# 0679: A largest tool size, template namespaces freed after a render, and checked mutation-run arguments (TL-02, TL-03, TL-04, GC-03, NFR-05, NFR-07; issues #628, #627, #794, #582; lane FUZZ-NFR07, pull request #853)
 
 - **Status:** Accepted by the project owner on 23 Nov 2026, relayed by the coordinator (decision 0049). The owner chose option A for item 1 (a 1000 mm bound) and option A for item 2 (the namespace cleanup), and agreed item 3 (count, seed and max_seconds all checked). Written by lane FUZZ-NFR07.
 - **Date:** 23 Nov 2026.
 - **Requirements:** TL-02 and TL-03 (standard and custom tool shapes), TL-04 (tool fields), GC-03 (user-editable post definitions), NFR-05 (double precision, millimetres), NFR-07 (invalid input gives a clear error, never a crash), GC-07 and NFR-06 (deterministic output).
-- **Open items:** raises OI-xxxx (report the namespace cycle to the template engine's maintainers, and drop the workaround of item 2 when a release frees it). No earlier open item tracks these issues.
+- **Open items:** raises OI-2194 (report the namespace cycle to the template engine's maintainers, and drop the workaround of item 2 when a release frees it). No earlier open item tracks these issues.
 
 Requirements and architecture are not edited by this record. No project, tool or machine schema changes. Library API: one addition, `openchuck_types::tool::profile::MAX_PROFILE_SIZE` (a `pub const`, minor-compatible); nothing removed or changed in signature. Generated G-code is unchanged for every valid tool and every built-in post.
 
@@ -25,7 +25,7 @@ Issue #582 (sev3): the STEP mutation program (`examples/step_mutations.rs`, [dec
 - **C: clamp to the limit.** This silently changes the user's tool, against NFR-07.
 - **D: fix only the fuzz target's arithmetic.** The tool stays accepted.
 
-![The (radius, height) half-plane of a tool profile. A real cutter of a few millimetres lies well inside the accepted square of 1000 mm by 1000 mm from the tip. The nightly fuzz input, one line to a radius of 7.8e307 mm, runs far outside it and is refused, naming the segment, the size and the limit.](0xxx-tool-size-limit.svg)
+![The (radius, height) half-plane of a tool profile. A real cutter of a few millimetres lies well inside the accepted square of 1000 mm by 1000 mm from the tip. The nightly fuzz input, one line to a radius of 7.8e307 mm, runs far outside it and is refused, naming the segment, the size and the limit.](0679-tool-size-limit.svg)
 
 **Item 2, a namespace that holds itself (#794).**
 
@@ -33,9 +33,9 @@ Issue #582 (sev3): the STEP mutation program (`examples/step_mutations.rs`, [dec
 - **B: turn the fuzz target's leak check off for this target**, document the bounded leak and report it upstream. This would also hide any future leak in our own code.
 - **C: report upstream only**, and leave the nightly job failing until the engine is fixed.
 
-![Before: after `{% set st.a = st %}` the namespace's key refers back to the namespace, so it is still held when the render ends and is never freed. After: when the render ends, or fails, every key of every namespace the render made is set to none, nothing refers to the namespace any more, and it is freed.](0xxx-namespace-cycle.svg)
+![Before: after `{% set st.a = st %}` the namespace's key refers back to the namespace, so it is still held when the render ends and is never freed. After: when the render ends, or fails, every key of every namespace the render made is set to none, nothing refers to the namespace any more, and it is freed.](0679-namespace-cycle.svg)
 
-With A, the owner is still asked to report the cycle upstream (OI-xxxx). The lane cannot reach other repositories.
+With A, the owner is still asked to report the cycle upstream (OI-2194). The lane cannot reach other repositories.
 
 **Item 3, the mutation program's arguments (#582).** No choice needed: as the issue proposes, a `count`, `seed` or `max_seconds` that is given but is not a whole number prints which one and the usage, and exits with code 2. A missing argument keeps its default (100, 1, no budget). The nightly passes literal numbers, so its run does not change.
 
@@ -43,7 +43,7 @@ With A, the owner is still asked to report the cycle upstream (OI-xxxx). The lan
 
 The owner's choices (23 Nov 2026, relayed): item 1 option A with a limit of 1000 mm (diameters 2000 mm), item 2 option A, and item 3 as proposed.
 
-### Upstream report (for the owner to file, OI-xxxx)
+### Upstream report (for the owner to file, OI-2194)
 
 Text to paste in an issue on the minijinja repository:
 
@@ -90,8 +90,8 @@ Item 3: `cargo check -p openchuck-import --features kernel --example step_mutati
 
 Also `profile::tests::req_tl_03_req_nfr_07_an_arc_radius_above_the_limit_is_refused` (`openchuck-types`, unit): an arc given by a radius of 1e300 mm is refused with the size and the limit, and one of exactly 1000 mm is not.
 
-**Runs (uninstrumented, `cargo nextest run`):** `openchuck-types`, `openchuck-project`, `openchuck-post`, `openchuck-import` and `openchuck-app` together: 1267 of 1267 passed, 1 skipped, 1003 s on 4 cores. The slow tests are existing `openchuck-app` integration tests and are unchanged. Each new test takes under 0.1 s. The built-in posts' golden files and the reference jobs pass unchanged (GC-07, NFR-06). `cargo fmt --all`, `cargo clippy --workspace --all-targets` and `cargo clippy -p openchuck-import --features kernel --example step_mutations` give no warnings. `cargo xtask deps`, `licences` and `trace` (105 of 105 P1 requirements) pass. `cargo xtask records` reports only the provisional `OI-xxxx`, which the renumbering clears. `cargo semver-checks --baseline-rev origin/main` (v0.51.0) on `openchuck-types` and `openchuck-post`: no semver update required.
+**Runs (uninstrumented, `cargo nextest run`):** `openchuck-types`, `openchuck-project`, `openchuck-post`, `openchuck-import` and `openchuck-app` together: 1267 of 1267 passed, 1 skipped, 1003 s on 4 cores. The slow tests are existing `openchuck-app` integration tests and are unchanged. Each new test takes under 0.1 s. The built-in posts' golden files and the reference jobs pass unchanged (GC-07, NFR-06). `cargo fmt --all`, `cargo clippy --workspace --all-targets` and `cargo clippy -p openchuck-import --features kernel --example step_mutations` give no warnings. `cargo xtask deps`, `licences` and `trace` (105 of 105 P1 requirements) pass. `cargo xtask records` reports only the provisional `OI-2194`, which the renumbering clears. `cargo semver-checks --baseline-rev origin/main` (v0.51.0) on `openchuck-types` and `openchuck-post`: no semver update required.
 
 **Coverage (instrumented, each crate on its own tests, lower bounds):** `openchuck-types` `tool/mod.rs` 99.7 % and `tool/profile.rs` 94.6 % of lines. Every line this change adds is reached once the arc radius test above was added. The lines still missed are older defensive branches. `openchuck-post` `engine.rs` 80.5 %, `render.rs` 96.9 %, `definition.rs` 86.8 %. Every new line of the namespace wrapper and its cleanup is reached. The missed lines are the older filters' error branches (`number`, `decimals`, `sqrt` and others), which this crate's own tests do not call.
 
-**Not verified:** the nightly workflow itself (it runs after merge); whether the owner wants another limit. The upstream report is not filed (OI-xxxx).
+**Not verified:** the nightly workflow itself (it runs after merge); whether the owner wants another limit. The upstream report is not filed (OI-2194).

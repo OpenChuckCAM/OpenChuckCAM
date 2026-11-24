@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased (FUZZ-NFR07; issue #628; decision 0xxx, accepted)
+## Unreleased (FUZZ-NFR07; issue #628; decision 0679, accepted)
 
 - **Changed:** the tool form's Diameter and Shank diameter fields have a maximum of 2000 mm and Flute length and Overall length 1000 mm, the sizes the tool check accepts. No API change.
 
