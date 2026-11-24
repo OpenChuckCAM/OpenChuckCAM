@@ -481,7 +481,7 @@ impl Shell {
                             status: status(item),
                             swatch: Some(Color32::from_rgb(r, g, b)),
                             name: RichText::new(&s.name),
-                            chip: Some(format!("{} {}", s.count, s.kind)),
+                            chip: Some(s.counted()),
                             linked: false,
                         },
                         |_| {},

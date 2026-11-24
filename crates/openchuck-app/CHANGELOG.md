@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.63.0 (FACEFLOW; issues #791, #631, #614, #615 and #854; decisions 0675, 0676 and 0686, accepted)
+
+- **Changed:** a new face-flow finishing operation is written with Stay down between passes on, Pattern Automatic, Steps between rings Blended (decision 0545's rule, now reaching face flow) and a Shortest cut of its tool's diameter. An operation saved without them keeps its program.
+- **Added:** `operation::empty_cut_on_hint(strategy)`, the Geometry section's line on an empty Cut on: the whole part is cut, except for swarf and face-flow finishing, which are not generated with no face set there (the refusal they share is now one list). `SelectionSummary::counted()`, the set's count with its noun agreeing ("1 face", "3 edges").
+
 ## 0.62.0 (FACING-GRIP; issue #500; decision 0685, accepted)
 
 - **Changed output:** Facing beside a held region faces what the tool reaches and its notes say what it leaves (see `openchuck-path` 0.62.0). The Facing completion note says, when a face stops short of a held region, that it covered the faces up to the held region and that the held-region note gives the numbers; otherwise it is unchanged.

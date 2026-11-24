@@ -1,5 +1,10 @@
 # Changelog
 
+
+## Unreleased (FACEFLOW; issues #614 and #615)
+
+- **Changed text:** the Geometry section's first line says, for swarf and face-flow finishing, that they cut only the faces chosen and are not generated with no face set in Cut on, instead of that the whole part is cut. A selection set of one face or edge reads "1 face", "1 edge" in the tree, the set inspector and the Geometry section.
+
 ## 0.57.0
 
 - **Changed (0.57.0; SIM-FINISH, issue #801; decision 0661, accepted, option C):** the Results tab lists as a problem, with its depth, only a rapid that goes deeper into the stock than one cell of the simulation, and counts only those as rapid cuts; a shallower one is a note of the run. `openchuck-cli simulate` fails only on those too, and prints every rapid with its depth and volume.
