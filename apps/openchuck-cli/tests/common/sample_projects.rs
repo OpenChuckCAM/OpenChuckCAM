@@ -64,7 +64,7 @@ pub fn lobed() -> LobedVase {
 /// The name of the gate 5 first-cut project (decision record 0221, OI-914).
 pub const FIRST_CUT: &str = "first_cut";
 
-/// The first-cut project's part (decision record STEPPED-CYL-A, issue #826, the
+/// The first-cut project's part (decision record 0680, issue #826, the
 /// owner's option A): three cylinders, 24 mm in diameter for 7 mm from its
 /// start (the head, towards the chuck), then 17 mm for 8 mm and 10 mm for
 /// 10 mm, where it meets the 10 mm tailstock piece flush. Placed 73 mm along

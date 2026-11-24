@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="820" height="420" viewBox="0 0 820 420" font-family="sans-serif" font-size="13">
 <rect width="820" height="420" fill="#ffffff"/>
-<text x="20" y="24" font-weight="bold">The stepped first-cut part (decision STEPPED-CYL-A): side view at A0, above the axis, to scale</text>
+<text x="20" y="24" font-weight="bold">The stepped first-cut part (decision 0680): side view at A0, above the axis, to scale</text>
 <text x="20" y="42" fill="#555">Program X (mm) across, radius up. Stock 35 x 35 x 100 mm box (corners 24.7 mm from the axis; the flat at 17.5 mm shown).</text>
 <rect x="40.0" y="60.0" width="608.0" height="280.0" fill="#f3efe6" stroke="#b8a98a" stroke-dasharray="4,3"/>
 <rect x="40.0" y="60.0" width="96.0" height="280.0" fill="#d9d9d9" stroke="#888"/>

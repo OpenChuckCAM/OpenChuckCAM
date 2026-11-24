@@ -658,7 +658,7 @@ fn z1_library() -> PathBuf {
 /// owner wants left uncut, since nothing else keeps a tool off a length of
 /// stock (OP-22 is not built; OI-923). A 10 mm cylinder tab, X 68 to 73,
 /// joins it to the part; the stepped part (24, 17 and 10 mm, decision record
-/// STEPPED-CYL-A, which replaced the cone of 0221) spans X 73 to 98; the
+/// 0680, which replaced the cone of 0221) spans X 73 to 98; the
 /// 10 mm, 2 mm piece the tailstock centres on, X 98 to 100, is a held region
 /// at the end, so every cutting move keeps clear of it and of the tailstock
 /// beyond it (decision record 0161): as a tab, the program cut past X 100
@@ -666,7 +666,7 @@ fn z1_library() -> PathBuf {
 /// end, SET-09).
 /// Tooling board with the "Plastic" presets; roughing and finishing with
 /// tool 104 (single flute, flat end), the owner's option F2 of decision
-/// record STEPPED-CYL-A, so the program has one tool.
+/// record 0680, so the program has one tool.
 fn build_first_cut(root: &Path) -> PathBuf {
     let project = root.join(FIRST_CUT);
     let p = project.as_os_str();
@@ -703,7 +703,7 @@ fn build_first_cut(root: &Path) -> PathBuf {
     assert!(out.stdout.contains("no problems found"), "{}", out.stdout);
     let library = z1_library();
     // One tool for both operations: the flat end 104 also finishes, so each
-    // face between the steps is square (decision record STEPPED-CYL-A, option F2).
+    // face between the steps is square (decision record 0680, option F2).
     cli_ok(&[
         "tool".as_ref(),
         p,
@@ -724,7 +724,7 @@ fn build_first_cut(root: &Path) -> PathBuf {
             .id
     };
     let flat_end = tool("Z1 O-flute 3.175x25");
-    // The settings the owner accepted the part on (decision record STEPPED-CYL-A):
+    // The settings the owner accepted the part on (decision record 0680):
     // the operations as the project held them before, with fixed passes
     // (no adaptive spacing, which on a flat end left the finishing path
     // partial) and no facing of free ends.
@@ -768,7 +768,7 @@ fn build_first_cut(root: &Path) -> PathBuf {
     project
 }
 
-/// The gate 5 first-cut project (decision records 0221 and STEPPED-CYL-A, OI-914).
+/// The gate 5 first-cut project (decision records 0221 and 0680, OI-914).
 mod first_cut {
     use super::*;
 
@@ -855,7 +855,7 @@ mod first_cut {
             // The one possible collision is the Z1 tool-length check on the
             // 25 mm-flute tool 104 (a 30 mm stick-out assumed inside the 45 mm
             // clearance radius), which gate 5 checks on the machine (W4,
-            // decision record STEPPED-CYL-A); any other stops the test.
+            // decision record 0680); any other stops the test.
             let (program, printed) = regenerate_with(
                 project,
                 post,
@@ -904,7 +904,7 @@ mod first_cut {
     /// The material removal simulation finds no overcut and no rapid move
     /// through material, with the held region and the tabs kept (SIM-03,
     /// SIM-05, SET-09, OP-21). At each station where gate 5 measures the part
-    /// (decision record STEPPED-CYL-A, Q3), the simulated part is the model within
+    /// (decision record 0680, Q3), the simulated part is the model within
     /// the radius limit (±0.05 mm, Q2, L1), so a measurement compared with
     /// the simulated part is close to one compared with the model.
     #[test]
@@ -1012,7 +1012,7 @@ mod first_cut {
     }
 
     /// The program has one tool, the flat end 104 as T1, changed once at the
-    /// start, as option F2 of decision record STEPPED-CYL-A chose (GC-09, GC-14).
+    /// start, as option F2 of decision record 0680 chose (GC-09, GC-14).
     #[test]
     fn req_gc_09_req_gc_14_the_first_cut_program_has_one_tool() {
         for (post, ext) in POSTS {
@@ -1061,7 +1061,7 @@ mod first_cut {
     /// The setup the owner specified, as the setup sheet states it: the box
     /// stock, the material, the grip and both tabs, and the one tool with its
     /// "Plastic" preset (GC-12, SET-09, OP-21, TL-05; OI-921 and decision
-    /// record STEPPED-CYL-A, option F2).
+    /// record 0680, option F2).
     #[test]
     fn req_gc_12_req_set_09_req_op_21_req_tl_05_the_sheet_states_the_owners_setup() {
         let root = scratch("first-cut-sheet");

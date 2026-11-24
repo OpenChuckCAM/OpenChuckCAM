@@ -251,7 +251,7 @@ Each is measured against the simulated part at the same X. The simulation's own 
 **Where this comes from:**
 
 - **[Decision 0221](decisions/0221-gate-5-first-cut-project-and-limit.md)** (accepted by the owner, 22 Oct 2026): no 3-axis repeatability part, a ±0.1 mm limit, and a first-cut project in tooling board rather than the reference job set.
-- **[Decision STEPPED-CYL-A](decisions/STEPPED-CYL-A-the-gate-5-reference-part-is-a-stepped-cylinder.md)** (accepted by the owner, 23 Nov 2026):
+- **[Decision 0680](decisions/0680-the-gate-5-reference-part-is-a-stepped-cylinder.md)** (accepted by the owner, 23 Nov 2026):
   - the cone of the rc3 first cut is replaced by stepped cylinders;
   - the part is compared with the simulated part, not the model;
   - the part is measured with the probe in the machine, then with a micrometer;
@@ -267,9 +267,9 @@ The reasons are in the rc3 test record (issue #586, archived under `docs/archive
 | F1 | Gate 4 for this program | The first-cut project's own Z1 program (5.2) has passed gate 4 (air cut, no tool, no material, every step of section 4), at the same commit, with the same profile and post. Any change since (the tool, its speeds, the stock): back to gate 1. |
 | F2 | Safe-practice checklist section 3 | Every box ticked. Its first-cut limit line reads as above. |
 | F3 | Tool change with a real tool | Done: tested attended with a real tool at the rc3 first cut (OI-41, closed; rc3 record E-03). This program has one tool, changed once at the start (`T1 M6`). |
-| F4 | First-cut limit | As at the top of this section, on every measurement of 5.7 (decisions 0221 and STEPPED-CYL-A). |
+| F4 | First-cut limit | As at the top of this section, on every measurement of 5.7 (decisions 0221 and 0680). |
 | F5 | The first-cut project | The project of 5.2 exists and passes gates 1 to 3 like any other program. |
-| F6 | The tool and its speeds confirmed with the owner (OI-9953) | **Stop here until the owner has said which 3.175 mm flat end is fitted and confirmed its finishing preset** (5.3, T0). The project must hold the tool that is fitted. |
+| F6 | The tool and its speeds confirmed with the owner (OI-2197) | **Stop here until the owner has said which 3.175 mm flat end is fitted and confirmed its finishing preset** (5.3, T0). The project must hold the tool that is fitted. |
 
 ### 5.2 The first-cut project
 
@@ -280,23 +280,23 @@ The reasons are in the rc3 test record (issue #586, archived under `docs/archive
 
 | From X 0 (the head end, the chuck) | What | Source |
 | --- | --- | --- |
-| X 0 | Work zero X0: the head end of the stock, on the axis. It is set from the probed tail end face (M4) | Owner (decision STEPPED-CYL-A, Q4, X2) |
+| X 0 | Work zero X0: the head end of the stock, on the axis. It is set from the probed tail end face (M4) | Owner (decision 0680, Q4, X2) |
 | X 0 to 10 | Gripped by the chuck jaws (at most 10 mm) | Owner (OI-914) |
 | X 0 to 68 | **One held region at the start, 68 mm, box section** (decision 0160): the 10 mm in the jaws plus 58 mm of free stock left uncut | Owner (OI-914, OI-923) |
 | X 68 to 73 | Tab, cylinder 10 mm diameter, 5 mm long, on the axis | Owner (OI-914) |
-| X 73 to 80 | **Step 1: cylinder 24 mm diameter**, 7 mm long. Its face at X 73 faces the chuck | Owner (decision STEPPED-CYL-A, Q1, A) |
-| X 80 to 88 | **Step 2: cylinder 17 mm diameter**, 8 mm long. The face at X 80 faces the tailstock | Owner (decision STEPPED-CYL-A) |
-| X 88 to 98 | **Step 3: cylinder 10 mm diameter**, 10 mm long. The face at X 88 faces the tailstock. It meets the tailstock piece flush | Owner (decision STEPPED-CYL-A) |
+| X 73 to 80 | **Step 1: cylinder 24 mm diameter**, 7 mm long. Its face at X 73 faces the chuck | Owner (decision 0680, Q1, A) |
+| X 80 to 88 | **Step 2: cylinder 17 mm diameter**, 8 mm long. The face at X 80 faces the tailstock | Owner (decision 0680) |
+| X 88 to 98 | **Step 3: cylinder 10 mm diameter**, 10 mm long. The face at X 88 faces the tailstock. It meets the tailstock piece flush | Owner (decision 0680) |
 | X 98 to 100 | Tailstock piece, 10 mm diameter, 2 mm long: **a held region at the end** (OI-924, option A), so every cutting move keeps clear of it and of the tailstock beyond it (decision 0161). The fed moves stay between X 70.1 and 95.9 | Owner (OI-924) |
 | X 100 | End of the stock; the tailstock centre | Owner |
 
-![Side view of the stepped first-cut part at A0, to scale: the held region, the tab, the three steps, the tailstock piece, the fed-move limits, the flat end on a face turn and the probe stations.](decisions/STEPPED-CYL-A-the-gate-5-reference-part-is-a-stepped-cylinder.svg)
+![Side view of the stepped first-cut part at A0, to scale: the held region, the tab, the three steps, the tailstock piece, the fed-move limits, the flat end on a face turn and the probe stations.](decisions/0680-the-gate-5-reference-part-is-a-stepped-cylinder.svg)
 
 **The rest of the project:**
 
 - **Stock:** box 35 x 35 x 100 mm, X 0 to 100, Y and Z −17.5 to 17.5; material "Plastic".
 - **Roughing:** rotary roughing with tool 104.
-- **Finishing:** helical, 5 degree steps, with the **same tool 104** (decision STEPPED-CYL-A, Q5, F2).
+- **Finishing:** helical, 5 degree steps, with the **same tool 104** (decision 0680, Q5, F2).
 - **One tool:** the program numbers it **T1** and changes it once, at the start. There is no second tool.
 - **The face turns:** finishing turns A once round, without moving along X, beside each face: X 71.41 (the face at X 73), 81.59 (X 80) and 89.59 (X 88) ([decision 0297](decisions/0297-helix-strategies-turn-at-faces-across-the-axis.md)). The side of the flat end cuts each face square, with no radius at its root.
 
@@ -322,15 +322,15 @@ The Z1 tool library (built-in defaults, `crates/openchuck-project/defaults/z1/`)
 | 201 | Z1 ball metal 3.175x10 | Ball end, 2 flutes | 10 mm | 12000, 0.0208 (500 mm/min), 200 mm/min, 0.4536 mm, 1.0 mm |
 | 204 | Z1 ball 3.175x22 | Ball end, 2 flutes | 22 mm | 12000, 0.0208 (500 mm/min), 200 mm/min, 0.4536 mm, 1.0 mm |
 
-**The project's tool is 104 (Z1 O-flute 3.175x25, single flute, flat end) for both operations** (decision STEPPED-CYL-A, Q5, F2). This replaces OI-921's finishing tool, 204. Both operations take its "Plastic" preset. The finishing helix's pitch is the preset's stepover, 2.2225 mm.
+**The project's tool is 104 (Z1 O-flute 3.175x25, single flute, flat end) for both operations** (decision 0680, Q5, F2). This replaces OI-921's finishing tool, 204. Both operations take its "Plastic" preset. The finishing helix's pitch is the preset's stepover, 2.2225 mm.
 
-**Unconfirmed: the finishing preset (OI-9953).** The owner confirmed 104's "Plastic" preset for roughing (OI-921). For finishing it is the library's value, not yet confirmed by the owner. Do not cut until the owner has confirmed it or given another (F6).
+**Unconfirmed: the finishing preset (OI-2197).** The owner confirmed 104's "Plastic" preset for roughing (OI-921). For finishing it is the library's value, not yet confirmed by the owner. Do not cut until the owner has confirmed it or given another (F6).
 
 **The tool must reach the depth.** The deepest cut, from the box's corners (24.7 mm from the axis) to the tab and step 3 (5 mm), is 19.7 mm. 104 has 25 mm of flute. 101 has 12 mm, which is not enough.
 
 | Step | Check | Pass when |
 | --- | --- | --- |
-| T0 | **Confirm the tool with the owner** (OI-9953). When the project is generated, show the owner the setup sheet's Tools and Operations tables (number, name, type, diameter, flute length, spindle rpm, Speed from) | The tool fitted is the project's tool (104, or the project has been changed to the tool fitted and has passed gates 1 to 4 again), and the owner has confirmed its finishing preset. Record who confirmed and when. |
+| T0 | **Confirm the tool with the owner** (OI-2197). When the project is generated, show the owner the setup sheet's Tools and Operations tables (number, name, type, diameter, flute length, spindle rpm, Speed from) | The tool fitted is the project's tool (104, or the project has been changed to the tool fitted and has passed gates 1 to 4 again), and the owner has confirmed its finishing preset. Record who confirmed and when. |
 | T1 | The tool | One tool, T1, and the tool number matches the program's `T1` (GC-14). |
 | T2 | Material | The setup's material is **Plastic**, so both operations take the Plastic preset: the setup sheet's **Speed from** reads "tool data: Plastic" (decision 0196). If an operation sets its own speed, Speed from reads "operation": check the value with the owner. |
 | T3 | A tool with no Plastic data | None of the five lacks it. If one is ever used: copy its Softwood data to a new Plastic entry in the tool library; if it has no Softwood data either, **ask the owner before** using settings from a similar tool (OI-915). |
@@ -342,7 +342,7 @@ The Z1 tool library (built-in defaults, `crates/openchuck-project/defaults/z1/`)
 | Step | Do | Pass when |
 | --- | --- | --- |
 | V1 | Run **Simulate** in the application (or `openchuck-cli simulate <project>`), at the default cell (0.1 mm) or finer (0.05 mm runs; 0.025 mm is refused on this stock size) | It completes. No banner saying the result is out of date (decision 0192). |
-| V2 | Overcut | No overcut beyond the tolerance, and the command line reports no "OVERCUT" and no rapid move that removes material. An overcut of up to about half the cell on the steps is the simulation's resolution (decision STEPPED-CYL-A: 0.046 mm at 0.1 mm, 0.023 mm at 0.05 mm). |
+| V2 | Overcut | No overcut beyond the tolerance, and the command line reports no "OVERCUT" and no rapid move that removes material. An overcut of up to about half the cell on the steps is the simulation's resolution (decision 0680: 0.046 mm at 0.1 mm, 0.023 mm at 0.05 mm). |
 | V3 | Material left, and the simulated part at the stations | Write down the largest material left and where it is (the probe and "Go to largest left" show it). Expect about 0.5 mm at the very end of step 3 (X 98, against the held end). With the probe, read the simulated deviation at each station of 5.7 and write it on the form: on the steps it is about 0. The end-to-end test checks a mean within ±0.05 mm. |
 | V4 | Held region and tabs | They stay whole in the simulated stock (SET-09, OP-21); the 2 mm tailstock piece is not cut through. |
 | V5 | Playback | Play the program through. No fed move goes below X 70.1 or above X 95.9 (decision 0161, OI-924). Finishing turns once round at X 71.41, 81.59 and 89.59. |
@@ -354,10 +354,10 @@ The simulation is a check on the program, not a promise about the machine (NFR-1
 
 | Step | Do | Pass when |
 | --- | --- | --- |
-| M1 | Measure the stock (35 x 35 x 100 mm), its length to 0.05 mm | It is never larger than the project's stock, and **no more than about 1 mm shorter** than 100 mm (decision STEPPED-CYL-A, Q4). |
+| M1 | Measure the stock (35 x 35 x 100 mm), its length to 0.05 mm | It is never larger than the project's stock, and **no more than about 1 mm shorter** than 100 mm (decision 0680, Q4). |
 | M2 | Load the stock in the chuck with the gripped length the project says (W1), and bring up the tailstock; tighten both | It does not move when you try to turn or pull it by hand. Turn A by jog a full turn at low feed: it turns true by eye and nothing touches. **Tailstock clearance (OI-924):** jog the tool, in the air, to X 95.9 at the radius of step 3 (5 mm) and up to safe Z, and check that the tailstock's body clears the tool and the holder at both. |
 | M3 | Fit the tool (T0, T5) | The tool number in the controller is the program's `T1`. |
-| M4 | **Set the work zero.** Y and Z on the A axis by Makera's routine (OI-917) or, as at rc3, from the axis measured with the probe (C2P). **X0 from the stock's tail end face** (decision STEPPED-CYL-A, Q4, X2; OI-2152), with the Makera 3D Probe: touch the end face moving −X, off the tailstock centre (5.7, probe notes). Then X0 = that machine X − the probe's tip radius (its calibration value) − **100** (the project's stock length). If the probe will not fit between the face and the tailstock centre with the tailstock up, touch the face before bringing the tailstock up (M2), then bring it up. A0 as the routine sets it | G54 Y0 Z0 on the axis centreline and X0 as above. Record on the form: the face touch (machine X), the tip radius used, X0, the measured stock length, how A0 was set, and G54 X, Y, Z in machine coordinates. The machine Z of G54 is the axis height: compare it with the profile. |
+| M4 | **Set the work zero.** Y and Z on the A axis by Makera's routine (OI-917) or, as at rc3, from the axis measured with the probe (C2P). **X0 from the stock's tail end face** (decision 0680, Q4, X2; OI-2152), with the Makera 3D Probe: touch the end face moving −X, off the tailstock centre (5.7, probe notes). Then X0 = that machine X − the probe's tip radius (its calibration value) − **100** (the project's stock length). If the probe will not fit between the face and the tailstock centre with the tailstock up, touch the face before bringing the tailstock up (M2), then bring it up. A0 as the routine sets it | G54 Y0 Z0 on the axis centreline and X0 as above. Record on the form: the face touch (machine X), the tip radius used, X0, the measured stock length, how A0 was set, and G54 X, Y, Z in machine coordinates. The machine Z of G54 is the axis height: compare it with the profile. |
 | M5 | Check by hand that the first rapid position is clear: jog to the program's first `G0` position in G54 (X, Y0, safe Z, A0) at low feed | The tool is above the stock at the X the program starts at, and clears the jaws and the tailstock body. |
 | M6 | Protection | Eye and ear protection on; loose clothing, hair and jewellery secured; dust extraction or a mask for tooling board dust. |
 
@@ -428,7 +428,7 @@ The face at X 73 faces the chuck, in a groove about 4.5 mm wide, and is not touc
 
 - The filled results form (section 8.2).
 - The gate 4 issue number for the first-cut program.
-- The record of T0: the tool fitted and the finishing preset confirmed, by whom and when (OI-9953).
+- The record of T0: the tool fitted and the finishing preset confirmed, by whom and when (OI-2197).
 - The program, setup sheet and simulation screenshots (V6), and the simulated deviation at each station (V3).
 - Photos of the setup in the machine (stock in the chuck, tailstock, tool), and the finished part from four sides.
 - The probe console logs (the `[PRB:...]` lines), the micrometer readings and the instruments used.
@@ -462,8 +462,8 @@ The face at X 73 faces the chuck, in a groove about 4.5 mm wide, and is not touc
 
 - [ ] Gate 4 passed for the first-cut program, same commit, profile and post.
 - [ ] Safe-practice checklist section 3 complete.
-- [ ] The first-cut project is the stepped part of decision STEPPED-CYL-A (24, 17 and 10 mm at X 73 to 98); the limits: ±0.1 mm on a diameter, ±0.05 mm on a radius, ±0.1 mm on positions and lengths, against the simulated part.
-- [ ] The tool confirmed with the owner (T0, OI-9953): one tool, the flat end 104 as T1, for roughing and finishing; its finishing preset confirmed; material Plastic, Speed from "tool data: Plastic".
+- [ ] The first-cut project is the stepped part of decision 0680 (24, 17 and 10 mm at X 73 to 98); the limits: ±0.1 mm on a diameter, ±0.05 mm on a radius, ±0.1 mm on positions and lengths, against the simulated part.
+- [ ] The tool confirmed with the owner (T0, OI-2197): one tool, the flat end 104 as T1, for roughing and finishing; its finishing preset confirmed; material Plastic, Speed from "tool data: Plastic".
 - [ ] Workholding: grip length matches the chuck and is recorded; no grip warning; the 5 mm tab and the 2 mm, 10 mm tailstock piece as agreed.
 - [ ] Stick-out at least 19.7 mm plus a margin; spindle speed and feeds checked against the preset.
 - [ ] Simulated: up to date; no overcut beyond the cell; no rapid removes material; held regions and tabs whole; the simulated deviation at each station written down; screenshots kept.
@@ -583,13 +583,13 @@ Gate 4 issue for this program:
 Program:                                  Setup sheet fingerprint:
 Material: tooling board, setup material Plastic
 Stock measured (35 x 35 x 100 mm; length to 0.05 mm):
-Tool confirmed with the owner (T0, OI-9953), by and date:
+Tool confirmed with the owner (T0, OI-2197), by and date:
 Tool fitted (one tool, T1; 104 unless the project was changed):     stick-out:
 Spindle rpm and Speed from:               Cutting feed / plunge feed:
 Grip length at the chuck (measured):      Tabs (5 mm; 2 mm x 10 mm tailstock piece):
 X0: tail end face touch (machine X):      tip radius:      X0 (machine X):
 G54 X, Y, Z (machine):                    A0 set by:
-Limits: ±0.1 mm diameter, ±0.05 mm radius, ±0.1 mm positions and lengths, against the simulated part (decisions 0221, STEPPED-CYL-A)
+Limits: ±0.1 mm diameter, ±0.05 mm radius, ±0.1 mm positions and lengths, against the simulated part (decisions 0221, 0680)
 Simulation: cell (mm), worst material left (mm, where), overcut:
 Override used, and its steps:
 Probe and micrometer used, with resolution:
@@ -639,18 +639,18 @@ The owner answered the questions of OI-910 to OI-919 on 22 Oct 2026 (relayed by 
 | OI-911 | Whether the spindle runs in the air cut | A: it runs as generated, with no tool; the program is tested exactly as generated | P7 | No |
 | OI-912 | How `T1 M6` is handled with no tool | B: run as generated and watch, ready on the stop; the tool change with a real tool is still tested before gate 5 (OI-41) | P7, F3 | No (OI-41 stays open) |
 | OI-913 | Where the reference jobs come from | A: committed as project folders (built in lane GATES); OI-920 A: without their generated meshes, which a generator example writes | P2 | No (OI-922: `drilling` and `swarf`) |
-| OI-914 | Which job gate 5 cuts | C: a new first-cut project to the owner's specification and geometry (5.2), built in lane GATES; its part changed from a cone to stepped cylinders by [decision STEPPED-CYL-A](decisions/STEPPED-CYL-A-the-gate-5-reference-part-is-a-stepped-cylinder.md) (23 Nov 2026) | 5.2, F5 | No (OI-923, OI-924) |
+| OI-914 | Which job gate 5 cuts | C: a new first-cut project to the owner's specification and geometry (5.2), built in lane GATES; its part changed from a cone to stepped cylinders by [decision 0680](decisions/0680-the-gate-5-reference-part-is-a-stepped-cylinder.md) (23 Nov 2026) | 5.2, F5 | No (OI-923, OI-924) |
 | OI-915 | Material and cutting data for gate 5 | Tooling board with the "Plastic" presets; Softwood copied where Plastic is missing; ask the owner before using a similar tool's data | 5.3 | No |
 | OI-916 | The 3-axis test part | B: skip it; the first-cut limit stays ±0.1 mm | F4, 5.7 | No ([decision 0221](decisions/0221-gate-5-first-cut-project-and-limit.md) accepted) |
 | OI-917 | How the axis height and work zero are found | Makera's own routine for Y and Z on the axis, X0 and A0; the form records the X0 face and A0 | P8, P9, M4 | No |
 | OI-920 | The meshes are too large to commit | A: commit the project files, generate the parts (`sample_projects` example) | P2 | No |
-| OI-921 | The first-cut project's tools | A: rough with 104, finish with 204, Plastic presets. Finishing changed to 104 by [decision STEPPED-CYL-A](decisions/STEPPED-CYL-A-the-gate-5-reference-part-is-a-stepped-cylinder.md) (Q5, F2, 23 Nov 2026): one tool | 5.3 | No |
+| OI-921 | The first-cut project's tools | A: rough with 104, finish with 204, Plastic presets. Finishing changed to 104 by [decision 0680](decisions/0680-the-gate-5-reference-part-is-a-stepped-cylinder.md) (Q5, F2, 23 Nov 2026): one tool | 5.3 | No |
 | OI-923 | Free stock to leave uncut | Accepted: the 68 mm held region at the start (G0) | 5.2 | Yes, for OP-22 volumes |
 | OI-924 | The tailstock | A: the 2 mm, 10 mm piece is a held region at the end; the tailstock body's clearance is checked by the operator (V5, M2, M5) | 5.2, V5, M2, M5 | No |
 | OI-925 | How the block-rate air cut program is checked before it runs, since it is written by a script and has not passed gates 1 to 3 (verification plan policy 6 excepts only the SP-12 program) | A: as SP-12 was, read by hand and replayed by gate 3 as a LinuxCNC copy ([decision 0232](decisions/0232-block-rate-program-checked-as-sp-12-was.md), accepted) | 4.8 K1 to K4, G4-8 | No (accepted); execution gap recorded with OI-930 in section 10 |
 | OI-918 | The setup sheet does not show held regions or tabs | Show them, in plain wording (owner, 22 Oct 2026); built in lane GATES: the Setup section's held-region and tab lines and a tab table per setup, HTML and PDF | S8, 5.2 | No |
 | OI-919 | Single block on the Z1 | B: no single block; 10 % override with a hand on feed hold | 4.3 | No |
-| OI-9953 | Which 3.175 mm flat end is fitted for the stepped first cut, and its finishing preset ([decision STEPPED-CYL-A](decisions/STEPPED-CYL-A-the-gate-5-reference-part-is-a-stepped-cylinder.md)) | Not yet answered: the preset is marked unconfirmed for finishing | F6, T0 | Yes |
+| OI-2197 | Which 3.175 mm flat end is fitted for the stepped first cut, and its finishing preset ([decision 0680](decisions/0680-the-gate-5-reference-part-is-a-stepped-cylinder.md)) | Not yet answered: the preset is marked unconfirmed for finishing | F6, T0 | Yes |
 
 ### 9.1 Register audit after the submitted results
 
