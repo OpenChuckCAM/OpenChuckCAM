@@ -1341,9 +1341,8 @@ fn req_op_27_req_op_09_pencil_with_a_flat_end_cuts_the_same_passes_with_exact_co
     // material all round, and the exact drop, which moves the tool by at
     // most the tessellation's deflection, gives the same passes as the
     // tessellation, alone or after roughing. (After axial finishing with a
-    // tapered ball the two differ, because pencil judges the material left
-    // from a flat end's contact point, which is arbitrary along its flat:
-    // decision 0676 item 4, lane PENCIL-REST.)
+    // tapered ball the two once differed: decision 0676 item 4, put right by
+    // decision 0684, whose own test covers that case.)
     for before in [
         Vec::new(),
         vec![("rotary_roughing", vec![("stock_to_leave", n(0.5))])],
@@ -1370,7 +1369,11 @@ fn req_op_27_req_op_09_pencil_with_a_flat_end_cuts_the_same_passes_with_exact_co
             app.execute(Command::Replace(Item::Tool(tool))).unwrap();
             let (runs, moves, tips) = last_runs(&app);
             for tip in &tips {
-                assert!((tip.x - 11.0).abs() < 1e-3, "a cut at X {}", tip.x);
+                // In the corner, never into the shoulder's wall at X 12: a
+                // rest is kept up to a tenth of the 0.01 mm tolerance clear of
+                // it, within its resting interval (decision 0684, P1).
+                let clear = 11.0 - tip.x;
+                assert!(clear > -1e-6 && clear < 0.01, "a cut at X {}", tip.x);
                 let r = tip.y.hypot(tip.z);
                 assert!((r - 8.0).abs() <= 0.011, "a cut at radius {r}");
             }
