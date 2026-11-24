@@ -2590,3 +2590,57 @@ fn req_op_28_a_shortest_cut_of_tool_diameter_is_the_tools_diameter() {
         assert_eq!(run_with(word.clone()), run_with(num(d)), "a {d} mm ball");
     }
 }
+
+#[test]
+fn req_op_28_req_op_25_following_the_outline_climb_and_conventional_run_opposite_ways() {
+    // Climb and Conventional keep the uncut material, inside the face, on the
+    // side they ask for: every loop of one runs round the same way, and the
+    // two run round opposite ways (decision 0xxz item 2; decision 0213).
+    let mut b = Builder::default();
+    flat(
+        &mut b,
+        10.0,
+        &[(0.0, 0.0), (20.0, 0.0), (20.0, 12.0), (0.0, 12.0)],
+        &[],
+    );
+    let rig = Rig::new(b.model, &ball(3.0));
+    // The signed area of each pass's contacts seen from +Z: the way it runs
+    // round, positive counter-clockwise.
+    let ways = |direction: &str| -> Vec<f64> {
+        let v = values(
+            1.0,
+            &[
+                (p::PATTERN, text(p::OUTLINE)),
+                (p::DIRECTION, text(direction)),
+            ],
+        );
+        rig.passes(&[0], &[], &v)
+            .iter()
+            .map(|pass| {
+                let c = contacts(pass);
+                c.windows(2)
+                    .map(|w| w[0].x * w[1].y - w[1].x * w[0].y)
+                    .sum::<f64>()
+            })
+            .filter(|area| area.abs() > 1.0)
+            .collect()
+    };
+    let climb = ways(p::CLIMB);
+    let conventional = ways(p::CONVENTIONAL);
+    assert!(
+        climb.len() > 2 && conventional.len() == climb.len(),
+        "{climb:?} {conventional:?}"
+    );
+    let sign = climb[0].signum();
+    assert!(climb.iter().all(|a| a.signum() == sign), "{climb:?}");
+    assert!(
+        conventional.iter().all(|a| a.signum() == -sign),
+        "{conventional:?}"
+    );
+    // Meander alternates.
+    let meander = ways(p::MEANDER);
+    assert!(
+        meander.windows(2).all(|w| w[0].signum() != w[1].signum()),
+        "{meander:?}"
+    );
+}
