@@ -168,6 +168,17 @@ pub struct PostOptions {
     /// that leaves it out is neither wrapped nor checked.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub max_line_length: Option<u32>,
+    /// The openings of comments the controller acts on instead of skipping, such as
+    /// LinuxCNC's `MSG,` or `LOGOPEN,` (issue #851). A comment whose text, after its leading
+    /// spaces, starts with one of them in any case is written with
+    /// [`crate::ACTIVE_COMMENT_GUARD`] in front when the text comes from the project (the
+    /// title, operation and tool names) or starts a line of a wrapped comment, so the
+    /// controller reads it as an ordinary comment; the post's own header and footer lines
+    /// are written as they are. Up to 64 entries of 1 to 32 printable ASCII characters,
+    /// without spaces or parentheses. A post that leaves it out writes every comment as it
+    /// is (its controller has no active comments).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub active_comment_prefixes: Vec<String>,
     /// The extension of program files, without the dot (`ngc`, `nc`).
     pub file_extension: String,
 }
@@ -302,12 +313,63 @@ impl PostOptions {
                 format!("{max} is outside 20 to 4096 characters"),
             ));
         }
+        self.check_active_comment_prefixes()?;
         if self.safety_notice && !self.comments {
             return Err(bad(
                 "safety_notice",
                 "is written as comment lines, so it needs comments = true; \
                  set comments = true, or safety_notice = false",
             ));
+        }
+        Ok(())
+    }
+
+    /// Checks `active_comment_prefixes` (issue #851): each entry is a word the guard can
+    /// defeat, and, with the notice on, no word of the NFR-12 notice starts with one, so a
+    /// wrapped notice line is never changed (decision 0533).
+    fn check_active_comment_prefixes(&self) -> Result<()> {
+        const NAME: &str = "active_comment_prefixes";
+        if self.active_comment_prefixes.len() > 64 {
+            return Err(bad(NAME, "may have at most 64 entries"));
+        }
+        for prefix in &self.active_comment_prefixes {
+            let ok = (1..=32).contains(&prefix.len())
+                && prefix
+                    .chars()
+                    .all(|c| c.is_ascii_graphic() && c != '(' && c != ')');
+            if !ok {
+                return Err(bad(
+                    NAME,
+                    format!(
+                        "\"{prefix}\" must be 1 to 32 printable ASCII characters, without \
+                         spaces or parentheses"
+                    ),
+                ));
+            }
+            if prefix.starts_with(crate::ACTIVE_COMMENT_GUARD) {
+                return Err(bad(
+                    NAME,
+                    format!(
+                        "\"{prefix}\" starts with {}, the mark that guards a comment, so it \
+                         could not be guarded",
+                        crate::ACTIVE_COMMENT_GUARD
+                    ),
+                ));
+            }
+            if self.safety_notice
+                && let Some(word) = crate::SAFETY_NOTICE
+                    .iter()
+                    .flat_map(|line| line.split_whitespace())
+                    .find(|word| crate::render::starts_with_prefix(word, prefix))
+            {
+                return Err(bad(
+                    NAME,
+                    format!(
+                        "\"{prefix}\" starts the word \"{word}\" of the safety notice, which \
+                         must be written word for word; remove it, or set safety_notice = false"
+                    ),
+                ));
+            }
         }
         Ok(())
     }

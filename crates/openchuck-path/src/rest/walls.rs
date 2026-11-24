@@ -513,6 +513,8 @@ fn group(
         UnreachedReason::TooNarrow => 1,
         UnreachedReason::NearHeldRegion => 2,
         UnreachedReason::NeedsLean { .. } => 3,
+        // Face flow's only.
+        UnreachedReason::TooShort { .. } => 4,
     };
     found.sort_by(|a, b| {
         rank(&a.1)

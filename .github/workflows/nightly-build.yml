@@ -5,7 +5,9 @@
 # `openchuck-ui` in release mode for Linux, Windows and macOS and upload one
 # archive per platform as a workflow artifact (build-archives.yml, shared with
 # the release workflow). A build of `main` also replaces the rolling `nightly`
-# pre-release with those archives. These are development builds, not releases:
+# pre-release with those archives, whose notes list what has changed since the last release (the
+# Development version of user-docs/src/release-notes.md; decision record 0678). These are
+# development builds, not releases:
 # releases are built by release.yml from `lib-v` and `app-v` tags after the
 # release gate (decision records 0031 and 0091).
 #
@@ -70,6 +72,42 @@ jobs:
             echo "build=true" >> "$GITHUB_OUTPUT"
             echo "Building $SHA (last nightly build: ${last:-none})." >> "$GITHUB_STEP_SUMMARY"
           fi
+      # The pre-release notes, made once here from this commit's release notes (decision record
+      # 0678): the build, "not a release", the G-code notice (NFR-12), what has changed since
+      # the last release (the Development version of user-docs/src/release-notes.md, at most 60,000
+      # characters) and the downloads. They go to the run's summary, so a run on another branch, which
+      # publishes nothing, shows them too, and to the `publish` job as an artifact. `cargo xtask` builds
+      # xtask with the toolchain in rust-toolchain.toml (about a minute on a fresh runner).
+      - uses: actions/checkout@v7
+        if: steps.check.outputs.build == 'true'
+        with:
+          persist-credentials: false
+      - name: Notes of the pre-release
+        if: steps.check.outputs.build == 'true'
+        env:
+          SHA: ${{ github.sha }}
+          DATE: ${{ steps.check.outputs.date }}
+          REPO: ${{ github.repository }}
+          CARGO_PROFILE_DEV_DEBUG: "0"
+        run: |
+          mkdir -p nightly-notes
+          cargo xtask changelog nightly-notes --sha "$SHA" --date "$DATE" --repo "$REPO" --out nightly-notes/notes.md
+          {
+            echo
+            echo "### Notes of the pre-release"
+            echo
+            cat nightly-notes/notes.md
+          } >> "$GITHUB_STEP_SUMMARY"
+      # `overwrite`: "Re-run all jobs" runs this job again in the same run, and the notes it makes
+      # then replace those of the first attempt (the same commit, so the same notes); "Re-run failed
+      # jobs" keeps this job's attempt and its artifact.
+      - uses: actions/upload-artifact@v7
+        if: steps.check.outputs.build == 'true'
+        with:
+          name: nightly-notes
+          path: nightly-notes/notes.md
+          if-no-files-found: error
+          overwrite: true
 
   # The notices, build, assemble and pack steps are shared with the release workflow
   # (build-archives.yml, decision 0091). The job has no display name, so its jobs show as
@@ -104,6 +142,11 @@ jobs:
           merge-multiple: true
           skip-decompress: true
           path: dist
+      # The notes made by the `changes` job from this commit (decision record 0678).
+      - uses: actions/download-artifact@v8
+        with:
+          name: nightly-notes
+          path: nightly-notes
       - name: Replace the nightly pre-release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -116,17 +159,9 @@ jobs:
           ls -l dist
           count=$(find dist -maxdepth 1 -type f -name 'openchuckcam-nightly-*' | wc -l)
           [ "$count" -eq 4 ] || { echo "expected 4 files (3 archives and the examples zip), found $count"; exit 1; }
-          notice=$(perl -0777 -ne 'if (/VERIFY_GCODE_NOTICE: &str = "(.*?)";/s) { $s = $1; $s =~ s/\\\n\s*//g; print $s }' crates/openchuck-types/src/notice.rs)
-          [ -n "$notice" ] || { echo "could not read the G-code notice"; exit 1; }
-          {
-            echo "Automatic development build of \`main\` at $SHA, built $DATE."
-            echo
-            echo "**This is not a release.** It passed no release gate and may be incomplete or broken. It is replaced by the next nightly build."
-            echo
-            echo "**$notice**"
-            echo
-            echo "Each archive holds \`openchuck-cli\`, \`openchuck-ui\`, the licence, the third-party notices and a README. \`openchuckcam-nightly-*-examples.zip\` holds the example projects. The binaries are not signed: macOS quarantines them and Windows SmartScreen may warn (see the README in each archive)."
-          } > notes.md
+          # The notes, made by the `changes` job from this commit (decision record 0678).
+          notes=nightly-notes/notes.md
+          [ -s "$notes" ] || { echo "the notes made by the changes job are missing"; exit 1; }
           # Upload everything to a draft first: a draft creates no tag and is
           # not visible to visitors, so the current `nightly` release stays up
           # until its replacement holds all three archives and the examples zip. A draft left by
@@ -137,7 +172,7 @@ jobs:
             while read -r old; do gh release delete "$old" -R "$REPO" --yes; done
           gh release create "$staging" dist/openchuckcam-nightly-* -R "$REPO" \
             --draft --target "$SHA" --prerelease \
-            --title "Nightly build $DATE ($SHORT)" --notes-file notes.md
+            --title "Nightly build $DATE ($SHORT)" --notes-file "$notes"
           assets=$(gh release view "$staging" -R "$REPO" --json assets --jq '.assets | length')
           [ "$assets" -eq 4 ] || { echo "the draft holds $assets files, expected 4"; exit 1; }
           # Swap: remove the old release, then the tag on its own (it can

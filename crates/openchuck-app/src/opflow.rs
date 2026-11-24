@@ -306,6 +306,43 @@ impl Application {
                 ),
             );
         }
+        // A strategy that can stay down between its passes starts with it
+        // on, written into the operation; one saved without it keeps
+        // lifting between passes (issue #854, the owner's answer of 23 Nov
+        // 2026 to Q2, in decision 0545 D3's pattern).
+        if self.strategies.get(strategy).is_ok_and(|s| {
+            s.schema()
+                .get(openchuck_path::face_flow::parameter::STAY_DOWN)
+                .is_some()
+        }) {
+            parameters.insert(
+                openchuck_path::face_flow::parameter::STAY_DOWN.to_owned(),
+                openchuck_project::ParameterValue::Flag(true),
+            );
+        }
+        // Face flow starts with Pattern Automatic; one saved without it
+        // keeps its passes along the guide (the owner's decision of 23 Nov
+        // 2026, decision 0545 D3's pattern).
+        if strategy == openchuck_path::face_flow::NAME {
+            parameters.insert(
+                openchuck_path::face_flow::parameter::PATTERN.to_owned(),
+                openchuck_project::ParameterValue::Text(
+                    openchuck_path::face_flow::parameter::AUTOMATIC.to_owned(),
+                ),
+            );
+        }
+        // Face flow starts with a Shortest cut of Tool diameter, which follows
+        // the operation's tool; one saved without it keeps every cut (issue
+        // #854, the owner's decisions of 23 Nov 2026, decision 0545 D3's
+        // pattern).
+        if strategy == openchuck_path::face_flow::NAME {
+            parameters.insert(
+                openchuck_path::face_flow::parameter::SHORTEST_CUT.to_owned(),
+                openchuck_project::ParameterValue::Text(
+                    openchuck_path::params::TOOL_DIAMETER.to_owned(),
+                ),
+            );
+        }
         let id = OperationId::new();
         self.execute(Command::Add {
             item: Item::Operation(Operation {

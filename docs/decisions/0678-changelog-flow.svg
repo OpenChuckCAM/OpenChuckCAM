@@ -1,0 +1,57 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 370" width="880" height="370" font-family="Helvetica, Arial, sans-serif" font-size="13">
+  <title>Changelog flow: pull request, Development version, nightly notes, release</title>
+  <desc>Each pull request that changes what users see adds a bullet under Development version in the release notes, or says No user-visible change with a reason; the Fast checks step checks it. Each night the notes of the nightly pre-release are made from that section, and the latest guide shows it. At a release, start-release moves the bullets into the version's section, the release check refuses a release while bullets remain or the draft is unwritten, and the Development version starts again empty.</desc>
+  <defs>
+    <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#333"/>
+    </marker>
+  </defs>
+  <rect x="0" y="0" width="880" height="370" fill="#ffffff"/>
+  <g stroke="#333" stroke-width="1.5" fill="none" marker-end="url(#a)">
+    <path d="M200,80 L285,80"/>
+    <path d="M200,170 L285,110"/>
+    <path d="M545,80 L630,60"/>
+    <path d="M545,95 L630,160"/>
+    <path d="M320,130 L190,250"/>
+    <path d="M280,297 L345,297"/>
+    <path d="M500,255 L500,133"/>
+  </g>
+  <g stroke="#333" stroke-width="1.5">
+    <rect x="20" y="45" width="180" height="70" rx="8" fill="#e8f0fb"/>
+    <rect x="20" y="140" width="180" height="70" rx="8" fill="#fdf1dc"/>
+    <rect x="285" y="40" width="260" height="90" rx="8" fill="#e6f4ea"/>
+    <rect x="630" y="25" width="230" height="70" rx="8" fill="#e8f0fb"/>
+    <rect x="630" y="130" width="230" height="70" rx="8" fill="#e8f0fb"/>
+    <rect x="20" y="250" width="260" height="95" rx="8" fill="#fdf1dc"/>
+    <rect x="345" y="255" width="260" height="85" rx="8" fill="#e6f4ea"/>
+  </g>
+  <g fill="#111">
+    <text x="110" y="72" text-anchor="middle" font-weight="bold">Pull request</text>
+    <text x="110" y="90" text-anchor="middle">adds a bullet (and a library</text>
+    <text x="110" y="106" text-anchor="middle">crate its CHANGELOG.md)</text>
+    <text x="110" y="166" text-anchor="middle" font-weight="bold">or its description says</text>
+    <text x="110" y="184" text-anchor="middle">"No user-visible change:</text>
+    <text x="110" y="200" text-anchor="middle">&lt;reason&gt;"</text>
+    <text x="415" y="66" text-anchor="middle" font-weight="bold">Development version</text>
+    <text x="415" y="84" text-anchor="middle">user-docs/src/release-notes.md</text>
+    <text x="415" y="102" text-anchor="middle">checked by Fast checks (check-pr),</text>
+    <text x="415" y="118" text-anchor="middle">drafts too</text>
+    <text x="745" y="52" text-anchor="middle" font-weight="bold">Nightly pre-release notes</text>
+    <text x="745" y="70" text-anchor="middle">nightly-notes, at the built commit;</text>
+    <text x="745" y="86" text-anchor="middle">empty: "Nothing user-visible ..."</text>
+    <text x="745" y="157" text-anchor="middle" font-weight="bold">Latest user guide</text>
+    <text x="745" y="175" text-anchor="middle">release notes, built from</text>
+    <text x="745" y="191" text-anchor="middle">the nightly tag</text>
+    <text x="150" y="275" text-anchor="middle" font-weight="bold">Release notes pull request</text>
+    <text x="150" y="293" text-anchor="middle">start-release moves the bullets into</text>
+    <text x="150" y="309" text-anchor="middle">a draft "## X.Y.Z" section;</text>
+    <text x="150" y="325" text-anchor="middle">the owner edits it and removes the draft line</text>
+    <text x="475" y="280" text-anchor="middle" font-weight="bold">Release workflow</text>
+    <text x="475" y="300" text-anchor="middle">check-release: the section is written</text>
+    <text x="475" y="316" text-anchor="middle">and the Development version is</text>
+    <text x="475" y="332" text-anchor="middle">empty, or the release is refused</text>
+    <text x="490" y="190" text-anchor="end">then the Development version</text>
+    <text x="490" y="206" text-anchor="end">starts again, empty:</text>
+    <text x="490" y="222" text-anchor="end">"since the last release"</text>
+  </g>
+</svg>

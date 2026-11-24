@@ -79,7 +79,7 @@ When a required value is empty and no cutting data fills it, the operation canno
 
 ## Geometry: the surfaces an operation works on
 
-Selection sets are named groups of faces, triangles or edges, made in **Selection sets**. The Geometry section puts them in four roles. With nothing in **Cut on**, the operation cuts the whole part, except Swarf (flank) machining and Face flow finishing: they cut only the faces you choose, so with no face set in **Cut on** they are not generated, and the message says so ("swarf needs a face set: ..." or "Face-flow finishing needs a face set: ..."). The Geometry section's own line, "With nothing in Cut on, the operation cuts the whole part.", is shown for these two strategies as well; it does not apply to them.
+Selection sets are named groups of faces, triangles or edges, made in **Selection sets**. The Geometry section puts them in four roles. With nothing in **Cut on**, the operation cuts the whole part, except Swarf (flank) machining and Face flow finishing: they cut only the faces you choose, so with no face set in **Cut on** they are not generated, and the message says so ("swarf needs a face set: ..." or "Face-flow finishing needs a face set: ..."). The Geometry section's first line says which applies to the operation's strategy.
 
 Cut on
 : The operation cuts only on these surfaces.
@@ -116,7 +116,7 @@ Extend past the stock
 : Past the part's end the passes run on at the height of the pass's last point; they do not go down to the rotary axis. Where the part's end is narrower than the tool can follow, such as a point or a dome, a core of stock that wide stays past the end. On the tutorial's baluster, with 4 mm of stock past its pointed finial and a 3.175 mm ball, the core is about 5.3 mm across. **Face free ends** (on by default) takes that end down to the axis, with a **Part cut free** warning to acknowledge, because the stock past the end can come free and be thrown; a Facing operation with the **Unheld end** shape also removes the stock past the end. Even then a blunt nub can stay at a point, about as wide as the core and about 1 mm long. The simulation measures the material left on the part's surface, so its figures do not count stock past the part's end: look at the cut stock in the view.
 
 Steps between rings
-: With **Passes** set to **Rings**: **Sharp** steps along the part with A held still, a square corner at each end of the step; **Blended**, the default for new operations, moves to the next ring while A turns on by **Blend over** (default 45°, more than 0 and at most 180), so the tool eases across instead of turning into the uncut wall. Blended keeps the load nearer the stepover and makes each ring's path a little longer (about an eighth at 45°). An operation saved before this setting keeps sharp steps. Rotary roughing (continuous, around the part), round facing, helical finishing, rest machining and simultaneous finishing (spiral pattern). Beside a held region the rings start on a whole ring at the edge of the region the tool must keep out of.
+: With **Passes** set to **Rings**: **Sharp** steps along the part with A held still, a square corner at each end of the step; **Blended**, the default for new operations, moves to the next ring while A turns on by **Blend over** (default 45°, more than 0 and at most 180), so the tool eases across instead of turning into the uncut wall. Blended keeps the load nearer the stepover and makes each ring's path a little longer (about an eighth at 45°). An operation saved before this setting keeps sharp steps. Rotary roughing (continuous, around the part), round facing, helical finishing, rest machining, simultaneous finishing (spiral pattern), and face flow finishing on a face that closes round on itself. Beside a held region the rings start on a whole ring at the edge of the region the tool must keep out of.
 
 Distance past the stock
 : How far past the edge of the stock the near side of the tool goes, from 0 up to the tool's diameter. It starts at a tenth of the tool's diameter, rounded to 0.05 mm, at least 0.1 mm. A distance that takes the path beyond the machine's travel is refused.
@@ -128,7 +128,7 @@ Scallop height
 : On helical and axial finishing with **Adaptive spacing** off: the largest cusp between passes for a ball-end or bull-nose tool. The passes are as close as the smaller of this and the stepover needs. 0 turns it off. With **Adaptive spacing** on, the same field is **Allowed excess**.
 
 Exact STEP surface contact
-: Only on a STEP part. Drops the tool on the part's exact surfaces instead of the triangles made from them: more accurate, and slower. On by default for helical, indexed and simultaneous finishing and rest machining; off for axial finishing and pencil clean-up, where it is much slower. Some tool shapes always use the triangles, and a line under the field says so.
+: Only on a STEP part, in the **Advanced** section. Drops the tool on the part's exact surfaces instead of the triangles made from them. The tool then sits closer to the true surface, but generation takes longer. On by default for helical, indexed and simultaneous finishing and rest machining, where it costs little; off for axial finishing and pencil clean-up, where it is much slower. It does not change which corners or areas an operation cuts. Its tooltip gives the times measured on test parts. Some tool shapes always use the triangles, and a line under the field says so.
 
 Links between passes
 : **Retract to the clearance**, or **Stay low where clear**, the default for new operations: links stay the approach distance above the stock where the whole link is clear of the stock, the held regions and the part. The stock is checked at points along each link, so a very thin piece of stock between them could be missed. A link that cannot stay low retracts, and a note says how many did. Facing (end and box shapes), helical, axial, indexed and simultaneous finishing, and rest machining.
@@ -161,14 +161,14 @@ It also has **Extend past the stock**, and **Adaptive spacing** when its passes 
 
 ## Facing
 
-Prepares the stock: flat faces along it, a round diameter, the end opposite the held end, or chosen box sides. It ignores selections, and keeps off the held regions and tabs.
+Prepares the stock: flat faces along it, a round diameter, the end opposite the held end, or chosen box sides. It ignores selections, and keeps off the held regions and tabs: beside a held region it faces only what the tool can reach, and says what it leaves (see below).
 
 | Setting | Default | What it does |
 | --- | --- | --- |
 | Shape | Flat along stock | **Flat along stock**: a flat face at each angle listed. **Round**: the stock turned down to a cylinder. **Unheld end**: the end opposite the only held end. **Box sides**: chosen standard sides and extra faces at any angle. |
 | Finished size | required | Flat: how far the face is from the rotary axis. Round: the diameter to turn down to. |
 | Angles | 0 | Flat and round: the A positions to face at, in degrees, separated by commas, in cutting order. |
-| Coverage extent | Whole stock | **Whole stock**, **Part only** (the part's outline), or **Part plus tabs**. |
+| Coverage extent | Whole stock | **Whole stock**, **Part only** (the part's outline), or **Part plus tabs**. Beside a held region the face stops where the whole tool keeps 0.5 mm clear of the grip. |
 | Extent margin | 0 mm | Extra coverage beyond each edge of the coverage. For round it is **Axial margin**, at both ends. |
 | Layer distribution | Full stepdown, shorter final pass | Box sides: full layers with a shorter last one, or **Equal stepdowns**. |
 | Face +Z (A 0°), +Y (A 90°), −Z (A 180°), −Y (A 270°) | off | Box sides: the standard sides to face; **All four sides** ticks them all. For each, **part plus allowance** (on) sets the face from the part and its stock to leave; clear it to type a **plane offset**. |
@@ -179,6 +179,8 @@ Prepares the stock: flat faces along it, a round diameter, the end opposite the 
 | Passes | Spiral | Round: **Spiral** or **Rings**. |
 
 For the unheld end, **Stepover** is labelled **Stepover (slice thickness along X)**: the thickness of each slice taken off the end, at most the tool's cutting diameter. Where there is room beside the stock, each band is entered from the air; where there is not, at the plunge feed. Facing also has **Extend past the stock** with **Also past the sides**, and flat facing has **Adaptive spacing**.
+
+**Beside a held region.** No part of the tool comes over a held region, or within 0.5 mm of it, while it cuts. Where the coverage you ask for reaches that far, Facing faces what the tool can reach and leaves the rest unfaced instead of refusing. A note on the operation (a note, not a warning) says where along X the face stops, why, and how much of the coverage is left, for example: "facing at A 0.000° stops short of the held start (X 16.990 to 24.990): no part of the tool comes within 0.500 mm of it, so the face is finished from X 25.490, and X 16.990 to 25.490 (8.500 mm along X) of the requested extent is left unfaced." The view marks where each face stops. Box sides and round facing are finished up to the tool's edge. Flat facing counts its face finished only from where its passes along X reach the face: their rounded ends are not counted, and the stock to leave round the held region can lift them further from it, so it stops a little further away. To face what is left, shorten the held length or face it in a setup that holds the other end. Where nothing would be left to face, the operation is refused. The unheld end is not affected: it is faced from the end away from the grip.
 
 On a STEP part, Facing takes the part's ends, outline and radius from its exact faces, not from the triangles made from them. Its bounds may lie a little outside the part, never inside it: at most 0.0005 mm for flat, cylindrical, conical, spherical and toroidal faces. A face that is a free-form surface (a B-spline) is bounded by its control points, so where the part's furthest point lies on one, Facing may stop a little short of it and leave that much more stock; the operation's notes give the figure. These figures are measured from each face's whole surface: where the part's furthest point lies on a trimmed face, or on a flat face whose edges have no exact curve, Facing may stop further short and leave more stock.
 
@@ -257,11 +259,14 @@ Also: **Exact STEP surface contact** (on), **Face free ends**, **Stepdown**, **P
 
 Follows sharp inside corners to remove ridges left by other finishing operations. Use it as a final clean-up, not to cut large areas. It does not cover every inside corner. It ignores selections.
 
+It cuts a stretch of a corner where material is left within reach of the tool as it rests there, and keeps the tool just clear of a wall it rests against. It does not cut a stretch shorter than **Shortest cut**, or a single point: a short dab is a plunge and a retract, not a cut along the corner. The operation's notes say how many stretches it left and where each starts, so you can check them in the simulation.
+
 | Setting | Default | What it does |
 | --- | --- | --- |
 | Smallest material to clean | 0.15 mm | As for rest machining. |
 | Crease angle | 30° | The smallest turn between two faces that counts as an inside corner. |
 | Largest step | 0.5 mm | The furthest apart that points of the path are along the corner. |
+| Shortest cut | The tool's diameter | Stretches of a corner shorter than this are not cut. Enter 0 to cut every stretch longer than a single point. |
 
 Also: **Exact STEP surface contact** (off).
 
@@ -279,14 +284,28 @@ Guide edge
 
 Each face is cut on its own, longest guide first, then the faces that share an edge with it. No pass crosses from one face to the next.
 
+**Pattern** sets how a face's passes are laid out. **Along the guide** runs them along the guide and steps across the face, as above. **Follow the outline** runs them round the face's own edges, each pass a stepover inside the last, measured on the face, from the outline inwards: for a face with fingers, notches or holes, such as the rim of a blisk between its blades, where passes along a guide would break into many short pieces. **Automatic** follows the outline on a face whose shape would break the passes along its guide, and the guide everywhere else (a face that closes round on itself keeps its rings, unless they would break, as on the outside of a blisk between its blades); the face's note says which it took ("is cut from its guide" or "follows its outline"). A new operation starts with **Automatic**; an operation saved before this setting keeps **Along the guide**, so its program does not change.
+
+A face that closes round on itself, such as the whole side of a cylinder or a cone, has no sides to step between: it is cut in rings round the face, from one end to the other. The guide is the longer end, or the end that holds the edges in **Guide edge**. Where the other end narrows to a point, such as the tip of a cone, the rings close on it. The edge along which such a face meets itself, its seam, cannot be the guide. A face with no end at all, such as a whole sphere or a whole ring, is not cut, and the message says so.
+
+Rings never reverse: every ring runs the same way round, with `climb` and `conventional` the way that puts the uncut material on the side they ask for, and with `meander` the guide's way (the face's note says so). With **Stay down between passes** on, the rings are joined as **Steps between rings** sets, as on the other ring strategies: **Sharp** steps one stepover along the seam with A held still, and the next ring starts on the seam; **Blended** moves on to the next ring while A turns on by **Blend over**, so each ring starts that much further round. Either way every ring is a whole turn, so no strip is left along the seam, and A only ever turns one way. An operation saved before this setting has sharp steps; a new one starts with Blended, 45°.
+
+With **Stay down between passes** on, the tool goes from the end of one pass to the start of the next along the face instead of lifting: with `meander` between passes along the guide, from one pass to the next when following the outline, and between rings as above. A new operation starts with it on; an operation saved before this setting keeps lifting, so its program does not change. Each step is a straight line across the face (a square corner at each end; A turns evenly over it) and is checked as the passes are. The tool lifts instead where a wall or another part of the model is in the way, where the step would leave the face or be longer than twice the stepover, where the tool would have to tilt more than **Maximum tilt**, or where the step would stray from the face by more than the tolerance.
+
+After all that, a cut from one lift to the next that is shorter than **Shortest cut** is left out. Nothing inside a longer cut is removed. Each cut left out is hatched on the part as an area not cut, and a warning lists where it is (X range, near which A), how long it was and why. Lower **Shortest cut** to keep it; 0 keeps every cut.
+
 | Setting | Default | What it does |
 | --- | --- | --- |
 | Scallop height | 0 mm | The highest ridge left between passes for a ball-end or bull-nose tool; passes are put closer than the stepover where it needs it. 0 leaves the stepover alone. With other tool shapes it is ignored, and a note says so. |
 | Cutting direction | `meander` | `meander` alternates the direction of the passes; `climb` and `conventional` cut every pass the same way relative to the uncut material. |
 | Lead angle | 0° | From −30° to 30°. How far the tool leans from the normal towards the travel round the axis. Passes along the axis cannot lean. |
 | Maximum tilt | 5° | From 0° to 30°. How far the tool may leave its leaned direction to smooth the turning of the part. |
+| Pattern | Automatic for a new operation | **Automatic**, **Along the guide** or **Follow the outline**; see above. An operation saved before this setting keeps Along the guide. |
+| Stay down between passes | on for a new operation | Joins the passes along the face instead of lifting, where the way is clear; see above. An operation saved before this setting keeps lifting. |
+| Steps between rings / Blend over | Blended, 45° for a new operation | On a face that closes round on itself only; see [Steps between rings](#settings-some-strategies-share). An operation saved before this setting has sharp steps. |
+| Shortest cut | **Tool diameter** for a new operation | A cut from one lift to the next shorter than this is left out and reported; 0 keeps every cut. A length in mm, or tick **Tool diameter** to use the operation's tool's diameter, which follows a change of tool (the field then shows the diameter it uses). An operation saved before this setting keeps 0, every cut. |
 
-The notes say how many passes were cut on how many faces, and the guide of each face. Where a neighbouring face, such as a blade wall, is in the way of the tool, or the face is too narrow for it, that stretch is left uncut and a warning lists where (up to five places, then how many more). Check those places in the simulation.
+The notes say how many passes cut on how many faces, and, for each face, its guide and how many passes were planned across it. Where the tool can reach no part of a planned pass, the face's note says how many of its passes cut, and that number is the one in the first note. Where a neighbouring face, such as a blade wall, is in the way of the tool, or the face is too narrow for it, that stretch is left uncut and a warning lists where (up to five places, then how many more). Check those places in the simulation.
 
 ## Edge and curve following
 
@@ -302,7 +321,7 @@ Moves the tool along the part's edges to cut lines, for engraving or carving. It
 | Start | `first` | Where each chain starts: as stored (`first`), `reversed`, at the lowest or highest X (`low_x`, `high_x`), or nearest the **Start angle** (`angle`). |
 | Start angle | 0° | From −360° to 360°, measured from +Y towards +Z. |
 | Crease angle | 30° | The smallest turn between two faces that makes a mesh edge one to follow. |
-| Shortest chain | 0 mm | Chains shorter than this are not cut. |
+| Shortest chain | 0 mm | Chains shorter than this are not cut. A length in mm, or tick **Tool diameter** to use the operation's tool's diameter, which follows a change of tool. |
 | Largest step | 0.5 mm | The furthest apart that points of the path are along a chain. |
 
 ## Swarf (flank) machining
@@ -326,6 +345,10 @@ Some faces make the tool cut into the surface by more than the tolerance. A warn
 - With it on, the tool still reaches an end face between the points checked: put the face in an avoid set on **Cut short**, or use a tool with a smaller radius.
 
 If no position along the face keeps the tool off its end faces, the face is refused: use a tool with a smaller radius, turn the setting off, or take the face out of the set.
+
+**Entry on swarf.** A lead, or a helix, is also checked against the faces next to the face. It may cut such a face no deeper than the pass itself cuts it where the lead or helix joins the pass (a ball's end in the floor, for example, which is warned of as above); deeper, the operation is refused, naming the face and **Entry**. A lead-out at a pass that stops short of an end wall would run into that wall, so on such a face use **Plunge**, **Ramp** or **Helix**. A ramp follows the pass along the face, so it cuts no deeper than the pass. The comparison is made on samples of the faces, so a lead may cut up to about 0.09 times the tool's radius (at least 0.035 mm, and more on a very large face) deeper than the pass before it is refused. Each face is compared with the pass's own cut into that face only.
+
+Each face's note says how far the tool's end reaches past the end of the rulings at the tip (its corner radius and the **Tip extension**), after any lift clear of an avoid or check set: that it is lifted at least that far all along the face, or how far it still reaches where it is lifted least. This is information; a cut into a face that remains is the warning above.
 
 ## Radial drilling
 

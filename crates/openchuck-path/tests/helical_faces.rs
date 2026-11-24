@@ -1350,6 +1350,46 @@ fn req_op_04_req_op_09_a_free_end_is_faced_in_layers_down_to_the_axis() {
 }
 
 #[test]
+fn req_op_13_req_op_09_a_free_end_turn_on_the_axis_never_reads_as_a_feed_of_zero() {
+    // Issue #510: rest machining's free-end layer on the rotary axis (and
+    // helical finishing's) turns A with the contact point at the axis, which
+    // barely moves it, and each such move said "the contact feed is 0.0
+    // mm/min". Since decision 0536 step 2 (issue #600) such a move is told
+    // as a turn at the rotary axis, timed by the rotary axis's limit, and
+    // never as a feed of zero; every fed move keeps a positive feed, so no
+    // F0 can be written.
+    let job = free_end(true, 12.0);
+    for strategy in [
+        &HelicalFinishing as &dyn Strategy,
+        &AxialFinishing,
+        &RestMachining,
+    ] {
+        let path = job.path(strategy, &[("stepdown", 2.0)]);
+        let text = messages(&path);
+        assert!(!text.contains(" 0.0 mm/min"), "{}: {text}", strategy.name());
+        let axis: Vec<_> = path
+            .notices
+            .iter()
+            .filter(|n| n.topic.as_deref() == Some(openchuck_path::topic::ROTARY_AXIS))
+            .collect();
+        assert!(!axis.is_empty(), "{}: {text}", strategy.name());
+        assert!(
+            axis.iter().all(|n| !n.is_warning()
+                && n.text
+                    .contains("A turns with the contact point at the rotary axis")),
+            "{}: {axis:?}",
+            strategy.name()
+        );
+        for s in &path.group.segments {
+            if let Some(f) = s.contact_feed {
+                assert!(f.0 > 0.0, "{}: {s:?}", strategy.name());
+            }
+            assert!(s.duration.0 > 0.0, "{}: {s:?}", strategy.name());
+        }
+    }
+}
+
+#[test]
 fn req_ui_12_a_free_end_in_one_layer_says_one_layer() {
     // Decision record 0644: OWNERCHECKS2 read "goes down beside it in 1
     // layers of 1 mm". A Stepdown deeper than the stock's top (10.3) faces
