@@ -53,7 +53,7 @@ Asked on 23 and 24 Nov 2026 and answered on 24 Nov 2026, relayed by the coordina
 
 ## Verification
 
-Linux container, 4 cores; tests run uninstrumented with `cargo nextest`, on the branch rebased on `main` `aa99eab`. The commit is the pull request's head.
+Linux container, 4 cores; tests run uninstrumented with `cargo nextest`, on the branch rebased on `main` `19de286` (after #856). The commit is the pull request's head.
 
 **Tests written first from the issues and the owner's answers** (times from the full run):
 
@@ -76,20 +76,20 @@ Linux container, 4 cores; tests run uninstrumented with `cargo nextest`, on the 
 - #607: `export_panel::preview_tests::req_gc_15_a_preview_refused_for_a_changed_project_is_made_again_when_it_is_back` became `req_gc_15_req_gc_07_the_stock_simulation_switch_does_not_refuse_the_preview`. The switch changes no G-code, so the preview is keyed on `same_output`, as writing is.
 - #774: the held-region tests in `openchuck-path` (`facing_validation`, `helical_faces`) and `openchuck-app` (`held_region`) expect the note as information.
 
-**Suites:** `openchuck-ui`, `openchuck-app`, `openchuck-path`, `openchuck-cli` and `openchuck-project`: 2908 tests, all passing after the changes above (3333 s in all on 4 cores; no new test over 3 s). `cargo fmt`, `cargo clippy --workspace --all-targets` (clean) and `cargo xtask deps`, `licences`, `records` and `trace` pass.
+**Suites:** `openchuck-ui`, `openchuck-app`, `openchuck-path`, `openchuck-cli` and `openchuck-project`: 2912 tests, all passing after the changes above and after the rebase (3380 s in all on 4 cores; no new test over 3 s). `cargo fmt`, `cargo clippy --workspace --all-targets` (clean) and `cargo xtask deps`, `licences`, `records` and `trace` pass.
 
 **Coverage** (local, `cargo llvm-cov nextest --profile coverage` on the tests of the changed areas, 328 tests). Of the changed lines, those not run are:
 - the Locate dialog's display of a refused Forget (`shell/checkpoints.rs`), whose rule `forget` is tested in `openchuck-app`;
 - `forget`'s error for a note that cannot be removed for another reason than not being there (NFR-07);
 - the Geometry section's indented rows (#609) for boundary options, refusals and reach notes, which the geometry tests of `shell::frame_tests` run, outside this run's filter.
 
-**The real application:** the command line on a copy of the public baluster project (`testdata/examples/baluster/baluster-project`) prints the note as `note: Held region (operation 'Finish'): no part of the tool comes within 0.500 mm of the held region at the start of the stock, …`, and it is no longer in the checks before writing. The guide's screenshots were captured again from the release build (Xvfb, Mesa lavapipe, 1920 by 1080): the tutorial, the tabs and held regions example, the flute-length example and the simultaneous example. Each one's `CAPTURED.toml` names its commit. In them:
+**The real application:** the command line on a copy of the public baluster project (`testdata/examples/baluster/baluster-project`) prints the note as `note: Held region (operation 'Finish'): no part of the tool comes within 0.500 mm of the held region at the start of the stock, …`, and it is no longer in the checks before writing. The guide's screenshots were captured again from the release build (Xvfb, Mesa lavapipe, 1920 by 1080): the tutorial, the tabs and held regions example, the flute-length example and the simultaneous example. The simultaneous example was captured again after the rebase. The other three were captured before it, and each `CAPTURED.toml` records `reviewed_at` the rebased commit, because #856 changed nothing those STL screens show. In them:
 - the tutorial's 2 Finish shows a green dot, with two warnings left;
 - the Workholding section shows Kept clear ("Depends on the tools" before tools are added, then "to X 15.078 mm" in the tabs example);
 - the head zone reads "no room for a tab" before Apply (#767);
 - the simultaneous example's figure 6 shows the refusal alone (#766).
 
-Two capture scripts were fixed: the tabs example's Grip length position below the new row, and the simultaneous example's Add at its decision-0677 place. The user guide builds with mdBook 0.5.4, and `user-docs/tools/check.py --screens strict` reports 0 errors and 0 warnings.
+Two capture scripts were fixed: the tabs example's Grip length position below the new row; the simultaneous example's Add at its decision-0677 place, and its Lead angle and Pattern positions after #856 moved Exact STEP surface contact to Advanced. The simultaneous capture needs `openchuck-step-worker` built beside the release binary. The user guide builds with mdBook 0.5.4, and `user-docs/tools/check.py --screens strict` reports 0 errors and 0 warnings.
 
 **Not verified here:** Windows and macOS (the change is not platform-specific); a screen reader (OI-2110).
 
