@@ -83,7 +83,7 @@ Branch `claude/lane-facing-grip` from `main` `445286b`. Linux container, 4 cores
   - The field-literal updates in `facing_box_plan.rs` and the `legacy.rs` unit test.
 
 **Suites:**
-- `openchuck-path`, `-types`, `-gcode` and `-post`: 1142 run, 1135 passed, and 7 failed on the first full run (1371.5 s): 6 End facing tests that the host keep-out check wrongly reached, and the renamed Box test above. After the fix, all 120 Facing tests of `openchuck-path` pass (7.8 s). The full suite was not run again after the fix.
+- `openchuck-path`, `-types`, `-gcode` and `-post`: 1142 run, 1135 passed, and 7 failed on the first full run (1371.5 s): 6 End facing tests that the host keep-out check wrongly reached, and the renamed Box test above. After the fix, the full `openchuck-path` suite passes: 952 of 952 (1350.6 s; 1 skipped).
 - `openchuck-app` and `openchuck-cli`: 986 of 986 (1436.8 s; 1 skipped).
 - `openchuck-ui`: the label and Facing tests, 39 of 39.
 - No new test takes more than a minute alone. The Baluster tests take 18 to 47 s in the full run.
