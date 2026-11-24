@@ -999,6 +999,381 @@ fn req_gc_08_a_long_last_comment_without_a_line_end_is_wrapped_onto_lines() {
     assert_eq!(text, format!("({y})\n({y})"));
 }
 
+/// The comment openings LinuxCNC acts on, from its source (`convert_comment` in
+/// `src/emc/rs274ngc/interp_convert.cc` and `COMMENT` in `src/emc/task/emccanon.cc`, master
+/// `49d14cb6`): matched after the comment's leading white space, case-insensitively for the
+/// interpreter's words, case-sensitively for the task's. Written here independently of the
+/// post definition, as the oracle (issue #851).
+const LINUXCNC_ACTIVE: &[&str] = &[
+    "msg,",
+    "debug,",
+    "print,",
+    "log,",
+    "logopen,",
+    "logappend,",
+    "logclose",
+    "py,",
+    "pyrun,",
+    "pyreload",
+    "abort,",
+    "PROBEOPEN",
+    "PROBECLOSE",
+    "RPY",
+];
+
+/// Whether LinuxCNC would act on a comment in `line` (issue #851): any `(...)` on the line
+/// whose text, after its leading white space, starts with one of [`LINUXCNC_ACTIVE`]. The
+/// interpreter's words are compared case-insensitively, as LinuxCNC does; the task's
+/// upper-case words case-sensitively.
+fn linuxcnc_active(line: &str) -> Option<String> {
+    let mut rest = line;
+    while let Some(open) = rest.find('(') {
+        let after = &rest[open + 1..];
+        let close = after.find(')').unwrap_or(after.len());
+        let text = after[..close].trim_start();
+        for word in LINUXCNC_ACTIVE {
+            let hit = if word.chars().all(|c| c.is_ascii_uppercase()) {
+                text.starts_with(word)
+            } else {
+                text.to_ascii_lowercase().starts_with(word)
+            };
+            if hit {
+                return Some(format!("{line:?} is active ({word})"));
+            }
+        }
+        rest = &after[close.min(after.len())..];
+    }
+    None
+}
+
+fn assert_no_active_comment(text: &str) {
+    for line in text.lines() {
+        if let Some(why) = linuxcnc_active(line) {
+            panic!("{why}\n{text}");
+        }
+    }
+}
+
+/// The LinuxCNC post with its line limit set to `max`.
+fn linuxcnc_limited(max: u32) -> TemplatePost {
+    let manifest = std::fs::read_to_string(posts_path("linuxcnc/post.toml")).unwrap();
+    let template = std::fs::read_to_string(posts_path("linuxcnc/main.post")).unwrap();
+    TemplatePost::new(
+        PostDefinition::from_parts(
+            "t",
+            &manifest.replace("max_line_length = 255", &format!("max_line_length = {max}")),
+            &template,
+        )
+        .unwrap(),
+    )
+}
+
+/// GC-10 and NFR-07 (issue #851, item 1): the built-in LinuxCNC post lists the comment
+/// openings LinuxCNC acts on, and a project whose name starts with one does not start an
+/// active comment: the program title `MSG,direct title` is written with the guard mark in
+/// front, so LinuxCNC reads it as an ordinary comment. The text is otherwise unchanged.
+#[test]
+fn req_gc_10_req_nfr_07_a_project_name_never_starts_an_active_comment_on_linuxcnc() {
+    let post = builtin_post("linuxcnc");
+    let listed = &post.definition().options.active_comment_prefixes;
+    for word in LINUXCNC_ACTIVE {
+        assert!(
+            listed.iter().any(|l| l.eq_ignore_ascii_case(word)),
+            "{word} is not in {listed:?}"
+        );
+    }
+    let mut j = job();
+    j.title = "MSG,direct title".into();
+    let text = post_text_with("linuxcnc", &j);
+    assert!(text.starts_with("(_MSG,direct title)\n"), "{text}");
+    assert_no_active_comment(&text);
+    // Every listed opening, in any case and after leading spaces, as the title and as the
+    // operation name.
+    for word in LINUXCNC_ACTIVE {
+        for name in [
+            word.to_string(),
+            format!("{} x", word.to_ascii_uppercase()),
+            format!("  {}x", word.to_ascii_lowercase()),
+        ] {
+            let mut j = job();
+            j.title = name.clone();
+            j.operation_names
+                .insert("groove (finish)".into(), name.clone());
+            let text = post_text_with("linuxcnc", &j);
+            assert_no_active_comment(&text);
+            assert_eq!(text, post_text_with("linuxcnc", &j), "GC-07");
+        }
+    }
+}
+
+/// GC-10, GC-08 and NFR-07 (issue #851, item 2): a wrapped comment's later lines start fresh
+/// (decision 0656), so a word in the middle of a long title, operation or tool name can start
+/// a line. With a limit of 20, `abcdefghijklmnopqrMSG,x` is cut after 18 characters and the
+/// rest is written with the guard mark; a word after a space is guarded the same way. Every
+/// line still fits and no text is lost.
+#[test]
+fn req_gc_10_req_gc_08_a_wrapped_line_never_starts_an_active_comment() {
+    let post = linuxcnc_limited(20);
+    let mut j = job();
+    j.title = "abcdefghijklmnopqrMSG,x".into();
+    let text = post.post(&small_part(), &j).unwrap().text;
+    assert!(
+        text.starts_with("(abcdefghijklmnopqr)\n(_MSG,x)\n"),
+        "{text}"
+    );
+    assert_no_active_comment(&text);
+    // A word too long for a line that starts with an opening: its first line is marked, the
+    // mark counted in the width.
+    let mut j = job();
+    j.title = format!("x MSG,{}", "y".repeat(24));
+    let text = post.post(&small_part(), &j).unwrap().text;
+    let (a, b) = ("y".repeat(13), "y".repeat(11));
+    assert!(
+        text.starts_with(&format!("(x)\n(_MSG,{a})\n({b})\n")),
+        "{text}"
+    );
+    for max in 20..=48 {
+        let post = linuxcnc_limited(max);
+        for word in LINUXCNC_ACTIVE {
+            let mut j = job();
+            j.title = format!("Part {word}one - Setup {word}two abcdefghijklmnopqr{word}three");
+            j.operation_names
+                .insert("groove (finish)".into(), format!("rough {word}op"));
+            j.tools.get_mut("t1").unwrap().name = format!("ball {word}tool");
+            let text = post.post(&small_part(), &j).unwrap().text;
+            assert_no_active_comment(&text);
+            assert!(
+                text.lines()
+                    .filter(|l| l.starts_with('('))
+                    .all(|l| l.len() <= max as usize),
+                "{max}: {text}"
+            );
+            assert_eq!(text, post.post(&small_part(), &j).unwrap().text, "GC-07");
+        }
+    }
+}
+
+/// GC-09 (issue #851): the Makera Z1 firmware (a Smoothieware fork) skips a line that starts
+/// with `(` and cuts a comment off a command line, with no active comments in its source, so
+/// the built-in Z1 post lists none and writes the project's text as it is.
+#[test]
+fn req_gc_09_the_z1_post_lists_no_active_comments_and_writes_names_as_they_are() {
+    let post = builtin_post("makera-z1");
+    assert!(post.definition().options.active_comment_prefixes.is_empty());
+    let mut j = job();
+    j.title = "MSG,direct title".into();
+    let text = post.post(&small_part(), &j).unwrap().text;
+    assert!(text.starts_with("(MSG,direct title)\n"), "{text}");
+}
+
+/// GC-03 and GC-04 (issue #851): only text from the project is guarded. A comment the post's
+/// author writes in the header, such as LinuxCNC's `(MSG,...)`, is the author's to write and is
+/// kept as it is, even when it is wrapped; its later lines are guarded.
+#[test]
+fn req_gc_03_req_gc_04_the_posts_own_active_comments_are_kept() {
+    let text = edited_post(
+        "linuxcnc",
+        (
+            "header = [\"G90 G21 G17\", \"G61\"]",
+            "header = [\"G90 G21 G17\", \"G61\", \"(MSG,Check the stock is held)\"]",
+        ),
+        ("", ""),
+    );
+    assert!(
+        text.contains("\nG61\n(MSG,Check the stock is held)\n"),
+        "{text}"
+    );
+    let manifest = std::fs::read_to_string(posts_path("linuxcnc/post.toml")).unwrap();
+    let template = std::fs::read_to_string(posts_path("linuxcnc/main.post")).unwrap();
+    let manifest = manifest
+        .replace("max_line_length = 255", "max_line_length = 20")
+        .replace(
+            "header = [\"G90 G21 G17\", \"G61\"]",
+            "header = [\"G90 G21 G17\", \"(MSG,Check the msg,stock)\"]",
+        );
+    let text = TemplatePost::new(PostDefinition::from_parts("t", &manifest, &template).unwrap())
+        .post(&small_part(), &job())
+        .unwrap()
+        .text;
+    assert!(text.contains("\n(MSG,Check the)\n(_msg,stock)\n"), "{text}");
+}
+
+/// GC-04 and NFR-07 (issue #851): the list is checked when the post is loaded, naming the
+/// option: an empty or spaced entry, a parenthesis, an entry that starts with the guard mark
+/// (the mark would then make the comment active), and an entry that a word of the NFR-12
+/// notice starts with (a wrapped notice line would be changed, decision 0533).
+#[test]
+fn req_gc_04_req_nfr_07_bad_active_comment_prefixes_are_refused() {
+    let manifest = std::fs::read_to_string(posts_path("linuxcnc/post.toml")).unwrap();
+    let template = std::fs::read_to_string(posts_path("linuxcnc/main.post")).unwrap();
+    assert!(
+        manifest.contains("active_comment_prefixes = ["),
+        "{manifest}"
+    );
+    for bad in [
+        "\"\"",
+        "\"MSG ,\"",
+        "\"(MSG\"",
+        "\"_X\"",
+        "\"check\"",
+        "\"WHAT\"",
+    ] {
+        let edited = manifest.replace(
+            "active_comment_prefixes = [",
+            &format!("active_comment_prefixes = [{bad}, "),
+        );
+        let e = PostDefinition::from_parts("t", &edited, &template)
+            .unwrap_err()
+            .to_string();
+        assert!(e.contains("active_comment_prefixes"), "{bad}: {e}");
+    }
+    let many: Vec<String> = (0..65).map(|i| format!("\"W{i},\"")).collect();
+    let edited = manifest.replace(
+        "active_comment_prefixes = [",
+        &format!("active_comment_prefixes = [{}, ", many.join(", ")),
+    );
+    let e = PostDefinition::from_parts("t", &edited, &template)
+        .unwrap_err()
+        .to_string();
+    assert!(
+        e.contains("active_comment_prefixes") && e.contains("64"),
+        "{e}"
+    );
+    // A post without the notice may list a word the notice holds.
+    let edited = manifest
+        .replace("safety_notice = true", "safety_notice = false")
+        .replace(
+            "active_comment_prefixes = [",
+            "active_comment_prefixes = [\"check\", ",
+        );
+    assert!(PostDefinition::from_parts("t", &edited, &template).is_ok());
+}
+
+/// NFR-07 and GC-10 (issue #851, the owner's addition of 23 Nov 2026): every text the post
+/// guarded is reported once, with where it came from (the title, an operation's name by its
+/// tag, a tool's name by its tag, or a comment line of the post's own), the opening it matched
+/// as the post lists it, the text as the job gave it and where in that text the mark went, so
+/// the host can warn the user. Ordinary names and the Z1 post report nothing; the report is
+/// deterministic (GC-07).
+#[test]
+fn req_gc_10_req_nfr_07_each_guarded_text_is_reported_once_with_its_source() {
+    use openchuck_post::{CommentSource, GuardedComment};
+    let report = |post: &TemplatePost, j: &openchuck_post::PostJob| {
+        let out = post.post(&small_part(), j).unwrap();
+        assert_eq!(
+            out.guarded_comments,
+            post.post(&small_part(), j).unwrap().guarded_comments,
+            "GC-07"
+        );
+        out.guarded_comments
+    };
+    let guarded = |source: CommentSource, opening: &str, text: &str, at: usize| GuardedComment {
+        source,
+        opening: opening.into(),
+        text: text.into(),
+        at,
+    };
+    assert!(report(&builtin_post("linuxcnc"), &job()).is_empty());
+    let mut j = job();
+    j.title = "  MSG,direct title".into();
+    assert_eq!(
+        report(&builtin_post("linuxcnc"), &j),
+        vec![guarded(
+            CommentSource::Title,
+            "MSG,",
+            "  MSG,direct title",
+            2
+        )]
+    );
+    assert!(report(&builtin_post("makera-z1"), &j).is_empty());
+
+    // Wrapped at 20: the title cut in a word, an operation name and a tool name, each once.
+    let mut j = job();
+    j.title = "abcdefghijklmnopqrMSG,x".into();
+    j.operation_names
+        .insert("groove (finish)".into(), "rough logopen,f".into());
+    j.tools.get_mut("t1").unwrap().name = "PY,abcdefghijklmnopq".into();
+    assert_eq!(
+        report(&linuxcnc_limited(20), &j),
+        vec![
+            guarded(CommentSource::Title, "MSG,", "abcdefghijklmnopqrMSG,x", 18),
+            guarded(
+                CommentSource::Operation("groove (finish)".into()),
+                "LOGOPEN,",
+                "rough logopen,f",
+                6
+            ),
+            guarded(
+                CommentSource::Tool("t1".into()),
+                "PY,",
+                "PY,abcdefghijklmnopq",
+                0
+            ),
+        ]
+    );
+
+    // The same text as the title and an operation's name (CodeRabbit on #857): a mark inside the
+    // operation comment is the operation's, and the title's own line stays the title's.
+    let mut j = job();
+    j.title = "rough logopen,f".into();
+    j.operation_names
+        .insert("groove (finish)".into(), "rough logopen,f".into());
+    let reported = report(&linuxcnc_limited(20), &j);
+    assert_eq!(
+        reported,
+        vec![guarded(
+            CommentSource::Operation("groove (finish)".into()),
+            "LOGOPEN,",
+            "rough logopen,f",
+            6
+        )],
+        "the title fits one line and is not guarded"
+    );
+
+    // A title guarded at its start with another opening later, at a wrap: both places, each
+    // counted in the title as the job gave it.
+    let mut j = job();
+    j.title = " MSG,one two three MSG,four".into();
+    assert_eq!(
+        report(&linuxcnc_limited(20), &j),
+        vec![
+            guarded(
+                CommentSource::Title,
+                "MSG,",
+                " MSG,one two three MSG,four",
+                1
+            ),
+            guarded(
+                CommentSource::Title,
+                "MSG,",
+                " MSG,one two three MSG,four",
+                19
+            ),
+        ]
+    );
+
+    // A wrapped line of the post's own header: its first line is the author's and is kept;
+    // the later line is guarded and reported as the post's.
+    let manifest = std::fs::read_to_string(posts_path("linuxcnc/post.toml")).unwrap();
+    let template = std::fs::read_to_string(posts_path("linuxcnc/main.post")).unwrap();
+    let manifest = manifest
+        .replace("max_line_length = 255", "max_line_length = 20")
+        .replace(
+            "header = [\"G90 G21 G17\", \"G61\"]",
+            "header = [\"G90 G21 G17\", \"(MSG,Check the msg,stock)\"]",
+        );
+    let post = TemplatePost::new(PostDefinition::from_parts("t", &manifest, &template).unwrap());
+    assert_eq!(
+        report(&post, &job()),
+        vec![guarded(
+            CommentSource::Post,
+            "MSG,",
+            "MSG,Check the msg,stock",
+            14
+        )]
+    );
+}
+
 /// NFR-07, issue #794: the nightly `post_definition` fuzz input, a damaged copy of the LinuxCNC
 /// post whose template stores a namespace inside itself (`{% set st.a = st %}`), loads and posts
 /// to a result, never a crash. The engine frees the namespace after the render (its unit test

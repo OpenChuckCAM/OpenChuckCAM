@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.60.0 (POST-COMMENTS; issue #851; decision 0681, accepted)
+
+- **Breaking (0.60.0, POST-COMMENTS; decision 0048):** `PostOptions::active_comment_prefixes` (post key `active_comment_prefixes`, a list, empty when a post leaves it out): the openings of comments the controller acts on, such as LinuxCNC's `MSG,`. Text from the project that would start such a comment (the title, revision, generator, operation comments and tool names, after the sanitiser) and each line a wrapped comment starts are written with the new constant `ACTIVE_COMMENT_GUARD` (`_`) in front, counted in the line limit; the post's own header and footer are kept. Bad entries are refused at load (`options.active_comment_prefixes`). The LinuxCNC post lists LinuxCNC's fourteen openings; the Makera Z1 post lists none. Struct literals of `PostOptions` add the field. `PostOutput::guarded_comments` (new public field) lists each guarded text once, as a `GuardedComment` (new): its `CommentSource` (title, revision, generator, an operation or tool by tag, or the post's own comment), the opening matched, the text as given and where the mark went. No golden program changes; a LinuxCNC program for a project whose name starts with one of the openings gains the mark.
+
 ## Unreleased (FUZZ-NFR07; issue #794; decision 0679, accepted)
 
 - **Fixed:** a template `namespace` that holds itself (directly, in a list or through another namespace) is freed after the render instead of leaking; every namespace a render makes is emptied when it ends. A `namespace` key that is not a name is now a template error. No output changes. No public API changes.

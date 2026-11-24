@@ -34,6 +34,9 @@ safety_notice = true
 # without a warning (OI-933; from the source, not confirmed on the machine). Longer comments
 # are wrapped; any other longer line blocks export (decision 0656).
 max_line_length = 63
+# active_comment_prefixes is left out: the Z1 firmware (a Smoothieware fork) skips a line that
+# starts with "(" and cuts a comment off a command line, and acts on no comment (from its
+# source; issue #851), so names are written as they are.
 file_extension = "nc"
 
 [options.tool_change]

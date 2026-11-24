@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.60.0
+
+- **Family release (0.60.0; POST-COMMENTS; issue #851; decision 0681, accepted):** `openchuck-post`'s `PostOptions` gains the public field `active_comment_prefixes` and `PostOutput` the public field `guarded_comments`, a breaking change; no change to this crate.
+
 ## 0.59.0
 
 - **Family release (0.59.0; lane Z1-SETUP, PR 2; issue #692; decision 0673):** `openchuck-types`'s `Tool` gains the public field `stick_out`, a breaking change; no change to this crate.
