@@ -362,3 +362,23 @@ fn req_tl_02_req_ui_07_the_stick_out_is_set_or_left_blank() {
     assert_eq!(the_tool(&app, id).stick_out, Some(Millimetres(20.0)));
     std::fs::remove_dir_all(&dir).unwrap();
 }
+
+/// NFR-07, issue #628: the tool form shows the largest size a tool may have, the same limit the
+/// tool's own check applies, so a value no tool has is caught at the field.
+#[test]
+fn req_tl_04_req_nfr_07_size_fields_show_the_largest_tool_size() {
+    let form = tool_form(&tool(ToolShape::FlatEnd));
+    for (name, max) in [
+        (fields::DIAMETER, 2000.0),
+        (fields::FLUTE_LENGTH, 1000.0),
+        (fields::OVERALL_LENGTH, 1000.0),
+        (fields::SHANK_DIAMETER, 2000.0),
+    ] {
+        let field = form.iter().find(|f| f.name == name).unwrap();
+        assert!(
+            matches!(field.kind, FieldKind::Number { unit: "mm", max: Some(m), .. } if m == max),
+            "{name}: {:?}",
+            field.kind
+        );
+    }
+}

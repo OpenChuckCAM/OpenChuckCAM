@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased (FUZZ-NFR07; issue #628; decision 0679, accepted)
+
+- **Changed:** the tool form's Diameter and Shank diameter fields have a maximum of 2000 mm and Flute length and Overall length 1000 mm, the sizes the tool check accepts. No API change.
+
 ## 0.58.0 (FACING-STEP; issue #800; decision 0666 option C, accepted)
 
 - **Changed output:** Facing with the End or Box shape, a Part or Part plus tabs extent, or an extent margin now generates on a STEP part, bounding the part from its exact faces (`openchuck_path::enclose`), not its tessellation. The interim refusal before generating (#836) is removed. Each such operation's notes say so, and, where the part has B-spline faces, how far Facing may stop short of an extreme on one, leaving that much more stock.
