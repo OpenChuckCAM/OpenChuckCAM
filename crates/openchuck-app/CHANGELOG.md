@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased (PROJECT-UX-B; issue #705; record PROJUX-B-1, proposed)
+
+- **Added:** the undo history as the user sees it: `Application::undo_history()` gives every step, oldest first, named in words with its item and value ("Set stepover 1.2 mm (Roughing)"), how long ago it was made, whether it is undone, the project as opened, created or recovered, and where the project was last saved in this session (`history::UndoHistory`, `HistoryStep`, `SavedMark`). `Application::go_to_step(n)` returns to a step by undoing or redoing; a step that does not exist is refused with `AppError::NoHistoryStep` and nothing changes. Each step is named when it runs; the project format and the log lines are unchanged.
+
 ## 0.63.0 (FACEFLOW; issues #791, #631, #614, #615 and #854; decisions 0675, 0676 and 0686, accepted)
 
 - **Changed:** a new face-flow finishing operation is written with Stay down between passes on, Pattern Automatic, Steps between rings Blended (decision 0545's rule, now reaching face flow) and a Shortest cut of its tool's diameter. An operation saved without them keeps its program.

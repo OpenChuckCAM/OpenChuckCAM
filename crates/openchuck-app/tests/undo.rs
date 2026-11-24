@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-//! Undo and redo (UI-08; work breakdown slice 1 item 6).
+//! Undo and redo (UI-08; work breakdown slice 1 item 6), and returning to a
+//! step of the history (UI-22).
 
 // Test code may unwrap, index and panic (NFR-07 applies to library code).
 #![allow(
@@ -424,6 +425,35 @@ proptest! {
         }
         prop_assert!(!app.can_redo());
         prop_assert_eq!(snapshot(app.project()), edited);
+    }
+
+    /// Returning to any step of the history is the same as undoing or
+    /// redoing that many steps (UI-22, verification plan), whatever the
+    /// edits were.
+    #[test]
+    fn req_ui_22_returning_to_a_step_equals_that_many_undos_or_redos(
+        edits in proptest::collection::vec(edit(), 0..30),
+        targets in proptest::collection::vec(0usize..40, 1..6),
+    ) {
+        // One project (a duplicate takes a fresh random ID, so two projects
+        // given the same edits differ): the state at each step is read by
+        // undoing one step at a time, then every jump is compared with it.
+        let mut app = open_app("prop-jump");
+        let mut next = 0;
+        let recorded = run(&mut app, edits, &mut next);
+        let mut at_step = vec![snapshot(app.project())];
+        for _ in 0..recorded {
+            prop_assert!(app.undo().unwrap());
+            at_step.push(snapshot(app.project()));
+        }
+        at_step.reverse();
+        for target in targets {
+            let target = target.min(recorded);
+            app.go_to_step(target).unwrap();
+            prop_assert_eq!(app.undo_history().position, target);
+            prop_assert_eq!(&snapshot(app.project()), &at_step[target]);
+            prop_assert_eq!(app.undo_history().steps.len(), recorded);
+        }
     }
 }
 

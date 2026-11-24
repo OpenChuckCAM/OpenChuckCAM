@@ -16,7 +16,9 @@ use openchuck_app::overview::{ItemStatus, Overview, PrimaryAction, Step, StepHea
 use openchuck_app::settings::{SCALE_RANGE, region};
 use openchuck_viewport::{DisplayMode, Projection, StandardView};
 
-use super::{Dialog, EXPORT, IMPORT, NEW, Next, OPEN, REDO, SAVE, Selection, Shell, UNDO, marks};
+use super::{
+    Dialog, EXPORT, HISTORY, IMPORT, NEW, Next, OPEN, REDO, SAVE, Selection, Shell, UNDO, marks,
+};
 use crate::theme::{DARK, RADIUS};
 use crate::toolbar;
 use crate::viewport::ViewStep;
@@ -75,14 +77,14 @@ pub(super) const UI_SCALES: [u32; 5] = [80, 90, 100, 110, 120];
 const SETTINGS_DELAY: Duration = Duration::from_secs(1);
 
 /// Heights of the bars (specification section 3).
-const TITLE_BAR: f32 = 32.0;
+pub(super) const TITLE_BAR: f32 = 32.0;
 const WORKFLOW_BAR: f32 = 44.0;
 const FOOTER: f32 = 48.0;
 const LEGEND_STRIP: f32 = 36.0;
 
 /// The keys, for Help > Keyboard shortcuts (specification section 16), each
 /// key written once so the list can be checked against the section. The keys
-/// the section names that are not built yet (Ctrl H, Ctrl K, S, M and B) are
+/// the section names that are not built yet (Ctrl K, S, M and B) are
 /// left out.
 pub(super) const KEY_MAP: &[(&str, &str)] = &[
     ("Ctrl N, Ctrl O, Ctrl S", "New, open, save project"),
@@ -90,6 +92,7 @@ pub(super) const KEY_MAP: &[(&str, &str)] = &[
     ("Ctrl E", "Post and export"),
     ("Ctrl Z", "Undo"),
     ("Ctrl Y, Ctrl Shift Z", "Redo"),
+    ("Ctrl H", "Undo history"),
     ("Alt 1 to Alt 4", "Workflow steps"),
     ("Alt 5", "Post and export (as Ctrl E)"),
     (
@@ -636,10 +639,18 @@ impl Shell {
     }
 
     /// The title bar: the menus, the project's name and save state, and
-    /// Undo and Redo (specification section 3).
+    /// Undo, Redo and the undo history (specification section 3).
     fn title_bar(&mut self, ui: &mut egui::Ui) {
         ui.horizontal_centered(|ui| {
-            self.menu(ui);
+            // egui's menu bar takes every pixel it is offered, which left the
+            // project's name, its save state and Undo and Redo outside the
+            // window; it is offered the width its menus need.
+            let height = ui.available_height();
+            ui.allocate_ui_with_layout(
+                egui::vec2(menus_width(ui), height),
+                egui::Layout::left_to_right(egui::Align::Center),
+                |ui| self.menu(ui),
+            );
             let (name, modified) = self
                 .app
                 .as_ref()
@@ -671,6 +682,8 @@ impl Shell {
             }
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                 let ctx = ui.ctx().clone();
+                // Right to left: the history, then Redo and Undo.
+                self.history_button(ui);
                 let (can_undo, can_redo) = self
                     .app
                     .as_ref()
@@ -793,6 +806,13 @@ impl Shell {
                 let redo = egui::Button::new("Redo").shortcut_text(ctx.format_shortcut(&REDO));
                 if ui.add_enabled(can_redo, redo).clicked() {
                     self.redo();
+                }
+                let history =
+                    egui::Button::new("Undo history").shortcut_text(ctx.format_shortcut(&HISTORY));
+                if ui.add_enabled(open, history).clicked() {
+                    self.history_open = true;
+                    self.history_focus = true;
+                    ui.close();
                 }
                 ui.separator();
                 let operation = match self.selected {
@@ -1717,6 +1737,26 @@ fn view_step(step: Step) -> ViewStep {
         Step::Operations => ViewStep::Operations,
         Step::Simulate => ViewStep::Simulate,
     }
+}
+
+/// The titles of the menus, in order (specification section 3).
+const MENUS: [&str; 6] = ["File", "Edit", "View", "Project", "Tools", "Help"];
+
+/// The width the title bar's menus need: each title as a button, with the
+/// spacing between them.
+fn menus_width(ui: &egui::Ui) -> f32 {
+    let spacing = ui.spacing();
+    MENUS
+        .iter()
+        .map(|title| {
+            egui::WidgetText::from(*title)
+                .into_galley(ui, None, f32::INFINITY, egui::TextStyle::Button)
+                .size()
+                .x
+                + 2.0 * spacing.button_padding.x
+                + spacing.item_spacing.x
+        })
+        .sum()
 }
 
 /// How a recent project is listed: its folder's name, or the whole path for

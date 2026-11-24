@@ -36,6 +36,7 @@ mod error;
 mod export;
 pub mod facing;
 pub mod form;
+pub mod history;
 mod jobs;
 pub mod lead_in;
 pub mod library;
@@ -230,6 +231,12 @@ thread_local! {
 pub struct Application {
     document: Document,
     history: History,
+    /// What the undo history starts from and when (UI-22).
+    start: (&'static str, std::time::Instant),
+    /// Where in the undo history the project was last saved in this
+    /// session, and when; `None` until a save, and again once a new edit
+    /// discards the saved state (UI-22).
+    saved_mark: std::sync::Mutex<Option<(usize, std::time::Instant)>>,
     /// The project as last opened, created or saved, for
     /// [`Application::is_modified`]. Behind a lock so `save` can stay `&self`.
     saved: std::sync::Mutex<Project>,
@@ -328,7 +335,9 @@ impl Application {
             project.set_skip_stock_simulation(true);
             openchuck_project::file::save(&project, folder)?;
         }
-        Self::with_project(folder, project, threads)
+        let mut app = Self::with_project(folder, project, threads)?;
+        app.start.0 = "Created project";
+        Ok(app)
     }
 
     fn with_project(folder: &Path, project: Project, threads: Threads) -> Result<Self, AppError> {
@@ -341,6 +350,8 @@ impl Application {
                 project,
             },
             history: History::default(),
+            start: ("Opened project", std::time::Instant::now()),
+            saved_mark: std::sync::Mutex::new(None),
             jobs: JobManager::new(threads)?,
             cache: cache::PipelineCache::default(),
             strategies: Registry::builtin(),
@@ -364,6 +375,9 @@ impl Application {
         openchuck_project::file::save(&self.document.project, &self.document.location)?;
         if let Ok(mut saved) = self.saved.lock() {
             saved.clone_from(&self.document.project);
+        }
+        if let Ok(mut mark) = self.saved_mark.lock() {
+            *mark = Some((self.history.position(), std::time::Instant::now()));
         }
         self.memo
             .saves
@@ -1123,7 +1137,16 @@ impl Application {
     /// unchanged and nothing is recorded.
     pub fn execute(&mut self, command: Command) -> Result<(), AppError> {
         let text = action_log::describe(&command, &self.document.project);
-        self.history.execute(&mut self.document.project, command)?;
+        let label = history::label(&command, &self.document.project, &self.strategies);
+        let position = self.history.position();
+        self.history
+            .execute(&mut self.document.project, command, label)?;
+        // A save made at an undone step can no longer be reached.
+        if let Ok(mut mark) = self.saved_mark.lock()
+            && mark.is_some_and(|(at, _)| at > position)
+        {
+            *mark = None;
+        }
         self.revision += 1;
         self.note_action(format!("command: {text}"));
         Ok(())
@@ -1155,6 +1178,58 @@ impl Application {
             self.note_action(format!("redo: {text}"));
         }
         Ok(redone)
+    }
+
+    /// The undo history: every step in words, which are undone, and where
+    /// the project was last saved (UI-22).
+    pub fn undo_history(&self) -> history::UndoHistory {
+        let now = std::time::Instant::now();
+        let age = |at: std::time::Instant| now.saturating_duration_since(at);
+        history::UndoHistory {
+            start: self.start.0,
+            start_age: age(self.start.1),
+            steps: self
+                .history
+                .steps()
+                .map(|(label, at, undone)| history::HistoryStep {
+                    label: label.to_owned(),
+                    age: age(at),
+                    undone,
+                })
+                .collect(),
+            position: self.history.position(),
+            saved: self
+                .saved_mark
+                .lock()
+                .ok()
+                .and_then(|m| *m)
+                .map(|(position, at)| history::SavedMark {
+                    position,
+                    age: age(at),
+                }),
+        }
+    }
+
+    /// Returns to a step of the undo history: the project as it was after
+    /// `step` steps (0 is as opened), by undoing or redoing as many steps as
+    /// that takes (UI-22). A step that does not exist is refused and nothing
+    /// changes (NFR-07).
+    pub fn go_to_step(&mut self, step: usize) -> Result<(), AppError> {
+        let last = self.history.len();
+        if step > last {
+            return Err(AppError::NoHistoryStep { step, last });
+        }
+        while self.history.position() > step {
+            if !self.undo()? {
+                break;
+            }
+        }
+        while self.history.position() < step {
+            if !self.redo()? {
+                break;
+            }
+        }
+        Ok(())
     }
 
     /// Keeps a line for the user-action log (NFR-18), the oldest dropped

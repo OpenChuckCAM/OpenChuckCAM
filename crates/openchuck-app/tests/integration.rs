@@ -112,6 +112,8 @@ mod tool_library;
 mod tool_library_sections;
 #[path = "undo.rs"]
 mod undo;
+#[path = "undo_history.rs"]
+mod undo_history;
 #[path = "unreached.rs"]
 mod unreached;
 #[path = "walls.rs"]

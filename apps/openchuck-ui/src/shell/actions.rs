@@ -109,6 +109,29 @@ pub(super) fn without_folder_name(lines: Vec<String>, chosen: Option<&Path>) -> 
         .collect()
 }
 
+/// The click lines of a frame in which the user chose a row of the undo
+/// history, labelled `chosen`: the row's text can hold a value the user
+/// typed ("Set stepover 1.2 mm"), so that click is logged as the command
+/// alone; the undo and redo lines the application logs name the steps
+/// without values (NFR-18, decision 0157).
+pub(super) fn without_step_text(lines: Vec<String>, chosen: Option<&str>) -> Vec<String> {
+    let Some(private) = chosen.and_then(click_line) else {
+        return lines;
+    };
+    let mut replaced = false;
+    lines
+        .into_iter()
+        .map(|line| {
+            if !replaced && line == private {
+                replaced = true;
+                super::history::ROW_CLICK.to_owned()
+            } else {
+                line
+            }
+        })
+        .collect()
+}
+
 impl Recorder {
     /// The lines for the dialogs and windows that opened or closed since the
     /// last call, given those open now.
@@ -195,6 +218,8 @@ impl Shell {
         let chosen = self.recent_clicked.take();
         let clicks = ctx.output(|o| o.events.iter().filter_map(click_text).collect::<Vec<_>>());
         let clicks = without_folder_name(clicks, chosen.as_deref());
+        let step = self.history_clicked.take();
+        let clicks = without_step_text(clicks, step.as_deref());
         #[cfg(test)]
         self.logged_clicks.extend(clicks.iter().cloned());
         if !logging::recording() {

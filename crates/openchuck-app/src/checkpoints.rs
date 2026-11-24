@@ -328,7 +328,8 @@ impl Application {
         threads: Threads,
     ) -> Result<Self, AppError> {
         project.validate()?;
-        let app = Self::with_project(folder, project, threads)?;
+        let mut app = Self::with_project(folder, project, threads)?;
+        app.start.0 = "Recovered project";
         app.recovered_unsaved
             .store(true, std::sync::atomic::Ordering::Relaxed);
         Ok(app)
