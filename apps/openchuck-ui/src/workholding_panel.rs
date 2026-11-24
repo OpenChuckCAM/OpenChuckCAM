@@ -26,10 +26,10 @@ use openchuck_app::workholding::{
 };
 use openchuck_app::workholding_view::{
     DefaultTabsState, Draft, End, Field, FieldProblem, KEPT_CLEAR_NOTE, Zone, check_draft,
-    default_chips, kept_clear,
-    default_tabs_state, display_items, end_tab, grip_warning, held_span, holding_hint,
-    narrowest_line, new_held_region, new_tab, no_default_line, no_room, no_tabs_warning,
-    part_facing, set_layout, set_shape, set_tab_auto, set_tab_span, tab_zone, zone_lines,
+    default_chips, default_tabs_state, display_items, end_tab, grip_warning, held_span,
+    holding_hint, kept_clear, narrowest_line, new_held_region, new_tab, no_default_line, no_room,
+    no_tabs_warning, part_facing, set_layout, set_shape, set_tab_auto, set_tab_span, tab_zone,
+    zone_lines,
 };
 use openchuck_app::{Application, Command, JobHandle};
 

@@ -19,10 +19,10 @@ use openchuck_app::setup::{
     Workholding,
 };
 use openchuck_app::workholding_view::{
-    DefaultTabsState, Draft, End, Field, PartFacing, check_draft, default_chips,
-    KEPT_CLEAR_NOTE, default_tabs_state, end_tab, grip_warning, held_span, holding_hint, kept_clear,
-    new_tab, no_tabs_warning,
-    part_facing, set_layout, set_shape, set_tab_auto, set_tab_span, to_field_places,
+    DefaultTabsState, Draft, End, Field, KEPT_CLEAR_NOTE, PartFacing, check_draft, default_chips,
+    default_tabs_state, end_tab, grip_warning, held_span, holding_hint, kept_clear, new_tab,
+    no_tabs_warning, part_facing, set_layout, set_shape, set_tab_auto, set_tab_span,
+    to_field_places,
 };
 use openchuck_app::{Application, Command, Threads};
 use openchuck_types::units::Degrees;
@@ -1141,7 +1141,6 @@ fn req_ui_25_apply_refuses_a_tab_outside_the_end_zones() {
     std::fs::remove_dir_all(dir).unwrap();
 }
 
-
 /// Issue #774, the owner's approved design: each held region's "Kept clear"
 /// row says where the tools' tips stay clear to (from), taking the widest
 /// tool of the setup (its cutting profile or its shank) and the 0.5 mm every
@@ -1177,10 +1176,7 @@ fn req_set_09_req_ui_25_the_held_regions_say_where_the_tools_keep_clear() {
         ]
     );
     assert_eq!(kept_clear(&held, &stock, &[]), [None, None]);
-    let one_end = Workholding {
-        end: None,
-        ..held
-    };
+    let one_end = Workholding { end: None, ..held };
     assert_eq!(
         kept_clear(&one_end, &stock, &tools),
         [Some("to X \u{2212}9.500 mm".to_owned()), None]

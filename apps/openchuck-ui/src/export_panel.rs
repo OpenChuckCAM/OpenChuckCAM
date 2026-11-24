@@ -1332,11 +1332,12 @@ impl ExportPanel {
     /// Makes the preview when the run or the file name templates changed.
     fn ensure_preview(&mut self, app: &Application, run: &Arc<Regeneration>) {
         let templates = app.file_name_templates();
-        // `files_current` ignores the stock simulation switch and the hidden
-        // paths, which `output_preview` does not: so the preview is also keyed
-        // on whether the run's project is the project now, and a refusal for
-        // a project that has since gone back is not kept.
-        let same = self.as_now(app, &run.project, false);
+        // The preview is also keyed on whether the run's project gives the
+        // same output as the project now, which `output_preview` asks too
+        // (it ignores the stock simulation switch and the hidden paths, as
+        // `files_current` does: issue #607), so a refusal for a project that
+        // has since gone back is not kept.
+        let same = self.as_now(app, &run.project, true);
         let fresh = self
             .output_preview
             .as_ref()

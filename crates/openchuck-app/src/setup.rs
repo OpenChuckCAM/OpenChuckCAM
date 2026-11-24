@@ -1132,9 +1132,18 @@ pub(crate) fn differing_fields(a: &MachineProfile, b: &MachineProfile) -> Vec<&'
         // The rotary reference point, by coordinate: its Z is the axis
         // height the machine panel shows; X and Y keep the machine editor's
         // names (issue #824).
-        ("rotary reference X", rotary_origin.x == b.rotary_origin.x),
-        ("rotary reference Y", rotary_origin.y == b.rotary_origin.y),
-        ("axis height", rotary_origin.z == b.rotary_origin.z),
+        (
+            "rotary reference X",
+            rotary_origin.x.to_bits() == b.rotary_origin.x.to_bits(),
+        ),
+        (
+            "rotary reference Y",
+            rotary_origin.y.to_bits() == b.rotary_origin.y.to_bits(),
+        ),
+        (
+            "axis height",
+            rotary_origin.z.to_bits() == b.rotary_origin.z.to_bits(),
+        ),
         ("A range", *a_range == b.a_range),
         ("travel", *travel == b.travel),
         ("maximum feeds", *max_feeds == b.max_feeds),

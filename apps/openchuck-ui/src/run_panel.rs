@@ -1782,7 +1782,9 @@ mod tests {
         }));
         assert_eq!(panel.results_count(), 2, "a group is one line");
         panel.record_failure("the engine stopped".to_owned());
-        assert_eq!(panel.results_count(), 3, "a failed run adds one");
+        // A refused run shows only its refusal (issue #766), so the count is
+        // that one line, not the earlier run's lines and one more.
+        assert_eq!(panel.results_count(), 1, "a failed run counts its refusal");
     }
 
     #[test]
@@ -1871,7 +1873,9 @@ mod tests {
         for _ in 0..5 {
             frames.frame(Vec::new());
         }
-        assert_eq!(result_lines_made() - before, 1, "once after a failed run");
+        // A failed run shows only its refusal (issue #766): the earlier run's
+        // notes are not grouped at all.
+        assert_eq!(result_lines_made() - before, 0, "none after a failed run");
         let before = result_lines_made();
         let name = frames
             .app
@@ -1938,10 +1942,17 @@ mod tests {
         assert!(frames.app.redo().unwrap());
         check(&mut frames, "redo");
         assert!(frames.shows("'Renamed'"));
+        let earlier = fresh(&frames);
         frames.panel.record_failure("the engine stopped".to_owned());
-        check(&mut frames, "failed");
+        frames.frame(Vec::new());
         assert!(frames.shows("the engine stopped"));
-        assert!(copy_all(&mut frames).contains("Problem: the engine stopped"));
+        // Only the refusal: the earlier run's lines are not shown or copied
+        // as if they were this run's (issue #766).
+        let copied = copy_all(&mut frames);
+        assert!(copied.contains("Problem: the engine stopped"));
+        for line in earlier {
+            assert!(!copied.contains(&line), "failed: {line} in {copied}");
+        }
         frames
             .panel
             .record_run(Arc::new(feed_run(operation, "Renamed", 3)));

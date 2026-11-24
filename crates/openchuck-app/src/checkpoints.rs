@@ -565,8 +565,16 @@ mod forget_tests {
         std::fs::remove_dir_all(&gone).unwrap();
         let found = discover(&config);
         assert_eq!(found.projects.len(), 2);
-        let missing = found.projects.iter().find(|c| c.project_id == "gone-id").unwrap();
-        let present = found.projects.iter().find(|c| c.project_id == "kept-id").unwrap();
+        let missing = found
+            .projects
+            .iter()
+            .find(|c| c.project_id == "gone-id")
+            .unwrap();
+        let present = found
+            .projects
+            .iter()
+            .find(|c| c.project_id == "kept-id")
+            .unwrap();
         forget(&config, missing).unwrap();
         let after = discover(&config);
         assert_eq!(after.projects.len(), 1, "another project's note stays");

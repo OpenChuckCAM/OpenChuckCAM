@@ -219,6 +219,10 @@ fn req_ui_12_req_nfr_12_a_refused_generate_shows_only_the_refusal() {
     assert!(rig.shows("Generation (operation 'Finish'): refused for the test."));
     assert!(!rig.shows("s to generate"), "{:?}", rig.texts());
     assert!(!rig.shows("The project has changed since this run. Generate again."));
-    assert_eq!(rig.shell.run.results_count(), 1, "the refusal alone is counted");
+    assert_eq!(
+        rig.shell.run.results_count(),
+        1,
+        "the refusal alone is counted"
+    );
     assert_eq!(exact(&rig, "Results (1)"), 1);
 }

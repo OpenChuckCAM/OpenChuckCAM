@@ -617,7 +617,9 @@ fn req_prj_08_a_deleted_projects_recovery_line_can_be_forgotten() {
     assert!(!rig.shows("Locate folder"));
     drop(rig);
     let mut again = launch(&root, &config, None);
-    until(&mut again, "startup discovery", |r| !r.shell.recovery.reading());
+    until(&mut again, "startup discovery", |r| {
+        !r.shell.recovery.reading()
+    });
     for _ in 0..5 {
         again.frame(Vec::new());
     }
