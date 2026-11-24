@@ -177,7 +177,8 @@ impl Shell {
             RichText::new(format!(
                 "{} undo · {} redo. A new edit after undoing discards the undone steps.",
                 ctx.format_shortcut(&super::UNDO),
-                ctx.format_shortcut(&super::REDO_ALT),
+                // As the Edit menu and the Redo button name it.
+                ctx.format_shortcut(&super::REDO),
             ))
             .small()
             .color(DARK.muted),

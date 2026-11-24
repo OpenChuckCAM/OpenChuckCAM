@@ -99,6 +99,9 @@ pub(crate) fn label(command: &Command, project: &Project, registry: &Registry) -
             _ => format!("Delete {} {}", id.kind(), quoted(project, *id)),
         },
         Command::Replace(new) => {
+            if let Some(single) = one_setting(new, project) {
+                return label(&single, project, registry);
+            }
             let id = new.id();
             let name = item_name(new);
             match crate::action_log::item_name(project, id) {
@@ -156,6 +159,40 @@ pub(crate) fn label(command: &Command, project: &Project, registry: &Registry) -
         ),
         Command::Batch(commands) => batch(commands, project, registry),
     }
+}
+
+/// The one setting a replaced operation changes, as the command that would
+/// set it alone: the form stores a cutting value with the whole operation,
+/// because it also drops the operation's material preset (decision 0230),
+/// and the step is named by what the user set. `None` when the item is not
+/// an operation, anything but its parameters and material changed, or not
+/// exactly one parameter differs.
+fn one_setting(new: &Item, project: &Project) -> Option<Command> {
+    let Item::Operation(new) = new else {
+        return None;
+    };
+    let old = project.operation(new.id)?;
+    // Only the parameters and the material (the dropped preset) may differ.
+    let mut same = old.clone();
+    same.parameters.clone_from(&new.parameters);
+    same.material.clone_from(&new.material);
+    if &same != new {
+        return None;
+    }
+    let mut changed = old
+        .parameters
+        .keys()
+        .chain(new.parameters.keys())
+        .filter(|k| old.parameters.get(*k) != new.parameters.get(*k));
+    let name = changed.next()?;
+    if changed.any(|k| k != name) {
+        return None;
+    }
+    Some(Command::SetParameter {
+        operation: new.id,
+        name: name.clone(),
+        value: new.parameters.get(name).cloned(),
+    })
 }
 
 /// Several commands as one step: one is named as itself; several on one

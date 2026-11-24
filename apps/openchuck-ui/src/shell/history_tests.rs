@@ -152,3 +152,81 @@ fn req_ui_22_the_edit_menu_opens_it() {
     rig.frame(Vec::new());
     assert!(rig.shows("UNDO HISTORY"));
 }
+
+/// The labels of the history's steps, oldest first.
+fn labels(rig: &Rig) -> Vec<String> {
+    rig.shell
+        .app
+        .as_ref()
+        .unwrap()
+        .undo_history()
+        .steps
+        .into_iter()
+        .map(|s| s.label)
+        .collect()
+}
+
+#[test]
+fn req_ui_22_req_ui_07_a_value_typed_in_the_inspector_is_named_with_its_value() {
+    // Through the real form: type, Enter, as the owner-check pack of #705
+    // did; the step names the setting and the value, not "Edit operation".
+    let mut rig = super::pending_edit_tests::generated("history-typed");
+    let op = rig.shell.app.as_ref().unwrap().project().operations()[0]
+        .name
+        .clone();
+    for value in ["0.5", "0.6"] {
+        super::pending_edit_tests::type_unconfirmed(&mut rig, "Stepover", value);
+        rig.press(Key::Enter, Modifiers::NONE);
+        rig.frame(Vec::new());
+    }
+    let all = labels(&rig);
+    assert_eq!(
+        &all[all.len() - 2..],
+        [
+            format!("Set stepover 0.5 mm ({op})"),
+            format!("Set stepover 0.6 mm ({op})"),
+        ]
+    );
+}
+
+#[test]
+fn req_ui_22_req_ui_07_setup_values_kept_together_are_one_edit_setup_step() {
+    // Keep on a setup applies its values through the setup form (decision
+    // 0233); the step is "Edit setup".
+    let mut rig = super::pending_edit_tests::generated("history-keep");
+    let setup = rig.shell.app.as_ref().unwrap().project().setups()[0].clone();
+    rig.shell.choose_setup(setup.id, None);
+    rig.shell.open_step(openchuck_app::overview::Step::Setup);
+    for _ in 0..5 {
+        rig.frame(Vec::new());
+    }
+    let before = labels(&rig).len();
+    super::pending_edit_tests::type_unconfirmed(&mut rig, "Diameter", "22");
+    rig.shell
+        .open_step(openchuck_app::overview::Step::Operations);
+    for _ in 0..3 {
+        rig.frame(Vec::new());
+    }
+    rig.click(at(&rig, "Keep").center());
+    rig.settle();
+    let all = labels(&rig);
+    assert_eq!(all.len(), before + 1, "{all:?}");
+    assert_eq!(
+        all.last().map(String::as_str),
+        Some(format!("Edit setup \"{}\"", setup.name).as_str())
+    );
+}
+
+#[test]
+fn req_ui_22_req_ui_14_the_foot_names_the_keys_the_edit_menu_shows() {
+    let mut rig = rig("history-keys");
+    rig.press(Key::H, Modifiers::COMMAND);
+    rig.frame(Vec::new());
+    let ctx = rig.ctx.clone();
+    let foot = format!(
+        "{} undo · {} redo. A new edit after undoing discards the undone steps.",
+        ctx.format_shortcut(&super::UNDO),
+        ctx.format_shortcut(&super::REDO),
+    );
+    assert!(rig.shows(&foot), "{:?}", rig.texts());
+}

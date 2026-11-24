@@ -365,3 +365,55 @@ fn req_ui_22_project_settings_and_several_items_are_named_too() {
         ]
     );
 }
+
+#[test]
+fn req_ui_22_a_value_set_through_the_form_is_named_with_its_setting_and_value() {
+    // The inspector applies a value with `set_parameter`. A cutting value
+    // (stepover, feed, plunge feed) also drops the material preset, so it is
+    // stored as the whole operation; the step is still named by the one
+    // setting the user changed (found by the owner-check pack of #705).
+    let mut app = project_with_operation("form");
+    app.set_parameter(OP, "stepover", Some(ParameterValue::Number(0.5)))
+        .unwrap();
+    app.set_parameter(OP, "stepover", Some(ParameterValue::Number(0.8)))
+        .unwrap();
+    app.set_parameter(OP, "plunge_feed", Some(ParameterValue::Number(250.0)))
+        .unwrap();
+    app.set_parameter(OP, "stepover", None).unwrap();
+    let all = labels(&app);
+    assert_eq!(
+        &all[all.len() - 4..],
+        [
+            "Set stepover 0.5 mm (Roughing)",
+            "Set stepover 0.8 mm (Roughing)",
+            "Set plunge feed 250 mm/min (Roughing)",
+            "Reset stepover (Roughing)",
+        ]
+    );
+    // An operation edited in more than one setting at once is "Edit".
+    let mut edited = app.project().operation(OP).unwrap().clone();
+    edited
+        .parameters
+        .insert("stepover".into(), ParameterValue::Number(1.0));
+    edited
+        .parameters
+        .insert("feed".into(), ParameterValue::Number(900.0));
+    app.execute(Command::Replace(Item::Operation(edited)))
+        .unwrap();
+    assert_eq!(
+        labels(&app).last().map(String::as_str),
+        Some("Edit operation \"Roughing\"")
+    );
+    // So is one setting changed together with the tool.
+    let mut edited = app.project().operation(OP).unwrap().clone();
+    edited
+        .parameters
+        .insert("stepover".into(), ParameterValue::Number(1.5));
+    edited.tool = None;
+    app.execute(Command::Replace(Item::Operation(edited)))
+        .unwrap();
+    assert_eq!(
+        labels(&app).last().map(String::as_str),
+        Some("Edit operation \"Roughing\"")
+    );
+}
