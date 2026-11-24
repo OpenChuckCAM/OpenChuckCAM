@@ -50,7 +50,7 @@ A range, Lowest A, Highest A
 : **Continuous** if A can turn without limit, or a limited range in degrees. On a limited axis every program is checked against the range, and no turn-dropping command is written.
 
 Rotary reference X, Rotary reference Y
-: A point on the rotary axis, in machine coordinates, such as the centre of the headstock face next to the chuck (the Makera Z1's), where the controller works from. Along the axis it is where a setup's part position is measured from, so on the Z1 model X 0 is the headstock face, and a part must be placed past the chuck: measure the distance from the face of the headstock body to the face of your chuck where the stock starts, with your jaws fitted and gripping as you will grip, and use it for the setup's **Offset along X** and **Zero at X**. The 18 mm in the tutorial is the owner's supplied chuck, not a value for yours; the program does not check that the stock is clear of the chuck.
+: A point on the rotary axis, in machine coordinates, such as the centre of the headstock face next to the chuck (the Makera Z1's), where the controller works from. Along the axis it is where a setup's part position is measured from, so on the Z1 model X 0 is the headstock face, and a part must be placed past the chuck: measure the distance from the face of the headstock body to the face of your chuck where the stock starts, with your jaws fitted and gripping as you will grip, and use it for the setup's **Offset along X** and **Zero at X**. The 18 mm in the tutorial is the owner's supplied chuck, not a value for yours. On a copy of the built-in Makera Z1 the setup checks warn when the stock starts behind X 0, inside the headstock; no check covers the chuck. See [Where things sit along X](../concepts/stock-and-held-region.md#where-things-sit-along-x).
 
 Axis height (machine Z)
 : The machine Z of the rotary axis. Everything the program writes in Z is measured from this height, so it matters more than any other value. Measure it on your machine.
@@ -101,7 +101,7 @@ Tool length measurement
 : **Automatic (tool setter)** if the controller measures each tool on a tool setter, so that a longer tool raises the spindle; otherwise none.
 
 Spindle to axis
-: The distance from the spindle, at the top of its Z travel, down to the rotary axis. A tool that sticks out further than this distance less the safe Z would need the spindle above the top of its travel at safe Z, and the program warns you.
+: The distance from the spindle, at the top of its Z travel, down to the rotary axis. A tool that sticks out further than this distance less the safe Z would need the spindle above the top of its travel at safe Z, and the program warns you. With the Z travel it also gives how far below the axis the spindle reaches at the bottom of its travel: when an operation takes a short tool lower than that, the program warns that the tool may need the spindle below the bottom of the Z travel. Both checks use each tool's **Stick-out** from the tool library; for a tool with none they assume it sticks out 5 mm beyond its flutes, and say so in their warnings. They run only when **Tool length measurement** is automatic.
 
 Recommended minimum safe Z
 : Advice only: the lowest safe Z that is recommended for this machine. It is never used as a limit.

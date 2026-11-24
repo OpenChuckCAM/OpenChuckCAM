@@ -4,6 +4,8 @@
 //! Simulate. Messages collect what the application finds, by severity, each
 //! naming its source and offering the action that fixes it (UI-12).
 
+use crate::focus::KeepFocus as _;
+use crate::focus::Tip as _;
 use std::time::Duration;
 
 use eframe::egui::{self, RichText};
@@ -144,7 +146,7 @@ impl Shell {
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                 if ui
                     .small_button("\u{23f7}")
-                    .on_hover_text("Collapse the dock (Ctrl 3)")
+                    .tip("Collapse the dock (Ctrl 3)")
                     .clicked()
                 {
                     self.toggle_region(super::frame::Region::Dock);
@@ -181,7 +183,7 @@ impl Shell {
                 });
                 if ui
                     .selectable_label(*on, text)
-                    .on_hover_text(format!("Show or hide {}", severity.name().to_lowercase()))
+                    .tip(format!("Show or hide {}", severity.name().to_lowercase()))
                     .clicked()
                 {
                     *on = !*on;
@@ -193,7 +195,7 @@ impl Shell {
         egui::ScrollArea::vertical()
             .id_salt("messages")
             .auto_shrink([false, false])
-            .show(ui, |ui| {
+            .show_keeping_focus(ui, |ui| {
                 if self.app.is_some() && self.overview.messages.is_empty() {
                     ui.label(RichText::new("No messages.").color(DARK.muted));
                 }
@@ -270,7 +272,7 @@ impl Shell {
         egui::ScrollArea::vertical()
             .id_salt("jobs")
             .auto_shrink([false, false])
-            .show(ui, |ui| {
+            .show_keeping_focus(ui, |ui| {
                 if self.jobs.running().is_empty() && self.jobs.finished().next().is_none() {
                     ui.label(RichText::new("No jobs yet.").color(DARK.muted));
                 }
@@ -346,7 +348,7 @@ impl Shell {
         egui::ScrollArea::vertical()
             .id_salt("setup checks")
             .auto_shrink([false, false])
-            .show(ui, |ui| {
+            .show_keeping_focus(ui, |ui| {
                 let rows: Vec<_> = self
                     .overview
                     .setup_checks
@@ -443,12 +445,12 @@ impl Shell {
                 if fits {
                     let skip = strip(ui, play);
                     crate::theme::solid_scroll_bar(ui);
-                    rest().show(ui, |ui| below(ui, play));
+                    rest().show_keeping_focus(ui, |ui| below(ui, play));
                     skip
                 } else {
                     crate::theme::solid_scroll_bar(ui);
                     rest()
-                        .show(ui, |ui| {
+                        .show_keeping_focus(ui, |ui| {
                             let skip = strip(ui, play);
                             below(ui, play);
                             skip
@@ -459,7 +461,7 @@ impl Shell {
             Some(app) => {
                 crate::theme::solid_scroll_bar(ui);
                 rest()
-                    .show(ui, |ui| {
+                    .show_keeping_focus(ui, |ui| {
                         self.play
                             .show_strip(ui, app, progress.as_ref(), bar.as_ref())
                     })

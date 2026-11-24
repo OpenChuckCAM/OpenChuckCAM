@@ -549,3 +549,43 @@ fn req_tl_12_a_failed_ledger_write_keeps_the_old_ledger_and_a_retry_does_not_rei
     assert!(again.get(deleted).is_none());
     assert!(again.get(added).is_some());
 }
+
+/// Every ready-made Makera Z1 tool gives its stick-out, the overall length
+/// less the 12.7 mm a standard tool setup holds inside the collet (the
+/// owner's figure, 22 Nov 2026), with that source in its file's header and
+/// not confirmed on the machine; the standard tools give none, so the checks
+/// assume theirs (TL-12, TL-02; decision record 0673).
+#[test]
+fn req_tl_12_req_tl_02_the_z1_tools_stick_out_the_overall_length_less_12_7_mm() {
+    let z1 = openchuck_project::tools::z1_tools().unwrap();
+    assert_eq!(z1.len(), 54);
+    for t in &z1 {
+        let stick = t
+            .tool
+            .stick_out
+            .unwrap_or_else(|| panic!("{} has none", t.name));
+        assert!(
+            (stick.0 - (t.tool.overall_length.0 - 12.7)).abs() < 1e-9,
+            "{}: {stick:?}",
+            t.name
+        );
+        assert!(stick.0 > t.tool.flute_length.0, "{}", t.name);
+    }
+    for t in openchuck_project::tools::standard_tools().unwrap() {
+        assert_eq!(t.tool.stick_out, None, "{}", t.name);
+    }
+    for entry in
+        std::fs::read_dir(std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("defaults/z1"))
+            .unwrap()
+    {
+        // A Windows checkout may give the files CRLF line endings.
+        let text = std::fs::read_to_string(entry.unwrap().path())
+            .unwrap()
+            .replace("\r\n", "\n");
+        assert!(
+            text.contains("owner-provided: standard tool setup holds\n# 12.7 mm inside the collet (22 Nov 2026)")
+                && text.contains("Not confirmed on the machine."),
+            "{text}"
+        );
+    }
+}

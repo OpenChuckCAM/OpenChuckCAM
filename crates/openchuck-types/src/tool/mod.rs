@@ -118,6 +118,13 @@ pub struct Tool {
     /// the shape.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub centre_cutting: Option<bool>,
+    /// How far the tool sticks out of the collet, from its tip to the collet
+    /// face, when given. The tool-length checks use it; without it they
+    /// assume the flute length + 5 mm and say so (decision record 0673).
+    /// When given it is at least the flute length and at most the overall
+    /// length.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub stick_out: Option<Millimetres>,
 }
 
 impl Tool {
@@ -154,6 +161,19 @@ impl Tool {
                     self.flute_length, self.overall_length
                 ),
             ));
+        }
+        if let Some(stick_out) = self.stick_out {
+            require_positive("tool.stick_out", stick_out.0)?;
+            if stick_out.0 < self.flute_length.0 || stick_out.0 > self.overall_length.0 {
+                return Err(Error::invalid(
+                    "tool.stick_out",
+                    format!(
+                        "the stick-out {} must be at least the flute length {} and at most the \
+                         overall length {}",
+                        stick_out, self.flute_length, self.overall_length
+                    ),
+                ));
+            }
         }
         if self.flute_count == 0 {
             return Err(Error::invalid(

@@ -196,7 +196,13 @@ fn setup_collisions(run: &Regeneration) -> Vec<String> {
             found
                 .iter()
                 .filter(|w| crate::setup::is_possible_collision(&w.kind))
-                .map(|w| crate::overview::setup_warning_in_form(&setup.name, w)),
+                .map(|w| {
+                    crate::overview::setup_warning_in_form(
+                        &setup.name,
+                        w,
+                        Some(machine.rotary_origin.x),
+                    )
+                }),
         );
         // The tools of the setup's operations in this run, in the tool
         // list's order, as the setup check names them.
@@ -237,20 +243,58 @@ fn rapid_cuts(run: &Regeneration, operation: &Operation) -> Vec<String> {
         .iter()
         .filter(|g| g.operation == operation.id)
         .flat_map(|g| g.rapid_cuts.iter())
-        .map(|&(segment, volume)| rapid_cut_text(&operation.name, segment, volume))
+        .map(|cut| rapid_cut_text(&operation.name, cut))
         .collect()
 }
 
-/// A rapid move of the operation named `operation` that removes material, in
-/// the one form (decision record 0536 section 3): "Rapid cut (operation
-/// '<name>'): move N is a rapid that removes V mm³ of material". The same in
-/// Messages, the Results tab, the export checks and on the command line.
-pub(crate) fn rapid_cut_text(operation: &str, segment: usize, volume: f64) -> String {
+/// A rapid move of the operation named `operation` that goes deeper into the
+/// stock than one cell of the simulation, in the one form (decision record
+/// 0536 section 3), its depth first (decision record 0661, option C):
+/// "Rapid cut (operation '<name>'): move N is a rapid that goes D mm into the
+/// stock, deeper than the simulation's cell of C mm, and removes V mm³ of
+/// material". The same in Messages, the Results tab, the export checks and
+/// on the command line.
+pub(crate) fn rapid_cut_text(operation: &str, cut: &openchuck_sim::RapidCut) -> String {
     crate::lead_in::in_form(
         crate::lead_in::topic::RAPID_CUT,
         &crate::lead_in::Context::operation(operation),
-        &format!("move {segment} is a rapid that removes {volume:.3} mm³ of material"),
+        &format!(
+            "move {} is a rapid that goes {:.3} mm into the stock, deeper than the simulation's \
+             cell of {:.3} mm, and removes {} of material",
+            cut.segment,
+            cut.depth,
+            cut.cell,
+            rapid_volume(cut.volume)
+        ),
     )
+}
+
+/// A rapid move that touches the stock no deeper than one cell of the
+/// simulation: information, within what the simulation resolves, with its
+/// depth and volume (decision record 0661, option C).
+pub(crate) fn rapid_contact_text(operation: &str, cut: &openchuck_sim::RapidCut) -> String {
+    crate::lead_in::in_form(
+        crate::lead_in::topic::RAPID_CUT,
+        &crate::lead_in::Context::operation(operation),
+        &format!(
+            "move {} is a rapid that touches the stock {:.3} mm deep, within the simulation's \
+             cell of {:.3} mm, and removes {} of material",
+            cut.segment,
+            cut.depth,
+            cut.cell,
+            rapid_volume(cut.volume)
+        ),
+    )
+}
+
+/// A rapid's volume to three decimals, or "less than 0.001 mm³" where that
+/// would read 0.000 (issue #801).
+fn rapid_volume(volume: f64) -> String {
+    if volume >= 0.0005 {
+        format!("{volume:.3} mm³")
+    } else {
+        "less than 0.001 mm³".to_owned()
+    }
 }
 
 /// A warning of `operation`'s path naming the operation: in the one form of
@@ -783,5 +827,31 @@ mod tests {
         assert!(several.ends_with(
             "make the tab longer. Read them, then acknowledge them to write the files."
         ));
+    }
+
+    #[test]
+    fn req_sim_03_req_gc_16_a_rapid_reads_with_its_depth_first_and_within_a_cell_as_a_contact() {
+        // Decision record 0661, option C (issue #801): a rapid deeper than one
+        // cell reads as a rapid cut, its depth first; one no deeper reads as a
+        // contact within the cell; a volume under 0.001 mm³ never reads 0.000.
+        let cut = |depth: f64, volume: f64| openchuck_sim::RapidCut {
+            segment: 289,
+            volume,
+            end: openchuck_types::geometry::Point3::ORIGIN,
+            depth,
+            cell: 0.1,
+        };
+        assert_eq!(
+            rapid_cut_text("Periscope", &cut(1.6, 0.016)),
+            "Rapid cut (operation 'Periscope'): move 289 is a rapid that goes 1.600 mm into the \
+             stock, deeper than the simulation's cell of 0.100 mm, and removes 0.016 mm³ of \
+             material."
+        );
+        assert_eq!(
+            rapid_contact_text("Propeller", &cut(0.04, 0.0004)),
+            "Rapid cut (operation 'Propeller'): move 289 is a rapid that touches the stock 0.040 \
+             mm deep, within the simulation's cell of 0.100 mm, and removes less than 0.001 mm³ \
+             of material."
+        );
     }
 }

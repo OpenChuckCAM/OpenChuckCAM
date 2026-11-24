@@ -948,6 +948,57 @@ fn req_sim_03_a_rapid_through_the_stock_is_reported() {
     assert!(cuts[0].volume > 1.0);
 }
 
+/// A rapid along X over the 30 mm stock with the tip `height` above the
+/// axis, simulated at `cell`: its rapid cuts.
+fn rapid_at(height: f64, cell: f64) -> Vec<openchuck_sim::RapidCut> {
+    let m = machine();
+    let profile = ball(4.0);
+    let mut g = group(
+        "op",
+        &[
+            turned_pose(&m, -20.0, 20.0, 0.0),
+            turned_pose(&m, -20.0, height, 0.0),
+        ],
+        MoveKind::Rapid,
+    );
+    g.segments
+        .push(segment(MoveKind::Rapid, turned_pose(&m, 20.0, height, 0.0)));
+    let stock = DexelStock::from_stock(&cylinder_stock(30.0, -12.0, 24.0), None, cell).unwrap();
+    let (_, results) = run(stock, &[(&g, &profile)]);
+    results[0].rapid_cuts.clone()
+}
+
+#[test]
+fn req_sim_03_req_sim_07_a_rapid_no_deeper_than_one_cell_is_within_the_resolution() {
+    // Decision record 0661, option C (issue #801): each rapid cut carries how
+    // deep it went into the stock along any column. A rapid grazing the
+    // stock by 0.03 mm at the 0.2 mm cell is within the resolution; one
+    // 0.4 mm deep is not.
+    let shallow = rapid_at(14.97, 0.2);
+    assert_eq!(shallow.len(), 1, "{shallow:?}");
+    let cut = &shallow[0];
+    assert!(cut.depth > 0.0 && cut.depth <= 0.03 + 1e-6, "{cut:?}");
+    assert!((cut.cell - 0.2).abs() < 1e-12, "{cut:?}");
+    assert!(!cut.deeper_than_cell(), "{cut:?}");
+    let deep = rapid_at(14.6, 0.2);
+    assert_eq!(deep.len(), 1, "{deep:?}");
+    let cut = &deep[0];
+    assert!((cut.depth - 0.4).abs() < 0.01, "{cut:?}");
+    assert!(cut.deeper_than_cell(), "{cut:?}");
+}
+
+#[test]
+fn req_sim_03_req_sim_07_a_finer_cell_gives_a_finer_threshold() {
+    // 0.15 mm into the stock: within a 0.2 mm cell, beyond a 0.1 mm one.
+    let coarse = rapid_at(14.85, 0.2);
+    let fine = rapid_at(14.85, 0.1);
+    assert_eq!(coarse.len(), 1, "{coarse:?}");
+    assert_eq!(fine.len(), 1, "{fine:?}");
+    assert!(!coarse[0].deeper_than_cell(), "{:?}", coarse[0]);
+    assert!(fine[0].deeper_than_cell(), "{:?}", fine[0]);
+    assert!((fine[0].depth - 0.15).abs() < 0.01, "{:?}", fine[0]);
+}
+
 #[test]
 fn req_sim_03_line_spans_follow_the_tool_tilt() {
     // A cross-check of the span solver against the closed form for a ball

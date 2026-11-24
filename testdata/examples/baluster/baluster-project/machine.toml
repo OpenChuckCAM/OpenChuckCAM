@@ -1,4 +1,4 @@
-schema = 25
+schema = 29
 id = "8f0c2a4e-1b7d-4e3a-9c61-5d2e7f4a1b01"
 
 [machine]
@@ -14,6 +14,7 @@ short_block_mode = "report"
 automatic_tool_length = true
 spindle_to_axis = 72.0
 recommended_min_safe_z = 45.0
+min_clearance_radius = 45.0
 
 [machine.rotary_origin]
 x = -198.39
@@ -101,3 +102,7 @@ source = "measured by the owner on firmware 1.1.3 (14 Nov 2026, decision 0649): 
 [machine.provenance.recommended_min_safe_z]
 state = "confirmed"
 source = "the owner's recommendation, confirmed by the owner (14 Nov 2026, decision 0649), from the minimum clearance radius measured for one chuck and jaw setup (the supplied Sanou K02-50, jaws reversed and fully open); it replaces 30 (decision 0317). The recommended minimum is 45 mm. This must be checked before machining."
+
+[machine.provenance.min_clearance_radius]
+state = "confirmed"
+source = "measured by the owner on firmware 1.1.3 (14 Nov 2026, decision 0649, OI-1780): a clearance radius of 45 mm about the rotary axis clears the supplied Sanou K02-50 chuck with its jaws in the reverse configuration, fully open (60 mm chuck opening). It holds for that chuck and jaw setup only: other chucks, jaw configurations and a tailstock are not covered, so set the setup's own minimum clearance for them. Jaws gripping smaller stock reach less far"

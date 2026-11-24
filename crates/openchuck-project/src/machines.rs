@@ -199,7 +199,7 @@ pub const MAKERA_Z1_ID: &str = "8f0c2a4e-1b7d-4e3a-9c61-5d2e7f4a1b01";
 
 /// The built-in Makera Z1 profile's name, which a copy stored without its ID
 /// keeps (decision record 0109).
-const MAKERA_Z1_NAME: &str = "Makera Z1";
+pub const MAKERA_Z1_NAME: &str = "Makera Z1";
 
 /// Migrates a machine file from before `max_feeds.rotary_in_feed` (decision
 /// record 0076): a profile with the built-in Z1's ID came from the Z1, whose

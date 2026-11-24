@@ -42,7 +42,7 @@ fn modal(
             .id_salt((key, "body"))
             .min_scrolled_height(0.0)
             .auto_shrink([false, false])
-            .show(ui, body);
+            .show_keeping_focus(ui, body);
         action
     });
     let escape = shown.is_top_modal

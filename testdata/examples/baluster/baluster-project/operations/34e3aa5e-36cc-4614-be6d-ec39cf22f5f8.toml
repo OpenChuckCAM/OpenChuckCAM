@@ -1,4 +1,4 @@
-schema = 25
+schema = 29
 id = "34e3aa5e-36cc-4614-be6d-ec39cf22f5f8"
 order = "W"
 name = "Finish"
@@ -9,3 +9,4 @@ selections = []
 
 [parameters]
 adaptive_spacing = false
+exact_contact = true

@@ -4,6 +4,8 @@
 //! running, and holds the licence texts in a scrollable box. Close is the one primary action;
 //! Copy copies the build information, and only that, to the clipboard.
 
+use crate::focus::KeepFocus as _;
+use crate::focus::Tip as _;
 use eframe::egui::{self, RichText};
 
 use crate::theme::DARK;
@@ -70,11 +72,8 @@ fn log_section(ui: &mut egui::Ui) {
         Some(path) => ui.label(RichText::new(path.display().to_string()).monospace()),
         None => ui.label("This run is not writing a log file."),
     };
-    let button = ui.button("Open log folder").on_hover_text(LOG_TIP);
     // The tooltip opens on keyboard focus as well as on hover (specification 16).
-    if button.has_focus() && !button.hovered() {
-        button.show_tooltip_text(LOG_TIP);
-    }
+    let button = ui.button("Open log folder").tip(LOG_TIP);
     if button.clicked() {
         let result = crate::logging::open_log_folder();
         ui.data_mut(|d| d.insert_temp(failure, result.err()));
@@ -117,7 +116,7 @@ pub fn show(ui: &mut egui::Ui, build: &str, licences: &str, project: Option<&str
     egui::ScrollArea::vertical()
         .id_salt("about licences")
         .max_height(220.0)
-        .show(ui, |ui| {
+        .show_keeping_focus(ui, |ui| {
             ui.add(
                 crate::theme::multi_line(&mut shown)
                     .font(egui::TextStyle::Monospace)
@@ -135,11 +134,8 @@ pub fn show(ui: &mut egui::Ui, build: &str, licences: &str, project: Option<&str
     egui::containers::Sides::new().show(
         ui,
         |ui| {
-            let copy = ui.button("Copy build information").on_hover_text(COPY_TIP);
             // The tooltip opens on keyboard focus as well as on hover (specification 16).
-            if copy.has_focus() && !copy.hovered() {
-                copy.show_tooltip_text(COPY_TIP);
-            }
+            let copy = ui.button("Copy build information").tip(COPY_TIP);
             if copy.clicked() {
                 ui.ctx().copy_text(build.to_owned());
             }

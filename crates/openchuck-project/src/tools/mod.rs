@@ -124,6 +124,7 @@ mod tests {
                 flute_count: 2,
                 material: Some("carbide".into()),
                 centre_cutting: None,
+                stick_out: None,
             },
             cutting_data: CuttingTable::from([(
                 "oak".to_owned(),
@@ -149,6 +150,7 @@ mod tests {
                 },
                 material: None,
                 centre_cutting: None,
+                stick_out: None,
                 ..flat(0).tool
             },
             cutting_data: CuttingTable::new(),

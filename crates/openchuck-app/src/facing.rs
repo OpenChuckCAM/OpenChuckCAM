@@ -175,6 +175,7 @@ mod tests {
             flute_count: 2,
             material: None,
             centre_cutting: Some(true),
+            stick_out: None,
         };
         let machine = MachineProfile::example_x_rotary();
         let setup = FacingSetup {

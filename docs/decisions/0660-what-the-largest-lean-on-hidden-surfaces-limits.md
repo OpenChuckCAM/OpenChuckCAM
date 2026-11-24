@@ -1,0 +1,65 @@
+# 0660: What the largest lean on hidden surfaces limits, and what its note measures (OP-20, OP-06, NFR-12; issue #619; lane SIM-FINISH)
+
+- **Status:** Accepted by the project owner on 22 Nov 2026, relayed by the coordinator (decision 0049), with the departure in *As built* (the note gives the axis's actual largest angle from the surface normal along the passes, and the lean is measured from the normal). Proposed by lane SIM-FINISH the same day; the owner chose option A, relayed. Built in the lane's pull request.
+- **Date:** 22 Nov 2026.
+- **Context:** OP-20 (simultaneous finishing of hidden surfaces, with a user-set largest lean), OP-06 (tool axis from the normal), NFR-12 (the user verifies the program). [Decision 0368](0368-simultaneous-finishing-of-hidden-surfaces.md) items 2 and 4 (the reach search and the note), decision 0036 item 4 (the smoothed normal). It changes no requirement and no architecture.
+- **Open items:** OI-2165 (the owner's choice), answered: option A.
+
+## What the issue reports
+
+On the public crankshaft example (`testdata/examples/crankshaft-simultaneous`, `testdata/step/valid/crankshaft.step`) with one Finish (simultaneous finishing, Z1 ball 3.175, every other parameter at its default), setting **Largest lean on hidden surfaces** (`max_hidden_lean`) to 0 gives byte-identical G-code to the default 90, and the note still says the tool leans "up to 2.2 degrees". The parameter's description says "0 keeps it on the normal. Anything needing more is left uncut and listed in a warning", and no warning appears.
+
+## What was found (`main` 57b8ac1b, Linux, release build, Makera Z1 post)
+
+Reproduced: both programs have SHA-256 `598354381f2b…`, and both notes say "up to 2.2 degrees (at X 28.150, A 118.471)". The limit is applied; on this part nothing needs it:
+
+1. **No hidden point needs a lean.** At every hidden point the passes try for reach and reach (about 1,830 points on 92 contours, 0.2 mm apart, `REACH_SPACING`), the tool reaches the surface on its normal: the axis found is the normal's angle exactly at lean 0 and at lean 90 (largest difference 0.0000 degrees, measured by temporary instrumentation, not committed). So nothing is unreached and no warning is due.
+2. **The limit does narrow the band, but the band changes nothing here.** At 90 each point's band of reachable angles is up to 19 degrees wide (the largest tilt, 10, either side, cut back where the part is in the way); at 0 it is a single angle. The band is only used to take out reversals of A along a contour (`smooth_gates`), and the normal turns one way along every contour of this part, so there is nothing to take out and the axis is the same.
+3. **The 2.2 degrees is not a lean chosen to reach the surface.** The note's figure is the largest difference, at the points of the fitted pass, between the tool axis and the surface normal at that point (`note_hidden`). The axis is set at the reach points and turns evenly between them, while the normal of this part's fillets turns up to 2.19 degrees between two neighbouring reach points (measured). So the axis can be up to about one point's turn of the normal away from the normal in between, whatever the limit.
+4. **With a lead the limit visibly works.** On the lane's build (`main` with this lane's lead-in timing and helical changes, which do not touch the hidden passes' axis), with a lead of 10 degrees, lean 90 gives "up to 12.2 degrees" (the lead plus the 2.2) and lean 0 gives "up to 2.2 degrees" and a different program (SHA-256 `7965d821…` and `c8d3c631…`): at 0 the lead is held back on hidden passes, as decision 0368 item 2 says (the search starts at the normal plus the lead, within the limit).
+
+So the program is right by decision 0368; what misleads is the note's figure, and the description's "0 keeps it on the normal", which holds at the reach points only.
+
+## Options
+
+- **A. Correct the note and the description; no program change (recommended).**
+  - The note gives the lean that reaching the surface needed: the largest difference, at the reach points, between the axis found and the normal plus the lead. Where that is zero it says the tool is on the surface normal (with the lead, where one is set and the limit allows it).
+  - It says separately that between the reach points, 0.2 mm apart, the axis turns evenly, so it can differ from the normal there by up to the largest turn of the normal between two of them (2.2 degrees on the crankshaft), as the main passes' note says A is smoothed.
+  - The tool-holder warning keeps the largest angle of the axis from the normal (it is what the holder would meet).
+  - The parameter's description says the limit applies where the tool is placed to reach the surface (every 0.2 mm along each hidden pass), that 0 also holds back the lead there, and that between those places the axis turns evenly.
+  - Cost: wording only, plus tests; every program stays byte-identical.
+- **B. Hold the limit at every point of the pass.** Where the normal at a point of the fitted pass is further from the interpolated axis than the limit, add reach points there until it is not (or the pass breaks). At 0 the axis then follows the normal everywhere, to within a small fixed margin. Programs with hidden passes change (more points on curved hidden surfaces, longer generation), the `lobed` golden and the crankshaft example among those to check. The limit still could not make the axis follow a normal that turns faster than the path fitter's chord limit allows.
+- **C. Change the description only.** Say the limit applies at the reach points; leave the note's figure as it is. Cheapest, but the note would still report a lean above a limit of 0, which is what the issue found misleading.
+
+## Recommendation
+
+Option A. The limit exists so the user can stop the tool cutting a hidden wall with its side (decision 0368 items 2 and 9); it does that at every point the tool is placed to reach a surface. The difference between reach points is the same smoothing the main passes already describe, and option B would buy a few tenths of a degree on curved fillets at the cost of changing every program with hidden passes. Generated G-code stays the user's to verify before it runs on a machine (NFR-12).
+
+## As built (option A)
+
+- **The note** (`crates/openchuck-path/src/simultaneous.rs`, `hidden_reach` and `hidden_lean_text`) now reads: "surfaces hidden from the drive (...) between X a and b are finished with passes of their own after the main ones; where the tool is placed to reach them, every 0.2 mm along each pass, it is on the surface normal[ lead]; between those places the tool axis turns evenly, and along the passes it is up to M degrees from the surface normal; [shank]". Where the part does not let the tool be on what it aims at everywhere, the placed clause reads "it is on the surface normal[ lead] where the part lets it, and elsewhere leans from the normal as little as the part lets it, up to N degrees (at X x)".
+  - The tool aims at the normal's angle plus the lead used, which the limit caps; each `hidden::Sample` now keeps that angle (`target`). The note says the tool is on it everywhere when no reach point the passes cut is more than 0.05 degrees from it.
+  - Only the reach points inside the operation's region, boundary and avoid sets count (the scope the unreached areas already use), so the note never names a place no pass cuts (CodeRabbit on #837).
+  - N is the largest lean of the axis from the normal itself at those reach points: the lean the limit caps, so it is never more than the limit. (Measured from the normal plus the lead instead, it could be more than the limit where the limit allows part of the lead: 8.1 degrees at a limit of 5 on the two pins of the test below.)
+  - The lead clause: none without a lead; " plus the L degree lead" where the limit allows all of it; " plus U degrees of the L degree lead (the largest lean on hidden surfaces is U degrees)" where it allows part; " without the L degree lead (the largest lean on hidden surfaces is 0 degrees)" at 0.
+  - M is the largest angle of the axis from the normal at the points of the fitted passes: the figure the note gave before (2.2 degrees on the crankshaft at any limit; 12.2 with a lead of 10 at 90), which the tool-holder warning keeps.
+- **One departure from the option's words, accepted by the owner.** Option A said the note gives "the normal's turn between" reach points. Measured literally (the largest change of the normal's angle between two neighbouring reach points), that is 2.2 degrees on the crankshaft, but 108.8 degrees on the 6 mm keyway, where two neighbouring reach points lie either side of the sharp corner between the slot's floor and wall: a number no axis ever leans. The note gives instead the largest angle the axis actually has from the normal along the passes (M above), which is the same 2.2 degrees on the crankshaft and is true on every part.
+- **The description** of `max_hidden_lean`: "... Where the tool is placed to reach such a surface, every 0.2 mm along each pass, it aims at the surface normal plus the lead and leans from that as little as the part lets it reach, never more than this angle from the normal itself: 90 lets it cut a wall with its side, 0 keeps it on the normal there and also holds back the lead. Between those places the tool axis turns evenly. Anything needing more is left uncut and listed in a warning." (The limit is measured from the normal, not from the normal plus the lead: CodeRabbit on #837.)
+- **The user guide**: the parameter's row in `user-docs/src/reference/operations.md`, and in `user-docs/src/examples/simultaneous-finishing.md` the parameter's paragraph (the "under review (#619)" sentence goes), the quoted note and the table's lean column.
+- No program changes: the passes, the axis and the tool-holder warning are as before. No project schema; no library API change (the note text and the description are not API), so no version bump.
+
+## Verification
+
+- Reproduced with `openchuck-cli regenerate <project> --post makera-z1 --tool-numbers keep --out <dir>` on a copy of `testdata/examples/crankshaft-simultaneous/crankshaft-project` with one operation added (`simultaneous_finishing`, tool `c0de0001-0000-4000-8000-000000000204`, parameters as stated above), built from `main` 57b8ac1b in release on Linux with the STEP worker. Lean 90 and lean 0: identical SHA-256 (on `main`); lead 10 with lean 90 and 0: different, notes as quoted (on the lane's build, item 4).
+- The per-point figures (largest |axis − normal| at the reach points 0.0000 degrees; bands 19 and 0 degrees; largest turn of the normal between neighbouring reach points 2.194 degrees) came from temporary `eprintln!` lines in `hidden.rs`, removed before commit.
+- Not verified: other parts with hidden surfaces (the keyway tests in `simultaneous_hidden.rs` already show the limit leaving walls that need more lean, with the warning naming `max_hidden_lean`).
+
+### After the change (option A, built)
+
+- On the lane's build (release, Linux, Makera Z1 post, the same copy of the crankshaft example): the programs are byte-identical to `main`'s (lean 90 and 0: SHA-256 `598354381f2b…`; lead 10 at 90 and at 0: `7965d821…` and `c8d3c631…`, as before). The note at lean 90 and at 0 reads "... where the tool is placed to reach them, every 0.2 mm along each pass, it is on the surface normal; between those places the tool axis turns evenly, and along the passes it is up to 2.2 degrees from the surface normal; ...". With lead 10: "... it is on the surface normal plus the 10 degree lead; ... up to 12.2 degrees ..." at 90, and "... it is on the surface normal without the 10 degree lead (the largest lean on hidden surfaces is 0 degrees); ... up to 2.2 degrees ..." at 0.
+- Tests, written from this record's option A and run first against the old code, where all three failed (`crates/openchuck-path/tests/simultaneous_hidden.rs`, uninstrumented debug build on 4 cores):
+  - `simultaneous_hidden::req_op_20_req_op_06_the_note_gives_the_lean_where_the_tool_is_placed_within_the_limit` (6 mm keyway, limits 90 and 30: the lean the note gives where the tool is placed is more than 10 degrees and never more than the limit; the "between those places" clause is there), 14 s;
+  - `simultaneous_hidden::req_op_20_req_op_06_the_note_says_how_much_of_the_lead_the_limit_lets_the_tool_take` (two pins 4 mm in radius side by side, lead 10, limits 0, 5 and 90: the note says the tool is on the normal without the lead, with 5 of its 10 degrees, or with all of it, and its lean from the normal is never more than the limit), 16 s;
+  - `simultaneous_hidden::req_op_20_the_largest_lean_says_where_it_applies_in_the_program_and_the_guide` (the parameter's description and its row in the guide's reference say where the limit applies and that 0 holds back the lead), under 1 s.
+- Every test of `openchuck-path` whose name matches `simultaneous`, `hidden` or `req_op_20` passes with the change (79 tests, 419 s).
+- Not verified: a re-capture of the guide's screens (their figures show the tool-holder warning, which is unchanged, not this note).

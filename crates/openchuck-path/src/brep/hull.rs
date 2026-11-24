@@ -19,7 +19,7 @@ use openchuck_types::geometry::{Aabb, Point3, Vec3};
 /// A homogeneous control point `(w x, w y, w z, w)`.
 pub(super) type Hom = [f64; 4];
 
-fn lerp(a: Hom, b: Hom, t: f64) -> Hom {
+pub(super) fn lerp(a: Hom, b: Hom, t: f64) -> Hom {
     [
         a[0] + (b[0] - a[0]) * t,
         a[1] + (b[1] - a[1]) * t,
@@ -28,7 +28,7 @@ fn lerp(a: Hom, b: Hom, t: f64) -> Hom {
     ]
 }
 
-fn project(h: Hom) -> Point3 {
+pub(super) fn project(h: Hom) -> Point3 {
     let w = h[3];
     Point3::new(h[0] / w, h[1] / w, h[2] / w)
 }
@@ -508,7 +508,12 @@ fn insert(k: &mut Vec<f64>, p: usize, c: &mut Vec<Hom>, t: f64) {
 
 /// The Bezier pieces of a clamped degree-`p` curve, with `cuts` as extra
 /// knots: `(t0, t1, points)` for each non-empty piece.
-fn pieces(knots: &[f64], p: usize, ctrl: &[Hom], cuts: &[f64]) -> Vec<(f64, f64, Vec<Hom>)> {
+pub(super) fn pieces(
+    knots: &[f64],
+    p: usize,
+    ctrl: &[Hom],
+    cuts: &[f64],
+) -> Vec<(f64, f64, Vec<Hom>)> {
     let mut k = knots.to_vec();
     let mut c = ctrl.to_vec();
     let (Some(&lo), Some(&hi)) = (k.get(p), k.get(c.len())) else {
@@ -555,6 +560,91 @@ fn pieces(knots: &[f64], p: usize, ctrl: &[Hom], cuts: &[f64]) -> Vec<(f64, f64,
     out
 }
 
+/// The rational Bezier pieces of a patch of degrees `(pu, pv)` with `nu x
+/// nv` poles (u major), cut at the edges of the parameter box `clip` and
+/// kept only inside it, by exact knot insertion. `None` when the patch's
+/// knots do not give clean pieces, a coordinate is not finite or no piece
+/// lies in the box.
+pub(super) fn bezier_nets(
+    (pu, pv): (usize, usize),
+    (nu, nv): (usize, usize),
+    (uk, vk): (&[f64], &[f64]),
+    poles: &[Point3],
+    weights: &[f64],
+    clip: [f64; 4],
+) -> Option<Vec<Net>> {
+    let hom: Vec<Hom> = poles
+        .iter()
+        .zip(weights)
+        .map(|(p, &w)| [p.x * w, p.y * w, p.z * w, w])
+        .collect();
+    if hom.len() != nu * nv || pu == 0 || pv == 0 {
+        return None;
+    }
+    // Along u for each column j, then along v for each u piece.
+    let mut columns = Vec::with_capacity(nv);
+    for j in 0..nv {
+        let col: Vec<Hom> = (0..nu)
+            .map(|i| hom.get(i * nv + j).copied().unwrap_or([f64::NAN; 4]))
+            .collect();
+        columns.push(pieces(uk, pu, &col, &[clip[0], clip[1]]));
+    }
+    let n_upieces = columns.first().map_or(0, Vec::len);
+    let mut nets = Vec::new();
+    for a in 0..n_upieces {
+        let Some((u0, u1, _)) = columns.first().and_then(|c| c.get(a)) else {
+            continue;
+        };
+        let (u0, u1) = (*u0, *u1);
+        if u1 <= clip[0] || u0 >= clip[1] {
+            continue;
+        }
+        // For each of the pu + 1 rows of this u piece, split along v.
+        let mut rows = Vec::with_capacity(pu + 1);
+        for i in 0..=pu {
+            let row: Vec<Hom> = columns
+                .iter()
+                .map(|c| {
+                    c.get(a)
+                        .and_then(|p| p.2.get(i))
+                        .copied()
+                        .unwrap_or([f64::NAN; 4])
+                })
+                .collect();
+            rows.push(pieces(vk, pv, &row, &[clip[2], clip[3]]));
+        }
+        let n_vpieces = rows.first().map_or(0, Vec::len);
+        for b in 0..n_vpieces {
+            let Some((v0, v1, _)) = rows.first().and_then(|r| r.get(b)) else {
+                continue;
+            };
+            let (v0, v1) = (*v0, *v1);
+            if v1 <= clip[2] || v0 >= clip[3] {
+                continue;
+            }
+            let mut pts = Vec::with_capacity((pu + 1) * (pv + 1));
+            for r in &rows {
+                let piece = r.get(b)?;
+                pts.extend_from_slice(piece.2.get(..=pv)?);
+            }
+            nets.push(Net {
+                du: pu,
+                dv: pv,
+                pts,
+                uv: [u0, u1, v0, v1],
+            });
+        }
+    }
+    if nets
+        .iter()
+        .any(|n| n.pts.iter().flatten().any(|x| !x.is_finite()))
+        || nets.is_empty()
+    {
+        return None;
+    }
+    Some(nets)
+}
+
 impl HullTree {
     /// The tree for a patch of degrees `(pu, pv)` with `nu x nv` poles (u
     /// major), over the parameter box `clip`. Cells are split until their box
@@ -570,75 +660,7 @@ impl HullTree {
         leaf: f64,
         depth: usize,
     ) -> Option<Self> {
-        let hom: Vec<Hom> = poles
-            .iter()
-            .zip(weights)
-            .map(|(p, &w)| [p.x * w, p.y * w, p.z * w, w])
-            .collect();
-        if hom.len() != nu * nv || pu == 0 || pv == 0 {
-            return None;
-        }
-        // Along u for each column j, then along v for each u piece.
-        let mut columns = Vec::with_capacity(nv);
-        for j in 0..nv {
-            let col: Vec<Hom> = (0..nu)
-                .map(|i| hom.get(i * nv + j).copied().unwrap_or([f64::NAN; 4]))
-                .collect();
-            columns.push(pieces(uk, pu, &col, &[clip[0], clip[1]]));
-        }
-        let n_upieces = columns.first().map_or(0, Vec::len);
-        let mut nets = Vec::new();
-        for a in 0..n_upieces {
-            let Some((u0, u1, _)) = columns.first().and_then(|c| c.get(a)) else {
-                continue;
-            };
-            let (u0, u1) = (*u0, *u1);
-            if u1 <= clip[0] || u0 >= clip[1] {
-                continue;
-            }
-            // For each of the pu + 1 rows of this u piece, split along v.
-            let mut rows = Vec::with_capacity(pu + 1);
-            for i in 0..=pu {
-                let row: Vec<Hom> = columns
-                    .iter()
-                    .map(|c| {
-                        c.get(a)
-                            .and_then(|p| p.2.get(i))
-                            .copied()
-                            .unwrap_or([f64::NAN; 4])
-                    })
-                    .collect();
-                rows.push(pieces(vk, pv, &row, &[clip[2], clip[3]]));
-            }
-            let n_vpieces = rows.first().map_or(0, Vec::len);
-            for b in 0..n_vpieces {
-                let Some((v0, v1, _)) = rows.first().and_then(|r| r.get(b)) else {
-                    continue;
-                };
-                let (v0, v1) = (*v0, *v1);
-                if v1 <= clip[2] || v0 >= clip[3] {
-                    continue;
-                }
-                let mut pts = Vec::with_capacity((pu + 1) * (pv + 1));
-                for r in &rows {
-                    let piece = r.get(b)?;
-                    pts.extend_from_slice(piece.2.get(..=pv)?);
-                }
-                nets.push(Net {
-                    du: pu,
-                    dv: pv,
-                    pts,
-                    uv: [u0, u1, v0, v1],
-                });
-            }
-        }
-        if nets
-            .iter()
-            .any(|n| n.pts.iter().flatten().any(|x| !x.is_finite()))
-            || nets.is_empty()
-        {
-            return None;
-        }
+        let nets = bezier_nets((pu, pv), (nu, nv), (uk, vk), poles, weights, clip)?;
         let mut tree = Self {
             nodes: Vec::new(),
             nets: Vec::new(),
