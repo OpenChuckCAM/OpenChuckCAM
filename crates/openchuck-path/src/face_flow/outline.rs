@@ -774,9 +774,9 @@ pub(super) fn cut_outline(
             return Err(PathError::refused(
                 crate::topic::FACE_FLOW,
                 format!(
-                    "face {} would need more than {MAX_PASSES} passes along its outline: raise \
-                     the stepover",
-                    id.0
+                    "face {} would need more than {} along its outline: raise the stepover",
+                    id.0,
+                    crate::counted(MAX_PASSES, "pass", "passes")
                 ),
             )
             .with_setting(crate::params::names::STEPOVER));
