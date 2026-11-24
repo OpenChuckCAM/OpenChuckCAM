@@ -41,7 +41,7 @@ def run(cap, work):
     cap.shot("04-tab-length-warnings")
     hover_shot(cap, 114, 550, "04a-needs-acknowledging")  # the warning mark on 1 Rough (decision 0538)
     cap.scroll(1750, 600, 2, down=False)       # back up past the Kept clear row to Grip length
-    cap.fill(1810, 194, "14")                  # Grip length: the held region now reaches 1 mm into the part
+    cap.fill(1810, 274, "14")                  # Grip length: the held region now reaches 1 mm into the part
     # (13 mm would leave a head zone of 0.0002 mm, from the samples' shift of 17.990234375 mm)
     cap.pause(2)
     cap.shot("05-no-room")

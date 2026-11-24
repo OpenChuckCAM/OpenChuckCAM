@@ -1,10 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 # Written by user-docs/tools/capture.py. Add reviewed_at = "<commit>" after checking the
 # screens against a later build without re-capturing (user-docs/STYLE.md, Figures).
-captured_at = "e9e3472b3a4d36bbf9fe09d7fadbb82f7eb88850"
-captured_on = "2026-11-15"
+captured_at = "b352ed5b161301fba1999c6243c9cca63297243f"
+captured_on = "2026-11-24"
 renderer = "Mesa lavapipe (software Vulkan) on Xvfb"
 window = "1920x1080"
-# No reviewed_at: the earlier stamp (a005f1e6, lane Z1-SETUP PR 2) named a branch commit that is not in main's history.
-# These STEP screens (they need the STEP reader) have not been checked against main since #852, whose tool-length
-# messages and Stick-out could change the Messages and Results counts; a re-capture or a review is a separate task.
