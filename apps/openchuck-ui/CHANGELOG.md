@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased (PROJECT-UX-B; issue #705; record PROJUX-B-1, proposed)
+
+- **Added:** the undo history popover: the title bar's history button at the right of Undo and Redo, Edit > Undo history and Ctrl H open it; steps newest first, undone steps in italics marked "undone", "Saved … ago" under the step last saved; choosing a row returns to it through the Undo guard; a chosen row is logged without its text (NFR-18).
+- **Fixed:** the title bar's menus took its whole width, so the project's name, its save state, Undo and Redo were drawn outside the window; the menus now take only their own width.
+
 
 ## Unreleased (FACEFLOW; issues #614 and #615)
 

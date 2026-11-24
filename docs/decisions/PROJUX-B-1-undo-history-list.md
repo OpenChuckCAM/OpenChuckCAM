@@ -42,7 +42,8 @@ Tests written first from UI-22 and section 12.3, named by requirement. They use 
   - `undo_history::req_ui_22_returning_to_a_step_gives_the_same_project_as_that_many_undos_or_redos`: every step back and forward (0.01 s);
   - `undo_history::req_ui_22_req_nfr_07_a_step_that_does_not_exist_is_refused_and_changes_nothing` (0.01 s);
   - `undo_history::req_ui_22_the_last_save_is_marked_and_goes_when_its_state_is_discarded` (0.02 s);
-  - `undo_history::req_ui_22_the_history_starts_at_the_project_as_opened` (0.02 s).
+  - `undo_history::req_ui_22_the_history_starts_at_the_project_as_opened` (0.02 s);
+  - `undo_history::req_ui_22_project_settings_and_several_items_are_named_too`: project-wide settings, all toolpaths hidden, a model's units in words, and a batch over several items named "<first> and 1 more" (0.01 s).
 - `openchuck-app`, `tests/undo.rs`: `undo::req_ui_22_returning_to_a_step_equals_that_many_undos_or_redos`, a property test (256 cases) with random edits of every kind and random jumps, checked against the project read by single undos (0.6 s).
 - `openchuck-app`, `src/history.rs` unit tests: numbers without trailing zeros, labels inside a sentence, values with their unit (`req_ui_22_*`).
 - `openchuck-ui`, `shell/history_tests.rs`, through real frames:
@@ -54,7 +55,15 @@ Tests written first from UI-22 and section 12.3, named by requirement. They use 
   - `req_ui_22_the_edit_menu_opens_it`;
   - `req_ui_08_req_ui_22_the_title_bar_shows_the_name_undo_redo_and_history`: the regression for item 8. On `main` the name, Undo and Redo were not drawn.
 
-Results, commands, environment and coverage are added below when the checks have run.
+### Results (lane PROJECT-UX-B, 25 Nov 2026)
+
+Environment: managed Linux x86_64 container, Rust 1.97.0, debug builds. The branch `claude/lane-projux-b-1-undo-history` was first built on `main` `6b039e5`, then rebased onto `361613e` (FACEFLOW #854) before the push. Every test was timed uninstrumented with `cargo nextest run`.
+
+- Before the rebase: `cargo nextest run -p openchuck-ui`: 760 of 760 passed, 1 skipped, in 651 s. The new tests take 0.2 to 0.4 s. The slowest tests are the existing playback tests (about 157 s each), already classified. `cargo nextest run -p openchuck-app -p openchuck-project`: 1119 of 1119 passed, 1 skipped, in 1374 s. The new tests take 0.01 to 1.8 s; the 1.8 s one is the property test. No new test is near a minute, so none is added to `.config/nextest.toml`.
+- The first full UI run found two failures, both fixed before the push. The source scan `focus::tests::req_ui_14_every_scroll_area_keeps_the_focused_control_in_view` needed the history list to use `show_keeping_focus`. `shell::model_copy_tests::req_prj_02_not_now_keeps_the_link_marked_with_a_way_to_copy_it` looked for the text "linked" anywhere on screen, and its project, named "linked", is now in the title bar (item 8). It now looks below the title bar.
+- After the rebase: the full `openchuck-ui` and `openchuck-app` suites were run again (results in the pull request).
+- `cargo fmt --all`, `cargo clippy --workspace --all-targets` (no warnings), `cargo xtask deps`, `licences`, `records` and `trace` (105 of 105 P1 requirements have tests), and `cargo xtask changelog check-pr` all pass.
+- Coverage, report-only under decision 0102. The instrumented run used the tests that reach the changed code: `cargo llvm-cov nextest --profile coverage -p openchuck-app -p openchuck-ui -E 'test(~req_ui_22) | test(~req_ui_08) | test(~undo) | test(~history) | test(~req_nfr_18) | test(~model_copy_tests) | test(~open_recovery) | test(~checkpoint)'` ran 135 tests, all passing, in 363 s. Line coverage of the changed files: `openchuck-app/src/history.rs` 92.1%, `openchuck-ui/src/shell/history.rs` 93.8%, `openchuck-ui/src/shell/actions.rs` 97.7%. The application file's uncovered names (project-wide settings and mixed batches) then got the last test above. Two UI paths stay uncovered: the guard's deferral of a jump while a field holds unconfirmed text, which is the same `defer` as Undo and is tested there (decision 0233), and the error dialog for a refused jump, which the list cannot cause because it offers only steps that exist (NFR-07, defensive). The whole-crate figures were not run instrumented, because both suites take over half an hour uninstrumented. The nightly coverage run measures them. `cargo llvm-cov clean --workspace` was run afterwards.
 
 Not verified here: native Windows and macOS drawing, keys and screen readers; that is the owner's check (OI-9942).
 
