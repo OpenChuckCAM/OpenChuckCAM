@@ -70,6 +70,7 @@ Sizes are logical pixels at 100% scale. The default scale is 100% (decision 0148
 - **Splitters** are 5 pixels with a grip mark. Double-clicking one resets its panel to the default size.
 - **Collapsing.** The project panel, the inspector and the dock collapse with the chevron in their headers, or Ctrl 1, Ctrl 2 and Ctrl 3. A collapsed side panel leaves a 28-pixel rail with its icon. The collapsed dock leaves a rail with its tabs at the left and its open button at the right end, where the open dock's collapse button is (decision 0440). *(UI-16)*
 - **Smallest window.** At 100% scale, everything stays usable at 1366 × 768 logical pixels (UI-16). At the default 100% a 1366 × 768 screen gives the full 1366 × 768 logical pixels, so no change of scale is needed. At that size: the panels keep their defaults, the viewport shrinks, and overlays keep clear of each other (the "Operations at 1366 × 768" board). Below that size the dock collapses, and the inspector too when the viewport would be narrower than 420 pixels. Neither is kept as the user's choice: the user can open either again, and the rule applies afresh once the window is large again. *(UI-16)*
+- **Opening the window.** The first time, the window opens maximised. Later it opens as it was closed: maximised, or at the size it had, centred on the screen (the primary screen where there are several). Its position is not kept, so it never opens off the screen; a maximised window keeps its normal size, which it goes back to, centred, when un-maximised. Where the platform does not let an application place its window (Wayland), the system places it. *(UI-15, UI-16; decision DISPLAY-TARGET-A)*
 - **Remembered layout.** Panel sizes, collapsed panels, open sections, scale and theme are remembered per user on the computer, never in the project (section 13). *(UI-15)*
 - **Dialogs.**
   - Modal dialogs (open, new, unsaved changes, errors) stay inside the main window.
@@ -901,7 +902,7 @@ SET-10, SET-01, UI-13, TL-11, NFR-07; [decision 0380](../decisions/0380-machine-
 *(UI-15)*
 
 - **Kept per user on the computer, never in the project:**
-  - window and panel layout;
+  - window and panel layout (the window's normal size and whether it was maximised, not its position; section 3, "Opening the window");
   - scale and theme;
   - display units;
   - recent projects;

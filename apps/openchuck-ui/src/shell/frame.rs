@@ -233,9 +233,15 @@ impl Shell {
             self.settings.scale = clamped;
             self.settings_touched();
         }
-        // The window's size is part of its layout (UI-15).
+        // The window's size and whether it is maximised are part of its
+        // layout (UI-15); a maximised window keeps its normal size, so the
+        // next start opens maximised or centred at that size (UI-16).
         if self.bench.is_none()
-            && let Some(rect) = ctx.input(|i| i.viewport().inner_rect)
+            && let Some((rect, state)) = ctx.input(|i| {
+                let info = i.viewport();
+                info.inner_rect
+                    .map(|rect| (rect, crate::window_start::state(info)))
+            })
         {
             // In the window's logical pixels, as the platform sizes it: egui's
             // points are those divided by the scale.
@@ -243,8 +249,7 @@ impl Shell {
                 (rect.width() * zoom).round(),
                 (rect.height() * zoom).round(),
             ];
-            if self.settings.window != Some(size) {
-                self.settings.window = Some(size);
+            if self.settings.window_seen(size, state) {
                 self.settings_touched();
             }
         }

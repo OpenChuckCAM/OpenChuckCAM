@@ -514,6 +514,52 @@ fn req_ui_15_the_layout_and_scale_survive_a_restart() {
     assert!((rig.ctx.zoom_factor() - 2.0).abs() < 1e-6);
 }
 
+/// Draws one frame with the window as the platform reports it: its inner size
+/// in logical pixels and whether it is maximised.
+fn window_frame(rig: &mut Rig, size: egui::Vec2, maximized: bool) {
+    let mut input = egui::RawInput {
+        screen_rect: Some(egui::Rect::from_min_size(egui::Pos2::ZERO, rig.size)),
+        ..Default::default()
+    };
+    let info = input.viewports.get_mut(&egui::ViewportId::ROOT).unwrap();
+    info.inner_rect = Some(egui::Rect::from_min_size(egui::Pos2::ZERO, size));
+    info.maximized = Some(maximized);
+    let mut output = rig.ctx.run_ui(input, |ui| rig.shell.draw(ui));
+    output.textures_delta.clear();
+}
+
+/// A maximised window is kept as maximised and does not replace the normal
+/// size, so the next start opens maximised and un-maximising goes back to
+/// the normal size, centred (UI-15, UI-16; the owner's answers Q6 A, Q7 A).
+#[test]
+fn req_ui_15_req_ui_16_a_maximised_window_keeps_its_normal_size_for_the_next_start() {
+    use openchuck_app::settings::WindowStart;
+    let mut rig = Rig::cube("frame-maximised", None);
+    window_frame(&mut rig, egui::vec2(1200.0, 800.0), false);
+    assert_eq!(rig.shell.settings.window, Some([1200.0, 800.0]));
+    assert!(!rig.shell.settings.maximised);
+    rig.shell.settings_changed = None;
+    window_frame(&mut rig, egui::vec2(1920.0, 1009.0), true);
+    assert_eq!(rig.shell.settings.window, Some([1200.0, 800.0]));
+    assert!(rig.shell.settings.maximised);
+    assert!(rig.shell.settings_changed.is_some());
+    assert_eq!(
+        rig.shell.settings.window_start(),
+        WindowStart::Maximised {
+            restore: Some([1200.0, 800.0])
+        }
+    );
+    // Seen again maximised: nothing changed, so nothing is written.
+    rig.shell.settings_changed = None;
+    window_frame(&mut rig, egui::vec2(1920.0, 1009.0), true);
+    assert!(rig.shell.settings_changed.is_none());
+    window_frame(&mut rig, egui::vec2(1200.0, 800.0), false);
+    assert_eq!(
+        rig.shell.settings.window_start(),
+        WindowStart::Centred([1200.0, 800.0])
+    );
+}
+
 #[test]
 fn req_ui_14_rename_duplicate_and_move_by_key() {
     let mut rig = Rig::cube("frame-keys", None);

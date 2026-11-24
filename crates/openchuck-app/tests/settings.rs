@@ -6,7 +6,7 @@
 
 use std::path::PathBuf;
 
-use openchuck_app::settings::{SettingsFile, ThemeChoice, UserSettings};
+use openchuck_app::settings::{SettingsFile, ThemeChoice, UserSettings, WindowStart, WindowState};
 use openchuck_app::{Acknowledgements, Application, Threads};
 
 #[test]
@@ -454,5 +454,102 @@ fn req_nfr_07_req_ui_15_the_settings_text_read_gives_defaults_and_a_message_neve
             .settings
             .checkpoint_minutes,
         15
+    );
+}
+
+/// The first start, with nothing kept, opens the window maximised (UI-16:
+/// maximised on a 1920 by 1080 display; the owner's answer Q7 A).
+#[test]
+fn req_ui_15_req_ui_16_the_first_start_opens_maximised() {
+    let settings = UserSettings::default();
+    assert_eq!(settings.window, None);
+    assert!(!settings.maximised);
+    assert_eq!(
+        settings.window_start(),
+        WindowStart::Maximised { restore: None }
+    );
+}
+
+/// A window closed at a normal size opens again at that size, centred on the
+/// screen; its position is not kept (UI-15; the owner's answer Q6 A).
+#[test]
+fn req_ui_15_req_ui_16_a_normal_window_opens_centred_at_its_size() {
+    let mut settings = UserSettings::default();
+    assert!(settings.window_seen([1400.0, 900.0], WindowState::Normal));
+    assert!(!settings.maximised);
+    assert_eq!(settings.window, Some([1400.0, 900.0]));
+    assert_eq!(
+        settings.window_start(),
+        WindowStart::Centred([1400.0, 900.0])
+    );
+    // The same size again is not a change, so nothing is written.
+    assert!(!settings.window_seen([1400.0, 900.0], WindowState::Normal));
+}
+
+/// A window closed maximised opens maximised, and its normal size is not
+/// replaced by the maximised one: un-maximising goes back to it, centred
+/// (UI-15, UI-16). Before this, the maximised size was saved as the normal
+/// size and the next start opened a screen-sized window at the system's
+/// default place, off-centre and past the screen's edge.
+#[test]
+fn req_ui_15_req_ui_16_a_window_closed_maximised_opens_maximised_and_keeps_its_normal_size() {
+    let config = folder("settings-maximised");
+    let file = SettingsFile::in_folder(&config);
+    let mut settings = UserSettings::default();
+    settings.window_seen([1200.0, 800.0], WindowState::Normal);
+    assert!(settings.window_seen([1920.0, 1009.0], WindowState::Maximised));
+    assert!(settings.maximised);
+    assert_eq!(settings.window, Some([1200.0, 800.0]));
+    assert!(!settings.window_seen([1920.0, 1009.0], WindowState::Maximised));
+    file.save(&settings).unwrap();
+    let loaded = file.load();
+    assert!(loaded.problem.is_none());
+    assert_eq!(loaded.settings, settings);
+    assert_eq!(
+        loaded.settings.window_start(),
+        WindowStart::Maximised {
+            restore: Some([1200.0, 800.0])
+        }
+    );
+    // Un-maximised again, it is a normal window at its own size.
+    assert!(settings.window_seen([1200.0, 800.0], WindowState::Normal));
+    assert!(!settings.maximised);
+    assert_eq!(
+        settings.window_start(),
+        WindowStart::Centred([1200.0, 800.0])
+    );
+    let _ = std::fs::remove_dir_all(&config);
+}
+
+/// A minimised or full-screen window changes nothing that is kept, and a
+/// size out of range is not kept (UI-15; NFR-07).
+#[test]
+fn req_ui_15_req_nfr_07_a_minimised_window_or_a_size_out_of_range_is_not_kept() {
+    let mut settings = UserSettings::default();
+    settings.window_seen([1400.0, 900.0], WindowState::Normal);
+    let before = settings.clone();
+    assert!(!settings.window_seen([0.0, 0.0], WindowState::Minimised));
+    assert!(!settings.window_seen([1920.0, 1080.0], WindowState::Fullscreen));
+    assert!(!settings.window_seen([100.0, 50.0], WindowState::Normal));
+    assert!(!settings.window_seen([f32::NAN, 900.0], WindowState::Normal));
+    assert_eq!(settings, before);
+}
+
+/// A settings file written before the maximised state was kept reads as a
+/// normal window, centred at its size (UI-15: additive field, no version).
+#[test]
+fn req_ui_15_an_older_file_without_the_maximised_state_opens_centred() {
+    let file = SettingsFile::in_folder(std::path::Path::new("config"));
+    let loaded = file.load_text("[interface]\nwindow = [1920.0, 1009.0]\n");
+    assert!(loaded.problem.is_none());
+    assert!(!loaded.settings.maximised);
+    assert_eq!(
+        loaded.settings.window_start(),
+        WindowStart::Centred([1920.0, 1009.0])
+    );
+    let maximised = file.load_text("[interface]\nmaximised = true\n");
+    assert_eq!(
+        maximised.settings.window_start(),
+        WindowStart::Maximised { restore: None }
     );
 }
