@@ -1,0 +1,14 @@
+The program will use these tool numbers, in order of first use:
+  T1   Z1 ball 3.175x22
+warning: Held region (operation 'Face flow, new defaults'): nothing within one tool radius of the held region at the start of the stock is cut: no part of the tool reaches over the gripped length of the stock.
+note: Feed limit (operation 'Face flow, new defaults'): 14430 moves were limited by the machine's feed limits. In the worst case the target was 500.0 mm/min, but the move was reduced to 309.0 mm/min to stay within the machine's capabilities.
+note: Cutting data (operation 'Face flow, new defaults'): stepover 1 set on the operation overrides 0.453571 from the cutting data of 'Z1 ball 3.175x22' for 'Hardwood'.
+note: Face-flow finishing (operation 'Face flow, new defaults'): cuts 52 passes on 1 face.
+note: Face-flow finishing (operation 'Face flow, new defaults'): face 0 is cut from its guide, edge 0 (62.8 mm long), towards the opposite side in 52 passes up to 0.980 mm apart along the face; steps between rings blended over 45°, 7° off the ring at a radius of 10.0 mm (steeper nearer the axis); with Meander every ring still runs the same way round.
+short-block settings: Report (machine profile), 7.000 ms (machine profile), 32 blocks (machine profile)
+  01-setup-1-face-flow-new-defaults.nc: 12651 moves; replay matches the toolpath (tip 0.0005 mm, A 0.0005 deg; cut 689.7 s, toolpath 689.7 s)
+checks before writing the G-code:
+warning: Held region (operation 'Face flow, new defaults'): nothing within one tool radius of the held region at the start of the stock is cut: no part of the tool reaches over the gripped length of the stock.
+warning: Operation 'Face flow, new defaults' has not been simulated. Run the simulation to see what it removes.
+project-cylinder-new-defaults: 1 toolpath groups, 1 G-code files
+Generated G-code must be verified by the user before it is run on a machine. OpenChuckCAM does not guarantee that a program is safe or correct for any machine, tool or setup.

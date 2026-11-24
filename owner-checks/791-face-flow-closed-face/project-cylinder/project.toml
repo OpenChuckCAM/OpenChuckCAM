@@ -1,0 +1,16 @@
+schema = 29
+name = "Owner check 791: face flow on a closed cylinder"
+
+[[models]]
+id = "8c1bbdcf-eeba-47d0-abc5-da6c997bb58f"
+path = "models/d6c36647a154b1b5b05017988f6dbeb7.step"
+hash = "blake3:d6c36647a154b1b5b05017988f6dbeb7e302749b201c0c30fe27671af0602027"
+name = "cylinder.step"
+
+[[models.transform]]
+kind = "rotate"
+axis = "y"
+angle = 90.0
+
+[[models.transform]]
+kind = "centre_on_rotary_axis"

@@ -1,0 +1,12 @@
+project-cylinder: simulation cell 0.1 mm (default 0.1 mm; about 1.0 x the default's time and 1.0 x its memory)
+warning: Held region (operation 'Face flow (as saved)'): nothing within one tool radius of the held region at the start of the stock is cut: no part of the tool reaches over the gripped length of the stock.
+note: Feed limit (operation 'Face flow (as saved)'): 12852 moves were limited by the machine's feed limits. In the worst case the target was 500.0 mm/min, but the move was reduced to 309.0 mm/min to stay within the machine's capabilities.
+note: Cutting data (operation 'Face flow (as saved)'): stepover 1 set on the operation overrides 0.453571 from the cutting data of 'Z1 ball 3.175x22' for 'Hardwood'.
+note: Face-flow finishing (operation 'Face flow (as saved)'): cuts 52 passes on 1 face.
+note: Face-flow finishing (operation 'Face flow (as saved)'): face 0 is cut from its guide, edge 0 (62.8 mm long), towards the opposite side in 52 passes up to 0.980 mm apart along the face; with Meander every ring still runs the same way round.
+  setup 'Setup 1': 620 x 210 columns, 5.1 MB; material 21476.5 -> 19924.1 mm3
+    operation 'Face flow (as saved)': 13006 moves, 41256 poses, removed 1552.4 mm3
+    against the part: 960837 surface samples, 801193 counted
+      most material left: 3.0000 mm at (30.000, 0.028, 7.046), at least
+      deepest overcut: 0.0420 mm at (44.751, -9.942, 1.047)
+simulated in 2.7 s

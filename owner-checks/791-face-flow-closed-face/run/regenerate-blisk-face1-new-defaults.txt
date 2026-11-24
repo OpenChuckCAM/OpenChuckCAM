@@ -1,0 +1,13 @@
+The program will use these tool numbers, in order of first use:
+  T1   3 mm ball
+warning: Short blocks (operation 'Outside face, new defaults'): 3536 windows below 7.000 ms averaged over 32 blocks (limit from machine profile, window from machine profile, mode from machine profile); 6088 moves below the limit, longest run 19, worst window before slowdown 2.158 ms, original effective feed 478.741 mm/min. Report leaves the program unchanged; slowdown would add 9.023 s.
+note: Feed limit (operation 'Outside face, new defaults'): 51 moves were limited by the machine's feed limits. In the worst case the target was 480.0 mm/min, but the move was reduced to 80.3 mm/min to stay within the machine's capabilities.
+note: Face-flow finishing (operation 'Outside face, new defaults'): cuts 487 passes on 1 face.
+note: Face-flow finishing (operation 'Outside face, new defaults'): face 1 follows its outline, edges 0, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23 (751.9 mm long), inwards in 487 passes up to 1.000 mm apart along the face.
+short-block settings: Report (machine profile), 7.000 ms (machine profile), 32 blocks (machine profile)
+  01-setup-1-outside-face-new-defaults.nc: 17531 moves; replay matches the toolpath (tip 0.0009 mm, A 0.0005 deg; cut 351.2 s, toolpath 351.2 s)
+checks before writing the G-code:
+warning: Short blocks (operation 'Outside face, new defaults'): 3536 windows below 7.000 ms averaged over 32 blocks (limit from machine profile, window from machine profile, mode from machine profile); 6088 moves below the limit, longest run 19, worst window before slowdown 2.158 ms, original effective feed 478.741 mm/min. Report leaves the program unchanged; slowdown would add 9.023 s.
+warning: Operation 'Outside face, new defaults' has not been simulated. Run the simulation to see what it removes.
+project-blisk-face1-new-defaults: 1 toolpath groups, 1 G-code files
+Generated G-code must be verified by the user before it is run on a machine. OpenChuckCAM does not guarantee that a program is safe or correct for any machine, tool or setup.

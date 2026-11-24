@@ -2,7 +2,7 @@
 
 The owner's rule of 25 Nov 2026: every issue that needs the project owner to test by hand has clear instructions and example projects, so the check can be done efficiently. Each pack below is one `CHECK.md`, written so that it can be pasted as an issue comment, with its example project and screenshots in the same folder. Links inside the packs are relative, so they work at any commit of this branch.
 
-This branch (`owner-checks/packs`) is **not merged**. It was cut from `main` at `6b039e5` (0.62.0), and issues link to its files at a pushed commit. It holds only public or synthetic material. No private project of the owner's is used or needed; for #801 the owner sends numbers only.
+This branch (`owner-checks/packs`) is **not merged**. It was cut from `main` at `6b039e5` (0.62.0), and `main` at `361613e` (0.63.0) was merged into it for the #791 pack. Issues link to its files at a pushed commit. It holds only public or synthetic material. No private project of the owner's is used or needed; for #801 the owner sends numbers only.
 
 > [!WARNING]
 > Nothing here shows that any program is safe to run. Generated G-code is yours to verify before it runs on a machine. Machine steps follow the [air-cut procedure](../docs/z1-air-cut-procedure.md) and the [gates 4 and 5 instructions](../docs/z1-gates-4-5-test-instructions.md).
@@ -12,6 +12,7 @@ This branch (`owner-checks/packs`) is **not merged**. It was cut from `main` at 
 | #632 pencil at a sharp inside corner | [632-pencil-corner/CHECK.md](632-pencil-corner/CHECK.md) | Application only | 10 min | Pass counts off and on; expected 1 pass each |
 | #801 and OI-2167 rapids that touch the stock (Subby) | [801-rapid-depth/CHECK.md](801-rapid-depth/CHECK.md) | Command line, own project | 10 min | **Numbers only** from `simulate` on the owner's own Subby copy; a public control project is included |
 | #693 / OI-992 short-block slowdown | [693-short-block-slowdown/CHECK.md](693-short-block-slowdown/CHECK.md) | Application, then the Z1 (air cut); cut optional | 15 min + 1 h | Simulator comparison, then attended air cut of the Report and Slow down programs; firmware and delivery method |
+| #791 face flow on a face that closes round (cylinder, blisk outside face) | [791-face-flow-closed-face/CHECK.md](791-face-flow-closed-face/CHECK.md) | Application only | 15 min | No refusal; 52 rings on the cylinder; then the owner's own #791 project, with numbers to report |
 | OI-2152 repeat first cut (stepped cylinder) | [oi-2152-repeat-first-cut/CHECK.md](oi-2152-repeat-first-cut/CHECK.md) | Application, then the Z1 | half a day | First OI-2197 (tool 104 and its finishing preset) and the air cut of the new program, then the cut and the measurements |
 
 **Not packed:** #577, #578 and #580 (keyboard focus, tooltips on focus, tool windows taking the keyboard; [decision 0677](../docs/decisions/0677-keyboard-focus-tooltips-and-tool-windows.md)). The owner closed them on 23 Nov 2026.
@@ -28,4 +29,4 @@ Each pack folder holds:
 - `programs/`: G-code written by the application, where the pack compares programs. SHA-256 for each is in the pack.
 - `run/`: the command-line output behind the pack's figures, with a short `README.md`.
 
-All figures were measured on `main` at `6b039e5` (0.62.0), Linux x86_64, release build with the STEP reader, 24 Nov 2026.
+Figures were measured on `main` at `6b039e5` (0.62.0), 24 Nov 2026, except #791's: `main` at `361613e` (0.63.0), 25 Nov 2026, against 0.62.0 as the before. All runs used Linux x86_64 and a release build with the STEP reader.

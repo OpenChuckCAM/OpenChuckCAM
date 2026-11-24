@@ -1,0 +1,10 @@
+schema = 29
+id = "0c0c0791-0000-4000-8000-000000000201"
+order = "V"
+name = "Cylinder face"
+model = "8c1bbdcf-eeba-47d0-abc5-da6c997bb58f"
+model_hash = "blake3:d6c36647a154b1b5b05017988f6dbeb7e302749b201c0c30fe27671af0602027"
+descriptors = []
+
+[target]
+faces = [0]

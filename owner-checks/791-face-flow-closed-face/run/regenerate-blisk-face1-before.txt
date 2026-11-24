@@ -1,0 +1,3 @@
+The program will use these tool numbers, in order of first use:
+  T1   3 mm ball
+error: Face-flow finishing (operation 'Outside face (as saved)'): the boundary of face 1 does not close: its edges are not joined end to end.
