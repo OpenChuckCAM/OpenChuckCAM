@@ -802,6 +802,31 @@ pub fn name_problem(ui: &mut egui::Ui, state: &FieldState, key: &str) {
     }
 }
 
+/// As [`read_only_row`], with the reset button (↺) in the label's slot when
+/// `reset`: whether it was clicked this frame. For a value set by a choice
+/// beside it, such as Tool diameter, that the user can still reset.
+pub fn read_only_row_with_reset(
+    ui: &mut egui::Ui,
+    label: &str,
+    description: &str,
+    value: impl Into<egui::WidgetText>,
+    reset: bool,
+) -> bool {
+    form_row(ui, |ui| {
+        let sense = if description.is_empty() {
+            egui::Sense::hover()
+        } else {
+            crate::focus::info_sense()
+        };
+        let clicked = label_cell_with(ui, label, description, reset, sense);
+        ui.scope(|ui| {
+            ui.set_max_width((ui.available_width() - 2.0).max(40.0));
+            ui.add(egui::Label::new(value).wrap())
+        });
+        clicked
+    })
+}
+
 /// Draws a read-only row: the label and the value as text, with an optional
 /// note under it.
 pub fn read_only_row(

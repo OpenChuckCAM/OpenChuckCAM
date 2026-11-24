@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.63.0
+
+- **Family release (0.63.0; lane FACEFLOW; issues #791 and #854; decisions 0675 and 0686, accepted):** `openchuck-path`'s `UnreachedReason` gains the variant `TooShort`, a breaking change; no change to this crate.
+
 ## 0.62.0
 
 - **Family release (0.62.0; lane FACING-GRIP; issue #500; decision 0685, accepted):** `openchuck-path`'s `FaceDescription` gains the public field `unfaced` and `FacingGeometry::Round` the field `unfaced`, a breaking change; no change to this crate.
