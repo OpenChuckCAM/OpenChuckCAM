@@ -1,11 +1,30 @@
 # Changelog
 
-## 0.60.0 (FACING-GRIP; issue #500; decision FACING-GRIP-A, proposed)
+## 0.62.0 (FACING-GRIP; issue #500; decision 0685, accepted)
 
 - **Breaking:** `facing::description::FaceDescription` gains the public field `unfaced: Vec<facing::held::Unfaced>` and `FacingGeometry::Round` the field `unfaced`: what of the requested coverage is left unfaced along X beside a held region. A struct literal must add `unfaced: Vec::new()`; a pattern on `Round` must name it or add `..`.
 - **Added:** the module `facing::held` with `Unfaced` (`beside`, `held`, `x`); `FaceDescription::faced()` (the rectangle Facing faces and its completion check proves); `FacingGeometry::unfaced()`; `facing::description::describe_path(setup, parameters, group, context)`, which reads legacy Flat's unfaced spans from the cut, as its completion check does.
 - **Changed output (the owner's decision on #500):** Box facing, and legacy Flat and Round with the Part or Part plus tabs extent or a margin, no longer refuse when the requested coverage reaches a held region. The tool's centre keeps the tool's largest radius and `HELD_CLEARANCE` (0.5 mm) from each held interval, as the host's `keep_out` does. Box rows and Round rings start on that limit and are finished to the tool's edge, the Round check's 0.001 mm reserve less. Legacy Flat counts its face finished from where its passes along X reach the face, read from the cut: the composite target can lift their ends beside the grip. An information note (topic Held region, never a warning) says where each face stops, why, and the unfaced X range and length. Nothing left to face refuses, naming the grip. Box and restricted legacy Flat and Round refuse generation when the host's `keep_out` is not the one Facing derives from the grip; End is not affected. A gap anywhere else still refuses; the Box gap refusal says only where along X, since the grip is no longer a gap. Without a held region, or where the coverage stays clear of it, paths and G-code are unchanged.
 - **Changed text:** the Coverage extent tooltip says where the face stops beside a held region.
+
+## 0.61.0 (PENCIL-REST; issue #632; decision 0684, accepted; not breaking)
+
+- **Fixed, changed output (#632):** pencil clean-up judges the material left from the tool as it rests, its axis over its cutting length, not from the one contact point the drop reports. A flat end on a surface along its flat bottom touches it along a line, and the drop could report any point of it: the tessellation its far edge, out of reach of the corner's material, and the exact faces a point that moved with A. A flat end in a sharp inside corner of a STEP part now cuts the whole corner in one pass with Exact STEP surface contact off and on alike, where the closed-form shouldered shaft gave a refusal off and 31 passes on.
+- **Fixed, changed output (#632):** a pencil rest stopped by a wall on its way to the crease is kept a tenth of the operation's tolerance back from it (0.001 mm at the default). Flush with the wall, a drop could read the tool as resting on the wall's top, and the moves between rests rode up onto it or ended the pass.
+- **Added, changed output:** pencil clean-up's `min_length` (Shortest cut, millimetres, default 0): a stretch of a corner shorter than it is not cut, and a single point never is. A note says how many stretches were left and where each starts (up to five); when every stretch is left, the operation is refused, naming the setting. The application starts it at the tool's diameter.
+- **Added:** `RemainingMap::near_segment(a, b)`, whether a sample with material left lies within the reach of a segment. Additive.
+- **Changed text:** the Exact STEP surface contact descriptions state the trade-off with the measured examples: how much closer to the true surface the tool sits and how much slower generation is on test parts, and, for the outline kind, that it does not change which corners or areas are cut.
+- Every pencil operation can change, on mesh and STEP parts; no golden program or reference job holds one. No other strategy changes. Generated G-code remains the user's to verify before running it on a machine.
+
+## 0.61.0 (SWARF-LEADS; issues #572, #624 and #510; decisions 0682 and 0683, accepted)
+
+- **Fixed, changed output (#572; decision 0682, option B, the owner's choice):** the entry and exit moves of a strategy given the faces next to its face set (`RegionConstraint::neighbours`; swarf) are measured against those faces as well as the face set: a lead (straight, or on a pass that turns A) or a helix that would cut one deeper than the pass itself cuts it where the move joins it, plus the tolerance and the sampling slack, is refused with the existing entry refusal, naming the face. A swarf lead-out at a pass that stops short of an end wall ran on into the wall (2.990 mm on the library fixture) with no warning; it is now refused. A ramp follows the pass and is unchanged. No public API change.
+- **Changed text (#624; decision 0683, option (c), the owner's choice):** swarf's face note gives the tool's reach past the end of the rulings after the lift clear of avoid and check sets: "would reach … ; it is lifted at least that far all along the face …" or "… where it is lifted least it still reaches … mm beyond them …". It stays information; with no lift the sentence is unchanged.
+- **Tests (#510):** a free-end turn on the rotary axis in helical, axial and rest machining is told as a turn at the axis, never as a feed of zero, and every fed move keeps a positive feed (fixed by decision 0536 step 2, issue #600).
+
+## 0.60.0
+
+- **Family release (0.60.0; POST-COMMENTS; issue #851; decision 0681, accepted):** `openchuck-post`'s `PostOptions` gains the public field `active_comment_prefixes` and `PostOutput` the public field `guarded_comments`, a breaking change; no change to this crate.
 
 ## 0.59.0
 

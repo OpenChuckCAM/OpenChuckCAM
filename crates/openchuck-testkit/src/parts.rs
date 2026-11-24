@@ -51,6 +51,88 @@ pub struct Cone {
     pub length: f64,
 }
 
+/// One cylinder of a [`SteppedCylinder`].
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct CylinderStep {
+    /// Radius (positive).
+    pub radius: f64,
+    /// Length along X (positive).
+    pub length: f64,
+}
+
+/// Cylinders end to end along X from x = 0, joined by faces square to the
+/// axis: the gate 5 first-cut part (decision record 0680, issue #826). Each
+/// step's diameter can be measured anywhere along it, and each face gives a
+/// position along X. Its mesh has two rings at each face, so the faces are
+/// exact annuli; the shared ring mesh of [`RadialPart::mesh`] spaces its rings
+/// evenly and would slope them.
+#[derive(Debug, Clone, PartialEq)]
+pub struct SteppedCylinder {
+    /// The steps, from x = 0 along +X.
+    pub steps: Vec<CylinderStep>,
+}
+
+impl SteppedCylinder {
+    /// The X of each face between two steps of different radius.
+    #[allow(clippy::float_cmp)] // Steps of exactly the same radius make no face.
+    pub fn faces(&self) -> Vec<f64> {
+        let mut x = 0.0;
+        let mut faces = Vec::new();
+        for pair in self.steps.windows(2) {
+            let &[a, b] = pair else { continue };
+            x += a.length;
+            if a.radius != b.radius {
+                faces.push(x);
+            }
+        }
+        faces
+    }
+
+    /// The outline as `(x, radius)` points for [`revolve`]: two points at
+    /// each face; steps of exactly the same radius are one cylinder.
+    #[allow(clippy::float_cmp)]
+    pub fn profile(&self) -> Vec<(f64, f64)> {
+        let mut x = 0.0;
+        let mut profile: Vec<(f64, f64)> = Vec::new();
+        for step in &self.steps {
+            if profile.last().is_none_or(|&(_, r)| r != step.radius) {
+                profile.push((x, step.radius));
+            } else {
+                profile.pop();
+            }
+            x += step.length;
+            profile.push((x, step.radius));
+        }
+        profile
+    }
+}
+
+impl RadialPart for SteppedCylinder {
+    fn name(&self) -> &'static str {
+        "stepped_cylinder"
+    }
+    fn x_range(&self) -> (f64, f64) {
+        (0.0, self.steps.iter().map(|s| s.length).sum())
+    }
+    /// The radius of the step that starts at or before `x`: a face belongs
+    /// to the step after it, and the end to the last step.
+    fn radius_at(&self, x: f64, _angle: f64) -> f64 {
+        let mut start = 0.0;
+        for step in &self.steps {
+            if x < start + step.length {
+                return step.radius;
+            }
+            start += step.length;
+        }
+        self.steps.last().map_or(0.0, |s| s.radius)
+    }
+    /// The exact surface: `rings` is not used, as each step is straight
+    /// along X.
+    fn mesh(&self, _rings: u32, around: u32) -> TriangleMesh {
+        revolve(&self.profile(), around)
+    }
+}
+
 /// A sphere centred on the origin.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Sphere {

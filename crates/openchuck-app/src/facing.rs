@@ -66,7 +66,7 @@ pub(crate) fn needs_verification(operation: &openchuck_project::Operation) -> bo
 
 /// The completion note of a Facing whose path its checks proved: what it
 /// covered, and, beside a held region, that it covered only what the tool
-/// reaches, the held-region note giving the numbers (decision FACING-GRIP-A).
+/// reaches, the held-region note giving the numbers (decision 0685).
 pub(crate) fn completion_note(
     description: &openchuck_path::facing::description::FacingDescription,
 ) -> &'static str {

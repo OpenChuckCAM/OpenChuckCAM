@@ -128,7 +128,7 @@ Scallop height
 : On helical and axial finishing with **Adaptive spacing** off: the largest cusp between passes for a ball-end or bull-nose tool. The passes are as close as the smaller of this and the stepover needs. 0 turns it off. With **Adaptive spacing** on, the same field is **Allowed excess**.
 
 Exact STEP surface contact
-: Only on a STEP part. Drops the tool on the part's exact surfaces instead of the triangles made from them: more accurate, and slower. On by default for helical, indexed and simultaneous finishing and rest machining; off for axial finishing and pencil clean-up, where it is much slower. Some tool shapes always use the triangles, and a line under the field says so.
+: Only on a STEP part, in the **Advanced** section. Drops the tool on the part's exact surfaces instead of the triangles made from them. The tool then sits closer to the true surface, but generation takes longer. On by default for helical, indexed and simultaneous finishing and rest machining, where it costs little; off for axial finishing and pencil clean-up, where it is much slower. It does not change which corners or areas an operation cuts. Its tooltip gives the times measured on test parts. Some tool shapes always use the triangles, and a line under the field says so.
 
 Links between passes
 : **Retract to the clearance**, or **Stay low where clear**, the default for new operations: links stay the approach distance above the stock where the whole link is clear of the stock, the held regions and the part. The stock is checked at points along each link, so a very thin piece of stock between them could be missed. A link that cannot stay low retracts, and a note says how many did. Facing (end and box shapes), helical, axial, indexed and simultaneous finishing, and rest machining.
@@ -259,11 +259,14 @@ Also: **Exact STEP surface contact** (on), **Face free ends**, **Stepdown**, **P
 
 Follows sharp inside corners to remove ridges left by other finishing operations. Use it as a final clean-up, not to cut large areas. It does not cover every inside corner. It ignores selections.
 
+It cuts a stretch of a corner where material is left within reach of the tool as it rests there, and keeps the tool just clear of a wall it rests against. It does not cut a stretch shorter than **Shortest cut**, or a single point: a short dab is a plunge and a retract, not a cut along the corner. The operation's notes say how many stretches it left and where each starts, so you can check them in the simulation.
+
 | Setting | Default | What it does |
 | --- | --- | --- |
 | Smallest material to clean | 0.15 mm | As for rest machining. |
 | Crease angle | 30° | The smallest turn between two faces that counts as an inside corner. |
 | Largest step | 0.5 mm | The furthest apart that points of the path are along the corner. |
+| Shortest cut | The tool's diameter | Stretches of a corner shorter than this are not cut. Enter 0 to cut every stretch longer than a single point. |
 
 Also: **Exact STEP surface contact** (off).
 
@@ -328,6 +331,10 @@ Some faces make the tool cut into the surface by more than the tolerance. A warn
 - With it on, the tool still reaches an end face between the points checked: put the face in an avoid set on **Cut short**, or use a tool with a smaller radius.
 
 If no position along the face keeps the tool off its end faces, the face is refused: use a tool with a smaller radius, turn the setting off, or take the face out of the set.
+
+**Entry on swarf.** A lead, or a helix, is also checked against the faces next to the face. It may cut such a face no deeper than the pass itself cuts it where the lead or helix joins the pass (a ball's end in the floor, for example, which is warned of as above); deeper, the operation is refused, naming the face and **Entry**. A lead-out at a pass that stops short of an end wall would run into that wall, so on such a face use **Plunge**, **Ramp** or **Helix**. A ramp follows the pass along the face, so it cuts no deeper than the pass. The comparison is made on samples of the faces, so a lead may cut up to about 0.09 times the tool's radius (at least 0.035 mm, and more on a very large face) deeper than the pass before it is refused. Each face is compared with the pass's own cut into that face only.
+
+Each face's note says how far the tool's end reaches past the end of the rulings at the tip (its corner radius and the **Tip extension**), after any lift clear of an avoid or check set: that it is lifted at least that far all along the face, or how far it still reaches where it is lifted least. This is information; a cut into a face that remains is the warning above.
 
 ## Radial drilling
 

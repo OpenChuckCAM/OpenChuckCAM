@@ -64,7 +64,7 @@ fn refuse(reason: &str) -> PathError {
 pub(super) use legacy::flat_bound;
 
 /// [`describe`], with legacy Flat's unfaced spans beside a held region read
-/// from the cut in `group` (decision FACING-GRIP-A).
+/// from the cut in `group` (decision 0685).
 pub(super) fn describe_path(
     setup: &FacingSetup<'_>,
     parameters: &Parameters,
@@ -125,7 +125,7 @@ pub(super) fn validate_setup(setup: &FacingSetup<'_>, context: &JobContext<'_>) 
 /// The refusal for a Box face left unfinished, saying where along X (the
 /// raster's second coordinate, as `box_sides` transposes it; NFR-07).
 /// Beside a held region Facing faces only what the tool reaches and says
-/// what it leaves (decision FACING-GRIP-A), so a gap here is a real one.
+/// what it leaves (decision 0685), so a gap here is a real one.
 fn box_gap(gap: super::coverage::RasterGap) -> PathError {
     use super::coverage::{RasterGap, UNFINISHED_STRIP};
     let ([from, to], what) = match gap {

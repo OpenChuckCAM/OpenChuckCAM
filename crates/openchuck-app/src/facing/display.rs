@@ -33,7 +33,7 @@ impl FacingVerification {
     ) -> Result<FacingDisplay, AppError> {
         self.validate(group, context)?;
         // Legacy Flat's unfaced spans beside a held region come from the
-        // cut itself (decision FACING-GRIP-A).
+        // cut itself (decision 0685).
         let description = openchuck_path::facing::description::describe_path(
             &self.setup(),
             &self.0.parameters,
@@ -172,7 +172,7 @@ pub(super) fn nominal(description: FacingDescription) -> Result<FacingDisplay, A
                 )?;
             }
             // Where each face stops beside a held region, and what it
-            // leaves unfaced (decision FACING-GRIP-A).
+            // leaves unfaced (decision 0685).
             for face in faces {
                 let [_, v0] = face.coverage.min();
                 let [_, v1] = face.coverage.max();

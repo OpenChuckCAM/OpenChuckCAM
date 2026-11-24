@@ -1,7 +1,7 @@
-schema = 17
+schema = 28
 name = "first_cut"
 
 [[models]]
-id = "b3a3df0f-d5c0-496f-bdb7-170092361e3e"
+id = "6ff14279-0641-4e5b-bc83-0a675299042a"
 path = "models/part.stl"
-hash = "blake3:05e316dacbe03ab7d368266eb4414c1a0aaaf4b33f37a6f81c096f6368ec02b8"
+hash = "blake3:ddead6fb7bc741a99c3df343fb2e0f23ecaa96df343a34575c143216044ba946"

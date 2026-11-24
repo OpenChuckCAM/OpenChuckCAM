@@ -445,7 +445,7 @@ fn req_op_24_req_op_11_deep_assembled_box_uses_actual_upper_layers_to_clear_shan
 #[test]
 /// A path planned without the grip and checked with it is refused: beside
 /// a held region the faced rectangle stops where the tool keeps clear of the
-/// grip (decision FACING-GRIP-A), so the rows over the grip are outside it,
+/// grip (decision 0685), so the rows over the grip are outside it,
 /// as well as through protected geometry. A Part extent clear of the grip
 /// by the tool's reach and clearance validates unchanged.
 fn req_op_24_req_set_09_box_paths_over_a_grip_refuse_and_part_extents_clear_of_it_validate() {

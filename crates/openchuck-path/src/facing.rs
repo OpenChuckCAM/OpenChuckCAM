@@ -469,7 +469,7 @@ fn above_area_note(
 }
 
 /// The information notes on what Facing leaves unfaced beside a held
-/// region, face by face (decision FACING-GRIP-A): where it stops, why and
+/// region, face by face (decision 0685): where it stops, why and
 /// how much of the requested extent is left. None when nothing is.
 ///
 /// Legacy Flat's are read from its `passes`, as its completion check reads

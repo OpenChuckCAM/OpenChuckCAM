@@ -105,7 +105,7 @@ pub(in crate::facing) fn segments(
 /// How much further from the grip than its keep-out legacy Flat may be
 /// finished, read from its cut: the tool's diameter, for the lift its
 /// composite target gives beside the held region, and the stock to leave
-/// round it (decision FACING-GRIP-A).
+/// round it (decision 0685).
 pub(in crate::facing) fn flat_bound(
     setup: &FacingSetup<'_>,
     parameters: &Parameters,

@@ -1,8 +1,20 @@
 # Changelog
 
-## 0.60.0
+## 0.62.0
 
-- **Family release (0.60.0; lane FACING-GRIP; issue #500; decision FACING-GRIP-A, proposed):** `openchuck-path`'s `FaceDescription` gains the public field `unfaced` and `FacingGeometry::Round` the field `unfaced`, a breaking change; no change to this crate.
+- **Family release (0.62.0; lane FACING-GRIP; issue #500; decision 0685, accepted):** `openchuck-path`'s `FaceDescription` gains the public field `unfaced` and `FacingGeometry::Round` the field `unfaced`, a breaking change; no change to this crate.
+
+## 0.61.0
+
+- **Family release (0.61.0; SWARF-LEADS; issues #572 and #624; decisions 0682 and 0683, accepted):** `openchuck-path` changes output (a swarf lead or helix that would cut a face next to the face set deeper than the pass is refused; swarf's note gives the reach past the rulings after the lift); no public API change and no change to this crate.
+
+## 0.60.0 (POST-COMMENTS; issue #851; decision 0681, accepted)
+
+- **Breaking (0.60.0, POST-COMMENTS; decision 0048):** `PostOptions::active_comment_prefixes` (post key `active_comment_prefixes`, a list, empty when a post leaves it out): the openings of comments the controller acts on, such as LinuxCNC's `MSG,`. Text from the project that would start such a comment (the title, revision, generator, operation comments and tool names, after the sanitiser) and each line a wrapped comment starts are written with the new constant `ACTIVE_COMMENT_GUARD` (`_`) in front, counted in the line limit; the post's own header and footer are kept. Bad entries are refused at load (`options.active_comment_prefixes`). The LinuxCNC post lists LinuxCNC's fourteen openings; the Makera Z1 post lists none. Struct literals of `PostOptions` add the field. `PostOutput::guarded_comments` (new public field) lists each guarded text once, as a `GuardedComment` (new): its `CommentSource` (title, revision, generator, an operation or tool by tag, or the post's own comment), the opening matched, the text as given and where the mark went. No golden program changes; a LinuxCNC program for a project whose name starts with one of the openings gains the mark.
+
+## Unreleased (FUZZ-NFR07; issue #794; decision 0679, accepted)
+
+- **Fixed:** a template `namespace` that holds itself (directly, in a list or through another namespace) is freed after the render instead of leaking; every namespace a render makes is emptied when it ends. A `namespace` key that is not a name is now a template error. No output changes. No public API changes.
 
 ## 0.59.0
 

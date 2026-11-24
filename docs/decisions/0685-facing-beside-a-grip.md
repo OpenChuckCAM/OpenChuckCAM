@@ -1,12 +1,12 @@
-# FACING-GRIP-A: Facing beside a held region faces what the tool reaches and says what it leaves (OP-24, SET-09, NFR-07, NFR-12; issue #500; lane FACING-GRIP)
+# 0685: Facing beside a held region faces what the tool reaches and says what it leaves (OP-24, SET-09, NFR-07, NFR-12; issue #500; lane FACING-GRIP)
 
-- **Status:** Accepted by the project owner on 24 Nov 2026, relayed by the coordinator (decision 0049). Proposed by lane FACING-GRIP on 23 Nov 2026, from the project owner's decision on issue #500 the same day ("Facing should cut up to the held start with a stated limit instead of refusing"). The owner answered the lane's four questions the same day, relayed by the coordinator: Q1, edit OP-24 in `docs/requirements.md` with the wording below (an owner-agreed edit; no other requirement or architecture edit); Q2, always, with no setting; Q3, no simulation hatch; Q4, include restricted legacy Flat and Round in this change. The owner also directed that the stated limit is information, not a warning. OI-9995 closed.
+- **Status:** Accepted by the project owner on 24 Nov 2026, relayed by the coordinator (decision 0049); number assigned at release. Proposed by lane FACING-GRIP on 23 Nov 2026, from the project owner's decision on issue #500 the same day ("Facing should cut up to the held start with a stated limit instead of refusing"). The owner answered the lane's four questions the same day, relayed by the coordinator: Q1, edit OP-24 in `docs/requirements.md` with the wording below (an owner-agreed edit; no other requirement or architecture edit); Q2, always, with no setting; Q3, no simulation hatch; Q4, include restricted legacy Flat and Round in this change. The owner also directed that the stated limit is information, not a warning. OI-2204 closed.
 - **Date:** 23 Nov 2026.
 - **Requirements:** OP-24 (facing), SET-09 (held regions), NFR-07 (a clear message, naming what to change), NFR-12 (generated G-code is the user's to verify), NFR-05, GC-07, NFR-06.
 - **Amends:** [decision 0252](0252-facing-ends-sides-and-extents.md) (accepted), for held regions only: section 8 ("Any forbidden removal or unfinished required region beyond tolerance refuses and publishes no usable partial operation"), section 11 (the OP-24 text "refuse without a usable partial path") and the limit in section 13 ("whole-stock Box coverage intersecting held geometry refuses (never cropped silently)"). Tabs, protected geometry and every other unfinished region are unchanged: they still refuse. It supersedes the held-region wording of [decision 0667](0667-facing-completion-at-slab-edges-and-beside-a-grip.md) section 2, which reworded that refusal.
-- **Open items:** adds OI-9995 (the owner's acceptance of this record), closed by the acceptance of 24 Nov 2026.
+- **Open items:** adds OI-2204 (the owner's acceptance of this record), closed by the acceptance of 24 Nov 2026.
 
-Numbering: provisional. The coordinator assigns the record number and the OI number at release, above `main`'s highest at that time, in merge order. No project schema number: nothing stored changes. The library API change takes the next workspace minor version in merge order (0.60.0 at the time of writing; decision 0048).
+Numbering: proposed as FACING-GRIP-A with OI-9995; renumbered at release on 24 Nov 2026 to 0685 and OI-2204, the next free numbers above `main`'s highest (0684 and OI-2203 at `19de286`). No project schema number: nothing stored changes. The breaking library change takes workspace 0.62.0, the next minor version in merge order (decision 0048).
 
 ## Context
 
@@ -23,7 +23,7 @@ Restricted legacy Flat and Round (a Part or Part plus tabs extent, or a margin) 
 
 Beside a held region, Facing faces what the tool reaches with its clearance from the grip, leaves the rest of the requested coverage unfaced, and says where along X it stops, why and how much is left, in an information note. Always: there is no setting.
 
-![Box facing on +Z beside the Baluster's held start](FACING-GRIP-A-facing-beside-a-grip.svg)
+![Box facing on +Z beside the Baluster's held start](0685-facing-beside-a-grip.svg)
 
 1. **The limit is the host's.** The tool's centre keeps out of each held interval widened by the tool's largest radius (its cutting profile or its shank) and `HELD_CLEARANCE`, exactly as the host's `keep_out` (`openchuck-path` `facing::held::keep_out`, the same measure as the application's `tool_reach`). For Box and restricted legacy Flat and Round, generation refuses if the host's `keep_out` is not that span, because Facing could not then state where it stops. End facing does not read it.
 2. **What each mode faces.** The requested coverage along X is cut down at each held end to where the mode's completion check proves the face finished.
@@ -56,7 +56,7 @@ The change only ever reduces what is cut. Three independent layers keep the tool
 - `openchuck-path`: new `facing/held.rs` (`Unfaced`, the crop, the host check, the notes, the Flat measurement); `facing/description.rs` (`FaceDescription::unfaced` and `faced()`, `FacingGeometry::Round::unfaced`, `FacingGeometry::unfaced()`, `describe_path`); `facing/plan.rs` (Box rows from the limit); `facing/validation.rs` and `validation/legacy.rs` (the checks on the faced region; `ROUND_RESERVE`); `facing.rs` (the host check, the notes, the Extent tooltip).
 - **Breaking library change:** `FaceDescription` and `FacingGeometry::Round` gain public fields. Workspace minor bump with changelog entries (decision 0048).
 - `openchuck-app`: the completion note and the Facing overlay.
-- **Documents:** OP-24 (above); the verification plan's OP-24 row; the user guide's Facing reference, known limitations and release notes; the crate changelogs; OI-9995.
+- **Documents:** OP-24 (above); the verification plan's OP-24 row; the user guide's Facing reference, known limitations and release notes; the crate changelogs; OI-2204.
 - **Determinism (GC-07, NFR-06):** the limit is arithmetic on the setup and, for Flat, on the generated path, so it is the same at any thread count. Tested at 1 and 4 threads on the Baluster.
 - **Found, not fixed here:** restricted Round facing (the Part extent) on the Baluster is refused, with or without the grip and on both its box and round-bar stock, by Facing's rapid-clearance check ("rapid move ... has no continuous complete-tool separation"). It predates this change and is ticketed separately (#880). Round's limit is therefore tested on a block in `openchuck-path`, not on the Baluster.
 

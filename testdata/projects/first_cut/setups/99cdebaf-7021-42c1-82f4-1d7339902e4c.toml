@@ -1,8 +1,8 @@
-schema = 17
-id = "ea27b6df-99a1-4b69-9040-6d006eefa35e"
+schema = 28
+id = "99cdebaf-7021-42c1-82f4-1d7339902e4c"
 order = "V"
 name = "Setup 1"
-part = "b3a3df0f-d5c0-496f-bdb7-170092361e3e"
+part = "6ff14279-0641-4e5b-bc83-0a675299042a"
 material = "Plastic"
 part_offset = 90.990234375
 

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //! Facing beside a held region (OP-24, SET-09; issue #500, decision
-//! FACING-GRIP-A amending 0252). No part of the tool comes over a gripped
+//! 0685 amending 0252). No part of the tool comes over a gripped
 //! length while it cuts: its centre keeps the tool's largest radius and
 //! [`HELD_CLEARANCE`](crate::HELD_CLEARANCE) from each held interval, as the
 //! host's [`StrategyInput::keep_out`](crate::StrategyInput::keep_out) does
@@ -209,7 +209,7 @@ fn refuse(reason: String) -> PathError {
     PathError::refused(crate::notice::topic::HELD_REGION, reason)
 }
 
-/// Legacy Flat beside a held region (decision FACING-GRIP-A): its passes
+/// Legacy Flat beside a held region (decision 0685): its passes
 /// along X are dropped onto the composite target, where the held region
 /// with its stock to leave can lift their ends above the face, so where the
 /// face is finished is read from the actual cut, not from the keep-out.

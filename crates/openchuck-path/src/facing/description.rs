@@ -24,7 +24,7 @@ pub struct FaceDescription {
     /// Requested rectangle, already including the user-entered margin.
     pub coverage: CoverageRectangle,
     /// What of `coverage` is left unfaced beside a held region, along X;
-    /// empty when the tool reaches all of it (decision FACING-GRIP-A).
+    /// empty when the tool reaches all of it (decision 0685).
     pub unfaced: Vec<Unfaced>,
 }
 impl FaceDescription {
@@ -127,7 +127,7 @@ pub struct FacingDescription {
 /// [`describe`], for a generated path: where legacy Flat passes along X
 /// are lifted off the face beside a held region, its unfaced spans are read
 /// from the cut in `group`, as its completion check reads them (decision
-/// FACING-GRIP-A). The other modes are described as [`describe`] does.
+/// 0685). The other modes are described as [`describe`] does.
 pub fn describe_path(
     setup: &FacingSetup<'_>,
     parameters: &Parameters,
@@ -157,7 +157,7 @@ pub fn describe(setup: &FacingSetup<'_>, parameters: &Parameters) -> Result<Faci
     let rotary = RotaryMapping::of_profile(setup.machine);
     let coverage = |plane| extent.planar(plane, setup.stock, setup.part, setup.tabs, margin);
     // How far past the tool's centre each mode's completion check counts the
-    // face finished at the end of its cut along X (decision FACING-GRIP-A).
+    // face finished at the end of its cut along X (decision 0685).
     let radius = 0.5 * setup.tool.diameter.0;
     let counted = match parameters.text(parameter::SHAPE)? {
         parameter::BOX => radius,

@@ -1,4 +1,4 @@
-schema = 17
+schema = 28
 id = "8f0c2a4e-1b7d-4e3a-9c61-5d2e7f4a1b01"
 
 [machine]
@@ -6,6 +6,15 @@ name = "Makera Z1"
 rotary_axis = "x"
 a_sense = "positive"
 max_tool_number = 1000
+min_spindle_rpm = 4000.0
+max_spindle_rpm = 13000.0
+min_block_ms = 7.0
+block_window = 32
+short_block_mode = "report"
+automatic_tool_length = true
+spindle_to_axis = 72.0
+recommended_min_safe_z = 45.0
+min_clearance_radius = 45.0
 
 [machine.rotary_origin]
 x = -198.39
@@ -65,3 +74,35 @@ source = "confirmed by the owner from use of the machine (11 Oct 2026): X and Y 
 [machine.provenance.clearance]
 state = "confirmed"
 source = "the owner's default (14 Nov 2026, decision 0649), confirmed by the owner: a safe cylinder radius and safe Z of 45 mm, set to the measured minimum clearance radius for the supplied chuck (Sanou K02-50, jaws reversed and fully open); it replaces 40 (decision 0317). At safe Z 45 the probe's tip is at machine Z -3.6, 2.6 mm below the top of the travel, and a longer tool raises the spindle. Set a clearance on each setup to suit its stock and workholding"
+
+[machine.provenance.min_block_ms]
+state = "confirmed"
+source = "Owner gate 4, PR 284 comment 6399134358, submitted 25 Oct 2026: firmware 1.1.2, ESP32 (version not supplied), WiFi upload; 7, 10 and 20 ms passed in both parts, 5/3/2/1 ms stuttered. K4 retained by the owner as a release waiver; subsequent LinuxCNC replay passed. This measured program/transport only (decision 0222). Confirmed again on firmware 1.1.3, ESP32 1.1.3, WiFi upload (owner, 14 Nov 2026, decision 0648): the air cut ran as one file per section; 7, 10 and 20 ms ran smoothly in both parts, 5 ms stuttered"
+
+[machine.provenance.block_window]
+state = "confirmed"
+source = "32 blocks, confirmed by the owner's statement (14 Nov 2026, decision 0649). The 32-block planner queue comes from the firmware source; the averaging rule is decision 0222 item 3. Not a separately measured queue depth: decision 0648 found that the source model's timing of short blocks fails below 5 ms"
+
+[machine.provenance.short_block_mode]
+state = "confirmed"
+source = "Report, confirmed by the owner as the default (14 Nov 2026, decision 0649) from the gate 4 block-rate testing: on firmware 1.1.2 (decision 0222) and 1.1.3 (decision 0648) 7 ms ran smoothly and 5 ms stuttered. A software policy (decision 0222), not a controller measurement"
+
+[machine.provenance.spindle_range]
+state = "confirmed"
+source = "4000 to 13000 rpm, confirmed by the owner on firmware 1.1.3 (14 Nov 2026, decision 0649). The lowest was observed with T1 M6 and no tool: the spindle runs when S is 1000 or above, and no slower than 4000 rpm. The highest is the owner's statement that it has been tested (no run details recorded). Makera's published specification, the Makera Z1 Safety Guidelines, V1.3 (makera.com, file MakeraZ1-Safety_Guidelines-V1.3-multi-lan-260709-1.pdf), gives 0 to 13 000 rpm with closed-loop control (decision 0231)"
+
+[machine.provenance.tool_length_measurement]
+state = "confirmed"
+source = "confirmed by the owner (30 Oct 2026, decision 0317): the Z1 measures each tool on its tool setter and offsets it from the probe as the reference tool (firmware 1.1.2, ATCHandler.cpp:1909-1919; Robot.cpp:498-506). On firmware 1.1.3 (owner, 14 Nov 2026, decision 0649) M5, T1 M6 and T2 M6 showed the tool change, touched off on the measurement switch and returned to the G28 position, with the offsets as expected (OI-41)"
+
+[machine.provenance.spindle_to_axis]
+state = "confirmed"
+source = "measured by the owner on firmware 1.1.3 (14 Nov 2026, decision 0649): with no tool and the tool length offset calibrated to the collet face (offset -24.433), G54 Z0 on the axis reads machine Z -73.000, so the collet face at machine Z 0 is 73.000 mm above the axis; a dummy tool 4.821 mm from the collet face (offset -19.612, machine Z -68.180) gives 73.001. 72.0 is 73.000 less 1 mm to the top of the Z travel, the soft limit at machine Z -1. It replaces 73.1, derived from the probe's stick-out measured with a caliper, 24.5 (decision 0318, issue #395); the probe's stick-out on the tool setter is 24.433"
+
+[machine.provenance.recommended_min_safe_z]
+state = "confirmed"
+source = "the owner's recommendation, confirmed by the owner (14 Nov 2026, decision 0649), from the minimum clearance radius measured for one chuck and jaw setup (the supplied Sanou K02-50, jaws reversed and fully open); it replaces 30 (decision 0317). The recommended minimum is 45 mm. This must be checked before machining."
+
+[machine.provenance.min_clearance_radius]
+state = "confirmed"
+source = "measured by the owner on firmware 1.1.3 (14 Nov 2026, decision 0649, OI-1780): a clearance radius of 45 mm about the rotary axis clears the supplied Sanou K02-50 chuck with its jaws in the reverse configuration, fully open (60 mm chuck opening). It holds for that chuck and jaw setup only: other chucks, jaw configurations and a tailstock are not covered, so set the setup's own minimum clearance for them. Jaws gripping smaller stock reach less far"

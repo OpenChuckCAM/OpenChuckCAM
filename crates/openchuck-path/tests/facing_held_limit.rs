@@ -2,7 +2,7 @@
 //! OP-24, SET-09: beside a held region Facing faces what the tool reaches
 //! with its clearance from the grip, leaves the rest of the requested
 //! coverage unfaced and says where, why and how much in an information
-//! note, not a warning (issue #500; decision FACING-GRIP-A, amending 0252).
+//! note, not a warning (issue #500; decision 0685, amending 0252).
 //! Expected numbers are worked by hand from the set-up below, never from the
 //! generator's helpers.
 #![allow(
