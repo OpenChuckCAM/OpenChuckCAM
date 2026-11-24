@@ -124,7 +124,7 @@ fn req_prj_02_not_now_keeps_the_link_marked_with_a_way_to_copy_it() {
     assert!(model(&rig, id).path.is_outside_project());
     // The tree's row says so in words as well as by its mark (UI-11).
     rig.settle();
-    assert!(rig.shows(tree::LINKED_CHIP));
+    assert!(chip_shown(&rig));
     // The Model inspector says where the file is, with the action.
     rig.shell.selected = Some(Selection::Model(id));
     rig.settle();
@@ -138,8 +138,16 @@ fn req_prj_02_not_now_keeps_the_link_marked_with_a_way_to_copy_it() {
         copied.path.as_str()
     );
     assert!(rig.shows("cube.stl, stored in the project folder (models/"));
-    assert!(!rig.shows(tree::LINKED_CHIP));
+    assert!(!chip_shown(&rig));
     let _ = std::fs::remove_dir_all(root);
+}
+
+/// Whether the tree's "linked" chip is drawn: the project, named "linked",
+/// is in the title bar too, so only text below the title bar counts.
+fn chip_shown(rig: &Rig) -> bool {
+    rig.text_rects()
+        .iter()
+        .any(|(t, r)| t == tree::LINKED_CHIP && r.top() > super::frame::TITLE_BAR)
 }
 
 /// Opens the import dialog on `file` and waits for its check.

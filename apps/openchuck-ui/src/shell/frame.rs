@@ -77,7 +77,7 @@ pub(super) const UI_SCALES: [u32; 5] = [80, 90, 100, 110, 120];
 const SETTINGS_DELAY: Duration = Duration::from_secs(1);
 
 /// Heights of the bars (specification section 3).
-const TITLE_BAR: f32 = 32.0;
+pub(super) const TITLE_BAR: f32 = 32.0;
 const WORKFLOW_BAR: f32 = 44.0;
 const FOOTER: f32 = 48.0;
 const LEGEND_STRIP: f32 = 36.0;
