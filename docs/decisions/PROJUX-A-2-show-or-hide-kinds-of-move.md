@@ -1,6 +1,6 @@
 # PROJUX-A-2: Each kind of toolpath move can be shown or hidden in the view, from the path legend, the Show menu and the View menu (SIM-01, UI-14, UI-15; issue #789; lane PROJECT-UX-A)
 
-- **Status:** Accepted by the project owner on 26 Nov 2026, relayed by the coordinator (decision 0049). Proposed by lane PROJECT-UX-A on 25 Nov 2026 and built in the lane's second pull request (#898) as the owner answered the lane's questions on 25 Nov 2026, relayed by the coordinator:
+- **Status:** Accepted by the project owner on 26 Nov 2026, relayed by the coordinator (decision 0049). Chip text amended by the owner on 26 Nov 2026, relayed by the coordinator: a plain label without Show all (Decision item 3). Proposed by lane PROJECT-UX-A on 25 Nov 2026 and built in the lane's second pull request (#898) as the owner answered the lane's questions on 25 Nov 2026, relayed by the coordinator:
   - R1 option A: trace to SIM-01, UI-14 and UI-15, with no change to the requirements.
   - P1 option B: six kinds.
   - P2 option A: the legend's rows become tick boxes, with the same choices in View and the Show menu, and a chip.
@@ -43,13 +43,17 @@ What `main` (`361613e`) did:
    - **Entry and exit is the box of its three kinds.** It is ticked when all three are shown, shows a bar when some are, and is empty when none are. A press hides all three when any is shown, and shows all three when none is. The tick, bar and empty box tell the states apart without colour.
    - **The Show menu (V).** It has a "Toolpath moves" group with the same tick boxes, a box for Entry and exit that can be partly ticked, and "Show all moves" while any kind is hidden.
    - **View > Toolpath moves.** The same group again, so every choice is a menu command.
-3. **A hidden kind is never forgotten.** While any kind is hidden, a chip beside the Show button in the view's toolbar strip says which, on every step: "Hidden: Rapid, Lead-out · Show all". Entry and exit hidden whole reads as one name. Pressing the chip shows every kind.
+3. **A hidden kind is never forgotten (as the owner amended it on 26 Nov 2026).** While any kind is hidden, a chip beside the Show button in the view's toolbar strip says which, on every step: "Hidden: Rapid, Lead-out". Entry and exit hidden whole reads as one name.
+   - The chip is a plain label, not a control. It has no button styling, no tooltip and no Tab stop, and a click does nothing. Its outline and warning colour set it apart, and its words say what is hidden, so it is not shown by colour alone. A screen reader reads it as text (OI-2110).
+   - Because it is not a control and has no tooltip, decision 0677 item 3 (a tooltip on information makes it a Tab stop) does not apply to it.
+   - The way back is "Show all moves" in the Show menu (V) and in View > Toolpath moves, shown while any kind is hidden, or the legend's tick boxes.
+   - The owner first chose a chip ending "· Show all" that showed every kind when pressed. On 26 Nov 2026 the owner removed "Show all" to keep the chip short, and chose a plain label over a button whose words no longer said what a press does.
    - On Simulate the chip comes before Simulate's inline Show tick boxes, which move into the Show menu when the strip has no room for both (OI-529's rule, with the chip counted).
 4. **Simulate (the owner's answer P2b B, with its condition).**
    - Simulate shows the path legend at the top left, only while Toolpaths is ticked in its Show choices. With the toolpaths off there is no legend, since there are no lines for it to name.
    - It lists the rows of moves only, with the same tick boxes as on Operations, setting the same choice. Held regions, tabs, the shown set and the unreachable areas stay where they were, in the colour scale's box at the bottom left. Selected and Avoid are Operations' picking roles and are not listed.
    - It is the fourth box on Simulate, after the view cube, the readout and the colour scale, within specification 7.2's five.
-   - **The chip with the toolpaths off.** The chip keeps its rules on every step. With the toolpaths off on Simulate it still says which kinds are hidden, so the choice is not forgotten. Pressing it shows every kind again; it does not turn the toolpaths on, which stays the Show choice of its own.
+   - **The chip with the toolpaths off.** The chip keeps its rules on every step. With the toolpaths off on Simulate it still says which kinds are hidden, so the choice is not forgotten. It does nothing when clicked. "Show all moves" in the menus shows every kind again; it does not turn the toolpaths on, which stays the Show choice of its own.
    - **Layout, at 1920 by 1080 and best effort at 1366 by 768.** The legend and the colour scale share the left side of the view, the legend at the top and the scale at the bottom. Where they would meet, in a short view, the legend collapses to its button. Opened, it takes the scale's place until it is closed, so no two boxes overlap (specification 7.2).
    - Below 480 pixels of view height the legend is a button, as on Operations.
    - A view of a 1920 by 1080 window (about 1300 by 760) has room for both.
@@ -94,7 +98,7 @@ Tests were written from the issue and the owner's answers before the code. Times
   - The two legend-name tests are updated for the new rows.
 - `openchuck-ui`, `shell::path_moves_tests` (1 to 8 s each):
   - `req_sim_01_a_kind_hidden_in_the_view_is_hidden_from_the_lines_and_named_in_the_chip`
-  - `req_sim_01_the_hidden_chip_shows_every_kind_again`
+  - `req_sim_01_the_hidden_chip_is_a_label_and_show_all_moves_brings_every_kind_back`: the chip reads "Hidden: Cut" with no "Show all", a click on it does nothing, Tab never reaches it, and Show all moves brings every kind back.
   - `req_ui_14_the_show_menu_lists_the_kinds_of_move`
   - `req_ui_14_req_sim_01_the_show_menu_tick_boxes_set_the_kinds`
   - `req_ui_14_view_toolpath_moves_is_in_the_menu`

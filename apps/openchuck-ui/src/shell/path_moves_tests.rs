@@ -48,30 +48,59 @@ fn req_sim_01_a_kind_hidden_in_the_view_is_hidden_from_the_lines_and_named_in_th
     expected.set(MoveKind::Rapid, false);
     // The playback panel draws the lines for the same choice, on every step.
     assert_eq!(rig.shell.play.shown_moves(), expected);
-    assert!(rig.shows("Hidden: Rapid · Show all"));
+    assert!(rig.shows("Hidden: Rapid"));
     hide(&mut rig, &ShownMoves::ENTRY);
-    assert!(rig.shows("Hidden: Rapid, Entry and exit · Show all"));
+    assert!(rig.shows("Hidden: Rapid, Entry and exit"));
     // Only the view: the program is the one generated.
     assert_eq!(rig.shell.run.last().map(|r| r.gcode.clone()), gcode);
 }
 
+/// The owner's amendment of 26 Nov 2026: the chip is a plain label that only
+/// names what is hidden, with no "Show all" and no action; the way back is
+/// "Show all moves" in the menus.
 #[test]
-fn req_sim_01_the_hidden_chip_shows_every_kind_again() {
+fn req_sim_01_the_hidden_chip_is_a_label_and_show_all_moves_brings_every_kind_back() {
     let mut rig = generated("moves-chip", None);
     hide(&mut rig, &[MoveKind::Cutting]);
-    assert!(rig.shows("Hidden: Cut · Show all"));
+    assert!(rig.shows("Hidden: Cut"));
+    assert!(
+        !rig.texts()
+            .iter()
+            .any(|(t, _)| t.contains("Show all") && t.starts_with("Hidden"))
+    );
     // The chip is in the view's toolbar strip on every step.
     rig.shell.open_step(Step::Simulate);
     rig.settle();
-    assert!(rig.shows("Hidden: Cut · Show all"));
+    assert!(rig.shows("Hidden: Cut"));
     let chip = rig
         .text_rects()
         .into_iter()
-        .find(|(t, _)| t == "Hidden: Cut · Show all")
+        .find(|(t, _)| t == "Hidden: Cut")
         .unwrap()
         .1;
+    // A click on it does nothing.
     rig.click(chip.center());
     rig.frame(Vec::new());
+    assert_eq!(
+        rig.shell.viewport.shown_moves().hidden(),
+        [MoveKind::Cutting]
+    );
+    // It is not a Tab stop: Tab never lands on it.
+    for _ in 0..60 {
+        rig.tab(false);
+        if let Some(focused) = rig.focused() {
+            assert!(
+                !focused.rect.contains(chip.center()),
+                "Tab reached the chip"
+            );
+        }
+    }
+    // Show all moves in the Show menu (V) brings every kind back, and the
+    // chip goes.
+    rig.shell.viewport.show_menu_open = true;
+    rig.frame(Vec::new());
+    rig.frame(Vec::new());
+    click_text(&mut rig, "Show all moves");
     assert_eq!(rig.shell.viewport.shown_moves(), ShownMoves::ALL);
     assert_eq!(rig.shell.play.shown_moves(), ShownMoves::ALL);
     assert!(!rig.shows("Hidden:"));

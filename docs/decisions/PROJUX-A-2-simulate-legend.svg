@@ -14,9 +14,9 @@
     <text x="158" y="50" fill="#c9d1d9">Shaded Wire Edges | Persp Ortho | Front Top Iso | Fit</text>
     <rect x="410" y="40" width="34" height="14" rx="2" fill="#2a3038" stroke="#4a525c"/>
     <text x="414" y="50" fill="#e6e9ee">Show ⏷</text>
-    <rect x="448" y="40" width="118" height="14" rx="7" fill="none" stroke="#f2b84b"/>
-    <text x="507" y="50" fill="#f2b84b" text-anchor="middle">Hidden: Rapid · Show all</text>
-    <text x="574" y="50" fill="#c9d1d9">Show: ☐ Part ☑ Cut part ☑ Toolpaths</text>
+    <rect x="448" y="40" width="70" height="14" rx="7" fill="none" stroke="#f2b84b"/>
+    <text x="483" y="50" fill="#f2b84b" text-anchor="middle">Hidden: Rapid</text>
+    <text x="526" y="50" fill="#c9d1d9">Show: ☐ Part ☑ Cut part ☑ Toolpaths</text>
   </g>
   <rect x="150" y="58" width="660" height="380" fill="#15171a"/>
   <ellipse cx="480" cy="250" rx="160" ry="52" fill="#7b828c" opacity="0.6"/>

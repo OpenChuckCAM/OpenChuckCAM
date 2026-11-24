@@ -133,8 +133,7 @@ pub fn show(ui: &mut egui::Ui, viewport: &mut Viewport, strip: egui::Rect) {
             }
             // Simulate's "Show" choices stay in the strip while they fit after the other
             // controls, else they move into the "Show" menu, so none is cut off (OI-529).
-            let chip = hidden_moves_text(viewport.shown_moves())
-                .map_or(0.0, |t| text_width(ui, &t) + button_extra(ui));
+            let chip = hidden_moves_width(ui, viewport.shown_moves());
             let inline_show = step == ViewStep::Simulate
                 && ui.available_width()
                     >= text_width(ui, "Show \u{23f7}")
@@ -253,27 +252,47 @@ pub fn move_ticks(ui: &mut egui::Ui, moves: &mut ShownMoves) {
 }
 
 /// The chip beside "Show" while some kinds of move are hidden (issue #789;
-/// the owner's answer P2 A), so a hidden kind is never forgotten: "Hidden:
-/// Rapid, Lead-out · Show all". A press shows every kind again.
-fn hidden_moves_chip(ui: &mut egui::Ui, viewport: &mut Viewport) {
+/// decision record PROJUX-A-2 as the owner amended it on 26 Nov 2026), so a
+/// hidden kind is never forgotten: "Hidden: Rapid, Lead-out". It is a plain
+/// label, not a control: no button styling, no tooltip, no Tab stop, and a
+/// click does nothing. Its outline and warning colour mark it apart, and its
+/// words say what is hidden, so it is not shown by colour alone. The way
+/// back is "Show all moves" in the Show menu (V) and in View > Toolpath
+/// moves, or the path legend's tick boxes.
+fn hidden_moves_chip(ui: &mut egui::Ui, viewport: &Viewport) {
     let Some(text) = hidden_moves_text(viewport.shown_moves()) else {
         return;
     };
-    let chip = egui::Button::new(egui::RichText::new(text).color(crate::theme::DARK.warning))
-        .stroke(egui::Stroke::new(1.0, crate::theme::DARK.warning))
-        .corner_radius(10.0);
-    if ui.add(chip).tip(HIDDEN_MOVES_TIP).clicked() {
-        viewport.set_shown_moves(ShownMoves::ALL);
-    }
+    let colour = crate::theme::DARK.warning;
+    let galley = ui.painter().layout_no_wrap(
+        text.clone(),
+        egui::TextStyle::Body.resolve(ui.style()),
+        colour,
+    );
+    let size = galley.size() + egui::vec2(16.0, 6.0);
+    let (rect, response) = ui.allocate_exact_size(size, egui::Sense::hover());
+    ui.painter().rect_stroke(
+        rect,
+        rect.height() / 2.0,
+        egui::Stroke::new(1.0, colour),
+        egui::StrokeKind::Inside,
+    );
+    ui.painter()
+        .galley(rect.center() - galley.size() / 2.0, galley, colour);
+    // Read as text by a screen reader (OI-2110), never as a button.
+    response.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Label, true, &text));
 }
-
-/// The hidden-moves chip's tooltip.
-pub const HIDDEN_MOVES_TIP: &str = "Some kinds of toolpath move are hidden in the view. The G-code, \
-     the simulation and the checks do not change. Press to show every kind again.";
 
 /// The words of the hidden-moves chip, or `None` when every kind is shown.
 pub fn hidden_moves_text(moves: ShownMoves) -> Option<String> {
-    moves.hidden_text().map(|t| format!("{t} · Show all"))
+    moves.hidden_text()
+}
+
+/// The room the hidden-moves chip takes in the strip, with its gap.
+fn hidden_moves_width(ui: &egui::Ui, moves: ShownMoves) -> f32 {
+    hidden_moves_text(moves).map_or(0.0, |t| {
+        text_width(ui, &t) + 16.0 + ui.spacing().item_spacing.x
+    })
 }
 
 /// The "Show or hide" button and its list (V).
