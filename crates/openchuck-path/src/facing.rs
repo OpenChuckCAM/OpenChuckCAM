@@ -312,7 +312,6 @@ impl Facing {
             parameter::END | parameter::BOX
         ) {
             let setup = validation::input(input, context)?;
-            held::check_host(setup, input.keep_out)?;
             if parameters.text(crate::extend::parameter::EXTEND)? != crate::extend::parameter::NO
                 || parameters.flag(crate::extend::parameter::EXTEND_SIDES)?
             {
@@ -330,6 +329,9 @@ impl Facing {
                 }
                 plan.passes
             } else {
+                // Box faces up to the host's keep-out and says where; End
+                // faces the end away from the grip and is not affected.
+                held::check_host(setup, input.keep_out)?;
                 let passes = plan::plan_box_sides(
                     setup,
                     &plan::BoxFacingParameters::read(parameters)?,

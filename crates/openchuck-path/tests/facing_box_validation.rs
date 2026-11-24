@@ -483,7 +483,11 @@ fn req_op_24_req_set_09_box_paths_over_a_grip_refuse_and_part_extents_clear_of_i
                     result.unwrap();
                 } else {
                     let error = result.unwrap_err().to_string();
-                    assert!(error.contains("protected geometry"), "{error}");
+                    assert!(
+                        error.contains("protected geometry")
+                            || error.contains("outside selected Facing coverage"),
+                        "{error}"
+                    );
                 }
             });
         }
