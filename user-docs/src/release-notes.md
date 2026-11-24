@@ -62,7 +62,7 @@ The open bugs at this release, most serious first in each group. The number is t
 - Facing refuses every STEP part ("no established projection bound"). Import the part as STL for Facing, or face the stock to length before it goes in the chuck (#800).
 - Face flow refuses a closed shape whose edges do not join, such as a cylinder. Split the face along its seam in your CAD program (#791).
 - End facing on a round bar can be refused at posting with larger slices; use a **Stepdown (band along the tool)** of about 1 to 1.5 mm (#650). Facing with the **Box** shape refuses on the baluster example (#500).
-- A helical finish with a set in **Avoid** set to **Cut short** gives about four times the moves (#608); pencil clean-up with **Exact STEP surface contact** on can make many more passes at a corner (#632); the last move of a lead-in is fed slightly slower than it needs (#685).
+- A helical finish with a set in **Avoid** set to **Cut short** gives about four times the moves (#608); pencil clean-up with a flat end can leave most of a sharp inside corner uncut, or, with **Exact STEP surface contact** on, cut it in many short passes; check the corner in the simulation (#632); the last move of a lead-in is fed slightly slower than it needs (#685).
 
 **Setups, machines and workholding**
 
@@ -96,5 +96,7 @@ The *latest* version of this guide describes the nightly build, the [development
 - **Post templates.** A `namespace` key in a post template must be a name, and a template that stores a namespace inside itself no longer leaks memory.
 - **Names in LinuxCNC comments.** A project, setup, operation or tool name that would start a comment LinuxCNC acts on, such as `MSG,` or `LOGOPEN,`, is written with `_` in front, so it stays an ordinary comment, and generating warns you which name was changed and where it came from. A post of your own can list its controller's words with the new option `active_comment_prefixes` ([Writing a post-processor](reference/writing-a-post.md)).
 - **Swarf entries.** A lead or helix entry that would cut a face next to the selected faces deeper than the pass itself does, such as a lead-out running on into the wall at the end of a blade, is now refused, naming the face; the face's note gives the tool's reach past the end of the rulings after any lift.
+- **Pencil clean-up.** With a flat end it now cleans a sharp inside corner of a STEP part in one pass, with **Exact STEP surface contact** off or on: it judges the material left from the tool as it rests, and rests just clear of the wall beside it. A new setting, **Shortest cut** (by default the tool's diameter), leaves stretches shorter than it, and single points, uncut, and the notes say where (#632).
+- **Exact STEP surface contact** has moved to the **Advanced** section of every operation that has it, and its tooltip now says how much closer to the surface and how much slower it was on test parts.
 
 Generated G-code must be verified by you before it is run on a machine. OpenChuckCAM does not guarantee that a program is safe or correct for any machine, tool or setup.

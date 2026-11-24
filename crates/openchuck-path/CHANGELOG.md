@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.61.0 (PENCIL-REST; issue #632; decision 0684, accepted; not breaking)
+
+- **Fixed, changed output (#632):** pencil clean-up judges the material left from the tool as it rests, its axis over its cutting length, not from the one contact point the drop reports. A flat end on a surface along its flat bottom touches it along a line, and the drop could report any point of it: the tessellation its far edge, out of reach of the corner's material, and the exact faces a point that moved with A. A flat end in a sharp inside corner of a STEP part now cuts the whole corner in one pass with Exact STEP surface contact off and on alike, where the closed-form shouldered shaft gave a refusal off and 31 passes on.
+- **Fixed, changed output (#632):** a pencil rest stopped by a wall on its way to the crease is kept a tenth of the operation's tolerance back from it (0.001 mm at the default). Flush with the wall, a drop could read the tool as resting on the wall's top, and the moves between rests rode up onto it or ended the pass.
+- **Added, changed output:** pencil clean-up's `min_length` (Shortest cut, millimetres, default 0): a stretch of a corner shorter than it is not cut, and a single point never is. A note says how many stretches were left and where each starts (up to five); when every stretch is left, the operation is refused, naming the setting. The application starts it at the tool's diameter.
+- **Added:** `RemainingMap::near_segment(a, b)`, whether a sample with material left lies within the reach of a segment. Additive.
+- **Changed text:** the Exact STEP surface contact descriptions state the trade-off with the measured examples: how much closer to the true surface the tool sits and how much slower generation is on test parts, and, for the outline kind, that it does not change which corners or areas are cut.
+- Every pencil operation can change, on mesh and STEP parts; no golden program or reference job holds one. No other strategy changes. Generated G-code remains the user's to verify before running it on a machine.
+
 ## 0.61.0 (SWARF-LEADS; issues #572, #624 and #510; decisions 0682 and 0683, accepted)
 
 - **Fixed, changed output (#572; decision 0682, option B, the owner's choice):** the entry and exit moves of a strategy given the faces next to its face set (`RegionConstraint::neighbours`; swarf) are measured against those faces as well as the face set: a lead (straight, or on a pass that turns A) or a helix that would cut one deeper than the pass itself cuts it where the move joins it, plus the tolerance and the sampling slack, is refused with the existing entry refusal, naming the face. A swarf lead-out at a pass that stops short of an end wall ran on into the wall (2.990 mm on the library fixture) with no warning; it is now refused. A ramp follows the pass and is unchanged. No public API change.

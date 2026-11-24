@@ -236,6 +236,19 @@ pub fn parameter_values(
             ParameterValue::Number(extend::default_distance(snapshot.tool.diameter.0)),
         );
     }
+    // Pencil clean-up does not cut a stretch shorter than the tool's
+    // diameter where the operation sets no shortest cut (decision record
+    // 0684 item 3): a shorter one is a peck, not a cut along the
+    // corner.
+    if operation.strategy == pencil::NAME
+        && !values.contains_key(pencil::pencil_parameter::MIN_LENGTH)
+        && let Some(snapshot) = snapshot
+    {
+        values.insert(
+            pencil::pencil_parameter::MIN_LENGTH.to_owned(),
+            ParameterValue::Number(snapshot.tool.diameter.0),
+        );
+    }
     // A required value that neither the operation nor the cutting data gives:
     // the same list the interface marks (`requirements`), narrowed to the
     // values whose cause is the cutting data.
@@ -1657,7 +1670,9 @@ fn check_travel_along(
 
 /// The default of parameter `name` of `operation` where the application's
 /// differs from the strategy's schema: edge following on a STEP part takes
-/// the B-rep crease angle (decision 0056).
+/// the B-rep crease angle (decision 0056); the distance past the stock
+/// follows the tool (decision 0212); pencil clean-up's shortest cut is the
+/// tool's diameter (decision record 0684 item 3).
 pub(crate) fn default_override(
     project: &Project,
     operation: &Operation,
@@ -1667,6 +1682,11 @@ pub(crate) fn default_override(
         let tool = operation.tool?;
         let snapshot = project.tools().iter().find(|t| t.id == tool)?;
         return Some(extend::default_distance(snapshot.tool.diameter.0));
+    }
+    if operation.strategy == pencil::NAME && name == pencil::pencil_parameter::MIN_LENGTH {
+        let tool = operation.tool?;
+        let snapshot = project.tools().iter().find(|t| t.id == tool)?;
+        return Some(snapshot.tool.diameter.0);
     }
     (operation.strategy == edge_following::NAME
         && name == edge_following::parameter::CREASE_ANGLE
@@ -4009,10 +4029,11 @@ mod tests {
     }
 
     #[test]
-    fn req_op_27_req_ui_07_exact_contact_is_shown_next_to_tolerance_on_a_step_part_only() {
-        // Decision 0526: one row in Pattern and tolerance, after Tolerance,
-        // on a STEP part; a mesh part has no such row. No problem is shown
-        // for a ball end.
+    fn req_op_27_req_ui_07_exact_contact_is_shown_in_advanced_on_a_step_part_only() {
+        // Decision 0526: one row, after Tolerance in the schema's order, on a
+        // STEP part; a mesh part has no such row. No problem is shown for a
+        // ball end. Decision record 0684 item 4 (the owner's answer
+        // of 23 Nov 2026): the row is in Advanced, for every strategy.
         let registry = Registry::builtin();
         let step = bar_fixture(openchuck_path::axial::NAME, "bar.step");
         let form = crate::form::parameter_form(&step.project, &registry, step.operation).unwrap();
@@ -4021,12 +4042,56 @@ mod tests {
         assert_eq!(names.get(at + 1), Some(&exact_contact(true).0), "{names:?}");
         let field = &form.fields[at + 1];
         assert_eq!(field.label, "Exact STEP surface contact");
-        assert_eq!(field.section, crate::form::FormSection::PatternAndTolerance);
+        assert_eq!(field.section, crate::form::FormSection::Advanced);
         assert_eq!(field.value, Some(Value::Flag(false)));
         assert_eq!(field.problem, None);
         let mesh = bar_fixture(openchuck_path::axial::NAME, "bar.stl");
         let form = crate::form::parameter_form(&mesh.project, &registry, mesh.operation).unwrap();
         assert!(form.fields.iter().all(|f| f.name != exact_contact(true).0));
+    }
+
+    #[test]
+    fn req_op_09_req_ui_07_the_shortest_cut_starts_at_the_tools_diameter() {
+        // Decision record 0684 item 3: pencil's Shortest cut is,
+        // where the operation sets none, the tool's diameter, in the form
+        // (as its default, in Advanced) and when the path is made; a value
+        // the operation sets is kept.
+        let registry = Registry::builtin();
+        let f = shaft_fixture();
+        let form = crate::form::parameter_form(&f.project, &registry, f.operation).unwrap();
+        let field = form
+            .fields
+            .iter()
+            .find(|field| field.name == pencil::pencil_parameter::MIN_LENGTH)
+            .unwrap();
+        assert_eq!(field.label, "Shortest cut");
+        assert_eq!(field.section, crate::form::FormSection::Advanced);
+        assert_eq!(field.value, Some(Value::Number(BALL)));
+        assert_eq!(field.source, crate::form::Source::Default);
+        let op = f.project.operation(f.operation).unwrap();
+        let resolved = parameter_values(&f.project, op, &registry).unwrap();
+        assert_eq!(
+            resolved.values.get(pencil::pencil_parameter::MIN_LENGTH),
+            Some(&openchuck_path::ParameterValue::Number(BALL))
+        );
+        let mut set = op.clone();
+        set.parameters.insert(
+            pencil::pencil_parameter::MIN_LENGTH.to_owned(),
+            Value::Number(0.5),
+        );
+        let resolved = parameter_values(&f.project, &set, &registry).unwrap();
+        assert_eq!(
+            resolved.values.get(pencil::pencil_parameter::MIN_LENGTH),
+            Some(&openchuck_path::ParameterValue::Number(0.5))
+        );
+        // Edge following's shortest chain, of the same key, keeps its own
+        // default.
+        let mut edge = op.clone();
+        edge.strategy = edge_following::NAME.to_owned();
+        assert_eq!(
+            default_override(&f.project, &edge, edge_following::parameter::MIN_LENGTH),
+            None
+        );
     }
 
     /// The shouldered shaft of the testkit (one sharp inside corner at X 12,

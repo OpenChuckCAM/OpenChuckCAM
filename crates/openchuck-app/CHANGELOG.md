@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.61.0 (PENCIL-REST; issue #632; decision 0684, accepted; not breaking)
+
+- **Changed:** the Exact STEP surface contact row is in the operation inspector's Advanced section for every strategy that has it (it was in Pattern and tolerance, after Tolerance).
+- **Added, changed output:** pencil clean-up's Shortest cut (`min_length`) starts at the tool's diameter where the operation sets none, in the form (as its default) and when the path is made, as the distance past the stock follows the tool. A saved pencil operation takes it, so stretches of a corner shorter than the tool's diameter, and single points, are no longer cut; the notes say where.
+
 ## 0.60.0 (POST-COMMENTS; issue #851; decision 0681, accepted)
 
 - **Added:** when the post writes `_` in front of text from the project because it would have started a comment the controller acts on (LinuxCNC's `MSG,`, `LOGOPEN,` and others), the run has one warning per text and where it came from: the project name, the setup name, the operation name, the name of tool T<n>, the revision, the version line or a comment of the post, with the opening matched and the post's name. The text is quoted, escaped (control characters, quotes, backslashes and non-ASCII) and cut after 48 characters. It is an ordinary run warning (Messages tab, `warning:` on the command line); nothing is saved and nothing needs acknowledging. The setup name in its prefix is escaped the same way, and each warning is said once per setup, field and text in a run, whatever the output grouping.
