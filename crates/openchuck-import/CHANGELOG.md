@@ -1,9 +1,12 @@
 # Changelog
 
-
-## Unreleased (FACEFLOW; issue #615)
+## 0.63.0 (FACEFLOW; issues #791, #631, #614, #615 and #854; decisions 0675, 0676 and 0686, accepted)
 
 - **Changed text:** the STEP import notice names face-flow finishing among the strategies that read the exact faces ("radial drilling, swarf, edge following and face-flow finishing read").
+
+## Unreleased (FUZZ-NFR07; issue #582; decision 0679, accepted)
+
+- **Fixed (`step_mutations` example):** a `count`, `seed` or `max_seconds` that is given but is not a whole number stops the run with exit code 2 and says which, instead of using the default (a mistyped `max_seconds` meant no time budget). No library change.
 
 ## 0.58.0 (FACING-STEP; issue #800; decision 0666 option C, accepted)
 

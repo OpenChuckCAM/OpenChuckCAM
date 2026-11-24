@@ -18,7 +18,9 @@
 use std::path::{Path, PathBuf};
 
 use openchuck_app::project::{ContentHash, Item, file};
-use openchuck_testkit::parts::{Cone, HelicalGroove, LobedVase, RadialPart, Sphere};
+use openchuck_testkit::parts::{
+    Cone, CylinderStep, HelicalGroove, LobedVase, RadialPart, Sphere, SteppedCylinder,
+};
 
 /// Where the committed project folders are.
 pub fn projects_dir() -> PathBuf {
@@ -62,15 +64,19 @@ pub fn lobed() -> LobedVase {
 /// The name of the gate 5 first-cut project (decision record 0221, OI-914).
 pub const FIRST_CUT: &str = "first_cut";
 
-/// The first-cut project's part: a cone 25 mm long from 20 mm diameter at
-/// its start (the head, towards the chuck) to 10 mm at its end, where it
-/// meets the 10 mm tailstock tab flush (the owner's answers on OI-914, 22 Oct
-/// 2026; the small diameter and the direction are lane GATES's reading).
-pub fn first_cut_part() -> Cone {
-    Cone {
-        start_radius: 10.0,
-        end_radius: 5.0,
-        length: 25.0,
+/// The first-cut project's part (decision record 0680, issue #826, the
+/// owner's option A): three cylinders, 24 mm in diameter for 7 mm from its
+/// start (the head, towards the chuck), then 17 mm for 8 mm and 10 mm for
+/// 10 mm, where it meets the 10 mm tailstock piece flush. Placed 73 mm along
+/// the stock, the steps are at program X 73 to 80, 80 to 88 and 88 to 98.
+/// It replaces the cone of decision record 0221 (20 to 10 mm over 25 mm).
+pub fn first_cut_part() -> SteppedCylinder {
+    let step = |diameter: f64, length: f64| CylinderStep {
+        radius: diameter / 2.0,
+        length,
+    };
+    SteppedCylinder {
+        steps: vec![step(24.0, 7.0), step(17.0, 8.0), step(10.0, 10.0)],
     }
 }
 
@@ -78,8 +84,9 @@ pub fn first_cut_part() -> Cone {
 /// X, vertices round the axis), or `None` for a job read from a file.
 pub fn generated_part(job: &str) -> Option<(Box<dyn RadialPart>, (u32, u32))> {
     let part: Box<dyn RadialPart> = match job {
-        // A cone is straight along X, so two stations are exact; 360 round
-        // the axis keep the facets within 0.0004 mm of the surface.
+        // Each step is straight along X, so its mesh needs no stations
+        // between the faces; 360 round the axis keep the facets within
+        // 0.0005 mm of the surface.
         FIRST_CUT => return Some((Box::new(first_cut_part()), (2, 360))),
         "groove" => Box::new(groove()),
         "sphere" => Box::new(Sphere { radius: 10.0 }),

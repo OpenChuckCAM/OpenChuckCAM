@@ -1479,7 +1479,7 @@ fn req_op_28_face_flow_cuts_a_step_face_that_closes_round_on_itself_in_rings() {
     let rim = cut(&blisk_on_axis(), 1).unwrap();
     let notes = rim.notes().join("\n");
     assert!(notes.contains("cuts 52 passes on 1 face"), "{notes}");
-    // Issue #854 (decision 9931 item 2): the blisk's outside face, whose
+    // Issue #854 (decision 0686 item 2): the blisk's outside face, whose
     // rings break at every blade, follows its outline with Automatic, and
     // with Stay down between passes it is a few runs, not a run per piece
     // of ring as above, every contact on the face.

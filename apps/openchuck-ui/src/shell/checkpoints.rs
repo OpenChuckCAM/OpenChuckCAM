@@ -7,6 +7,7 @@
 //! whose action opens that project (or locates a moved one).
 use super::reminders::lower_first;
 use super::{Next, Shell};
+use crate::focus::KeepFocus as _;
 use eframe::egui::{self, Id};
 use openchuck_app::lead_in::Context;
 use openchuck_app::overview::{Message, MessageAction, Severity};
@@ -753,7 +754,7 @@ impl State {
             if let Some(problem)=&self.problem {ui.colored_label(crate::theme::DARK.error,problem);}
             if let Some(catalog)=&review.candidate.catalog {
                 for problem in &catalog.problems {ui.colored_label(crate::theme::DARK.error,problem);}
-                egui::ScrollArea::vertical().max_height(300.0).show(ui,|ui| {
+                egui::ScrollArea::vertical().max_height(300.0).show_keeping_focus(ui,|ui| {
                     for entry in &catalog.snapshots {
                         let kind=match entry.metadata.kind {Kind::Periodic=>"Periodic",Kind::Interim=>"Interim"};
                         let time=capture_time(entry.metadata.timestamp_ms);

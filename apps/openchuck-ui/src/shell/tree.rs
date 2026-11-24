@@ -11,6 +11,8 @@
 //! status mark, an icon or swatch, the name and a chip. A right click (or
 //! the menu key) opens the row's menu.
 
+use crate::focus::KeepFocus as _;
+use crate::focus::Tip as _;
 use eframe::egui::{self, Color32, RichText, Stroke};
 use openchuck_app::overview::{ItemRef, ItemState, SetupPart, Step, setup_row};
 use openchuck_app::project::ItemId;
@@ -167,7 +169,7 @@ fn header_with(
                 let button = egui::Button::new("+").min_size(egui::vec2(22.0, 22.0));
                 let tip = disabled_tip.filter(|_| !enabled).unwrap_or(tip);
                 let response = ui.add_enabled(enabled, button);
-                let response = response.on_disabled_hover_text(tip).on_hover_text(tip);
+                let response = response.on_disabled_hover_text(tip).tip(tip);
                 if response.clicked() {
                     add = true;
                 }
@@ -195,8 +197,8 @@ pub(super) const EYE_TIP: &str =
 pub(super) fn eye(ui: &mut egui::Ui, shown: bool) -> egui::Response {
     let response = eye_shape(ui, shown, "Show toolpath");
     response
-        .on_hover_text(EYE_TIP)
-        .on_hover_text(if shown { "Shown" } else { "Hidden" })
+        .tip(EYE_TIP)
+        .tip(if shown { "Shown" } else { "Hidden" })
 }
 
 /// The eye drawn as a button named `name`: open for `shown`, struck through
@@ -265,7 +267,7 @@ fn all_eyes(ui: &mut egui::Ui, hidden: usize, count: usize) -> Option<bool> {
         let response = ui
             .add_enabled_ui(enabled, |ui| eye_shape(ui, shown, name))
             .inner
-            .on_hover_text(format!("{name} in the view"))
+            .tip(format!("{name} in the view"))
             .on_disabled_hover_text(done);
         if response.clicked() {
             chosen = Some(shown);
@@ -320,7 +322,7 @@ impl Shell {
         let mut actions: Vec<TreeAction> = Vec::new();
         egui::ScrollArea::vertical()
             .id_salt("project tree")
-            .show(ui, |ui| {
+            .show_keeping_focus(ui, |ui| {
                 ui.spacing_mut().item_spacing.y = 0.0;
                 // Models.
                 if header(ui, Group::Model, project.models().len(), true) {
@@ -347,9 +349,9 @@ impl Shell {
                         |_| {},
                     );
                     let response = if linked {
-                        response.on_hover_text(LINKED_TIP)
+                        response.tip(LINKED_TIP)
                     } else {
-                        response.on_hover_text(m.path.as_str())
+                        response.tip(m.path.as_str())
                     };
                     if response.clicked() {
                         actions.push(TreeAction::SelectModel(m.id, None));
@@ -385,7 +387,7 @@ impl Shell {
                             |_| {},
                         );
                         let response = if key == crate::model_panel::PLACEMENT {
-                            response.on_hover_text(openchuck_app::setup_form::PLACEMENT_EXPLAINED)
+                            response.tip(openchuck_app::setup_form::PLACEMENT_EXPLAINED)
                         } else {
                             response
                         };
@@ -554,10 +556,10 @@ impl Shell {
                                     handle.rect,
                                 );
                             });
-                            handle.on_hover_text("Drag to move earlier or later (Alt ↑, Alt ↓)");
+                            handle.tip("Drag to move earlier or later (Alt ↑, Alt ↓)");
                             let enable = ui
                                 .checkbox(&mut enabled, "")
-                                .on_hover_text("Include in generation, simulation and G-code");
+                                .tip("Include in generation, simulation and G-code");
                             toggled = enable.changed();
                             let eye = eye(ui, shown);
                             #[cfg(test)]
@@ -694,7 +696,7 @@ fn item_menu(
         if let ItemRef::SelectionSet(id) = item
             && ui
                 .button("Delete")
-                .on_hover_text("Delete this set; refused while an operation uses it (Del)")
+                .tip("Delete this set; refused while an operation uses it (Del)")
                 .clicked()
         {
             actions.push(TreeAction::DeleteSet(id));
@@ -707,7 +709,7 @@ fn item_menu(
         if let ItemRef::Operation(id) = item
             && ui
                 .button("Generate")
-                .on_hover_text("Generate up to and including this operation (G)")
+                .tip("Generate up to and including this operation (G)")
                 .clicked()
         {
             actions.push(TreeAction::Generate(id));

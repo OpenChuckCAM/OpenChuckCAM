@@ -1,13 +1,13 @@
 # Install and first run
 
-OpenChuckCAM has no stable release yet. You can download a development build, or build the program from its source code.
+OpenChuckCAM's releases so far are early alphas. Each is on the project's [releases page](https://github.com/OpenChuckCAM/OpenChuckCAM/releases) and described in the [release notes](../release-notes.md). You can also download a development build, or build the program from its source code.
 
 > [!NOTE]
 > A development build has passed none of the project's release checks. Use it to learn the program and to try it on your own parts, and check every program it writes before you run it on a machine (see [Checking G-code before you run it](../safety/checking-gcode.md)).
 
 ## Download a development build
 
-When the program's code changes, the project builds it for three systems and publishes the result as the rolling [`nightly` pre-release](https://github.com/OpenChuckCAM/OpenChuckCAM/releases/tag/nightly) on GitHub.
+When the program's code changes, the project builds it for three systems and publishes the result as the rolling [`nightly` pre-release](https://github.com/OpenChuckCAM/OpenChuckCAM/releases/tag/nightly) on GitHub. The pre-release page lists what has changed since the last release, as does the [Development version](../release-notes.md#development-version) section of the release notes in this version of the guide.
 
 | System | Archive | Notes |
 | --- | --- | --- |
@@ -15,7 +15,7 @@ When the program's code changes, the project builds it for three systems and pub
 | Windows | x64 | Not signed: Windows SmartScreen may warn before it runs. |
 | macOS | Apple silicon, macOS 11 or later | Not signed or notarised: macOS blocks it the first time (see below). |
 
-The programs are not signed. Signing is not part of the first release.
+The programs are not signed, and no release so far has been signed.
 
 Each archive holds:
 

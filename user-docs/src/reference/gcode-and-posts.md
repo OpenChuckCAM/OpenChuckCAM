@@ -55,7 +55,7 @@ M2
 ## Line by line
 
 Title
-: The first line names the project and the setup, as a comment.
+: The first line names the project and the setup, as a comment. LinuxCNC acts on a comment that starts with certain words, such as `MSG,` (it shows a message) or `LOGOPEN,` (it opens a file on the controller). So that a name never does this, the LinuxCNC post writes `_` in front of a comment from your project, or a line of a wrapped comment, that would start with one: a project named `MSG,front` gives `(_MSG,front)`. Each time it does, generating warns you, in the Messages tab and on the command line, which text was changed and where it came from (the project name, the setup name, an operation name or a tool name, with the word it matched), for example *setup 'Setup 1': the project name "MSG,front" would start a comment with "MSG,", which the controller of the post 'LinuxCNC verification' acts on, so the post wrote "_" in front of it; check where this text came from*. A name you did not write yourself, such as one in a project or a tool library someone gave you, may have been put there to send the controller a command; rename it before you post. The Makera Z1 acts on no comment, so its post writes names as they are and does not warn.
 
 Program version
 : `(OpenChuckCAM <version>)`: the version of the program that wrote the file. There is no date, so the same project and version always give the same file.

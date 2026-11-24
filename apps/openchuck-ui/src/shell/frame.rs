@@ -7,6 +7,8 @@
 //! (section 11.1). The panel layout and the scale are kept per user (UI-15,
 //! UI-16; decision record 0117).
 
+use crate::focus::KeepFocus as _;
+use crate::focus::Tip as _;
 use std::time::{Duration, Instant};
 
 use eframe::egui::{self, Color32, RichText, Stroke};
@@ -78,19 +80,30 @@ const WORKFLOW_BAR: f32 = 44.0;
 const FOOTER: f32 = 48.0;
 const LEGEND_STRIP: f32 = 36.0;
 
-/// The keys, for Help > Keyboard shortcuts (specification section 16). The
-/// viewport's F, V and numpad keys and playback's Space and arrows come with
-/// the viewport toolbar and the playback dock (lanes X3 and X6).
+/// The keys, for Help > Keyboard shortcuts (specification section 16), each
+/// key written once so the list can be checked against the section. The keys
+/// the section names that are not built yet (Ctrl H, Ctrl K, S, M and B) are
+/// left out.
 pub(super) const KEY_MAP: &[(&str, &str)] = &[
     ("Ctrl N, Ctrl O, Ctrl S", "New, open, save project"),
     ("Ctrl I", "Import model"),
     ("Ctrl E", "Post and export"),
-    ("Ctrl Z, Ctrl Y", "Undo, redo"),
+    ("Ctrl Z", "Undo"),
+    ("Ctrl Y, Ctrl Shift Z", "Redo"),
     ("Alt 1 to Alt 4", "Workflow steps"),
     ("Alt 5", "Post and export (as Ctrl E)"),
     (
         "Ctrl 1, Ctrl 2, Ctrl 3",
         "Collapse the project panel, inspector, dock",
+    ),
+    (
+        "Ctrl +, Ctrl −, Ctrl 0",
+        "Scale the interface up, down, back to 100 %",
+    ),
+    ("F, V", "Fit the view; show or hide"),
+    (
+        "1, 3, 7, 0",
+        "Front, right, top, isometric view (top row or number pad)",
     ),
     ("N", "New operation"),
     (
@@ -108,9 +121,20 @@ pub(super) const KEY_MAP: &[(&str, &str)] = &[
     ),
     (
         "Q, W, E, R",
-        "Select one, flood fill, by angle, same direction (while picking)",
+        "Select one, flood fill, by angle, same direction (while picking); on an edge, Q, W and E are select one, chain and smooth chain",
     ),
-    ("Esc", "Cancel the running job, or leave picking"),
+    ("Ctrl Enter", "Apply the workholding draft"),
+    ("Space", "Play or pause the simulation"),
+    ("←, →", "Step the simulation back or on"),
+    ("Shift ←, Shift →", "Go to the previous or next operation"),
+    (
+        "Tab, Shift Tab",
+        "Move to the next or previous control; its tooltip opens with it",
+    ),
+    (
+        "Esc",
+        "Cancel the running job, leave picking, close a pop-up, or close a tool window as its Close does",
+    ),
 ];
 
 /// A status chip in the words of the item's mark (specification section 8).
@@ -275,14 +299,20 @@ impl Shell {
         egui::Panel::top("title bar")
             .exact_size(TITLE_BAR)
             .frame(bar_frame())
-            .show(ui, |ui| self.title_bar(ui));
+            .show(ui, |ui| {
+                crate::focus::region(ui, crate::focus::main_window::MENUS, |ui| {
+                    self.title_bar(ui)
+                });
+            });
         egui::Panel::top("workflow bar")
             .exact_size(WORKFLOW_BAR)
             .show(ui, |ui| self.workflow_bar(ui));
         egui::Panel::bottom("footer")
             .exact_size(FOOTER)
             .frame(bar_frame())
-            .show(ui, |ui| self.footer(ui));
+            .show(ui, |ui| {
+                crate::focus::region(ui, crate::focus::main_window::FOOTER, |ui| self.footer(ui));
+            });
         self.side_panel(ui, Region::Project);
         self.side_panel(ui, Region::Inspector);
         self.viewport.set_picking(matches!(
@@ -316,42 +346,44 @@ impl Shell {
                 egui::CentralPanel::default()
                     .frame(egui::Frame::NONE)
                     .show(ui, |ui| {
-                        if self.app.is_none()
-                            || self
-                                .app
-                                .as_ref()
-                                .is_some_and(|a| a.project().models().is_empty())
-                                && self.import.is_none()
-                        {
-                            self.empty_state(ui);
-                            return;
-                        }
-                        if let Some(panes) = &panes {
-                            let (focused, selected) = self.viewport.marked_solids();
-                            let marks = crate::setup_panes::Marks { focused, selected };
-                            // Each setup keeps its panes' zoom and pan for
-                            // the session (decision record 0203).
-                            let seen = crate::setup_panes::show(
-                                ui,
-                                panes,
-                                marks,
-                                self.viewport.shows_unapplied(),
-                                egui::Id::unique(("setup panes view", self.setup)),
-                            );
-                            if let Some(item) = seen.clicked {
-                                self.viewport.click_solid(item);
+                        crate::focus::region(ui, crate::focus::main_window::VIEW, |ui| {
+                            if self.app.is_none()
+                                || self
+                                    .app
+                                    .as_ref()
+                                    .is_some_and(|a| a.project().models().is_empty())
+                                    && self.import.is_none()
+                            {
+                                self.empty_state(ui);
+                                return;
                             }
-                            return;
-                        }
-                        let corner = crate::selection_panel::tools_corner(ui.max_rect());
-                        self.viewport.show(ui);
-                        // A result that no longer matches the project says so on
-                        // the result itself (issue 260).
-                        self.view_banner(ui.ctx());
-                        // The selection tools sit over the top left of the view.
-                        if self.viewport.is_picking() {
-                            self.selection.tools(ui.ctx(), corner);
-                        }
+                            if let Some(panes) = &panes {
+                                let (focused, selected) = self.viewport.marked_solids();
+                                let marks = crate::setup_panes::Marks { focused, selected };
+                                // Each setup keeps its panes' zoom and pan for
+                                // the session (decision record 0203).
+                                let seen = crate::setup_panes::show(
+                                    ui,
+                                    panes,
+                                    marks,
+                                    self.viewport.shows_unapplied(),
+                                    egui::Id::unique(("setup panes view", self.setup)),
+                                );
+                                if let Some(item) = seen.clicked {
+                                    self.viewport.click_solid(item);
+                                }
+                                return;
+                            }
+                            let corner = crate::selection_panel::tools_corner(ui.max_rect());
+                            self.viewport.show(ui);
+                            // A result that no longer matches the project says so on
+                            // the result itself (issue 260).
+                            self.view_banner(ui.ctx());
+                            // The selection tools sit over the top left of the view.
+                            if self.viewport.is_picking() {
+                                self.selection.tools(ui.ctx(), corner);
+                            }
+                        })
                     });
             });
     }
@@ -394,16 +426,26 @@ impl Shell {
                 .exact_size(RAIL)
                 .resizable(false)
                 .show(ui, |ui| {
-                    ui.vertical_centered(|ui| {
-                        let chevron = if left { "»" } else { "«" };
-                        if ui
-                            .button(chevron)
-                            .on_hover_text(format!("Open the {} ({})", region.name(), region.key()))
-                            .clicked()
-                        {
-                            self.toggle_region(region);
-                        }
-                    });
+                    crate::focus::region(
+                        ui,
+                        if matches!(region, Region::Project) {
+                            crate::focus::main_window::PROJECT
+                        } else {
+                            crate::focus::main_window::INSPECTOR
+                        },
+                        |ui| {
+                            ui.vertical_centered(|ui| {
+                                let chevron = if left { "»" } else { "«" };
+                                if ui
+                                    .button(chevron)
+                                    .tip(format!("Open the {} ({})", region.name(), region.key()))
+                                    .clicked()
+                                {
+                                    self.toggle_region(region);
+                                }
+                            });
+                        },
+                    )
                 });
             return;
         }
@@ -419,26 +461,33 @@ impl Shell {
             builder = builder.exact_size(default);
             self.reset = None;
         }
+        let order = if left {
+            crate::focus::main_window::PROJECT
+        } else {
+            crate::focus::main_window::INSPECTOR
+        };
         let response = builder.show(ui, |ui| {
-            self.panel_header(ui, region);
-            match region {
-                Region::Project => self.tree(ui),
-                _ => {
-                    crate::theme::solid_scroll_bar(ui);
-                    egui::ScrollArea::vertical()
-                        .id_salt("inspector scroll")
-                        // The pane's width is the user's, not the content's.
-                        .auto_shrink([false, false])
-                        .show(ui, |ui| {
-                            let ctx = ui.ctx().clone();
-                            crate::pending_edits::form(
-                                &ctx,
-                                egui::Id::unique("inspector form"),
-                                || self.properties(ui),
-                            );
-                        });
+            crate::focus::region(ui, order, |ui| {
+                self.panel_header(ui, region);
+                match region {
+                    Region::Project => self.tree(ui),
+                    _ => {
+                        crate::theme::solid_scroll_bar(ui);
+                        egui::ScrollArea::vertical()
+                            .id_salt("inspector scroll")
+                            // The pane's width is the user's, not the content's.
+                            .auto_shrink([false, false])
+                            .show_keeping_focus(ui, |ui| {
+                                let ctx = ui.ctx().clone();
+                                crate::pending_edits::form(
+                                    &ctx,
+                                    egui::Id::unique("inspector form"),
+                                    || self.properties(ui),
+                                );
+                            });
+                    }
                 }
-            }
+            })
         });
         let rect = response.response.rect;
         let edge = if left { rect.right() } else { rect.left() };
@@ -491,7 +540,7 @@ impl Shell {
                 };
                 if ui
                     .small_button(chevron)
-                    .on_hover_text(format!("Collapse the {} ({})", region.name(), region.key()))
+                    .tip(format!("Collapse the {} ({})", region.name(), region.key()))
                     .clicked()
                 {
                     self.toggle_region(region);
@@ -509,30 +558,35 @@ impl Shell {
                 .exact_size(RAIL)
                 .resizable(false)
                 .show(ui, |ui| {
-                    // The show button is at the right end, where the hide
-                    // button of the open dock is (issue 433). Its width is
-                    // taken first, so a narrow window clips the tabs and
-                    // never the button (issue 468, OI-2040).
-                    ui.horizontal_centered(|ui| {
-                        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                            if ui
-                                .small_button("\u{23f6}")
-                                .on_hover_text("Open the dock (Ctrl 3)")
-                                .clicked()
-                            {
-                                self.toggle_region(Region::Dock);
-                            }
-                            // The tabs fill what is left of the row, from the
-                            // left, and are cut off at its edge.
+                    crate::focus::region(ui, crate::focus::main_window::DOCK, |ui| {
+                        // The show button is at the right end, where the hide
+                        // button of the open dock is (issue 433). Its width is
+                        // taken first, so a narrow window clips the tabs and
+                        // never the button (issue 468, OI-2040).
+                        ui.horizontal_centered(|ui| {
                             ui.with_layout(
-                                egui::Layout::left_to_right(egui::Align::Center),
+                                egui::Layout::right_to_left(egui::Align::Center),
                                 |ui| {
-                                    ui.shrink_clip_rect(ui.max_rect());
-                                    self.dock_tabs(ui);
+                                    if ui
+                                        .small_button("\u{23f6}")
+                                        .tip("Open the dock (Ctrl 3)")
+                                        .clicked()
+                                    {
+                                        self.toggle_region(Region::Dock);
+                                    }
+                                    // The tabs fill what is left of the row, from the
+                                    // left, and are cut off at its edge.
+                                    ui.with_layout(
+                                        egui::Layout::left_to_right(egui::Align::Center),
+                                        |ui| {
+                                            ui.shrink_clip_rect(ui.max_rect());
+                                            self.dock_tabs(ui);
+                                        },
+                                    );
                                 },
                             );
                         });
-                    });
+                    })
                 });
             return;
         }
@@ -559,7 +613,9 @@ impl Shell {
         #[cfg(test)]
         ui.ctx()
             .data_mut(|d| d.insert_temp(egui::Id::unique("test dock parent"), ui.scope_id()));
-        let response = builder.show(ui, |ui| self.dock(ui));
+        let response = builder.show(ui, |ui| {
+            crate::focus::region(ui, crate::focus::main_window::DOCK, |ui| self.dock(ui));
+        });
         let rect = response.response.rect;
         let top = rect.top();
         let dragging = ui.input(|i| {
@@ -597,7 +653,7 @@ impl Shell {
                 .map(|a| a.location().display().to_string());
             let label = ui.label(RichText::new(name).strong());
             if let Some(folder) = folder {
-                label.on_hover_text(folder);
+                label.tip(folder);
             }
             if self.app.is_some() {
                 // A neutral dot and "Edited", or "· saved"; amber is kept
@@ -610,7 +666,7 @@ impl Shell {
                 }
                 let label = ui.label(RichText::new(text).color(DARK.muted));
                 if let Some(tip) = tip {
-                    label.on_hover_text(tip);
+                    label.tip(tip);
                 }
             }
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
@@ -621,14 +677,14 @@ impl Shell {
                     .map_or((false, false), |a| (a.can_undo(), a.can_redo()));
                 if ui
                     .add_enabled(can_redo, egui::Button::new("↷"))
-                    .on_hover_text(format!("Redo ({})", ctx.format_shortcut(&REDO)))
+                    .tip(format!("Redo ({})", ctx.format_shortcut(&REDO)))
                     .clicked()
                 {
                     self.redo();
                 }
                 if ui
                     .add_enabled(can_undo, egui::Button::new("↶"))
-                    .on_hover_text(format!("Undo ({})", ctx.format_shortcut(&UNDO)))
+                    .tip(format!("Undo ({})", ctx.format_shortcut(&UNDO)))
                     .clicked()
                 {
                     self.undo();
@@ -654,7 +710,7 @@ impl Shell {
                 let clicked = ui
                     .push_id(index, |ui| {
                         ui.button(recent_label(folder))
-                            .on_hover_text(super::checkpoints::shown(folder))
+                            .tip(super::checkpoints::shown(folder))
                             .clicked()
                     })
                     .inner;
@@ -750,11 +806,17 @@ impl Shell {
                     self.tree_action(super::TreeAction::Duplicate(id));
                     ui.close();
                 }
+                // As the Del key: the selected operation or selection set.
+                let deletes = match self.selected {
+                    Some(Selection::Operation(id)) => Some(super::TreeAction::Delete(id)),
+                    Some(Selection::Set(id)) => Some(super::TreeAction::DeleteSet(id)),
+                    _ => None,
+                };
                 let delete = egui::Button::new("Delete").shortcut_text("Del");
-                if ui.add_enabled(operation.is_some(), delete).clicked()
-                    && let Some(id) = operation
+                if ui.add_enabled(deletes.is_some(), delete).clicked()
+                    && let Some(action) = deletes
                 {
-                    self.tree_action(super::TreeAction::Delete(id));
+                    self.tree_action(action);
                     ui.close();
                 }
                 let item = self.selected_item();
@@ -825,9 +887,7 @@ impl Shell {
                     egui::Button::new("Previous view"),
                 );
                 if back
-                    .on_hover_text(
-                        "Back to the view before the last Fit, standard view or Show in view",
-                    )
+                    .tip("Back to the view before the last Fit, standard view or Show in view")
                     .clicked()
                 {
                     self.viewport.undo_camera();
@@ -871,12 +931,27 @@ impl Shell {
                     self.new_operation();
                     ui.close();
                 }
+                // As "+ Add setup" on the Setup step's workflow bar.
+                let blocked = self
+                    .app
+                    .as_ref()
+                    .map_or(Some("Open or start a project first"), |a| {
+                        openchuck_app::add_setup_blocked(a.project())
+                    });
+                if ui
+                    .add_enabled(blocked.is_none(), egui::Button::new("Add setup"))
+                    .on_disabled_hover_text(blocked.unwrap_or_default())
+                    .clicked()
+                {
+                    self.add_setup();
+                    ui.close();
+                }
                 ui.separator();
                 let selected = matches!(self.selected, Some(Selection::Operation(_)));
                 let generate = egui::Button::new("Generate selected").shortcut_text("G");
                 if ui
                     .add_enabled(open && idle && selected, generate)
-                    .on_hover_text("The selected operation, and the operations before it")
+                    .tip("The selected operation, and the operations before it")
                     .clicked()
                 {
                     self.generate_selected();
@@ -972,84 +1047,97 @@ impl Shell {
             );
         }
         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-            if self.app.is_some() && self.health_badge(ui, &steps, first_problem) {
+            let badge = crate::focus::region(ui, crate::focus::main_window::BADGE, |ui| {
+                self.app.is_some() && self.health_badge(ui, &steps, first_problem)
+            });
+            if badge {
                 self.go_to_first_problem();
             }
-            match self.step {
-                Step::Model if self.app.is_some() => {
-                    if ui
-                        .add_enabled(self.import.is_none(), egui::Button::new("+ Import model…"))
-                        .on_hover_text("Import model (Ctrl I)")
-                        .clicked()
-                    {
-                        self.import_model();
-                    }
-                }
-                Step::Setup => {
-                    if let Some(app) = &self.app {
-                        let blocked = openchuck_app::add_setup_blocked(app.project());
-                        let tip = blocked.unwrap_or("New setup");
+            crate::focus::region(ui, crate::focus::main_window::ACTIONS, |ui| {
+                match self.step {
+                    Step::Model if self.app.is_some() => {
                         if ui
-                            .add_enabled(blocked.is_none(), egui::Button::new("+ Add setup"))
-                            .on_disabled_hover_text(tip)
-                            .on_hover_text(tip)
+                            .add_enabled(
+                                self.import.is_none(),
+                                egui::Button::new("+ Import model…"),
+                            )
+                            .tip("Import model (Ctrl I)")
                             .clicked()
                         {
-                            self.add_setup();
+                            self.import_model();
                         }
                     }
-                    ui.add(
-                        egui::Label::new(
-                            RichText::new("Changing a setup marks its operations stale.")
-                                .color(DARK.muted),
-                        )
-                        .truncate(),
-                    );
-                }
-                Step::Operations => {
-                    if ui
-                        .button("Tool library…")
-                        .on_hover_text("Open the tool library to add, edit or import tools")
-                        .clicked()
-                    {
-                        self.open_tool_library(super::Purpose::Add, None);
-                    }
-                    if ui
-                        .button("+ New operation")
-                        .on_hover_text("New operation (N)")
-                        .clicked()
-                    {
-                        self.new_operation();
-                    }
-                    if let Some(Selection::Operation(id)) = self.selected
-                        && ui.button("Duplicate").on_hover_text("Ctrl D").clicked()
-                    {
-                        self.tree_action(super::TreeAction::Duplicate(id));
-                    }
-                }
-                _ => {}
-            }
-            ui.with_layout(egui::Layout::left_to_right(egui::Align::Center), |ui| {
-                egui::ScrollArea::horizontal()
-                    .id_salt("steps")
-                    .scroll_bar_visibility(egui::scroll_area::ScrollBarVisibility::AlwaysHidden)
-                    .show(ui, |ui| {
-                        ui.horizontal_centered(|ui| {
-                            for step in Step::ALL {
-                                let state = steps
-                                    .iter()
-                                    .find(|s| s.step == step)
-                                    .cloned()
-                                    .unwrap_or_else(|| self.overview.step(step));
-                                let active = self.step == step;
-                                if step_tab(ui, step, active, &state).clicked() {
-                                    self.open_step(step);
-                                }
+                    Step::Setup => {
+                        if let Some(app) = &self.app {
+                            let blocked = openchuck_app::add_setup_blocked(app.project());
+                            let tip = blocked.unwrap_or("New setup");
+                            if ui
+                                .add_enabled(blocked.is_none(), egui::Button::new("+ Add setup"))
+                                .on_disabled_hover_text(tip)
+                                .tip(tip)
+                                .clicked()
+                            {
+                                self.add_setup();
                             }
-                            ui.separator();
-                            self.g_code_status(ui);
+                        }
+                        ui.add(
+                            egui::Label::new(
+                                RichText::new("Changing a setup marks its operations stale.")
+                                    .color(DARK.muted),
+                            )
+                            .truncate(),
+                        );
+                    }
+                    Step::Operations => {
+                        // Left to right, so Tab reads them as they stand (Q3 A).
+                        crate::focus::row_at_right(ui, "operations actions", |ui| {
+                            if let Some(Selection::Operation(id)) = self.selected
+                                && ui.button("Duplicate").tip("Ctrl D").clicked()
+                            {
+                                self.tree_action(super::TreeAction::Duplicate(id));
+                            }
+                            if ui
+                                .button("+ New operation")
+                                .tip("New operation (N)")
+                                .clicked()
+                            {
+                                self.new_operation();
+                            }
+                            if ui
+                                .button("Tool library…")
+                                .tip("Open the tool library to add, edit or import tools")
+                                .clicked()
+                            {
+                                self.open_tool_library(super::Purpose::Add, None);
+                            }
                         });
-                    });
+                    }
+                    _ => {}
+                }
+            });
+            ui.with_layout(egui::Layout::left_to_right(egui::Align::Center), |ui| {
+                crate::focus::region(ui, crate::focus::main_window::STEPS, |ui| {
+                    egui::ScrollArea::horizontal()
+                        .id_salt("steps")
+                        .scroll_bar_visibility(egui::scroll_area::ScrollBarVisibility::AlwaysHidden)
+                        .show_keeping_focus(ui, |ui| {
+                            ui.horizontal_centered(|ui| {
+                                for step in Step::ALL {
+                                    let state = steps
+                                        .iter()
+                                        .find(|s| s.step == step)
+                                        .cloned()
+                                        .unwrap_or_else(|| self.overview.step(step));
+                                    let active = self.step == step;
+                                    if step_tab(ui, step, active, &state).clicked() {
+                                        self.open_step(step);
+                                    }
+                                }
+                                ui.separator();
+                                self.g_code_status(ui);
+                            });
+                        })
+                });
             });
         });
     }
@@ -1097,11 +1185,11 @@ impl Shell {
             .filter_map(|s| Some((s.step, s.health, s.reason.clone()?)))
             .collect();
         let first = first_problem;
-        let response = response.on_hover_ui(|ui| {
+        let response = response.tip_ui(|ui| {
             ui.strong(format!("Overall status: {label}"));
             for (step, health, reason) in &lines {
                 ui.horizontal(|ui| {
-                    marks::mark(ui, health.mark(), health.name());
+                    marks::mark_beside(ui, health.mark(), health.name());
                     ui.label(format!("{}: {reason}", step.name()));
                 });
             }
@@ -1119,60 +1207,25 @@ impl Shell {
     /// room left.
     fn footer(&mut self, ui: &mut egui::Ui) {
         let primary = self.app.as_ref().map(|_| self.overview.primary(self.step));
-        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-            match &primary {
-                Some(p) if self.step == Step::Simulate => self.simulate_actions(ui, p),
-                Some(p) => {
-                    let enabled = p.blocked.is_none() && !self.run.is_running();
-                    let response = primary_button(ui, &p.label, enabled);
-                    let response = match &p.blocked {
-                        Some(reason) => response.on_disabled_hover_text(reason),
-                        None if self.run.is_running() => response
-                            .on_disabled_hover_text("Wait for the running job, or cancel it"),
-                        None => response,
-                    };
-                    if response.clicked() {
-                        self.primary();
-                    }
-                    if !enabled && response.hovered() {
-                        self.highlight = p.message;
-                    }
-                }
-                None => {
-                    if primary_button(ui, "New project…", true).clicked() {
-                        let ctx = ui.ctx().clone();
-                        self.request(Next::New, &ctx);
-                    }
-                }
-            }
-            if self.run.is_running() && ui.button("Cancel").on_hover_text("Esc").clicked() {
-                self.run.cancel();
-            }
-            ui.separator();
-            let warnings = self.overview.machine_warnings.clone();
-            let text = match warnings.as_slice() {
-                [] => None,
-                [one] => Some(one.clone()),
-                many => Some(format!("{} machine values unconfirmed", many.len())),
-            };
-            if let Some(text) = text
-                && ui
-                    .link(RichText::new(text).color(DARK.warning))
-                    .on_hover_text(format!(
-                        "{}. Open the machine in Setup.",
-                        warnings.join(", ")
-                    ))
-                    .clicked()
-                && let Some(setup) = self.setup
-            {
-                self.open_step(Step::Setup);
-                self.choose_setup(setup, Some(openchuck_app::overview::SetupPart::Machine));
-            }
-            if let Some(tolerance) = self.footer_tolerance() {
-                ui.monospace(format!("Tol {tolerance:.3} mm"));
-            }
-            ui.label("mm · deg").on_hover_text("Display units");
-            ui.with_layout(egui::Layout::left_to_right(egui::Align::Center), |ui| {
+        // Reading order, for Tab too (the owner's answer Q3 A): the status on
+        // the left first, then the right-hand items left to right, the primary
+        // button last. The right-hand items are drawn left to right in a box
+        // as wide as they were last frame, at the right end; the status takes
+        // the rest.
+        let full = ui.available_rect_before_wrap();
+        let width_id = egui::Id::unique("footer right width");
+        let right = ui.data(|d| d.get_temp::<f32>(width_id)).unwrap_or(0.0);
+        let split = (full.right() - right).max(full.left());
+        let gap = ui.spacing().item_spacing.x;
+        let left = egui::Rect::from_min_max(
+            full.min,
+            egui::pos2((split - gap).max(full.left()), full.max.y),
+        );
+        ui.scope_builder(
+            egui::UiBuilder::new()
+                .max_rect(left)
+                .layout(egui::Layout::left_to_right(egui::Align::Center)),
+            |ui| {
                 // The current job, with its one percentage and the
                 // operation it works on; choosing it opens the Jobs tab, with
                 // every job, their history and Cancel (issue 201, the
@@ -1192,7 +1245,7 @@ impl Shell {
                 };
                 if ui
                     .add(egui::Label::new(text).sense(egui::Sense::click()))
-                    .on_hover_text("Show the Jobs tab: every job, with its progress and Cancel")
+                    .tip("Show the Jobs tab: every job, with its progress and Cancel")
                     .clicked()
                 {
                     self.show_jobs();
@@ -1214,8 +1267,78 @@ impl Shell {
                     .and_then(|p| p.blocked.clone())
                     .unwrap_or_else(|| step_note(self.step).to_owned());
                 ui.add(egui::Label::new(RichText::new(note).color(DARK.muted)).truncate());
-            });
-        });
+            },
+        );
+        let right_box = egui::Rect::from_min_max(egui::pos2(split, full.min.y), full.max);
+        let drawn = ui
+            .scope_builder(
+                egui::UiBuilder::new()
+                    .max_rect(right_box)
+                    .layout(egui::Layout::left_to_right(egui::Align::Center)),
+                |ui| {
+                    ui.label("mm · deg").tip("Display units");
+                    if let Some(tolerance) = self.footer_tolerance() {
+                        ui.monospace(format!("Tol {tolerance:.3} mm"));
+                    }
+                    let warnings = self.overview.machine_warnings.clone();
+                    let text = match warnings.as_slice() {
+                        [] => None,
+                        [one] => Some(one.clone()),
+                        many => Some(format!("{} machine values unconfirmed", many.len())),
+                    };
+                    if let Some(text) = text
+                        && ui
+                            .link(RichText::new(text).color(DARK.warning))
+                            .tip(format!(
+                                "{}. Open the machine in Setup.",
+                                warnings.join(", ")
+                            ))
+                            .clicked()
+                        && let Some(setup) = self.setup
+                    {
+                        self.open_step(Step::Setup);
+                        self.choose_setup(setup, Some(openchuck_app::overview::SetupPart::Machine));
+                    }
+                    ui.separator();
+                    if self.run.is_running() && ui.button("Cancel").tip("Esc").clicked() {
+                        self.run.cancel();
+                    }
+                    match &primary {
+                        Some(p) if self.step == Step::Simulate => self.simulate_actions(ui, p),
+                        Some(p) => {
+                            let enabled = p.blocked.is_none() && !self.run.is_running();
+                            let response = primary_button(ui, &p.label, enabled);
+                            let response = match &p.blocked {
+                                Some(reason) => response.on_disabled_hover_text(reason),
+                                None if self.run.is_running() => response.on_disabled_hover_text(
+                                    "Wait for the running job, or cancel it",
+                                ),
+                                None => response,
+                            };
+                            if response.clicked() {
+                                self.primary();
+                            }
+                            if !enabled && response.hovered() {
+                                self.highlight = p.message;
+                            }
+                        }
+                        None => {
+                            if primary_button(ui, "New project…", true).clicked() {
+                                let ctx = ui.ctx().clone();
+                                self.request(Next::New, &ctx);
+                            }
+                        }
+                    }
+                },
+            )
+            .response
+            .rect
+            .width();
+        if (drawn - right).abs() > 0.5 {
+            ui.data_mut(|d| d.insert_temp(width_id, drawn));
+            ui.ctx()
+                .request_discard("the footer's right-hand items were measured");
+        }
     }
 
     /// Simulate's two footer actions in fixed places, in workflow order:
@@ -1324,7 +1447,9 @@ impl Shell {
             .painter()
             .layout_no_wrap(label.to_owned(), font, Color32::PLACEHOLDER);
         let size = egui::vec2(galley.size().x + 40.0, WORKFLOW_BAR - 4.0);
-        let (rect, response) = ui.allocate_exact_size(size, egui::Sense::hover());
+        // A Tab stop that cannot be clicked: its tooltip says why (UI-14).
+        let (rect, response) = ui.allocate_exact_size(size, crate::focus::info_sense());
+        crate::focus::focus_ring(ui, &response);
         let painter = ui.painter();
         let centre = egui::pos2(rect.left() + 18.0, rect.center().y);
         let text = if written { DARK.ok } else { DARK.muted };
@@ -1348,7 +1473,7 @@ impl Shell {
             text,
         );
         response.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Label, true, label));
-        response.on_hover_text(format!(
+        response.tip(format!(
             "{label}: {tip}.\nPast write results are in Messages."
         ));
     }
@@ -1462,10 +1587,12 @@ fn step_tab(
         ui.painter()
             .layout_no_wrap(step.name().to_owned(), font.clone(), Color32::PLACEHOLDER);
     let size = egui::vec2(galley.size().x + 68.0, WORKFLOW_BAR - 4.0);
+    // A step out of reach is still a Tab stop, so a keyboard user can read
+    // why on focus (UI-10, UI-14); Enter on it does nothing.
     let sense = if available {
         egui::Sense::click()
     } else {
-        egui::Sense::hover()
+        egui::Sense::hover() | egui::Sense::FOCUSABLE
     };
     let (rect, response) = ui.allocate_exact_size(size, sense);
     let text = if active {
@@ -1506,6 +1633,14 @@ fn step_tab(
             Stroke::new(2.0, DARK.accent),
         );
     }
+    if response.has_focus() {
+        painter.rect_stroke(
+            rect.shrink(1.0),
+            RADIUS,
+            Stroke::new(2.0, DARK.accent),
+            egui::StrokeKind::Inside,
+        );
+    }
     // The step's own health, by shape as well as colour (issue 210; UI-11).
     // A step out of reach shows none: its reason is the tooltip.
     if available {
@@ -1537,7 +1672,7 @@ fn step_tab(
             tip.push_str(&format!(": {reason}"));
         }
     }
-    response.on_hover_text(tip)
+    response.tip(tip)
 }
 
 /// What each step is for, for the empty state's list.

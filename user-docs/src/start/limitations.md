@@ -28,7 +28,7 @@ Controllers
 : Two [posts](../glossary.md#post-processor): the Makera Z1, and LinuxCNC (the one the project uses to check its output). Other controllers need a post you write and check yourself. The output is in millimetres only, and A is continuous: it does not wrap at 0 to 360 degrees.
 
 Collisions
-: The program does not model the chuck, a tailstock, the spindle, the tool holder or the machine body, and does not check them against the part. The chuck is represented only by a [held region](../glossary.md#held-region), a length at the end of the stock that is never cut. The tool's flute length is checked against the stock it cuts: a roughing layer deeper than the flutes is refused, and stock deeper than the flutes elsewhere gives a warning. That warning, and the other checks that may find a collision (such as a tab shorter than the tool is wide), must be acknowledged before the program is written; they cover the part, the stock, the tabs and the held regions, not the holder or the machine. Check clearances yourself.
+: The program does not model the chuck, a tailstock, the spindle, the tool holder or the machine body, and does not check them against the part. The chuck is represented only by a [held region](../glossary.md#held-region), a length at the end of the stock that is never cut; no part of the tool comes within 0.5 mm of it, so Facing leaves the stock beside it unfaced and its notes say how much. The tool's flute length is checked against the stock it cuts: a roughing layer deeper than the flutes is refused, and stock deeper than the flutes elsewhere gives a warning. That warning, and the other checks that may find a collision (such as a tab shorter than the tool is wide), must be acknowledged before the program is written; they cover the part, the stock, the tabs and the held regions, not the holder or the machine. Check clearances yourself.
 
 Models
 : STL (ASCII and binary) and STEP. An STL file has no exact surface, so accuracy is measured against its triangles. A STEP file keeps its exact faces and edges for selection, drilling and swarf, but most toolpaths on a STEP part are still computed from a mesh made from it. On a STEP part, Facing reads the part's bounds from its exact faces; on a free-form (B-spline) face it can stop a little short and leave slightly more stock, and the operation's notes say how much. STEP files from CAD programs other than OpenCASCADE have had little testing. A changed model cannot be re-imported into a project, and drawings (DXF or SVG curves) cannot be imported. The import dialog can copy the model into the project folder; a project that only links to a file breaks if the file moves.
@@ -40,7 +40,7 @@ Partial paths
 : New finishing operations have [adaptive spacing](../glossary.md#adaptive-spacing) on. Where it cannot confirm the material left between passes before it reaches its limits, it keeps the path made so far, warns you, and asks you to accept the partial path before it writes any G-code. A partial path is not complete. On the tutorial's part with the default settings this happens, so the tutorial turns adaptive spacing off.
 
 Project files
-: The project format may still change before the first release.
+: The project format may still change in a later release.
 
 ## Time and size
 
@@ -58,4 +58,4 @@ The programs are not signed, so Windows and macOS warn or refuse the first time 
 
 ## Accessibility
 
-There is no screen reader support: the program does not expose its controls to a screen reader. Most of the program can be used from the keyboard, but a run through every step with the keyboard alone has not been tested, and some controls may not show their tooltip when they get keyboard focus.
+There is no screen reader support: the program does not expose its controls to a screen reader. Most of the program can be used from the keyboard ([Keyboard and shortcuts](../reference/keyboard.md)), but a run through every step with the keyboard alone has not been tested. A disabled button cannot get keyboard focus, so its reason shows only when you hold the mouse over it; the main button's reason is also in the bottom bar.

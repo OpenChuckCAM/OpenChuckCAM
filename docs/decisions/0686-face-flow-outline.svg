@@ -2,7 +2,7 @@
 <title>Face flow: along the guide and following the outline, on a face with fingers</title>
 <rect width="1000" height="560" fill="#ffffff"/>
 <text x="20" y="28" font-size="17" font-weight="bold" fill="#222">A flat face with two fingers, 3 mm ball, 0.8 mm stepover, Stay down between passes on</text>
-<text x="20" y="48" fill="#444">Drawn from the program's own output (test face of decision 9931). Each colour is one run: what is cut from one plunge to the next lift.</text>
+<text x="20" y="48" fill="#444">Drawn from the program's own output (test face of decision 0686). Each colour is one run: what is cut from one plunge to the next lift.</text>
 <text x="235" y="76" text-anchor="middle" font-weight="bold" fill="#222">Along the guide: 51 runs</text>
 <text x="235" y="94" text-anchor="middle" fill="#444">the passes break at every notch; a dot is each plunge</text>
 <polygon points="40.0,370.0 430.0,370.0 430.0,266.0 365.0,266.0 365.0,110.0 300.0,110.0 300.0,266.0 170.0,266.0 170.0,110.0 105.0,110.0 105.0,266.0 40.0,266.0" fill="#eef3f8" stroke="#555" stroke-width="1.5"/>

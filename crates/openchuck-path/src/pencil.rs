@@ -79,6 +79,10 @@ pub mod pencil_parameter {
     pub const CREASE_ANGLE: &str = "crease_angle";
     /// The furthest apart, along the crease, that points are.
     pub const MAX_STEP: &str = "max_step";
+    /// Stretches of a crease shorter than this are not cut, millimetres
+    /// (decision record 0684 item 3; the key of edge following's
+    /// shortest chain).
+    pub const MIN_LENGTH: &str = "min_length";
 }
 
 /// How many times a move that would cut into the part is halved before the
@@ -313,6 +317,10 @@ struct Placement<'a> {
     grown: &'a RevolvedProfile,
     leave: f64,
     reach: f64,
+    /// How far a rest stopped by what it meets on its way to the crease is
+    /// kept back from it: a tenth of the tolerance (decision record
+    /// 0684 item 2).
+    clearance: f64,
 }
 
 impl Placement<'_> {
@@ -423,6 +431,14 @@ impl Placement<'_> {
                     bad = mid;
                 }
             }
+            // The last place it rests is where its side just touches what
+            // stopped it, such as a wall: there a drop can read the touch
+            // either way, on the floor or on the wall's top (issue #632). It
+            // rests a little back from it instead, never further back than
+            // the lowest place `u` it set out from, where the walk towards
+            // the crease began: the tool is never moved past that onto a side
+            // that rises (CodeRabbit on pull request #856).
+            good -= towards * self.clearance.min((good - u).abs());
         }
         self.placed_on(&self.line(&site, good), a)
     }
@@ -595,6 +611,22 @@ impl Strategy for PencilFinishing {
                         default: Some(0.5),
                     },
                 },
+                ParameterSpec {
+                    name: pencil_parameter::MIN_LENGTH.to_owned(),
+                    label: "Shortest cut".to_owned(),
+                    description: "Stretches of an inside corner shorter than this are not cut, \
+                                  so the tool does not plunge in for a short dab. Starts at the \
+                                  tool's diameter. A single point is never cut. The notes say \
+                                  where each stretch left uncut is."
+                        .to_owned(),
+                    kind: ParameterKind::Number {
+                        unit: Unit::Millimetres,
+                        min: Some(0.0),
+                        min_exclusive: false,
+                        max: None,
+                        default: Some(0.0),
+                    },
+                },
             ])
         })
     }
@@ -632,6 +664,7 @@ impl Strategy for PencilFinishing {
         let min_remaining = parameters.number(parameter::MIN_REMAINING)?;
         let angle = parameters.number(pencil_parameter::CREASE_ANGLE)?;
         let max_step = parameters.number(pencil_parameter::MAX_STEP)?;
+        let min_length = parameters.number(pencil_parameter::MIN_LENGTH)?;
 
         // Possible corners left unfollowed are a warning (decision record
         // 0536 step 2).
@@ -701,7 +734,11 @@ impl Strategy for PencilFinishing {
                 input.stock,
                 leave + min_remaining,
                 spacing,
-                radius + spacing,
+                // Material is judged from the tool's axis (decision 0684 item
+                // 1), which rests its radius plus the stock to leave from the
+                // part: the reach is that, widened by the spacing (CodeRabbit
+                // on pull request #856).
+                radius + leave + spacing,
                 context,
             )?;
             if map.is_empty() {
@@ -722,6 +759,7 @@ impl Strategy for PencilFinishing {
             grown: &grown,
             leave,
             reach: 2.5 * radius.max(0.04),
+            clearance: 0.1 * tolerance,
         };
         context.report(
             "pencil clean-up: resting the tool in the creases",
@@ -729,6 +767,8 @@ impl Strategy for PencilFinishing {
             Some(total as u64),
         );
         let mut passes: Vec<Pass> = Vec::new();
+        // The first point of each stretch left uncut as too short.
+        let mut left: Vec<CutPoint> = Vec::new();
         for (crease, points) in creases.iter().zip(&samples) {
             context.check_cancelled()?;
             let placed: Vec<Option<CutPoint>> =
@@ -742,7 +782,17 @@ impl Strategy for PencilFinishing {
             // apart, or closer when the step along the crease is shorter.
             let check_step = (0.25 * radius).min(max_step).max(1e-3);
             for (i, point) in placed.into_iter().enumerate() {
-                let wanted = point.filter(|p| map.as_ref().is_none_or(|m| m.near(p.contact)));
+                // Material is judged from the tool as it rests, its axis over
+                // its cutting length, not from the one point the drop
+                // reports, which for a flat end on a surface along its bottom
+                // may be anywhere under it (decision record 0684 item
+                // 1).
+                let wanted = point.filter(|p| {
+                    map.as_ref().is_none_or(|m| {
+                        let axis = input.rotary.tool_axis(p.a).get();
+                        m.near_segment(p.tip, p.tip + axis * input.tool.top())
+                    })
+                });
                 match wanted {
                     Some(p) => {
                         // A move that would cut into the part rides over it,
@@ -777,7 +827,9 @@ impl Strategy for PencilFinishing {
                     last.extend(first.into_iter().skip(1));
                 }
             }
-            passes.extend(runs.into_iter().map(|points| Pass {
+            let (kept, short) = long_enough(runs, min_length);
+            left.extend(short);
+            passes.extend(kept.into_iter().map(|points| Pass {
                 helical_pass_start: false,
                 low_link: false,
                 points,
@@ -785,6 +837,17 @@ impl Strategy for PencilFinishing {
                 rapids: Vec::new(),
                 plunge_fed: Vec::new(),
             }));
+        }
+        if passes.is_empty() && !left.is_empty() {
+            return Err(PathError::refused(
+                crate::topic::PENCIL,
+                format!(
+                    "pencil clean-up found material left only in stretches shorter than the \
+                     shortest cut ({min_length} mm) or at single points; lower {}",
+                    pencil_parameter::MIN_LENGTH
+                ),
+            )
+            .with_setting(pencil_parameter::MIN_LENGTH));
         }
         if passes.is_empty() {
             return Err(PathError::refused(
@@ -807,16 +870,70 @@ impl Strategy for PencilFinishing {
             crate::counted(creases.len(), "concave crease", "concave creases"),
             crate::counted(passes.len(), "pass", "passes")
         );
+        let mut information = vec![Notice::information(note).about(topic::PENCIL)];
+        if let Some(said) = short_note(&left, min_length) {
+            information.push(Notice::information(said).about(topic::PENCIL));
+        }
         Ok(StrategyOutput {
             passes,
-            notices: crate::strategy::notices(
-                warnings,
-                [Notice::information(note).about(topic::PENCIL)],
-            ),
+            notices: crate::strategy::notices(warnings, information),
             unreached: Vec::new(),
             shank_breaks: Vec::new(),
         })
     }
+}
+
+/// The stretches of `runs` at least `min_length` long along the tool's
+/// path, and the first point of each one that is shorter or is a single
+/// point (decision record 0684 item 3, the owner's D2): a single
+/// point is a plunge and a retract, never a cut along the corner.
+fn long_enough(runs: Vec<Vec<CutPoint>>, min_length: f64) -> (Vec<Vec<CutPoint>>, Vec<CutPoint>) {
+    let mut kept = Vec::new();
+    let mut short = Vec::new();
+    for run in runs {
+        let length: f64 = run
+            .windows(2)
+            .map(|w| match w {
+                [p, q] => p.tip.distance(q.tip),
+                _ => 0.0,
+            })
+            .sum();
+        if run.len() > 1 && length >= min_length {
+            kept.push(run);
+        } else if let Some(first) = run.first() {
+            short.push(*first);
+        }
+    }
+    (kept, short)
+}
+
+/// How many places at most the note on stretches left uncut names.
+const SHORT_PLACES: usize = 5;
+
+/// The note on the stretches left uncut as too short, naming where each
+/// starts (X along the part, A the angle), up to [`SHORT_PLACES`] of them.
+fn short_note(left: &[CutPoint], min_length: f64) -> Option<String> {
+    if left.is_empty() {
+        return None;
+    }
+    let places: Vec<String> = left
+        .iter()
+        .take(SHORT_PLACES)
+        .map(|p| format!("at X {:.3}, A {:.1}", p.tip.x, p.a.0.rem_euclid(360.0)))
+        .collect();
+    let more = left.len().saturating_sub(SHORT_PLACES);
+    let and_more = if more > 0 {
+        format!("; and {more} more")
+    } else {
+        String::new()
+    };
+    Some(format!(
+        "pencil clean-up left {} uncut, each a single point or shorter than the shortest cut \
+         ({min_length} mm): {}{and_more}. Lower {} to cut the longer ones",
+        crate::counted(left.len(), "stretch", "stretches"),
+        places.join("; "),
+        pencil_parameter::MIN_LENGTH
+    ))
 }
 
 /// The passes in a short order: each next is the one whose nearer end is
@@ -864,6 +981,49 @@ fn order(mut passes: Vec<Pass>) -> Vec<Pass> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn at(x: f64, a: f64) -> CutPoint {
+        CutPoint {
+            tip: Point3::new(x, 8.0, 0.0),
+            a: Degrees(a),
+            contact: Point3::new(x, 8.0, 0.0),
+        }
+    }
+
+    #[test]
+    fn req_op_09_req_nfr_12_short_stretches_and_single_points_are_left_and_said() {
+        // Decision record 0684 item 3 (the owner's D2): a single
+        // point is never cut, a stretch shorter than the shortest cut is not
+        // cut, and the note says how many and where each starts.
+        let runs = vec![
+            vec![at(1.0, 10.0)],
+            vec![at(2.0, 20.0), at(3.0, 20.0)],
+            vec![at(4.0, 370.0), at(5.5, 30.0), at(7.0, 30.0)],
+        ];
+        let (kept, left) = long_enough(runs.clone(), 2.0);
+        assert_eq!(kept.len(), 1, "only the 3 mm stretch is cut");
+        assert_eq!(kept[0].len(), 3);
+        assert_eq!(left.len(), 2);
+        let said = short_note(&left, 2.0).unwrap();
+        assert_eq!(
+            said,
+            "pencil clean-up left 2 stretches uncut, each a single point or shorter than the \
+             shortest cut (2 mm): at X 1.000, A 10.0; at X 2.000, A 20.0. Lower min_length to \
+             cut the longer ones"
+        );
+        // At 0 every stretch longer than a point is cut; the point is not.
+        let (kept, left) = long_enough(runs, 0.0);
+        assert_eq!((kept.len(), left.len()), (2, 1));
+        // Nothing left uncut, nothing said; more than five places are
+        // counted, not listed.
+        assert!(short_note(&[], 2.0).is_none());
+        let many: Vec<CutPoint> = (0..7).map(|i| at(f64::from(i), 0.0)).collect();
+        let said = short_note(&many, 1.0).unwrap();
+        assert!(
+            said.contains("left 7 stretches") && said.contains("; and 2 more."),
+            "{said}"
+        );
+    }
 
     #[test]
     fn req_op_09_req_nfr_12_a_move_is_checked_on_the_arc_the_machine_turns() {
