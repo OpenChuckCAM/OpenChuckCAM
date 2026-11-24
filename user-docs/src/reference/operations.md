@@ -161,14 +161,14 @@ It also has **Extend past the stock**, and **Adaptive spacing** when its passes 
 
 ## Facing
 
-Prepares the stock: flat faces along it, a round diameter, the end opposite the held end, or chosen box sides. It ignores selections, and keeps off the held regions and tabs.
+Prepares the stock: flat faces along it, a round diameter, the end opposite the held end, or chosen box sides. It ignores selections, and keeps off the held regions and tabs: beside a held region it faces only what the tool can reach, and says what it leaves (see below).
 
 | Setting | Default | What it does |
 | --- | --- | --- |
 | Shape | Flat along stock | **Flat along stock**: a flat face at each angle listed. **Round**: the stock turned down to a cylinder. **Unheld end**: the end opposite the only held end. **Box sides**: chosen standard sides and extra faces at any angle. |
 | Finished size | required | Flat: how far the face is from the rotary axis. Round: the diameter to turn down to. |
 | Angles | 0 | Flat and round: the A positions to face at, in degrees, separated by commas, in cutting order. |
-| Coverage extent | Whole stock | **Whole stock**, **Part only** (the part's outline), or **Part plus tabs**. |
+| Coverage extent | Whole stock | **Whole stock**, **Part only** (the part's outline), or **Part plus tabs**. Beside a held region the face stops where the whole tool keeps 0.5 mm clear of the grip. |
 | Extent margin | 0 mm | Extra coverage beyond each edge of the coverage. For round it is **Axial margin**, at both ends. |
 | Layer distribution | Full stepdown, shorter final pass | Box sides: full layers with a shorter last one, or **Equal stepdowns**. |
 | Face +Z (A 0°), +Y (A 90°), −Z (A 180°), −Y (A 270°) | off | Box sides: the standard sides to face; **All four sides** ticks them all. For each, **part plus allowance** (on) sets the face from the part and its stock to leave; clear it to type a **plane offset**. |
@@ -179,6 +179,8 @@ Prepares the stock: flat faces along it, a round diameter, the end opposite the 
 | Passes | Spiral | Round: **Spiral** or **Rings**. |
 
 For the unheld end, **Stepover** is labelled **Stepover (slice thickness along X)**: the thickness of each slice taken off the end, at most the tool's cutting diameter. Where there is room beside the stock, each band is entered from the air; where there is not, at the plunge feed. Facing also has **Extend past the stock** with **Also past the sides**, and flat facing has **Adaptive spacing**.
+
+**Beside a held region.** No part of the tool comes over a held region, or within 0.5 mm of it, while it cuts. Where the coverage you ask for reaches that far, Facing faces what the tool can reach and leaves the rest unfaced instead of refusing. A note on the operation (a note, not a warning) says where along X the face stops, why, and how much of the coverage is left, for example: "facing at A 0.000° stops short of the held start (X 16.990 to 24.990): no part of the tool comes within 0.500 mm of it, so the face is finished from X 25.490, and X 16.990 to 25.490 (8.500 mm along X) of the requested extent is left unfaced." The view marks where each face stops. Box sides and round facing are finished up to the tool's edge. Flat facing counts its face finished only from where its passes along X reach the face: their rounded ends are not counted, and the stock to leave round the held region can lift them further from it, so it stops a little further away. To face what is left, shorten the held length or face it in a setup that holds the other end. Where nothing would be left to face, the operation is refused. The unheld end is not affected: it is faced from the end away from the grip.
 
 On a STEP part, Facing takes the part's ends, outline and radius from its exact faces, not from the triangles made from them. Its bounds may lie a little outside the part, never inside it: at most 0.0005 mm for flat, cylindrical, conical, spherical and toroidal faces. A face that is a free-form surface (a B-spline) is bounded by its control points, so where the part's furthest point lies on one, Facing may stop a little short of it and leave that much more stock; the operation's notes give the figure. These figures are measured from each face's whole surface: where the part's furthest point lies on a trimmed face, or on a flat face whose edges have no exact curve, Facing may stop further short and leave more stock.
 

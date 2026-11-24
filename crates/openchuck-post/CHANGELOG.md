@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.62.0
+
+- **Family release (0.62.0; lane FACING-GRIP; issue #500; decision 0685, accepted):** `openchuck-path`'s `FaceDescription` gains the public field `unfaced` and `FacingGeometry::Round` the field `unfaced`, a breaking change; no change to this crate.
+
 ## 0.61.0
 
 - **Family release (0.61.0; SWARF-LEADS; issues #572 and #624; decisions 0682 and 0683, accepted):** `openchuck-path` changes output (a swarf lead or helix that would cut a face next to the face set deeper than the pass is refused; swarf's note gives the reach past the rulings after the lift); no public API change and no change to this crate.
