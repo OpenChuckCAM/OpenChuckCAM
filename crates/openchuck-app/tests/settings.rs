@@ -29,6 +29,75 @@ fn req_ui_15_req_prj_08_checkpoint_interval_is_personal_and_survives_restart() {
     std::fs::remove_dir_all(config).unwrap();
 }
 
+/// Issue #789 (decision record PROJUX-A-2, the owner's answer P3 A): the
+/// kinds of toolpath move shown are the user's, kept on the computer across
+/// projects and restarts; a file from before shows every kind, and so does
+/// one that leaves a kind out.
+#[test]
+fn req_ui_15_req_sim_01_the_move_kinds_shown_are_personal_and_survive_restart() {
+    use openchuck_app::pathview::ShownMoves;
+    use openchuck_types::ir::MoveKind;
+    let config = folder("path-moves");
+    let file = SettingsFile::in_folder(&config);
+    assert_eq!(file.load().settings.path_moves, ShownMoves::ALL);
+    let mut settings = UserSettings::default();
+    settings.path_moves.set(MoveKind::Rapid, false);
+    settings.path_moves.set(MoveKind::LeadOut, false);
+    file.save(&settings).unwrap();
+    let loaded = file.load();
+    assert!(loaded.problem.is_none());
+    assert_eq!(loaded.settings.path_moves, settings.path_moves);
+    assert_eq!(
+        loaded.settings.path_moves.hidden(),
+        [MoveKind::Rapid, MoveKind::LeadOut]
+    );
+    // Written before the field existed, or with one kind only: every other
+    // kind is shown.
+    std::fs::write(file.file(), "[interface]\nscale = 1.0\n").unwrap();
+    assert_eq!(file.load().settings.path_moves, ShownMoves::ALL);
+    std::fs::write(file.file(), "[interface.path_moves]\nrapid = false\n").unwrap();
+    assert_eq!(file.load().settings.path_moves.hidden(), [MoveKind::Rapid]);
+    std::fs::remove_dir_all(config).unwrap();
+}
+
+#[test]
+fn req_sim_01_the_hidden_chip_names_what_is_hidden() {
+    use openchuck_app::pathview::{ENTRY_NAME, ShownMoves, move_name};
+    use openchuck_types::ir::MoveKind;
+    let mut moves = ShownMoves::ALL;
+    assert!(moves.all_shown());
+    assert_eq!(moves.hidden_text(), None);
+    moves.set(MoveKind::Rapid, false);
+    moves.set(MoveKind::LeadOut, false);
+    assert!(!moves.all_shown());
+    assert_eq!(
+        moves.hidden_text().as_deref(),
+        Some("Hidden: Rapid, Lead-out")
+    );
+    // The three kinds of entry and exit hidden together read as one.
+    let mut entries = ShownMoves::ALL;
+    for kind in ShownMoves::ENTRY {
+        entries.set(kind, false);
+    }
+    assert_eq!(
+        entries.hidden_text().as_deref(),
+        Some("Hidden: Entry and exit")
+    );
+    assert_eq!(ENTRY_NAME, "Entry and exit");
+    let names: Vec<&str> = ShownMoves::ORDER.iter().map(|k| move_name(*k)).collect();
+    assert_eq!(
+        names,
+        [
+            "Cut",
+            "Link",
+            "Rapid",
+            "Plunge",
+            "Lead-in and ramp",
+            "Lead-out"
+        ]
+    );
+}
+
 fn folder(name: &str) -> PathBuf {
     let dir =
         std::env::temp_dir().join(format!("openchuck-settings-{name}-{}", std::process::id()));

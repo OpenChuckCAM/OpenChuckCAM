@@ -10,6 +10,8 @@ use eframe::egui;
 use openchuck_viewport::{DisplayMode, Projection, StandardView};
 
 use crate::viewport::{SimulateShow, ViewStep, Viewport, Visibility};
+use openchuck_app::pathview::{ENTRY_NAME, ShownMoves, move_name};
+use openchuck_app::playback::MoveKind;
 
 /// The strip's height (7.1).
 pub const HEIGHT: f32 = 44.0;
@@ -131,10 +133,16 @@ pub fn show(ui: &mut egui::Ui, viewport: &mut Viewport, strip: egui::Rect) {
             }
             // Simulate's "Show" choices stay in the strip while they fit after the other
             // controls, else they move into the "Show" menu, so none is cut off (OI-529).
+            let chip = hidden_moves_text(viewport.shown_moves())
+                .map_or(0.0, |t| text_width(ui, &t) + button_extra(ui));
             let inline_show = step == ViewStep::Simulate
                 && ui.available_width()
-                    >= text_width(ui, "Show \u{23f7}") + button_extra(ui) + simulate_show_width(ui);
+                    >= text_width(ui, "Show \u{23f7}")
+                        + button_extra(ui)
+                        + chip
+                        + simulate_show_width(ui);
             show_or_hide(ui, viewport);
+            hidden_moves_chip(ui, viewport);
             if step == ViewStep::Model && viewport.has_findings() {
                 let mut show = viewport.visibility();
                 if ui
@@ -207,16 +215,78 @@ fn segments<T: Copy + PartialEq>(ui: &mut egui::Ui, choices: &[(T, &str, &str)],
     });
 }
 
+/// The tick boxes of the kinds of toolpath move (issue #789; decision record
+/// PROJUX-A-2, the owner's answers P1 B and P2 A): Cut, Link, Rapid, then
+/// Entry and exit with its three kinds under it, and "Show all moves" while
+/// any is hidden. Shared by the Show menu (V) and View > Toolpath moves, and
+/// the same choice as the path legend's tick boxes.
+pub fn move_ticks(ui: &mut egui::Ui, moves: &mut ShownMoves) {
+    for kind in [MoveKind::Cutting, MoveKind::Linking, MoveKind::Rapid] {
+        let mut shown = moves.shows(kind);
+        if ui.checkbox(&mut shown, move_name(kind)).changed() {
+            moves.set(kind, shown);
+        }
+    }
+    let entry = ShownMoves::ENTRY
+        .iter()
+        .filter(|k| moves.shows(**k))
+        .count();
+    let mut all = entry == ShownMoves::ENTRY.len();
+    let parent = egui::Checkbox::new(&mut all, ENTRY_NAME)
+        .indeterminate(entry > 0 && entry < ShownMoves::ENTRY.len());
+    if ui.add(parent).changed() {
+        for kind in ShownMoves::ENTRY {
+            moves.set(kind, all);
+        }
+    }
+    ui.indent("entry and exit moves", |ui| {
+        for kind in ShownMoves::ENTRY {
+            let mut shown = moves.shows(kind);
+            if ui.checkbox(&mut shown, move_name(kind)).changed() {
+                moves.set(kind, shown);
+            }
+        }
+    });
+    if !moves.all_shown() && ui.button("Show all moves").clicked() {
+        *moves = ShownMoves::ALL;
+    }
+}
+
+/// The chip beside "Show" while some kinds of move are hidden (issue #789;
+/// the owner's answer P2 A), so a hidden kind is never forgotten: "Hidden:
+/// Rapid, Lead-out · Show all". A press shows every kind again.
+fn hidden_moves_chip(ui: &mut egui::Ui, viewport: &mut Viewport) {
+    let Some(text) = hidden_moves_text(viewport.shown_moves()) else {
+        return;
+    };
+    let chip = egui::Button::new(egui::RichText::new(text).color(crate::theme::DARK.warning))
+        .stroke(egui::Stroke::new(1.0, crate::theme::DARK.warning))
+        .corner_radius(10.0);
+    if ui.add(chip).tip(HIDDEN_MOVES_TIP).clicked() {
+        viewport.set_shown_moves(ShownMoves::ALL);
+    }
+}
+
+/// The hidden-moves chip's tooltip.
+pub const HIDDEN_MOVES_TIP: &str = "Some kinds of toolpath move are hidden in the view. The G-code, \
+     the simulation and the checks do not change. Press to show every kind again.";
+
+/// The words of the hidden-moves chip, or `None` when every kind is shown.
+pub fn hidden_moves_text(moves: ShownMoves) -> Option<String> {
+    moves.hidden_text().map(|t| format!("{t} · Show all"))
+}
+
 /// The "Show or hide" button and its list (V).
 fn show_or_hide(ui: &mut egui::Ui, viewport: &mut Viewport) {
     let button = ui.button("Show \u{23f7}").tip(
-        "Show or hide: part, stock, axes, held regions and tabs, selections, toolpaths, unreachable \
-         areas (V)",
+        "Show or hide: part, stock, axes, held regions and tabs, selections, toolpaths and each \
+         kind of toolpath move, unreachable areas (V)",
     );
     if button.clicked() {
         viewport.show_menu_open = !viewport.show_menu_open;
     }
     let mut show = viewport.visibility();
+    let mut moves = viewport.shown_moves();
     let simulate = viewport.step() == ViewStep::Simulate;
     let mut open = viewport.show_menu_open;
     egui::Popup::from_response(&button)
@@ -237,6 +307,9 @@ fn show_or_hide(ui: &mut egui::Ui, viewport: &mut Viewport) {
                 ui.add_enabled(!locked, egui::Checkbox::new(field(&mut show), name))
                     .on_disabled_hover_text(LAST_TICK);
             }
+            ui.separator();
+            ui.label("Toolpath moves");
+            ui.indent("toolpath moves", |ui| move_ticks(ui, &mut moves));
             if simulate {
                 ui.separator();
                 ui.label("Cut part display");
@@ -251,6 +324,7 @@ fn show_or_hide(ui: &mut egui::Ui, viewport: &mut Viewport) {
         });
     viewport.show_menu_open = open;
     viewport.set_visibility(show);
+    viewport.set_shown_moves(moves);
 }
 
 #[cfg(test)]

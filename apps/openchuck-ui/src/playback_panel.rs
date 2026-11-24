@@ -16,7 +16,7 @@ use std::sync::Arc;
 
 use eframe::egui::{self, Color32, RichText};
 use openchuck_app::pathview::{
-    DeviationBand, DeviationBands, PathClass, PathLines, PlaybackData, zoom_level,
+    DeviationBand, DeviationBands, PathClass, PathLines, PlaybackData, ShownMoves, zoom_level,
 };
 use openchuck_app::playback::{
     Cursor, MoveWindow, Playback, PoseSample, ToolMeshes, ViewFrame, continuous_a_text,
@@ -337,6 +337,10 @@ impl PreparationProgress {
     }
 }
 
+/// What a set of path lines was made for: the groups drawn and the kinds of
+/// move shown.
+type Drawn = (Vec<bool>, ShownMoves);
+
 /// The toolpath display and playback controls.
 pub struct PlaybackPanel {
     /// Whether the panel is shown.
@@ -348,6 +352,9 @@ pub struct PlaybackPanel {
     /// Which groups' paths are drawn, as the project says (issue 213), as
     /// last given to the path jobs.
     visible: Vec<bool>,
+    /// Which kinds of move are drawn: the user's choice (issue #789;
+    /// decision record PROJUX-A-2), as last given to the path jobs.
+    moves: ShownMoves,
     view: ViewFrame,
     show_tool: bool,
     /// "Hide path outside window" (issue 205).
@@ -357,10 +364,10 @@ pub struct PlaybackPanel {
     playback_memory: usize,
     /// The window as drawn last, to tell when the path must be made again.
     drawn_window: Option<MoveWindow>,
-    /// The faint trace of the whole path, made once per path and visible
-    /// groups, and whether it is on screen.
-    trace_job: Option<(Vec<bool>, JobHandle<PathLines>)>,
-    trace: Option<(Vec<bool>, Arc<PathLines>)>,
+    /// The faint trace of the whole path, made once per path, visible
+    /// groups and kinds of move shown, and whether it is on screen.
+    trace_job: Option<(Drawn, JobHandle<PathLines>)>,
+    trace: Option<(Drawn, Arc<PathLines>)>,
     trace_shown: bool,
     /// What the trace costs: (points drawn, points of the path).
     trace_cost: Option<(usize, usize)>,
@@ -413,6 +420,7 @@ impl Default for PlaybackPanel {
             data: None,
             playback: Playback::new(),
             visible: Vec::new(),
+            moves: ShownMoves::ALL,
             // "Turn part with A" is on unless the user turned it off (issue
             // 203); the shell gives the user's choice.
             view: ViewFrame::Machine,
@@ -726,6 +734,22 @@ impl PlaybackPanel {
         self.hide_outside
     }
 
+    /// Which kinds of move are drawn (issue #789).
+    #[cfg(test)]
+    pub fn shown_moves(&self) -> ShownMoves {
+        self.moves
+    }
+
+    /// Sets which kinds of move are drawn: the user's choice (issue #789;
+    /// decision record PROJUX-A-2). The path, the window and the trace are
+    /// made again for it; playback, the tool and the cut part do not change.
+    pub fn set_shown_moves(&mut self, moves: ShownMoves) {
+        if moves != self.moves {
+            self.moves = moves;
+            self.lines_dirty = true;
+        }
+    }
+
     /// Sets "Hide path outside window".
     pub fn set_hide_outside_window(&mut self, hide: bool) {
         self.hide_outside = hide;
@@ -946,10 +970,8 @@ impl PlaybackPanel {
             }
         }
         let wanted = self.playback.window().is_some() && !self.hide_outside;
-        let current = self
-            .trace
-            .as_ref()
-            .filter(|(visible, _)| *visible == self.visible);
+        let drawn = (self.visible.clone(), self.moves);
+        let current = self.trace.as_ref().filter(|(made, _)| *made == drawn);
         match (wanted, current) {
             (true, Some((_, lines))) => {
                 if !self.trace_shown {
@@ -962,10 +984,11 @@ impl PlaybackPanel {
                     && self.trace_job.is_none()
                 {
                     self.trace_job = Some((
-                        self.visible.clone(),
+                        drawn,
                         app.start_trace_lines(
                             Arc::clone(&data.display),
                             self.visible.clone(),
+                            self.moves,
                             self.budget,
                         ),
                     ));
@@ -1024,6 +1047,7 @@ impl PlaybackPanel {
                 Some(window) => app.start_window_lines(
                     Arc::clone(&data.display),
                     visible,
+                    self.moves,
                     window.moves(),
                     self.budget,
                     self.zoom_level,
@@ -1031,6 +1055,7 @@ impl PlaybackPanel {
                 None => app.start_path_lines(
                     Arc::clone(&data.display),
                     visible,
+                    self.moves,
                     self.budget,
                     self.zoom_level,
                 ),

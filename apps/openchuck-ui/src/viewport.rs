@@ -736,6 +736,11 @@ pub struct Viewport {
     pub(crate) show: Visibility,
     /// What Simulate shows (7.1).
     pub(crate) simulate_show: SimulateShow,
+    /// Which kinds of toolpath move are drawn (issue #789; decision record
+    /// PROJUX-A-2): the legend's tick boxes, the Show menu and View > Toolpath
+    /// moves set it; the shell keeps it in the user's settings and gives it
+    /// to the playback panel, which draws the lines.
+    shown_moves: openchuck_app::pathview::ShownMoves,
     /// The step set by the shell, or `None` to take it from what is held.
     step: Option<ViewStep>,
     /// Whether the open project holds a model: the one input of the rule that
@@ -850,6 +855,7 @@ impl Viewport {
             input: PickInput::default(),
             show: Visibility::default(),
             simulate_show: SimulateShow::default(),
+            shown_moves: openchuck_app::pathview::ShownMoves::ALL,
             step: None,
             project_has_models: false,
             draft: None,
@@ -1169,6 +1175,17 @@ impl Viewport {
     /// Simulate's tick boxes.
     pub fn simulate_show(&self) -> SimulateShow {
         self.simulate_show
+    }
+
+    /// Which kinds of toolpath move are drawn (issue #789).
+    pub fn shown_moves(&self) -> openchuck_app::pathview::ShownMoves {
+        self.shown_moves
+    }
+
+    /// Sets which kinds of toolpath move are drawn (issue #789). Display
+    /// only: nothing the program computes reads it.
+    pub fn set_shown_moves(&mut self, moves: openchuck_app::pathview::ShownMoves) {
+        self.shown_moves = moves;
     }
 
     /// Whether the part is drawn. On Simulate, both Show controls read the
