@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="820" height="420" viewBox="0 0 820 420" font-family="sans-serif" font-size="13">
+<rect width="820" height="420" fill="#ffffff"/>
+<text x="20" y="24" font-weight="bold">The stepped first-cut part (decision 0680): side view at A0, above the axis, to scale</text>
+<text x="20" y="42" fill="#555">Program X (mm) across, radius up. Stock 35 x 35 x 100 mm box (corners 24.7 mm from the axis; the flat at 17.5 mm shown).</text>
+<rect x="40.0" y="60.0" width="608.0" height="280.0" fill="#f3efe6" stroke="#b8a98a" stroke-dasharray="4,3"/>
+<rect x="40.0" y="60.0" width="96.0" height="280.0" fill="#d9d9d9" stroke="#888"/>
+<text x="46.0" y="212.0" fill="#444">held region</text><text x="46.0" y="228.0" fill="#444">X 0 to 68 (box)</text><text x="46.0" y="244.0" fill="#444">uncut</text>
+<polygon points="136.0,340.0 136.0,260.0 216.0,260.0 216.0,148.0 328.0,148.0 328.0,204.0 456.0,204.0 456.0,260.0 616.0,260.0 616.0,260.0 648.0,260.0 648.0,340.0" fill="#9fc5e8" stroke="#1f4e79" stroke-width="2"/>
+<rect x="616.0" y="260.0" width="32.0" height="80.0" fill="#d9d9d9" stroke="#888"/>
+<line x1="40.0" y1="340" x2="672.0" y2="340" stroke="#000" stroke-dasharray="10,4,2,4"/>
+<text x="652.8" y="336" font-size="11">axis</text>
+<text x="162.0" y="278.0" font-weight="bold" fill="#1f4e79">tab Ø10</text>
+<text x="258.0" y="166.0" font-weight="bold" fill="#1f4e79">Ø24</text>
+<text x="378.0" y="222.0" font-weight="bold" fill="#1f4e79">Ø17</text>
+<text x="522.0" y="278.0" font-weight="bold" fill="#1f4e79">Ø10</text>
+<text x="609.5999999999999" y="254.0" font-size="11" fill="#444">tail piece</text>
+<line x1="136.0" y1="340" x2="136.0" y2="348" stroke="#000"/><text x="128.0" y="362">68</text>
+<line x1="216.0" y1="340" x2="216.0" y2="348" stroke="#000"/><text x="208.0" y="362">73</text>
+<line x1="328.0" y1="340" x2="328.0" y2="348" stroke="#000"/><text x="320.0" y="362">80</text>
+<line x1="456.0" y1="340" x2="456.0" y2="348" stroke="#000"/><text x="448.0" y="362">88</text>
+<line x1="616.0" y1="340" x2="616.0" y2="348" stroke="#000"/><text x="608.0" y="362">98</text>
+<line x1="648.0" y1="340" x2="648.0" y2="348" stroke="#000"/><text x="640.0" y="362">100</text>
+<line x1="169.5999999999999" y1="84.0" x2="169.5999999999999" y2="340" stroke="#e07000" stroke-dasharray="5,4"/>
+<line x1="582.4000000000001" y1="84.0" x2="582.4000000000001" y2="340" stroke="#e07000" stroke-dasharray="5,4"/>
+<text x="172.5999999999999" y="92.0" fill="#e07000" font-size="11">fed moves from X 70.1</text>
+<text x="520.4000000000001" y="92.0" fill="#e07000" font-size="11">to X 95.9</text>
+<circle cx="338.0" cy="176.0" r="6" fill="none" stroke="#38761d" stroke-width="2"/>
+<line x1="362.0" y1="176.0" x2="346.0" y2="176.0" stroke="#38761d" stroke-width="2"/>
+<circle cx="466.0" cy="232.0" r="6" fill="none" stroke="#38761d" stroke-width="2"/>
+<line x1="490.0" y1="232.0" x2="474.0" y2="232.0" stroke="#38761d" stroke-width="2"/>
+<path d="M240.0 146.0 l-5 -9 h10 z" fill="#38761d"/>
+<path d="M272.0 146.0 l-5 -9 h10 z" fill="#38761d"/>
+<path d="M304.0 146.0 l-5 -9 h10 z" fill="#38761d"/>
+<path d="M360.0 202.0 l-5 -9 h10 z" fill="#38761d"/>
+<path d="M392.0 202.0 l-5 -9 h10 z" fill="#38761d"/>
+<path d="M424.0 202.0 l-5 -9 h10 z" fill="#38761d"/>
+<path d="M488.0 258.0 l-5 -9 h10 z" fill="#38761d"/>
+<path d="M536.0 258.0 l-5 -9 h10 z" fill="#38761d"/>
+<path d="M584.0 258.0 l-5 -9 h10 z" fill="#38761d"/>
+<text x="20" y="382" fill="#38761d">▼ probe top-touch stations (A0 and A180), then a 0–25 mm micrometer across each step at A0 and A90</text>
+<rect x="456.0" y="84.0" width="50.8" height="176.0" fill="#c00000" fill-opacity="0.35" stroke="#c00000"/>
+<text x="510.4000000000001" y="122.4" fill="#c00000">flat end 104 (3.175 mm) on its turn</text>
+<text x="510.4000000000001" y="137.4" fill="#c00000">at the face X 88: its side cuts</text>
+<text x="510.4000000000001" y="152.4" fill="#c00000">the wall square, no root radius</text>
+<text x="368.0" y="180.0" fill="#38761d" font-size="11">probe X touch (moving −X)</text>
+<text x="20" y="402" fill="#555">Held regions (grey) are never cut (SET-09). The tool is to scale; the probe symbols are not.</text>
+</svg>
