@@ -327,6 +327,10 @@ Some faces make the tool cut into the surface by more than the tolerance. A warn
 
 If no position along the face keeps the tool off its end faces, the face is refused: use a tool with a smaller radius, turn the setting off, or take the face out of the set.
 
+**Entry on swarf.** A lead, or a helix, is also checked against the faces next to the face. It may cut such a face no deeper than the pass itself cuts it where the lead or helix joins the pass (a ball's end in the floor, for example, which is warned of as above); deeper, the operation is refused, naming the face and **Entry**. A lead-out at a pass that stops short of an end wall would run into that wall, so on such a face use **Plunge**, **Ramp** or **Helix**. A ramp follows the pass along the face, so it cuts no deeper than the pass. The comparison is made on samples of the faces, so a lead may cut up to about 0.09 times the tool's radius (at least 0.035 mm, and more on a very large face) deeper than the pass before it is refused. Each face is compared with the pass's own cut into that face only.
+
+Each face's note says how far the tool's end reaches past the end of the rulings at the tip (its corner radius and the **Tip extension**), after any lift clear of an avoid or check set: that it is lifted at least that far all along the face, or how far it still reaches where it is lifted least. This is information; a cut into a face that remains is the warning above.
+
 ## Radial drilling
 
 Drills holes into the side of the part, turning the part so each hole faces the tool. It finds the round holes in a STEP model. Use a drill that matches the hole.

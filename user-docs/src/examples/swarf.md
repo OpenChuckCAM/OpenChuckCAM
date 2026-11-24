@@ -84,7 +84,7 @@ The pass also stops 2.158 mm short of the end plane (face 15) instead of 0.833 m
 <figcaption><b>Figure 5.</b> The warning about the floor is gone, and so is the overcut.</figcaption>
 </figure>
 
-The note says: "The tool is lifted up to 1.266 mm along the rulings to keep clear of the avoid surfaces, so a strip up to about 1.266 mm wide is left at that end of the face." That strip at the foot of the blade is left on purpose, and is not counted as material left. The simulation's line is "Deepest cut below the surface: 0.054 mm, within the simulation's error".
+The note says: "The tool is lifted up to 1.266 mm along the rulings to keep clear of the avoid surfaces, so a strip up to about 1.266 mm wide is left at that end of the face." That strip at the foot of the blade is left on purpose, and is not counted as material left. The sentence about the tool's end now gives its reach after the lift: how far it would reach past the end of the rulings without the lift, and how far it still reaches where it is lifted least (or that the lift takes it back all along the face). It is information; a cut into the floor that remains is measured and warned of on its own, as in step 3. The simulation's line is "Deepest cut below the surface: 0.054 mm, within the simulation's error".
 
 The note no longer says the pass stops short of face 15. The faces at the ends are measured against the tool as lifted, so a lift can shorten the stop or make it unneeded. It still stops 0.456 mm short of face 5.
 
