@@ -1,0 +1,52 @@
+[interface]
+checkpoint_minutes = 3
+recent = []
+record_actions = true
+scale = 1.0
+theme = "dark"
+units = "mm"
+window = [
+    1920.0,
+    1061.0,
+]
+
+[interface.dock]
+collapsed = false
+size = 260.0
+
+[interface.file_names]
+gcode = "{n}-{contents}"
+setup_sheet = "{project}-setup-sheet"
+
+[interface.inspector]
+collapsed = false
+size = 340.0
+
+[interface.open_sections]
+
+[interface.project_panel]
+collapsed = false
+size = 264.0
+
+[interface.simulate]
+cut_part_solid = false
+hide_outside_window = false
+playback_memory_mb = 1536
+show_cut_part = true
+show_model = false
+show_toolpath = false
+skip_stock_simulation = false
+turn_part_with_a = true
+
+[interface.tool_library]
+folded = []
+
+[interface.tool_library.filter.diameter]
+exact = ""
+max = ""
+min = ""
+
+[interface.tool_library.filter.flute_length]
+exact = ""
+max = ""
+min = ""
