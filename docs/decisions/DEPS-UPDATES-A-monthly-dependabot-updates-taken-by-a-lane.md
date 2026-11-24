@@ -1,12 +1,12 @@
 # DEPS-UPDATES-A: Dependabot runs monthly, its pull requests stay drafts, and a dependency lane turns them into one reviewed pull request (lane DEPS-UPDATES)
 
-- **Status:** proposed by lane DEPS-UPDATES on 23 Nov 2026. The owner chose the policy on 23 Nov 2026 ("accept all as recommended", relayed by the coordinator, decision 0049): items 1 to 5 below. The record's text waits for the owner's acceptance (OI-9971).
+- **Status:** Accepted by the project owner on 24 Nov 2026, relayed by the coordinator (decision 0049). Proposed by lane DEPS-UPDATES on 23 Nov 2026; the owner chose the policy (items 1 to 5 below) on 23 Nov 2026 ("accept all as recommended", relayed) and accepted the record's text on 24 Nov 2026 (OI-9971, closed).
 - **Number:** provisional. Under the owner's rule of 23 Nov 2026, provisional numbers are unique across lanes and real numbers follow `main` in merge order. The record is `DEPS-UPDATES-A`; its open items are OI-9971 and OI-9972, from the numbers the coordinator set aside for this lane. No project schema number. No spike.
 - **Date:** 23 Nov 2026.
 - **Lane:** DEPS-UPDATES, branch `claude/lane-deps-updates`, from `main` at `445286b` (library family 0.59.0).
 - **Requirements:** NFR-14 (dependency justification), NFR-10 (licences), NFR-06 and GC-07 (byte-identical output), NFR-07 (invalid input never crashes). No requirement change. `docs/requirements.md` and `docs/architecture.md` are not edited.
 - **Amends:** the *Upgrade cadence* and *Update and activity checks* lines of `docs/dependencies.md` (edited in this pull request), and `.github/dependabot.yml` (weekly to monthly, the cargo groups, the fuzz workspace with the main one).
-- **Open items:** adds OI-9971 (the owner accepts this record's text) and OI-9972 (the first monthly run is checked against items 1 and 2). Refers to issue #876 (the fuzz lock file is behind `main` and the fuzz smoke job resolves without `--locked`), which this record does not fix.
+- **Open items:** adds OI-9971 (the owner accepts this record's text; closed 24 Nov 2026) and OI-9972 (the first monthly run is checked against items 1 and 2). Refers to issue #876 (the fuzz lock file is behind `main` and the fuzz smoke job resolves without `--locked`), which this record does not fix.
 
 ![Dependabot opens draft notices each month; a dependency lane checks them and opens one reviewed pull request; the notices are closed after it merges](DEPS-UPDATES-A-monthly-dependabot-updates-taken-by-a-lane.svg)
 
