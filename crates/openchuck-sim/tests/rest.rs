@@ -737,3 +737,30 @@ fn req_op_09_req_nfr_12_a_corner_shorter_than_the_shortest_cut_is_refused_and_sa
         "{err:?}"
     );
 }
+
+#[test]
+fn req_op_09_req_nfr_12_pencil_counts_the_corners_material_with_stock_to_leave() {
+    // Decision 0684 item 1 with stock to leave (CodeRabbit on pull request
+    // #856): the tool's axis rests its radius plus the stock to leave from
+    // the part, and the reach from the axis takes the leave too. Beside a
+    // true wall (parallel to the tool's axis), with 0.3 mm to leave, the
+    // corner's material is found and cut.
+    let rig = Rig::walled();
+    let stock = rig.after_big_ball();
+    let small = small_ball();
+    let path = rig
+        .generate(
+            &PencilFinishing::default(),
+            &small,
+            &stock,
+            &values(&[(names::STOCK_TO_LEAVE, 0.3)]),
+        )
+        .expect("the corner holds material beyond the stock to leave");
+    assert!(
+        path.group
+            .segments
+            .iter()
+            .any(|s| s.kind == MoveKind::Cutting),
+        "no cut"
+    );
+}

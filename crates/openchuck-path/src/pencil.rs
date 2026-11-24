@@ -734,7 +734,11 @@ impl Strategy for PencilFinishing {
                 input.stock,
                 leave + min_remaining,
                 spacing,
-                radius + spacing,
+                // Material is judged from the tool's axis (decision 0684 item
+                // 1), which rests its radius plus the stock to leave from the
+                // part: the reach is that, widened by the spacing (CodeRabbit
+                // on pull request #856).
+                radius + leave + spacing,
                 context,
             )?;
             if map.is_empty() {
