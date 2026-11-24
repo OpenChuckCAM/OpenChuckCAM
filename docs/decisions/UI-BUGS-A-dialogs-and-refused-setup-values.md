@@ -65,10 +65,55 @@ Asked on 23 Nov 2026 and answered on 24 Nov 2026, relayed by the coordinator.
 
 ## Verification
 
-To be completed before the pull request is marked ready. Tests written first from the issues, the owner's answers and decisions 0233 and 0246, each seen to fail on `main` first:
+Linux container, 4 cores, uninstrumented `cargo nextest`, on branch `claude/lane-ui-bugs-a` rebased on `main` `aa99eab`. Reproduction on `main` with the synthetic cube project of the interface tests (never a private project).
 
-- `openchuck-project` `req_set_09_req_nfr_07_the_setup_check_refuses_what_replace_refuses`.
-- `openchuck-app` `setup_form::tests::req_set_09_req_nfr_07_a_value_refused_for_the_tabs_names_the_tab_and_both_ways_out`.
-- `openchuck-ui` `shell::setup_conflict_tests`: `req_ui_07_req_set_09_keep_checks_a_setup_value_against_the_tabs_before_applying_any` (on `main` Diameter 18 was applied and Start X refused), `req_set_09_req_ui_07_a_value_refused_for_the_tabs_never_blocks_the_edit_that_fixes_it` (on `main` the Apply asked and Keep was refused), `req_ui_07_req_ui_08_setup_values_kept_together_are_one_undoable_step` (on `main` the pair was refused).
-- `openchuck-ui` `shell::dialog_walk_tests`: `req_ui_07_req_ui_14_a_dialogs_own_ways_out_never_ask_about_unconfirmed_changes` (on `main` nine ways out in four dialogs asked), `req_ui_07_every_dialog_with_a_field_is_walked`, `req_ui_07_the_shells_dialogs_with_a_field_are_walked`.
-- `openchuck-ui` `export_panel::layout_tests` (the footer reads Close).
+**Tests written first** from the issues, the owner's answers and decisions 0233 and 0246, each seen to fail on `main` first (what failed in brackets), with their times:
+
+- `openchuck-project` `req_set_09_req_nfr_07_the_setup_check_refuses_what_replace_refuses` (0.02 s; the function did not exist).
+- `openchuck-app` `setup_form::tests::req_set_09_req_nfr_07_a_value_refused_for_the_tabs_names_the_tab_and_both_ways_out` (0.02 s; did not exist; on `main` the message was "Invalid setup <id>.workholding.tabs[0].x_start: …").
+- `openchuck-ui` `shell::setup_conflict_tests`:
+  - `req_ui_07_req_set_09_keep_checks_a_setup_value_against_the_tabs_before_applying_any` (1.8 s; on `main` Diameter 18 was applied and Start X -5 refused);
+  - `req_set_09_req_ui_07_a_value_refused_for_the_tabs_never_blocks_the_edit_that_fixes_it` (1.8 s; on `main` the Apply asked and Keep was refused);
+  - `req_ui_07_req_ui_08_setup_values_kept_together_are_one_undoable_step` (1.2 s; on `main` the pair was refused, and with item 1 alone it was applied as two steps).
+- `openchuck-ui` `shell::dialog_walk_tests`:
+  - `req_ui_07_req_ui_14_a_dialogs_own_ways_out_never_ask_about_unconfirmed_changes` (4.7 s; on `main` nine ways out in four dialogs asked);
+  - the guards `req_ui_07_every_dialog_with_a_field_is_walked` (0.1 s) and `req_ui_07_the_shells_dialogs_with_a_field_are_walked` (0.01 s), which pass on `main` and fail when a dialog is added without being walked or listed.
+- `openchuck-ui` `export_panel::layout_tests` (`req_ui_16_export_errors_…` and `req_ui_16_export_files_…`) expect Close (failed on `main`'s Cancel). `shell::import_layout_tests::req_ui_16_the_export_dialog_lays_out_inside_the_window` was updated to the new label.
+
+**Existing tests changed to the owner's rule** (they encoded a dialog's own buttons asking):
+- `pending_edit_tests`:
+  - `req_ui_07_req_ui_12_req_gc_15_export_writes_and_history_use_the_departure_guard`;
+  - `req_ui_07_req_ui_10_req_nfr_07_keep_of_a_hidden_field_preserves_drafts_and_allows_recovery`, now a field hidden without a press in the dialog, which still asks and still finds the field not shown;
+  - `req_ui_07_req_ui_08_req_tl_07_project_tool_close_keeps_through_a_command`;
+  - `req_ui_07_req_nfr_07_keep_checks_tool_constraints_before_applying_any_field`, which now leaves the window through the main window;
+  - `req_ui_07_discard_uses_this_dialogs_original_after_an_earlier_edit_was_reverted`, now through Esc;
+  - `req_ui_07_project_folder_browse_takes_the_typed_text_into_the_native_dialog`;
+  - `req_ui_07_req_ui_08_new_operation_add_takes_the_typed_name`;
+  - `req_ui_07_req_tl_01_req_tl_07_cleanup_takes_pending_library_fields_without_saving`;
+  - `req_ui_07_req_tl_07_keep_a_library_field_does_not_silently_save_the_draft`;
+  - `req_ui_07_req_tl_01_library_save_resolves_the_active_field_first`.
+- `strategy_picker_tests`:
+  - `req_ui_07_req_ui_08_picker_cancel_drops_the_typed_name_without_asking`;
+  - `req_ui_07_req_tl_01_creation_library_handoff_keeps_the_name_without_asking`.
+- `four_step_tests`: the export footer is Close.
+
+**Suites.**
+- `openchuck-ui`: 759 tests, all pass (the longest is the existing playback test at about 70 s; no new test over 10 s).
+- `openchuck-app` and `openchuck-project`: 1,106 tests, all pass.
+- `cargo clippy --workspace --all-targets` is clean.
+- `cargo xtask deps`, `licences`, `records` and `trace` pass.
+
+**Coverage** (local, `cargo llvm-cov nextest --profile coverage` on the tests of the changed areas). Of the changed lines, those not run are:
+- the downcast failures in `pending_edits.rs` ("The form changed", defensive);
+- the refused combined command in `shell/inspector.rs` (defensive: Keep's check runs first);
+- in `setup_form::refusal`, a refusal that is not a value refusal and a tab refusal whose reason does not start "the tab" (defensive);
+- `check_setup_values`' empty-material check, which other tests run.
+
+**Screens.** Re-captured with the release build on Xvfb with Mesa lavapipe at 1920 x 1080:
+- the tutorial at `7e341ed`;
+- the flutes and scallop examples at `5df50e8`.
+The footer reads Close in tutorial figures 16 and 17, flutes 04, and scallop 02 and 04 (looked at).
+
+**Not verified.**
+- No Windows or macOS run.
+- The machine library's form is not walked by a test; it uses the same mechanism as the tool library.
