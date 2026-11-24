@@ -259,6 +259,22 @@ fn flat_completion(
     tolerance: f64,
     context: &JobContext<'_>,
 ) -> Result<()> {
+    // Read from the cut beside grips at both ends, the faced span can close;
+    // nothing is then left to face, which refuses (decision 0685, NFR-07).
+    let ([u0, _], [u1, _]) = (face.faced().min(), face.faced().max());
+    if u0 >= u1 {
+        let grips = face
+            .unfaced
+            .iter()
+            .map(|u| format!("X {:.3} to {:.3}", u.held.0, u.held.1))
+            .collect::<Vec<_>>()
+            .join(" and ");
+        return Err(refuse(&format!(
+            "nothing is left to face on the Flat face at A {:.3}°: where its passes reach the face \
+             beside the held regions ({grips}), the spans left unfaced meet",
+            face.target.angle.0
+        )));
+    }
     verify_flat_raster(face.faced(), face.target.plane, face.target.offset,
         sweeps, radius, tolerance, context)
         .map_err(|error| match error {
@@ -278,6 +294,70 @@ mod tests {
     use openchuck_types::job::{CancelToken, NoProgress};
     use openchuck_types::machine::MachineProfile;
     use openchuck_types::units::Degrees;
+
+    /// Decision 0685: where nothing is left to face beside the grips, Facing
+    /// refuses. Flat's faced span is read from its cut; grips at both ends
+    /// can move its edges past each other (start edge X 6, far edge X 5), and
+    /// a sweep across the whole face would then "prove" an empty span. The
+    /// completion check refuses it, naming the held regions (NFR-07).
+    #[test]
+    fn req_op_24_req_nfr_07_flat_with_its_faced_span_closed_by_both_grips_refuses() {
+        use crate::facing::geometry::FacingEnd;
+        use crate::facing::held::Unfaced;
+        use openchuck_types::geometry::UnitVec3;
+        use openchuck_types::ir::ToolPose;
+        let plane = FacingPlane::side(
+            RotaryMapping::of_profile(&MachineProfile::example_x_rotary()),
+            Degrees(0.),
+        )
+        .unwrap();
+        let mut face = FaceDescription {
+            target: ResolvedSide {
+                angle: Degrees(0.),
+                offset: 7.,
+                plane,
+            },
+            coverage: plane
+                .bounds(
+                    [Point3::new(0., 0., 7.), Point3::new(10., 10., 7.)],
+                    &[],
+                    0.,
+                )
+                .unwrap(),
+            unfaced: Vec::new(),
+        };
+        let token = CancelToken::new();
+        let context = JobContext::new(&token, &NoProgress);
+        let [_, v0] = face.coverage.min();
+        let [_, v1] = face.coverage.max();
+        let at = |x: f64| ToolPose {
+            tip: plane.point(x, 0.5 * (v0 + v1), 7.).unwrap(),
+            axis: UnitVec3::new(plane.normal()).unwrap(),
+            a: Degrees(0.),
+        };
+        let sweep = [FlatSweep {
+            from: at(0.),
+            to: at(10.),
+        }];
+        // One sweep wide enough to cover the face: proved complete.
+        flat_completion(&face, &sweep, 20., 0.01, &context).unwrap();
+        face.unfaced = vec![
+            Unfaced {
+                beside: FacingEnd::Start,
+                held: (-5., -1.),
+                x: (0., 6.),
+            },
+            Unfaced {
+                beside: FacingEnd::Far,
+                held: (11., 15.),
+                x: (5., 10.),
+            },
+        ];
+        let error = flat_completion(&face, &sweep, 20., 0.01, &context)
+            .unwrap_err()
+            .to_string();
+        assert!(error.contains("nothing is left to face"), "{error}");
+    }
 
     #[test]
     fn req_ui_09_req_op_24_cancellation_during_legacy_flat_completion_stays_cancelled() {

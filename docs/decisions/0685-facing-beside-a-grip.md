@@ -82,6 +82,8 @@ Branch `claude/lane-facing-grip` from `main` `445286b`. Linux container, 4 cores
   - Decision 0667's `..._baluster_box_facing_names_the_held_start_it_keeps_off` is replaced by the Box test above.
   - The field-literal updates in `facing_box_plan.rs` and the `legacy.rs` unit test.
 
+**CodeRabbit finding answered at release (Minor, real):** with grips at both ends, Flat's spans read from its cut can meet. The faced span is then empty or inverted, and a sweep across the whole face would "prove" it. Flat's completion check now refuses that, naming the held regions (test first, watched failing: `facing::validation::legacy::tests::req_op_24_req_nfr_07_flat_with_its_faced_span_closed_by_both_grips_refuses`, 0.020 s). Box and Round already refused it in the crop (`req_op_24_req_nfr_07_box_with_nothing_left_beside_the_grip_refuses`).
+
 **Suites:**
 - `openchuck-path`, `-types`, `-gcode` and `-post`: 1142 run, 1135 passed, and 7 failed on the first full run (1371.5 s): 6 End facing tests that the host keep-out check wrongly reached, and the renamed Box test above. After the fix, the full `openchuck-path` suite passes: 952 of 952 (1350.6 s; 1 skipped).
 - `openchuck-app` and `openchuck-cli`: 986 of 986 (1436.8 s; 1 skipped).
