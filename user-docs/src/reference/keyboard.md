@@ -30,8 +30,8 @@ A disabled button is not in the <kbd>Tab</kbd> order. Hold the mouse over it to 
 | <kbd>F</kbd>, <kbd>V</kbd> | Fit the view to the part; open **Show** |
 | <kbd>1</kbd>, <kbd>3</kbd>, <kbd>7</kbd>, <kbd>0</kbd> | Front, right, top, isometric view (the number row or the number pad) |
 | <kbd>N</kbd> | New operation |
-| <kbd>G</kbd> or <kbd>F5</kbd> | Generate the selected operation, and the ones before it |
-| <kbd>Shift</kbd>+<kbd>G</kbd> or <kbd>Shift</kbd>+<kbd>F5</kbd> | Generate every stale operation |
+| <kbd>G</kbd> or <kbd>F5</kbd> | Generate every stale operation, as **Generate stale** does |
+| <kbd>Shift</kbd>+<kbd>G</kbd> or <kbd>Shift</kbd>+<kbd>F5</kbd> | Generate the selected operation, and the ones before it (every stale operation when none is selected) |
 | <kbd>Ctrl</kbd>+<kbd>D</kbd>, <kbd>Del</kbd>, <kbd>F2</kbd> | Duplicate, delete, rename the selected item |
 | <kbd>Alt</kbd>+<kbd>↑</kbd>, <kbd>Alt</kbd>+<kbd>↓</kbd> | Move the selected operation earlier or later |
 | <kbd>Q</kbd>, <kbd>W</kbd>, <kbd>E</kbd>, <kbd>R</kbd> | While picking: select one, flood fill, by angle, same direction. On an edge, <kbd>Q</kbd>, <kbd>W</kbd> and <kbd>E</kbd> are select one, chain and smooth chain |

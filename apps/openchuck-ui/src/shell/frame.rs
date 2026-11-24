@@ -106,11 +106,11 @@ pub(super) const KEY_MAP: &[(&str, &str)] = &[
         "Front, right, top, isometric view (top row or number pad)",
     ),
     ("N", "New operation"),
+    ("G or F5", "Generate every stale operation"),
     (
-        "G or F5",
+        "Shift G or Shift F5",
         "Generate the selected operation, and the ones before it",
     ),
-    ("Shift G or Shift F5", "Generate every stale operation"),
     (
         "Ctrl D, Del, F2",
         "Duplicate, delete, rename the selected item",
@@ -948,7 +948,7 @@ impl Shell {
                 }
                 ui.separator();
                 let selected = matches!(self.selected, Some(Selection::Operation(_)));
-                let generate = egui::Button::new("Generate selected").shortcut_text("G");
+                let generate = egui::Button::new("Generate selected").shortcut_text("Shift+G");
                 if ui
                     .add_enabled(open && idle && selected, generate)
                     .tip("The selected operation, and the operations before it")
@@ -957,7 +957,7 @@ impl Shell {
                     self.generate_selected();
                     ui.close();
                 }
-                let stale = egui::Button::new("Generate stale").shortcut_text("Shift+G");
+                let stale = egui::Button::new("Generate stale").shortcut_text("G");
                 if ui.add_enabled(open && idle, stale).clicked() {
                     self.generate(false);
                     ui.close();
