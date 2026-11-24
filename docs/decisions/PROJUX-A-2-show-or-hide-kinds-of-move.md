@@ -1,6 +1,6 @@
 # PROJUX-A-2: Each kind of toolpath move can be shown or hidden in the view, from the path legend, the Show menu and the View menu (SIM-01, UI-14, UI-15; issue #789; lane PROJECT-UX-A)
 
-- **Status:** Proposed by lane PROJECT-UX-A on 25 Nov 2026. It is built in the lane's second pull request as the project owner answered the lane's questions on 25 Nov 2026, relayed by the coordinator (decision 0049):
+- **Status:** Accepted by the project owner on 26 Nov 2026, relayed by the coordinator (decision 0049). Proposed by lane PROJECT-UX-A on 25 Nov 2026 and built in the lane's second pull request (#898) as the owner answered the lane's questions on 25 Nov 2026, relayed by the coordinator:
   - R1 option A: trace to SIM-01, UI-14 and UI-15, with no change to the requirements.
   - P1 option B: six kinds.
   - P2 option A: the legend's rows become tick boxes, with the same choices in View and the Show menu, and a chip.
@@ -8,12 +8,10 @@
   - P2b option B, not the recommendation, with the owner's condition: Simulate shows the path legend with its tick boxes at the top left, only while the toolpaths are shown there.
 
   With P2b the owner also directed (25 Nov 2026) that the layout is designed for a 1920 by 1080 window, with 1366 by 768 best effort until the minimum display requirement (UI-16) is changed by a separate lane.
-
-  The owner has not yet accepted the record itself (OI-9964).
 - **Date:** 25 Nov 2026.
 - **Requirements:** SIM-01 (toolpaths in the view, moves told apart, per-operation visibility), UI-14 (every control by keyboard; commands in the menus), UI-15 (per-user settings on the computer, never in the project), NFR-03 (the view stays smooth). No requirement names hiding by kind; the owner chose to trace it to these rather than add one (answer R1 A).
 - **Builds on:** [decision 0169](0169-playback-window-and-path-visibility.md) (paths hidden per operation in the view only), [decision 0238](0238-simulate-display-and-operation-navigation.md) (Simulate's Show choices, per user), [decision 0512](0512-playback-layers-on-simulate-only.md) (the toolpath lines on every step, the playback layers on Simulate), [decision 0167](0167-path-detail-follows-the-zoom.md) (the level of detail and the point budget), [decision 0677](0677-keyboard-focus-tooltips-and-tool-windows.md) (focus and tooltips).
-- **Open items:** adds OI-9962 (kinds the path does not mark: retracts, run-outs past the stock, turns of A at a fixed position; the owner's answer P1 B sends them to a sev3 ticket) and OI-9964 (the owner's acceptance of this record).
+- **Open items:** adds OI-9962 (kinds the path does not mark: retracts, run-outs past the stock, turns of A at a fixed position; the owner's answer P1 B sends them to a sev3 ticket, issue #899) and OI-9964 (the owner's acceptance of this record, closed on 26 Nov 2026).
 
 Numbering: provisional. The coordinator assigns the record number and the OI numbers at release, in merge order. No project schema number: the choice is a per-user setting (`path_moves` in the user's `settings.toml`), never in the project. No library-family API change: `openchuck-app` and `openchuck-ui` change, and neither is in the library family, so there is no version bump. The library family's `MoveKind` is unchanged.
 
