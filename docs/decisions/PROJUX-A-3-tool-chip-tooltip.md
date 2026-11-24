@@ -1,10 +1,10 @@
 # PROJUX-A-3: The operations list names each operation's tool in a tooltip, and an operation with no tool says so (UI-06, UI-14; issue #790; lane PROJECT-UX-A)
 
-- **Status:** Proposed by lane PROJECT-UX-A on 25 Nov 2026, built in the lane's first pull request as the project owner answered the lane's questions on 25 Nov 2026, relayed by the coordinator (decision 0049): R1 option A (trace to UI-06 and UI-14, no change to the requirements), T1 option A (the tooltip names the tool and says what it is), T2 option A with the owner's change that the chip takes no Tab stop of its own. The owner has not yet accepted the record itself (OI-9963).
+- **Status:** Accepted by the project owner on 26 Nov 2026, relayed by the coordinator (decision 0049). Proposed by lane PROJECT-UX-A on 25 Nov 2026 and built in the lane's first pull request (#897) as the owner answered the lane's questions on 25 Nov 2026, relayed by the coordinator: R1 option A (trace to UI-06 and UI-14, no change to the requirements), T1 option A (the tooltip names the tool and says what it is), T2 option A with the owner's change that the chip takes no Tab stop of its own.
 - **Date:** 25 Nov 2026.
 - **Requirements:** UI-06 (the project tree lists the operations), UI-14 (anything shown on hover is also shown on keyboard focus), UI-11 (state is not shown by colour alone). No requirement names this tooltip; the owner chose to trace it to UI-06 and UI-14 rather than add one (answer R1 A).
 - **Builds on:** [decision 0677](0677-keyboard-focus-tooltips-and-tool-windows.md) (accepted) item 3: tooltips open on focus as well as hover, and information with a tooltip is a Tab stop. This record meets that item through the operation's row instead of a Tab stop on the chip (Decision item 3).
-- **Open items:** adds OI-9963 (the owner's acceptance of this record).
+- **Open items:** OI-9963 (the owner's acceptance of this record), closed on 26 Nov 2026.
 
 Numbering: provisional. The coordinator assigns the record number and the OI number at release, in merge order. No project schema number: nothing stored changes. No library-family API change: `openchuck-app` gains two public constants (`operation::NO_TOOL`, `operation::TOOL_MISSING`) and `openchuck-ui` changes; neither crate is in the library family, so there is no version bump.
 
