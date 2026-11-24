@@ -622,7 +622,11 @@ fn req_ui_03_req_op_24_baluster_overlay_marks_the_grip_with_one_short_label() {
     );
     let operation = dir.join(format!("operations/{FACING}.toml"));
     let text = std::fs::read_to_string(&operation).unwrap();
-    std::fs::write(&operation, text.replace("shape = \"end\"", "shape = \"box\"")).unwrap();
+    std::fs::write(
+        &operation,
+        text.replace("shape = \"end\"", "shape = \"box\""),
+    )
+    .unwrap();
     let app = Application::open(&dir, Threads::Exactly(2)).unwrap();
     let run = std::sync::Arc::new(app.start_regenerate().wait().unwrap());
     let draft = app.start_scene(None).wait().unwrap();
