@@ -5,6 +5,7 @@
 //! value.
 
 #![allow(clippy::unwrap_used)]
+#![allow(clippy::float_cmp)]
 
 use eframe::egui::{self, Event, Key, Modifiers};
 use openchuck_app::Command;
