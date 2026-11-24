@@ -62,4 +62,34 @@ The change only ever reduces what is cut. Three independent layers keep the tool
 
 ## Verification
 
-See the pull request's Verification section, copied here when the lane's checks complete.
+Branch `claude/lane-facing-grip` from `main` `445286b`. Linux container, 4 cores, 15 GB, debug build, uninstrumented `cargo nextest` times.
+
+**Tests written first and watched failing** (with today's refusals: "the Box faces cannot be finished from X ...", "restricted legacy Flat has an unfinished or raised composite-target region"):
+
+- `crates/openchuck-path/tests/facing_held_limit.rs` uses a 10 x 4 x 4 block on 20 mm stock and a 3 mm flat tool. The expected numbers are worked by hand from the set-up, never from generator helpers.
+  - `req_op_24_req_set_09_box_faces_up_to_the_held_start_and_says_what_it_leaves` (0.012 s): Whole stock and Part. No fed move comes inside the grip widened by the radius and 0.5 mm. The final-depth rows' union starts exactly at X 10.5 and leaves no strip. There is one information note, never a warning, with the held interval, the 0.5 mm, "finished from X 10.500" and the unfaced range and length.
+  - `req_op_24_req_set_09_box_faces_up_to_a_held_far_end_and_both_ends` (0.014 s): the far end, both ends (two notes), and a Part extent clear of the grip (no note).
+  - `req_op_24_req_nfr_07_box_with_nothing_left_beside_the_grip_refuses` (0.006 s).
+  - `req_op_24_req_set_09_a_host_keep_out_that_differs_from_the_grip_refuses` (0.006 s).
+  - `req_op_24_req_set_09_restricted_flat_and_round_face_up_to_the_held_start` (0.106 s): Flat is finished from its passes' ends, X 12.000. Round, on a 10 mm bar, is finished from X 10.501.
+- `crates/openchuck-app/tests/facing_approach.rs` uses the public Baluster set-up of issue #500 and both posts.
+  - `req_op_24_req_set_09_baluster_box_facing_stops_short_of_the_held_start` (43.0 s in the full run): Whole stock and Part each generate and post with Makera Z1 and LinuxCNC. Every fed tip has X at least 27.078. The first final-depth row's edge is at X 25.490, and the rows leave no strip. The note gives "X 16.990 to 25.490 (8.500 mm along X)" for Whole stock and "X 17.990 to 25.490 (7.500 mm along X)" for Part. Without the grip, the rows start inside the old grip and nothing is said.
+  - `req_op_24_req_set_09_baluster_flat_part_extent_stops_short_of_the_held_start` (46.6 s): the note's X equals the lowest X of the cutting moves at the face, read independently from the path (28.643; the stock to leave round the grip lifts the pass ends from the keep-out limit at 27.078).
+  - `req_op_24_req_gc_07_baluster_box_facing_beside_the_grip_is_deterministic` (41.7 s): the G-code is byte-identical at 1 and 4 threads with both posts.
+  - `req_ui_03_req_op_24_baluster_overlay_marks_the_grip_with_one_short_label` (18.2 s): Box with all four sides shows exactly one "Not faced: held start" label, in the draft and in the generated scene, at most 24 characters of its own, and no label carries the stop X.
+- **Changed tests:**
+  - `facing_box_validation::req_op_24_req_set_09_box_paths_over_a_grip_refuse_and_part_extents_clear_of_it_validate` (renamed from `..._box_held_ends_do_not_crop_requested_coverage_or_disappear_at_part_extents`): a path planned without the grip and checked with it is now refused first by the faced rectangle's removal-domain check ("outside selected Facing coverage"), as well as by the protection check.
+  - Decision 0667's `..._baluster_box_facing_names_the_held_start_it_keeps_off` is replaced by the Box test above.
+  - The field-literal updates in `facing_box_plan.rs` and the `legacy.rs` unit test.
+
+**Suites:**
+- `openchuck-path`, `-types`, `-gcode` and `-post`: 1142 run, 1135 passed, and 7 failed on the first full run (1371.5 s): 6 End facing tests that the host keep-out check wrongly reached, and the renamed Box test above. After the fix, all 120 Facing tests of `openchuck-path` pass (7.8 s). The full suite was not run again after the fix.
+- `openchuck-app` and `openchuck-cli`: 986 of 986 (1436.8 s; 1 skipped).
+- `openchuck-ui`: the label and Facing tests, 39 of 39.
+- No new test takes more than a minute alone. The Baluster tests take 18 to 47 s in the full run.
+
+**Checks:** `cargo fmt --all --check`; `cargo clippy --workspace --all-targets` (no warnings); `cargo xtask deps` (with messages and topics), `licences`, `records` and `trace` (105 of 105 P1) all pass. Golden files: none changed. The golden audit tests (`golden_audit::*`) and `reference_jobs::*` pass in the integration binary. `cargo xtask golden` itself fails on this branch and on `main` alike, because it still runs `cargo test --test golden_audit`, a target folded into the integration binary by decision 0516 (reported to the coordinator).
+
+**Coverage:** see the pull request (own-crate lower bound, the changed files read).
+
+**Not verified:** anything on a machine; LinuxCNC replay of the new programs; restricted Round on the Baluster (refused there for an unrelated reason, #880). Generated G-code remains the user's to verify before it is run on a machine (NFR-12).
