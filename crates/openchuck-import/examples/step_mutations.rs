@@ -15,7 +15,8 @@
 //!
 //! The generator is a fixed xorshift, so the same seed gives the same mutants. With `max_seconds`
 //! the run stops at `count` mutants or at that time, whichever comes first, and reports how many it
-//! imported (decision 0534, OI-326).
+//! imported (decision 0534, OI-326). An argument that is given but is not a whole number stops
+//! the run with exit code 2 (issue #582).
 
 // A test program, not library code: it reports on the terminal and indexes its own fixed tables.
 #![allow(
@@ -78,16 +79,44 @@ fn corpus_dir() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("../../testdata/step/valid")
 }
 
+/// The argument at `index`, or `None` when it is not given. A given argument that is not a
+/// whole number is an error naming it, never the default: a mistyped `max_seconds` meant "no
+/// time budget" and a run that would not stop (NFR-07, issue #582).
+fn number_arg<T: std::str::FromStr>(
+    args: &[String],
+    index: usize,
+    name: &str,
+) -> Result<Option<T>, String> {
+    args.get(index)
+        .map(|a| {
+            a.parse().map_err(|_| {
+                format!("{name} must be a whole number, not {a:?}\nusage: step_mutations <count> [seed] [max_seconds]")
+            })
+        })
+        .transpose()
+}
+
 fn main() -> ExitCode {
     let args: Vec<String> = std::env::args().collect();
-    let count: usize = args.get(1).and_then(|a| a.parse().ok()).unwrap_or(100);
-    let seed: u64 = args.get(2).and_then(|a| a.parse().ok()).unwrap_or(1).max(1);
+    let parsed = (|| {
+        Ok::<_, String>((
+            number_arg::<usize>(&args, 1, "count")?,
+            number_arg::<u64>(&args, 2, "seed")?,
+            number_arg::<u64>(&args, 3, "max_seconds")?,
+        ))
+    })();
+    let (count, seed, max_seconds) = match parsed {
+        Ok(values) => values,
+        Err(message) => {
+            eprintln!("{message}");
+            return ExitCode::from(2);
+        }
+    };
+    let count = count.unwrap_or(100);
+    let seed = seed.unwrap_or(1).max(1);
     // An optional time budget in seconds (decision 0534, OI-326): the run stops after the first
     // mutant that ends past it, so a night can import as many mutants as its hour holds.
-    let deadline = args
-        .get(3)
-        .and_then(|a| a.parse::<u64>().ok())
-        .map(|s| Instant::now() + Duration::from_secs(s));
+    let deadline = max_seconds.map(|s| Instant::now() + Duration::from_secs(s));
     let seeds: Vec<(String, Vec<u8>)> = ["cylinder", "box", "filleted_box", "rotary_blank_drilled"]
         .iter()
         .filter_map(|n| {

@@ -7,7 +7,8 @@
 //! *monotone rule*: along the profile neither the radius nor the height
 //! decreases, no segment has zero length, an arc's ends lie on one circle
 //! within [`ARC_TOLERANCE`] and the arc stays within one quarter turn, the
-//! first segment leaves the axis, and every value is finite. That makes a
+//! first segment leaves the axis, and every value is finite and at most
+//! [`MAX_PROFILE_SIZE`] from the tip. That makes a
 //! profile connected, non-self-intersecting and revolvable, fixes each arc's
 //! direction without a flag, and makes the lower envelope `h(r)` a function.
 //! It rejects undercut tools (dovetail, lollipop, keyseat, back chamfer).
@@ -31,6 +32,14 @@ pub const LENGTH_EPSILON: f64 = 1e-9;
 /// How far an arc's start and end may differ in distance from its centre, in
 /// millimetres.
 pub const ARC_TOLERANCE: f64 = 1e-6;
+
+/// The largest distance from the tip, along or across the tool, that a profile
+/// coordinate (a point, an arc centre or an arc radius) may have, in
+/// millimetres. Far larger than any cutter, and far below where the solvers'
+/// products of lengths overflow a double (NFR-05, NFR-07; issue #628: a radius
+/// of about 7.8e307 mm was a finite number, so it passed the finiteness check,
+/// and the lower envelope overflowed).
+pub const MAX_PROFILE_SIZE: f64 = 1000.0;
 
 /// A point on a tool profile: distance from the tool axis and height above the tip.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
@@ -245,6 +254,25 @@ pub struct RevolvedProfile {
     convex: bool,
 }
 
+/// A length in millimetres for a size message: huge values in exponent form,
+/// so a 300-digit number from a damaged file stays short.
+pub(crate) fn size_text(value: f64) -> String {
+    if value.abs() < 1.0e6 {
+        format!("{value} mm")
+    } else {
+        format!("{value:e} mm")
+    }
+}
+
+/// The reason a profile value is refused for its size.
+fn too_large(what: &str, value: f64) -> String {
+    format!(
+        "the {what} {} is larger than {MAX_PROFILE_SIZE} mm, the largest size a tool \
+         profile can have",
+        size_text(value)
+    )
+}
+
 fn segment_error(i: usize, reason: impl std::fmt::Display) -> Error {
     Error::invalid(
         format!("tool.profile.segments[{i}]"),
@@ -270,6 +298,11 @@ impl RevolvedProfile {
             for p in std::iter::once(to).chain(centre) {
                 if !p.r().is_finite() || !p.z().is_finite() {
                     return Err(segment_error(i, "a coordinate is not a finite number"));
+                }
+                for (what, v) in [("radius", p.r()), ("height", p.z())] {
+                    if v.abs() > MAX_PROFILE_SIZE {
+                        return Err(segment_error(i, too_large(what, v)));
+                    }
                 }
             }
             if prev.distance(to) < LENGTH_EPSILON {
@@ -460,7 +493,8 @@ fn arc_piece(
 /// away from the tool, like a ball end) or concave (bulging into it). For the
 /// custom profile text file, which may give an arc by radius instead of
 /// centre (decision record 0012 item 6). Fails when the ends are further
-/// apart than the diameter. The result still has to pass the monotone rule.
+/// apart than the diameter, or the radius is above [`MAX_PROFILE_SIZE`].
+/// The result still has to pass the monotone rule.
 pub fn arc_centre(
     start: ProfilePoint,
     end: ProfilePoint,
@@ -469,6 +503,9 @@ pub fn arc_centre(
 ) -> std::result::Result<ProfilePoint, String> {
     if !(radius.is_finite() && radius > 0.0) {
         return Err(format!("the arc radius {radius} must be greater than zero"));
+    }
+    if radius > MAX_PROFILE_SIZE {
+        return Err(too_large("arc radius", radius));
     }
     let chord = start.distance(end);
     if chord < LENGTH_EPSILON {
@@ -504,6 +541,19 @@ mod tests {
         ProfileSegment::Line {
             to: ProfilePoint::new(r, z),
         }
+    }
+
+    /// NFR-07, issue #628: an arc given by a radius larger than any tool is
+    /// refused with the size and the limit, before its centre is worked out.
+    #[test]
+    fn req_tl_03_req_nfr_07_an_arc_radius_above_the_limit_is_refused() {
+        let end = ProfilePoint::new(3.0, 3.0);
+        let err = arc_centre(ProfilePoint::TIP, end, 1.0e300, true).unwrap_err();
+        assert!(
+            err.contains("arc radius 1e300 mm is larger than 1000 mm"),
+            "{err}"
+        );
+        assert!(arc_centre(ProfilePoint::TIP, end, MAX_PROFILE_SIZE, true).is_ok());
     }
 
     #[test]

@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased (FUZZ-NFR07; issue #794; decision 0679, accepted)
+
+- **Fixed:** a template `namespace` that holds itself (directly, in a list or through another namespace) is freed after the render instead of leaking; every namespace a render makes is emptied when it ends. A `namespace` key that is not a name is now a template error. No output changes. No public API changes.
+
 ## 0.59.0
 
 - **Family release (0.59.0; lane Z1-SETUP, PR 2; issue #692; decision 0673):** `openchuck-types`'s `Tool` gains the public field `stick_out`, a breaking change; no change to this crate.

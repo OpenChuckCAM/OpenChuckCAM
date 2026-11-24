@@ -351,7 +351,9 @@ impl PostProcessor for TemplatePost {
             opt: &options,
             steps: &steps,
         };
-        let mut env = engine::environment(steps.len())?;
+        // Held to the end of this function: dropping it frees any namespace
+        // the template left holding itself (issue #794).
+        let (mut env, _namespaces) = engine::environment(steps.len())?;
         env.add_template_owned(d.template_name.clone(), d.template.clone())
             .map_err(|e| PostError::Template(engine::describe(&e)))?;
         let template = env

@@ -83,6 +83,8 @@ It receives:
   - `feed`, with `kind` (`linking`, `cutting`, `plunge`, `lead_in`, `lead_out`), `target` and `feed` (`mode` and `value`);
   - `rotary_boundary`, with `at`, where whole turns can be dropped (only for `drop_turns` posts).
 
+To keep a value from one step to the next, use `namespace`, as the built-in `main.post` does. Each key of a namespace must be a name (letters, digits and `_`, not starting with a digit): `namespace(at="")` works, while `namespace({"a b": 1})` is an error.
+
 Besides the usual filters, the template can use `fixed(d)` (a number with `d` decimal places, never `-0`), `feed(d)` (at least 3 significant figures), `rounded(d)`, `sqrt`, `floor` and `trunc`, and the value `pi`. The built-in `main.post` shows how to write an axis word, the F word and the G code only when they change.
 
 ## Checks
