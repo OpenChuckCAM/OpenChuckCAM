@@ -515,7 +515,7 @@ fn read_ledger(path: &std::path::Path) -> Result<Ledger, ProjectError> {
 
 fn write_ledger(path: &std::path::Path, ledger: &Ledger) -> Result<(), ProjectError> {
     let mut text = String::from(
-        "# Default tools OpenChuckCAM has installed here (TL-12). Do not edit.\n# A listed tool or tool set is never installed again.\n",
+        "# Default tools OpenChuckCAM has installed here. Do not edit.\n# A listed tool or tool set is never installed again.\n",
     );
     for id in &ledger.tools {
         text.push_str(&format!("{id}\n"));
