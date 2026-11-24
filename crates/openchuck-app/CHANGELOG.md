@@ -1,7 +1,7 @@
 # Changelog
 
 
-## Unreleased (FACEFLOW phase 2; issue #854; decision 0xxz)
+## Unreleased (FACEFLOW phase 2; issue #854; decision 9931)
 
 - **Changed:** a new face-flow finishing operation is written with Stay down between passes on, Pattern Automatic, Steps between rings Blended (decision 0545's rule, now reaching face flow) and a Shortest cut of its tool's diameter. An operation saved without them keeps its program.
 

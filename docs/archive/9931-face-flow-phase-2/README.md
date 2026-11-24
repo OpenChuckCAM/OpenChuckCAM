@@ -1,6 +1,6 @@
-# Decision 0xxz: face-flow finishing's phase 2 on the public blisk, screenshots
+# Decision 9931: face-flow finishing's phase 2 on the public blisk, screenshots
 
-Cited by [decision record 0xxz](../../decisions/0xxz-face-flow-stays-down-follows-outlines-and-drops-short-cuts.md) (issue #854).
+Cited by [decision record 9931](../../decisions/9931-face-flow-stays-down-follows-outlines-and-drops-short-cuts.md) (issue #854).
 
 Both images are screenshots of the program itself: the release build of branch `claude/lane-faceflow` at commit `239acd1a`, Linux, Xvfb with Mesa's lavapipe software Vulkan, window 1920 x 1080, front view as the guide's blisk examples set it, the viewport cropped. Each stacks two captures: above, "before" (Pattern Along the guide, Stay down between passes off, Steps between rings Sharp, Shortest cut 0: today's program, which a saved operation keeps); below, "after" (what a new operation gets: Automatic, Stay down on, Blended, Shortest cut Tool diameter). They were taken on copies of the public reference project `testdata/projects/face_flow` (`testdata/step/valid/blisk.step`, 3 mm ball) with a 1 mm stepover and the face set changed as each line says; no private project was used. Colours: orange cuts, green links, lilac entries, hatching unreached.
 

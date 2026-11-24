@@ -1,7 +1,7 @@
 # Changelog
 
 
-## Unreleased (FACEFLOW phase 2; issue #854; decision 0xxz)
+## Unreleased (FACEFLOW phase 2; issue #854; decision 9931)
 
 - **Breaking (decision 0048; minor bump at release):** `assemble::UnreachedReason` gains `TooShort { length }`, an area left uncut because the only cut there, from one lift to the next, is shorter than the operation's Shortest cut. An exhaustive `match` on `UnreachedReason` needs an arm for it.
 - **Added:** face-flow finishing's parameters `face_flow::parameter::STAY_DOWN` (Stay down between passes), `PATTERN` with `AUTOMATIC`, `ALONG_GUIDE` and `OUTLINE`, and `SHORTEST_CUT`; its schema also offers decision 0545's `ring_step` and `ring_blend_angle` for faces that close round on themselves.

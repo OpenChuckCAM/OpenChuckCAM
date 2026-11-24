@@ -2595,7 +2595,7 @@ fn req_op_28_a_shortest_cut_of_tool_diameter_is_the_tools_diameter() {
 fn req_op_28_req_op_25_following_the_outline_climb_and_conventional_run_opposite_ways() {
     // Climb and Conventional keep the uncut material, inside the face, on the
     // side they ask for: every loop of one runs round the same way, and the
-    // two run round opposite ways (decision 0xxz item 2; decision 0213).
+    // two run round opposite ways (decision 9931 item 2; decision 0213).
     let mut b = Builder::default();
     flat(
         &mut b,
