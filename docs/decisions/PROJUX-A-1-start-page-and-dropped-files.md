@@ -15,7 +15,7 @@
   - [decision 0460](0460-recovery-offered-only-for-the-opened-project.md) (recovery offered for the project being opened);
   - [decision 0246](0246-new-project-buttons-resolve-their-own-fields.md) and #891 (the New project and Open dialogs resolve their own fields);
   - [decision 0677](0677-keyboard-focus-tooltips-and-tool-windows.md) (focus, reading order, tooltips on focus).
-- **Open items:** adds OI-9961 (dropping on a Wayland desktop; a sev3 ticket to follow egui and winit) and OI-9966 (the owner's acceptance of this record).
+- **Open items:** adds OI-9961 (dropping on a Wayland desktop; sev3 ticket #901) and OI-9966 (the owner's acceptance of this record).
 
 Numbering: provisional. The coordinator assigns the record number and the OI numbers at release, in merge order. No project schema number: the recent list is a per-user setting that already exists. No library-family API change: only `openchuck-ui` is expected to change (and `openchuck-app` only if a helper is needed), so there is no version bump.
 
@@ -63,7 +63,7 @@ What `main` (`361613e`) does:
    - and the first of several, with "(1 of 3; the rest are not imported)".
 
    It is drawn only while the system reports a hovered file (X11, Windows, macOS).
-5. **Wayland (the owner's answer S4 A).** Nothing in the program changes for Wayland. The user guide says that on a Linux desktop running Wayland, dropping a file needs the program to run under X11 (XWayland), and that the buttons and the recent list work everywhere. OI-9961 asks for a sev3 ticket to follow egui and winit for Wayland support.
+5. **Wayland (the owner's answer S4 A).** Nothing in the program changes for Wayland. The user guide says that on a Linux desktop running Wayland, dropping a file needs the program to run under X11 (XWayland), and that the buttons and the recent list work everywhere. OI-9961 is followed by the sev3 ticket #901 (milestone 2027.1) for Wayland support in egui and winit.
 6. **Display only, per user.** The recent list is the existing per-user setting (UI-15). Nothing new is stored, in the project or in the settings. Nothing is sent anywhere (NFR-09).
 
 ## Consequences
