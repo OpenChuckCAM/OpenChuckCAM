@@ -16,7 +16,7 @@ The Operations step's main button, at the bottom right, is **Generate stale (N)*
 
 1. **G and F5** generate every stale operation, as **Generate stale** does.
 2. **Shift G and Shift F5** generate the selected operation and the ones before it. With no operation selected they generate every stale operation, as G did before, so the key is never dead.
-3. The Operations menu shows the keys beside its items ("Generate selected" Shift+G, "Generate stale" G); Help > Keyboard shortcuts lists them; the row menu's "Generate" tooltip says "(Shift G)".
+3. The Project menu shows the keys beside its items ("Generate selected" Shift+G, "Generate stale" G); Help > Keyboard shortcuts lists them; the row menu's "Generate" tooltip says "(Shift G)".
 4. Nothing else changes: what each action generates, the refusal of a turned-off operation, cancel with Esc, and the footer buttons and their labels.
 
 There are no saved key bindings, so nothing is migrated. A key for "Regenerate all" (issue #559) is not part of this record; the owner has it open.
@@ -36,10 +36,10 @@ There are no saved key bindings, so nothing is migrated. A key for "Regenerate a
 On real hardware, because key presses on a real keyboard and window manager are what this changes:
 1. Copy the baluster tutorial project, `testdata/examples/baluster/baluster-project`, and open the copy (**File > Open project**).
 2. On **Operations**, click **2 Finish** in the project tree, then press <kbd>Shift</kbd>+<kbd>G</kbd>. Expect 1 Rough and 2 Finish to generate (the Jobs tab: "Generated 2").
-3. Change any value of 1 Rough (for example its stepover), so both are stale. Press <kbd>G</kbd>. Expect both to generate, as **Generate stale** does.
+3. Change any value of 1 Rough (for example its stepover) and press <kbd>Enter</kbd>, then click once on the 3D view, so no text field has the keyboard. Both operations are now stale. Press <kbd>G</kbd>. Expect both to generate, as **Generate stale** does.
 4. Repeat steps 2 and 3 with <kbd>Shift</kbd>+<kbd>F5</kbd> and <kbd>F5</kbd>.
-5. Click an empty part of the tree so nothing is selected, make an operation stale, and press <kbd>Shift</kbd>+<kbd>G</kbd>. Expect every stale operation to generate.
-6. Open the **Operations** menu and **Help > Keyboard shortcuts**. Expect "Generate selected" with Shift+G and "Generate stale" with G.
+5. Make an operation stale as in step 3. Then click the model, **baluster.stl**, in the project tree, so that no operation is selected (clicking an empty part of the tree, or Esc, keeps the operation selected), and click the 3D view. Press <kbd>Shift</kbd>+<kbd>G</kbd>. Expect every stale operation to generate.
+6. Open the **Project** menu and **Help > Keyboard shortcuts**. Expect "Generate selected" with Shift+G and "Generate stale" with G.
 7. **Pass:** each step does as written. **Fail:** say which step, the key, and what happened (nothing, the other action, or an error).
 
 ## Verification
