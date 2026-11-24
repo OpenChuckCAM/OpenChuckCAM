@@ -1,0 +1,7 @@
+schema = 29
+name = "first_cut"
+
+[[models]]
+id = "6ff14279-0641-4e5b-bc83-0a675299042a"
+path = "models/part.stl"
+hash = "blake3:ddead6fb7bc741a99c3df343fb2e0f23ecaa96df343a34575c143216044ba946"

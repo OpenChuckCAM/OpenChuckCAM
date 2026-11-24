@@ -1,7 +1,7 @@
-schema = 25
+schema = 29
 id = "0c0c0351-0000-4000-8000-000000000102"
 order = "W"
-name = "2 mm flat (check 351)"
+name = "2 mm flat (check 632)"
 
 [tool]
 diameter = 2.0

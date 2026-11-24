@@ -1,0 +1,3 @@
+# Run output for the OI-2152 pack
+
+`regenerate.txt` is the output of `openchuck-cli --threads 4 regenerate project --post makera-z1 --tool-numbers keep --grouping project --out OUT --acknowledge-collision-warnings` on [`../project/`](../project/). Release build of `main` at `6b039e5` (0.62.0), Linux x86_64, 24 Nov 2026, 7 s. It wrote `01-first-cut.nc`: 218,483 bytes, SHA-256 `86234041eda9c69036050ced9fd8bfbd05393f8ae91c85cf4bb86891f0354bf9`. Apart from line 2 (`(OpenChuckCAM 0.62.0)` where the committed golden file has `(OpenChuckCAM <version>)`), it is the same as `testdata/golden/first_cut/first_cut_makera-z1.nc`.

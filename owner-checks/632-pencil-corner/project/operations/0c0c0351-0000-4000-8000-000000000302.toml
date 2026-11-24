@@ -1,4 +1,4 @@
-schema = 25
+schema = 29
 id = "0c0c0351-0000-4000-8000-000000000302"
 order = "W"
 name = "Pencil, flat"
@@ -8,3 +8,4 @@ tool = "0c0c0351-0000-4000-8000-000000000102"
 selections = []
 
 [parameters]
+exact_contact = false

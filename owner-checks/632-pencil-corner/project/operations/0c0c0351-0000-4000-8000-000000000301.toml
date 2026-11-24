@@ -1,4 +1,4 @@
-schema = 25
+schema = 29
 id = "0c0c0351-0000-4000-8000-000000000301"
 order = "V"
 name = "Axial, tapered ball"
@@ -9,5 +9,6 @@ selections = []
 
 [parameters]
 adaptive_spacing = false
+exact_contact = false
 face_free_ends = false
 stepover = 0.5

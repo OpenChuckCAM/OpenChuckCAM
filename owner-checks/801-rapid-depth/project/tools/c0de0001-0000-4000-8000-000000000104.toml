@@ -7,10 +7,10 @@ name = "Z1 O-flute 3.175x25"
 diameter = 3.175
 flute_length = 25.0
 overall_length = 42.0
-stick_out = 29.3
 shank_diameter = 3.175
 flute_count = 1
 material = "carbide"
+stick_out = 29.3
 
 [tool.shape]
 type = "flat_end"

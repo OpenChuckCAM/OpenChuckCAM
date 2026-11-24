@@ -1,0 +1,16 @@
+project-slowdown: simulation cell 0.1 mm (default 0.1 mm; about 1.0 x the default's time and 1.0 x its memory)
+warning: Held region (operation 'Fine finish'): nothing within one tool radius of the held region at the start of the stock is cut: no part of the tool reaches over the gripped length of the stock.
+note: Feed limit (operation 'Rough'): 9536 moves were limited by the machine's feed limits. In the worst case the target was 1000.0 mm/min, but the move was reduced to 11.0 mm/min to stay within the machine's capabilities.
+note: Feed limit (operation 'Fine finish'): 4227 moves were limited by the machine's feed limits. In the worst case the target was 1200.0 mm/min, but the move was reduced to 0.1 mm/min to stay within the machine's capabilities.
+note: Shoulders (operation 'Rough'): the part has a step across the rotary axis (a shoulder facing along X): the tool makes one extra turn round the axis, without moving along it, at X 67.879, so the shoulder keeps only the stock to leave.
+note: Cutting data (operation 'Fine finish'): feed 1200 set on the operation overrides 499.99999992 from the cutting data of 'Z1 ball 3.175x22' for 'Hardwood'.
+note: Cutting data (operation 'Fine finish'): stepover 6 set on the operation overrides 0.453571 from the cutting data of 'Z1 ball 3.175x22' for 'Hardwood'.
+note: Free ends (operation 'Fine finish'): the end face at X 78.990 has nothing beyond it: the tool goes down beside it in 5 layers of 1 mm to the rotary axis, turning once round the axis in each.
+note: Rotary axis (operation 'Fine finish'): moves 4938 to 5009 (72 moves): A turns with the contact point at the rotary axis during these moves, so the contact point barely moves and the rotary axis's speed limit sets the time taken (0.167 s); the feed set is 1200.0 mm/min.
+  setup 'Setup 1': 630 x 241 columns, 5.7 MB; material 28502.9 -> 15284.6 mm3
+    operation 'Rough': 9946 moves, 102664 poses, removed 12099.6 mm3
+    operation 'Fine finish': 5013 moves, 30304 poses, removed 1118.7 mm3
+    against the part: 1578540 surface samples, 1381167 counted
+      most material left: 1.3016 mm at (30.995, 3.717, -7.093)
+      deepest overcut: 0.0475 mm at (42.343, 6.173, 0.795)
+simulated in 5.9 s

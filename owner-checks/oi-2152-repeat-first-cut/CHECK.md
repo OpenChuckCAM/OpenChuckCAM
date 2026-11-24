@@ -49,7 +49,11 @@ The committed programs you can compare against (`testdata/golden/first_cut/`, co
 | `first_cut_makera-z1.nc` | 218,486 bytes | `70a6a6e5a094f5c38a59911f3680403c4587c9a14cc101587d4122d77d845409` |
 | `first_cut_linuxcnc.ngc` | 273,251 bytes | `061bc701c5dc01b245101bb622fc4b9f49ac783285109862a200fad5b0f6a5f7` |
 
-PROGRAMS_NOTE
+The model `project/models/part.stl` is 1,011,405 bytes, SHA-256 `1d586d4bd2a9fbf15562445dd65dc325b93820705fe971382815d7ed513ef806`.
+
+Generated here from [`project/`](project/) with the Makera Z1 post, one file for the project (`main` at `6b039e5`, 0.62.0; output in [`run/regenerate.txt`](run/regenerate.txt)). The program is **12,133 moves, cut time 2,921.8 s**. It is the committed `first_cut_makera-z1.nc` line for line, except line 2: the version, `(OpenChuckCAM 0.62.0)` in place of `(OpenChuckCAM <version>)`. A file you generate with another build should differ from it in that line only. Any other difference means the program changed, and it goes back through gates 1 to 4.
+
+The run raises one warning to acknowledge before writing: **Tool length** on tool 104 (a 30 mm stick-out assumed inside the 45 mm clearance radius). This is the W4 warning; check it on the machine by jogging. The two **Held region** warnings say that no tool reaches over the gripped length, as intended.
 
 ## Steps
 

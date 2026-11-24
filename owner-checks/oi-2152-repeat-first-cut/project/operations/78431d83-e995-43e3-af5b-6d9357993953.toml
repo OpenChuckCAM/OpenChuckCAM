@@ -1,0 +1,11 @@
+schema = 29
+id = "78431d83-e995-43e3-af5b-6d9357993953"
+order = "V"
+name = "Rough"
+setup = "99cdebaf-7021-42c1-82f4-1d7339902e4c"
+strategy = "rotary_roughing"
+tool = "c0de0001-0000-4000-8000-000000000104"
+selections = []
+
+[parameters]
+adaptive_spacing = false

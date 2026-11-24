@@ -1,0 +1,14 @@
+schema = 29
+id = "a4137b71-3b66-4881-892e-6c1116132412"
+order = "W"
+name = "Finish"
+setup = "99cdebaf-7021-42c1-82f4-1d7339902e4c"
+strategy = "helical_finishing"
+tool = "c0de0001-0000-4000-8000-000000000104"
+selections = []
+
+[parameters]
+adaptive_spacing = false
+exact_contact = true
+face_free_ends = false
+max_angle_step = 5.0

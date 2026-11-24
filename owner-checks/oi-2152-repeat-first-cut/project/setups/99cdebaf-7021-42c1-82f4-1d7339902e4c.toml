@@ -1,0 +1,42 @@
+schema = 29
+id = "99cdebaf-7021-42c1-82f4-1d7339902e4c"
+order = "V"
+name = "Setup 1"
+part = "6ff14279-0641-4e5b-bc83-0a675299042a"
+material = "Plastic"
+part_offset = 90.990234375
+
+[work_offset]
+register = "g54"
+x = 17.990234375
+
+[stock]
+type = "box"
+
+[stock.bounds.min]
+x = 17.990234375
+y = -17.5
+z = -17.5
+
+[stock.bounds.max]
+x = 117.990234375
+y = 17.5
+z = 17.5
+
+[workholding.start]
+length = 68.0
+
+[workholding.end]
+length = 2.0
+diameter = 10.0
+
+[[workholding.tabs]]
+x_start = 85.990234375
+length = 5.0
+
+[workholding.tabs.shape]
+type = "cylinder"
+diameter = 10.0
+
+[workholding.tabs.layout]
+type = "on_axis"

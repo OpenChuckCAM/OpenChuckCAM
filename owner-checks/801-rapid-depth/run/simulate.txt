@@ -1,0 +1,22 @@
+project: simulation cell 0.1 mm (default 0.1 mm; about 1.0 x the default's time and 1.0 x its memory)
+warning: Held region (operation 'Axial finish'): nothing within one tool radius of the held region at the start of the stock is cut: no part of the tool reaches over the gripped length of the stock.
+warning: Material left (operation 'Simultaneous finish'): some moves leave up to 0.0175 mm of material, more than the tolerance, because the surface changes faster than the path can follow.
+warning: Held region (operation 'Simultaneous finish'): nothing within one tool radius of the held region at the start of the stock is cut: no part of the tool reaches over the gripped length of the stock.
+note: Feed limit (operation 'Rough'): 9536 moves were limited by the machine's feed limits. In the worst case the target was 1000.0 mm/min, but the move was reduced to 11.0 mm/min to stay within the machine's capabilities.
+note: Feed limit (operation 'Axial finish'): 14864 moves were limited by the machine's feed limits. In the worst case the target was 500.0 mm/min, but the move was reduced to 0.2 mm/min to stay within the machine's capabilities.
+note: Feed limit (operation 'Simultaneous finish'): 15771 moves were limited by the machine's feed limits. In the worst case the target was 500.0 mm/min, but the move was reduced to 0.2 mm/min to stay within the machine's capabilities.
+note: Shoulders (operation 'Rough'): the part has a step across the rotary axis (a shoulder facing along X): the tool makes one extra turn round the axis, without moving along it, at X 67.879, so the shoulder keeps only the stock to leave.
+note: Adaptive spacing (operation 'Axial finish'): 344 passes added where more than the allowed excess of 0.010 mm was left or could not be ruled out, the closest 0.113 mm from its neighbour; measuring and fitting them made 340526 geometry queries.
+note: Free ends (operation 'Axial finish'): the end face at X 78.990 has nothing beyond it: the tool goes down beside it in 5 layers of 1 mm to the rotary axis, turning once round the axis in each.
+note: Rotary axis (operation 'Axial finish'): moves 58014 to 58085 (72 moves): A turns with the contact point at the rotary axis during these moves, so the contact point barely moves and the rotary axis's speed limit sets the time taken (0.167 s); the feed set is 500.0 mm/min.
+note: Tool tilt (operation 'Simultaneous finish'): the surface slopes along the rotary axis, which A cannot follow: the tool axis is up to 84.3 degrees from the surface normal for that reason (at X 78.908).
+note: Tool tilt (operation 'Simultaneous finish'): A is smoothed within 10 degrees of the normal; the largest tilt used is 10.0 degrees from that.
+note: Tessellation (operation 'Simultaneous finish'): the tolerance is measured against the mesh, not the design surface it came from.
+  setup 'Setup 1': 630 x 241 columns, 5.3 MB; material 28502.9 -> 14217.3 mm3
+    operation 'Rough': 9946 moves, 102664 poses, removed 12099.6 mm3
+    operation 'Axial finish': 58089 moves, 644504 poses, removed 2175.7 mm3
+    operation 'Simultaneous finish': 18484 moves, 112409 poses, removed 10.2 mm3
+    against the part: 1578540 surface samples, 1381167 counted
+      most material left: 0.8581 mm at (27.990, -0.699, 6.978)
+      deepest overcut: 0.0502 mm at (33.970, -10.955, -0.630)
+simulated in 36.2 s
