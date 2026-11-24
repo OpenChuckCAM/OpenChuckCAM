@@ -44,5 +44,6 @@
   <text x="410" y="312" fill="#81c995" font-size="11">one line per set, in its colour, × at the right;</text>
   <text x="410" y="326" fill="#81c995" font-size="11">its choice just under it, in the value column;</text>
   <text x="410" y="340" fill="#81c995" font-size="11">shared notes once per role</text>
-  <text x="20" y="378" fill="#9aa0a6" font-size="11">Synthetic example: Cut on Body and Neck; Avoid Finial ball (Cut short) and Bead (Ignore, its tooltip shown as on hover or focus). Not to scale.</text>
+  <text x="20" y="372" fill="#9aa0a6" font-size="11">Synthetic example: Cut on Body and Neck; Avoid Finial ball (Cut short) and Bead (Ignore, its tooltip shown as on hover or focus).</text>
+  <text x="20" y="388" fill="#9aa0a6" font-size="11">When generated, Results says in a note, not a warning, that Bead limits nothing. Not to scale.</text>
 </svg>
