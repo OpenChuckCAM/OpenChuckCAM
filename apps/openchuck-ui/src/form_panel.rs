@@ -427,7 +427,15 @@ fn row(
             min,
             max,
             tool_diameter,
-        } => length_or_tool_rows(ui, field, (*min, *max, *tool_diameter), state, reset, mark),
+        } => length_or_tool_rows(
+            ui,
+            field,
+            (*min, *max, *tool_diameter),
+            state,
+            reset,
+            mark,
+            preflight,
+        ),
         _ => {
             field_row::read_only_row(
                 ui,
@@ -489,6 +497,7 @@ fn length_or_tool_rows(
     state: &mut FormState,
     reset: bool,
     mark: field_row::Mark<'_>,
+    preflight: Option<crate::pending_edits::Preflight>,
 ) -> Option<Edit> {
     let by_tool = matches!(
         &field.value,
@@ -570,7 +579,9 @@ fn length_or_tool_rows(
             number: true,
             compact: false,
             validate: Some(&validate),
-            preflight: None,
+            // The interacting settings' dry run, as the other number rows
+            // have it (CodeRabbit on #854).
+            preflight,
         };
         edit = match field_row::text_row(ui, state, &row) {
             Outcome::None => None,

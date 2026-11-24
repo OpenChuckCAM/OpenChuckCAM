@@ -57,8 +57,10 @@ use crate::strategy::{CutPoint, Pass, PassStock, StrategyInput};
 use crate::surface::SurfaceSource;
 use openchuck_types::machine::{MaxFeeds, RotaryInFeed};
 
-/// An area of the part a strategy could not reach with the tool (OP-20;
-/// decision record 0368): the path leaves it uncut, and a warning says so.
+/// An area of the part a strategy leaves uncut (OP-20; decision record
+/// 0368): one it could not reach with the tool, or, for
+/// [`UnreachedReason::TooShort`], one it could reach but leaves out on
+/// purpose (decision 0686). A warning says so.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Unreached {
     /// The X range it spans, `(low, high)`, in millimetres.
@@ -68,9 +70,10 @@ pub struct Unreached {
     pub a: (f64, f64),
     /// Its area, in square millimetres.
     pub area: f64,
-    /// Why the tool cannot reach it.
+    /// Why it is left uncut.
     pub reason: UnreachedReason,
-    /// The points of the part's surface in it that the tool cannot reach,
+    /// The points of the part's surface in it that are left uncut (for
+    /// [`UnreachedReason::TooShort`], the contacts of the cut left out),
     /// as the strategy sampled them, in its order: so a viewer marks those
     /// surfaces and not the reached ones in the same X and A range (issue
     /// #416, decision record 0515). At most [`MAX_UNREACHED_POINTS`], taken

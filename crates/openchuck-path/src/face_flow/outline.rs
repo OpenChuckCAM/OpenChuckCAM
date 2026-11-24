@@ -523,15 +523,25 @@ struct Path {
     level: usize,
 }
 
-/// The level lines of the grid's distance at `value` (marching squares):
-/// each a polyline in grid coordinates, closed or open.
-fn level_lines(g: &Grid, value: f64, level: usize) -> Vec<Path> {
-    let v = |i: isize, j: isize| -> f64 {
-        g.at(i, j)
-            .and_then(|k| g.distance.get(k).copied())
-            .filter(|d| d.is_finite())
-            .unwrap_or(-1.0)
-    };
+/// The grid's distance at point (i, j), -1 off the face.
+fn corner_value(g: &Grid, i: isize, j: isize) -> f64 {
+    g.at(i, j)
+        .and_then(|k| g.distance.get(k).copied())
+        .filter(|d| d.is_finite())
+        .unwrap_or(-1.0)
+}
+
+/// The corners of cell (i, j), counter-clockwise from its lowest.
+fn cell_corners(i: usize, j: usize) -> [(isize, isize); 4] {
+    let (ii, jj) = (i as isize, j as isize);
+    [(ii, jj), (ii + 1, jj), (ii + 1, jj + 1), (ii, jj + 1)]
+}
+
+/// The cells of the grid each offset level crosses, level by level (level
+/// `l` at `l` times `step` less half a grid spacing, as `cut_outline` takes
+/// it), each level's in row order: so a level's lines are traced from the
+/// cells it crosses rather than from the whole grid (CodeRabbit on #854).
+fn cells_by_level(g: &Grid, step: f64, levels: usize) -> Vec<Vec<(usize, usize)>> {
     let ci = if g.wrap_u {
         g.ni
     } else {
@@ -542,16 +552,41 @@ fn level_lines(g: &Grid, value: f64, level: usize) -> Vec<Path> {
     } else {
         g.nj.saturating_sub(1)
     };
+    let mut out: Vec<Vec<(usize, usize)>> = vec![Vec::new(); levels + 2];
+    for j in 0..cj {
+        for i in 0..ci {
+            let vals = cell_corners(i, j).map(|(a, b)| corner_value(g, a, b));
+            let lo = vals.iter().copied().fold(f64::INFINITY, f64::min);
+            let hi = vals.iter().copied().fold(f64::NEG_INFINITY, f64::max);
+            // A level crosses the cell where lo < its value <= hi; one more
+            // on each side is kept, and the tracing checks each cell again.
+            let first = ((lo + 0.5 * g.h) / step).floor().max(1.0) as usize;
+            let last = ((hi + 0.5 * g.h) / step).floor() + 1.0;
+            let last = if last.is_finite() && last > 0.0 {
+                (last as usize).min(levels + 1)
+            } else {
+                0
+            };
+            for cells in out.iter_mut().take(last + 1).skip(first) {
+                cells.push((i, j));
+            }
+        }
+    }
+    out
+}
+
+/// The level lines of the grid's distance at `value` (marching squares)
+/// through `cells`: each a polyline in grid coordinates, closed or open.
+fn level_lines(g: &Grid, value: f64, level: usize, cells: &[(usize, usize)]) -> Vec<Path> {
     // Each crossing is keyed by the two grid points of its edge.
     type Key = (usize, usize);
     let mut points: BTreeMap<Key, (f64, f64)> = BTreeMap::new();
     let mut segments: Vec<(Key, Key)> = Vec::new();
-    for j in 0..cj {
-        for i in 0..ci {
-            let (ii, jj) = (i as isize, j as isize);
-            let corners = [(ii, jj), (ii + 1, jj), (ii + 1, jj + 1), (ii, jj + 1)];
-            let vals: Vec<f64> = corners.iter().map(|(a, b)| v(*a, *b)).collect();
-            let inside: Vec<bool> = vals.iter().map(|x| *x >= value).collect();
+    {
+        for &(i, j) in cells {
+            let corners = cell_corners(i, j);
+            let vals = corners.map(|(a, b)| corner_value(g, a, b));
+            let inside = vals.map(|x| x >= value);
             let case = inside
                 .iter()
                 .enumerate()
@@ -696,30 +731,121 @@ fn unwrap_path(g: &Grid, xy: &mut [(f64, f64)]) {
 }
 
 /// Orients `path` with the inside of the face (the larger distance) on its
-/// left in (u, v).
+/// left in (u, v). Where one side is off the face (a hole's edge), the
+/// other side is the inside; where neither side tells, other places along
+/// the path are tried (CodeRabbit on #854).
 fn orient(g: &Grid, path: &mut Path) {
     let n = path.xy.len();
     if n < 3 {
         return;
     }
-    let m = n / 2;
-    let (Some(a), Some(b), Some(c)) = (path.xy.get(m - 1), path.xy.get(m), path.xy.get(m + 1))
-    else {
+    for k in 0..8 {
+        let m = (1 + (n - 2) * (2 * k + 1) / 16).clamp(1, n - 2);
+        let (Some(a), Some(b), Some(c)) = (path.xy.get(m - 1), path.xy.get(m), path.xy.get(m + 1))
+        else {
+            continue;
+        };
+        let (tx, ty) = (c.0 - a.0, c.1 - a.1);
+        let len = tx.hypot(ty);
+        if len <= 1e-12 {
+            continue;
+        }
+        let (lx, ly) = (-ty / len * 0.75, tx / len * 0.75);
+        let left = g.distance_at(b.0 + lx, b.1 + ly);
+        let right = g.distance_at(b.0 - lx, b.1 - ly);
+        let inside_left = match (left, right) {
+            (Some(l), Some(r)) if (l - r).abs() > 1e-12 => l > r,
+            (Some(_), None) => true,
+            (None, Some(_)) => false,
+            _ => continue,
+        };
+        if !inside_left {
+            path.xy.reverse();
+        }
         return;
+    }
+}
+
+// ---------------------------------------------------------------------------
+// The spacing for a scallop height.
+
+/// The points across and along a face its curvature is read at.
+const CURVATURE_SAMPLES: usize = 33;
+
+/// The smallest radius the face curves away from the tool with (convex,
+/// its normal towards the tool), from its points on a grid of its
+/// parameters inside its trim; `None` where it nowhere does.
+fn convex_radius(face: &ExactFace) -> Option<f64> {
+    let (lo, hi) = face.uv_bounds();
+    let n = CURVATURE_SAMPLES;
+    let at = |i: usize, j: usize| {
+        let uv = Uv {
+            u: lo.u + (hi.u - lo.u) * i as f64 / (n - 1) as f64,
+            v: lo.v + (hi.v - lo.v) * j as f64 / (n - 1) as f64,
+        };
+        face.contains(uv).then(|| face.point_normal(uv)).flatten()
     };
-    let (tx, ty) = (c.0 - a.0, c.1 - a.1);
-    let len = tx.hypot(ty);
-    if len <= 1e-12 {
-        return;
+    let samples: Vec<Option<SurfacePoint>> = (0..n)
+        .flat_map(|j| (0..n).map(move |i| (i, j)))
+        .map(|(i, j)| at(i, j))
+        .collect();
+    let mut most: f64 = 0.0;
+    for j in 0..n {
+        for i in 0..n {
+            let Some(p) = samples.get(j * n + i).copied().flatten() else {
+                continue;
+            };
+            let next = [
+                (i + 1 < n).then(|| j * n + i + 1),
+                (j + 1 < n).then(|| (j + 1) * n + i),
+            ];
+            for q in next
+                .into_iter()
+                .flatten()
+                .filter_map(|k| samples.get(k).copied().flatten())
+            {
+                let d = q.point - p.point;
+                let d2 = d.dot(d);
+                if d2 > 1e-18 {
+                    // The normal's turn per length along d: 1/R on a circle.
+                    most = most.max((q.normal.get() - p.normal.get()).dot(d) / d2);
+                }
+            }
+        }
     }
-    let (lx, ly) = (-ty / len * 0.75, tx / len * 0.75);
-    let left = g.distance_at(b.0 + lx, b.1 + ly);
-    let right = g.distance_at(b.0 - lx, b.1 - ly);
-    if let (Some(l), Some(r)) = (left, right)
-        && l < r
-    {
-        path.xy.reverse();
+    (most > 1e-9).then(|| 1.0 / most)
+}
+
+/// The spacing along the face between two passes of a ball of radius
+/// `rho` that leaves a ridge of `height` between them: on a flat, or round
+/// a face curving away from the tool with `radius`, where the balls'
+/// centres are on the circle of `radius + rho` and the ridge is where their
+/// spheres meet nearest the face.
+fn scallop_spacing(height: f64, rho: f64, radius: Option<f64>) -> f64 {
+    let flat = 2.0 * (2.0 * rho * height - height * height).sqrt();
+    let Some(r) = radius else { return flat };
+    let ridge = |d: f64| -> f64 {
+        let big = r + rho;
+        let c = (0.5 * d / r).cos();
+        let disc = big * big * c * c - (big * big - rho * rho);
+        if disc < 0.0 {
+            f64::INFINITY
+        } else {
+            big * c - disc.sqrt() - r
+        }
+    };
+    // The ridge grows with the spacing, and is above the flat's at the
+    // flat's spacing: halve the gap between too close and too far.
+    let (mut lo, mut hi) = (0.0, flat);
+    for _ in 0..60 {
+        let mid = 0.5 * (lo + hi);
+        if ridge(mid) <= height {
+            lo = mid;
+        } else {
+            hi = mid;
+        }
     }
+    lo
 }
 
 // ---------------------------------------------------------------------------
@@ -741,11 +867,14 @@ pub(super) fn cut_outline(
 ) -> Result<FaceCut> {
     let settings = tooling.settings;
     let step = match settings.scallop {
-        // The spacing that leaves the scallop height on a flat, for the
-        // ball or bull-nose's cutting arc.
-        Some((height, rho)) if height < rho => settings
-            .stepover
-            .min(2.0 * (2.0 * rho * height - height * height).sqrt()),
+        // The spacing that leaves the scallop height, for the ball or
+        // bull-nose's cutting arc, where the face curves most away from the
+        // tool (on a flat where it nowhere does; CodeRabbit on #854).
+        Some((height, rho)) if height < rho => {
+            settings
+                .stepover
+                .min(scallop_spacing(height, rho, convex_radius(face)))
+        }
         _ => settings.stepover,
     };
     let g = grid(model, brep, face, closed, step, context)?;
@@ -798,10 +927,12 @@ pub(super) fn cut_outline(
     if !levels.is_finite() || levels > MAX_PASSES as f64 {
         return Err(too_many(id));
     }
+    let cells = cells_by_level(&g, step, levels as usize);
     let mut level = 1;
     while level_at(level) < deepest {
         context.check_cancelled()?;
-        paths.extend(level_lines(&g, level_at(level), level));
+        let here = cells.get(level).map_or(&[][..], Vec::as_slice);
+        paths.extend(level_lines(&g, level_at(level), level, here));
         if paths.len() > MAX_PASSES {
             return Err(too_many(id));
         }
@@ -899,12 +1030,16 @@ pub(super) fn cut_outline(
         }
         let line = UvLine::new(face, uv, wrap, p.level > 0);
         let samples = pass_samples(&line, tooling);
+        // A loop stands for a strip one spacing wide: its share of the
+        // width given is that spacing (CodeRabbit on #854: the spacing was
+        // counted twice in the area).
+        let width = step.max(diameter);
         let (runs, spans) = split_runs(
             samples,
             id,
             k,
-            step,
-            &|_| step.max(diameter),
+            step / width,
+            &|_| width,
             diameter,
             &mut stretches,
         );

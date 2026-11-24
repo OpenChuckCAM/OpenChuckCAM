@@ -972,6 +972,10 @@ const CLOSURE_SAMPLES: usize = 64;
 /// tool.
 const RING_SAMPLES: usize = 64;
 
+/// How far A may differ, degrees, between a ring's end and the next ring's
+/// start for a sharp join to hold it over the step.
+const A_HELD: f64 = 1e-6;
+
 /// How far short of a point end, as a share of the way across, the face is
 /// read where the end has no normal.
 const POINT_END_STEP: f64 = 1e-6;
@@ -1790,11 +1794,26 @@ impl Tooling<'_> {
     /// How far the straight machine move from `a` to `b` leaves the part at
     /// its middle and quarter points, along the tool axis: positive into it.
     fn move_error(&self, a: &CutPoint, b: &CutPoint) -> f64 {
+        self.move_errors(a, b).0
+    }
+
+    /// How deep the straight machine move from `a` to `b` cuts into the part
+    /// at its worst checked point, 0 where it cuts into it nowhere: a step
+    /// that cuts in anywhere is refused even where it leaves the part
+    /// further elsewhere (CodeRabbit on #854).
+    fn move_gouge(&self, a: &CutPoint, b: &CutPoint) -> f64 {
+        self.move_errors(a, b).1
+    }
+
+    /// The signed error of largest size of the move from `a` to `b`, and
+    /// its deepest cut into the part (0 for none).
+    fn move_errors(&self, a: &CutPoint, b: &CutPoint) -> (f64, f64) {
         let rotary = self.input.rotary;
         let pa = rotary.to_axis(a.tip, a.a);
         let pb = rotary.to_axis(b.tip, b.a);
         let bb = nearest_turn(b.a, a.a);
         let mut worst: f64 = 0.0;
+        let mut deepest: f64 = 0.0;
         for f in MOVE_CHECKS {
             let at = Degrees(a.a.0 + (bb.0 - a.a.0) * f);
             let pos = crate::rotary::AxisPosition {
@@ -1814,9 +1833,10 @@ impl Tooling<'_> {
                 if e.abs() > worst.abs() {
                     worst = e;
                 }
+                deepest = deepest.max(e);
             }
         }
-        worst
+        (worst, deepest)
     }
 }
 
@@ -2517,10 +2537,17 @@ fn cut_face(
         // neighbouring rings, which start at different places round the face,
         // are compared in one frame (CodeRabbit on #854); the runs' spans
         // stay the ring's own, for the joins.
+        // A stretch is kept from where it starts to where it ends the way
+        // the guide runs, so one that crosses the seam ends below where it
+        // starts (CodeRabbit on #854).
         if closed_face {
             for st in stretches.iter_mut().skip(first_stretch) {
-                let (a, b) = (to_guide(st.s.0), to_guide(st.s.1));
-                st.s = (a.min(b), a.max(b));
+                st.s = if st.s.1 - st.s.0 >= 1.0 - 1e-9 {
+                    (0.0, 1.0)
+                } else {
+                    let (a, b) = (to_guide(st.s.0), to_guide(st.s.1));
+                    if ring_dir > 0.0 { (a, b) } else { (b, a) }
+                };
             }
         }
         kept.push((w, spans));
@@ -2725,6 +2752,8 @@ struct EndStep<'a, 'f> {
     s: f64,
     w0: f64,
     w1: f64,
+    /// How far off the face a point of the step may be, mm.
+    on: f64,
 }
 
 impl PassLine for EndStep<'_, '_> {
@@ -2733,7 +2762,16 @@ impl PassLine for EndStep<'_, '_> {
     }
 
     fn at(&self, t: f64) -> Option<SurfacePoint> {
-        self.field.at(self.s, self.w0 + (self.w1 - self.w0) * t)
+        let w = self.w0 + (self.w1 - self.w0) * t;
+        let p = self.field.at(self.s, w)?;
+        // At a pass end the field runs straight in (u, v) between the side's
+        // ends, which a side curving in leaves: a point of the step must be
+        // on the face itself (CodeRabbit on #854).
+        let inside = self
+            .field
+            .uv(self.s, w)
+            .is_some_and(|uv| self.field.face.contains(uv));
+        (inside || self.field.face.closest_within(p.point, self.on).is_some()).then_some(p)
     }
 }
 
@@ -2753,6 +2791,7 @@ fn step(
         s,
         w0: ws.0,
         w1: ws.1,
+        on: tooling.settings.tolerance,
     };
     step_on(
         &line,
@@ -2900,22 +2939,30 @@ fn join_rings(
                     let s_end = round01(dir * i0 as f64 * turn);
                     match blend {
                         None => {
+                            // A is held over the step (decision 0686): where
+                            // the next ring starts at another A, the tool
+                            // lifts instead (CodeRabbit on #854).
                             let end_a = nearest_turn(b.a, a.a);
+                            let held = (end_a.0 - a.a.0).abs() <= A_HELD;
                             let line = EndStep {
                                 field: f,
                                 s: s_end,
                                 w0,
                                 w1: *w,
+                                on: tooling.settings.tolerance,
                             };
-                            step_on(
-                                &line,
-                                tooling,
-                                s_end,
-                                a,
-                                b,
-                                2.0 * tooling.settings.stepover,
-                                end_a,
-                            )
+                            held.then(|| {
+                                step_on(
+                                    &line,
+                                    tooling,
+                                    s_end,
+                                    a,
+                                    b,
+                                    2.0 * tooling.settings.stepover,
+                                    end_a,
+                                )
+                            })
+                            .flatten()
                             .map(|steps| (steps, end_a))
                         }
                         Some(phi) => {
@@ -3023,14 +3070,14 @@ fn step_on(
             return None;
         };
         let point = pose.point;
-        if tooling.move_error(&prev, &point) > settings.tolerance {
+        if tooling.move_gouge(&prev, &point) > settings.tolerance {
             return None;
         }
         length += prev.contact.distance(point.contact);
         out.push(point);
         prev = point;
     }
-    if tooling.move_error(&prev, b) > settings.tolerance {
+    if tooling.move_gouge(&prev, b) > settings.tolerance {
         return None;
     }
     length += prev.contact.distance(b.contact);
@@ -3065,9 +3112,9 @@ fn reverse(runs: &mut [Vec<CutPoint>]) {
 }
 
 /// A face's note before the count of its passes that cut: its words before
-/// and after the count, its planned passes, each reaching pass's runs by
-/// their first contact, and whether it follows the outline.
-type NotePlan = (String, usize, Vec<Vec<[u64; 3]>>, String, bool);
+/// and after the count, its planned passes, and each reaching pass's runs
+/// by their first contact.
+type NotePlan = (String, usize, Vec<Vec<[u64; 3]>>, String);
 
 fn assemble(
     cuts: Vec<FaceCut>,
@@ -3077,6 +3124,10 @@ fn assemble(
 ) -> Result<StrategyOutput> {
     let settings = tooling.settings;
     let mut out_passes: Vec<Pass> = Vec::new();
+    // The face (its place in `plans`) each pass cuts: a contact two faces
+    // share is counted only for the face whose pass still cuts it
+    // (CodeRabbit on #854).
+    let mut out_face: Vec<usize> = Vec::new();
     let mut notes: Vec<Notice> = Vec::new();
     let mut stretches: Vec<Stretch> = Vec::new();
     // Each face's note, written once Shortest cut has run: its words before
@@ -3164,10 +3215,10 @@ fn assemble(
                 geometric,
                 pass_keys,
                 String::new(),
-                true,
             ));
             let runs = cut.joined.take().unwrap_or_default();
             for points in runs {
+                out_face.push(plans.len() - 1);
                 out_passes.push(Pass {
                     low_link: !out_passes.is_empty(),
                     points,
@@ -3201,12 +3252,13 @@ fn assemble(
                 if cut.dropped_short == 1 { "is" } else { "are" }
             ));
         }
-        plans.push((note, geometric, pass_keys, after, false));
+        plans.push((note, geometric, pass_keys, after));
         let runs: Vec<Vec<CutPoint>> = match cut.joined.take() {
             Some(joined) => joined,
             None => cut.passes.into_iter().flatten().collect(),
         };
         for points in runs {
+            out_face.push(plans.len() - 1);
             out_passes.push(Pass {
                 low_link: !out_passes.is_empty(),
                 points,
@@ -3221,7 +3273,9 @@ fn assemble(
     // area left uncut; nothing inside a longer run is removed.
     let mut short: Vec<Unreached> = Vec::new();
     if settings.shortest > 0.0 {
-        out_passes.retain(|pass| {
+        let all = std::mem::take(&mut out_passes);
+        let faces = std::mem::take(&mut out_face);
+        for (pass, face) in all.into_iter().zip(faces) {
             let length: f64 = pass
                 .points
                 .windows(2)
@@ -3231,30 +3285,32 @@ fn assemble(
                 })
                 .sum();
             if length < settings.shortest {
-                short.push(short_area(pass, length, settings.stepover));
-                false
+                short.push(short_area(&pass, length, settings.stepover));
             } else {
-                true
+                out_passes.push(pass);
+                out_face.push(face);
             }
-        });
+        }
         for (i, pass) in out_passes.iter_mut().enumerate() {
             pass.low_link = i > 0;
         }
     }
     // The passes that still cut, per face and in all.
-    let kept: BTreeSet<[u64; 3]> = out_passes
+    let kept: BTreeSet<(usize, [u64; 3])> = out_passes
         .iter()
-        .flat_map(|p| p.points.iter().map(key))
+        .zip(&out_face)
+        .flat_map(|(p, face)| p.points.iter().map(move |c| (*face, key(c))))
         .collect();
     let mut cutting = 0;
     let mut face_notes: Vec<String> = Vec::with_capacity(plans.len());
-    for (mut note, geometric, pass_keys, after, outline) in plans {
+    for (face, (mut note, geometric, pass_keys, after)) in plans.into_iter().enumerate() {
         let reaching = pass_keys
             .iter()
-            .filter(|keys| keys.iter().any(|k| kept.contains(k)))
+            .filter(|keys| keys.iter().any(|k| kept.contains(&(face, *k))))
             .count();
         cutting += reaching;
-        if !outline && reaching < geometric {
+        // On the outline as along the guide (CodeRabbit on #854).
+        if reaching < geometric {
             note.push_str(&format!(
                 "; {reaching} of them cut and the rest are left out: along them the tool \
                  reaches no part of the face it may cut{}",
@@ -3358,6 +3414,25 @@ fn assemble(
 
 /// The unreachable stretches joined into areas: stretches of neighbouring
 /// passes of one face whose spans along the guide overlap, of one reason.
+/// Whether two stretches' spans of guide fraction overlap. A span runs the
+/// way the guide does from its first fraction to its second; one whose
+/// second is below its first crosses the seam of a face that closes round,
+/// and stands for both its pieces.
+fn spans_overlap(a: (f64, f64), b: (f64, f64)) -> bool {
+    let pieces = |s: (f64, f64)| -> [(f64, f64); 2] {
+        if s.0 <= s.1 {
+            [s, (f64::INFINITY, f64::NEG_INFINITY)]
+        } else {
+            [(s.0, 1.0), (0.0, s.1)]
+        }
+    };
+    pieces(a).iter().any(|p| {
+        pieces(b)
+            .iter()
+            .any(|q| p.0 <= q.1 + 1e-9 && q.0 <= p.1 + 1e-9)
+    })
+}
+
 fn areas(stretches: &[Stretch], context: &JobContext<'_>) -> Result<Vec<Unreached>> {
     // Union-find over the stretches.
     let n = stretches.len();
@@ -3391,7 +3466,7 @@ fn areas(stretches: &[Stretch], context: &JobContext<'_>) -> Result<Vec<Unreache
                 let (Some(a), Some(b)) = (stretches.get(i), stretches.get(j)) else {
                     continue;
                 };
-                let overlap = a.s.0 <= b.s.1 + 1e-9 && b.s.0 <= a.s.1 + 1e-9;
+                let overlap = spans_overlap(a.s, b.s);
                 if overlap && a.reason == b.reason {
                     let (ri, rj) = (root(&mut parent, i), root(&mut parent, j));
                     if ri != rj
@@ -3507,4 +3582,24 @@ fn unreached_list(areas: &[Unreached], diameter: f64) -> String {
         String::new()
     };
     format!("{}{more}", listed.join("; "))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::spans_overlap;
+
+    #[test]
+    fn req_op_28_a_blocked_stretch_across_the_seam_meets_only_what_it_crosses() {
+        // From 0.95 round through the seam to 0.05 (CodeRabbit on #854):
+        // not the half of the face between, which a span sorted end to end
+        // would cover.
+        let across = (0.95, 0.05);
+        assert!(!spans_overlap(across, (0.45, 0.55)));
+        assert!(spans_overlap(across, (0.0, 0.02)));
+        assert!(spans_overlap(across, (0.97, 0.99)));
+        assert!(spans_overlap((0.9, 0.1), across));
+        assert!(spans_overlap((0.2, 0.4), (0.3, 0.5)));
+        assert!(!spans_overlap((0.2, 0.3), (0.4, 0.5)));
+        assert!(spans_overlap((0.0, 1.0), (0.45, 0.55)));
+    }
 }

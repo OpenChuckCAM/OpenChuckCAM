@@ -667,6 +667,49 @@ fn req_op_28_on_a_cylinder_the_scallop_height_is_met_between_passes() {
 }
 
 #[test]
+fn req_op_28_following_the_outline_on_a_cylinder_meets_the_scallop_height() {
+    // CodeRabbit on #854: the outline's loops were spaced for the scallop
+    // height on a flat, which leaves a higher ridge on a face curving away
+    // from the tool. Along the patch's straight sides the loops step round
+    // the axis, so the ridge between two is the one between two passes at
+    // their angles.
+    let radius = 10.0;
+    let rig = Rig::new(
+        cylinder_patch(radius, FRAC_PI_3, 2.0 * FRAC_PI_3, 30.0),
+        &ball(6.0),
+    );
+    let h = 0.01;
+    let passes = rig.passes(
+        &[0],
+        &[],
+        &values(5.0, &[(p::SCALLOP, num(h)), (p::PATTERN, text(p::OUTLINE))]),
+    );
+    // Each loop's angle along the side at the start of the turn, away from
+    // the ends.
+    let mut angles: Vec<f64> = passes
+        .iter()
+        .filter_map(|pass| {
+            let near: Vec<f64> = contacts(pass)
+                .iter()
+                .filter(|q| q.x > 12.0 && q.x < 18.0 && angle(**q) < 0.5 * PI)
+                .map(|q| angle(*q))
+                .collect();
+            (!near.is_empty()).then(|| near.iter().sum::<f64>() / near.len() as f64)
+        })
+        .collect();
+    angles.sort_by(f64::total_cmp);
+    assert!(angles.len() > 4, "{angles:?}");
+    let highest = angles
+        .windows(2)
+        .map(|w| cusp(radius, 3.0, w[0], w[1]))
+        .fold(0.0, f64::max);
+    // The loops follow the grid the offsets are traced on, a few hundredths
+    // of the spacing either way.
+    assert!(highest <= 1.05 * h, "a ridge of {highest} mm");
+    assert!(highest > 0.5 * h, "a ridge of {highest} mm");
+}
+
+#[test]
 fn req_op_28_on_a_cylinder_the_stepover_is_measured_on_the_face() {
     let radius = 10.0;
     let rig = Rig::new(
@@ -2645,6 +2688,46 @@ fn req_op_28_req_op_25_following_the_outline_climb_and_conventional_run_opposite
     assert!(
         meander.windows(2).all(|w| w[0].signum() != w[1].signum()),
         "{meander:?}"
+    );
+}
+
+#[test]
+fn req_op_28_req_nfr_07_the_outline_note_counts_the_loops_the_shortest_cut_leaves() {
+    // CodeRabbit on #854: where Shortest cut leaves out some of the loops,
+    // the face note says how many still cut, as along the guide.
+    let mut b = Builder::default();
+    flat(
+        &mut b,
+        10.0,
+        &[(0.0, 0.0), (20.0, 0.0), (20.0, 12.0), (0.0, 12.0)],
+        &[],
+    );
+    let rig = Rig::new(b.model, &ball(3.0));
+    let out = rig
+        .output(
+            &rig.strategy(&[0], &[]),
+            &values(
+                1.0,
+                &[
+                    (p::PATTERN, text(p::OUTLINE)),
+                    (p::STAY_DOWN, flag(false)),
+                    (p::SHORTEST_CUT, num(30.0)),
+                ],
+            ),
+        )
+        .unwrap();
+    let note = out
+        .notices
+        .iter()
+        .map(|n| n.text.as_str())
+        .find(|t| t.contains("follows its outline"))
+        .expect("the face note");
+    let planned = number_after(note, "inwards in ");
+    let cut = out.passes.len();
+    assert!(cut > 0 && cut < planned, "{note}");
+    assert!(
+        note.contains(&format!("; {cut} of them cut")),
+        "{cut} of {planned}: {note}"
     );
 }
 
