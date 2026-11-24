@@ -1,10 +1,10 @@
 # SIM-UX-B: The part's deviation colours are kept while the comparison and the part are unchanged (SIM-05, NFR-04, NFR-06; issue #699; lane SIM-UX)
 
-- **Status:** Proposed by lane SIM-UX on 24 Nov 2026. The coordinator released this pull request on the owner's answers of 24 Nov 2026 as one that closes on its tests (no owner check). Awaiting the owner's acceptance (decision 0049).
+- **Status:** Accepted by the project owner on 26 Nov 2026, relayed by the coordinator (decision 0049). Proposed by lane SIM-UX on 24 Nov 2026; the coordinator released the pull request on the owner's answers of 24 Nov 2026 as one that closes on its tests (no owner check).
 - **Date:** 24 Nov 2026.
 - **Requirements:** SIM-05 (the deviation colours), NFR-04 (never block, use the cores well), NFR-06 (the same result whatever the history).
 - **Amends:** nothing. It builds what [decision 0217](0217-band-visibility-and-the-kept-comparison.md)'s Consequences left as OI-881. [Decision 0492](0492-deviation-colours-on-the-part-model.md) (a part file changed on disk is refused) holds unchanged.
-- **Open items:** closes OI-881; adds OI-9952 (the owner's acceptance of this record).
+- **Open items:** closes OI-881; adds OI-9952 (the owner's acceptance of this record), closed by the acceptance of 26 Nov 2026.
 
 Numbering: provisional. The coordinator assigns the record number and the OI numbers at release, in merge order. No project schema number and no library-family change.
 
