@@ -845,7 +845,7 @@ UI-05; decisions 0032, 0037, 0153 and [0215](../decisions/0215-selection-sets-in
 
 ### 12.3 Undo history
 
-*(UI-22)*. A popover from the title bar's history button at the right of Undo and Redo, **Edit > Undo history** or Ctrl H; Ctrl H, Esc or a click outside closes it (decision PROJUX-B-1, proposed).
+*(UI-22)*. A popover from the title bar's history button at the right of Undo and Redo, **Edit > Undo history** or Ctrl H; Ctrl H, Esc or a click outside closes it (decision PROJUX-B-1, accepted).
 
 - **Rows,** newest first: the command in words with its item and, for a value, the value with its unit ("Set stepover 1.2 mm (Roughing)"), and how long ago it was made ("3 min ago", from the session's clock as in the Jobs tab, decision 0536 section 8; the board's clock times would need a time-zone library). Several values of one item applied together are one row, "Edit setup "Setup 1"". The last row is the project as opened, created or recovered.
 - **Marks.** The current state is highlighted. Undone steps are italic, marked "undone". A green line "Saved 3 min ago" sits under the step the project was last saved at in this session, while that state can still be reached (the owner's answer, relayed by the coordinator, 25 Nov 2026).
