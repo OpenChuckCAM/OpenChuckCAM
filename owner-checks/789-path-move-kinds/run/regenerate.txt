@@ -1,0 +1,32 @@
+The program will use these tool numbers, in order of first use:
+  T104 Z1 O-flute 3.175x25
+  T204 Z1 ball 3.175x22
+warning: Held region (operation 'Finish'): nothing within one tool radius of the held region at the start of the stock is cut: no part of the tool reaches over the gripped length of the stock.
+warning: Held region (operation 'Long axial finish'): nothing within one tool radius of the held region at the start of the stock is cut: no part of the tool reaches over the gripped length of the stock.
+note: Feed limit (operation 'Rough'): 9536 moves were limited by the machine's feed limits. In the worst case the target was 1000.0 mm/min, but the move was reduced to 11.0 mm/min to stay within the machine's capabilities.
+note: Feed limit (operation 'Finish'): 18363 moves were limited by the machine's feed limits. In the worst case the target was 500.0 mm/min, but the move was reduced to 0.5 mm/min to stay within the machine's capabilities.
+note: Feed limit (operation 'Long axial finish'): 14576 moves were limited by the machine's feed limits. In the worst case the target was 500.0 mm/min, but the move was reduced to 0.2 mm/min to stay within the machine's capabilities.
+note: Shoulders (operation 'Rough'): the part has a step across the rotary axis (a shoulder facing along X): the tool makes one extra turn round the axis, without moving along it, at X 67.879, so the shoulder keeps only the stock to leave.
+note: Ramp entry (operation 'Rough'): 44 passes, from pass 4 to pass 74 (4, 5, 6 ... 71, 73, 74) drop more steeply than the ramp angle just before their first point, so their ramps follow that drop there, as the passes themselves do.
+note: Ramp entry (operation 'Rough'): pass 85 turns round the part near the rotary axis, where a ramp at the Ramp angle would take more than 10 turns, so its ramp is steeper, up to 5.26 degrees, as Steeper ramp near the axis asks.
+note: Ramp entry (operation 'Rough'): 23 passes, from pass 33 to pass 76 (33, 34, 35 ... 53, 67, 76) are single points with no path for a ramp to follow, so they are entered by a straight plunge, as Allow single-point plunge asks.
+note: Free ends (operation 'Finish'): the end face at X 78.990 has nothing beyond it: the tool goes down beside it in 3 layers of 1 mm to the rotary axis, turning once round the axis in each.
+note: Lead entry (operation 'Finish'): pass 4 starts on the rotary axis, where a lead arc has no plane to follow, so it is entered by a straight plunge and has no lead-out.
+note: Rotary axis (operation 'Finish'): moves 19000 to 19071 (72 moves): A turns with the contact point at the rotary axis during these moves, so the contact point barely moves and the rotary axis's speed limit sets the time taken (0.167 s); the feed set is 500.0 mm/min.
+note: Adaptive spacing (operation 'Long axial finish'): 344 passes added where more than the allowed excess of 0.010 mm was left or could not be ruled out, the closest 0.113 mm from its neighbour; measuring and fitting them made 340526 geometry queries.
+note: Free ends (operation 'Long axial finish'): the end face at X 78.990 has nothing beyond it: the tool goes down beside it in 1 layer of 1 mm to the rotary axis, turning once round the axis in each.
+note: Rotary axis (operation 'Long axial finish'): moves 57663 to 57734 (72 moves): A turns with the contact point at the rotary axis during these moves, so the contact point barely moves and the rotary axis's speed limit sets the time taken (0.167 s); the feed set is 500.0 mm/min.
+short-block settings: Report (machine profile), 7.000 ms (machine profile), 32 blocks (machine profile)
+  01-setup-1-rough.nc: 14790 moves; replay matches the toolpath (tip 0.0007 mm, A 0.0005 deg; cut 2237.9 s, toolpath 2237.9 s)
+  02-setup-1-finish.nc: 18863 moves; replay matches the toolpath (tip 0.0007 mm, A 0.0005 deg; cut 1425.7 s, toolpath 1425.7 s)
+  03-setup-1-long-axial-finish.nc: 57668 moves; replay matches the toolpath (tip 0.0007 mm, A 0.0005 deg; cut 2339.2 s, toolpath 2339.2 s)
+checks before writing the G-code:
+warning: Held region (operation 'Finish'): nothing within one tool radius of the held region at the start of the stock is cut: no part of the tool reaches over the gripped length of the stock.
+warning: Held region (operation 'Long axial finish'): nothing within one tool radius of the held region at the start of the stock is cut: no part of the tool reaches over the gripped length of the stock.
+warning: Tool length (tool 'Z1 O-flute 3.175x25', setup 'Setup 1'): tool 104 may be too long to clear the workholding within the Z travel: with the stick-out of 29.300 mm the tool library gives, its tip can rise at most 42.700 mm above the axis, inside the minimum clearance radius of 45.000 mm, so no safe Z clears both the chuck, jaws, headstock or tailstock and the top of the Z travel. Use a shorter tool, and check the clearance over the chuck and the Z travel on your machine before running. The recommended minimum is 45 mm. This must be checked before machining. A possible collision: acknowledge it before the files are written
+warning: Operation 'Rough' has not been simulated. Run the simulation to see what it removes.
+warning: Operation 'Finish' has not been simulated. Run the simulation to see what it removes.
+warning: Operation 'Long axial finish' has not been simulated. Run the simulation to see what it removes.
+warning: writing with 1 possible collision acknowledged for this run: check each before running the program
+project: 3 toolpath groups, 3 G-code files
+Generated G-code must be verified by the user before it is run on a machine. OpenChuckCAM does not guarantee that a program is safe or correct for any machine, tool or setup.

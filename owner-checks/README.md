@@ -12,6 +12,7 @@ This branch (`owner-checks/packs`) is **not merged**. It was cut from `main` at 
 | #632 pencil at a sharp inside corner | [632-pencil-corner/CHECK.md](632-pencil-corner/CHECK.md) | Application only | 10 min | Pass counts off and on; expected 1 pass each |
 | #801 and OI-2167 rapids that touch the stock (Subby) | [801-rapid-depth/CHECK.md](801-rapid-depth/CHECK.md) | Command line, own project | 10 min | **Numbers only** from `simulate` on the owner's own Subby copy; a public control project is included |
 | #693 / OI-992 short-block slowdown | [693-short-block-slowdown/CHECK.md](693-short-block-slowdown/CHECK.md) | Application, then the Z1 (air cut); cut optional | 15 min + 1 h | Simulator comparison, then attended air cut of the Report and Slow down programs; firmware and delivery method |
+| #789 show or hide each kind of toolpath move (PR #898) | [789-path-move-kinds/CHECK.md](789-path-move-kinds/CHECK.md) | Application only (build of PR #898 until it merges) | 20 min | Legend tick boxes, chip, Show and View menus, Simulate legend, restart, smoothness on a 92,000-move path |
 | #791 face flow on a face that closes round (cylinder, blisk outside face) | [791-face-flow-closed-face/CHECK.md](791-face-flow-closed-face/CHECK.md) | Application only | 15 min | No refusal; 52 rings on the cylinder; then the owner's own #791 project, with numbers to report |
 | OI-2152 repeat first cut (stepped cylinder) | [oi-2152-repeat-first-cut/CHECK.md](oi-2152-repeat-first-cut/CHECK.md) | Application, then the Z1 | half a day | First OI-2197 (tool 104 and its finishing preset) and the air cut of the new program, then the cut and the measurements |
 
@@ -29,4 +30,4 @@ Each pack folder holds:
 - `programs/`: G-code written by the application, where the pack compares programs. SHA-256 for each is in the pack.
 - `run/`: the command-line output behind the pack's figures, with a short `README.md`.
 
-Figures were measured on `main` at `6b039e5` (0.62.0), 24 Nov 2026, except #791's: `main` at `361613e` (0.63.0), 25 Nov 2026, against 0.62.0 as the before. All runs used Linux x86_64 and a release build with the STEP reader.
+Figures were measured on `main` at `6b039e5` (0.62.0), 24 Nov 2026, except #791's (`main` at `361613e`, 0.63.0, against 0.62.0 as the before) and #789's (PR #898 at `4664c82`, against `main` at `361613e` as the before), 25 Nov 2026. All runs used Linux x86_64 and a release build with the STEP reader.
