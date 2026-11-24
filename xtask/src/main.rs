@@ -25,11 +25,14 @@
 //! - `macos-app`: the macOS application bundle `OpenChuckCAM.app` (decision 0541; not part of `all`).
 //! - `examples-zip`: the zip of the example projects for the nightly build and the release (lane
 //!   EXAMPLEZIP; not part of `all`).
+//! - `changelog`: the changelog since the last release (decision record 0678): the
+//!   nightly notes, the pull request check, and the release step (not part of `all`).
 //! - `glibc-floor`: the Linux binaries need no newer glibc or libstdc++ than the stated floor
 //!   (decision 0541; not part of `all`).
 
 #![allow(clippy::print_stdout, clippy::print_stderr)]
 
+mod changelog;
 mod conflicts;
 mod coverage;
 mod deps;
@@ -198,8 +201,54 @@ enum Check {
         #[arg(long, conflicts_with = "out")]
         check: Option<PathBuf>,
     },
+    /// The changelog since the last release: the *Development version* section of
+    /// `user-docs/src/release-notes.md` (decision record 0678).
+    Changelog {
+        #[command(subcommand)]
+        command: ChangelogCommand,
+    },
     /// Every check.
     All,
+}
+
+#[derive(Debug, Subcommand)]
+enum ChangelogCommand {
+    /// Write the notes of the nightly pre-release from the release notes at this commit.
+    NightlyNotes {
+        /// The built commit.
+        #[arg(long)]
+        sha: String,
+        /// The build date (YYYYMMDD).
+        #[arg(long)]
+        date: String,
+        /// The repository, `OWNER/NAME`, for the links to the library changelogs.
+        #[arg(long, default_value = "OpenChuckCAM/OpenChuckCAM")]
+        repo: String,
+        /// Write the notes here (default: standard output).
+        #[arg(long)]
+        out: Option<PathBuf>,
+    },
+    /// Check a pull request: a Development version entry (and a library crate's CHANGELOG.md),
+    /// or a line "No user-visible change: <reason>" in its description, read from `$PR_BODY`.
+    CheckPr {
+        /// The pull request's base commit.
+        #[arg(long)]
+        base: String,
+        /// The pull request's head.
+        #[arg(long, default_value = "HEAD")]
+        head: String,
+    },
+    /// Move the Development version entries into a new draft section for VERSION.
+    StartRelease {
+        /// The version being released (X.Y.Z).
+        version: String,
+    },
+    /// The release-notes checks of a release: the version's section is written and the
+    /// Development version is empty.
+    CheckRelease {
+        /// The version being released (X.Y.Z).
+        version: String,
+    },
 }
 
 /// Findings from one check: empty means it passed.
@@ -317,6 +366,43 @@ fn run() -> Result<bool> {
             examples_zip::run(&root, &name, out.as_ref(), check.as_ref())?;
             vec![]
         }
+        Check::Changelog { command } => match command {
+            ChangelogCommand::NightlyNotes {
+                sha,
+                date,
+                repo,
+                out,
+            } => {
+                let notes =
+                    changelog::write_nightly_notes(&root, &sha, &date, &repo, out.as_deref())?;
+                if out.is_none() {
+                    print!("{notes}");
+                }
+                return Ok(true);
+            }
+            ChangelogCommand::CheckPr { base, head } => {
+                let body = std::env::var("PR_BODY").unwrap_or_default();
+                let findings = changelog::check_pr(&root, &base, &head, &body)?;
+                if !findings.is_empty() {
+                    println!(
+                        "::error title=Changelog::This pull request needs a changelog entry or a reason why not (see below)."
+                    );
+                }
+                vec![("changelog", findings)]
+            }
+            ChangelogCommand::StartRelease { version } => {
+                let moved = changelog::start_release_file(&root, &version)?;
+                println!(
+                    "Moved {} into a draft section for {version} in {}. Write the section, then delete its draft comment.",
+                    changelog::entries_in_words(moved),
+                    changelog::NOTES_PATH
+                );
+                return Ok(true);
+            }
+            ChangelogCommand::CheckRelease { version } => {
+                vec![("changelog", changelog::check_release(&root, &version)?)]
+            }
+        },
         Check::GlibcFloor { floors, binaries } => {
             vec![("glibc-floor", glibc_floor::check(&binaries, &floors)?)]
         }

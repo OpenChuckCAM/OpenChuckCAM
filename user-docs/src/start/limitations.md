@@ -40,7 +40,7 @@ Partial paths
 : New finishing operations have [adaptive spacing](../glossary.md#adaptive-spacing) on. Where it cannot confirm the material left between passes before it reaches its limits, it keeps the path made so far, warns you, and asks you to accept the partial path before it writes any G-code. A partial path is not complete. On the tutorial's part with the default settings this happens, so the tutorial turns adaptive spacing off.
 
 Project files
-: The project format may still change before the first release.
+: The project format may still change in a later release.
 
 ## Time and size
 
