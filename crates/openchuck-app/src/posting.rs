@@ -643,7 +643,7 @@ fn quoted(text: &str) -> String {
 }
 
 /// The run's warnings for the texts the post wrote with `_` in front, because they would have
-/// started a comment the controller acts on (issue #851; decision 9901): one per field and
+/// started a comment the controller acts on (issue #851; decision 0681): one per field and
 /// text, naming where it came from, so text put into a shared project or a tool library to
 /// command the controller can be seen. The title is split into the project name, the setup
 /// name and the file's label by where the mark went.

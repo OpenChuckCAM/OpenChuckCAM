@@ -20,6 +20,8 @@ mod axial_links;
 mod brep_drop;
 #[path = "brep_edge_following.rs"]
 mod brep_edge_following;
+#[path = "brep_enclosure.rs"]
+mod brep_enclosure;
 #[path = "brep_faces.rs"]
 mod brep_faces;
 #[path = "brep_outline_drop.rs"]

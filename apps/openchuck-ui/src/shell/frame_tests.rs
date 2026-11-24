@@ -25,6 +25,9 @@ pub(super) struct Rig {
     pub(super) size: egui::Vec2,
     pub(super) shapes: Vec<egui::epaint::ClippedShape>,
     pub(super) dirs: Vec<PathBuf>,
+    /// The widget with the keyboard at the end of the last frame, read in
+    /// that frame (after it, egui answers from the frame before).
+    pub(super) focused: Option<egui::Response>,
     /// The scope id of the root `Ui` the shell draws into: egui 0.37 derives a
     /// panel's id from its parent's scope id and its salt.
     root: egui::Id,
@@ -38,6 +41,7 @@ impl Rig {
             size: egui::vec2(1440.0, 900.0),
             shapes: Vec::new(),
             dirs,
+            focused: None,
             root: egui::Id::NULL,
         };
         rig.frame(Vec::new());
@@ -105,11 +109,19 @@ impl Rig {
             ..Default::default()
         };
         let Self {
-            shell, ctx, root, ..
+            shell,
+            ctx,
+            root,
+            focused,
+            ..
         } = self;
         let mut output = ctx.run_ui(input, |ui| {
             *root = ui.scope_id();
             shell.draw(ui);
+            *focused = ui
+                .ctx()
+                .memory(egui::Memory::focused)
+                .and_then(|id| ui.ctx().read_response(id));
         });
         output.textures_delta.clear();
         self.shapes = output.shapes;

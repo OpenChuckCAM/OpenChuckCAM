@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="300" viewBox="0 0 720 300" font-family="Helvetica, Arial, sans-serif" font-size="13" role="img">
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
+<title>A namespace that holds itself is never freed; emptying it after the render breaks the cycle</title>
+<rect x="0" y="0" width="720" height="300" fill="#ffffff"/>
+<defs><marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#222222"/></marker></defs>
+<text x="30" y="32" fill="#222222" font-size="14" font-weight="bold">Before: {% set st.a = st %}</text>
+<rect x="60" y="80" width="180" height="70" rx="8" fill="#f3d6d3" stroke="#c0392b" stroke-width="1.5"/>
+<text x="150" y="110" fill="#222222" text-anchor="middle">namespace st</text>
+<text x="150" y="130" fill="#222222" text-anchor="middle">key a</text>
+<path d="M240,115 C330,115 330,200 150,200 C80,200 80,170 110,152" fill="none" stroke="#c0392b" stroke-width="2" marker-end="url(#arr)"/>
+<text x="290" y="215" fill="#c0392b" text-anchor="middle">a refers back to st: count never 0</text>
+<text x="150" y="250" fill="#c0392b" text-anchor="middle">after the render: still held, leaked</text>
+<text x="390" y="32" fill="#222222" font-size="14" font-weight="bold">After: every namespace emptied</text>
+<rect x="420" y="80" width="180" height="70" rx="8" fill="#dff0d8" stroke="#2e7d32" stroke-width="1.5"/>
+<text x="510" y="110" fill="#222222" text-anchor="middle">namespace st</text>
+<text x="510" y="130" fill="#222222" text-anchor="middle">key a = none</text>
+<text x="510" y="190" fill="#2e7d32" text-anchor="middle">{% set st.a = none %} for every key,</text>
+<text x="510" y="208" fill="#2e7d32" text-anchor="middle">run when the render ends (or fails)</text>
+<text x="510" y="250" fill="#2e7d32" text-anchor="middle">nothing refers to st: freed</text>
+</svg>

@@ -114,6 +114,7 @@ fn ball() -> ToolSnapshot {
             flute_count: 2,
             material: None,
             centre_cutting: Some(true),
+            stick_out: None,
         },
         controller: ControllerMapping {
             number: 1,
@@ -833,6 +834,7 @@ fn req_op_07_req_op_12_swarf_on_the_blisk_keeps_off_the_wall_at_the_end_of_a_twi
         flute_count: 2,
         material: None,
         centre_cutting: None,
+        stick_out: None,
     }
     .profile()
     .unwrap();
@@ -1196,6 +1198,7 @@ fn req_op_11_req_op_07_a_swarf_ramp_on_the_blisk_cuts_no_deeper_than_its_pass() 
         flute_count: 2,
         material: None,
         centre_cutting: Some(true),
+        stick_out: None,
     }
     .profile()
     .unwrap();

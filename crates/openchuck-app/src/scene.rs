@@ -343,13 +343,26 @@ pub(crate) fn build_scene(
             Ok(placed) => {
                 part = merge_extent(part, openchuck_geom::part_extent(&placed.mesh));
                 if let Some(setup) = chosen {
+                    // A STEP part's checked Facing modes are drawn from the
+                    // same enclosure of its exact faces that generation
+                    // checks against (decision 0666, option C); if it cannot
+                    // be made, the preview says the bound is unknown.
+                    let checked = project
+                        .operations()
+                        .iter()
+                        .any(|o| o.setup == setup.id && crate::facing::needs_verification(o));
+                    let enclosure = placed
+                        .brep
+                        .as_ref()
+                        .filter(|_| checked)
+                        .map(|b| openchuck_path::enclose(b).map(|e| e.mesh()));
+                    let (bound, error) = match &enclosure {
+                        Some(Ok(mesh)) => (mesh, Some(0.)),
+                        Some(Err(_)) => (&placed.mesh, None),
+                        None => (&placed.mesh, placed.brep.is_none().then_some(0.)),
+                    };
                     crate::facing::display::preview(
-                        project,
-                        setup,
-                        &placed.mesh,
-                        placed.brep.is_none().then_some(0.),
-                        &mut view,
-                        context,
+                        project, setup, bound, error, &mut view, context,
                     )?;
                 }
                 view.part_silhouette = crate::setup_panes::silhouette(&placed.mesh);

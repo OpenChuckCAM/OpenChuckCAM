@@ -2272,11 +2272,7 @@ fn build(app: &Application, checks: Option<&Checks>, jobs: &JobLog) -> Overview 
         }
         // A strategy that needs a STEP part on a mesh part: said at once,
         // before anything is generated (decision record 0174).
-        // Facing that checks its cut against the part, on a STEP part, is
-        // said the same way (issue #800).
-        if let Some(reason) = crate::operation::brep_only(project, &app.strategies, o)
-            .or_else(|| crate::operation::facing_on_step_part(project, o))
-        {
+        if let Some(reason) = crate::operation::brep_only(project, &app.strategies, o) {
             status = ItemStatus::new(ItemState::Error, sentence(&reason));
             let message = Message::about(
                 Severity::Error,
@@ -2524,11 +2520,11 @@ fn build(app: &Application, checks: Option<&Checks>, jobs: &JobLog) -> Overview 
                             },
                         );
                         // Show setting opens what the text says to change:
-                        // the tool, whose flute length sets how far it
-                        // sticks out, or the setup's safe Z (decision record
-                        // 0536 section 4).
+                        // the tool's stick-out, which the check uses (or
+                        // assumes from the flute length), or the setup's safe
+                        // Z (decision records 0536 section 4 and 0673).
                         let action = MessageAction::ShowSetting(if collision {
-                            SettingRef::tool(snapshot.id, crate::tool_edit::fields::FLUTE_LENGTH)
+                            SettingRef::tool(snapshot.id, crate::tool_edit::fields::STICK_OUT)
                         } else {
                             SettingRef::setup(s.id, crate::setup_form::SetupField::SafeZ)
                         });
@@ -3431,6 +3427,7 @@ mod tests {
                     flute_count: 2,
                     material: None,
                     centre_cutting: None,
+                    stick_out: None,
                 }
                 .profile()
                 .unwrap(),
@@ -3576,6 +3573,7 @@ mod tests {
                     flute_count: 2,
                     material: None,
                     centre_cutting: None,
+                    stick_out: None,
                 }
                 .profile()
                 .unwrap(),
@@ -3751,6 +3749,7 @@ mod tests {
                     flute_count: 2,
                     material: None,
                     centre_cutting: None,
+                    stick_out: None,
                 }
                 .profile()
                 .unwrap(),

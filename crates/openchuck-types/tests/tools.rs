@@ -8,6 +8,7 @@
     clippy::indexing_slicing
 )]
 
+use openchuck_types::tool::profile::MAX_PROFILE_SIZE;
 use openchuck_types::tool::{
     ControllerMapping, CuttingData, CuttingTable, ProfilePoint, ProfileSegment, Tool, ToolProfile,
     ToolShape, find_cutting_data, material_key, validate_entry,
@@ -27,6 +28,7 @@ fn tool(shape: ToolShape) -> Tool {
         flute_count: 2,
         material: Some("carbide".into()),
         centre_cutting: None,
+        stick_out: None,
     }
 }
 
@@ -243,6 +245,7 @@ fn req_tl_02_req_tl_03_impossible_values_are_rejected() {
             Tool {
                 material: Some(" ".into()),
                 centre_cutting: None,
+                stick_out: None,
                 ..tool(ToolShape::FlatEnd)
             },
             "tool.material",
@@ -304,6 +307,81 @@ fn req_tl_03_bad_custom_profiles_are_rejected_naming_the_segment() {
             "{segment}, {reason}: {err}"
         );
     }
+}
+
+/// A profile coordinate larger than any tool, though still a finite number,
+/// is refused naming the segment, the value and the limit (NFR-07; issue
+/// #628, the nightly `tool_profile_toml` fuzz failure: a radius of about
+/// 7.8e307 mm was accepted and the lower envelope overflowed).
+#[test]
+fn req_tl_03_req_nfr_07_profile_sizes_above_the_limit_are_rejected() {
+    let max = MAX_PROFILE_SIZE;
+    let cases: Vec<(Vec<ProfileSegment>, &str)> = vec![
+        (vec![line(7.777_717_777_777_778e307, 0.0)], "segment 1"),
+        (vec![line(max + 1.0, 0.0)], "segment 1"),
+        (vec![line(3.0, 0.0), line(3.0, max + 1.0)], "segment 2"),
+        // An arc whose ends are in range but whose centre is not.
+        (
+            vec![line(1.0, 0.0), arc(2.0, 1.0e-3, 1.0, 2.0 * max)],
+            "segment 2",
+        ),
+    ];
+    for (segments, segment) in cases {
+        let err = (ToolProfile { segments })
+            .validate()
+            .unwrap_err()
+            .to_string();
+        assert!(
+            err.contains(segment) && err.contains("larger than 1000 mm"),
+            "{segment}: {err}"
+        );
+    }
+    // The limit itself is a valid size, and the envelope is finite across it.
+    let profile = (ToolProfile {
+        segments: vec![line(max, 0.0), line(max, max)],
+    })
+    .validate()
+    .unwrap();
+    let end = profile.cutting_radius();
+    for i in 0..=16 {
+        let h = profile.height_at(end * f64::from(i) / 16.0);
+        assert!(h.is_some_and(f64::is_finite), "{i}: {h:?}");
+    }
+}
+
+/// A standard tool larger than the profile limit is refused naming the field
+/// the user typed (NFR-07, issue #628).
+#[test]
+fn req_tl_02_req_nfr_07_tool_sizes_above_the_limit_are_rejected() {
+    let max = MAX_PROFILE_SIZE;
+    let mut wide = tool(ToolShape::FlatEnd);
+    wide.diameter = Millimetres(2.0 * max + 1.0);
+    let mut long = tool(ToolShape::FlatEnd);
+    long.flute_length = Millimetres(max + 1.0);
+    long.overall_length = Millimetres(max + 2.0);
+    let mut overall = tool(ToolShape::FlatEnd);
+    overall.overall_length = Millimetres(1.0e300);
+    let mut shank = tool(ToolShape::FlatEnd);
+    shank.shank_diameter = Millimetres(1.0e300);
+    for (t, field) in [
+        (wide, "tool.diameter"),
+        (long, "tool.flute_length"),
+        (overall, "tool.overall_length"),
+        (shank, "tool.shank_diameter"),
+    ] {
+        let err = t.validate().unwrap_err().to_string();
+        assert!(
+            err.contains(field) && err.contains("larger than"),
+            "{field}: {err}"
+        );
+    }
+    // The largest tool the limit allows is valid.
+    let mut biggest = tool(ToolShape::FlatEnd);
+    biggest.diameter = Millimetres(2.0 * max);
+    biggest.flute_length = Millimetres(max);
+    biggest.overall_length = Millimetres(max);
+    biggest.shank_diameter = Millimetres(2.0 * max);
+    biggest.validate().unwrap();
 }
 
 #[test]
@@ -550,4 +628,32 @@ fn req_tl_05_two_entries_that_differ_only_by_case_are_refused() {
         .unwrap_err()
         .to_string();
     assert!(err.contains("Oak") && err.contains("oak"), "{err}");
+}
+
+/// A tool's own stick-out, tip to collet face, is optional; when given it is
+/// at least the flute length and at most the overall length, and a bad one
+/// is a clear error naming the field (TL-02, NFR-07; decision record 0673).
+#[test]
+fn req_tl_02_req_nfr_07_a_stick_out_lies_between_the_flutes_and_the_overall_length() {
+    let mut t = tool(ToolShape::FlatEnd);
+    assert!(t.validate().is_ok());
+    for ok in [FLUTE, 30.0, 50.0] {
+        t.stick_out = Some(Millimetres(ok));
+        assert!(t.validate().is_ok(), "{ok}");
+    }
+    for bad in [FLUTE - 0.001, 50.001, 0.0, -1.0] {
+        t.stick_out = Some(Millimetres(bad));
+        let err = t.validate().unwrap_err().to_string();
+        assert!(err.contains("tool.stick_out"), "{bad}: {err}");
+    }
+    t.stick_out = Some(Millimetres(f64::NAN));
+    assert!(t.validate().is_err());
+    // Written only when set, and read back.
+    t.stick_out = None;
+    let text = serde_json::to_string(&t).unwrap();
+    assert!(!text.contains("stick_out"), "{text}");
+    t.stick_out = Some(Millimetres(30.0));
+    let text = serde_json::to_string(&t).unwrap();
+    assert!(text.contains("\"stick_out\":30.0"), "{text}");
+    assert_eq!(serde_json::from_str::<Tool>(&text).unwrap(), t);
 }

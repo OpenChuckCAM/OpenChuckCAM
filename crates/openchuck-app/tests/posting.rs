@@ -35,6 +35,7 @@ fn ball() -> Tool {
         flute_count: 2,
         material: None,
         centre_cutting: None,
+        stick_out: None,
     }
 }
 
@@ -1206,7 +1207,7 @@ fn req_gc_08_a_line_longer_than_the_posts_limit_fails_the_files_checks() {
     std::fs::remove_dir_all(dir).unwrap();
 }
 
-/// NFR-07 and GC-10 (issue #851; decision 9901, the owner's addition of 23 Nov 2026): when
+/// NFR-07 and GC-10 (issue #851; decision 0681, the owner's addition of 23 Nov 2026): when
 /// the post writes `_` in front of text from the project, because the text would have started
 /// a comment the controller acts on, the run warns once per source, naming the field, its
 /// text as written (escaped and shortened), the opening it matched and the post, so a command

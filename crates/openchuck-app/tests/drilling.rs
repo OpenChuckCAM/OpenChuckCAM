@@ -87,6 +87,7 @@ fn make(extra: &[(&str, f64)]) -> Job {
         flute_count: 2,
         material: None,
         centre_cutting: Some(true),
+        stick_out: None,
     }
     .profile()
     .unwrap();
@@ -157,6 +158,7 @@ fn req_op_10_the_simulation_shows_each_hole_at_the_model_depth() {
             flute_count: 2,
             material: None,
             centre_cutting: Some(true),
+            stick_out: None,
         }
         .profile()
         .unwrap();

@@ -39,6 +39,7 @@ fn ball(diameter: f64) -> Tool {
         flute_count: 2,
         material: Some("carbide".into()),
         centre_cutting: None,
+        stick_out: None,
     }
 }
 
@@ -1844,8 +1845,9 @@ fn req_gc_16_a_tool_too_long_to_clear_the_workholding_needs_acknowledging() {
         });
         s.clearance_rules.min_radius = Some(Millimetres(12.0));
     });
-    // Show setting opens the tool at its flute length, which sets how far
-    // it sticks out (decision record 0536 section 4).
+    // Show setting opens the tool at its stick-out, which the check uses,
+    // or assumes from the flute length when it is blank (decision records
+    // 0536 section 4 and 0673).
     let checks = app.start_checks(None).wait().unwrap();
     let overview = app.overview(Some(&checks), &openchuck_app::JobLog::default());
     let tool = app.project().tools()[0].id;
@@ -1862,7 +1864,7 @@ fn req_gc_16_a_tool_too_long_to_clear_the_workholding_needs_acknowledging() {
         Some(openchuck_app::overview::MessageAction::ShowSetting(
             openchuck_app::overview::SettingRef::tool(
                 tool,
-                openchuck_app::tool_edit::fields::FLUTE_LENGTH
+                openchuck_app::tool_edit::fields::STICK_OUT
             )
         ))
     );
