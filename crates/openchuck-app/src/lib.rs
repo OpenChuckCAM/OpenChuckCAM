@@ -258,6 +258,9 @@ pub struct Application {
     /// ("Generate playback information with toolpath generation", decision
     /// record 0333); `None` keeps none, and playback simulates again.
     playback_with_generation: Option<usize>,
+    /// The part's deviation colours last worked out for each setup, kept
+    /// while the comparison and the part are unchanged (issue #699).
+    part_colours: std::sync::Arc<stockplay::PartColours>,
 }
 
 /// What a new project starts with, from the user's settings
@@ -355,6 +358,7 @@ impl Application {
             clock: Box::new(SystemClock),
             file_names: output_names::FileNameTemplates::default(),
             playback_with_generation: None,
+            part_colours: std::sync::Arc::default(),
         })
     }
 
@@ -1600,6 +1604,15 @@ impl Application {
             self.playback_with_generation = memory;
             self.cache.clear_stocks();
         }
+    }
+
+    /// How many times [`Application::start_deviation_bands`] has worked out
+    /// a part's colours, rather than taking the ones kept for an unchanged
+    /// comparison and part: lets a test show they are kept (issue #699).
+    #[doc(hidden)]
+    #[must_use]
+    pub fn part_colours_made(&self) -> usize {
+        self.part_colours.made()
     }
 
     /// The memory playback's checkpoints may hold when they are kept while

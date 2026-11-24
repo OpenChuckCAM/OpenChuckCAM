@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased (SIM-UX-B; issue #699; record SIM-UX-B, proposed)
+
+- **Changed:** `SetupSimulation::deviation` is an `Option<Arc<Deviation>>`: a run that takes the comparison kept with a cached stock shares it instead of copying it (decision 0217).
+- **Changed:** `Application::start_deviation_bands` keeps the part's colours with the comparison and the part they were worked out from, and gives them again while both are unchanged; the result is the same. A part file changed on disk is still refused. `Application::part_colours_made` (hidden) counts the times they were worked out, for tests.
+
 ## 0.63.0 (FACEFLOW; issues #791, #631, #614, #615 and #854; decisions 0675, 0676 and 0686, accepted)
 
 - **Changed:** a new face-flow finishing operation is written with Stay down between passes on, Pattern Automatic, Steps between rings Blended (decision 0545's rule, now reaching face flow) and a Shortest cut of its tool's diameter. An operation saved without them keeps its program.
