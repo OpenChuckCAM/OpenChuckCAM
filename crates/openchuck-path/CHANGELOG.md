@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased (WORDING-DOCS; issue #613)
+
+- **Changed:** the descriptions of the drill's peck mode and blind hole depth name the choices as the inspector shows them. No API change.
+
 ## 0.60.0
 
 - **Family release (0.60.0; POST-COMMENTS; issue #851; decision 0681, accepted):** `openchuck-post`'s `PostOptions` gains the public field `active_comment_prefixes` and `PostOutput` the public field `guarded_comments`, a breaking change; no change to this crate.

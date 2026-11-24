@@ -439,25 +439,11 @@ fn row(
     }
 }
 
+/// The words shown for a choice's stored word: the application's label, or
+/// the stored word itself for a choice it has none for (the application's
+/// test fails when a strategy's choice has none).
 fn choice_label<'a>(name: &str, value: &'a str) -> &'a str {
-    match (name, value) {
-        ("shape", "flat") => "Flat along stock",
-        ("shape", "round") => "Round",
-        ("shape", "end") => "Unheld end",
-        ("shape", "box") => "Box sides",
-        ("extent", "whole_stock") => "Whole stock",
-        ("extent", "part") => "Part only",
-        ("extent", "part_plus_tabs") => "Part plus tabs",
-        ("layer_distribution", "full") => "Full stepdown, shorter final pass",
-        ("layer_distribution", "equal") => "Equal stepdowns",
-        ("pass_shape", "helix") => "Spiral",
-        ("pass_shape", "rings") => "Rings",
-        ("link_height", "retract") => "Retract to the clearance",
-        ("link_height", "low") => "Stay low where clear",
-        ("ring_step", "sharp") => "Sharp",
-        ("ring_step", "blended") => "Blended",
-        _ => value,
-    }
+    openchuck_app::form::choice_label(name, value).unwrap_or(value)
 }
 
 /// The reason under a refused field: the application's message as a
