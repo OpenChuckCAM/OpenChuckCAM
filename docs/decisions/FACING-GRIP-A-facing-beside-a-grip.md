@@ -90,6 +90,12 @@ Branch `claude/lane-facing-grip` from `main` `445286b`. Linux container, 4 cores
 
 **Checks:** `cargo fmt --all --check`; `cargo clippy --workspace --all-targets` (no warnings); `cargo xtask deps` (with messages and topics), `licences`, `records` and `trace` (105 of 105 P1) all pass. Golden files: none changed. The golden audit tests (`golden_audit::*`) and `reference_jobs::*` pass in the integration binary. `cargo xtask golden` itself fails on this branch and on `main` alike, because it still runs `cargo test --test golden_audit`, a target folded into the integration binary by decision 0516 (reported to the coordinator).
 
-**Coverage:** see the pull request (own-crate lower bound, the changed files read).
+**Coverage** (`openchuck-path`, own Facing and roughing tests only, instrumented, a lower bound; the nightly run counts the application's tests too): `facing/held.rs` 95.5% of lines; `facing.rs` 92.5%; `facing/validation/legacy.rs` 91.2%; `facing/validation.rs` 86.8%; `facing/plan.rs` 87.4%; `facing/description.rs` 83.8%. The changed lines left uncovered in `held.rs` after that run were:
+- the refusal of an invalid held interval: a defensive NFR-07 branch, because `validate_setup` and the planners refuse such an interval first;
+- the note naming several faces;
+- Flat with no at-face lines;
+- Flat's limit beside a far-end grip.
+
+Two requirement tests were then added for the second and the fourth (written after the code, so not watched failing): `req_op_24_req_nfr_07_one_note_names_every_face_that_stops_at_the_grip` (0.024 s) and `req_op_24_req_set_09_restricted_flat_faces_up_to_a_held_far_end` (0.012 s). The instrumented build was cleaned with `cargo llvm-cov clean --workspace`.
 
 **Not verified:** anything on a machine; LinuxCNC replay of the new programs; restricted Round on the Baluster (refused there for an unrelated reason, #880). Generated G-code remains the user's to verify before it is run on a machine (NFR-12).

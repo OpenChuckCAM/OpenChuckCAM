@@ -365,3 +365,51 @@ fn req_op_24_req_set_09_restricted_flat_and_round_face_up_to_the_held_start() {
         );
     });
 }
+
+#[test]
+fn req_op_24_req_nfr_07_one_note_names_every_face_that_stops_at_the_grip() {
+    // All four Box sides stop at the same place beside the held start: one
+    // note names them all, in cut order.
+    let held = [Some((5., 10.)), None];
+    let mut v = values("box", "part");
+    for side in ["positive_y", "negative_z", "negative_y"] {
+        v.insert(side.into(), ParameterValue::Flag(true));
+    }
+    generate(&v, held, None, |path| {
+        let path = path.unwrap();
+        let notes = held_notes(&path);
+        assert_eq!(notes.len(), 1, "{notes:?}");
+        assert!(
+            notes[0].contains(
+                "Facing at A 0.000°, at A 90.000°, at A 180.000° and at A 270.000° stops short"
+            ),
+            "{}",
+            notes[0]
+        );
+    });
+}
+
+#[test]
+fn req_op_24_req_set_09_restricted_flat_faces_up_to_a_held_far_end() {
+    // The far grip runs from X 15: the tool's centre stays below X 13, where
+    // Flat's passes along X end, so the face is finished up to X 13.000 and
+    // X 13 to 20 (7 mm) of the part extent is left.
+    let held = [None, Some((15., 25.))];
+    generate(&values("flat", "part"), held, None, |path| {
+        let path = path.unwrap_or_else(|e| panic!("flat: {e}"));
+        assert_clear(&path, held);
+        let notes = held_notes(&path);
+        assert_eq!(notes.len(), 1, "{notes:?}");
+        assert!(
+            notes[0].contains("held far end (X 15.000 to 25.000)"),
+            "{}",
+            notes[0]
+        );
+        assert!(notes[0].contains("finished up to X 13.000"), "{}", notes[0]);
+        assert!(
+            notes[0].contains("X 13.000 to 20.000 (7.000 mm along X)"),
+            "{}",
+            notes[0]
+        );
+    });
+}
