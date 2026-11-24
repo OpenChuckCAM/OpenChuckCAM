@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="760" height="400" viewBox="0 0 760 400" font-family="sans-serif" font-size="12">
-  <title>Issue 759: the Geometry section today, where each set appears twice and buttons wrap under the label, and the proposed layout with one line per set</title>
+  <title>Issue 759: the Geometry section today, where each set appears twice and buttons wrap under the label, and the approved layout with one line per set, where a set on Ignore is greyed and struck through instead of warned about</title>
   <rect width="760" height="400" fill="#1e1f22"/>
   <text x="20" y="24" fill="#e8eaed" font-weight="bold" font-size="13">Today (340 px inspector)</text>
   <rect x="20" y="34" width="340" height="312" rx="4" fill="#26282c" stroke="#3a3d42"/>
@@ -21,7 +21,7 @@
   <text x="126" y="258" fill="#fdd663">⚠ The set 'Bead' limits nothing.</text>
   <text x="30" y="300" fill="#f28b82" font-size="11">each set twice; buttons and choices wrap</text>
   <text x="30" y="316" fill="#f28b82" font-size="11">under the label; long warnings repeat</text>
-  <text x="400" y="24" fill="#e8eaed" font-weight="bold" font-size="13">Proposed (same width)</text>
+  <text x="400" y="24" fill="#e8eaed" font-weight="bold" font-size="13">Approved (same width)</text>
   <rect x="400" y="34" width="340" height="312" rx="4" fill="#26282c" stroke="#3a3d42"/>
   <text x="410" y="56" fill="#9aa0a6" font-size="11" font-weight="bold">GEOMETRY</text>
   <text x="410" y="78" fill="#9aa0a6">Cut on</text>
@@ -34,13 +34,15 @@
   <rect x="516" y="190" width="62" height="18" rx="3" fill="#4c8bf5"/><text x="521" y="203" fill="#fff">Cut short</text>
   <rect x="580" y="190" width="64" height="18" rx="3" fill="#33363b"/><text x="585" y="203" fill="#e8eaed">Warn only</text>
   <rect x="646" y="190" width="46" height="18" rx="3" fill="#33363b"/><text x="651" y="203" fill="#e8eaed">Ignore</text>
-  <circle cx="506" cy="226" r="4" fill="#f28b82"/><text x="516" y="230" fill="#e8eaed">Bead</text><text x="718" y="230" fill="#9aa0a6">×</text>
+  <circle cx="506" cy="226" r="4" fill="#5f6368"/><text x="516" y="230" fill="#80868b" text-decoration="line-through">Bead</text><text x="718" y="230" fill="#9aa0a6">×</text>
   <rect x="516" y="238" width="62" height="18" rx="3" fill="#33363b"/><text x="521" y="251" fill="#e8eaed">Cut short</text>
   <rect x="580" y="238" width="64" height="18" rx="3" fill="#33363b"/><text x="585" y="251" fill="#e8eaed">Warn only</text>
   <rect x="646" y="238" width="46" height="18" rx="3" fill="#4c8bf5"/><text x="651" y="251" fill="#fff">Ignore</text>
-  <text x="516" y="276" fill="#fdd663">⚠ Limits nothing.</text>
-  <text x="410" y="300" fill="#81c995" font-size="11">one line per set, in its colour, × at the right;</text>
-  <text x="410" y="316" fill="#81c995" font-size="11">its choice and its one warning just under it,</text>
-  <text x="410" y="332" fill="#81c995" font-size="11">all in the value column; shared notes once per role</text>
-  <text x="20" y="378" fill="#9aa0a6" font-size="11">Synthetic example: Cut on Body and Neck; Avoid Finial ball (Cut short) and Bead (Ignore). Not to scale.</text>
+  <rect x="548" y="214" width="190" height="20" rx="3" fill="#3c4043" stroke="#5f6368"/><text x="554" y="228" fill="#e8eaed" font-size="11">Ignored: this set limits nothing</text>
+  <text x="516" y="276" fill="#9aa0a6" font-size="11">no warning line: the grey dot and the</text>
+  <text x="516" y="290" fill="#9aa0a6" font-size="11">struck name say it; the tooltip says why</text>
+  <text x="410" y="312" fill="#81c995" font-size="11">one line per set, in its colour, × at the right;</text>
+  <text x="410" y="326" fill="#81c995" font-size="11">its choice just under it, in the value column;</text>
+  <text x="410" y="340" fill="#81c995" font-size="11">shared notes once per role</text>
+  <text x="20" y="378" fill="#9aa0a6" font-size="11">Synthetic example: Cut on Body and Neck; Avoid Finial ball (Cut short) and Bead (Ignore, its tooltip shown as on hover or focus). Not to scale.</text>
 </svg>
