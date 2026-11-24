@@ -123,6 +123,7 @@ fn cases() -> Vec<Case> {
                 Leave::CloseBox,
                 Leave::Esc,
                 Leave::Button("Check and preview"),
+                Leave::Button("Browse\u{2026}"),
             ],
         },
         Case {
@@ -157,7 +158,7 @@ fn cases() -> Vec<Case> {
             },
             focus: first_tab,
             shown: |shell| matches!(shell.dialog, Some(Dialog::Folder { .. })),
-            leaves: &[Leave::Button("Cancel")],
+            leaves: &[Leave::Button("Cancel"), Leave::Button("Browse\u{2026}")],
         },
         Case {
             name: "Post and export",
@@ -174,6 +175,9 @@ fn cases() -> Vec<Case> {
 /// Opens `case` on a fresh project, types into its field without Enter, and
 /// leaves by `leave`. Returns what went wrong, if anything.
 fn walk(case: &Case, leave: Leave, index: usize) -> Option<String> {
+    // The native file picker is never opened in a test: it records what it
+    // would have started from.
+    super::PICKER_INPUTS.with(|inputs| *inputs.borrow_mut() = Some(Vec::new()));
     let mut rig = Rig::cube(&format!("dialog-walk-{index}"), None);
     rig.size = egui::vec2(1920.0, 1080.0);
     (case.open)(&mut rig.shell);
@@ -202,6 +206,7 @@ fn walk(case: &Case, leave: Leave, index: usize) -> Option<String> {
         }
     }
     frames(&mut rig, 3);
+    super::PICKER_INPUTS.with(|inputs| *inputs.borrow_mut() = None);
     rig.shows(QUESTION)
         .then(|| format!("{} {leave:?}: asks {QUESTION}", case.name))
 }

@@ -269,6 +269,14 @@ impl ExportPanel {
         }
     }
 
+    /// Chooses the post by its place in the list (the list's length for "A
+    /// post folder") without a press in the dialog, as a test of a field
+    /// that is hidden while it holds typed text.
+    #[cfg(test)]
+    pub(crate) fn choose_post(&mut self, index: usize) {
+        self.post_index = index;
+    }
+
     /// Whether the dialog is open.
     pub fn is_open(&self) -> bool {
         self.open || self.overwrite.is_some() || self.result.is_some()
