@@ -617,6 +617,64 @@ pub fn apply(
     Ok(edited)
 }
 
+/// Why `edited`, the setup with a typed value in it, was refused, in the
+/// one form (decision record 0536 section 3), for the field labelled `label`
+/// ("Start X"). A tab or held region that would no longer fit is named, with
+/// both ways out: change the value, or change the tab or held region and
+/// Apply (issue #870). Any other refusal is said in the setup's words, never
+/// with its ID or a field path.
+pub fn refusal(edited: &Setup, label: &str, error: &openchuck_project::ProjectError) -> String {
+    use crate::lead_in::{Context, in_form, topic};
+    let context = Context::setup(edited.name.clone());
+    let (path, reason) = match error {
+        openchuck_project::ProjectError::Invalid(openchuck_types::Error::InvalidValue {
+            field,
+            reason,
+        }) => (field.as_str(), reason.clone()),
+        other => ("", other.to_string()),
+    };
+    let held = path.split_once(".workholding.").map(|(_, rest)| rest);
+    let text = match held {
+        Some(rest) if rest.starts_with("tabs[") => {
+            let number = rest
+                .trim_start_matches("tabs[")
+                .split(']')
+                .next()
+                .and_then(|n| n.parse::<usize>().ok())
+                .map_or(1, |n| n + 1);
+            let item = format!("tab {number}");
+            let what = reason.strip_prefix("the tab").map_or_else(
+                || format!("{item}: {reason}"),
+                |rest| format!("{item}{rest}"),
+            );
+            Some((
+                topic::WORKHOLDING,
+                format!(
+                    "{what}. Change {label}, or move or remove {item} under Workholding and tabs \
+                     and press Apply"
+                ),
+            ))
+        }
+        Some(rest) => {
+            let item = if rest.starts_with("start") {
+                "the held region at the start"
+            } else {
+                "the held region at the end"
+            };
+            Some((
+                topic::WORKHOLDING,
+                format!(
+                    "{item} does not fit: {reason}. Change {label}, or change {item} under \
+                     Workholding and tabs and press Apply"
+                ),
+            ))
+        }
+        None => None,
+    };
+    let (topic, text) = text.unwrap_or((topic::SETUP, format!("{label}: {reason}")));
+    format!("{} Not applied.", in_form(topic, &context, &text))
+}
+
 #[cfg(test)]
 mod tests {
     #![allow(clippy::unwrap_used)]
@@ -877,5 +935,66 @@ mod tests {
         assert_eq!(off.clearance_rules.from_stock, None);
         assert_eq!(clearance_rows(&off, Some(&z1)).len(), 4);
         assert_eq!(clearance_in_use(&s, None, None), None);
+    }
+
+    /// A setup value refused because the setup's tabs or held regions would
+    /// no longer fit is said in the one form, names the tab or held region,
+    /// and says both ways out, without the setup's ID or a field path (issue
+    /// #870; decision record 0536 section 3).
+    #[test]
+    fn req_set_09_req_nfr_07_a_value_refused_for_the_tabs_names_the_tab_and_both_ways_out() {
+        use openchuck_types::workholding::{HeldRegion, Tab, TabLayout, TabShape};
+        let mut s = setup();
+        s.stock = Some(Stock::Cylinder {
+            diameter: Millimetres(20.0),
+            length: Millimetres(14.0),
+            x_start: Millimetres(-7.0),
+        });
+        s.workholding.tabs = vec![Tab {
+            auto: None,
+            x_start: Millimetres(-6.5),
+            length: Millimetres(1.0),
+            shape: TabShape::Cylinder {
+                diameter: Millimetres(3.0),
+            },
+            layout: TabLayout::OnAxis,
+        }];
+        let moved = apply(&s, None, SetupField::StartX, "-5").unwrap();
+        let error = openchuck_project::check_setup_values(&moved).unwrap_err();
+        let text = refusal(&moved, "Start X", &error);
+        assert_eq!(
+            text,
+            "Workholding (setup 'Setup 1'): tab 1 (X -6.500 to -5.500) is not inside the stock \
+             (X -5.000 to 9.000). Change Start X, or move or remove tab 1 under Workholding and \
+             tabs and press Apply. Not applied."
+        );
+        // A held region longer than the stock names the held region.
+        let mut held = s.clone();
+        held.workholding.tabs.clear();
+        held.workholding.start = Some(HeldRegion {
+            length: Millimetres(10.0),
+            diameter: None,
+        });
+        let short = apply(&held, None, SetupField::Length, "8").unwrap();
+        let error = openchuck_project::check_setup_values(&short).unwrap_err();
+        let text = refusal(&short, "Length", &error);
+        assert!(
+            text.starts_with(
+                "Workholding (setup 'Setup 1'): the held region at the start does not fit: \
+                 10.000 mm is longer than the stock"
+            ),
+            "{text}"
+        );
+        assert!(
+            text.ends_with(
+                "Change Length, or change the held region at the start under Workholding and \
+                 tabs and press Apply. Not applied."
+            ),
+            "{text}"
+        );
+        assert!(
+            !text.contains("setup.") && !text.contains("Invalid"),
+            "{text}"
+        );
     }
 }

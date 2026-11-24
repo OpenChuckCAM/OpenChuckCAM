@@ -37,6 +37,13 @@ pub struct FieldState {
     /// 4): its key, the message's text to mark it with, and whether it is
     /// still to be brought into view.
     shown: Option<(String, String, bool)>,
+    /// Fields whose value was refused because it conflicts with another part
+    /// of the form (a setup value and the tabs), checked again until it is
+    /// allowed (issue #870).
+    conflicts: std::collections::BTreeSet<String>,
+    /// Fields whose conflict is gone, with the typed text kept for Enter to
+    /// apply (issue #870).
+    forgiven: std::collections::BTreeSet<String>,
 }
 
 impl FieldState {
@@ -44,6 +51,8 @@ impl FieldState {
     pub fn clear(&mut self) {
         self.text.clear();
         self.errors.clear();
+        self.conflicts.clear();
+        self.forgiven.clear();
         self.unreadable.clear();
         self.shown = None;
     }
@@ -97,6 +106,8 @@ impl FieldState {
                 self.text.remove(key);
                 self.errors.remove(key);
                 self.unreadable.remove(key);
+                self.conflicts.remove(key);
+                self.forgiven.remove(key);
             }
             Err(e) => {
                 self.errors.insert(key.to_owned(), e);
@@ -108,6 +119,38 @@ impl FieldState {
     pub fn refuse(&mut self, key: &str, typed: &str, reason: String) {
         self.text.insert(key.to_owned(), typed.to_owned());
         self.errors.insert(key.to_owned(), reason);
+        self.conflicts.remove(key);
+        self.forgiven.remove(key);
+    }
+
+    /// Marks `key` refused with `reason` because its value conflicts with
+    /// another part of the form, keeping `typed`: the form checks it again
+    /// ([`Self::in_conflict`]) and forgives it once allowed (issue #870).
+    pub fn refuse_conflict(&mut self, key: &str, typed: &str, reason: String) {
+        self.refuse(key, typed, reason);
+        self.conflicts.insert(key.to_owned());
+    }
+
+    /// The typed text of `key` while it is refused for a conflict.
+    pub fn in_conflict(&self, key: &str) -> Option<&str> {
+        self.conflicts
+            .contains(key)
+            .then(|| self.error(key).and(self.typed(key)))
+            .flatten()
+    }
+
+    /// Forgets the refusal of `key`, keeping its typed text: what refused it
+    /// no longer does, and Enter applies it (issue #870).
+    pub fn forgive(&mut self, key: &str) {
+        self.errors.remove(key);
+        self.conflicts.remove(key);
+        self.forgiven.insert(key.to_owned());
+    }
+
+    /// Whether `key`'s refusal was forgiven and its typed text is still to be
+    /// applied.
+    pub fn is_forgiven(&self, key: &str) -> bool {
+        self.forgiven.contains(key) && self.text.contains_key(key)
     }
 
     /// The reason a field's value was refused, if it was.
@@ -582,6 +625,8 @@ pub fn text_row(ui: &mut egui::Ui, state: &mut FieldState, row: &TextRow<'_>) ->
             state.text.insert(row.key.to_owned(), typed.clone());
             state.errors.remove(row.key);
             state.unreadable.remove(row.key);
+            state.conflicts.remove(row.key);
+            state.forgiven.remove(row.key);
         }
         if crate::pending_edits::take_discard(ui.ctx(), response.id) {
             state.text.remove(row.key);
@@ -600,8 +645,7 @@ pub fn text_row(ui: &mut egui::Ui, state: &mut FieldState, row: &TextRow<'_>) ->
         if crate::pending_edits::take_focus(ui.ctx(), response.id) {
             response.request_focus();
         }
-        let keep =
-            crate::pending_edits::mode(ui.ctx()) == crate::pending_edits::Mode::Keep(response.id);
+        let keep = crate::pending_edits::keeps(ui.ctx(), response.id);
         if keep
             || (response.lost_focus()
                 && crate::pending_edits::mode(ui.ctx()) == crate::pending_edits::Mode::Normal
@@ -662,6 +706,9 @@ pub fn text_row(ui: &mut egui::Ui, state: &mut FieldState, row: &TextRow<'_>) ->
             });
         crate::pending_edits::track(ui, &response, row.label, pending);
         crate::pending_edits::set_preflight(ui.ctx(), response.id, row.preflight.clone());
+        if state.conflicts.contains(row.key) {
+            crate::pending_edits::mark_conflict(ui.ctx(), response.id);
+        }
     });
     note_unreadable(ui.ctx(), row.key, state.unreadable.get(row.key));
     let error = state.error(row.key).map(str::to_owned);
@@ -755,8 +802,7 @@ pub fn name_field(ui: &mut egui::Ui, state: &mut FieldState, key: &str, applied:
     if crate::pending_edits::take_focus(ui.ctx(), response.id) {
         response.request_focus();
     }
-    let keep =
-        crate::pending_edits::mode(ui.ctx()) == crate::pending_edits::Mode::Keep(response.id);
+    let keep = crate::pending_edits::keeps(ui.ctx(), response.id);
     if keep
         || (response.lost_focus()
             && crate::pending_edits::mode(ui.ctx()) == crate::pending_edits::Mode::Normal

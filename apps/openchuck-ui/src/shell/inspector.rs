@@ -405,16 +405,14 @@ impl Shell {
                             ));
                         }
                         SetupPart::PartPosition => {
-                            if let Some(e) = rows(
+                            edited.extend(rows(
                                 ui,
                                 &mut self.form,
                                 &setup,
                                 copy.as_ref(),
                                 &setup_form::part_position_rows(&setup),
                                 &[],
-                            ) {
-                                edited.push(e);
-                            }
+                            ));
                             // The part as this setup places it, once the
                             // checks have read it (decision record 0201).
                             let extent = setup
@@ -475,30 +473,41 @@ impl Shell {
                 self.settings_touched();
             }
         }
+        // Every value committed in this frame is in the last setup, each
+        // edit made from the one before: it is stored as one undoable step,
+        // so values Keep confirms together are one step (the owner's answer
+        // A to Q8 of issue #870).
+        let keys: Vec<String> = edited.iter().filter_map(|(_, k)| k.clone()).collect();
         let mut commands: Vec<_> = edited
+            .pop()
+            .map(|(setup, _)| (Command::Replace(Item::Setup(setup)), keys))
             .into_iter()
-            .map(|(setup, key)| (Command::Replace(Item::Setup(setup)), key))
             .collect();
-        commands.extend(command.map(|command| (command, self.pending_field.take())));
+        commands.extend(
+            command.map(|command| (command, self.pending_field.take().into_iter().collect())),
+        );
         if manage_machines {
             self.open_machine_library();
         }
         let mut changed = false;
-        for (command, key) in commands {
+        for (command, keys) in commands {
             let Some(app) = &mut self.app else { return };
             match app.execute(command) {
                 Ok(()) => {
-                    if let Some(key) = key {
-                        self.form.result(&key, Ok(()));
+                    for key in &keys {
+                        self.form.result(key, Ok(()));
                     }
                     changed = true;
                 }
-                Err(e) => match key {
-                    Some(key) => self
-                        .form
-                        .result(&key, Err(form_panel::refusal(&e.to_string()))),
-                    None => self.dialog = Some(Dialog::Error(Failure::new("Change setting", e))),
-                },
+                Err(e) if keys.is_empty() => {
+                    self.dialog = Some(Dialog::Error(Failure::new("Change setting", e)));
+                }
+                Err(e) => {
+                    for key in &keys {
+                        self.form
+                            .result(key, Err(form_panel::refusal(&e.to_string())));
+                    }
+                }
             }
         }
         if changed {
@@ -1651,9 +1660,13 @@ pub(super) fn setup_field_section(field: openchuck_app::setup_form::SetupField) 
     }
 }
 
-/// Draws setup rows. Returns the edited setup and the key of the row it came
-/// from, when a value was committed and passed its checks; a refused value
-/// stays in its field with the reason (section 8).
+/// Draws setup rows. Returns each setup a committed value made, in order,
+/// each from the one before, with the key of the row it came from: a value
+/// is committed only when the setup with it passes the checks storing it
+/// makes, tabs and held regions included. A refused value stays in its field
+/// with the reason (section 8); one refused because the tabs or held regions
+/// would no longer fit is checked again each frame, and once they allow it
+/// the field says Enter applies it (issue #870, the owner's answer A).
 fn rows(
     ui: &mut egui::Ui,
     state: &mut field_row::FieldState,
@@ -1661,24 +1674,42 @@ fn rows(
     machine: Option<&openchuck_app::setup::MachineProfile>,
     rows: &[SetupRow],
     known_materials: &[String],
-) -> Option<(Setup, Option<String>)> {
-    let mut edited = None;
+) -> Vec<(Setup, Option<String>)> {
+    let mut edited: Vec<(Setup, Option<String>)> = Vec::new();
     for row in rows {
         let key = setup_key(row);
+        let current = edited.last().map_or(setup, |(s, _)| s).clone();
+        let whole = |text: &str| {
+            let s = setup_form::apply(&current, machine, row.field, text)?;
+            openchuck_app::project::check_setup_values(&s)
+                .map(|()| s.clone())
+                .map_err(|e| setup_form::refusal(&s, row.label, &e))
+        };
+        // A value refused for the tabs or held regions is checked again
+        // against the setup as it is now.
+        if let Some(typed) = state.in_conflict(&key).map(str::to_owned) {
+            match whole(&typed) {
+                Ok(_) => state.forgive(&key),
+                Err(reason) => state.refuse_conflict(&key, &typed, reason),
+            }
+        }
+        let ready = state.is_forgiven(&key).then_some(());
         let validate = |text: &str| setup_form::apply(setup, machine, row.field, text).map(|_| ());
         let field = row.field;
+        let label = row.label;
         let machine_copy = machine.cloned();
         // The setup as it would be stored is checked once every pending
         // field is in it, with the same checks the change makes, tabs and
         // held regions included: Keep refuses before it applies any value
-        // (decision record 0233 item 4; issue #870).
+        // (decision record 0233 item 4; issue #870), and applies the values
+        // kept together as one step (the owner's answer A to Q8).
         let preflight = crate::pending_edits::preflight_whole(
             egui::Id::unique(("setup fields", setup.id)),
             setup.clone(),
             move |setup, text| setup_form::apply(setup, machine_copy.as_ref(), field, text),
-            |setup| {
+            move |setup| {
                 openchuck_app::project::check_setup_values(setup)
-                    .map_err(|e| form_panel::refusal(&openchuck_app::AppError::from(e).to_string()))
+                    .map_err(|e| setup_form::refusal(setup, label, &e))
             },
         );
         let outcome = field_row::text_row(
@@ -1696,7 +1727,7 @@ fn rows(
                 reset: false,
                 enabled: true,
                 focus: false,
-                warned: None,
+                warned: ready.map(|()| READY),
                 needs: None,
                 scroll_to: false,
                 number: !row.unit.is_empty(),
@@ -1714,14 +1745,29 @@ fn rows(
             } else {
                 typed
             };
-            match setup_form::apply(setup, machine, row.field, &typed) {
-                Ok(s) => edited = Some((s, Some(key))),
+            // Keep has already checked the setup with all the values it
+            // confirms together; an in-between setup is not checked, so a
+            // pair valid only together is kept (Q8).
+            let kept = matches!(
+                crate::pending_edits::mode(ui.ctx()),
+                crate::pending_edits::Mode::Keep(_)
+            );
+            match setup_form::apply(&current, machine, row.field, &typed) {
+                Ok(s) if kept => edited.push((s, Some(key))),
+                Ok(_) => match whole(&typed) {
+                    Ok(s) => edited.push((s, Some(key))),
+                    Err(reason) => state.refuse_conflict(&key, &typed, reason),
+                },
                 Err(reason) => state.refuse(&key, &typed, format!("{reason} Not applied.")),
             }
         }
     }
     edited
 }
+
+/// What a value refused for the tabs or held regions says once they allow
+/// it (issue #870).
+const READY: &str = "The tabs and held regions now allow this value. Press Enter to apply it.";
 
 /// The Tool section's Material preset row (issue 197; decision record
 /// 0230): the list of the setup's material and the tool's other materials, a

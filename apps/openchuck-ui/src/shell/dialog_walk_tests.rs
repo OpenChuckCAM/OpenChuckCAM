@@ -165,7 +165,8 @@ fn cases() -> Vec<Case> {
             open: Shell::open_export,
             focus: |rig| click_between(rig, "Output folder", "Choose\u{2026}"),
             shown: |shell| shell.export.is_open(),
-            leaves: &[Leave::Button("Cancel"), Leave::CloseBox, Leave::Esc],
+            // Its footer closes with Close (issue #872).
+            leaves: &[Leave::Button("Close"), Leave::CloseBox, Leave::Esc],
         },
     ]
 }
