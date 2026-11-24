@@ -308,3 +308,60 @@ fn req_ui_22_the_history_starts_at_the_project_as_opened() {
     let created = open_app("created");
     assert_eq!(created.undo_history().start, "Created project");
 }
+
+#[test]
+fn req_ui_22_project_settings_and_several_items_are_named_too() {
+    let mut app = project_with_operation("settings");
+    let second = OperationId::from_u128(5);
+    let mut copy = app.project().operation(OP).unwrap().clone();
+    copy.id = second;
+    copy.name = "Finishing".into();
+    app.execute(Command::Add {
+        item: Item::Operation(copy),
+        placement: Placement::End,
+    })
+    .unwrap();
+    for c in [
+        Command::SetWarnOnSelectionReset(false),
+        Command::SetSkipStockSimulation(true),
+        Command::SetSkipStockSimulation(false),
+        Command::SetPathsShown {
+            operations: vec![OP, second],
+            shown: false,
+        },
+        Command::SetModelUnits {
+            model: MODEL,
+            units: Some(openchuck_app::model::LengthUnit::Inch),
+        },
+        // Several commands on different items: the first, and how many more.
+        Command::Batch(vec![
+            Command::SetOperationEnabled {
+                operation: OP,
+                enabled: false,
+            },
+            Command::SetModelUnits {
+                model: MODEL,
+                units: None,
+            },
+        ]),
+        Command::Batch(vec![
+            Command::RenameProject("A".into()),
+            Command::RenameProject("B".into()),
+        ]),
+    ] {
+        app.execute(c).unwrap();
+    }
+    let all = labels(&app);
+    assert_eq!(
+        &all[all.len() - 7..],
+        [
+            "Warn before a selection is reset: off",
+            "Turn off the stock simulation",
+            "Turn on the stock simulation",
+            "Hide all toolpaths",
+            "Read model \"shaft.stl\" in inches",
+            "Turn off operation \"Roughing\" and 1 more",
+            "Rename project to \"A\" and 1 more",
+        ]
+    );
+}

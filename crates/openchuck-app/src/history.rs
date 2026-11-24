@@ -16,6 +16,7 @@ use std::time::Duration;
 use openchuck_path::Registry;
 use openchuck_path::params::{ParameterKind, Unit};
 use openchuck_project::{Item, ItemId, ListKind, ParameterValue, Project};
+use openchuck_types::units::LengthUnit;
 
 use crate::command::Command;
 
@@ -145,7 +146,7 @@ pub(crate) fn label(command: &Command, project: &Project, registry: &Registry) -
         Command::SetModelUnits { model, units } => {
             let model = quoted(project, ItemId::Model(*model));
             match units {
-                Some(unit) => format!("Read model {model} in {unit}"),
+                Some(unit) => format!("Read model {model} in {}", unit_words(*unit)),
                 None => format!("Read model {model} in its file's units"),
             }
         }
@@ -212,6 +213,17 @@ fn item_name(item: &Item) -> String {
 /// The last component of a model's path.
 fn file_name(path: &str) -> String {
     path.rsplit(['/', '\\']).next().unwrap_or(path).to_owned()
+}
+
+/// A length unit in words, as a sentence says it.
+const fn unit_words(unit: LengthUnit) -> &'static str {
+    match unit {
+        LengthUnit::Micrometre => "micrometres",
+        LengthUnit::Millimetre => "millimetres",
+        LengthUnit::Centimetre => "centimetres",
+        LengthUnit::Metre => "metres",
+        LengthUnit::Inch => "inches",
+    }
 }
 
 const fn on_off(on: bool) -> &'static str {
