@@ -1297,3 +1297,47 @@ fn req_gc_10_req_nfr_07_a_guarded_name_is_a_warning_naming_its_source() {
     assert_eq!(result.warnings, app.regenerate().unwrap().warnings, "GC-07");
     std::fs::remove_dir_all(dir).unwrap();
 }
+
+/// NFR-07 (issue #851, CodeRabbit on #857): the guarded-name warning is said once per setup,
+/// field and text in a run, even when the run writes a file per operation; and the setup name
+/// in its prefix is escaped like the quoted text, so a setup name from a shared project cannot
+/// write to a terminal.
+#[test]
+fn req_nfr_07_a_guarded_name_warns_once_per_run_with_the_setup_name_escaped() {
+    let (dir, mut app, op) = project("guarded-once");
+    app.execute(Command::RenameProject("MSG,x".into())).unwrap();
+    let mut setup = app.project().setups()[0].clone();
+    setup.name = "Set\u{1b}[2Jup".into();
+    app.execute(Command::Replace(Item::Setup(setup))).unwrap();
+    let mut second = app
+        .project()
+        .operations()
+        .iter()
+        .find(|o| o.id == op)
+        .unwrap()
+        .clone();
+    second.id = OperationId::new();
+    second.name = "Finish again".into();
+    app.execute(Command::Add {
+        item: Item::Operation(second),
+        placement: Placement::End,
+    })
+    .unwrap();
+    with_post(&mut app, "linuxcnc");
+    app.set_output_grouping(openchuck_app::OutputGrouping::Operation);
+    let result = app.regenerate().unwrap();
+    assert_eq!(result.gcode.len(), 2, "a file per operation");
+    let warned: Vec<&String> = result
+        .warnings
+        .iter()
+        .filter(|w| w.contains("wrote \"_\""))
+        .collect();
+    assert_eq!(warned.len(), 1, "{warned:#?}");
+    assert!(
+        warned[0].starts_with("setup 'Set\\u{1b}[2Jup': the project name \"MSG,x\""),
+        "{}",
+        warned[0]
+    );
+    assert!(!warned[0].contains('\u{1b}'));
+    std::fs::remove_dir_all(dir).unwrap();
+}

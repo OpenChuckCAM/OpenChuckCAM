@@ -535,6 +535,16 @@ impl PostProcessor for TemplatePost {
                 _ => {}
             }
         }
+        // The program's own comment lines (each operation's), as the template is given them: a
+        // wrapped line of one is attributed to the names inside it only.
+        let program_comments: std::collections::BTreeSet<String> = program
+            .steps
+            .iter()
+            .filter_map(|step| match step {
+                Step::Comment { text } => Some(text.clone()),
+                _ => None,
+            })
+            .collect();
         let mut options = d.options.clone();
         if let Some(offset) = &job.work_offset {
             options.work_offset = Some(offset.clone());
@@ -641,12 +651,29 @@ impl PostProcessor for TemplatePost {
         }
         for mark in marks {
             let inner: Vec<char> = mark.inner.chars().collect();
-            let held = sources.iter().find_map(|given| {
-                char_spans(&inner, &given.given)
-                    .into_iter()
-                    .find(|&start| mark.at >= start && mark.at < start + given.given.len())
-                    .map(|start| (given, mark.at - start))
-            });
+            // In an operation comment, only the names it holds; elsewhere, the title, revision and
+            // generator first, so a name that equals another's text is reported for its own line.
+            let in_program_comment = program_comments.contains(&mark.inner);
+            let names = |given: &&Given| {
+                matches!(
+                    given.source,
+                    CommentSource::Operation(_) | CommentSource::Tool(_)
+                )
+            };
+            let held = sources
+                .iter()
+                .filter(|given| names(given) == in_program_comment)
+                .chain(
+                    sources
+                        .iter()
+                        .filter(|given| !in_program_comment && names(given)),
+                )
+                .find_map(|given| {
+                    char_spans(&inner, &given.given)
+                        .into_iter()
+                        .find(|&start| mark.at >= start && mark.at < start + given.given.len())
+                        .map(|start| (given, mark.at - start))
+                });
             let report = match held {
                 Some((given, at)) => GuardedComment {
                     source: given.source.clone(),

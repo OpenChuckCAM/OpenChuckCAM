@@ -624,10 +624,16 @@ const QUOTED_CHARS: usize = 48;
 /// and every control character, quote, backslash and non-ASCII character escaped, so a name
 /// can neither write to a terminal nor end the quote (issue #851, NFR-07).
 fn quoted(text: &str) -> String {
-    let mut out = String::from("\"");
+    format!("\"{}\"", escaped(text, '"'))
+}
+
+/// `text` cut after [`QUOTED_CHARS`] characters (with `...`), with every control character,
+/// `quote`, backslash and non-ASCII character escaped (issue #851, NFR-07).
+fn escaped(text: &str, quote: char) -> String {
+    let mut out = String::new();
     for c in text.chars().take(QUOTED_CHARS) {
         match c {
-            '"' | '\\' => {
+            c if c == quote || c == '\\' => {
                 out.push('\\');
                 out.push(c);
             }
@@ -638,26 +644,24 @@ fn quoted(text: &str) -> String {
     if text.chars().count() > QUOTED_CHARS {
         out.push_str("...");
     }
-    out.push('"');
     out
 }
 
 /// The run's warnings for the texts the post wrote with `_` in front, because they would have
-/// started a comment the controller acts on (issue #851; decision 0681): one per field and
-/// text, naming where it came from, so text put into a shared project or a tool library to
+/// started a comment the controller acts on (issue #851; decision 0681): one per setup, field
+/// and text in the run (`seen` is shared by every file of the run), naming where it came from, so text put into a shared project or a tool library to
 /// command the controller can be seen. The title is split into the project name, the setup
 /// name and the file's label by where the mark went.
 fn guarded_comment_warnings(
     project: &Project,
     setup: &str,
-    label: Option<&str>,
-    grouping: OutputGrouping,
+    label: Option<(&str, OutputGrouping)>,
     job: &PostJob,
     post: &str,
     guarded: &[openchuck_post::GuardedComment],
+    seen: &mut std::collections::BTreeSet<(String, String, String)>,
 ) -> Vec<String> {
     use openchuck_post::CommentSource;
-    let mut seen = std::collections::BTreeSet::new();
     let mut warnings = Vec::new();
     for item in guarded {
         let (field, text) = match &item.source {
@@ -669,7 +673,7 @@ fn guarded_comment_warnings(
                     ("the project name".to_owned(), project.name().to_owned())
                 } else if (setup_start..setup_end).contains(&item.at) {
                     ("the setup name".to_owned(), setup.to_owned())
-                } else if let Some(label) = label.filter(|_| item.at >= setup_end + 3) {
+                } else if let Some((label, grouping)) = label.filter(|_| item.at >= setup_end + 3) {
                     let field = match grouping {
                         OutputGrouping::Tool => "the tool in the file's title",
                         _ => "the operation name",
@@ -691,11 +695,12 @@ fn guarded_comment_warnings(
             }
             CommentSource::Post => ("a comment of the post".to_owned(), item.text.clone()),
         };
-        if seen.insert((field.clone(), text.clone())) {
+        if seen.insert((setup.to_owned(), field.clone(), text.clone())) {
             warnings.push(format!(
-                "setup '{setup}': {field} {} would start a comment with \"{}\", which the \
+                "setup '{}': {field} {} would start a comment with \"{}\", which the \
                  controller of the post '{post}' acts on, so the post wrote \"_\" in front of \
                  it; check where this text came from",
+                escaped(setup, '\''),
                 quoted(&text),
                 item.opening
             ));
@@ -805,6 +810,7 @@ pub(crate) fn post_toolpath(
     let mut reports = Vec::new();
     let mut notes = Vec::new();
     let mut warnings = Vec::new();
+    let mut guarded_seen = std::collections::BTreeSet::new();
     let mut short_blocks = Vec::new();
     let mut posted_toolpath = Toolpath::default();
     let mut file_seconds = BTreeMap::new();
@@ -958,11 +964,11 @@ pub(crate) fn post_toolpath(
         warnings.extend(guarded_comment_warnings(
             project,
             &setup.name,
-            label.as_ref().map(|(title, _)| title.as_str()),
-            grouping,
+            label.as_ref().map(|(title, _)| (title.as_str(), grouping)),
             &job,
             &post.definition().name,
             &output.guarded_comments,
+            &mut guarded_seen,
         ));
         if output.clamped_feeds > 0 {
             notes.push(format!(

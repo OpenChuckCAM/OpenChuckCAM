@@ -1312,6 +1312,24 @@ fn req_gc_10_req_nfr_07_each_guarded_text_is_reported_once_with_its_source() {
         ]
     );
 
+    // The same text as the title and an operation's name (CodeRabbit on #857): a mark inside the
+    // operation comment is the operation's, and the title's own line stays the title's.
+    let mut j = job();
+    j.title = "rough logopen,f".into();
+    j.operation_names
+        .insert("groove (finish)".into(), "rough logopen,f".into());
+    let reported = report(&linuxcnc_limited(20), &j);
+    assert_eq!(
+        reported,
+        vec![guarded(
+            CommentSource::Operation("groove (finish)".into()),
+            "LOGOPEN,",
+            "rough logopen,f",
+            6
+        )],
+        "the title fits one line and is not guarded"
+    );
+
     // A title guarded at its start with another opening later, at a wrap: both places, each
     // counted in the title as the job gave it.
     let mut j = job();
