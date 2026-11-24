@@ -129,6 +129,14 @@ pub enum AppError {
     /// The job stopped without a result.
     #[error("the job '{0}' stopped without a result")]
     JobLost(String),
+    /// A step asked for that the undo history does not have (UI-22).
+    #[error("there is no step {step} in the undo history; it has {last}")]
+    NoHistoryStep {
+        /// The step asked for.
+        step: usize,
+        /// The last step there is.
+        last: usize,
+    },
 }
 
 impl AppError {

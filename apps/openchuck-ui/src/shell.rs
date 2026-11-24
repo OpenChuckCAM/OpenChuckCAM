@@ -56,6 +56,7 @@ mod actions;
 mod checkpoints;
 mod dock;
 mod frame;
+mod history;
 mod inspector;
 pub(crate) mod marks;
 mod out_of_date;
@@ -68,6 +69,8 @@ mod tree;
 mod adaptive_tests;
 #[cfg(test)]
 mod checkpoint_tests;
+#[cfg(test)]
+mod history_tests;
 #[cfg(test)]
 mod open_recovery_tests;
 #[cfg(test)]
@@ -86,6 +89,8 @@ const UNDO: KeyboardShortcut = KeyboardShortcut::new(Modifiers::COMMAND, Key::Z)
 const REDO: KeyboardShortcut =
     KeyboardShortcut::new(Modifiers::COMMAND.plus(Modifiers::SHIFT), Key::Z);
 const REDO_ALT: KeyboardShortcut = KeyboardShortcut::new(Modifiers::COMMAND, Key::Y);
+/// The undo history (UI-22; specification section 16).
+const HISTORY: KeyboardShortcut = KeyboardShortcut::new(Modifiers::COMMAND, Key::H);
 const NEW: KeyboardShortcut = KeyboardShortcut::new(Modifiers::COMMAND, Key::N);
 const OPEN: KeyboardShortcut = KeyboardShortcut::new(Modifiers::COMMAND, Key::O);
 const IMPORT: KeyboardShortcut = KeyboardShortcut::new(Modifiers::COMMAND, Key::I);
@@ -206,6 +211,14 @@ pub struct Shell {
     /// The recent project chosen in this frame, so the action log can leave
     /// its folder name out (NFR-18).
     recent_clicked: Option<std::path::PathBuf>,
+    /// Whether the undo history popover is open (UI-22).
+    history_open: bool,
+    /// Whether the popover's current row takes the keyboard when it is next
+    /// drawn: it was opened with Ctrl H.
+    history_focus: bool,
+    /// The history row chosen in this frame, so the action log can leave its
+    /// text, which may hold a value, out (NFR-18).
+    history_clicked: Option<String>,
     /// The running check of which recent folders exist, and when it last
     /// started (the check is off the UI thread; issue 381).
     recent_check: Option<RecentCheck>,
@@ -371,6 +384,9 @@ impl Shell {
             edit_context: None,
             open_hint: None,
             recent_clicked: None,
+            history_open: false,
+            history_focus: false,
+            history_clicked: None,
             recent_check: None,
             recent_checked_at: None,
             #[cfg(test)]
@@ -1226,6 +1242,14 @@ impl Shell {
         }
         if redo {
             self.redo();
+        }
+        if self.app.is_some() && ctx.input_mut(|i| i.consume_shortcut(&HISTORY)) {
+            self.history_open = !self.history_open;
+            self.history_focus = self.history_open;
+        }
+        // Esc closes the history first, before it would cancel a job.
+        if self.history_open && ctx.input_mut(|i| i.consume_key(Modifiers::NONE, Key::Escape)) {
+            self.history_open = false;
         }
         let (new, open, import, export) = ctx.input_mut(|i| {
             (

@@ -23,6 +23,7 @@ A disabled button is not in the <kbd>Tab</kbd> order. Hold the mouse over it to 
 | <kbd>Ctrl</kbd>+<kbd>E</kbd> | Post and export |
 | <kbd>Ctrl</kbd>+<kbd>Z</kbd> | Undo |
 | <kbd>Ctrl</kbd>+<kbd>Y</kbd>, <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>Z</kbd> | Redo |
+| <kbd>Ctrl</kbd>+<kbd>H</kbd> | Open or close the undo history |
 | <kbd>Alt</kbd>+<kbd>1</kbd> to <kbd>Alt</kbd>+<kbd>4</kbd> | The four steps: Model, Setup, Operations, Simulate |
 | <kbd>Alt</kbd>+<kbd>5</kbd> | Post and export (as <kbd>Ctrl</kbd>+<kbd>E</kbd>) |
 | <kbd>Ctrl</kbd>+<kbd>1</kbd>, <kbd>Ctrl</kbd>+<kbd>2</kbd>, <kbd>Ctrl</kbd>+<kbd>3</kbd> | Collapse the project panel, the inspector, the dock |

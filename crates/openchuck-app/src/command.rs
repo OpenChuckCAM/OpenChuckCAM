@@ -5,7 +5,10 @@
 //! inverse, the command that puts the project back exactly as it was, and the
 //! history keeps those inverses. Undo applies the latest inverse and keeps the
 //! inverse of that for redo. A new command clears the redo list. The history
-//! is linear and unbounded.
+//! is linear and unbounded. Each step keeps its name and time, so the
+//! history can be listed and any step returned to (UI-22).
+
+use std::time::Instant;
 
 use openchuck_project::id::{ModelId, OperationId, SetupId};
 use openchuck_project::{
@@ -334,22 +337,38 @@ fn model_ref(project: &Project, model: ModelId) -> Result<ModelRef, AppError> {
         })
 }
 
-/// The undo and redo lists.
+/// One step of the undo history: the command that reverses it (or, once
+/// undone, re-applies it), the step's name in the user's words and when it
+/// was first made (UI-22).
+#[derive(Debug, Clone)]
+struct Step {
+    command: Command,
+    label: String,
+    at: Instant,
+}
+
+/// The undo and redo lists. Each step keeps its name and time while it
+/// moves between them, so the history can be listed (UI-22).
 #[derive(Debug, Clone, Default)]
 pub(crate) struct History {
-    undo: Vec<Command>,
-    redo: Vec<Command>,
+    undo: Vec<Step>,
+    redo: Vec<Step>,
 }
 
 impl History {
-    /// Applies a new command and records its inverse.
+    /// Applies a new command, named `label`, and records its inverse.
     pub(crate) fn execute(
         &mut self,
         project: &mut Project,
         command: Command,
+        label: String,
     ) -> Result<(), AppError> {
         let inverse = command.apply(project)?;
-        self.undo.push(inverse);
+        self.undo.push(Step {
+            command: inverse,
+            label,
+            at: Instant::now(),
+        });
         self.redo.clear();
         Ok(())
     }
@@ -366,12 +385,12 @@ impl History {
 
     /// The command undo would apply next.
     pub(crate) fn next_undo(&self) -> Option<&Command> {
-        self.undo.last()
+        self.undo.last().map(|s| &s.command)
     }
 
     /// The command redo would apply next.
     pub(crate) fn next_redo(&self) -> Option<&Command> {
-        self.redo.last()
+        self.redo.last().map(|s| &s.command)
     }
 
     pub(crate) fn can_undo(&self) -> bool {
@@ -382,23 +401,49 @@ impl History {
         !self.redo.is_empty()
     }
 
+    /// How many steps are applied: 0 is the project as opened.
+    pub(crate) fn position(&self) -> usize {
+        self.undo.len()
+    }
+
+    /// How many steps there are, applied and undone.
+    pub(crate) fn len(&self) -> usize {
+        self.undo.len() + self.redo.len()
+    }
+
+    /// Every step, oldest first, with whether it is undone.
+    pub(crate) fn steps(&self) -> impl Iterator<Item = (&str, Instant, bool)> {
+        self.undo
+            .iter()
+            .map(|s| (s.label.as_str(), s.at, false))
+            .chain(
+                self.redo
+                    .iter()
+                    .rev()
+                    .map(|s| (s.label.as_str(), s.at, true)),
+            )
+    }
+
     fn step(
         project: &mut Project,
-        from: &mut Vec<Command>,
-        to: &mut Vec<Command>,
+        from: &mut Vec<Step>,
+        to: &mut Vec<Step>,
     ) -> Result<bool, AppError> {
-        let Some(command) = from.pop() else {
+        let Some(step) = from.pop() else {
             return Ok(false);
         };
         // An inverse always applies to the state it was recorded against. If it
         // ever fails, keep it so the history stays consistent with the project.
-        match command.clone().apply(project) {
+        match step.command.clone().apply(project) {
             Ok(inverse) => {
-                to.push(inverse);
+                to.push(Step {
+                    command: inverse,
+                    ..step
+                });
                 Ok(true)
             }
             Err(e) => {
-                from.push(command);
+                from.push(step);
                 Err(e)
             }
         }
