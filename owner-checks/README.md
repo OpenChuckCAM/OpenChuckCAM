@@ -20,7 +20,7 @@ This branch (`owner-checks/packs`) is **not merged**. It was cut from `main` at 
 
 **Not packed:** #577, #578 and #580 (keyboard focus, tooltips on focus, tool windows taking the keyboard; [decision 0677](../docs/decisions/0677-keyboard-focus-tooltips-and-tool-windows.md)). The owner closed them on 23 Nov 2026.
 
-**Other issues awaiting the owner's feedback:** on 24 Nov 2026 the only open issue labelled `awaiting-fix-feedback` was #801.
+**Issues labelled `awaiting-fix-feedback`** (25 Nov 2026): #801, #791 and #632. #705 and #789 move to that label when their pull requests (#904, #898) merge, as will #706 when its pull request does. #693 (OI-992) and OI-2152 are open items for the owner's machine checks, not fix feedback.
 
 ## Folder layout
 
