@@ -434,8 +434,11 @@ impl Placement<'_> {
             // The last place it rests is where its side just touches what
             // stopped it, such as a wall: there a drop can read the touch
             // either way, on the floor or on the wall's top (issue #632). It
-            // rests a little back from it instead.
-            good -= towards * self.clearance;
+            // rests a little back from it instead, never further back than
+            // the lowest place `u` it set out from, where the walk towards
+            // the crease began: the tool is never moved past that onto a side
+            // that rises (CodeRabbit on pull request #856).
+            good -= towards * self.clearance.min((good - u).abs());
         }
         self.placed_on(&self.line(&site, good), a)
     }
