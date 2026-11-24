@@ -586,4 +586,34 @@ mod forget_tests {
         forget(&config, missing).unwrap();
         std::fs::remove_dir_all(&root).unwrap();
     }
+
+    /// A folder that still holds that project's recovery data is not
+    /// forgotten: its kept changes are recovered or discarded by opening the
+    /// project (decision record UI-BUGS-B item 2; issue #681).
+    #[test]
+    fn req_prj_08_a_folder_that_still_holds_its_recovery_is_not_forgotten() {
+        let root = std::env::temp_dir().join(format!("openchuck-keep-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        let config = root.join("config");
+        let folder = root.join("project");
+        std::fs::create_dir_all(&folder).unwrap();
+        let id = Store::open(&folder)
+            .unwrap()
+            .metadata(openchuck_project::recovery::Kind::Periodic, 0, 0)
+            .project_id;
+        register(&config, &folder, &id).unwrap();
+        let found = discover(&config);
+        let line = found
+            .projects
+            .iter()
+            .find(|c| c.project_id == id)
+            .expect("the project is listed");
+        let refused = forget(&config, line).unwrap_err();
+        assert!(
+            refused.contains("still holds this project's recovery data"),
+            "{refused}"
+        );
+        assert_eq!(discover(&config).projects.len(), 1, "the note stays");
+        std::fs::remove_dir_all(&root).unwrap();
+    }
 }

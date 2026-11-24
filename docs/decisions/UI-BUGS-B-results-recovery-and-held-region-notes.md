@@ -53,4 +53,44 @@ Asked on 23 and 24 Nov 2026 and answered on 24 Nov 2026, relayed by the coordina
 
 ## Verification
 
-To be completed before the pull request is marked ready. Tests written first from the issues and the owner's answers, each seen to fail on `main` first, are listed in the pull request and copied here when it is released.
+Linux container, 4 cores; tests run uninstrumented with `cargo nextest`, on the branch rebased on `main` `aa99eab`. The commit is the pull request's head.
+
+**Tests written first from the issues and the owner's answers** (times from the full run):
+
+| Test | What it checks | Seen to fail first | Time |
+| --- | --- | --- | --- |
+| `shell::results_tab_tests::req_ui_12_req_nfr_12_a_refused_generate_shows_only_the_refusal` | item 1 (#766): after a refused Generate, Results shows the refusal, no summary, no "has changed" line, a count of 1 | yes, on `main` | 2.5 s |
+| `shell::open_recovery_tests::req_prj_08_a_deleted_projects_recovery_line_can_be_forgotten` | item 2 (#681): the Locate dialog's Forget this project removes the line for good | yes, on `main` | 0.3 s |
+| `checkpoints::forget_tests::req_prj_08_forgetting_a_deleted_projects_recovery_removes_only_its_note` | item 2: only this computer's note goes; another project's stays; forgetting twice changes nothing | written with `forget` | 0.01 s |
+| `checkpoints::forget_tests::req_prj_08_a_folder_that_still_holds_its_recovery_is_not_forgotten` | item 2: a folder that still holds the project's recovery data is refused | yes, with the check removed | 0.01 s |
+| `strategy::tests::req_set_09_a_pass_is_cut_short_where_it_would_reach_over_a_held_region` and `req_set_09_messages_name_the_held_region_by_its_end_of_the_stock` (openchuck-path) | item 3 (#774): the note is information, with 0.500 mm and the pointer to the setup | yes (they asserted the old warning) | 0.01 s |
+| `workholding_view::req_set_09_req_ui_25_the_held_regions_say_where_the_tools_keep_clear` (openchuck-app) | item 4: "to X …" and "from X …" from the widest tool's reach and 0.500 mm | written with `kept_clear` | 0.02 s |
+| `workholding_panel::tests::req_set_09_req_ui_25_a_held_region_says_where_the_tools_keep_clear` | item 4: the Kept clear row and the approved note in the section | yes, on `main` | 0.3 s |
+| `shell::results_tab_tests::req_ui_12_req_sim_01_hiding_a_path_does_not_mark_the_run_changed`, `export_dialog::req_gc_15_req_sim_01_hiding_a_path_after_a_run_does_not_refuse_writing`, `export_panel::write_feedback_tests::req_gc_15_req_sim_01_write_after_hiding_a_path_writes_the_files` | item 5 (#607, #874): hiding a path neither marks the run changed nor refuses Write G-code | written first | 2.6 s, 2.1 s, 0.6 s |
+| `workholding_panel::tests::req_ui_25_req_set_09_the_zone_lines_follow_the_draft_before_apply` | item 6 (#767) | written first | 0.3 s |
+| `shell::inspector_layout_tests::req_ui_07_req_ui_16_the_avoid_choice_row_wraps_inside_the_value_column` | item 7 (#609): no wrapped line starts left of the value column | written first | 0.6 s |
+| `setup::short_block_tests::req_set_01_req_set_10_profile_comparison_names_the_rotary_reference_coordinate` | item 8 (#824) | written first | 0.03 s |
+
+**Existing tests changed to the owner's answers**, each because it encoded the old behaviour:
+- #766: `run_panel::tests::req_ui_12_the_label_count_is_warnings_and_errors_with_a_group_once` (a failed run counts its refusal alone), `req_ui_09_req_nfr_04_the_results_tab_groups_the_notes_once_per_run_and_change` (no grouping after a failed run) and `req_ui_12_req_nfr_12_the_results_tab_shows_the_run_and_project_as_they_are` (the earlier run's lines are not copied after a failure).
+- #607: `export_panel::preview_tests::req_gc_15_a_preview_refused_for_a_changed_project_is_made_again_when_it_is_back` became `req_gc_15_req_gc_07_the_stock_simulation_switch_does_not_refuse_the_preview`. The switch changes no G-code, so the preview is keyed on `same_output`, as writing is.
+- #774: the held-region tests in `openchuck-path` (`facing_validation`, `helical_faces`) and `openchuck-app` (`held_region`) expect the note as information.
+
+**Suites:** `openchuck-ui`, `openchuck-app`, `openchuck-path`, `openchuck-cli` and `openchuck-project`: 2908 tests, all passing after the changes above (3333 s in all on 4 cores; no new test over 3 s). `cargo fmt`, `cargo clippy --workspace --all-targets` (clean) and `cargo xtask deps`, `licences`, `records` and `trace` pass.
+
+**Coverage** (local, `cargo llvm-cov nextest --profile coverage` on the tests of the changed areas, 328 tests). Of the changed lines, those not run are:
+- the Locate dialog's display of a refused Forget (`shell/checkpoints.rs`), whose rule `forget` is tested in `openchuck-app`;
+- `forget`'s error for a note that cannot be removed for another reason than not being there (NFR-07);
+- the Geometry section's indented rows (#609) for boundary options, refusals and reach notes, which the geometry tests of `shell::frame_tests` run, outside this run's filter.
+
+**The real application:** the command line on a copy of the public baluster project (`testdata/examples/baluster/baluster-project`) prints the note as `note: Held region (operation 'Finish'): no part of the tool comes within 0.500 mm of the held region at the start of the stock, …`, and it is no longer in the checks before writing. The guide's screenshots were captured again from the release build (Xvfb, Mesa lavapipe, 1920 by 1080): the tutorial, the tabs and held regions example, the flute-length example and the simultaneous example. Each one's `CAPTURED.toml` names its commit. In them:
+- the tutorial's 2 Finish shows a green dot, with two warnings left;
+- the Workholding section shows Kept clear ("Depends on the tools" before tools are added, then "to X 15.078 mm" in the tabs example);
+- the head zone reads "no room for a tab" before Apply (#767);
+- the simultaneous example's figure 6 shows the refusal alone (#766).
+
+Two capture scripts were fixed: the tabs example's Grip length position below the new row, and the simultaneous example's Add at its decision-0677 place. The user guide builds with mdBook 0.5.4, and `user-docs/tools/check.py --screens strict` reports 0 errors and 0 warnings.
+
+**Not verified here:** Windows and macOS (the change is not platform-specific); a screen reader (OI-2110).
+
+**Open items:** OI-9984 (the owner's acceptance of this record).
