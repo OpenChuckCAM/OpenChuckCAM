@@ -2796,3 +2796,60 @@ fn req_op_28_follow_the_outline_needs_no_guide() {
         assert!((q.y.hypot(q.z) - 10.0).abs() < 0.01, "{q:?}");
     }
 }
+
+#[test]
+fn req_op_28_following_the_outline_spaces_offsets_along_a_curved_face() {
+    // CodeRabbit on #854: the offsets are the stepover apart measured along
+    // the face, not in a straight line through the part. A sector of a
+    // cylinder of radius 10 mm, a third of a turn round and 40 mm long: far
+    // from its straight sides, a straight-line measure puts the offsets about
+    // a tenth further apart than the stepover along the face.
+    let (radius, length, span) = (10.0, 40.0, std::f64::consts::TAU / 3.0);
+    let point = move |u: f64, v: f64| p3(v, radius * u.cos(), radius * u.sin());
+    let mut b = Builder::default();
+    let edges = vec![
+        b.edge(&[0], &|t| point(span * t, 0.0), false),
+        b.edge(&[0], &|t| point(span, length * t), true),
+        b.edge(&[0], &|t| point(span * (1.0 - t), length), false),
+        b.edge(&[0], &|t| point(0.0, length * (1.0 - t)), true),
+    ];
+    b.face(
+        Surface::Cylinder {
+            frame: about_x(),
+            radius,
+        },
+        [0.0, span, 0.0, length],
+        None,
+        edges,
+        &point,
+        &|_, _| true,
+        false,
+    );
+    let rig = Rig::new(b.model, &ball(1.0));
+    let stepover = 1.0;
+    let passes = rig.passes(
+        &[0],
+        &[],
+        &values(stepover, &[(p::PATTERN, text(p::OUTLINE))]),
+    );
+    // Along the middle of the sector's length, each pass crosses the angle
+    // round the face; the arc between neighbouring crossings on one side is
+    // the spacing along the face.
+    let mut angles: Vec<f64> = passes
+        .iter()
+        .flat_map(contacts)
+        .filter(|q| (q.x - 0.5 * length).abs() < 10.0)
+        .map(|q| q.z.atan2(q.y))
+        .filter(|a| *a < 0.5 * span - 0.05)
+        .collect();
+    angles.sort_by(f64::total_cmp);
+    angles.dedup_by(|a, b| (*a - *b).abs() * radius < 0.2);
+    assert!(angles.len() >= 6, "{angles:?}");
+    for w in angles.windows(2) {
+        let along = (w[1] - w[0]) * radius;
+        assert!(
+            along <= stepover * 1.05 + 0.02,
+            "{along} mm apart along the face: {angles:?}"
+        );
+    }
+}

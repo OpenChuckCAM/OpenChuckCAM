@@ -32,6 +32,27 @@ use openchuck_types::geometry::{Point3, Vec3};
 use openchuck_types::job::JobContext;
 use openchuck_types::tool::profile::RevolvedProfile;
 
+/// A grid point's neighbours for the distance along the face: the eight
+/// round it and the knight's moves.
+const NEIGHBOURS: [(isize, isize); 16] = [
+    (-1, 0),
+    (1, 0),
+    (0, -1),
+    (0, 1),
+    (-1, -1),
+    (1, -1),
+    (-1, 1),
+    (1, 1),
+    (-2, -1),
+    (-2, 1),
+    (2, -1),
+    (2, 1),
+    (-1, -2),
+    (1, -2),
+    (-1, 2),
+    (1, 2),
+];
+
 /// The grid's spacing as a share of the stepover, and its bounds in
 /// millimetres.
 const GRID_SHARE: f64 = 0.25;
@@ -451,26 +472,23 @@ fn grid(
         }
         let (i, j) = ((node % ni) as isize, (node / ni) as isize);
         let from = seed.get(node).copied().unwrap_or(usize::MAX);
-        let Some(q) = samples.get(from).copied() else {
+        let Some(here) = g.points.get(node).copied().flatten() else {
             continue;
         };
-        for (di, dj) in [
-            (-1, 0),
-            (1, 0),
-            (0, -1),
-            (0, 1),
-            (-1, -1),
-            (1, -1),
-            (-1, 1),
-            (1, 1),
-        ] {
+        // The distance along the face: the shortest path through the grid's
+        // points on the part, to sixteen neighbours (the eight round it and
+        // the knight's moves), so a straight line across the face in any
+        // direction is followed to within three per cent and never measured
+        // shorter than along the face (CodeRabbit on #854: a straight line
+        // through the part put offsets on a curved face too far apart).
+        for (di, dj) in NEIGHBOURS {
             let Some(nb) = g.at(i + di, j + dj) else {
                 continue;
             };
             let Some(p) = g.points.get(nb).copied().flatten() else {
                 continue;
             };
-            let candidate = p.distance(q);
+            let candidate = d + p.distance(here);
             if let Some(slot) = g.distance.get_mut(nb)
                 && candidate < *slot - 1e-12
             {
