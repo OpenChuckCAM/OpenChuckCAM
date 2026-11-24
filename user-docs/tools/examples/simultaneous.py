@@ -26,11 +26,11 @@ def run(cap, work):
     cap.shot("01-setup")                       # the project opens on the Setup step
     cap.click(300, 54, 2)                      # 3 Operations
     add_operation(cap, "Rough", 580)           # Rotary roughing, Z1 O-flute 3.175x25
-    cap.click(707, 785, 3)                     # Add
+    cap.click(1210, 785, 3)                    # Add (bottom right, decision 0677)
     cap.fill(1810, 983, "1")                   # Stepdown
     add_operation(cap, "Finish", 612, strategy_row=620)   # Simultaneous 4-axis finishing, Z1 ball
     cap.shot("02-add-simultaneous")
-    cap.click(707, 785, 3)                     # Add
+    cap.click(1210, 785, 3)                    # Add (bottom right, decision 0677)
     cap.click(90, 550, 1)                      # hide 1 Rough's path, before generating (#607)
     cap.click(1855, 1057, GENERATE)            # Generate
     cap.click(1640, 695, 1)                    # fold TOOL AND FEEDS: its feed-limit note is under review (#600)
