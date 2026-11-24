@@ -3249,3 +3249,31 @@ fn req_op_07_req_op_12_req_nfr_12_the_reach_past_the_rulings_is_said_after_the_l
         run(|ctx| generate_in_region(&Swarf, &f.input(), &avoid, &values(&[]), ctx)).unwrap();
     assert!(made.warnings().is_empty(), "{:?}", made.warnings());
 }
+
+#[test]
+fn req_op_11_req_op_12_req_nfr_07_a_floor_the_pass_cuts_does_not_excuse_a_lead_out_into_the_end_wall()
+ {
+    // CodeRabbit on #866 (decision record 0682): the depth the pass cuts at
+    // the join is allowed face by face. With a ball, the pass cuts the floor
+    // about a ball radius deep, which must not excuse the lead-out's 2.990 mm
+    // into the end wall, which the pass does not cut.
+    let wall = end_wall(1);
+    let model = joined_models(&[wall.clone(), numbered(floor_model(), 2)]);
+    let neighbours = BrepSurface::new(&model).unwrap();
+    let f = Fixture::brep(&limit_wall(), ball());
+    let lead = [(names::ENTRY, text("lead"))];
+    let err = made_beside(&f, &neighbours, &lead)
+        .expect_err("the lead-out into the end wall is refused")
+        .to_string();
+    assert!(
+        err.contains("the lead-out needs an arc of radius") && err.contains("into face 1,"),
+        "{err}"
+    );
+    // The entries that keep off the wall are made, and cut it no deeper than
+    // the tolerance.
+    for style in ["ramp", "helix"] {
+        let made = made_beside(&f, &neighbours, &[(names::ENTRY, text(style))]).unwrap();
+        let cut = entry_exit_cut(&f.tool, &made.group, &wall);
+        assert!(cut <= TOL + CHECKER_SLACK, "{style}: {cut}");
+    }
+}
