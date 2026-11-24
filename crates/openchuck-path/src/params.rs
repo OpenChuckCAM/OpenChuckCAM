@@ -905,7 +905,7 @@ mod length_or_tool_tests {
     fn req_nfr_07_a_length_or_tool_default_out_of_range_is_refused_by_name() {
         // CodeRabbit on #854: a default is checked as a value is.
         let s = schema(LengthOrTool::Millimetres(-1.0));
-        let e = s.resolve(&BTreeMap::new()).err().expect("refused");
+        let e = s.resolve(&BTreeMap::new()).expect_err("refused");
         assert!(e.to_string().contains("min_length"), "{e}");
         assert!(
             schema(LengthOrTool::ToolDiameter)

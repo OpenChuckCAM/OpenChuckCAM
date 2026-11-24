@@ -3064,6 +3064,11 @@ fn reverse(runs: &mut [Vec<CutPoint>]) {
     }
 }
 
+/// A face's note before the count of its passes that cut: its words before
+/// and after the count, its planned passes, each reaching pass's runs by
+/// their first contact, and whether it follows the outline.
+type NotePlan = (String, usize, Vec<Vec<[u64; 3]>>, String, bool);
+
 fn assemble(
     cuts: Vec<FaceCut>,
     tooling: &Tooling<'_>,
@@ -3078,7 +3083,7 @@ fn assemble(
     // and after the count of passes that cut, its planned passes, and each
     // reaching pass's runs by their first contact, to count the passes that
     // still cut (issue #631; CodeRabbit on #854).
-    let mut plans: Vec<(String, usize, Vec<Vec<[u64; 3]>>, String, bool)> = Vec::new();
+    let mut plans: Vec<NotePlan> = Vec::new();
     let key = |c: &CutPoint| {
         [
             c.contact.x.to_bits(),

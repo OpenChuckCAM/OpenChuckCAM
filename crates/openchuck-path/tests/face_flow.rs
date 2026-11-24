@@ -2664,8 +2664,7 @@ fn req_op_28_req_nfr_07_a_shortest_cut_that_leaves_nothing_is_refused_naming_it(
     );
     let e = rig
         .output(&rig.strategy(&[0], &[]), &v)
-        .err()
-        .expect("every run left out is refused");
+        .expect_err("every run left out is refused");
     let text = e.to_string();
     assert!(text.contains("Shortest cut"), "{text}");
     assert!(!text.contains("cannot reach"), "{text}");
@@ -2687,8 +2686,7 @@ fn req_op_28_req_nfr_07_an_outline_needing_too_many_levels_is_refused() {
     let started = std::time::Instant::now();
     let e = rig
         .output(&rig.strategy(&[0], &[]), &v)
-        .err()
-        .expect("refused");
+        .expect_err("refused");
     assert!(e.to_string().contains("raise the stepover"), "{e}");
     assert!(started.elapsed().as_secs() < 20, "{:?}", started.elapsed());
 }
