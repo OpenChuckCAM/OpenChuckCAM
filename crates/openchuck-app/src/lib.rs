@@ -1602,6 +1602,15 @@ impl Application {
         }
     }
 
+    /// How many times a run has posted G-code, rather than reusing the files
+    /// posted from the same inputs: lets a test show they are reused (issue
+    /// #698).
+    #[doc(hidden)]
+    #[must_use]
+    pub fn posts_made(&self) -> usize {
+        self.cache.posts_made()
+    }
+
     /// The memory playback's checkpoints may hold when they are kept while
     /// simulating, or `None` when they are not.
     pub fn playback_with_generation(&self) -> Option<usize> {

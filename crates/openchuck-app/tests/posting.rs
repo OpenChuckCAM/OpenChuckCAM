@@ -1341,3 +1341,79 @@ fn req_nfr_07_a_guarded_name_warns_once_per_run_with_the_setup_name_escaped() {
     assert!(!warned[0].contains('\u{1b}'));
     std::fs::remove_dir_all(dir).unwrap();
 }
+
+/// Issue #698 (OI-2022): generating again with nothing changed reuses the
+/// posted files instead of posting the whole program again, and posts again
+/// after any change the files depend on: the project (a name the program
+/// writes), the post, a post folder's files on disk and the grouping. The
+/// bytes are those a fresh application posts (GC-07, NFR-04).
+#[test]
+fn req_gc_07_req_nfr_04_posting_again_with_nothing_changed_reuses_the_posted_files() {
+    use openchuck_app::OutputGrouping;
+    let (dir, mut app, op) = project("post-reuse");
+    with_post(&mut app, "makera-z1");
+    let first = app.regenerate().unwrap();
+    assert_eq!(app.posts_made(), 1);
+
+    // Nothing changed: the same files, reports, notes and posted toolpath,
+    // and no post.
+    let again = app.regenerate().unwrap();
+    assert_eq!(app.posts_made(), 1, "the posted files were reused");
+    assert_eq!(again.gcode, first.gcode);
+    assert_eq!(again.reports, first.reports);
+    assert_eq!(again.notes, first.notes);
+    assert_eq!(again.warnings, first.warnings);
+    assert_eq!(again.posted_toolpath, first.posted_toolpath);
+    assert_eq!(again.posted_file_seconds, first.posted_file_seconds);
+
+    // Another grouping posts again.
+    app.set_output_grouping(OutputGrouping::Operation);
+    let by_operation = app.regenerate().unwrap();
+    assert_eq!(app.posts_made(), 2);
+    assert_ne!(by_operation.gcode[0].0, first.gcode[0].0);
+    app.set_output_grouping(OutputGrouping::Setup);
+
+    // A name the program writes posts again, and the program says it.
+    let mut renamed = app.project().operation(op).unwrap().clone();
+    renamed.name = "Finish renamed".into();
+    app.execute(Command::Replace(Item::Operation(renamed)))
+        .unwrap();
+    let after_rename = app.regenerate().unwrap();
+    assert_eq!(app.posts_made(), 3);
+    assert!(after_rename.gcode[0].1.contains("Finish renamed"));
+    assert_eq!(app.regenerate().unwrap().gcode, after_rename.gcode);
+    assert_eq!(app.posts_made(), 3);
+
+    // Another post posts again.
+    with_post(&mut app, "linuxcnc");
+    let linuxcnc = app.regenerate().unwrap();
+    assert_eq!(app.posts_made(), 4);
+    assert!(linuxcnc.gcode[0].0.ends_with(".ngc"));
+
+    // A post folder edited on disk posts again with the new files.
+    let custom = dir.join("custom-post");
+    std::fs::create_dir(&custom).unwrap();
+    let builtin = Path::new(env!("CARGO_MANIFEST_DIR")).join("../openchuck-post/posts/makera-z1");
+    std::fs::copy(builtin.join("post.toml"), custom.join("post.toml")).unwrap();
+    let template = std::fs::read_to_string(builtin.join("main.post")).unwrap();
+    std::fs::write(custom.join("main.post"), &template).unwrap();
+    app.set_post(Some(PostSelection::Folder(custom.clone())));
+    let folder = app.regenerate().unwrap();
+    assert_eq!(app.posts_made(), 5);
+    std::fs::write(custom.join("main.post"), format!("{template}\n(edited)\n")).unwrap();
+    let edited = app.regenerate().unwrap();
+    assert_eq!(app.posts_made(), 6);
+    assert_ne!(edited.gcode, folder.gcode);
+    assert!(edited.gcode[0].1.contains("(edited)"));
+
+    // The bytes reused are those a fresh application posts.
+    with_post(&mut app, "makera-z1");
+    let reused = app.regenerate().unwrap().gcode;
+    let reused_again = app.regenerate().unwrap().gcode;
+    assert_eq!(reused_again, reused);
+    app.save().unwrap();
+    let mut fresh = Application::open(&dir, Threads::Exactly(1)).unwrap();
+    with_post(&mut fresh, "makera-z1");
+    assert_eq!(fresh.regenerate().unwrap().gcode, reused_again);
+    std::fs::remove_dir_all(dir).unwrap();
+}

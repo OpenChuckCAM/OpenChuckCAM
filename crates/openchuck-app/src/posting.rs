@@ -602,6 +602,7 @@ fn split_units(
 }
 
 /// The posted files and their matching verification/reporting data.
+#[derive(Debug, Clone, PartialEq)]
 pub(crate) struct PostedFiles {
     pub files: Vec<(String, String)>,
     pub reports: Vec<GcodeReport>,
@@ -756,9 +757,19 @@ pub(crate) fn post_toolpath(
     grouping: OutputGrouping,
     context: &JobContext<'_>,
 ) -> Result<PostedFiles, AppError> {
+    post_toolpath_with(run, selection.load()?, grouping, context)
+}
+
+/// [`post_toolpath`] with the post already loaded.
+pub(crate) fn post_toolpath_with(
+    run: &crate::Regeneration,
+    definition: openchuck_post::PostDefinition,
+    grouping: OutputGrouping,
+    context: &JobContext<'_>,
+) -> Result<PostedFiles, AppError> {
     let project = &run.project;
     let toolpath = &run.canonical_toolpath;
-    let post = TemplatePost::new(selection.load()?);
+    let post = TemplatePost::new(definition);
     if toolpath.groups.is_empty() {
         return Ok(PostedFiles {
             files: Vec::new(),

@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased (SIM-UX-C; issue #698; record SIM-UX-C, proposed)
+
+- **Changed:** a run with a post reuses the files posted by an earlier run when every operation's cache key, the project, the post as loaded (a post folder is read again each run), the grouping and the cache's generation are equal; the files, reports, notes, warnings, posted toolpath and times are the same. The last posted files are kept in memory with the pipeline cache and dropped when it is cleared. `Application::posts_made` (hidden) counts the posts made, for tests.
+
 ## 0.63.0 (FACEFLOW; issues #791, #631, #614, #615 and #854; decisions 0675, 0676 and 0686, accepted)
 
 - **Changed:** a new face-flow finishing operation is written with Stay down between passes on, Pattern Automatic, Steps between rings Blended (decision 0545's rule, now reaching face flow) and a Shortest cut of its tool's diameter. An operation saved without them keeps its program.

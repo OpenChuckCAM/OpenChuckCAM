@@ -329,6 +329,9 @@ pub(crate) fn regenerate(
         crate::cache::ModelFiles::default()
     };
     let mut previous = None;
+    // Each operation of the run by the key of its result, for reusing the
+    // posted files (issue #698); `None` once one has no key.
+    let mut keys: Option<Vec<(OperationId, crate::cache::Key)>> = caching.then(Vec::new);
     for (i, operation) in operations.iter().enumerate() {
         context.check_cancelled()?;
         // A failure from here to the next operation is this operation's.
@@ -352,6 +355,10 @@ pub(crate) fn regenerate(
         } else {
             None
         };
+        keys = keys.and_then(|mut all| {
+            all.push((operation.id, key?));
+            Some(all)
+        });
         let hit = key.and_then(|k| cache.get(operation.id, k));
         let cached_path = hit.is_some();
         let (path, cached_stock) = if let Some(hit) = hit {
@@ -630,7 +637,29 @@ pub(crate) fn regenerate(
     regeneration.toolpath.validate()?;
     if let Some((selection, grouping)) = post {
         context.check_cancelled()?;
-        let posted = crate::posting::post_toolpath(&regeneration, selection, grouping, context)?;
+        let definition = selection.load()?;
+        // The files posted from exactly these inputs, if they are kept: the
+        // same bytes (GC-07), without posting the whole program again.
+        let key = keys.map(|operations| crate::cache::PostedKey {
+            operations,
+            project: Arc::clone(&regeneration.project),
+            post: definition.clone(),
+            grouping,
+            generation,
+        });
+        let posted = match key.as_ref().and_then(|k| cache.posted(k)) {
+            Some(kept) => Arc::unwrap_or_clone(kept),
+            None => {
+                let posted = crate::posting::post_toolpath_with(
+                    &regeneration,
+                    definition,
+                    grouping,
+                    context,
+                )?;
+                cache.put_posted(key, Arc::new(posted.clone()));
+                posted
+            }
+        };
         regeneration.gcode = posted.files;
         regeneration.reports = posted.reports;
         regeneration.notes.extend(posted.notes);
