@@ -2,6 +2,9 @@
 # Written by user-docs/tools/capture.py. Add reviewed_at = "<commit>" after checking the
 # screens against a later build without re-capturing (user-docs/STYLE.md, Figures).
 captured_at = "de063d4674c5c5e335e7315863465c8c2523fb82"
+# captured_at names this branch's commit before it was rebased on main 19de286 (#856), so it is not in this history.
+# reviewed_at: the screens were checked against the rebased build; #856 changed pencil clean-up and the place of the Exact STEP surface contact row, which these screens (STL parts) do not show.
+reviewed_at = "3de52d8ab2d0efc701df9102ef4cfb4e1d7767cf"
 captured_on = "2026-11-24"
 renderer = "Mesa lavapipe (software Vulkan) on Xvfb"
 window = "1920x1080"
