@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.61.0
+
+- **Family release (0.61.0; SWARF-LEADS; issues #572 and #624; decisions 0682 and 0683, accepted):** `openchuck-path` changes output (a swarf lead or helix that would cut a face next to the face set deeper than the pass is refused; swarf's note gives the reach past the rulings after the lift); no public API change and no change to this crate.
+
+## 0.60.0
+
+- **Family release (0.60.0; POST-COMMENTS; issue #851; decision 0681, accepted):** `openchuck-post`'s `PostOptions` gains the public field `active_comment_prefixes` and `PostOutput` the public field `guarded_comments`, a breaking change; no change to this crate.
+
+## 0.59.0
+
+- **Family release (0.59.0; lane Z1-SETUP, PR 2; issue #692; decision 0673):** `openchuck-types`'s `Tool` gains the public field `stick_out`, a breaking change; no change to this crate.
+
 ## 0.56.0
 
 - **Breaking (0.56.0, POST-SAFETY; issue #703; OI-933; decision 0656, accepted):** `line_length_check(source, max_chars)` returns a `FindingKind::LineTooLong` finding for each line longer than `max_chars` characters (the line end not counted), naming the line and both lengths (GC-08). A `match` on `FindingKind` adds the variant.

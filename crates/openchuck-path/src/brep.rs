@@ -54,6 +54,7 @@
 
 mod bound;
 mod drop;
+mod enclosure;
 mod hull;
 mod outline;
 #[cfg(test)]
@@ -61,6 +62,7 @@ mod tests;
 mod trim;
 
 pub use drop::DROP_TOLERANCE;
+pub use enclosure::{ANALYTIC_EXCESS, Enclosure, SPLINE_TARGET, enclose};
 
 use std::borrow::Cow;
 use std::cmp::Ordering;

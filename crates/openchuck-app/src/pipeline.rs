@@ -96,10 +96,11 @@ pub struct GroupInfo {
     pub unreached: std::sync::Arc<[openchuck_path::Unreached]>,
     /// Facing inputs captured with this generation, shared with its cache.
     pub facing: Option<crate::facing::FacingVerification>,
-    /// The rapid moves of the group the run's stock simulation found
-    /// removing material, as (move, mm³): a possible collision (decision
-    /// record 0538). Empty when the run did not simulate the stock.
-    pub rapid_cuts: Vec<(usize, f64)>,
+    /// The rapid moves of the group the run's stock simulation found going
+    /// deeper into the stock than one cell: a possible collision (decision
+    /// records 0538 and 0661). Rapids no deeper are notes of the run. Empty
+    /// when the run did not simulate the stock.
+    pub rapid_cuts: Vec<openchuck_sim::RapidCut>,
 }
 
 /// The result of regenerating a project.
@@ -481,20 +482,27 @@ pub(crate) fn regenerate(
                     }
                 }
             }
-            rapid_cuts = index
+            // A rapid no deeper than one cell is within what the simulation
+            // resolves: a note, with its depth; deeper, a warning (decision
+            // record 0661, option C).
+            let (deeper, within): (Vec<_>, Vec<_>) = index
                 .and_then(|at| setups.get(at))
                 .map(|s| s.last_rapid_cuts())
                 .unwrap_or_default()
                 .iter()
-                .map(|cut| (cut.segment, cut.volume))
-                .collect();
-            for &(segment, volume) in &rapid_cuts {
-                regeneration.warnings.push(crate::export::rapid_cut_text(
-                    &operation.name,
-                    segment,
-                    volume,
-                ));
+                .cloned()
+                .partition(openchuck_sim::RapidCut::deeper_than_cell);
+            for cut in &deeper {
+                regeneration
+                    .warnings
+                    .push(crate::export::rapid_cut_text(&operation.name, cut));
             }
+            for cut in &within {
+                regeneration
+                    .notes
+                    .push(crate::export::rapid_contact_text(&operation.name, cut));
+            }
+            rapid_cuts = deeper;
         }
         regeneration
             .canonical_toolpath

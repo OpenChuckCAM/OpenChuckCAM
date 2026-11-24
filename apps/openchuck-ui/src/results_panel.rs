@@ -9,6 +9,7 @@
 //! The numbers come from [`summarise`], a plain function over the run, so they
 //! are tested without a window.
 
+use crate::focus::Tip as _;
 use std::sync::Arc;
 
 use eframe::egui::{self, Color32, RichText, Sense, Stroke, Vec2};
@@ -597,7 +598,7 @@ pub fn summarise(run: &Regeneration) -> Vec<SetupResults> {
                         name: o.operation.clone(),
                         moves: o.moves,
                         removed: o.removed_volume,
-                        rapid_cuts: o.rapid_cuts.len(),
+                        rapid_cuts: o.rapid_cuts.iter().filter(|c| c.deeper_than_cell()).count(),
                     })
                     .collect(),
             )
@@ -758,7 +759,7 @@ impl ResultsPanel {
             }
             if ui
                 .add_enabled(self.filter.hides_any(), egui::Button::new("Show all"))
-                .on_hover_text("Tick every band and clear the range")
+                .tip("Tick every band and clear the range")
                 .clicked()
             {
                 self.show_all();
@@ -1085,7 +1086,7 @@ fn histogram_rows(ui: &mut egui::Ui, r: &SetupResults, filter: &mut BandFilter) 
                     ui.spacing_mut().icon_spacing = 2.0;
                     let response = ui.checkbox(&mut show, label);
                     ui.spacing_mut().icon_spacing = tick;
-                    let response = response.on_hover_text(match shown {
+                    let response = response.tip(match shown {
                         Shown::All => "Shown on the part; untick to hide this band's deviation",
                         Shown::Part => "Partly outside the range shown",
                         Shown::Hidden => "Hidden on the part",
@@ -1144,7 +1145,7 @@ fn histogram_rows(ui: &mut egui::Ui, r: &SetupResults, filter: &mut BandFilter) 
         let mut show = !filter.hide_unreachable;
         if ui
             .checkbox(&mut show, "Show unreachable (enclosed)")
-            .on_hover_text(
+            .tip(
                 "Material no tool on this machine can reach: closed off from the outside across \
                  the rotary axis. Untick to show the part's own colour there.",
             )

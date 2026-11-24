@@ -132,6 +132,7 @@ fn model_project(name: &str, stl: &str) -> (PathBuf, Application, OperationId, S
             flute_count: 2,
             material: None,
             centre_cutting: None,
+            stick_out: None,
         },
         controller: ControllerMapping {
             number: 1,
@@ -276,6 +277,7 @@ pub fn dovetail_project(name: &str) -> (PathBuf, Application, OperationId, Setup
             flute_count: 2,
             material: None,
             centre_cutting: None,
+            stick_out: None,
         },
         controller: ControllerMapping {
             number: 1,

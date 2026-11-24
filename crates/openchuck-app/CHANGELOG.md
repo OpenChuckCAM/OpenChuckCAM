@@ -1,9 +1,28 @@
 # Changelog
 
-## Unreleased (PENCIL-REST; issue #632; decision PENCIL-REST-A, accepted)
+## 0.61.0 (PENCIL-REST; issue #632; decision 0684, accepted; not breaking)
 
 - **Changed:** the Exact STEP surface contact row is in the operation inspector's Advanced section for every strategy that has it (it was in Pattern and tolerance, after Tolerance).
 - **Added, changed output:** pencil clean-up's Shortest cut (`min_length`) starts at the tool's diameter where the operation sets none, in the form (as its default) and when the path is made, as the distance past the stock follows the tool. A saved pencil operation takes it, so stretches of a corner shorter than the tool's diameter, and single points, are no longer cut; the notes say where.
+
+## 0.60.0 (POST-COMMENTS; issue #851; decision 0681, accepted)
+
+- **Added:** when the post writes `_` in front of text from the project because it would have started a comment the controller acts on (LinuxCNC's `MSG,`, `LOGOPEN,` and others), the run has one warning per text and where it came from: the project name, the setup name, the operation name, the name of tool T<n>, the revision, the version line or a comment of the post, with the opening matched and the post's name. The text is quoted, escaped (control characters, quotes, backslashes and non-ASCII) and cut after 48 characters. It is an ordinary run warning (Messages tab, `warning:` on the command line); nothing is saved and nothing needs acknowledging. The setup name in its prefix is escaped the same way, and each warning is said once per setup, field and text in a run, whatever the output grouping.
+
+## Unreleased (FUZZ-NFR07; issue #628; decision 0679, accepted)
+
+- **Changed:** the tool form's Diameter and Shank diameter fields have a maximum of 2000 mm and Flute length and Overall length 1000 mm, the sizes the tool check accepts. No API change.
+
+## 0.58.0 (FACING-STEP; issue #800; decision 0666 option C, accepted)
+
+- **Changed output:** Facing with the End or Box shape, a Part or Part plus tabs extent, or an extent margin now generates on a STEP part, bounding the part from its exact faces (`openchuck_path::enclose`), not its tessellation. The interim refusal before generating (#836) is removed. Each such operation's notes say so, and, where the part has B-spline faces, how far Facing may stop short of an extreme on one, leaving that much more stock.
+- **Changed:** the scene's Facing preview of a STEP part draws from the same bounds.
+- **Refused:** a STEP part with a face that cannot be bounded is refused with the face and what to do.
+- STL parts are unchanged.
+
+## 0.57.0
+
+- **Breaking, changed output (0.57.0; SIM-FINISH, issue #801; decision 0661, accepted, option C):** `GroupInfo::rapid_cuts` holds `openchuck_sim::RapidCut`s, not `(move, mm³)` pairs, and only the rapids that go deeper into the stock than one cell of the simulation: those stay warnings to acknowledge, and read with their depth first ("Rapid cut (operation 'X'): move N is a rapid that goes D mm into the stock, deeper than the simulation's cell of C mm, and removes V mm³ of material"). A rapid no deeper than one cell is a note of the run ("... is a rapid that touches the stock D mm deep, within the simulation's cell of C mm, and removes V mm³ of material"), with nothing to acknowledge. A volume under 0.001 mm³ reads "less than 0.001 mm³", never 0.000.
 
 ## Unreleased (POST-SAFETY, issue #703; decision 0656, accepted)
 

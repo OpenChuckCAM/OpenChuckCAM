@@ -92,6 +92,7 @@ fn sample() -> Project {
                 flute_count: 2,
                 material: None,
                 centre_cutting: None,
+                stick_out: None,
             },
             controller: ControllerMapping::numbered(1),
             cutting_data: Default::default(),
@@ -2277,4 +2278,76 @@ fn req_op_24_req_prj_04_req_gc_07_older_end_facing_operations_keep_their_slice_a
     }
     // A current file keeps what it holds.
     assert_eq!(file::load(&dir).unwrap(), p);
+}
+
+/// A tool's `stick_out` (schema 29) is written only when set, read back
+/// byte for byte, and absent from an older project, whose tools state none
+/// (PRJ-04, TL-02; decision record 0673).
+#[test]
+fn req_prj_04_req_tl_02_stick_out_round_trips_and_older_files_load_without_it() {
+    let base_dir = temp_dir("stick-base");
+    file::save(&sample(), &base_dir).unwrap();
+    let base = read_tree(&base_dir);
+    let tool_text = base.get(TOOL_FILE).unwrap();
+    assert!(
+        !tool_text.contains("stick_out"),
+        "unset is not written: {tool_text}"
+    );
+    let stated = copy_tree_with(&base, "stick-stated", |path, text| {
+        if path == TOOL_FILE {
+            text.replace("flute_count = 2\n", "flute_count = 2\nstick_out = 20.0\n")
+        } else {
+            text.to_owned()
+        }
+    });
+    let loaded = file::load(&stated).unwrap();
+    let tool = loaded.tools().first().unwrap();
+    assert_eq!(tool.tool.stick_out.map(|s| s.0), Some(20.0));
+    let again = temp_dir("stick-resaved");
+    file::save(&loaded, &again).unwrap();
+    assert_eq!(read_tree(&again), read_tree(&stated));
+    let old = copy_tree_with(&base, "stick-schema28", |_, text| {
+        text.replace(&current(), "schema = 28\n")
+    });
+    let loaded = file::load(&old).unwrap();
+    assert_eq!(loaded.tools().first().unwrap().tool.stick_out, None);
+}
+
+/// A `stick_out` in a schema 28 tool file was not written by any version
+/// that knew it, so it is refused naming the file, not guessed at; a bad
+/// value is refused too (NFR-07; decision record 0673).
+#[test]
+fn req_nfr_07_a_bad_or_premature_stick_out_is_refused_naming_the_file() {
+    let base_dir = temp_dir("stick-bad-base");
+    file::save(&sample(), &base_dir).unwrap();
+    let base = read_tree(&base_dir);
+    let add = |value: &'static str, schema: String| {
+        move |path: &str, text: &str| {
+            if path == TOOL_FILE {
+                text.replace(
+                    "flute_count = 2\n",
+                    &format!("flute_count = 2\nstick_out = {value}\n"),
+                )
+                .replace(&current(), &schema)
+            } else {
+                text.to_owned()
+            }
+        }
+    };
+    let bad = copy_tree_with(&base, "stick-text", add("\"long\"", current()));
+    let err = file::load(&bad).unwrap_err().to_string();
+    assert!(
+        err.contains("000000000014") && err.contains("stick_out"),
+        "{err}"
+    );
+    let early = copy_tree_with(
+        &base,
+        "stick-early",
+        add("20.0", "schema = 28\n".to_owned()),
+    );
+    let err = file::load(&early).unwrap_err().to_string();
+    assert!(
+        err.contains("000000000014") && err.contains("stick_out") && err.contains("schema 29"),
+        "{err}"
+    );
 }

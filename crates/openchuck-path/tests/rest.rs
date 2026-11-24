@@ -78,7 +78,7 @@ fn req_op_09_near_finds_a_sample_within_the_reach_and_not_beyond_it() {
 
 #[test]
 fn req_op_09_near_a_segment_finds_material_beside_any_point_of_it() {
-    // Decision record PENCIL-REST-A item 1: pencil asks whether material is
+    // Decision record 0684 item 1: pencil asks whether material is
     // within reach of the tool's axis over its cutting length. A sample is
     // near a segment when it is within the reach (1 mm here) of any point of
     // it, the far end included, and not beyond; a segment of no length is
@@ -274,6 +274,7 @@ fn req_op_09_a_closed_crease_clean_at_its_start_is_not_joined_across_the_gap() {
         flute_count: 2,
         material: None,
         centre_cutting: None,
+        stick_out: None,
     }
     .profile()
     .unwrap();

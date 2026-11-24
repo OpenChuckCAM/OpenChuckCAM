@@ -238,7 +238,7 @@ pub fn parameter_values(
     }
     // Pencil clean-up does not cut a stretch shorter than the tool's
     // diameter where the operation sets no shortest cut (decision record
-    // PENCIL-REST-A item 3): a shorter one is a peck, not a cut along the
+    // 0684 item 3): a shorter one is a peck, not a cut along the
     // corner.
     if operation.strategy == pencil::NAME
         && !values.contains_key(pencil::pencil_parameter::MIN_LENGTH)
@@ -597,9 +597,7 @@ fn generate_unnamed(
     // Swarf reads rulings from exact faces and drilling finds holes in them
     // (decision 0021, OI-96; decision 0174): said before any selection on a
     // mesh is judged.
-    if let Some(reason) =
-        brep_only(project, registry, operation).or_else(|| facing_on_step_part(project, operation))
-    {
+    if let Some(reason) = brep_only(project, registry, operation) {
         return Err(missing(
             operation,
             crate::lead_in::topic::STEP_PART,
@@ -906,18 +904,36 @@ fn generate_unnamed(
     } else {
         None
     };
+    // A STEP part is bounded from its exact faces (decision 0666, option C;
+    // issue #800): the enclosure's points hold every face, so each bound
+    // Facing's checks take of the part is never inside it. An STL's
+    // triangles are the source itself.
+    let enclosure = match (&placed.brep, &facing_geometry) {
+        (Some(brep), Some(_)) => Some(openchuck_path::enclose(brep).map_err(|e| {
+            missing(
+                operation,
+                crate::lead_in::topic::STEP_PART,
+                &format!(
+                    "Facing cannot bound this STEP part from its exact faces ({e}); use the part \
+                     as an STL for this setup"
+                ),
+            )
+        })?),
+        _ => None,
+    };
+    let enclosure_mesh = enclosure.as_ref().map(openchuck_path::Enclosure::mesh);
+    let facing_note = enclosure.as_ref().map(facing_bound_note);
     let facing_setup = facing_geometry.as_ref().map(|(tabs, protected, held)| {
         openchuck_path::facing::plan::FacingSetup {
-            part: mesh,
+            part: enclosure_mesh.as_ref().unwrap_or(mesh),
             stock,
             tool: &snapshot.tool,
             machine,
             tabs,
             protected,
             held: *held,
-            // STL triangles are the source geometry. A STEP tessellation's
-            // nominal deflection alone is not a proved projection bound.
-            projection_error: placed.brep.is_none().then_some(0.0),
+            // No source point lies outside either: zero.
+            projection_error: Some(0.0),
         }
     });
     let analytic = AnalyticStock::from_stock(stock, Some(part_bounds))?;
@@ -1206,7 +1222,10 @@ fn generate_unnamed(
     warnings.extend(leave_notes);
     // On a STEP part, the surface the tool was dropped on (decision 0209
     // item 4.4, OI-830; NFR-12).
-    if placed.brep.is_some()
+    // Facing on a STEP part says which bound it took instead (OP-23).
+    if let Some(note) = facing_note {
+        notes.push(openchuck_path::Notice::information(note).about(openchuck_path::topic::FACING));
+    } else if placed.brep.is_some()
         && let Some(note) = contact_note(
             registry_strategy,
             &operation.strategy,
@@ -1379,6 +1398,39 @@ fn contact_note(
     ))
 }
 
+/// The note on Facing of a STEP part that checks its cut against the part
+/// (decision 0666, option C; OP-23): it bounds the part from its exact faces,
+/// how far outside them a bound can lie, and, for B-spline faces, how far
+/// Facing may stop short of the part's extreme, leaving that much more
+/// stock. Figures are rounded up; they are measured from each face's
+/// surface over its parameter range, and the note says a trimmed face or a
+/// flat face without exact edges can be bounded further out.
+fn facing_bound_note(enclosure: &openchuck_path::Enclosure) -> String {
+    let up = |x: f64| (x * 1e4).ceil() / 1e4;
+    let mut note = format!(
+        "The STEP part is bounded from its exact faces, not its tessellation: a bound may lie \
+         outside the part, never inside it, by at most {:.4} mm from the surface of its planes, \
+         cylinders, cones, spheres and tori",
+        up(openchuck_path::ANALYTIC_EXCESS)
+    );
+    if let Some(spline) = enclosure.spline_excess {
+        note.push_str(&format!(
+            "; its B-spline faces are bounded by their control points, so where the part's \
+             extreme lies on one of them Facing may stop up to {:.4} mm short of its surface",
+            up(spline)
+        ));
+    }
+    // Each face is bounded over its whole parameter range, not only its
+    // trimmed part, and a flat face without exact edges by its parameter
+    // range: the figures above do not cover that (CodeRabbit, PR #843).
+    note.push_str(
+        ". Each face is bounded over the whole of its surface's parameter range, so where the \
+         part's extreme lies on a trimmed face, or on a flat face without exact edges, the bound \
+         can lie further out and Facing may stop further short, leaving more stock",
+    );
+    note
+}
+
 /// The largest stock to leave of `operation`: its own, as stored (none is
 /// 0), or a selection set's, whichever is larger. The tool is grown by it
 /// where it applies.
@@ -1490,30 +1542,6 @@ pub(crate) fn brep_only(
          file",
         strategy.label()
     ))
-}
-
-/// Why Facing that checks its cut against the part cannot run on a STEP
-/// part yet (issue #800; decision 0666). End, Box, a Part or Part
-/// plus tabs extent and an extent margin prove coverage and clearance
-/// against the part, which needs a proved bound of how far the source lies
-/// from the triangles used; a STEP part's tessellation setting alone is not
-/// one (decision 0252 section 4; decision 0211 measured it exceeded). Said
-/// in plain words with what to do instead (NFR-07), before generating.
-const FACING_ON_STEP: &str = "Facing with the End or Box shape, a Part or Part plus tabs \
-     extent, or an extent margin does not work on a STEP part yet: these check the cut against \
-     a proved bound of the part, and a STEP part's tessellation is not one. For now, use the \
-     part as an STL for this setup, or cut the stock to length so its end is flush with the \
-     part's end, or use the Flat or Round shape over the whole stock with no margin";
-
-/// Why `operation` cannot run on its STEP part: Facing in a mode that
-/// checks its cut against the part ([`FACING_ON_STEP`]). `None` for any
-/// other strategy or mode, or a mesh part. Read from the project only, as
-/// [`brep_only`] is, so the overview and the form say it before generation.
-pub(crate) fn facing_on_step_part(project: &Project, operation: &Operation) -> Option<String> {
-    (operation.strategy == openchuck_path::facing::NAME
-        && crate::facing::needs_verification(operation)
-        && on_step_part(project, operation))
-    .then(|| FACING_ON_STEP.to_owned())
 }
 
 /// Why swarf on a STEP part with no face set is refused (decision 0111
@@ -1644,7 +1672,7 @@ fn check_travel_along(
 /// differs from the strategy's schema: edge following on a STEP part takes
 /// the B-rep crease angle (decision 0056); the distance past the stock
 /// follows the tool (decision 0212); pencil clean-up's shortest cut is the
-/// tool's diameter (decision record PENCIL-REST-A item 3).
+/// tool's diameter (decision record 0684 item 3).
 pub(crate) fn default_override(
     project: &Project,
     operation: &Operation,
@@ -2297,6 +2325,7 @@ mod tests {
             flute_count: 2,
             material: None,
             centre_cutting: Some(true),
+            stick_out: None,
         };
         fixture_on(strategy, parameters, brep, built, file, drill, RADIUS)
     }
@@ -2923,6 +2952,7 @@ mod tests {
             flute_count: 2,
             material: None,
             centre_cutting: None,
+            stick_out: None,
         };
         fixture_on(swarf::NAME, &[], brep, Vec::new(), "boss.step", flat, 20.0)
     }
@@ -2944,6 +2974,7 @@ mod tests {
             flute_count: 2,
             material: None,
             centre_cutting: None,
+            stick_out: None,
         };
         let mut f = fixture_on(
             swarf::NAME,
@@ -3083,6 +3114,7 @@ mod tests {
             flute_count: 2,
             material: None,
             centre_cutting: None,
+            stick_out: None,
         };
         let mut f = fixture_on(
             swarf::NAME,
@@ -3337,6 +3369,7 @@ mod tests {
             flute_count: 2,
             material: None,
             centre_cutting: None,
+            stick_out: None,
         };
         let mut f = fixture_on(
             swarf::NAME,
@@ -3428,6 +3461,7 @@ mod tests {
             flute_count: 2,
             material: None,
             centre_cutting: None,
+            stick_out: None,
         };
         fixture_on(strategy, parameters, brep, Vec::new(), file, ball, BAR)
     }
@@ -3998,7 +4032,7 @@ mod tests {
     fn req_op_27_req_ui_07_exact_contact_is_shown_in_advanced_on_a_step_part_only() {
         // Decision 0526: one row, after Tolerance in the schema's order, on a
         // STEP part; a mesh part has no such row. No problem is shown for a
-        // ball end. Decision record PENCIL-REST-A item 4 (the owner's answer
+        // ball end. Decision record 0684 item 4 (the owner's answer
         // of 23 Nov 2026): the row is in Advanced, for every strategy.
         let registry = Registry::builtin();
         let step = bar_fixture(openchuck_path::axial::NAME, "bar.step");
@@ -4018,7 +4052,7 @@ mod tests {
 
     #[test]
     fn req_op_09_req_ui_07_the_shortest_cut_starts_at_the_tools_diameter() {
-        // Decision record PENCIL-REST-A item 3: pencil's Shortest cut is,
+        // Decision record 0684 item 3: pencil's Shortest cut is,
         // where the operation sets none, the tool's diameter, in the form
         // (as its default, in Advanced) and when the path is made; a value
         // the operation sets is kept.
@@ -4073,6 +4107,7 @@ mod tests {
             flute_count: 2,
             material: None,
             centre_cutting: None,
+            stick_out: None,
         };
         fixture_on(
             pencil::NAME,
@@ -4794,6 +4829,7 @@ mod tests {
             flute_count: 2,
             material: None,
             centre_cutting: None,
+            stick_out: None,
         };
         fixture_on(
             face_flow::NAME,
@@ -4842,6 +4878,7 @@ mod tests {
             flute_count: 2,
             material: None,
             centre_cutting: None,
+            stick_out: None,
         };
         let mut f = fixture_on(
             face_flow::NAME,

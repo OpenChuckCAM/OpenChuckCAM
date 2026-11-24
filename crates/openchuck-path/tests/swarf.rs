@@ -63,6 +63,7 @@ fn tool(shape: ToolShape, flute_length: f64) -> RevolvedProfile {
         flute_count: 2,
         material: None,
         centre_cutting: None,
+        stick_out: None,
     }
     .profile()
     .unwrap()
@@ -3051,4 +3052,228 @@ fn req_ui_12_swarf_refusals_carry_their_topic() {
         matches!(&none, openchuck_path::PathError::Refused { topic, .. } if topic == openchuck_path::topic::SWARF),
         "{none:?}"
     );
+}
+
+// ---- entry and exit moves against the faces next to the face set ----------
+// (issue #572; OI-2081)
+
+/// The deepest cut the entry and exit moves (lead, ramp, helix) of `group`
+/// make into the faces of `model`, by the independent checker over the
+/// machine's straight move of each.
+fn entry_exit_cut(tool: &RevolvedProfile, group: &ToolpathGroup, model: &BrepModel) -> f64 {
+    let outline = Outline::new(tool);
+    let points: Vec<Point3> = model
+        .faces
+        .iter()
+        .flat_map(|face| {
+            let one = BrepModel {
+                faces: vec![face.clone()],
+                ..model.clone()
+            };
+            samples(&one, 24, 24, 0.0)
+        })
+        .collect();
+    let mut previous = group.start;
+    let mut deepest = 0.0f64;
+    for s in &group.segments {
+        if matches!(s.kind, MoveKind::LeadIn | MoveKind::LeadOut) {
+            let swept = motion(&[previous, s.end], 8);
+            for p in &points {
+                deepest = deepest.max(-best_clearance(&outline, &swept, *p));
+            }
+        }
+        previous = s.end;
+    }
+    deepest
+}
+
+/// Swarf with `extra` on the limit wall cut beside `neighbours`.
+fn made_beside(
+    f: &Fixture,
+    neighbours: &BrepSurface,
+    extra: &[(&str, ParameterValue)],
+) -> openchuck_path::Result<openchuck_path::GeneratedPath> {
+    let region = RegionConstraint {
+        neighbours: Some(neighbours),
+        ..RegionConstraint::default()
+    };
+    run(|ctx| generate_in_region(&Swarf, &f.input(), &region, &values(extra), ctx))
+}
+
+#[test]
+fn req_op_11_req_op_12_req_nfr_07_a_swarf_lead_out_never_runs_silently_into_an_end_wall() {
+    // Issue #572 (decision record 0682): the pass stops short of the end
+    // wall so the tool just keeps off it (decision record 0532 item 1), and
+    // the lead-out then carried the tool on along the pass into the wall by
+    // about its radius (2.990 mm, or 1.010 mm with a 1 mm lead), with no
+    // warning or refusal, as the entry check saw only the face set. It is
+    // now refused, naming the face; the entries that fit there are made and
+    // keep off the wall.
+    let wall = end_wall(1);
+    let neighbours = BrepSurface::new(&wall).unwrap();
+    for tool in [flat(), ball()] {
+        let f = Fixture::brep(&limit_wall(), tool);
+        for radius in [0.0, 1.0] {
+            let lead = [
+                (names::ENTRY, text("lead")),
+                (names::LEAD_RADIUS, num(radius)),
+            ];
+            let err = made_beside(&f, &neighbours, &lead)
+                .expect_err("the lead-out into the end wall is refused")
+                .to_string();
+            assert!(
+                err.contains("the lead-out needs an arc of radius")
+                    && err.contains(
+                        "into face 1, which shares an edge with the face set, deeper than the \
+                         pass itself cuts it"
+                    ),
+                "{err}"
+            );
+            // Without the faces next to the face set nothing is known of
+            // the wall, and the lead is made as before.
+            assert!(run(|ctx| generate(&Swarf, &f.input(), &values(&lead), ctx)).is_ok());
+        }
+        for style in ["ramp", "helix", "plunge"] {
+            let made = made_beside(&f, &neighbours, &[(names::ENTRY, text(style))]).unwrap();
+            let cut = entry_exit_cut(&f.tool, &made.group, &wall);
+            assert!(cut <= TOL + CHECKER_SLACK, "{style}: {cut}");
+        }
+    }
+}
+
+#[test]
+fn req_op_11_req_op_12_a_ball_on_a_floor_keeps_entries_that_cut_it_no_deeper_than_the_pass() {
+    // Decision record 0682: a ball's straight side starts a ball radius
+    // above its tip, so the pass itself cuts the floor about that deep, and
+    // that cut is measured and warned of (decision record 0532 item 3). The
+    // entries and exits cut the floor no deeper than the pass where they
+    // meet it, so they are kept, as before.
+    let floor = numbered(floor_model(), 2);
+    let neighbours = BrepSurface::new(&floor).unwrap();
+    let f = Fixture::brep(&limit_wall(), ball());
+    for style in ["lead", "ramp", "helix"] {
+        let made = made_beside(&f, &neighbours, &[(names::ENTRY, text(style))]).unwrap();
+        let warning = made
+            .warnings()
+            .into_iter()
+            .find(|w| {
+                w.text
+                    .contains("into face 2, which meets it along the ends of its rulings")
+            })
+            .unwrap_or_else(|| panic!("{style}: {:?}", made.warnings()))
+            .text
+            .clone();
+        let cut = entry_exit_cut(&f.tool, &made.group, &floor);
+        assert!(
+            cut > 1.0 && cut <= TOOL_RADIUS + TOL + CHECKER_SLACK,
+            "{style}: {cut}; {warning}"
+        );
+    }
+}
+
+#[test]
+fn req_op_07_req_op_12_req_nfr_12_the_reach_past_the_rulings_is_said_after_the_lift() {
+    // Issue #624 (decision record 0683): the face's note said how far the
+    // tool's end reaches past the end of the rulings measured before any
+    // lift, so with the floor in an avoid set, the ball lifted clear all
+    // along, it still said the tool cuts into a floor. The sentence is
+    // information, said after the lift; a real cut into a face next to this
+    // one is measured and warned of on its own (decision record 0532).
+    let f = Fixture::brep(&limit_wall(), ball());
+    let floor = BrepSurface::new(&floor_model()).unwrap();
+    let avoid = RegionConstraint {
+        avoid: Some(&floor),
+        ..RegionConstraint::default()
+    };
+    let lifted = limited(&f, &avoid, &f.settings()).unwrap();
+    let note = lifted.note(TOL, LIMIT);
+    assert!(
+        note.contains(&format!(
+            " The tool's end would reach {:.3} mm beyond the end of the rulings at the tip (its \
+             corner radius and the tip extension); it is lifted at least that far all along the \
+             face, so it ends level with them or short of them.",
+            lifted.limits.end_reach
+        )),
+        "{note}"
+    );
+    assert!(!note.contains("so it cuts into any face"), "{note}");
+    // Not lifted: the sentence is as before.
+    let plain = limited(&f, &RegionConstraint::default(), &f.settings()).unwrap();
+    assert!(
+        plain.note(TOL, LIMIT).contains(
+            " The tool's end reaches 3.000 mm beyond the end of the rulings at the tip (its \
+             corner radius and the tip extension), so it cuts into any face that meets them \
+             there, such as a floor, unless that face is in an avoid or check set."
+        ),
+        "{}",
+        plain.note(TOL, LIMIT)
+    );
+    // Lifted only in part: a flat end 1 mm past the rulings over a floor
+    // that rises along the pass is lifted only where the floor rises, and
+    // the note gives what is left where it is lifted least.
+    let f = Fixture::brep(&limit_wall(), flat());
+    let rising = BrepSurface::new(&rising_floor(5.0)).unwrap();
+    let avoid = RegionConstraint {
+        avoid: Some(&rising),
+        ..RegionConstraint::default()
+    };
+    let settings = Settings {
+        tip_extension: 1.0,
+        ..f.settings()
+    };
+    let part = limited(&f, &avoid, &settings).unwrap();
+    let least = part.poses().map(|p| p.lift).fold(f64::INFINITY, f64::min);
+    assert!(
+        least < 1.0 && part.limits.tip_lifted > 0.0,
+        "{least} {:?}",
+        part.limits
+    );
+    let note = part.note(TOL, LIMIT);
+    assert!(
+        note.contains(&format!(
+            " The tool's end would reach 1.000 mm beyond the end of the rulings at the tip (its \
+             corner radius and the tip extension); where it is lifted least it still reaches \
+             {:.3} mm beyond them, so it cuts into any face that meets them there, such as a \
+             floor, unless that face is in an avoid or check set.",
+            1.0 - least
+        )),
+        "{note}"
+    );
+    // Through the strategy, with the floor lifted clear: no warning.
+    let f = Fixture::brep(&limit_wall(), ball());
+    let avoid = RegionConstraint {
+        avoid: Some(&floor),
+        ..RegionConstraint::default()
+    };
+    let made =
+        run(|ctx| generate_in_region(&Swarf, &f.input(), &avoid, &values(&[]), ctx)).unwrap();
+    assert!(made.warnings().is_empty(), "{:?}", made.warnings());
+}
+
+#[test]
+fn req_op_11_req_op_12_req_nfr_07_a_floor_the_pass_cuts_does_not_excuse_a_lead_out_into_the_end_wall()
+ {
+    // CodeRabbit on #866 (decision record 0682): the depth the pass cuts at
+    // the join is allowed face by face. With a ball, the pass cuts the floor
+    // about a ball radius deep, which must not excuse the lead-out's 2.990 mm
+    // into the end wall, which the pass does not cut.
+    let wall = end_wall(1);
+    let model = joined_models(&[wall.clone(), numbered(floor_model(), 2)]);
+    let neighbours = BrepSurface::new(&model).unwrap();
+    let f = Fixture::brep(&limit_wall(), ball());
+    let lead = [(names::ENTRY, text("lead"))];
+    let err = made_beside(&f, &neighbours, &lead)
+        .expect_err("the lead-out into the end wall is refused")
+        .to_string();
+    assert!(
+        err.contains("the lead-out needs an arc of radius") && err.contains("into face 1,"),
+        "{err}"
+    );
+    // The entries that keep off the wall are made, and cut it no deeper than
+    // the tolerance.
+    for style in ["ramp", "helix"] {
+        let made = made_beside(&f, &neighbours, &[(names::ENTRY, text(style))]).unwrap();
+        let cut = entry_exit_cut(&f.tool, &made.group, &wall);
+        assert!(cut <= TOL + CHECKER_SLACK, "{style}: {cut}");
+    }
 }

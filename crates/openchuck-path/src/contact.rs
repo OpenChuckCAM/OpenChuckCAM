@@ -80,9 +80,9 @@ impl ExactContact {
         match self {
             // What the setting does and what it costs, with the measured
             // examples, and that a mesh part is not affected (decision record
-            // PENCIL-REST-A item 4, the owner's answer of 23 Nov 2026, which
+            // 0684 item 4, the owner's answer of 23 Nov 2026, which
             // asked for the cost to be stated). The measurements are those of
-            // decision records 0277, 0338 and PENCIL-REST-A: examples, not
+            // decision records 0277, 0338 and 0684: examples, not
             // promises.
             Self::Ball => {
                 "On a STEP part, drop a ball-end tool on the part's exact surfaces instead of \

@@ -121,7 +121,7 @@ fn req_op_27_exact_contact_is_offered_by_the_strategies_that_drop_on_faces() {
                 assert_eq!(spec.kind, ParameterKind::Flag { default: on }, "{name}");
                 // Plain words: closer to the true surface and slower, with
                 // the measured examples (the owner's answer of 23 Nov 2026,
-                // decision record PENCIL-REST-A item 4), no effect on a mesh
+                // decision record 0684 item 4), no effect on a mesh
                 // part. The G-code notice (NFR-12) is on the export and in
                 // the program, not in this tooltip (issue #634).
                 let d = spec.description.to_lowercase();
@@ -136,7 +136,7 @@ fn req_op_27_exact_contact_is_offered_by_the_strategies_that_drop_on_faces() {
                 }
                 assert!(!d.contains("check the program"), "{name}: {d}");
                 // Next to Tolerance in the schema's order; the form shows
-                // it in Advanced (decision record PENCIL-REST-A item 4).
+                // it in Advanced (decision record 0684 item 4).
                 let order: Vec<&str> = schema.parameters.iter().map(|p| p.name.as_str()).collect();
                 let at = order.iter().position(|n| *n == names::TOLERANCE).unwrap();
                 assert_eq!(order.get(at + 1), Some(&EXACT_CONTACT), "{name}: {order:?}");

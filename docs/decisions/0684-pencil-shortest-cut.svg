@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="760" height="360" viewBox="0 0 760 360" font-family="Helvetica, Arial, sans-serif" font-size="12">
-  <title>Decision PENCIL-REST-A: pencil clean-up does not cut a stretch shorter than the Shortest cut, and says where</title>
+  <title>Decision 0684: pencil clean-up does not cut a stretch shorter than the Shortest cut, and says where</title>
   <rect width="760" height="360" fill="#ffffff"/>
   <text x="20" y="22" font-weight="bold" font-size="13">Shortest cut: stretches of a corner shorter than it are not cut, and the notes say where</text>
   <text x="20" y="40" fill="#555">One inside corner, unrolled: left to right is along the corner (here once round the part, A 0 to 360 degrees).</text>

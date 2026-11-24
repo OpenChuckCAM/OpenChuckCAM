@@ -151,7 +151,7 @@ impl FormSection {
             | "peck_mode"
             | "peck_depth" => Self::EntryLinksAndRetract,
             // Exact STEP surface contact is in Advanced for every strategy
-            // that has it (decision record PENCIL-REST-A item 4).
+            // that has it (decision record 0684 item 4).
             "diameter_tolerance" | "crease_angle" | "min_length" | "min_remaining" | "min_cut"
             | "max_material_left" | "through_allowance" | "max_step" | "max_x_step"
             | "depth_reference" | "exact_contact" => Self::Advanced,
@@ -236,7 +236,6 @@ pub fn parameter_form(
     // decision 0111 items 1 and 3).
     if let Some(reason) = crate::operation::brep_only(project, registry, op)
         .or_else(|| crate::operation::needs_faces(project, op))
-        .or_else(|| crate::operation::facing_on_step_part(project, op))
     {
         notes.insert(0, format!("{}.", reason.replacen("swarf", "Swarf", 1)));
     }

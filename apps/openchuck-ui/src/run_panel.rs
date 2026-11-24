@@ -10,6 +10,8 @@
 //! checks and, after a simulation, the material removed and the worst
 //! remaining and overcut values (SIM-05).
 
+use crate::focus::KeepFocus as _;
+use crate::focus::Tip as _;
 use std::sync::Arc;
 use std::time::Instant;
 
@@ -129,7 +131,7 @@ pub fn result_lines(run: &Regeneration, project: &Project) -> Vec<ResultLine> {
     let warnings: Vec<String> = run
         .warnings
         .iter()
-        .filter(|w| !(simulated && w.contains("is a rapid that removes")))
+        .filter(|w| !(simulated && w.contains("is a rapid that goes")))
         .cloned()
         .collect();
     for group in openchuck_app::note_groups::group_notes(&warnings) {
@@ -204,12 +206,22 @@ pub fn result_lines(run: &Regeneration, project: &Project) -> Vec<ResultLine> {
                         openchuck_app::path::counted(op.moves, "move", "moves")
                     ),
                 ));
-                for cut in &op.rapid_cuts {
+                // A rapid no deeper than one cell is a note of the run
+                // already (decision record 0661, option C).
+                for cut in op.rapid_cuts.iter().filter(|c| c.deeper_than_cell()) {
                     out.push(line(
                         Severity::Problem,
                         format!(
-                            "  {}: move {} is a rapid that removes {:.3} mm³",
-                            op.operation, cut.segment, cut.volume
+                            "  {}: move {} is a rapid that goes {:.3} mm into the stock ({})",
+                            op.operation,
+                            cut.segment,
+                            cut.depth,
+                            // Never "0.000" (issue #801).
+                            if cut.volume >= 0.0005 {
+                                format!("{:.3} mm³", cut.volume)
+                            } else {
+                                "less than 0.001 mm³".to_owned()
+                            }
                         ),
                     ));
                 }
@@ -281,6 +293,11 @@ pub fn results_text(lines: &[ResultLine], summary: &str, build: &str) -> String 
     out
 }
 
+/// The New operation dialog's two parts in Tab order: its body, then the
+/// footer with Cancel and Add (Q3 A).
+const ADD_BODY: crate::focus::Region = crate::focus::dialog_part("add operation", 0, 2);
+const ADD_FOOTER: crate::focus::Region = crate::focus::dialog_part("add operation", 1, 2);
+
 /// The New operation dialog's material preset (issue 197; decision record
 /// 0230): the setup's stock material, or one of the tool's other materials,
 /// with a warning when it is not the setup's and a message when the tool has
@@ -303,7 +320,7 @@ fn preset_row(
         return;
     }
     ui.horizontal(|ui| {
-        ui.label("Material preset").on_hover_text(PRESET_HELP);
+        ui.label("Material preset").tip(PRESET_HELP);
         let shown = preset
             .choices
             .iter()
@@ -320,7 +337,7 @@ fn preset_row(
     });
     if let Some(why) = &preset.differs {
         ui.horizontal_wrapped(|ui| {
-            crate::shell::mark(ui, openchuck_app::overview::ItemState::Warning, why);
+            crate::shell::mark_beside(ui, openchuck_app::overview::ItemState::Warning, why);
             ui.label(why);
         });
     }
@@ -767,7 +784,8 @@ impl RunPanel {
                     .id_salt("add operation body")
                     .max_height(body_height)
                     .auto_shrink([false, false])
-                    .show(ui, |ui| {
+                    .show_keeping_focus(ui, |ui| crate::focus::region(ui, ADD_BODY, |ui| {
+                        crate::floating::focus_starts_here(ui);
                         ui.horizontal(|ui| {
                             ui.label("Name");
                             crate::pending_edits::name_edit(ui, &mut form.name, "Operation name");
@@ -854,7 +872,7 @@ impl RunPanel {
                             crate::pending_edits::track(ui, &combo.response, "Tool", None);
                             if ui
                                 .button("From the library…")
-                                .on_hover_text("Choose a tool in the tool library and add it to the project")
+                                .tip("Choose a tool in the tool library and add it to the project")
                                 .clicked()
                             {
                                 wants_library = true;
@@ -883,7 +901,7 @@ impl RunPanel {
                             .and_then(|c| c.unavailable.clone());
                         if let Some(why) = &unavailable {
                             ui.horizontal_wrapped(|ui| {
-                                crate::shell::mark(
+                                crate::shell::mark_beside(
                                     ui,
                                     openchuck_app::overview::ItemState::Warning,
                                     why,
@@ -892,25 +910,49 @@ impl RunPanel {
                             });
                         }
                         ui.add(egui::Label::new("Everything else starts at the strategy's defaults; set them in the operation's panel.").wrap());
-                    });
+                    }));
                 ui.add_space(4.0);
                 let unavailable = choices
                     .iter()
                     .find(|c| c.name == form.strategy)
                     .is_none_or(|c| c.unavailable.is_some());
-                ui.horizontal(|ui| {
-                    if ui
-                        .add_enabled(
-                            form.setup.is_some() && !unavailable,
-                            egui::Button::new("Add"),
-                        )
-                        .clicked()
-                    {
-                        add = true;
-                    }
-                    if ui.button("Cancel").clicked() {
-                        close = true;
-                    }
+                // The primary action, filled and bottom right, with Cancel to
+                // its left (specification section 5). Drawn left to right,
+                // pushed right by the buttons' width, so Tab reads Cancel and
+                // then Add.
+                let blocked = if form.setup.is_none() {
+                    Some("Choose a setup first")
+                } else if unavailable {
+                    Some("Choose a strategy this setup can use")
+                } else {
+                    None
+                };
+                crate::focus::region(ui, ADD_FOOTER, |ui| {
+                    ui.horizontal(|ui| {
+                        crate::focus::row_at_right(ui, "add operation footer", |ui| {
+                            if ui.button("Cancel").clicked() {
+                                close = true;
+                            }
+                            let button = if blocked.is_none() {
+                                egui::Button::new(
+                                    egui::RichText::new("Add")
+                                        .color(crate::theme::DARK.primary_text)
+                                        .strong(),
+                                )
+                                .fill(crate::theme::DARK.primary)
+                                .stroke(egui::Stroke::new(1.0, crate::theme::DARK.primary_border))
+                            } else {
+                                egui::Button::new("Add")
+                            };
+                            if ui
+                                .add_enabled(blocked.is_none(), button)
+                                .on_disabled_hover_text(blocked.unwrap_or_default())
+                                .clicked()
+                            {
+                                add = true;
+                            }
+                        });
+                    })
                 });
             },
         );
@@ -975,7 +1017,7 @@ impl RunPanel {
                 ui.label(summary);
             }
             if let Some(text) = &text
-                && ui.button("Copy all").on_hover_text(COPY_ALL_TIP).clicked()
+                && ui.button("Copy all").tip(COPY_ALL_TIP).clicked()
             {
                 ui.ctx().copy_text(text.clone());
             }
@@ -986,7 +1028,7 @@ impl RunPanel {
                     .color(if on { colour } else { DARK.muted });
                 if ui
                     .selectable_label(on, label)
-                    .on_hover_text(format!(
+                    .tip(format!(
                         "Show or hide {}. Copy all and the plain text always hold every line.",
                         name.to_lowercase()
                     ))
@@ -1002,7 +1044,7 @@ impl RunPanel {
             // The default 64 pt minimum would push the viewport past a
             // short dock and clip the end of the content (review of #480).
             .min_scrolled_height(0.0)
-            .show(ui, |ui| {
+            .show_keeping_focus(ui, |ui| {
                 if let Some(error) = &self.last_error
                     && (!self.failed || filter.errors)
                 {
@@ -1048,7 +1090,7 @@ impl RunPanel {
                             }
                         })
                         .header_response
-                        .on_hover_text(GROUP_HINT);
+                        .tip(GROUP_HINT);
                 }
                 if shown == 0 && !lines.is_empty() {
                     ui.weak("No lines at this level.");
@@ -1373,7 +1415,8 @@ mod tests {
     fn req_nfr_12_a_real_warning_is_never_merged_into_the_feed_summary() {
         let (mut run, project, name) = limited_run("three", 3);
         let rapid = format!(
-            "Rapid cut (operation '{name}'): move 9 is a rapid that removes 0.100 mm³ of material"
+            "Rapid cut (operation '{name}'): move 9 is a rapid that goes 0.250 mm into the stock, \
+             deeper than the simulation's cell of 0.100 mm, and removes 0.100 mm³ of material"
         );
         // A rapid that removes material is a warning of the run (decision
         // 0536 step 2).

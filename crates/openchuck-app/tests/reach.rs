@@ -179,6 +179,7 @@ fn project(name: &str, part: &str, stock: f64, length: f64) -> (PathBuf, Applica
                 flute_count: 2,
                 material: None,
                 centre_cutting: None,
+                stick_out: None,
             },
             controller: ControllerMapping {
                 number: 1,

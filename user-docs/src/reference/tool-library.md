@@ -29,7 +29,7 @@ Deleting a library tool deletes its file. Projects that use it keep their copies
 | Drill | Point angle |
 | Custom profile | The profile, drawn in the profile editor |
 
-Changing the type keeps the sizes. A standard type's shape follows its sizes; choose **Custom profile** to draw a shape of your own with **Edit the profile...**, from lines and quarter-turn arcs, with a preview that turns red and says why while the profile is not valid.
+Changing the type keeps the sizes. A standard type's shape follows its sizes; choose **Custom profile** to draw a shape of your own with **Edit the profile...**, from lines and quarter-turn arcs, with a preview that turns red and says why while the profile is not valid. Every point of a custom profile, and the centre and radius of each arc, must be within 1000 mm of the tip, across or along the tool; a larger value, in the editor or in a profile file, is refused with a message naming the segment.
 
 ## The fields of a tool
 
@@ -38,10 +38,11 @@ All lengths are in millimetres and angles in degrees.
 | Field | What it is | Allowed |
 | --- | --- | --- |
 | Name | The name in lists and on the setup sheet. | |
-| Diameter | The width of the cutting part. For a custom profile it is where the profile ends, doubled. | above 0 |
-| Flute length | The length of the cutting part from the tip. A layer cannot be deeper than this. | above 0, at most the overall length |
-| Overall length | From the tip to the end of the shank; shown on the setup sheet. | above 0 |
-| Shank diameter | The plain part the machine holds. | above 0 |
+| Diameter | The width of the cutting part. For a custom profile it is where the profile ends, doubled. | above 0, at most 2000 |
+| Flute length | The length of the cutting part from the tip. A layer cannot be deeper than this. | above 0, at most the overall length and 1000 |
+| Overall length | From the tip to the end of the shank; shown on the setup sheet. | above 0, at most 1000 |
+| Stick-out | How far the tool sticks out of the collet, from the tip to the collet face. The tool-length checks (the spindle at the top and the bottom of the Z travel, and the workholding) use it; blank, they assume the flute length + 5 mm and say so. The ready-made Makera Z1 tools give their overall length less 12.7 mm, assuming 12.7 mm held in the collet, not measured: measure your tool as held and set it. | blank, or from the flute length to the overall length |
+| Shank diameter | The plain part the machine holds. | above 0, at most 2000 |
 | Flutes | The number of cutting edges, used to work out the cutting feed. | 1 to 99 |
 | Corner radius | Bull-nose: the roundness of the tip's corners. | above 0, at most the tool's radius |
 | Tip radius, Taper half angle | Tapered ball nose: the ball at the tip, and the taper measured from the centre line. | the angle between 0° and 90° |
@@ -97,5 +98,7 @@ The ready-made Makera Z1 tools and the Z1 default tool set are written from fact
 - **The Carvera community**: the community profiles in [Carvera-Community/Carvera_Community_Profiles](https://github.com/Carvera-Community/Carvera_Community_Profiles), used for what Makera's pages do not state, such as stepover and flute counts.
 
 This is a credit, not a licence: neither repository has a licence file. OpenChuckCAM uses only facts from these sources (dimensions, parameters, tool numbers and cutting parameters), each recorded with its source in its tool file, and copies no descriptions, images or file structures. OpenChuckCAM is an independent project, not made or endorsed by Makera. The same credit is in `TOOL-DATA-CREDITS.txt` in each download.
+
+The **Stick-out** of each ready-made Makera Z1 tool is not from these sources: it is the tool's overall length less 12.7 mm, the length the project owner gives for a standard tool setup inside the collet. It is not confirmed on the machine: measure your own tool as fitted and change it if it differs.
 
 The cutting data are the sources' values. Check every program before you run it on a machine (see [Checking G-code before you run it](../safety/checking-gcode.md)).

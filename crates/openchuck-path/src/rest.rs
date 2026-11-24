@@ -256,7 +256,7 @@ impl RemainingMap {
     /// segment from `a` to `b`: of a tool's axis over its cutting length, so
     /// that what counts is the material the tool's body covers, widened by
     /// the reach less its radius, not the one point a drop reports
-    /// (decision record PENCIL-REST-A item 1). `near_segment(p, p)` is
+    /// (decision record 0684 item 1). `near_segment(p, p)` is
     /// [`near`](Self::near).
     pub fn near_segment(&self, a: Point3, b: Point3) -> bool {
         let ab = b - a;

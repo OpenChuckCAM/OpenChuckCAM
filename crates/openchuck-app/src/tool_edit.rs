@@ -13,7 +13,7 @@
 //! which refuse an invalid tool and leave the project unchanged.
 
 use openchuck_project::ParameterValue;
-use openchuck_types::tool::profile::ProfilePiece;
+use openchuck_types::tool::profile::{MAX_PROFILE_SIZE, ProfilePiece};
 use openchuck_types::tool::{ProfilePoint, ProfileSegment, Tool, ToolProfile, ToolShape};
 use openchuck_types::units::{Degrees, Millimetres};
 
@@ -29,6 +29,9 @@ pub mod fields {
     pub const FLUTE_LENGTH: &str = "flute_length";
     /// Overall length.
     pub const OVERALL_LENGTH: &str = "overall_length";
+    /// How far the tool sticks out of the collet; blank uses the flute
+    /// length + 5 mm (decision record 0673).
+    pub const STICK_OUT: &str = "stick_out";
     /// Shank diameter.
     pub const SHANK_DIAMETER: &str = "shank_diameter";
     /// Number of flutes.
@@ -49,6 +52,26 @@ pub mod fields {
 
 fn mm(name: &str, label: &str, description: &str, value: f64) -> Field {
     number(name, label, description, "mm", Some(0.0), true, None, value)
+}
+
+/// A tool size with the largest value a tool may have: a length up to
+/// [`MAX_PROFILE_SIZE`], a diameter up to twice it (NFR-07, issue #628).
+fn size(name: &str, label: &str, description: &str, diameter: bool, value: f64) -> Field {
+    let max = if diameter {
+        2.0 * MAX_PROFILE_SIZE
+    } else {
+        MAX_PROFILE_SIZE
+    };
+    number(
+        name,
+        label,
+        description,
+        "mm",
+        Some(0.0),
+        true,
+        Some(max),
+        value,
+    )
 }
 
 fn degrees(name: &str, label: &str, description: &str, max: f64, value: f64) -> Field {
@@ -100,29 +123,43 @@ pub fn tool_form(tool: &Tool) -> Vec<Field> {
     use fields::*;
     let mut out = Vec::new();
     if !matches!(tool.shape, ToolShape::Custom { .. }) {
-        out.push(mm(
+        out.push(size(
             DIAMETER,
             "Diameter",
             "How wide the cut is, in millimetres: the diameter of the cutting part. It sets how far apart the passes can be and how much of the part the tool can reach.",
+            true,
             tool.diameter.0,
         ));
     }
-    out.push(mm(
+    out.push(size(
         FLUTE_LENGTH,
         "Flute length",
         "How long the cutting part is, in millimetres, measured from the tip. The tool cannot cut deeper than this in one pass, and the stepdown cannot be more.",
+        false,
         tool.flute_length.0,
     ));
-    out.push(mm(
+    out.push(size(
         OVERALL_LENGTH,
         "Overall length",
         "How long the whole tool is, in millimetres, from the tip to the end of the shank. It is shown on the setup sheet.",
+        false,
         tool.overall_length.0,
     ));
-    out.push(mm(
+    // Blank unless the tool gives one; the value shown is what the checks
+    // use (decision record 0673).
+    let mut stick = mm(
+        STICK_OUT,
+        "Stick-out",
+        "How far the tool sticks out of the collet, in millimetres, from the tip to the collet face: at least the flute length and at most the overall length. The tool-length checks use it. The ready-made Makera Z1 tools give their overall length less 12.7 mm, assuming 12.7 mm held in the collet, not measured: measure your tool as held and set it. Blank uses the flute length + 5 mm, and the checks then say they assumed it.",
+        crate::setup::stick_out(tool).0,
+    );
+    stick.set = tool.stick_out.map(|s| ParameterValue::Number(s.0));
+    out.push(stick);
+    out.push(size(
         SHANK_DIAMETER,
         "Shank diameter",
         "How wide the shank is, in millimetres: the plain part the machine holds. The clearance kept around the part allows for it.",
+        true,
         tool.shank_diameter.0,
     ));
     out.push(Field {
@@ -219,7 +256,10 @@ pub fn set_tool_field(tool: &Tool, name: &str, value: &ParameterValue) -> Result
         _ => None,
     };
     let mut t = tool.clone();
-    if name == FLUTE_COUNT {
+    if name == STICK_OUT && matches!(value, ParameterValue::Text(text) if text.trim().is_empty()) {
+        // Blank: the checks assume the flute length + 5 mm again.
+        t.stick_out = None;
+    } else if name == FLUTE_COUNT {
         let ParameterValue::Integer(n) = value else {
             return Err(wrong("expected a whole number"));
         };
@@ -237,6 +277,7 @@ pub fn set_tool_field(tool: &Tool, name: &str, value: &ParameterValue) -> Result
             (DIAMETER, s) if !matches!(s, ToolShape::Custom { .. }) => t.diameter = Millimetres(v),
             (FLUTE_LENGTH, _) => t.flute_length = Millimetres(v),
             (OVERALL_LENGTH, _) => t.overall_length = Millimetres(v),
+            (STICK_OUT, _) => t.stick_out = Some(Millimetres(v)),
             (SHANK_DIAMETER, _) => t.shank_diameter = Millimetres(v),
             (CORNER_RADIUS, ToolShape::BullNose { corner_radius }) => {
                 *corner_radius = Millimetres(v)

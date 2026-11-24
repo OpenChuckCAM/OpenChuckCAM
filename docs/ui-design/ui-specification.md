@@ -519,9 +519,9 @@ Boards 3 and 3b.
 - **Turning it on from a saved 0.** Ticking Adaptive spacing on an operation that holds a Scallop height of 0 opens a dialog, "Turn on adaptive spacing", that explains that 0 meant no limit and asks for the Allowed excess, suggesting 0.01 mm and accepting a deliberate 0. Cancel changes nothing; Turn on sets the switch and the height in one step that one Undo reverses. Unticking it again keeps the height as the Scallop height.
 - **A partial path.** When adaptive spacing met a limit or could not confirm a place, the operation's warning (in Messages and on the operation) says where and why, and that the path made so far is kept and is not complete. Post and export (11.6) lists it and asks for its own tick box before writing.
 
-**Exact STEP surface contact ([decision 0526](../decisions/0526-stepall-close-out-and-exact-contact-setting.md), accepted; proposed by lane STEPALL-CLOSE).** The inspector of a helical, indexed, simultaneous or axial finishing, rest machining or pencil clean-up operation whose setup's part is a STEP file shows, in *Advanced* (moved there from *Pattern and tolerance* by [decision PENCIL-REST-A](../decisions/PENCIL-REST-A-pencil-decides-material-left-from-the-tool-not-its-contact.md) item 4, accepted, for every strategy that has it):
+**Exact STEP surface contact ([decision 0526](../decisions/0526-stepall-close-out-and-exact-contact-setting.md), accepted; proposed by lane STEPALL-CLOSE).** The inspector of a helical, indexed, simultaneous or axial finishing, rest machining or pencil clean-up operation whose setup's part is a STEP file shows, in *Advanced* (moved there from *Pattern and tolerance* by [decision 0684](../decisions/0684-pencil-decides-material-left-from-the-tool-not-its-contact.md) item 4, accepted, for every strategy that has it):
 
-- **Exact STEP surface contact**: a checkbox, ticked for a new helical, indexed, simultaneous finishing or rest machining operation and unticked for a new axial finishing or pencil clean-up one; an operation saved before it keeps the contact it machined with (project schema 27). Its tooltip is the parameter's description: how much closer to the true surface the tool sits and how much slower generation is, with the examples measured on test parts (decision PENCIL-REST-A item 4), that it does not change which corners or areas are cut (the outline kind), and that a mesh part is not affected. The G-code notice (NFR-12) is on the export and in the program, not in this tooltip. On a mesh part the row is not shown.
+- **Exact STEP surface contact**: a checkbox, ticked for a new helical, indexed, simultaneous finishing or rest machining operation and unticked for a new axial finishing or pencil clean-up one; an operation saved before it keeps the contact it machined with (project schema 27). Its tooltip is the parameter's description: how much closer to the true surface the tool sits and how much slower generation is, with the examples measured on test parts (decision 0684 item 4), that it does not change which corners or areas are cut (the outline kind), and that a mesh part is not affected. The G-code notice (NFR-12) is on the export and in the program, not in this tooltip. On a mesh part the row is not shown.
 - **A tool it cannot apply to.** Under the row, a warning line says the tool drops on the tessellation whatever the setting, and why: the strategy's exact contact is built for ball-end tools only, or the tool's shape has none (a bull nose, a flat end with stock to leave, a sharp V-bit, a concave profile). The operation still runs.
 - The operation's note names the surface the tool was dropped on (the exact faces, or the tessellation and why). A run with it on can take many times longer; progress and cancel are as for any operation, and no time estimate is shown (OI-1720).
 
@@ -990,7 +990,7 @@ Dark is the default. The light theme *(UI-20)* changes the panels, bars and dial
 | Alt 5 | Post and export (as Ctrl E) |
 | Ctrl 1, Ctrl 2, Ctrl 3 | Collapse the project panel, inspector, dock |
 | F, V, S, M | Fit; show or hide; section; measure |
-| Numpad 1, 3, 7, 0 | Front, right, top, isometric |
+| 1, 3, 7, 0 (top row or numpad) | Front, right, top, isometric, while no text field has the keyboard; with Alt or Ctrl the digits keep their own meanings ([decision 0677](../decisions/0677-keyboard-focus-tooltips-and-tool-windows.md), Q4) |
 | N | New operation |
 | G, or F5 | Generate selected; Shift G, or Shift F5, generates every stale operation |
 | Ctrl D, Del, F2 | Duplicate, delete, rename the selected item |
@@ -998,11 +998,11 @@ Dark is the default. The light theme *(UI-20)* changes the panels, bars and dial
 | Q, W, E, R, B | Select one, flood fill, by angle, same direction, box (while picking); on an edge, Q, W and E are select one, chain and smooth chain |
 | Ctrl Enter (Cmd Enter on macOS) | Apply the workholding draft (in its section, 11.7) |
 | Space, ←, →, Shift ←, Shift → | Play or pause, step, previous or next operation |
-| Esc | Cancel the running job, or leave picking, or close a popover |
+| Esc | Cancel the running job, or leave picking, or close a popover; in a tool window, what its Close or Cancel does, with the same guard: in a text field it ends the edit only, and a draft with changes asks first; an open tool window takes Esc before a running job does (decision 0677, Q6) |
 
 On macOS, Ctrl is Command.
 
-- **Keyboard.** Every control can be reached and used with the keyboard, in reading order. Tooltips and help bubbles open on focus as well as hover (the Setup board shows one open on focus).
+- **Keyboard.** Every control can be reached and used with the keyboard, in reading order. Tooltips and help bubbles open on focus as well as hover (the Setup board shows one open on focus). Reading order in the main window is: menus, step tabs, the G-code status and health badge, the workflow actions, the project panel, the view's toolbar and the view, the dock, the inspector, the footer with the primary button last; in a dialog, its body, then its footer buttons left to right, and Tab goes round inside the dialog. A tool window that opens takes the keyboard as a whole, with no control focused; the first Tab goes to its first control. A step that is unavailable stays a Tab stop and shows why on focus (decision 0677, Q1 to Q3).
 - **Screen readers.** Icon-only buttons have accessible names. egui's AccessKit support is used, so controls are exposed to screen readers.
 - **Contrast.** Text has at least 4.5:1 contrast with its background, and graphics that carry meaning at least 3:1.
 - **Colour.** State is never shown by colour alone (section 6 marks, 7.4 line styles). Colour maps differ in lightness.

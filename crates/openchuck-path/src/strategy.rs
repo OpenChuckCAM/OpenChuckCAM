@@ -591,6 +591,10 @@ fn generate_with(
             &entry,
             descent,
             strategy.ramps_round_the_part(),
+            // The faces next to the face set, which swarf alone is given:
+            // its entries and exits are checked against them as well
+            // (decision record 0682; issue #572).
+            region.and_then(|r| r.neighbours),
             context,
         )?
     };
@@ -1007,7 +1011,7 @@ mod tests {
     /// The Exact STEP surface contact tooltip says what the setting does,
     /// what it costs, with the measured examples, and that a mesh part is
     /// not affected (issue #634; the owner's answer of 23 Nov 2026 asked for
-    /// the cost to be stated, decision record PENCIL-REST-A item 4).
+    /// the cost to be stated, decision record 0684 item 4).
     #[test]
     fn req_ui_12_the_exact_contact_tooltip_states_the_trade_off() {
         let registry = Registry::builtin();

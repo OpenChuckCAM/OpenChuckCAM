@@ -49,6 +49,7 @@ fn tool(shape: ToolShape, d: f64) -> Tool {
         flute_count: 2,
         material: None,
         centre_cutting: None,
+        stick_out: None,
     }
 }
 
@@ -466,7 +467,7 @@ fn req_nfr_06_req_op_09_rest_machining_is_identical_at_1_2_and_n_threads() {
     assert_eq!(runs.len(), 4);
 }
 
-// ---- A flat end in the sharp corner of a STEP part (issue #632; decision PENCIL-REST-A) ----
+// ---- A flat end in the sharp corner of a STEP part (issue #632; decision 0684) ----
 
 /// The closed-form shouldered shaft of decision 0226 (a bar of radius 8 with a
 /// sharp shoulder out to radius 12 at X 12), finished axially with a 3.175 mm
@@ -544,6 +545,7 @@ fn tapered_ball() -> RevolvedProfile {
         flute_count: 2,
         material: None,
         centre_cutting: None,
+        stick_out: None,
     }
     .profile()
     .unwrap()
@@ -699,7 +701,7 @@ fn req_op_09_req_op_27_req_nfr_12_a_flat_end_cleans_the_sharp_corner_off_and_on_
 
 #[test]
 fn req_op_09_req_nfr_12_a_corner_shorter_than_the_shortest_cut_is_refused_and_said() {
-    // D2 with the owner's Shortest cut (decision record PENCIL-REST-A item
+    // D2 with the owner's Shortest cut (decision record 0684 item
     // 3): a stretch shorter than it is not cut. The stepped shaft's corner is
     // a circle of radius 6, about 38 mm round: a shortest cut of 40 mm leaves
     // nothing to cut, and the refusal names the setting; at its default of 0

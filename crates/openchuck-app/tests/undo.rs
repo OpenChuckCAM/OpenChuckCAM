@@ -40,6 +40,7 @@ fn tool(diameter: f64) -> Tool {
         flute_count: 2,
         material: None,
         centre_cutting: None,
+        stick_out: None,
     }
 }
 

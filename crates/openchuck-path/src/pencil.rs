@@ -80,7 +80,7 @@ pub mod pencil_parameter {
     /// The furthest apart, along the crease, that points are.
     pub const MAX_STEP: &str = "max_step";
     /// Stretches of a crease shorter than this are not cut, millimetres
-    /// (decision record PENCIL-REST-A item 3; the key of edge following's
+    /// (decision record 0684 item 3; the key of edge following's
     /// shortest chain).
     pub const MIN_LENGTH: &str = "min_length";
 }
@@ -319,7 +319,7 @@ struct Placement<'a> {
     reach: f64,
     /// How far a rest stopped by what it meets on its way to the crease is
     /// kept back from it: a tenth of the tolerance (decision record
-    /// PENCIL-REST-A item 2).
+    /// 0684 item 2).
     clearance: f64,
 }
 
@@ -778,7 +778,7 @@ impl Strategy for PencilFinishing {
                 // Material is judged from the tool as it rests, its axis over
                 // its cutting length, not from the one point the drop
                 // reports, which for a flat end on a surface along its bottom
-                // may be anywhere under it (decision record PENCIL-REST-A item
+                // may be anywhere under it (decision record 0684 item
                 // 1).
                 let wanted = point.filter(|p| {
                     map.as_ref().is_none_or(|m| {
@@ -878,7 +878,7 @@ impl Strategy for PencilFinishing {
 
 /// The stretches of `runs` at least `min_length` long along the tool's
 /// path, and the first point of each one that is shorter or is a single
-/// point (decision record PENCIL-REST-A item 3, the owner's D2): a single
+/// point (decision record 0684 item 3, the owner's D2): a single
 /// point is a plunge and a retract, never a cut along the corner.
 fn long_enough(runs: Vec<Vec<CutPoint>>, min_length: f64) -> (Vec<Vec<CutPoint>>, Vec<CutPoint>) {
     let mut kept = Vec::new();
@@ -985,7 +985,7 @@ mod tests {
 
     #[test]
     fn req_op_09_req_nfr_12_short_stretches_and_single_points_are_left_and_said() {
-        // Decision record PENCIL-REST-A item 3 (the owner's D2): a single
+        // Decision record 0684 item 3 (the owner's D2): a single
         // point is never cut, a stretch shorter than the shortest cut is not
         // cut, and the note says how many and where each starts.
         let runs = vec![

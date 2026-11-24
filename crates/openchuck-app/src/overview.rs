@@ -1134,9 +1134,10 @@ struct Made {
     warnings: Vec<openchuck_path::Notice>,
     /// How many areas its strategy could not reach (decision record 0515).
     unreached: usize,
-    /// The rapid moves the run's stock simulation found removing material,
-    /// as (move, mm³): warnings to acknowledge (decision record 0538).
-    rapid_cuts: Vec<(usize, f64)>,
+    /// The rapid moves the run's stock simulation found going deeper into
+    /// the stock than one cell: warnings to acknowledge (decision records
+    /// 0538 and 0661).
+    rapid_cuts: Vec<openchuck_sim::RapidCut>,
     /// What the post found of short blocks it left in the program (Report
     /// mode): warnings (decision record 0536, the owner's answer (e)).
     short_blocks: Vec<openchuck_post::ShortBlockReport>,
@@ -1241,7 +1242,7 @@ impl GenerationRecord {
                     .groups
                     .iter()
                     .filter(|g| g.operation == *id)
-                    .flat_map(|g| g.rapid_cuts.iter().copied())
+                    .flat_map(|g| g.rapid_cuts.iter().cloned())
                     .collect();
                 let short_blocks = run
                     .short_blocks
@@ -2235,8 +2236,8 @@ fn build(app: &Application, checks: Option<&Checks>, jobs: &JobLog) -> Overview 
         // path's warning does (decision record 0536, the owner's answer
         // (e); OI-373).
         if up_to_date && let Some(made) = made {
-            for &(segment, volume) in &made.rapid_cuts {
-                let text = crate::export::rapid_cut_text(&o.name, segment, volume);
+            for cut in &made.rapid_cuts {
+                let text = crate::export::rapid_cut_text(&o.name, cut);
                 if status.state == ItemState::UpToDate
                     || (status.state == ItemState::Warning
                         && !status.cause.starts_with(NEEDS_ACKNOWLEDGING))
@@ -2271,11 +2272,7 @@ fn build(app: &Application, checks: Option<&Checks>, jobs: &JobLog) -> Overview 
         }
         // A strategy that needs a STEP part on a mesh part: said at once,
         // before anything is generated (decision record 0174).
-        // Facing that checks its cut against the part, on a STEP part, is
-        // said the same way (issue #800).
-        if let Some(reason) = crate::operation::brep_only(project, &app.strategies, o)
-            .or_else(|| crate::operation::facing_on_step_part(project, o))
-        {
+        if let Some(reason) = crate::operation::brep_only(project, &app.strategies, o) {
             status = ItemStatus::new(ItemState::Error, sentence(&reason));
             let message = Message::about(
                 Severity::Error,
@@ -2523,11 +2520,11 @@ fn build(app: &Application, checks: Option<&Checks>, jobs: &JobLog) -> Overview 
                             },
                         );
                         // Show setting opens what the text says to change:
-                        // the tool, whose flute length sets how far it
-                        // sticks out, or the setup's safe Z (decision record
-                        // 0536 section 4).
+                        // the tool's stick-out, which the check uses (or
+                        // assumes from the flute length), or the setup's safe
+                        // Z (decision records 0536 section 4 and 0673).
                         let action = MessageAction::ShowSetting(if collision {
-                            SettingRef::tool(snapshot.id, crate::tool_edit::fields::FLUTE_LENGTH)
+                            SettingRef::tool(snapshot.id, crate::tool_edit::fields::STICK_OUT)
                         } else {
                             SettingRef::setup(s.id, crate::setup_form::SetupField::SafeZ)
                         });
@@ -3430,6 +3427,7 @@ mod tests {
                     flute_count: 2,
                     material: None,
                     centre_cutting: None,
+                    stick_out: None,
                 }
                 .profile()
                 .unwrap(),
@@ -3526,7 +3524,7 @@ mod tests {
     fn made_app(
         name: &str,
         warnings: Vec<openchuck_path::Notice>,
-        rapid_cuts: Vec<(usize, f64)>,
+        rapid_cuts: Vec<openchuck_sim::RapidCut>,
     ) -> (std::path::PathBuf, Application, OperationId) {
         use openchuck_project::{Item, Operation, OrderKey, Placement};
         let dir = std::env::temp_dir().join(format!("openchuck-{name}-{}", std::process::id()));
@@ -3575,6 +3573,7 @@ mod tests {
                     flute_count: 2,
                     material: None,
                     centre_cutting: None,
+                    stick_out: None,
                 }
                 .profile()
                 .unwrap(),
@@ -3657,7 +3656,17 @@ mod tests {
         // the run's stock simulation found removing material reaches
         // Messages as a warning to acknowledge, in the one form, and marks
         // the operation, while its path is current.
-        let (dir, app, op) = made_app("rapid-cut", Vec::new(), vec![(9, 0.1234)]);
+        let (dir, app, op) = made_app(
+            "rapid-cut",
+            Vec::new(),
+            vec![openchuck_sim::RapidCut {
+                segment: 9,
+                volume: 0.1234,
+                end: openchuck_types::geometry::Point3::ORIGIN,
+                depth: 0.25,
+                cell: 0.1,
+            }],
+        );
         let overview = app.overview(None, &JobLog::default());
         let status = &overview.items[&ItemRef::Operation(op)];
         assert_eq!(status.state, ItemState::Warning, "{status:?}");
@@ -3677,7 +3686,8 @@ mod tests {
         assert!(message.to_acknowledge);
         assert_eq!(
             message.text,
-            "Rapid cut (operation 'Walls'): move 9 is a rapid that removes 0.123 mm³ of material."
+            "Rapid cut (operation 'Walls'): move 9 is a rapid that goes 0.250 mm into the stock, \
+             deeper than the simulation's cell of 0.100 mm, and removes 0.123 mm³ of material."
         );
         std::fs::remove_dir_all(&dir).unwrap();
     }
@@ -3739,6 +3749,7 @@ mod tests {
                     flute_count: 2,
                     material: None,
                     centre_cutting: None,
+                    stick_out: None,
                 }
                 .profile()
                 .unwrap(),
