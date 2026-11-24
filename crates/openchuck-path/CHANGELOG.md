@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased (MOPUP-1, PR M4; issue #896; not breaking)
+
+- **Fixed, changed output (#896 item 6):** face flow's Follow the outline with a scallop height spaces its loops for the face's largest curvature away from the tool in any direction (its largest principal curvature, from the first and second fundamental forms over the sample grid), not only along the two parameter directions. A face curving most between them was spaced too wide: on `P(u, v) = (u + v, v - u, -(u + v)^2 / 20)` a 3 mm ball at 0.01 mm left a 0.0113 mm ridge. Flat faces, cylinders and faces curving most along a parameter are spaced as before. No API change.
+- **Tests only (#896 items 2, 3, 4, 5, 7 and 8):** Climb and Conventional rings on a trimmed face that closes round, where the first places the direction is read are off the face; a cylinder just short of a whole turn is open; the outline stays on a face whose boundary curves into it; Tool diameter visibly changes the runs kept; the scallop ridges are checked finite; a pass with one run left out by Shortest cut and one kept still counts as cutting.
+
 ## 0.65.0 (MOPUP-1, PR M3; issues #887 and #895; breaking)
 
 - **Breaking (decision 0048; the workspace's minor bump to 0.65.0 is this change's own):** `swarf::Limits` gains the public field `least_lift_along_axis: f64`, the least the tool's end is lifted along the tool axis at any pose (each pose's lift up its ruling times the cosine of the angle between the ruling and the axis; zero when no pose is lifted). A struct literal must add it (or use `..Limits::default()`).
