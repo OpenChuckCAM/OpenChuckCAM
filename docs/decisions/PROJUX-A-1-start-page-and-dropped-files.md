@@ -1,12 +1,12 @@
 # PROJUX-A-1: A start page with the recent projects, and a file or folder dropped on the window starts, opens or imports what it is (UI-23, IMP-01, IMP-02, UI-14, UI-15; issue #706; lane PROJECT-UX-A)
 
-- **Status:** Proposed by lane PROJECT-UX-A on 26 Nov 2026. It records the project owner's answers of 25 Nov 2026 to the lane's questions, relayed by the coordinator (decision 0049):
+- **Status:** Accepted by the project owner on 26 Nov 2026, relayed by the coordinator (decision 0049), after reading the record in draft pull request #902. Proposed by lane PROJECT-UX-A on 26 Nov 2026. It records the project owner's answers of 25 Nov 2026 to the lane's questions, relayed by the coordinator (decision 0049):
   - S1 option A: the start card of specification 11.1 grows the drop zone and up to 10 recent projects. The recent list shows with or without a project open.
   - S2 option A: a model dropped with no project open opens New project with the name from the file, then the import window after OK.
   - S3 option A: a dropped project folder opens through Open with the usual guards. With several files, the first usable one is used and the rest are listed as not imported. An unsupported file says so. While something is dragged over the window, the window says what the drop will do.
   - S4 option A: ship. The guide says that dropping on a Wayland desktop needs the X11 session (XWayland), and a sev3 ticket follows egui and winit.
 
-  The owner also directed (25 Nov 2026) that layouts are designed for a 1920 by 1080 window, with 1366 by 768 best effort, until the minimum display requirement (UI-16) is changed by a separate lane. To be built in the lane's third pull request, after #891 (the New project and Open dialogs) merges. The owner has not yet accepted the record (OI-9966).
+  The owner also directed (25 Nov 2026) that layouts are designed for a 1920 by 1080 window, with 1366 by 768 best effort, until the minimum display requirement (UI-16) is changed by a separate lane. To be built in the lane's third pull request, after #891 (the New project and Open dialogs) merges.
 - **Date:** 26 Nov 2026.
 - **Requirements:** UI-23 (P2: a start page with recent projects, and import by dropping a file on the window), IMP-01 and IMP-02 (STL and STEP import), UI-14 (keyboard), UI-15 (recent projects are a per-user setting, never in the project), NFR-07 (a clear message, never a crash), NFR-09 (nothing leaves the computer).
 - **Builds on:**
@@ -15,7 +15,7 @@
   - [decision 0460](0460-recovery-offered-only-for-the-opened-project.md) (recovery offered for the project being opened);
   - [decision 0246](0246-new-project-buttons-resolve-their-own-fields.md) and #891 (the New project and Open dialogs resolve their own fields);
   - [decision 0677](0677-keyboard-focus-tooltips-and-tool-windows.md) (focus, reading order, tooltips on focus).
-- **Open items:** adds OI-9961 (dropping on a Wayland desktop; sev3 ticket #901) and OI-9966 (the owner's acceptance of this record).
+- **Open items:** adds OI-9961 (dropping on a Wayland desktop; sev3 ticket #901) and OI-9966 (the owner's acceptance of this record, closed on 26 Nov 2026).
 
 Numbering: provisional. The coordinator assigns the record number and the OI numbers at release, in merge order. No project schema number: the recent list is a per-user setting that already exists. No library-family API change: only `openchuck-ui` is expected to change (and `openchuck-app` only if a helper is needed), so there is no version bump.
 
