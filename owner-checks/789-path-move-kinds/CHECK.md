@@ -12,10 +12,11 @@ Pull request #898 (lane PROJECT-UX-A, record PROJUX-A-2; draft, head `4664c82`).
 | Check | Expected result |
 | --- | --- |
 | Operations legend (top left of the view) | Each row of moves is a tick box. Unticking one removes those lines at once. Entry and exit shows a bar when only some of its three are shown |
-| The chip beside **Show** | While anything is hidden it reads, for example, "Hidden: Rapid, Lead-out · Show all". Pressing it shows every kind again |
+| The chip beside **Show** | While anything is hidden it names what is hidden, for example "Hidden: Rapid, Lead-out". It is a **plain label** (the owner's decision of 26 Nov 2026): no "Show all" in it, no tooltip, no Tab stop, and a click does nothing |
+| **Show all moves** | In the Show menu (V) and in View > Toolpath moves. It shows every kind again, and the chip goes |
 | **Show** menu (V) | A **Toolpath moves** group with the same six boxes and **Show all moves**, and the line "Hiding changes only the view, never what is machined." |
 | **View > Toolpath moves** | The same boxes again |
-| Simulate | The legend of moves is at the top left **only while Toolpaths is ticked**. With Toolpaths off there is no legend, and the chip stays |
+| Simulate | The legend of moves is at the top left **only while Toolpaths is ticked**. With Toolpaths off there is no legend, and the chip (a label) stays |
 | 1366 × 768 (best effort) | On Simulate the legend shows as a **Legend** button and opens on a click |
 | Keyboard | Tab reaches each legend row (focus ring); Space turns it on or off |
 | Restart | The choice is still there |
@@ -59,13 +60,13 @@ Use a build of PR #898: the branch `claude/lane-project-ux-a-path-kinds`, at `46
 
 1. Copy [`project/`](project/) somewhere and open it with **File > Open project**. Click **3 Operations**, then **Generate stale (3)**, and wait for **Ready** (about a minute).
 2. The legend at the top left lists **Cut, Link, Rapid, Entry and exit** (with **Plunge, Lead-in and ramp, Lead-out**), each ticked (screenshot 2). Before this change the rows were labels only (screenshot 1).
-3. Untick **Rapid**. The dotted grey rapids go at once, and the chip "Hidden: Rapid · Show all" appears beside **Show**.
-4. Untick **Lead-out**. **Entry and exit** shows a bar, and the chip reads "Hidden: Rapid, Lead-out · Show all" (screenshot 3).
+3. Untick **Rapid**. The dotted grey rapids go at once, and the chip "Hidden: Rapid" appears beside **Show**.
+4. Untick **Lead-out**. **Entry and exit** shows a bar, and the chip reads "Hidden: Rapid, Lead-out" (screenshot 3). Click the chip: nothing happens. Press Tab through the toolbar: the chip is not a stop. It has no tooltip.
 5. Click in the view, then press **Tab** until a legend row has the focus ring, and press **Space**: that row turns off or on. Put it back.
 6. Press **V** (or click **Show**). The **Toolpath moves** group shows the same ticks and **Show all moves** (screenshot 4). Press Esc. Open **View > Toolpath moves**: the same again (screenshot 5).
 7. Orbit and zoom the view with a long drag, with Rapid hidden, then with everything shown. It should stay smooth. Note any stutter.
-8. Click **Continue to simulate** and wait for it (about a minute). In **Show**, tick **Toolpaths**: the legend of moves appears at the top left with the same ticks (screenshot 6). Untick **Toolpaths**: the legend goes and the chip stays (screenshot 7). Press play: the tool still moves along the hidden moves, and the part is cut as before.
-9. Press the chip: every kind is shown again. Untick **Cut** (screenshot 8). Quit the program and start it again: **Cut** is still unticked and the chip says "Hidden: Cut · Show all" (screenshot 9). Press the chip.
+8. Click **Continue to simulate** and wait for it (about a minute). In **Show**, tick **Toolpaths**: the legend of moves appears at the top left with the same ticks (screenshot 6). Untick **Toolpaths**: the legend goes, and the chip stays as a label (screenshot 7). Press play: the tool still moves along the hidden moves, and the part is cut as before.
+9. Press **V** (or open **View > Toolpath moves**) and choose **Show all moves**: every kind is shown again and the chip goes. Untick **Cut** (screenshot 8). Quit the program and start it again: **Cut** is still unticked and the chip says "Hidden: Cut" (screenshot 9). Choose **Show all moves** again.
 10. Optional, best effort: in a 1366 × 768 window, do steps 1 and 8. On Simulate the legend is a **Legend** button at the top left (screenshot 10). A click opens it, and it does not overlap another box (screenshot 11).
 
 ## Pass and fail
@@ -73,7 +74,7 @@ Use a build of PR #898: the branch `claude/lane-project-ux-a-path-kinds`, at `46
 - **Pass:** each step reads as described, and the view stays smooth while orbiting with kinds hidden.
 - **Fail:**
   - a kind still drawn after it is unticked, or a kind missing while ticked;
-  - the chip missing while something is hidden;
+  - the chip missing while something is hidden, or the chip doing anything when clicked (it only names what is hidden; Show all moves brings everything back);
   - the three controls disagreeing;
   - the choice lost on restart;
   - any change to the simulation or G-code;
@@ -94,6 +95,9 @@ Result: PASS / FAIL
 ```
 
 ## As captured here
+
+> [!NOTE]
+> **The chip changed after these captures.** The owner decided on 26 Nov 2026 that the chip is a plain label. Screenshots 3, 7, 8 and 9 still show the earlier "· Show all" text from `4664c82`. They will be re-captured from #898's release push, whose build has the chip as a label. Until then, read the chip's text in them without "· Show all".
 
 True captures from release builds on Xvfb with Mesa lavapipe. Screenshot 1 is `main` at `361613e` (0.63.0, before the change). Screenshots 2 to 11 are PR #898 at `4664c82`. Screenshots 1 to 9 are at 1920 × 1080 and 10 and 11 at 1366 × 768. Each "after" was taken by doing the step above, in order, in one session; screenshot 9 is after a real restart with the same settings folder. Smoothness was not judged here: software rendering says nothing about a real GPU. The `generate` output is in [`run/regenerate.txt`](run/regenerate.txt).
 
