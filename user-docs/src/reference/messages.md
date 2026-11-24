@@ -29,7 +29,7 @@ The first words name the check ("Flute length", "Held region", "Feed limit"), th
 ```text
 Clearance (setup 'Setup 1'): the safe cylinder (radius 15.000 mm) does not enclose the stock (radius 200.000 mm).
 Model file (model 'part.stl'): the file has changed since it was added. The toolpaths will use the file as it is now.
-Rapid cut (operation 'Rough'): move 9 is a rapid that removes 0.123 mm³ of material.
+Rapid cut (operation 'Rough'): move 9 is a rapid that goes 0.250 mm into the stock, deeper than the simulation's cell of 0.100 mm, and removes 0.123 mm³ of material.
 ```
 
 An operation that cannot be generated reads the same way, by the check that refused it: "End facing (operation 'Face'): …", "Stepover (operation 'Rough'): must be above 0 mm." (a setting is named as the operation shows it), "Tool (operation 'Finish'): it has no tool."
@@ -40,7 +40,7 @@ The **Messages** tab of the dock lists every current message; its name shows how
 
 Information in Messages is about the project, not a run: a model's file notes, a model linked from outside the project folder, and a finished export. It is not counted in the tab's name and does not change the item's mark. What a run found at the information level is in the **Results** tab.
 
-A rapid move that removes material in the stock simulation is a warning to acknowledge before the files are written, and short blocks left in the program (the machine's short-block mode is Report) are a warning. Both mark the operation while its path is current.
+A rapid move that goes deeper into the stock than one cell of the simulation is a warning to acknowledge before the files are written (one no deeper is information in the **Results** tab), and short blocks left in the program (the machine's short-block mode is Report) are a warning. Both mark the operation while its path is current.
 
 Each message has up to two links:
 

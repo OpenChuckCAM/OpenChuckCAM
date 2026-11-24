@@ -4,6 +4,17 @@
 
 - **Changed:** the tool form's Diameter and Shank diameter fields have a maximum of 2000 mm and Flute length and Overall length 1000 mm, the sizes the tool check accepts. No API change.
 
+## 0.58.0 (FACING-STEP; issue #800; decision 0666 option C, accepted)
+
+- **Changed output:** Facing with the End or Box shape, a Part or Part plus tabs extent, or an extent margin now generates on a STEP part, bounding the part from its exact faces (`openchuck_path::enclose`), not its tessellation. The interim refusal before generating (#836) is removed. Each such operation's notes say so, and, where the part has B-spline faces, how far Facing may stop short of an extreme on one, leaving that much more stock.
+- **Changed:** the scene's Facing preview of a STEP part draws from the same bounds.
+- **Refused:** a STEP part with a face that cannot be bounded is refused with the face and what to do.
+- STL parts are unchanged.
+
+## 0.57.0
+
+- **Breaking, changed output (0.57.0; SIM-FINISH, issue #801; decision 0661, accepted, option C):** `GroupInfo::rapid_cuts` holds `openchuck_sim::RapidCut`s, not `(move, mm³)` pairs, and only the rapids that go deeper into the stock than one cell of the simulation: those stay warnings to acknowledge, and read with their depth first ("Rapid cut (operation 'X'): move N is a rapid that goes D mm into the stock, deeper than the simulation's cell of C mm, and removes V mm³ of material"). A rapid no deeper than one cell is a note of the run ("... is a rapid that touches the stock D mm deep, within the simulation's cell of C mm, and removes V mm³ of material"), with nothing to acknowledge. A volume under 0.001 mm³ reads "less than 0.001 mm³", never 0.000.
+
 ## Unreleased (POST-SAFETY, issue #703; decision 0656, accepted)
 
 - **Added:** the G-code checks of every file include the post's `max_line_length` (GC-08): a line longer than it is a finding, so the file fails its checks and export is blocked, in the dialog and on the command line.

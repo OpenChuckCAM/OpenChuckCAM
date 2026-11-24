@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.59.0
+
+- **Family release (0.59.0; lane Z1-SETUP, PR 2; issue #692; decision 0673):** `openchuck-types`'s `Tool` gains the public field `stick_out`, a breaking change; no change to this crate.
+
 ## 0.56.0
 
 - **Breaking (0.56.0, POST-SAFETY; issue #703; OI-933; decision 0656, accepted):** `line_length_check(source, max_chars)` returns a `FindingKind::LineTooLong` finding for each line longer than `max_chars` characters (the line end not counted), naming the line and both lengths (GC-08). A `match` on `FindingKind` adds the variant.

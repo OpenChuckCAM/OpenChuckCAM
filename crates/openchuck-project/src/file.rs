@@ -139,7 +139,11 @@ use openchuck_types::workholding::Workholding;
 ///   the band along the tool, the other way round from before; an older End
 ///   facing operation has the two stored values exchanged, so it machines as
 ///   before (decision record 0547 item 3).
-pub const SCHEMA: i64 = 28;
+/// - 29: tools gain the optional `stick_out`, from the tip to the collet
+///   face, written only when set; an older tool has none and the tool-length
+///   checks assume its flute length + 5 mm, as before (decision record
+///   0673).
+pub const SCHEMA: i64 = 29;
 
 /// Name of the machine profile file in the project folder.
 pub const MACHINE_FILE: &str = "machine.toml";
@@ -181,6 +185,7 @@ const MIGRATIONS: &[Migration] = &[
     schema_25_to_26,
     schema_26_to_27,
     schema_27_to_28,
+    schema_28_to_29,
 ];
 
 /// The strategies whose operations gained `exact_contact` in schema 27 on,
@@ -228,6 +233,27 @@ fn schema_26_to_27(kind: FileKind, table: &mut toml::Table) -> Result<(), String
     }
     if let Some(on) = value {
         parameters.insert("exact_contact".to_owned(), toml::Value::Boolean(on));
+    }
+    Ok(())
+}
+
+/// Schema 29 adds the optional `stick_out` tool field, written only when
+/// set, so a schema 28 file needs no change but its number: its tools state
+/// none and the checks assume one, as before (decision record 0673). A
+/// schema 28 tool file that already holds the field was not written by any
+/// version that knew it, so it is refused rather than guessed at.
+fn schema_28_to_29(kind: FileKind, table: &mut toml::Table) -> Result<(), String> {
+    let stated = kind == FileKind::Tool
+        && table
+            .get("tool")
+            .and_then(toml::Value::as_table)
+            .is_some_and(|t| t.contains_key("stick_out"));
+    if stated {
+        return Err(
+            "this schema 28 tool file has `stick_out`, a field schema 29 introduced; \
+             remove it, or set `schema = 29` if the file was written for schema 29"
+                .to_owned(),
+        );
     }
     Ok(())
 }

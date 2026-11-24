@@ -36,6 +36,7 @@ mod facing_rows;
 mod failure;
 mod field_row;
 mod floating;
+mod focus;
 mod form_panel;
 mod graphics;
 mod import_panel;

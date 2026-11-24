@@ -54,6 +54,7 @@ fn tool(name: &str, shape: ToolShape, diameter: f64, stepover: f64) -> ToolSnaps
             flute_count: 2,
             material: None,
             centre_cutting: None,
+            stick_out: None,
         },
         controller: ControllerMapping {
             number: 1,

@@ -28,6 +28,7 @@ fn tool(shape: ToolShape) -> Tool {
         flute_count: 2,
         material: Some("carbide".into()),
         centre_cutting: None,
+        stick_out: None,
     }
 }
 
@@ -244,6 +245,7 @@ fn req_tl_02_req_tl_03_impossible_values_are_rejected() {
             Tool {
                 material: Some(" ".into()),
                 centre_cutting: None,
+                stick_out: None,
                 ..tool(ToolShape::FlatEnd)
             },
             "tool.material",
@@ -626,4 +628,32 @@ fn req_tl_05_two_entries_that_differ_only_by_case_are_refused() {
         .unwrap_err()
         .to_string();
     assert!(err.contains("Oak") && err.contains("oak"), "{err}");
+}
+
+/// A tool's own stick-out, tip to collet face, is optional; when given it is
+/// at least the flute length and at most the overall length, and a bad one
+/// is a clear error naming the field (TL-02, NFR-07; decision record 0673).
+#[test]
+fn req_tl_02_req_nfr_07_a_stick_out_lies_between_the_flutes_and_the_overall_length() {
+    let mut t = tool(ToolShape::FlatEnd);
+    assert!(t.validate().is_ok());
+    for ok in [FLUTE, 30.0, 50.0] {
+        t.stick_out = Some(Millimetres(ok));
+        assert!(t.validate().is_ok(), "{ok}");
+    }
+    for bad in [FLUTE - 0.001, 50.001, 0.0, -1.0] {
+        t.stick_out = Some(Millimetres(bad));
+        let err = t.validate().unwrap_err().to_string();
+        assert!(err.contains("tool.stick_out"), "{bad}: {err}");
+    }
+    t.stick_out = Some(Millimetres(f64::NAN));
+    assert!(t.validate().is_err());
+    // Written only when set, and read back.
+    t.stick_out = None;
+    let text = serde_json::to_string(&t).unwrap();
+    assert!(!text.contains("stick_out"), "{text}");
+    t.stick_out = Some(Millimetres(30.0));
+    let text = serde_json::to_string(&t).unwrap();
+    assert!(text.contains("\"stick_out\":30.0"), "{text}");
+    assert_eq!(serde_json::from_str::<Tool>(&text).unwrap(), t);
 }

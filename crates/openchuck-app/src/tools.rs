@@ -222,12 +222,15 @@ pub fn describe(tool: &Tool) -> String {
         _ => tool.shape.type_name().to_owned(),
     };
     format!(
-        "{shape}, diameter {} mm, flutes {} mm x {}, overall {} mm, shank {} mm{}",
+        "{shape}, diameter {} mm, flutes {} mm x {}, overall {} mm, shank {} mm{}{}",
         tool.diameter.0,
         tool.flute_length.0,
         tool.flute_count,
         tool.overall_length.0,
         tool.shank_diameter.0,
+        tool.stick_out
+            .map(|s| format!(", stick-out {} mm", s.0))
+            .unwrap_or_default(),
         tool.material
             .as_deref()
             .map(|m| format!(", {m}"))
@@ -277,6 +280,7 @@ mod tests {
                 flute_count: 2,
                 material: None,
                 centre_cutting: None,
+                stick_out: None,
             },
             controller: ControllerMapping::numbered(number),
             cutting_data: CuttingTable::new(),

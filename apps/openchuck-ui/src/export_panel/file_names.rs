@@ -5,6 +5,7 @@
 //! worked out in `openchuck-app`, so the preview is the list of names that is
 //! written.
 
+use crate::focus::Tip as _;
 use openchuck_app::output_names::{
     DEFAULT_GCODE_TEMPLATE, DEFAULT_SHEET_TEMPLATE, NameField, fields_list, template_problem,
 };
@@ -149,14 +150,14 @@ impl ExportPanel {
                 } else {
                     &mut self.file_names.gcode
                 };
-                crate::pending_edits::text_edit(ui, text, label).on_hover_text(if sheet {
+                crate::pending_edits::text_edit(ui, text, label).tip(if sheet {
                     "The setup sheet's name, written as .html and .pdf."
                 } else {
                     "Each program file's name; the post adds the extension."
                 });
                 if ui
                     .add_enabled(text != default, egui::Button::new("Reset"))
-                    .on_hover_text(format!("Use the default, {default}."))
+                    .tip(format!("Use the default, {default}."))
                     .clicked()
                 {
                     *text = default.to_owned();

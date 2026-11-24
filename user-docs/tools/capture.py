@@ -364,7 +364,7 @@ def tutorial(args):
     click(1608, 54, 2)                               # New operation
     fill(867, 327, "Rough")
     shot("09-add-roughing")
-    click(706, 785, 3)                               # Add
+    click(1212, 785, 3)                              # Add (bottom right)
     fill(1827, 728, "1")                             # Stepdown
     click(720, 98, 1.5)                              # Fit
     shot("10-roughing-settings")
@@ -375,7 +375,7 @@ def tutorial(args):
     click(793, 514, 1.5)                             # Tool
     click(780, 612, 1)                               # Z1 ball 3.175x22
     fill(867, 327, "Finish")
-    click(706, 785, 3)                               # Add
+    click(1212, 785, 3)                              # Add (bottom right)
     shot("12-finishing-settings")
     # Adaptive spacing is on by default. On this piece it cannot confirm the spacing between
     # some passes and leaves a partial path that has to be accepted before export, so the

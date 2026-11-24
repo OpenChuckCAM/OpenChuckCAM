@@ -156,6 +156,7 @@ fn main() {
         flute_count: 1,
         material: None,
         centre_cutting: Some(true),
+        stick_out: None,
     };
     let profile = tool.profile().unwrap();
     let outline = Outline::new(&profile);

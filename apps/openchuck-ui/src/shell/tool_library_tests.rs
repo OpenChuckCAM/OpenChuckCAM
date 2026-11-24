@@ -481,6 +481,7 @@ fn req_tl_04_req_tl_05_every_tool_library_entry_has_a_plain_tooltip() {
         flute_count: 2,
         material: None,
         centre_cutting: None,
+        stick_out: None,
     };
     for field in openchuck_app::tool_edit::tool_form(&tool) {
         assert!(
@@ -1139,4 +1140,40 @@ fn req_tl_07_req_ui_16_cleanup_large_list_keeps_actions_visible_at_supported_siz
         cleanup_click(&mut rig, "Cancel");
         assert_eq!(rig.shell.app.as_ref().unwrap().project().tools().len(), 41);
     }
+}
+
+#[test]
+fn req_tl_02_req_ui_07_a_blank_stick_out_clears_it_in_the_window() {
+    use openchuck_app::project::ParameterValue;
+    use openchuck_app::tool_edit::fields;
+    let folder = library_folder("clear-stick-out");
+    let mut rig = Rig::cube("toollib-clear-stick-out", None);
+    let mut window = ToolLibraryWindow::new(Some(folder.clone()));
+    let tool = rig.shell.app.as_ref().unwrap().project().tools()[0].id;
+    window.open(Purpose::Add, Some(Chosen::Project(tool)));
+    let stick_out = |rig: &Rig| {
+        rig.shell.app.as_ref().unwrap().project().tools()[0]
+            .tool
+            .stick_out
+    };
+    let set = stick_out(&rig).map_or(20.0, |s| s.0 + 1.0);
+    window.commit_field(
+        rig.shell.app.as_mut(),
+        fields::STICK_OUT,
+        Some(ParameterValue::Number(set)),
+    );
+    assert_eq!(stick_out(&rig).map(|s| s.0), Some(set));
+    // Left blank, the field clears the stick-out rather than refusing.
+    window.commit_field(rig.shell.app.as_mut(), fields::STICK_OUT, None);
+    assert_eq!(stick_out(&rig), None);
+    // Any other tool size left blank is still refused.
+    let before = rig.shell.app.as_ref().unwrap().project().tools()[0]
+        .tool
+        .clone();
+    window.commit_field(rig.shell.app.as_mut(), fields::FLUTE_LENGTH, None);
+    assert_eq!(
+        rig.shell.app.as_ref().unwrap().project().tools()[0].tool,
+        before
+    );
+    std::fs::remove_dir_all(&folder).ok();
 }

@@ -181,6 +181,7 @@ fn build_with_mesh(
             flute_count: 2,
             material: None,
             centre_cutting: None,
+            stick_out: None,
         },
         controller: ControllerMapping {
             number: 1,
@@ -339,6 +340,7 @@ fn req_set_09_req_op_21_operations_never_cut_a_held_region_or_a_tab() {
             flute_count: 2,
             material: None,
             centre_cutting: None,
+            stick_out: None,
         }
         .profile()
         .unwrap(),
@@ -422,6 +424,7 @@ fn req_set_09_req_op_21_req_op_03_roughing_in_either_new_direction_never_cuts_a_
             flute_count: 2,
             material: None,
             centre_cutting: None,
+            stick_out: None,
         }
         .profile()
         .unwrap(),

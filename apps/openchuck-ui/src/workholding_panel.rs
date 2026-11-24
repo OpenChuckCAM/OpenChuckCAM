@@ -13,6 +13,7 @@
 //! of each zone ([`Application::start_part_extent`]), and the checks against
 //! the part and the tools, whose findings go on their tab's row.
 
+use crate::focus::Tip as _;
 use eframe::egui::{self, Color32, RichText, Stroke};
 use openchuck_app::overview::ItemState;
 use openchuck_app::project::id::SetupId;
@@ -948,7 +949,7 @@ impl WorkholdingPanel {
                         ),
                     );
                 }
-                let more = ui.small_button("\u{2026}").on_hover_text("Tab menu");
+                let more = ui.small_button("\u{2026}").tip("Tab menu");
                 more.widget_info(|| {
                     egui::WidgetInfo::labeled(
                         egui::Role::Button,
@@ -1038,7 +1039,7 @@ impl WorkholdingPanel {
             let response = ui.add_enabled(reason.is_none(), egui::Button::new("Add default tabs"));
             let response = match &reason {
                 Some(why) => response.on_disabled_hover_text(why),
-                None => response.on_hover_text(
+                None => response.tip(
                     "One tab at the head and one at the tail, frustums with the small end on \
                      the part, sized from the part",
                 ),
@@ -1062,7 +1063,7 @@ impl WorkholdingPanel {
                 let response = ui.add_enabled(made.is_ok(), egui::Button::new(label));
                 let response = match &made {
                     Err(why) => response.on_disabled_hover_text(why),
-                    Ok(_) => response.on_hover_text(format!(
+                    Ok(_) => response.tip(format!(
                         "Adds a tab that fills the gap at the {} of the part, from the part to \
                          the held region (or the end of the stock), and follows the part, the \
                          stock and the held regions when they change. It is a cylinder a quarter \
@@ -1434,7 +1435,7 @@ impl WorkholdingPanel {
         ui.horizontal(|ui| {
             if ui
                 .add_enabled(idle, egui::Button::new("Check against the part and tools"))
-                .on_hover_text(CHECK_BUTTON_HOVER)
+                .tip(CHECK_BUTTON_HOVER)
                 .clicked()
             {
                 action = Some(0);
@@ -1455,7 +1456,7 @@ impl WorkholdingPanel {
                         && !refused_text;
                     let response = ui.add_enabled(can, egui::Button::new("Apply"));
                     let response = if response.enabled() {
-                        response.on_hover_text(reason)
+                        response.tip(reason)
                     } else {
                         response.on_disabled_hover_text(reason)
                     };

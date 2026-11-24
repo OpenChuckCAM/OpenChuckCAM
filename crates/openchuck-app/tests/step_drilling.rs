@@ -77,6 +77,7 @@ fn req_op_10_a_step_blank_with_a_radial_hole_is_found_and_drilled() {
         flute_count: 2,
         material: None,
         centre_cutting: Some(true),
+        stick_out: None,
     }
     .profile()
     .unwrap();

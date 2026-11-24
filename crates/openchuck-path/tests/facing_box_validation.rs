@@ -111,6 +111,7 @@ fn with_edited_plan<T>(
         flute_count: 2,
         material: None,
         centre_cutting: Some(true),
+        stick_out: None,
     };
     let machine = MachineProfile {
         a_sense: sense,
@@ -494,6 +495,7 @@ fn req_op_24_req_op_11_declared_non_centre_cutting_tool_cannot_borrow_a_plunging
             let original = input.facing.unwrap();
             let tool = Tool {
                 centre_cutting: Some(false),
+                stick_out: None,
                 ..original.tool.clone()
             };
             let setup = FacingSetup {

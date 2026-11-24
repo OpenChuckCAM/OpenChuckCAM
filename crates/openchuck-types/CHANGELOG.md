@@ -4,6 +4,10 @@
 
 - **Added:** `tool::profile::MAX_PROFILE_SIZE` (1000 mm). A profile point, arc centre or arc radius given by size further than that from the tip is refused naming the segment; `Tool::profile` refuses a diameter or shank diameter above twice it and a flute or overall length above it, naming the field. A finite but huge size (the nightly `tool_profile_toml` input, 7.8e307 mm) used to be accepted and overflow the lower envelope.
 
+## 0.59.0
+
+- **Breaking (0.59.0; lane Z1-SETUP, PR 2; issue #692; decision 0673):** `tool::Tool` gains the public field `stick_out: Option<Millimetres>`, how far the tool sticks out of the collet from its tip to the collet face, written only when set; `Tool::validate` and `Tool::profile` refuse one below the flute length or above the overall length. A struct literal of `Tool` must add `stick_out: None`. Tool files and project tool snapshots carry it from project schema 29.
+
 ## 0.56.0
 
 - **Family release (0.56.0, POST-SAFETY; issue #703; decision 0656, accepted):** `openchuck-post`'s `PostOptions` gains the public field `max_line_length` and `openchuck-gcode`'s `FindingKind` gains `LineTooLong`, a breaking change; no change to this crate.

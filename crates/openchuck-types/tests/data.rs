@@ -102,6 +102,7 @@ fn req_nfr_07_bad_tools_and_stock_give_errors() {
         flute_count: 2,
         material: None,
         centre_cutting: None,
+        stick_out: None,
     };
     assert!(
         tool.validate()

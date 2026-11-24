@@ -39,6 +39,7 @@ fn ball(diameter: f64) -> Tool {
         flute_count: 2,
         material: Some("carbide".into()),
         centre_cutting: None,
+        stick_out: None,
     }
 }
 
@@ -288,7 +289,13 @@ fn req_gc_16_a_rapid_that_cuts_reads_as_a_possible_collision_at_writing() {
     // (CodeRabbit on #659: it read "... of material.: a possible ...").
     let (dir, mut app) = project("checks-rapid-cut", false);
     let mut run = post(&mut app, OutputGrouping::Setup);
-    run.groups[0].rapid_cuts.push((9, 0.1234));
+    run.groups[0].rapid_cuts.push(openchuck_sim::RapidCut {
+        segment: 9,
+        volume: 0.1234,
+        end: openchuck_types::geometry::Point3::ORIGIN,
+        depth: 0.25,
+        cell: 0.1,
+    });
     let name = app
         .project()
         .operation(run.groups[0].operation)
@@ -298,7 +305,8 @@ fn req_gc_16_a_rapid_that_cuts_reads_as_a_possible_collision_at_writing() {
     let checks = app.export_checks(Some(&run), None, None);
     let w = warnings(&checks);
     let expected = format!(
-        "Rapid cut (operation '{name}'): move 9 is a rapid that removes 0.123 mm³ of material. A \
+        "Rapid cut (operation '{name}'): move 9 is a rapid that goes 0.250 mm into the stock, \
+         deeper than the simulation's cell of 0.100 mm, and removes 0.123 mm³ of material. A \
          possible collision: acknowledge it before the files are written"
     );
     assert!(w.iter().any(|t| *t == expected), "{w:?}");
@@ -1837,8 +1845,9 @@ fn req_gc_16_a_tool_too_long_to_clear_the_workholding_needs_acknowledging() {
         });
         s.clearance_rules.min_radius = Some(Millimetres(12.0));
     });
-    // Show setting opens the tool at its flute length, which sets how far
-    // it sticks out (decision record 0536 section 4).
+    // Show setting opens the tool at its stick-out, which the check uses,
+    // or assumes from the flute length when it is blank (decision records
+    // 0536 section 4 and 0673).
     let checks = app.start_checks(None).wait().unwrap();
     let overview = app.overview(Some(&checks), &openchuck_app::JobLog::default());
     let tool = app.project().tools()[0].id;
@@ -1855,7 +1864,7 @@ fn req_gc_16_a_tool_too_long_to_clear_the_workholding_needs_acknowledging() {
         Some(openchuck_app::overview::MessageAction::ShowSetting(
             openchuck_app::overview::SettingRef::tool(
                 tool,
-                openchuck_app::tool_edit::fields::FLUTE_LENGTH
+                openchuck_app::tool_edit::fields::STICK_OUT
             )
         ))
     );
