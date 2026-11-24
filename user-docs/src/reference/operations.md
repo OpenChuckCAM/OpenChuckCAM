@@ -30,6 +30,10 @@ A strategy that needs a STEP model is shown greyed out when the setup's part is 
 
 The **Material preset** fills the spindle speed, feed per tooth, plunge feed, stepover and stepdown from the tool's cutting data for one stock material. It starts at the setup's stock material. Changing one of those values drops the preset. Check the values against your tool, material and machine.
 
+## The operations list
+
+The project panel lists the operations in machining order. Each row shows the tool's number, such as **T1**. Rest the pointer on the number, or move to the row with <kbd>Tab</kbd>, to see the tool's name and what it is, for example "4 mm ball" and "T1 · Ball end mill · Ø4 · 2 flutes". An operation with no tool shows **No tool** in red, and its tooltip says how to fix it: choose a tool in the operation's **Tool** section.
+
 ## The operation inspector
 
 Select an operation to show its settings in the Inspector, from the top:

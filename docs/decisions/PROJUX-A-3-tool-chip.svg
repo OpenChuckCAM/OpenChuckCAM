@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 250" role="img" aria-label="The operations list: the tool chip's tooltip on hover or row focus, and the No tool chip">
+  <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
+  <!-- Decision PROJUX-A-3 (issue #790). A drawing, not a capture. -->
+  <rect width="760" height="250" fill="#15171a"/>
+  <rect x="16" y="14" width="300" height="182" fill="#1a1d21"/>
+  <text x="28" y="34" fill="#9aa6b5" font-size="11" font-weight="bold" letter-spacing="0.6" font-family="sans-serif">OPERATIONS  2</text>
+  <g font-family="sans-serif" font-size="12.5">
+    <rect x="18" y="44" width="296" height="28" fill="#1f2a3a"/>
+    <rect x="18" y="44" width="296" height="28" fill="none" stroke="#6fa3ff" stroke-width="2"/>
+    <circle cx="52" cy="58" r="5" fill="#4cc38a"/>
+    <text x="66" y="62" fill="#e6e9ee">1 Rough</text>
+    <rect x="262" y="48" width="30" height="20" rx="3" fill="none" stroke="#383d45"/>
+    <text x="277" y="62" fill="#e6e9ee" text-anchor="middle">T1</text>
+    <path d="M46 132 l6 -10 l6 10 z" fill="#ff7b72"/>
+    <text x="66" y="132" fill="#e6e9ee">2 Finish</text>
+    <rect x="232" y="118" width="60" height="20" rx="3" fill="none" stroke="#ff7b72"/>
+    <text x="262" y="132" fill="#ff7b72" text-anchor="middle">No tool</text>
+  </g>
+  <rect x="300" y="70" width="292" height="48" rx="4" fill="#2a3038" stroke="#4a525c"/>
+  <text x="312" y="89" fill="#e6e9ee" font-size="12.5" font-weight="bold" font-family="sans-serif">4 mm ball</text>
+  <text x="312" y="108" fill="#c9d1d9" font-size="12" font-family="sans-serif">T1 · Ball end mill · Ø4 · 2 flutes</text>
+  <rect x="300" y="146" width="444" height="30" rx="4" fill="#2a3038" stroke="#4a525c"/>
+  <text x="312" y="166" fill="#c9d1d9" font-size="12" font-family="sans-serif">It has no tool. Choose a tool in the operation's Tool section.</text>
+  <g font-family="sans-serif" font-size="11.5" fill="#9aa6b5">
+    <text x="16" y="216">Row 1 has the keyboard (focus ring): its tool's tooltip shows with no pointer over it. Hovering the chip shows the same.</text>
+    <text x="16" y="236">Tab goes from row to row: the chip is not a Tab stop of its own. Row 2's tooltip shows on hover over its chip or on its focus.</text>
+  </g>
+</svg>
