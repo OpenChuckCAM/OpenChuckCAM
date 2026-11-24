@@ -1131,6 +1131,97 @@ fn req_set_09_cli_names_the_stock_outline_as_the_held_region_on_box_stock() {
     );
 }
 
+/// Issue #676: `--default-tabs` adds the tab for each end that has one, says
+/// what it added, and says which end it skipped and why; it refuses, naming
+/// both ends, only when neither end can have one.
+#[test]
+fn req_op_21_cli_default_tabs_add_the_ends_that_have_one() {
+    let project = empty_project("default-tabs-point");
+    let p = project.to_str().unwrap();
+    std::fs::create_dir_all(project.join("models")).unwrap();
+    // A square pyramid along X: a 10 mm square base at X -10, its point at X 10.
+    let mut stl = String::from("solid pyramid\n");
+    let tri = |a: [f64; 3], b: [f64; 3], c: [f64; 3]| {
+        format!(
+            "facet normal 0 0 0\n outer loop\n  vertex {} {} {}\n  vertex {} {} {}\n  vertex {} {} {}\n endloop\nendfacet\n",
+            a[0], a[1], a[2], b[0], b[1], b[2], c[0], c[1], c[2]
+        )
+    };
+    let base = [
+        [-10.0, -5.0, -5.0],
+        [-10.0, 5.0, -5.0],
+        [-10.0, 5.0, 5.0],
+        [-10.0, -5.0, 5.0],
+    ];
+    let apex = [10.0, 0.0, 0.0];
+    stl.push_str(&tri(base[0], base[2], base[1]));
+    stl.push_str(&tri(base[0], base[3], base[2]));
+    for i in 0..4 {
+        stl.push_str(&tri(base[i], base[(i + 1) % 4], apex));
+    }
+    stl.push_str("endsolid pyramid\n");
+    std::fs::write(project.join("models/pyramid.stl"), stl).unwrap();
+    let out = run(&args(&[
+        "import",
+        p,
+        project.join("models/pyramid.stl").to_str().unwrap(),
+    ]));
+    assert_eq!(out.code, Some(0), "{}", out.stderr);
+    let out = run(&args(&[
+        "setup",
+        p,
+        "--new",
+        "Setup 1",
+        "--part",
+        "models/pyramid.stl",
+        "--stock",
+        "cylinder=30,60,-25",
+        "--held-start",
+        "5",
+        "--held-end",
+        "4,20",
+    ]));
+    assert_eq!(out.code, Some(0), "{}{}", out.stdout, out.stderr);
+    let out = run(&args(&["setup", p, "Setup 1", "--default-tabs"]));
+    assert_eq!(out.code, Some(0), "{}{}", out.stdout, out.stderr);
+    // The head's tab is added and said, with where it is.
+    assert!(
+        out.stdout.contains(
+            "Workholding (setup 'Setup 1'): added a default tab at the head, X -20.000 to -10.000 mm"
+        ),
+        "{}",
+        out.stdout
+    );
+    assert!(out.stdout.contains("tab 1:"), "{}", out.stdout);
+    // The tail's is skipped, and said with the reason, as a warning.
+    assert!(
+        out.stderr.lines().any(|l| l
+            .starts_with("warning: Workholding (setup 'Setup 1'): no default tab at the tail")
+            && l.contains("The part comes to a point at X 10.000 mm")
+            && l.contains("--tab")),
+        "{}",
+        out.stderr
+    );
+    assert!(!out.stdout.contains("tab 2:"), "{}", out.stdout);
+    // With neither end possible, the command refuses, naming both, and stores nothing.
+    let out = run(&args(&[
+        "setup",
+        p,
+        "Setup 1",
+        "--clear-tabs",
+        "--held-start",
+        "20",
+        "--default-tabs",
+    ]));
+    assert_ne!(out.code, Some(0), "{}{}", out.stdout, out.stderr);
+    assert!(
+        out.stderr.contains("head") && out.stderr.contains("tail"),
+        "{}",
+        out.stderr
+    );
+    assert!(!out.stderr.contains("panicked"), "{}", out.stderr);
+}
+
 #[test]
 fn req_set_09_req_op_21_cli_sets_held_regions_and_tabs() {
     let project = empty_project("holding-set");

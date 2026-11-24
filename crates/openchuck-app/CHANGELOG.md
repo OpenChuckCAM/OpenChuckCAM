@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased (WORDING-DOCS; issue #676)
+
+- **Added:** `workholding::default_tabs_report` and `DefaultTabsReport`, and `Application::start_default_tabs_report`: the default tabs end by end, those to add and for each end without one why; refused only when neither end can have one, naming both. `default_tabs` and `start_default_tabs` are unchanged (all or nothing).
+
 ## 0.60.0 (POST-COMMENTS; issue #851; decision 0681, accepted)
 
 - **Added:** when the post writes `_` in front of text from the project because it would have started a comment the controller acts on (LinuxCNC's `MSG,`, `LOGOPEN,` and others), the run has one warning per text and where it came from: the project name, the setup name, the operation name, the name of tool T<n>, the revision, the version line or a comment of the post, with the opening matched and the post's name. The text is quoted, escaped (control characters, quotes, backslashes and non-ASCII) and cut after 48 characters. It is an ordinary run warning (Messages tab, `warning:` on the command line); nothing is saved and nothing needs acknowledging. The setup name in its prefix is escaped the same way, and each warning is said once per setup, field and text in a run, whatever the output grouping.
