@@ -104,6 +104,40 @@ pub enum ParameterKind {
         /// Default row data, normally an empty array.
         default: String,
     },
+    /// A length in millimetres, or the operation's tool's diameter, read at
+    /// generation so it follows a change of tool (issue #854). Stored as a
+    /// number or as the word [`TOOL_DIAMETER`]. `min` is inclusive.
+    LengthOrTool {
+        /// Lowest value, if any.
+        min: Option<f64>,
+        /// Highest value, if any (inclusive).
+        max: Option<f64>,
+        /// The default.
+        default: LengthOrTool,
+    },
+}
+
+/// The word a [`ParameterKind::LengthOrTool`] value is stored as when it is
+/// the tool's diameter.
+pub const TOOL_DIAMETER: &str = "tool_diameter";
+
+/// A [`ParameterKind::LengthOrTool`] value.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum LengthOrTool {
+    /// The operation's tool's diameter, at generation.
+    ToolDiameter,
+    /// A length in millimetres.
+    Millimetres(f64),
+}
+
+impl LengthOrTool {
+    /// The value as an operation stores it.
+    pub fn stored(self) -> ParameterValue {
+        match self {
+            Self::ToolDiameter => ParameterValue::Text(TOOL_DIAMETER.to_owned()),
+            Self::Millimetres(v) => ParameterValue::Number(v),
+        }
+    }
 }
 
 /// One parameter of a strategy.
@@ -248,6 +282,51 @@ fn resolve_one(spec: &ParameterSpec, value: Option<&ParameterValue>) -> Result<P
             crate::facing::selection::decode_rows(&v)?;
             Ok(ParameterValue::Text(v))
         }
+        ParameterKind::LengthOrTool { min, max, default } => {
+            let v = match value {
+                // A default is checked as a value is (a number in range).
+                None => match default {
+                    LengthOrTool::ToolDiameter => {
+                        return Ok(ParameterValue::Text(TOOL_DIAMETER.to_owned()));
+                    }
+                    LengthOrTool::Millimetres(v) => *v,
+                },
+                Some(ParameterValue::Text(t)) if t == TOOL_DIAMETER => {
+                    return Ok(ParameterValue::Text(TOOL_DIAMETER.to_owned()));
+                }
+                Some(ParameterValue::Number(v)) => *v,
+                #[allow(clippy::cast_precision_loss)]
+                Some(ParameterValue::Integer(i)) => *i as f64,
+                Some(_) => {
+                    return Err(wrong(&format!(
+                        "a length in mm or \"{TOOL_DIAMETER}\" (the tool's diameter)"
+                    )));
+                }
+            };
+            if !v.is_finite() {
+                return Err(PathError::parameter(
+                    name,
+                    "the value is not a finite number",
+                ));
+            }
+            if let Some(lo) = *min
+                && v < lo
+            {
+                return Err(PathError::parameter(
+                    name,
+                    format!("{v} mm must be at least {lo} mm"),
+                ));
+            }
+            if let Some(hi) = *max
+                && v > hi
+            {
+                return Err(PathError::parameter(
+                    name,
+                    format!("{v} mm must be at most {hi} mm"),
+                ));
+            }
+            Ok(ParameterValue::Number(v))
+        }
         ParameterKind::Choice { options, default } => {
             let v = match value {
                 None => default.clone(),
@@ -309,6 +388,30 @@ impl Parameters {
         match self.0.get(name) {
             Some(ParameterValue::Number(v)) => Ok(*v),
             _ => Err(PathError::parameter(name, "expected a number")),
+        }
+    }
+
+    /// The length called `name`, in millimetres: its number, or
+    /// `tool_diameter` where it is the tool's diameter
+    /// ([`ParameterKind::LengthOrTool`]). A diameter that is not a finite
+    /// number at least zero is refused by name.
+    pub fn length_or_tool(&self, name: &str, tool_diameter: f64) -> Result<f64> {
+        match self.0.get(name) {
+            Some(ParameterValue::Number(v)) => Ok(*v),
+            Some(ParameterValue::Text(t)) if t == TOOL_DIAMETER => {
+                if tool_diameter.is_finite() && tool_diameter >= 0.0 {
+                    Ok(tool_diameter)
+                } else {
+                    Err(PathError::parameter(
+                        name,
+                        "the tool has no diameter to take this value from",
+                    ))
+                }
+            }
+            _ => Err(PathError::parameter(
+                name,
+                format!("expected a length in mm or \"{TOOL_DIAMETER}\""),
+            )),
         }
     }
 
@@ -738,5 +841,102 @@ impl CommonParameters {
             },
             approach_distance: Millimetres(p.number(APPROACH_DISTANCE)?),
         })
+    }
+}
+
+#[cfg(test)]
+// The values are passed through unchanged, so they compare exactly.
+#[allow(clippy::float_cmp)]
+mod length_or_tool_tests {
+    //! The length-or-Tool-diameter kind (issue #854; the owner's decision of
+    //! 23 Nov 2026, relayed): a number in millimetres or the word
+    //! `tool_diameter`, the operation's tool's diameter at generation.
+
+    use super::*;
+
+    fn schema(default: LengthOrTool) -> ParameterSchema {
+        ParameterSchema {
+            parameters: vec![ParameterSpec {
+                name: "min_length".to_owned(),
+                label: "Shortest cut".to_owned(),
+                description: String::new(),
+                kind: ParameterKind::LengthOrTool {
+                    min: Some(0.0),
+                    max: None,
+                    default,
+                },
+            }],
+        }
+    }
+
+    fn values(v: Option<ParameterValue>) -> BTreeMap<String, ParameterValue> {
+        v.into_iter()
+            .map(|v| ("min_length".to_owned(), v))
+            .collect()
+    }
+
+    #[test]
+    fn req_op_16_a_length_or_tool_value_resolves_to_a_number_or_the_tools_diameter() {
+        let s = schema(LengthOrTool::Millimetres(0.0));
+        let read = |v: Option<ParameterValue>| {
+            s.resolve(&values(v))
+                .and_then(|p| p.length_or_tool("min_length", 3.175))
+        };
+        // A number is itself; a whole number too.
+        assert_eq!(read(Some(ParameterValue::Number(2.5))).unwrap(), 2.5);
+        assert_eq!(read(Some(ParameterValue::Integer(4))).unwrap(), 4.0);
+        // The word is the tool's diameter, whatever it is at generation.
+        let word = Some(ParameterValue::Text(TOOL_DIAMETER.to_owned()));
+        assert_eq!(read(word.clone()).unwrap(), 3.175);
+        let p = s.resolve(&values(word)).unwrap();
+        assert_eq!(p.length_or_tool("min_length", 6.0).unwrap(), 6.0);
+        // A missing value takes the default, a number or the word.
+        assert_eq!(read(None).unwrap(), 0.0);
+        let by_tool = schema(LengthOrTool::ToolDiameter);
+        let p = by_tool.resolve(&BTreeMap::new()).unwrap();
+        assert_eq!(p.length_or_tool("min_length", 2.0).unwrap(), 2.0);
+        assert_eq!(
+            p.get("min_length"),
+            Some(&ParameterValue::Text(TOOL_DIAMETER.to_owned()))
+        );
+    }
+
+    #[test]
+    fn req_nfr_07_a_length_or_tool_default_out_of_range_is_refused_by_name() {
+        // CodeRabbit on #854: a default is checked as a value is.
+        let s = schema(LengthOrTool::Millimetres(-1.0));
+        let e = s.resolve(&BTreeMap::new()).expect_err("refused");
+        assert!(e.to_string().contains("min_length"), "{e}");
+        assert!(
+            schema(LengthOrTool::ToolDiameter)
+                .resolve(&BTreeMap::new())
+                .is_ok()
+        );
+    }
+
+    #[test]
+    fn req_nfr_07_a_bad_length_or_tool_value_is_refused_by_name() {
+        let s = schema(LengthOrTool::Millimetres(0.0));
+        for bad in [
+            ParameterValue::Number(-1.0),
+            ParameterValue::Number(f64::NAN),
+            ParameterValue::Text("diameter".to_owned()),
+            ParameterValue::Flag(true),
+        ] {
+            let e = s
+                .resolve(&values(Some(bad.clone())))
+                .err()
+                .unwrap_or_else(|| panic!("{bad:?} accepted"));
+            assert!(e.to_string().contains("min_length"), "{bad:?}: {e}");
+        }
+        // A tool with no usable diameter is refused, not used.
+        let p = s
+            .resolve(&values(Some(ParameterValue::Text(
+                TOOL_DIAMETER.to_owned(),
+            ))))
+            .unwrap();
+        assert!(p.length_or_tool("min_length", f64::NAN).is_err());
+        // Read as a plain number it is refused by name too.
+        assert!(p.number("min_length").is_err());
     }
 }

@@ -36,7 +36,8 @@ pub use options::{
 };
 pub use program::{MachineProgram, Step, Target};
 pub use render::{
-    PostJob, PostOutput, PostProcessor, SAFETY_NOTICE, TemplatePost, sanitise_comment,
+    ACTIVE_COMMENT_GUARD, CommentSource, GuardedComment, PostJob, PostOutput, PostProcessor,
+    SAFETY_NOTICE, TemplatePost, sanitise_comment,
 };
 
 pub use block_time::{BlockTimeReport, BlockTimeSettings, block_time_reports};

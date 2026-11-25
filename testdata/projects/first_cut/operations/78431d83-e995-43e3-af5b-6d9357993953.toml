@@ -1,10 +1,11 @@
-schema = 17
-id = "29066623-476b-4362-b988-4c614d097769"
+schema = 28
+id = "78431d83-e995-43e3-af5b-6d9357993953"
 order = "V"
 name = "Rough"
-setup = "ea27b6df-99a1-4b69-9040-6d006eefa35e"
+setup = "99cdebaf-7021-42c1-82f4-1d7339902e4c"
 strategy = "rotary_roughing"
 tool = "c0de0001-0000-4000-8000-000000000104"
 selections = []
 
 [parameters]
+adaptive_spacing = false

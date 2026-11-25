@@ -16,8 +16,8 @@
 # [ids]: references to a requirement ("(OP-14)"), a decision record ("decision 0495") or an
 # open item ("OI-360") in a product file's string literals (decision record 0644, after
 # OWNERCHECKS2). A user reads what to change, not where the rule came from. What is left is
-# not a message: the frame-time benchmark's own labels, the default tools file's header and
-# the determinism checker's test-support panic.
+# not a message: the frame-time benchmark's own labels and the determinism checker's
+# test-support panic.
 #
 # [strategy_refusals]: refusals in the path crate made with a variant that carries no
 # topic (`PathError::Strategy`, `Surface`, `Region`, `RotaryLimit`), per file (decision
@@ -33,7 +33,6 @@
 
 [ids]
 "apps/openchuck-ui/src/bench.rs" = 2
-"crates/openchuck-project/src/tools/defaults.rs" = 1
 "crates/openchuck-testkit/src/determinism.rs" = 1
 
 [strategy_refusals]

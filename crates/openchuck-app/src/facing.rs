@@ -64,6 +64,20 @@ pub(crate) fn needs_verification(operation: &openchuck_project::Operation) -> bo
     !legacy_shape || !whole || !zero_margin
 }
 
+/// The completion note of a Facing whose path its checks proved: what it
+/// covered, and, beside a held region, that it covered only what the tool
+/// reaches, the held-region note giving the numbers (decision 0685).
+pub(crate) fn completion_note(
+    description: &openchuck_path::facing::description::FacingDescription,
+) -> &'static str {
+    if description.geometry.unfaced().is_empty() {
+        "Facing covered the end faces it was asked to."
+    } else {
+        "Facing covered the faces it was asked to up to the held region; the held-region \
+         note says where it stops and what it leaves unfaced."
+    }
+}
+
 impl FacingVerification {
     /// Capture only modes requiring the new complete Facing checks. Legacy
     /// Whole stock/zero-margin defaults keep their existing path and metadata.

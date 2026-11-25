@@ -7,6 +7,9 @@ testdata/** -text
 # but a CRLF checkout must not change the files that are reviewed (decision record 0019 item 6).
 crates/openchuck-post/posts/** -text
 *.step -text
+# The changelog tool's release-notes fixtures are compared byte for byte with its output, which
+# has LF line ends (decision 0678); a CRLF checkout on Windows would fail the comparison.
+xtask/src/changelog/*.md -text
 # Append-only registers: a local merge keeps the rows added on both sides instead of stopping
 # on a conflict (decision record 0054). It also keeps both versions of a row two branches edited, so
 # `cargo xtask records` checks both files (decision record 0130): edit a row in place, move a closed

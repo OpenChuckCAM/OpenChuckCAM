@@ -119,21 +119,24 @@ fn req_op_27_exact_contact_is_offered_by_the_strategies_that_drop_on_faces() {
                 let spec = spec.unwrap_or_else(|| panic!("{name} has no setting"));
                 assert_eq!(spec.label, "Exact STEP surface contact", "{name}");
                 assert_eq!(spec.kind, ParameterKind::Flag { default: on }, "{name}");
-                // Plain words: slower, more accurate, no effect on a mesh
-                // part; no promised figure. The G-code notice (NFR-12) is
-                // on the export and in the program, not in this tooltip
-                // (issue #634, the owner's answer of 8 Nov 2026).
+                // Plain words: closer to the true surface and slower, with
+                // the measured examples (the owner's answer of 23 Nov 2026,
+                // decision record 0684 item 4), no effect on a mesh
+                // part. The G-code notice (NFR-12) is on the export and in
+                // the program, not in this tooltip (issue #634).
                 let d = spec.description.to_lowercase();
                 for word in [
                     "slower",
-                    "accurate",
-                    "tessellation",
+                    "closer to the true surface",
+                    "on the parts measured",
+                    "triangles",
                     "no effect on a mesh part",
                 ] {
                     assert!(d.contains(word), "{name}: '{word}' in {d}");
                 }
                 assert!(!d.contains("check the program"), "{name}: {d}");
-                // Next to Tolerance, in the same section of the form.
+                // Next to Tolerance in the schema's order; the form shows
+                // it in Advanced (decision record 0684 item 4).
                 let order: Vec<&str> = schema.parameters.iter().map(|p| p.name.as_str()).collect();
                 let at = order.iter().position(|n| *n == names::TOLERANCE).unwrap();
                 assert_eq!(order.get(at + 1), Some(&EXACT_CONTACT), "{name}: {order:?}");

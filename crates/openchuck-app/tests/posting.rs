@@ -1206,3 +1206,138 @@ fn req_gc_08_a_line_longer_than_the_posts_limit_fails_the_files_checks() {
     }
     std::fs::remove_dir_all(dir).unwrap();
 }
+
+/// NFR-07 and GC-10 (issue #851; decision 0681, the owner's addition of 23 Nov 2026): when
+/// the post writes `_` in front of text from the project, because the text would have started
+/// a comment the controller acts on, the run warns once per source, naming the field, its
+/// text as written (escaped and shortened), the opening it matched and the post, so a command
+/// put into a shared project or tool library can be seen. The G-code changes only by the mark;
+/// the Makera Z1 post lists no openings, so it neither changes nor warns.
+#[test]
+fn req_gc_10_req_nfr_07_a_guarded_name_is_a_warning_naming_its_source() {
+    let (dir, mut app, op) = project("guarded-names");
+    app.execute(Command::RenameProject("MSG,direct title".into()))
+        .unwrap();
+    let guard_warnings = |result: &openchuck_app::Regeneration| -> Vec<String> {
+        result
+            .warnings
+            .iter()
+            .filter(|w| w.contains("wrote \"_\""))
+            .cloned()
+            .collect()
+    };
+    with_post(&mut app, "linuxcnc");
+    let result = app.regenerate().unwrap();
+    assert!(
+        result.gcode[0]
+            .1
+            .starts_with("(_MSG,direct title - Setup 1)\n"),
+        "{}",
+        result.gcode[0].1
+    );
+    assert_eq!(
+        guard_warnings(&result),
+        [
+            "setup 'Setup 1': the project name \"MSG,direct title\" would start a comment with \
+          \"MSG,\", which the controller of the post 'LinuxCNC verification' acts on, so the \
+          post wrote \"_\" in front of it; check where this text came from"
+        ]
+    );
+    with_post(&mut app, "makera-z1");
+    let result = app.regenerate().unwrap();
+    assert!(
+        result.gcode[0]
+            .1
+            .starts_with("(MSG,direct title - Setup 1)\n")
+    );
+    assert!(guard_warnings(&result).is_empty());
+
+    // Names inside a wrapped operation comment, from a post folder with a limit of 20.
+    let mut operation = app
+        .project()
+        .operations()
+        .iter()
+        .find(|o| o.id == op)
+        .unwrap()
+        .clone();
+    operation.name = "rough logopen,f".into();
+    app.execute(Command::Replace(Item::Operation(operation)))
+        .unwrap();
+    let mut tool = app.project().tools()[0].clone();
+    tool.name = "PY,abcdefghijklmnopq\u{1b}[31m and on and on and on and on and on".into();
+    app.execute(Command::Replace(Item::Tool(tool))).unwrap();
+    let source =
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("../../crates/openchuck-post/posts/linuxcnc");
+    let post_dir = dir.join("post-20");
+    std::fs::create_dir_all(&post_dir).unwrap();
+    std::fs::write(
+        post_dir.join("post.toml"),
+        std::fs::read_to_string(source.join("post.toml"))
+            .unwrap()
+            .replace("max_line_length = 255", "max_line_length = 20"),
+    )
+    .unwrap();
+    std::fs::copy(source.join("main.post"), post_dir.join("main.post")).unwrap();
+    app.set_post(Some(PostSelection::Folder(post_dir)));
+    let result = app.regenerate().unwrap();
+    let warned = guard_warnings(&result);
+    assert_eq!(warned.len(), 3, "{warned:#?}");
+    assert!(warned[0].contains("the project name \"MSG,direct title\""));
+    assert!(warned[1].contains("the operation name \"rough logopen,f\""));
+    assert!(warned[1].contains("with \"LOGOPEN,\""));
+    // The tool's text is escaped and cut at 48 characters, so it cannot write to the terminal.
+    assert!(
+        warned[2].contains(
+            "the name of tool T1 \"PY,abcdefghijklmnopq\\u{1b}[31m and on and on and on a...\""
+        ),
+        "{}",
+        warned[2]
+    );
+    assert!(!warned.iter().any(|w| w.contains('\u{1b}')));
+    assert_eq!(result.warnings, app.regenerate().unwrap().warnings, "GC-07");
+    std::fs::remove_dir_all(dir).unwrap();
+}
+
+/// NFR-07 (issue #851, CodeRabbit on #857): the guarded-name warning is said once per setup,
+/// field and text in a run, even when the run writes a file per operation; and the setup name
+/// in its prefix is escaped like the quoted text, so a setup name from a shared project cannot
+/// write to a terminal.
+#[test]
+fn req_nfr_07_a_guarded_name_warns_once_per_run_with_the_setup_name_escaped() {
+    let (dir, mut app, op) = project("guarded-once");
+    app.execute(Command::RenameProject("MSG,x".into())).unwrap();
+    let mut setup = app.project().setups()[0].clone();
+    setup.name = "Set\u{1b}[2Jup".into();
+    app.execute(Command::Replace(Item::Setup(setup))).unwrap();
+    let mut second = app
+        .project()
+        .operations()
+        .iter()
+        .find(|o| o.id == op)
+        .unwrap()
+        .clone();
+    second.id = OperationId::new();
+    second.name = "Finish again".into();
+    app.execute(Command::Add {
+        item: Item::Operation(second),
+        placement: Placement::End,
+    })
+    .unwrap();
+    with_post(&mut app, "linuxcnc");
+    app.set_output_grouping(openchuck_app::OutputGrouping::Operation);
+    let result = app.regenerate().unwrap();
+    assert_eq!(result.gcode.len(), 2, "a file per operation");
+    let warned: Vec<&String> = result
+        .warnings
+        .iter()
+        .filter(|w| w.contains("wrote \"_\""))
+        .collect();
+    assert_eq!(warned.len(), 1, "{warned:#?}");
+    assert!(
+        warned[0].starts_with("setup 'Set\\u{1b}[2Jup': the project name \"MSG,x\""),
+        "{}",
+        warned[0]
+    );
+    assert!(!warned[0].contains('\u{1b}'));
+    std::fs::remove_dir_all(dir).unwrap();
+}

@@ -6,8 +6,20 @@
 //! set per render in proportion to the program. The numeric surface is
 //! IEEE-exact only (rounding, `sqrt`, `floor`, `trunc`) so output is the same
 //! on every platform (NFR-06).
+//!
+//! The template engine frees its values by reference counting, so a
+//! `namespace` that holds itself (`{% set ns.me = ns %}`, or through a list or
+//! a second namespace) would never be freed: memory leaked on every post of
+//! such a template (issue #794, the nightly `post_definition` fuzz failure).
+//! Each render therefore records the namespaces it makes, and
+//! [`Namespaces`] empties them when the render is over, which breaks every
+//! such cycle (namespaces are the only values a template can change).
+
+use std::collections::BTreeMap;
+use std::sync::{Arc, Mutex, PoisonError};
 
 use minijinja::syntax::SyntaxConfig;
+use minijinja::value::ValueOrKwargs;
 use minijinja::{AutoEscape, Environment, Error, ErrorKind, UndefinedBehavior, Value};
 
 use crate::error::{PostError, Result};
@@ -78,8 +90,58 @@ fn decimals(d: &Value) -> std::result::Result<usize, Error> {
     })
 }
 
-/// A fresh environment for one render of `steps` steps.
-pub fn environment(steps: usize) -> Result<Environment<'static>> {
+/// True for a name the template syntax can write after a dot (ASCII letters,
+/// digits and `_`, not starting with a digit).
+fn is_name(key: &str) -> bool {
+    let mut chars = key.chars();
+    chars
+        .next()
+        .is_some_and(|c| c.is_ascii_alphabetic() || c == '_')
+        && chars.all(|c| c.is_ascii_alphanumeric() || c == '_')
+}
+
+/// The namespaces one render has made. When this is dropped, after the
+/// render, every key of every one is set to `none`, which frees a namespace
+/// that holds itself (issue #794).
+#[derive(Debug, Default)]
+pub struct Namespaces(Arc<Mutex<Vec<Value>>>);
+
+impl Namespaces {
+    /// Empties every recorded namespace and forgets it.
+    fn release(&self) {
+        let spaces = std::mem::take(&mut *self.0.lock().unwrap_or_else(PoisonError::into_inner));
+        // A small template of `set` statements is the only way to change a
+        // namespace from outside the engine. Its own environment has no fuel
+        // limit, and it makes no namespaces.
+        let mut source = String::new();
+        let mut context = BTreeMap::new();
+        for (i, space) in spaces.into_iter().enumerate() {
+            let name = format!("n{i}");
+            for key in space.try_iter().into_iter().flatten() {
+                // Every key is a name: `set` writes only names, and the
+                // `namespace` function refuses any other key.
+                if let Some(key) = key.as_str().filter(|k| is_name(k)) {
+                    source.push_str(&format!("{{% set {name}.{key} = none %}}"));
+                }
+            }
+            context.insert(name, space);
+        }
+        if !source.is_empty() {
+            // It cannot fail: every name is in the context and every key is a name.
+            let _ = Environment::new().render_str(&source, context);
+        }
+    }
+}
+
+impl Drop for Namespaces {
+    fn drop(&mut self) {
+        self.release();
+    }
+}
+
+/// A fresh environment for one render of `steps` steps, and the record of the
+/// namespaces it makes, to keep until the render is over.
+pub fn environment(steps: usize) -> Result<(Environment<'static>, Namespaces)> {
     let mut env = Environment::new();
     env.set_undefined_behavior(UndefinedBehavior::Strict);
     env.set_auto_escape_callback(|_| AutoEscape::None);
@@ -131,7 +193,28 @@ pub fn environment(steps: usize) -> Result<Environment<'static>> {
         Ok(number(&v, "trunc")?.trunc())
     });
     env.add_global("pi", std::f64::consts::PI);
-    Ok(env)
+    let namespaces = Namespaces::default();
+    let made = Arc::clone(&namespaces.0);
+    env.add_function(
+        "namespace",
+        move |defaults: Option<ValueOrKwargs>| -> std::result::Result<Value, Error> {
+            let space = minijinja::functions::namespace(defaults)?;
+            if let Some(key) = space.try_iter()?.find(|k| !k.as_str().is_some_and(is_name)) {
+                return Err(Error::new(
+                    ErrorKind::InvalidOperation,
+                    format!(
+                        "namespace: the key {key} is not a name (letters, digits and _, \
+                         not starting with a digit)"
+                    ),
+                ));
+            }
+            made.lock()
+                .unwrap_or_else(PoisonError::into_inner)
+                .push(space.clone());
+            Ok(space)
+        },
+    );
+    Ok((env, namespaces))
 }
 
 /// Turns an engine error into a message naming the template and line.
@@ -144,4 +227,74 @@ pub fn describe(error: &Error) -> String {
     format!("{name}{line}: {} {detail}", error.kind())
         .trim_end()
         .to_string()
+}
+
+#[cfg(test)]
+mod tests {
+    #![allow(clippy::unwrap_used)]
+
+    use std::sync::Weak;
+
+    use minijinja::value::Object;
+
+    use super::*;
+
+    /// A value the test can see being freed.
+    #[derive(Debug)]
+    struct Probe;
+
+    impl Object for Probe {}
+
+    /// Renders `source` with `probe` in the context, and reports whether the
+    /// probe is still alive once the render and the environment are gone.
+    fn probe_survives(source: &str) -> (std::result::Result<String, String>, bool) {
+        let probe = Arc::new(Probe);
+        let weak: Weak<Probe> = Arc::downgrade(&probe);
+        let result = {
+            let (env, _namespaces) = environment(0).unwrap();
+            let value = Value::from_dyn_object(probe);
+            env.render_str(source, minijinja::context! { probe => value })
+                .map_err(|e| e.to_string())
+        };
+        (result, weak.upgrade().is_some())
+    }
+
+    #[test]
+    fn req_nfr_07_a_namespace_that_holds_itself_is_freed_after_the_render() {
+        for source in [
+            // The nightly fuzz input of issue #794 stored a namespace in itself.
+            "{% set st = namespace(p=probe) %}{% set st.me = st %}",
+            "{% set st = namespace(p=probe) %}{% set st.all = [st] %}",
+            "{% set a = namespace(p=probe) %}{% set b = namespace(a=a) %}{% set a.b = b %}",
+            // A render that fails after making the cycle frees it too.
+            "{% set st = namespace(p=probe) %}{% set st.me = st %}{{ missing }}",
+        ] {
+            let (_, alive) = probe_survives(source);
+            assert!(!alive, "{source}");
+        }
+    }
+
+    #[test]
+    fn req_nfr_07_namespaces_render_as_before() {
+        let (text, alive) = probe_survives(
+            "{% set st = namespace(n=1) %}{% for i in [1, 2] %}{% set st.n = st.n + i %}\
+             {% endfor %}{{ st.n }} {{ namespace({'if': 2})['if'] }}",
+        );
+        assert_eq!(text.unwrap(), "4 2");
+        assert!(!alive);
+    }
+
+    #[test]
+    fn req_nfr_07_a_namespace_key_that_is_not_a_name_is_refused() {
+        for source in [
+            "{% set st = namespace({'a b': probe}) %}",
+            "{% set st = namespace({'': probe}) %}",
+            "{% set st = namespace({'9a': probe}) %}",
+        ] {
+            let (result, alive) = probe_survives(source);
+            let err = result.unwrap_err();
+            assert!(err.contains("is not a name"), "{source}: {err}");
+            assert!(!alive, "{source}");
+        }
+    }
 }
