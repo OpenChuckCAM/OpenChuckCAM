@@ -13,16 +13,29 @@ pub struct Entry {
     pub label: String,
     pub checked: Result<String, String>,
     pub preflight: Option<Preflight>,
+    /// Refused because it conflicts with another part of its form (a setup
+    /// value and the tabs), or allowed since and waiting for its own Enter:
+    /// it does not hold back an action of that form, which may be the one
+    /// that resolves it, and no departure confirms it (issue #870).
+    pub conflict: bool,
 }
 
 /// A dry run against a private copy of the enclosing value. Fields in the
 /// same group share that copy, in the order Keep will confirm them. This
 /// checks interacting constraints with the application's existing editors.
 #[derive(Clone)]
-pub struct Preflight(Arc<Check>);
+pub struct Preflight(Arc<Check>, Option<u64>);
 
-type Candidates = BTreeMap<u64, Box<dyn Any>>;
-type Check = dyn Fn(&mut Candidates, &str) -> Result<(), String> + Send + Sync;
+/// The private copies of the enclosing values, by group, and each group's
+/// check of its copy once every entry has been applied to it.
+#[derive(Default)]
+struct Candidates {
+    values: BTreeMap<u64, Box<dyn Any>>,
+    finish: BTreeMap<u64, (Id, Arc<Finish>)>,
+}
+
+type Check = dyn Fn(&mut Candidates, Id, &str) -> Result<(), String> + Send + Sync;
+type Finish = dyn Fn(&dyn Any) -> Result<(), String> + Send + Sync;
 
 impl std::fmt::Debug for Preflight {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -35,30 +48,86 @@ pub fn preflight<T: Clone + Send + Sync + 'static>(
     original: T,
     apply: impl Fn(&T, &str) -> Result<T, String> + Send + Sync + 'static,
 ) -> Preflight {
-    Preflight(Arc::new(move |candidates, text| {
-        let candidate = candidates
-            .entry(group.value())
-            .or_insert_with(|| Box::new(original.clone()));
-        let Some(value) = candidate.downcast_mut::<T>() else {
-            return Err("The form changed; confirm the fields again. Not applied.".to_owned());
-        };
-        *value = apply(value, text)?;
-        Ok(())
-    }))
+    Preflight(
+        Arc::new(move |candidates, _, text| {
+            let candidate = candidates
+                .values
+                .entry(group.value())
+                .or_insert_with(|| Box::new(original.clone()));
+            let Some(value) = candidate.downcast_mut::<T>() else {
+                return Err("The form changed; confirm the fields again. Not applied.".to_owned());
+            };
+            *value = apply(value, text)?;
+            Ok(())
+        }),
+        None,
+    )
+}
+
+/// [`preflight`], and `finish` checks the group's copy once every pending
+/// field of the group has been applied to it: a check of the whole value
+/// (a setup with its tabs) that no single field can pass alone. A refusal
+/// is shown at the group's first field (issue #870).
+pub fn preflight_whole<T: Clone + Send + Sync + 'static>(
+    group: Id,
+    original: T,
+    apply: impl Fn(&T, &str) -> Result<T, String> + Send + Sync + 'static,
+    finish: impl Fn(&T) -> Result<(), String> + Send + Sync + 'static,
+) -> Preflight {
+    let each = preflight(group, original, apply);
+    let finish: Arc<Finish> = Arc::new(move |value: &dyn Any| {
+        value.downcast_ref::<T>().map_or_else(
+            || Err("The form changed; confirm the fields again. Not applied.".to_owned()),
+            &finish,
+        )
+    });
+    Preflight(
+        Arc::new(move |candidates, id, text| {
+            (each.0)(candidates, id, text)?;
+            candidates
+                .finish
+                .entry(group.value())
+                .or_insert_with(|| (id, Arc::clone(&finish)));
+            Ok(())
+        }),
+        // Fields checked as a whole are applied as a whole: Keep confirms
+        // them in the same frame, so their form can store them as one
+        // undoable step (the owner's answer A to Q8 of issue #870).
+        Some(group.value()),
+    )
 }
 
 pub fn validate(entries: &[Entry]) -> Result<(), (Id, String)> {
-    let mut candidates = Candidates::new();
+    let mut candidates = Candidates::default();
     for entry in entries {
         let text = entry
             .checked
             .as_ref()
             .map_err(|reason| (entry.id, reason.clone()))?;
         if let Some(check) = &entry.preflight {
-            (check.0)(&mut candidates, text).map_err(|reason| (entry.id, reason))?;
+            (check.0)(&mut candidates, entry.id, text).map_err(|reason| (entry.id, reason))?;
+        }
+    }
+    for (group, (id, finish)) in &candidates.finish {
+        if let Some(value) = candidates.values.get(group) {
+            finish(value.as_ref()).map_err(|reason| (*id, reason))?;
         }
     }
     Ok(())
+}
+
+/// Marks the pending entry of `id` refused for a conflict with another
+/// part of its form ([`Entry::conflict`]).
+pub fn mark_conflict(ctx: &egui::Context, id: Id) {
+    read(ctx, |s| {
+        if let Some(entry) = s
+            .fields
+            .get_mut(&id.value())
+            .and_then(|f| f.pending.as_mut())
+        {
+            entry.conflict = true;
+        }
+    });
 }
 
 pub fn set_preflight(ctx: &egui::Context, id: Id, preflight: Option<Preflight>) {
@@ -158,7 +227,16 @@ pub fn begin(ctx: &egui::Context) -> Option<Id> {
             });
             s.outside = match (from, to) {
                 (Some(from), Some(to)) => from.form != to.form,
-                (Some(_), None) => true,
+                // A dialog's own controls, its close box among them, are
+                // part of its form: a press on one confirms the typed field
+                // as moving to another field does, and Cancel or the close
+                // box then drops the dialog's input without a question
+                // (issue #871, the owner's answer A; decision 0246 for
+                // every dialog). The main window's panels keep the
+                // question (decision 0233).
+                (Some(from), None) => {
+                    !(layer == Some(from.layer) && from.layer.order != egui::Order::Background)
+                }
                 _ => false,
             };
             if let (Some(from), Some(to)) = (from, to)
@@ -183,6 +261,31 @@ pub fn set_mode(ctx: &egui::Context, mode: Mode) {
             s.outside = false;
         }
     });
+}
+
+/// Whether Keep confirms the field `id` now: the field Keep is at, or a
+/// field checked as a whole with it ([`preflight_whole`]), so a form's
+/// values kept together are confirmed in one frame.
+pub fn keeps(ctx: &egui::Context, id: Id) -> bool {
+    read(ctx, |s| {
+        let Mode::Keep(at) = s.mode else {
+            return false;
+        };
+        if at == id {
+            return true;
+        }
+        let joint = |id: Id| {
+            s.fields
+                .get(&id.value())
+                .and_then(|f| f.pending.as_ref())
+                .filter(|e| !e.conflict)
+                .and_then(|e| e.preflight.as_ref())
+                .and_then(|p| p.1)
+        };
+        // A value refused for a conflict stays in its box: Keep confirms
+        // the others of its group without it (issue #870).
+        joint(at).is_some() && joint(at) == joint(id)
+    })
 }
 
 pub fn holds_focus_loss(ctx: &egui::Context) -> bool {
@@ -212,6 +315,7 @@ pub fn track(
                     label: label.to_owned(),
                     checked,
                     preflight: None,
+                    conflict: false,
                 }),
                 sections: s.sections.clone(),
             },
@@ -219,12 +323,18 @@ pub fn track(
     });
 }
 
+/// The unconfirmed values a departure asks about and Keep confirms. A value
+/// refused for a conflict with another part of its form ([`Entry::conflict`])
+/// is left out: it waits in its box with its reason, so it is neither asked
+/// about nor checked with the others, and never holds a valid value back
+/// (issue #870).
 pub fn entries(ctx: &egui::Context) -> Vec<Entry> {
     read(ctx, |s| {
         let mut entries: Vec<Entry> = s
             .fields
             .values()
             .filter_map(|f| f.pending.clone())
+            .filter(|e| !e.conflict)
             .collect();
         entries.sort_by(|a, b| a.label.cmp(&b.label).then(a.id.value().cmp(&b.id.value())));
         entries
@@ -322,7 +432,18 @@ pub fn needs_section(ctx: &egui::Context, section: Id) -> bool {
 pub struct Ticket(u64);
 
 pub fn request_local(ctx: &egui::Context) -> Option<Ticket> {
-    if entries(ctx).is_empty() {
+    // A value refused because it conflicts with another part of its form,
+    // shown with its reason and not applied, never blocks an action of that
+    // form, such as the Apply that would make it valid (issue #870, the
+    // owner's answer A).
+    // As before, nothing pending at all asks nothing either.
+    let conflicts_only = read(ctx, |s| {
+        s.fields
+            .values()
+            .filter_map(|f| f.pending.as_ref())
+            .all(|e| e.conflict)
+    });
+    if conflicts_only {
         return None;
     }
     Some(read(ctx, |s| {

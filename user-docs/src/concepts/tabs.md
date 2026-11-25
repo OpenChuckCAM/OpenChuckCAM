@@ -38,6 +38,8 @@ Edits are a draft until you press **Apply**, which checks them against the part 
 
 Apply refuses only a tab outside the zones: it stores nothing and marks the row with the reason. It stores, with a warning kept on the tab's row, a tab shorter than the tools are wide, an automatic tab that has no room at its end of the part (it keeps its last position), and an automatic tab that overlaps one placed by hand. Read those warnings: the part is still held, but you may want to move the part, shorten the held region or remove a tab.
 
+A tab you placed by hand stays where it is when you change the stock, so a new **Start X**, **Length** or **Diameter** can leave it outside the stock. Such a value is refused, and the message names the tab and both ways out, for example "Workholding (setup 'Setup 1'): tab 1 (X -6.500 to -5.500) is not inside the stock (X -5.000 to 9.000). Change Start X, or move or remove tab 1 under Workholding and tabs and press Apply. Not applied." The value stays in its box and does not stop you: move or remove the tab and press **Apply**. The box then says the value is allowed now, and <kbd>Enter</kbd> applies it. A held region that would no longer fit is named the same way.
+
 ## After the job
 
 The tabs are still there when the program ends: cut through them with a saw or a knife, and finish the marks by hand. Plan for that when you choose their size and place.
