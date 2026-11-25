@@ -107,7 +107,7 @@ The end-face warning remains, because the stock beside the end is still deeper t
 1. Untick **Face free ends** and click **Generate**.
 
 <figure>
-<a href="images/flutes/06-face-free-ends-off.png"><img src="images/flutes/06-face-free-ends-off.png" width="1920" height="1080" alt="The Operations step with the Results tab open and Information turned off: 2 operations, 46948 moves, 11.9 s to generate, Errors 0, Warnings 0, Information 13, and No lines at this level; the Inspector shows Face free ends unticked, Finishing layers ticked and Stepdown 2.000; 2 Finish has a green dot in the project panel."></a>
+<a href="images/flutes/06-face-free-ends-off.png"><img src="images/flutes/06-face-free-ends-off.png" width="1920" height="1080" alt="The Operations step with the Results tab open and Information turned off: 2 operations, 46948 moves, 12.6 s to generate, Errors 0, Warnings 0, Information 13, and No lines at this level; the Inspector shows Face free ends unticked, Finishing layers ticked and Stepdown 2.000; 2 Finish has a green dot in the project panel."></a>
 <figcaption><b>Figure 6.</b> With <b>Face free ends</b> unticked, the flute-length warning about the end face is gone, and the operation has no warning left. The note about the held region is information, so it is not shown at this level.</figcaption>
 </figure>
 
