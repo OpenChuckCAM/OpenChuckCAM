@@ -14,7 +14,7 @@ yanked = "deny"
 [licenses]
 version = 2
 confidence-threshold = 0.9
-# Licences compatible with AGPL-3.0-or-later. CC0-1.0 (blake3, notify) and
+# Licences compatible with AGPL-3.0-or-later. CC0-1.0 (blake3) and
 # NCSA (libfuzzer-sys, dev-only) are allowed on purpose (architecture section 7).
 allow = [
     "AGPL-3.0-or-later",

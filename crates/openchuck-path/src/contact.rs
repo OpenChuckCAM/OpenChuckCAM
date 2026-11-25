@@ -78,18 +78,26 @@ impl ExactContact {
 
     fn description(self) -> &'static str {
         match self {
-            // What the setting does, what it costs and that a mesh part is
-            // not affected: nothing more (issue #634, the owner's answer of
-            // 8 Nov 2026; specification section 15). The measurements behind
-            // "slower" are in decision records 0277 and 0338.
+            // What the setting does and what it costs, with the measured
+            // examples, and that a mesh part is not affected (decision record
+            // 0684 item 4, the owner's answer of 23 Nov 2026, which
+            // asked for the cost to be stated). The measurements are those of
+            // decision records 0277, 0338 and 0684: examples, not
+            // promises.
             Self::Ball => {
                 "On a STEP part, drop a ball-end tool on the part's exact surfaces instead of \
-                 its tessellation. More accurate and can be slower. No effect on a mesh part."
+                 the triangles made from them. The tool then sits closer to the true surface: \
+                 on a test part, the deepest cut into it fell from about 0.04 to under 0.005 \
+                 mm. Generation can be slower: up to about 1.8 times on the parts measured. No \
+                 effect on a mesh part."
             }
             Self::Outline => {
                 "On a STEP part, drop the tool (a ball, tapered ball or flat end) on the part's \
-                 exact surfaces instead of its tessellation. More accurate and much slower. No \
-                 effect on a mesh part."
+                 exact surfaces instead of the triangles made from them. The tool then sits \
+                 closer to the true surface: on a test part, the deepest cut into it fell from \
+                 about 0.03 to under 0.01 mm. Generation is much slower: on the parts measured, \
+                 about 7 times for axial finishing and 16 to 31 times for pencil clean-up. It \
+                 does not change which corners or areas are cut. No effect on a mesh part."
             }
         }
     }

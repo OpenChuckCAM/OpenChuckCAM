@@ -27,9 +27,7 @@ use openchuck_types::units::Degrees;
 use super::super::{Builder, EPS, View};
 use super::pass_shape::{self, Start};
 use super::{Entry, Gouge, rapid_to, stop_height};
-use crate::cutter::ToolLine;
 use crate::error::{PathError, Result};
-use crate::parallel;
 use crate::params::{CommonParameters, EntryStyle};
 use crate::rotary::AxisPosition;
 use crate::strategy::{CutPoint, StrategyInput};
@@ -291,42 +289,6 @@ impl Entry {
         TurnLead { moves }
     }
 
-    /// The deepest cut into the finished surface over `moves`, each at its
-    /// own A, if any exceeds the path tolerance.
-    fn gouge_turning(
-        &self,
-        b: &Builder<'_>,
-        input: &StrategyInput<'_>,
-        moves: &[(AxisPosition, Degrees)],
-    ) -> Option<Gouge> {
-        let grown = self.grown.as_ref()?;
-        let rotary = b.rotary;
-        let (surface, leave) = (input.surface, self.leave);
-        let depths: Vec<Option<f64>> = parallel::map_in_order(moves, |(pos, a)| {
-            let line = ToolLine {
-                origin: rotary.to_model(*pos, *a),
-                axis: rotary.tool_axis(*a),
-            };
-            surface.drop_tool(grown, &line).map(|c| c.offset + leave)
-        });
-        let mut worst: Option<Gouge> = None;
-        for (i, depth) in depths.into_iter().enumerate() {
-            if let Some(dp) = depth
-                && dp > self.tolerance
-                && worst.is_none_or(|w| dp > w.depth)
-            {
-                worst = Some(Gouge {
-                    depth: dp,
-                    position: i,
-                    x: moves
-                        .get(i)
-                        .map_or(f64::NAN, |(p, a)| rotary.to_model(*p, *a).x),
-                });
-            }
-        }
-        worst
-    }
-
     /// Checks a planned lead: the finished surface, the machine's A range
     /// and, on a partial ring in a pass that carries its stock, that the
     /// moves above the cut stay out of the stock (0544 items 1, 5 and 6).
@@ -340,9 +302,11 @@ impl Entry {
         name: &str,
         lead: &TurnLead,
         closed: bool,
+        join: &CutPoint,
     ) -> Result<()> {
         let r = self.lead_radius;
-        if let Some(g) = self.gouge_turning(b, input, &lead.moves) {
+        let at = (b.rotary.to_axis(join.tip, join.a), join.a);
+        if let Some(g) = self.gouge_moves(b, input, &lead.moves, at) {
             return Err(self.refuse_turning(pass, name, g));
         }
         if let openchuck_types::machine::ARange::Limited { min, max } = input.rotary.range
@@ -405,10 +369,11 @@ impl Entry {
             crate::topic::LEAD_ENTRY,
             format!(
                 "pass {}: the {name} on an arc of radius {r:.3} mm would cut {:.3} mm \
-             into the finished surface at position {} of its path, more than the tolerance of \
+             into {} at position {} of its path, more than the tolerance of \
              {:.3} mm. Make Lead radius smaller, or set Entry to Plunge, Ramp or Helix.",
                 pass + 1,
                 found.depth,
+                found.what(),
                 found.position + 1,
                 self.tolerance
             ),
@@ -463,7 +428,7 @@ impl Entry {
             End::Turning { closed: true, .. }
         );
         let lead = self.arc_in(b, points, sign, behind);
-        self.check_turning(b, input, stock, pass, "lead-in", &lead, closed)?;
+        self.check_turning(b, input, stock, pass, "lead-in", &lead, closed, head)?;
         let Some(&(start, a)) = lead.moves.first() else {
             return Ok(());
         };
@@ -536,9 +501,10 @@ impl Entry {
             }
             return Some(Ok(()));
         }
+        let last = points.last()?;
         Some((|| {
             let lead = self.arc_out(b, points, sign, behind);
-            self.check_turning(b, input, stock, pass, "lead-out", &lead, closed)?;
+            self.check_turning(b, input, stock, pass, "lead-out", &lead, closed, last)?;
             for (pos, a) in &lead.moves {
                 let tip = b.rotary.to_model(*pos, *a);
                 let pose = b.pose(tip, *a);

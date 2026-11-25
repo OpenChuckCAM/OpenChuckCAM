@@ -695,8 +695,10 @@ pub struct WatchedBreak {
 }
 
 impl Limits {
-    /// The sentences of a face's note that say what each limit did.
-    fn describe(&self) -> String {
+    /// The sentences of a face's note that say what each limit did;
+    /// `least_lift` is the least the tip is lifted at any pose (decision
+    /// record 0491), `None` for a face with no pose.
+    fn describe(&self, least_lift: Option<f64>) -> String {
         let mut out = String::new();
         // Where the tool's end sits against the end of the rulings (decision
         // record 0491 item 2), shown to the precision of the notes.
@@ -714,12 +716,32 @@ impl Limits {
                 self.too_short
             ));
         }
-        if self.end_reach >= 0.0005 {
+        // Information, said after the lift (issue #624; decision record
+        // 0683): a real cut into a face next to this one is measured and
+        // warned of on its own (decision record 0532 item 3).
+        let least_lift = least_lift.unwrap_or(0.0).max(0.0);
+        if self.end_reach >= 0.0005 && self.tip_lifted <= SAME_POINT {
             out.push_str(&format!(
                 " The tool's end reaches {:.3} mm beyond the end of the rulings at the tip (its \
                  corner radius and the tip extension), so it cuts into any face that meets them \
                  there, such as a floor, unless that face is in an avoid or check set.",
                 self.end_reach
+            ));
+        } else if self.end_reach >= 0.0005 && self.end_reach - least_lift < 0.0005 {
+            out.push_str(&format!(
+                " The tool's end would reach {:.3} mm beyond the end of the rulings at the tip \
+                 (its corner radius and the tip extension); it is lifted at least that far all \
+                 along the face, so it ends level with them or short of them.",
+                self.end_reach
+            ));
+        } else if self.end_reach >= 0.0005 {
+            out.push_str(&format!(
+                " The tool's end would reach {:.3} mm beyond the end of the rulings at the tip \
+                 (its corner radius and the tip extension); where it is lifted least it still \
+                 reaches {:.3} mm beyond them, so it cuts into any face that meets them there, \
+                 such as a floor, unless that face is in an avoid or check set.",
+                self.end_reach,
+                self.end_reach - least_lift
             ));
         } else if self.end_reach <= -0.0005 {
             out.push_str(&format!(
@@ -1017,7 +1039,8 @@ impl FacePath {
             crate::counted(self.poses().count(), "pose", "poses"),
             self.gouge,
             self.describe_tilt(),
-            self.limits.describe()
+            self.limits
+                .describe(self.poses().map(|p| p.lift).reduce(f64::min))
         )
     }
 }
@@ -1629,14 +1652,14 @@ impl Guard {
 
 /// How far apart an avoid or check face is sampled, at most, for a tool of
 /// cutting radius `radius` (decision record 0176 item 6).
-fn guard_spacing(radius: f64) -> f64 {
+pub(crate) fn guard_spacing(radius: f64) -> f64 {
     (radius / 8.0).max(0.05)
 }
 
 /// Points of `face`, on a grid of its parameters no coarser than `spacing`
 /// on the face (measured along its middle iso-lines) and no finer than 400
 /// each way.
-fn face_samples(face: &dyn ParametricFace, spacing: f64) -> Vec<(Point3, Vec3, f64)> {
+pub(crate) fn face_samples(face: &dyn ParametricFace, spacing: f64) -> Vec<(Point3, Vec3, f64)> {
     let (lo, hi) = face.uv_bounds();
     let uv = |a: f64, b: f64| Uv {
         u: lo.u + (hi.u - lo.u) * a,

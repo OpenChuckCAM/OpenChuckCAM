@@ -40,7 +40,7 @@ On a STEP part, these roles take face sets, except **Guide edge**, which takes a
 7. Click **Save as new set**. The set appears in the project panel, and the Inspector shows the set itself.
 
 <figure>
-<a href="images/blisk_selection_sets/02-face-set.png"><img src="images/blisk_selection_sets/02-face-set.png" width="1920" height="1080" alt="The set Hub floor is listed under Selection sets with 1 faces and drawn in green on the part. The Inspector shows Hub floor, On models/blisk.step, No operation uses it, Change this set on the part with Shift-click adds and Ctrl-click takes away, Pick again, and the colours."></a>
+<a href="images/blisk_selection_sets/02-face-set.png"><img src="images/blisk_selection_sets/02-face-set.png" width="1920" height="1080" alt="The set Hub floor is listed under Selection sets with 1 face and drawn in green on the part. The Inspector shows Hub floor, On models/blisk.step, No operation uses it, Change this set on the part with Shift-click adds and Ctrl-click takes away, Pick again, and the colours."></a>
 <figcaption><b>Figure 2.</b> A saved set is drawn in its own colour. Shift-click adds faces to it and Ctrl-click takes them away; each change makes every operation that uses it out of date.</figcaption>
 </figure>
 
@@ -70,7 +70,7 @@ In the same way, make two more face sets with **Faces** and **Select one (Q)**:
 | `Rim` | the plain round part of the disc at the left | face 1, the outer cylinder: the rim of the disc and the tips of the blades |
 
 <figure>
-<a href="images/blisk_selection_sets/04-four-sets.png"><img src="images/blisk_selection_sets/04-four-sets.png" width="1920" height="1080" alt="Four sets under Selection sets: Hub floor 1 faces, Floor guide 1 edges, Blade wall 1 faces and Rim 1 faces. The Rim set is chosen and drawn in green over the rim of the disc and along the tips of all the blades."></a>
+<a href="images/blisk_selection_sets/04-four-sets.png"><img src="images/blisk_selection_sets/04-four-sets.png" width="1920" height="1080" alt="Four sets under Selection sets: Hub floor 1 face, Floor guide 1 edge, Blade wall 1 face and Rim 1 face. The Rim set is chosen and drawn in green over the rim of the disc and along the tips of all the blades."></a>
 <figcaption><b>Figure 4.</b> One face can reach further than it looks: <b>Rim</b> is one cylinder that runs over the disc and the tips of every blade.</figcaption>
 </figure>
 
@@ -100,7 +100,7 @@ A check set keeps the tool the operation's stock to leave away from its faces. H
 
 The Results say:
 
-- "face 20 is cut from its guide, edge 65 (49.1 mm long), towards the opposite side in 17 passes up to 0.953 mm apart along the face". The guide is the edge of the edge set.
+- "face 20 is cut from its guide, edge 65 (49.1 mm long), towards the opposite side in 17 passes up to 0.953 mm apart along the face; 12 of them cut ...". The guide is the edge of the edge set.
 - "face-flow finishing cannot reach 1 area of the selected faces, which stay uncut: X 37.990 to 77.990 near A 282 (208.6 mm2), a neighbouring face is in the way of the tool".
 - "Floor finish: 5196 mm³ removed in 2133 moves".
 

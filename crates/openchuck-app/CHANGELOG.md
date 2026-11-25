@@ -1,8 +1,24 @@
 # Changelog
 
-## Unreleased (WORDING-DOCS; issue #676)
+## Unreleased (WORDING-DOCS; issues #613 and #676)
 
+- **Added:** `form::choice_label(setting, stored_word)`, the plain name the inspector shows for each choice of every built-in strategy; a test fails if a strategy has a choice with no name. The inspector uses it. No stored value changes.
 - **Added:** `workholding::default_tabs_report` and `DefaultTabsReport`, and `Application::start_default_tabs_report`: the default tabs end by end, those to add and for each end without one why; refused only when neither end can have one, naming both. `default_tabs` and `start_default_tabs` are unchanged (all or nothing).
+
+## 0.63.0 (FACEFLOW; issues #791, #631, #614, #615 and #854; decisions 0675, 0676 and 0686, accepted)
+
+- **Changed:** a new face-flow finishing operation is written with Stay down between passes on, Pattern Automatic, Steps between rings Blended (decision 0545's rule, now reaching face flow) and a Shortest cut of its tool's diameter. An operation saved without them keeps its program.
+- **Added:** `operation::empty_cut_on_hint(strategy)`, the Geometry section's line on an empty Cut on: the whole part is cut, except for swarf and face-flow finishing, which are not generated with no face set there (the refusal they share is now one list). `SelectionSummary::counted()`, the set's count with its noun agreeing ("1 face", "3 edges").
+
+## 0.62.0 (FACING-GRIP; issue #500; decision 0685, accepted)
+
+- **Changed output:** Facing beside a held region faces what the tool reaches and its notes say what it leaves (see `openchuck-path` 0.62.0). The Facing completion note says, when a face stops short of a held region, that it covered the faces up to the held region and that the held-region note gives the numbers; otherwise it is unchanged.
+- **Changed:** the Facing overlay draws where each face stops beside a held region (legacy Flat's from the cut, `describe_path`) and marks it once per held end with the short label "Not faced: held start" (or "held far end"); the numbers are in the notes.
+
+## 0.61.0 (PENCIL-REST; issue #632; decision 0684, accepted; not breaking)
+
+- **Changed:** the Exact STEP surface contact row is in the operation inspector's Advanced section for every strategy that has it (it was in Pattern and tolerance, after Tolerance).
+- **Added, changed output:** pencil clean-up's Shortest cut (`min_length`) starts at the tool's diameter where the operation sets none, in the form (as its default) and when the path is made, as the distance past the stock follows the tool. A saved pencil operation takes it, so stretches of a corner shorter than the tool's diameter, and single points, are no longer cut; the notes say where.
 
 ## 0.60.0 (POST-COMMENTS; issue #851; decision 0681, accepted)
 

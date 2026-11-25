@@ -1817,6 +1817,106 @@ fn req_op_11_a_new_ring_operation_blends_its_steps() {
 }
 
 #[test]
+fn req_op_28_a_new_face_flow_operation_stays_down_blends_its_ring_steps_and_sets_its_shortest_cut()
+{
+    // Issue #854 (the owner's answers of 23 Nov 2026, Q2 and the ring
+    // joins): a new face-flow operation is written with Stay down between
+    // passes on and blended steps between rings, as decision 0545 D3 writes
+    // blended steps; one saved without them keeps its program (both off by
+    // default), and other strategies get no Stay down.
+    use openchuck_path::face_flow::parameter::{AUTOMATIC, PATTERN, SHORTEST_CUT, STAY_DOWN};
+    use openchuck_path::helical::parameter::{BLENDED, RING_STEP};
+    let (dir, mut app, op) = project("face-flow-defaults");
+    // Face flow needs a STEP part.
+    let mut model = app.project().models()[0].clone();
+    model.path = openchuck_app::project::RelativePath::new("models/blade.step").unwrap();
+    app.execute(Command::Replace(Item::Model(model))).unwrap();
+    let setup = app.project().operation(op).unwrap().setup;
+    let tool = app.project().operation(op).unwrap().tool;
+    let value = |app: &Application, id, name: &str| {
+        app.project()
+            .operation(id)
+            .unwrap()
+            .parameters
+            .get(name)
+            .cloned()
+    };
+    let added = app
+        .add_operation("face_flow", "face_flow", setup, tool)
+        .unwrap();
+    assert_eq!(
+        value(&app, added, STAY_DOWN),
+        Some(openchuck_app::project::ParameterValue::Flag(true))
+    );
+    assert_eq!(
+        value(&app, added, RING_STEP),
+        Some(openchuck_app::project::ParameterValue::Text(BLENDED.into()))
+    );
+    assert_eq!(
+        value(&app, added, PATTERN),
+        Some(openchuck_app::project::ParameterValue::Text(
+            AUTOMATIC.into()
+        ))
+    );
+    // Shortest cut starts at Tool diameter (Q3; the owner's decision of 23
+    // Nov 2026: a true Tool diameter choice that follows the tool).
+    assert_eq!(
+        value(&app, added, SHORTEST_CUT),
+        Some(openchuck_app::project::ParameterValue::Text(
+            openchuck_path::params::TOOL_DIAMETER.into()
+        ))
+    );
+    // The form offers it as a length or Tool diameter, with the tool's
+    // diameter to show beside it.
+    let diameter = app
+        .project()
+        .tools()
+        .iter()
+        .find(|t| Some(t.id) == tool)
+        .map(|t| t.tool.diameter.0)
+        .unwrap();
+    let form = app.parameter_form(added).unwrap();
+    let field = form.fields.iter().find(|f| f.name == SHORTEST_CUT).unwrap();
+    assert_eq!(field.label, "Shortest cut");
+    match &field.kind {
+        openchuck_app::form::FieldKind::LengthOrTool {
+            min, tool_diameter, ..
+        } => {
+            assert_eq!(*min, Some(0.0));
+            assert!((tool_diameter.unwrap() - diameter).abs() < 1e-9);
+        }
+        other => panic!("{other:?}"),
+    }
+    // A number and the word are both accepted; another word is refused by
+    // name, and the project is unchanged.
+    app.set_parameter(added, SHORTEST_CUT, Some(ParameterValue::Number(2.5)))
+        .unwrap();
+    assert_eq!(
+        value(&app, added, SHORTEST_CUT),
+        Some(ParameterValue::Number(2.5))
+    );
+    let word = ParameterValue::Text(openchuck_path::params::TOOL_DIAMETER.into());
+    app.set_parameter(added, SHORTEST_CUT, Some(word.clone()))
+        .unwrap();
+    assert_eq!(value(&app, added, SHORTEST_CUT), Some(word.clone()));
+    let refused = app.set_parameter(
+        added,
+        SHORTEST_CUT,
+        Some(ParameterValue::Text("wide".into())),
+    );
+    assert!(refused.unwrap_err().to_string().contains(SHORTEST_CUT));
+    assert_eq!(value(&app, added, SHORTEST_CUT), Some(word));
+    let helical = app
+        .add_operation("helical_finishing", "helical_finishing", setup, tool)
+        .unwrap();
+    assert_eq!(value(&app, helical, STAY_DOWN), None);
+    assert_eq!(value(&app, helical, SHORTEST_CUT), None);
+    assert_eq!(value(&app, helical, PATTERN), None);
+    assert_eq!(value(&app, op, STAY_DOWN), None);
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+#[test]
 fn req_gc_07_a_saved_ring_operation_keeps_sharp_steps() {
     // Decision 0545 item 1: a ring operation saved before the setting has
     // no `ring_step`, so when its project is opened again its steps are
