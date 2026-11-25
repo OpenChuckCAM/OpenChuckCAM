@@ -1,14 +1,14 @@
 # TOOL-LOAD-1: Managing the load on the tool: measure the engagement in the simulation, warn past a limit, and let the strategies keep within it (SIM-03, SIM-06, OP-03 to OP-11, OP-17, TL-04, TL-05, NFR-04, NFR-06, NFR-12; issue #844; lane TOOL-LOAD)
 
-- **Status:** Proposed by lane TOOL-LOAD on 25 Nov 2026 (phase 1, planning only; no product code is built until the owner answers). Only the project owner accepts this record (decision 0049). The questions are Q1 to Q7 below, each with options, a recommendation and what follows "if you answer as recommended". It proposes requirement wording (Q1) for the owner's agreement; `docs/requirements.md` and `docs/architecture.md` are not edited until the owner agrees. **Answered so far (25 Nov 2026, the owner's answers relayed by the coordinator): Q1 B**, SIM-16 and OP-29 both P1, with the wording as written, the requirements edited only in the build pull requests after the record is accepted; **Q2 A**, measured in the simulation on the stock at each move, **with an addition: the average and highest removal rate (mm³/min) shown as statistics in the Simulate step's inspector**, per operation and for the whole job (Q2, *The owner's addition*). Q3 to Q7 are still open.
+- **Status:** Proposed by lane TOOL-LOAD on 25 Nov 2026 (phase 1, planning only; no product code is built until the owner answers). Only the project owner accepts this record (decision 0049). The questions are Q1 to Q7 below, each with options, a recommendation and what follows "if you answer as recommended". It proposes requirement wording (Q1) for the owner's agreement; `docs/requirements.md` and `docs/architecture.md` are not edited until the owner agrees. **Answered so far (25 Nov 2026, the owner's answers relayed by the coordinator): Q1 B**, SIM-16 and OP-29 both P1, with the wording as written, the requirements edited only in the build pull requests after the record is accepted; **Q2 A**, measured in the simulation on the stock at each move, **with an addition: the average and highest removal rate (mm³/min) shown as statistics in the Simulate step's inspector**, per operation and for the whole job (Q2, *The owner's addition*). **Q3 C**, a largest cut section of its own per tool and material in the tool library, with conservative nominal values for every built-in set and an operation override (Q3, *The limit as answered*). Q4 to Q7 are still open.
 - **Date:** 25 Nov 2026.
 - **Issue:** [#844](https://github.com/OpenChuckCAM/OpenChuckCAM/issues/844) (a strategy can put a large amount of material along the whole cutting edge at once, with nothing said). The owner took it into its own lane on 25 Nov 2026 (decision [PATH-QUALITY-1](PATH-QUALITY-1-finishing-edges-points-and-ramps.md), Q5, relayed by the coordinator), with the guiding point: **the goal of ramping, and more widely of toolpath strategy, is to manage the tool's load, so it must be designed in, not only gouge safety.**
 - **Requirements:** none covers this yet (the issue says so). Related: SIM-03 and SIM-06 (the simulation and its carried stock), OP-11 (stepdown, stepover, ramping), OP-17 (adaptive roughing, P2), TL-04 and TL-05 (flute length, cutting data), SIM-10 (feed by engagement, P3), NFR-04 (never block, use the cores), NFR-06 (determinism), NFR-12 (the user verifies the program).
 - **Builds on:** accepted decisions [0509](0509-flute-length-against-the-deepest-cut.md) and [0522](0522-the-flute-check-warns.md) (the flute check, which warns only past the flute length), [0345](0345-finishing-layers.md) (Finishing layers, with "no engagement promise", OI-1373), [0545](0545-blended-steps-between-rings.md) D3 (new operations get a new default, saved ones keep their programs), [0536](0536-message-levels-operation-reference-and-setting-links.md) (message levels), [0168](0168-simulate-controls-and-stock-simulation.md) (the stock is simulated by default), [0661](0661-a-rapid-that-removes-less-than-the-simulation-resolves.md) (the simulation's per-column depth), and [PATH-QUALITY-1](PATH-QUALITY-1-finishing-edges-points-and-ramps.md) (accepted 25 Nov 2026, relayed) Q3's tool-load requirement for ramps (PQ-2), whose terms this record shares (Q6).
 - **Would amend, if answered as recommended:** nothing accepted. It adds two requirements (Q1) and their verification-plan rows, once the owner agrees the wording. It answers OI-1373 in part (Q2 to Q4).
-- **Open items:** adds OI-9911 to OI-9916 (provisional numbers; listed under *Open items* below). Updates OI-1373 in place. Depends on no open item for TL-1. TL-2's simultaneous-finishing part waits for lane SIMUL-EDGE's build (OI-9996), which changes the same code.
+- **Open items:** adds OI-9911 to OI-9918 (provisional numbers; listed under *Open items* below). Updates OI-1373 in place. Depends on no open item for TL-1. TL-2's simultaneous-finishing part waits for lane SIMUL-EDGE's build (OI-9996), which changes the same code.
 
-Numbering: provisional. The record carries the lane's name, and its open items are OI-9911 to OI-9916 (free on `main` and on every unmerged branch on 25 Nov 2026; the records check takes numbers only, so the block is numeric, not lettered); the coordinator assigns the real numbers at release, in merge order. The requirement IDs proposed in Q1, SIM-16 and OP-29, are the next free ones on `main` and every unmerged branch on 25 Nov 2026, and are provisional too. No project schema number is needed for any recommended answer: a new operation setting is stored in the operation's free parameter map, as decisions 0390, 0543 and 0545 did. No spike: the measurement below was made with a throwaway change to the simulator, kept only as a patch in the archive.
+Numbering: provisional. The record carries the lane's name, and its open items are OI-9911 to OI-9918 (free on `main` and on every unmerged branch on 25 Nov 2026; the records check takes numbers only, so the block is numeric, not lettered); the coordinator assigns the real numbers at release, in merge order. The requirement IDs proposed in Q1, SIM-16 and OP-29, are the next free ones on `main` and every unmerged branch on 25 Nov 2026, and are provisional too. No project schema number was needed for any answer first recommended; the owner's answer to Q3 (C) needs one, claimed provisionally (Q3). Otherwise a new operation setting is stored in the operation's free parameter map, as decisions 0390, 0543 and 0545 did. No spike: the measurement below was made with a throwaway change to the simulator, kept only as a patch in the archive.
 
 ## For the owner
 
@@ -16,7 +16,7 @@ What this record asks of you, in the order the coordinator will put it:
 
 1. **Q1: the requirement wording. Answered B:** both requirements P1, with the wording as written. SIM-16, the simulation measures the load on the tool and warns past a limit; OP-29, an operation can limit the load, and the strategies keep within it.
 2. **Q2: what "engagement" is and where it is measured. Answered A, with the average and highest removal rate added to the Simulate inspector.** As recommended: in the simulation, on the stock as it is at each move, over each stretch of one tool diameter of travel: the length of flute in the material, the width of cut, and the **cut section** (material removed per millimetre of travel), which sets the load.
-3. **Q3: what counts as too much.** Recommended: **A**, twice a full-width slot at the tool's own stepdown from its cutting data (for the crankshaft's tools in hardwood, 2 × 1.0 mm × 3.175 mm = 6.35 mm²).
+3. **Q3: what counts as too much. Answered C:** a Largest cut section per tool and material in the tool library, conservative nominal values for the built-in sets with their sources, and an operation override like Spindle speed. As first recommended, **A**: twice a full-width slot at the tool's own stepdown from its cutting data (for the crankshaft's tools in hardwood, 2 × 1.0 mm × 3.175 mm = 6.35 mm²).
 4. **Q4: what the program does about it.** Recommended: **C**, built in stages: TL-1 measures and warns (the first slice, about a week, for you to judge); TL-3 lets the warning add a roughing operation before the heavy one; TL-2 adds **Limit tool load** to the strategies, which cut in layers only where the stock is deep.
 5. **Q5: the flute check.** Recommended: **A**, keep it as it is, beside the new measure, and record the later narrowing.
 6. **Q6: ramps (PATH-QUALITY's PQ-2).** Recommended: **A**, one set of terms; ramp moves are measured like any other, and a heavy stretch inside a ramp names the entry.
@@ -118,6 +118,115 @@ And their rows in `docs/verification-plan.md`:
 
 ### Q3: what counts as too much
 
+**The owner's answer (25 Nov 2026, relayed by the coordinator): C**, a limit of its own in the tool library, "largest cut section" per tool and material, which the user sets, **with two requirements of the owner's:** (1) "for each configuration set conservative nominal values based on CNC best practices", and (2) the operation can override the tool's value, "similar to the RPM setting". The options as they were put are kept after this answer; *The limit as answered* below is the design that follows from it.
+
+#### The limit as answered
+
+**The field.** Each cutting-data entry (TL-05: one tool in one stock material, beside spindle speed, feed per tooth, plunge feed, stepover and stepdown) gains an optional **Largest cut section**, in mm²: the most material the tool should remove per millimetre of travel in that material. It is stored as `largest_cut_section` in the entry, in tool library files and in the project's tool snapshots (TL-07), written only when set. In the tool library window (specification 12.1) it is the last value of each material's row of cutting data, after stepdown, in the "in detail" part ("Largest cut section, mm²"), with the tooltip: "The most material this tool should remove per millimetre it travels in this material: about the depth of cut times the width of cut. The simulation warns where a cut removes more. A nominal value, not a statement that a heavier cut is unsafe or a lighter one safe."
+
+**What the warning uses, in order:**
+
+1. the operation's own value, where the operation sets one (below);
+2. the tool's Largest cut section for the setup's material, where the entry has one;
+3. otherwise, the rule of option A: twice a full-width slot at the entry's stepdown (2 × stepdown × diameter);
+4. where the tool has no cutting data for the material at all, a stepdown of half the diameter in that rule (the diameter squared).
+
+The warning and the inspector's tooltip say which applied ("the tool's largest cut section in Hardwood", "this operation's value", "twice a full-width slot at this tool's 1.0 mm stepdown in Hardwood, as the tool has no largest cut section"), so a user sees why a limit is what it is.
+
+**The operation's override** (the owner's second requirement), in the same pattern as Spindle speed and the feeds. The operation inspector's Tool and feeds section (specification 8; `FormSection::ToolAndFeeds`) gains **Largest cut section** (mm², optional, above 0) after the feeds. Empty, it shows the value that applies as a hint with its source, as every cutting-data field does: "3.17 · from the tool's cutting data" when the tool's entry has one, "6.35 · twice the slot at the tool's stepdown" when it falls back (rules 3 and 4; a new `Source` wording beside "from the tool's cutting data" and "default"). A number typed in overrides it for this operation only; clearing the field returns to the tool's value. It is stored in the operation's parameter map, like the other overrides, so it needs no schema change; a saved operation has no value there and so uses the tool's (or the fallback), and its program does not change, since the limit only warns (and, with Limit tool load in TL-2, shapes new operations only, Q7). The CLI reads and writes it with the other parameters.
+
+**Compatibility.** A tool library or project from before the field has no value in any entry: rules 3 and 4 apply, and nothing else changes. The field is a new member of `CuttingData` in `openchuck-types`, whose fields are public and which refuses unknown fields, so: (a) it is a breaking change of the library family's public API, which bumps the workspace minor and adds a changelog entry (decision 0048; the coordinator assigns the version in merge order); (b) an older version of the program refuses a tool file that holds it. Lane MOPUP-1's fix for issue #864 (an older version opens a library with stick-out tools partially instead of refusing it cleanly) is what makes that refusal clean for the whole library; this field relies on it and follows it in merge order.
+
+**Schema.** It changes what tool library files and project tool snapshots hold, so it takes the next project schema number, with a migration step that changes only the number and refuses an older-schema tool file that already holds the field, as schemas 8 (`centre_cutting`) and 29 (`stick_out`) did. **Claimed provisionally as the next free after `main`'s 29 and lane MOPUP-1's #864 claim** (row added to the work breakdown's schema table, marked provisional); the coordinator assigns the number. The built-in libraries' files are written at that schema with the nominal values below.
+
+#### The nominal values (the owner's first requirement)
+
+**Nominal, conservative, not confirmed by the owner for this machine.** These values are defaults for a warning, derived below from public rules of thumb. They are not a statement that a cut below them is safe or above them unsafe for a tool, a material or a machine (NFR-12); the tool library window marks them "nominal" until the user changes them (as decision 0081's provenance marks do for the built-in tool data), and the guide says the same. Confirming them on the Makera Z1 is OI-9918.
+
+**How each value is derived.** A full-width slot is the heaviest common cut, so the limit is the section of a slot at a conservative depth: `largest cut section = f × D × D × r`, floored at the tool maker's own slot, where:
+
+- `D` is the tool's cutting diameter;
+- `f` is the slot depth as a share of the diameter for the material:
+
+  | Material | f | Source and reasoning |
+  | --- | --- | --- |
+  | Hardwood | 0.5 | Onsrud's hardwood chip-load chart takes a depth of cut of 1 × D as the depth its recommended chip load applies to, and asks for 25 % and 50 % less chip load at 2 × D and 3 × D ([Onsrud chart, on WoodWeb](https://www.woodweb.com/knowledge_base_images/zp/Chipload_Hardwood.pdf)). That chart is for production routers; for a light desktop machine this lane halves it (a judgement, not from the source). |
+  | Softwood | 0.5 | No separate public softwood rule was found; taken as hardwood, which is the conservative side (softwood cuts more easily). |
+  | Plastic | 0.5 | No public slotting depth rule for plastics was found; taken as wood (a judgement), which also keeps the chip from melting into the slot on deep cuts. |
+  | Aluminum, Brass | 0.2 | Mitsubishi Materials' carbide end-mill guide: for slotting with an ordinary cutting edge, a depth of 0.05 to 0.2 × D; up to 1 × D only for roughing-type edges ([Mitsubishi Materials, depth of cut](https://www.mmc-carbide.com/permanent/courses/70/depth-of-cut.html)). The top of the ordinary range is taken. Haas's slotting tables for its high-performance aluminium end mills go to 1 × D ([Haas HSAM2 slotting, metric](https://www.haascnc.com/content/dam/haascnc/ecommerce-assets/linedrawings/milling/end_mills/speeds-and-feeds/(03-1851%20to%2003-1856)%20End%20Mills,%20HSAM2,%20Speeds%20and%20Feeds,%20Slotting,%20Metric.pdf)), on a rigid machining centre, so not taken. Brass is taken as aluminium (a judgement). |
+  | Copper | 0.1 | The middle of Mitsubishi's ordinary range (above), because copper is gummy and loads small tools (a judgement). |
+  | Carbon Fiber, PCB | none | No public rule in these terms was found for abrasive laminates cut with burr ("corn") bits; no nominal value. |
+
+- `r` is 0.5 for a tool whose flutes are longer than three diameters, and 1 otherwise: Haas's speeds-and-feeds sheets ask for "cut depth and feed reduced by 50 % for long-flute or long-reach tools" (the sheet above); the three-diameter threshold is this lane's choice.
+- **The floor:** never less than the tool maker's own full-width slot at the stepdown in the tool's cutting data (stepdown × D). The built-in Makera Z1 data comes from Makera's pages (decision 0081, OI-270); a nominal value below the maker's own recommended cut would warn on every operation that follows the maker's data. Values set by the floor are marked * below.
+
+**Which sets get a value.** Every built-in cutting-data entry (one Makera Z1 tool in one material, `crates/openchuck-project/defaults/z1/`) of a flat end or ball end in a material with an `f` above. **No value**, so the fallback rules 3 and 4 apply: V-bits (301 to 314) and the chamfer (401), whose section at a depth depends on the V's shape and for which no public slotting rule was found; the burr bits (106 to 108) in Carbon Fiber and PCB; the drills (501 to 504), which the warning does not cover (Q4); every built-in tool without cutting data (103, 109 to 121, 401, 501 to 504); and the generic default tools (`defaults/tools/`), which have no cutting data (OI-270). Machine profiles hold no cutting data, so none gets a value. The values (mm², rounded to 0.01; computed from each file's diameter, flute length and stepdown):
+
+| Tool | Type | D mm | Flute mm | Nominal largest cut section, mm², by material |
+| --- | --- | --- | --- | --- |
+| 101 Z1 O-flute metal 3.175x12 | flat_end | 3.175 | 12.0 (long) | Hardwood 3.17*; Softwood 6.35*; Plastic 3.17*; Aluminum 1.01; Brass 1.01; Copper 0.50 |
+| 102 Z1 O-flute metal 2x8 | flat_end | 2.0 | 8.0 (long) | Hardwood 1.00; Softwood 2.00*; Plastic 1.00; Aluminum 0.40; Brass 0.40; Copper 0.20 |
+| 103 Z1 O-flute metal 1x3 | flat_end | 1.0 | 3.0 | no cutting data: no value |
+| 104 Z1 O-flute 3.175x25 | flat_end | 3.175 | 25.0 (long) | Hardwood 3.17*; Softwood 6.35*; Plastic 3.17* |
+| 105 Z1 O-flute 3.175x42 | flat_end | 3.175 | 42.0 (long) | Hardwood 3.17*; Softwood 6.35*; Plastic 3.17* |
+| 106 Z1 corn 0.6x3 | flat_end | 0.6 | 3.0 (long) | Carbon Fiber none; PCB none |
+| 107 Z1 corn 1x7 | flat_end | 1.0 | 7.0 (long) | Carbon Fiber none; PCB none |
+| 108 Z1 corn 2x10.5 | flat_end | 2.0 | 10.5 (long) | Carbon Fiber none; PCB none |
+| 109 Z1 corn 3x12 | flat_end | 3.0 | 12.0 | no cutting data: no value |
+| 110 Z1 O-flute metal 4x12 | flat_end | 4.0 | 12.0 | no cutting data: no value |
+| 111 Z1 O-flute metal 4x17 | flat_end | 4.0 | 17.0 | no cutting data: no value |
+| 112 Z1 O-flute metal 4x22 | flat_end | 4.0 | 22.0 | no cutting data: no value |
+| 113 Z1 O-flute 4x22 | flat_end | 4.0 | 22.0 | no cutting data: no value |
+| 114 Z1 O-flute 4x25 | flat_end | 4.0 | 25.0 | no cutting data: no value |
+| 115 Z1 O-flute 4x32 | flat_end | 4.0 | 32.0 | no cutting data: no value |
+| 116 Z1 O-flute metal 6x17 | flat_end | 6.0 | 17.0 | no cutting data: no value |
+| 117 Z1 O-flute metal 6x25 | flat_end | 6.0 | 25.0 | no cutting data: no value |
+| 118 Z1 O-flute metal 6x30 | flat_end | 6.0 | 30.0 | no cutting data: no value |
+| 119 Z1 O-flute 6x22 | flat_end | 6.0 | 22.0 | no cutting data: no value |
+| 120 Z1 O-flute 6x25 | flat_end | 6.0 | 25.0 | no cutting data: no value |
+| 121 Z1 O-flute 6x32 | flat_end | 6.0 | 32.0 | no cutting data: no value |
+| 201 Z1 ball metal 3.175x10 | ball_end | 3.175 | 10.0 (long) | Hardwood 3.17*; Softwood 6.35*; Plastic 3.17*; Aluminum 1.01; Brass 1.01; Copper 0.50 |
+| 202 Z1 ball metal 2x6 | ball_end | 2.0 | 6.0 | Hardwood 2.00; Softwood 4.00*; Plastic 2.00; Aluminum 0.80; Brass 0.80; Copper 0.40 |
+| 203 Z1 ball metal 1x3 | ball_end | 1.0 | 3.0 | Hardwood 1.00*; Softwood 2.00*; Plastic 1.00*; Aluminum 0.20; Brass 0.20; Copper 0.10 |
+| 204 Z1 ball 3.175x22 | ball_end | 3.175 | 22.0 (long) | Hardwood 3.17*; Softwood 6.35*; Plastic 3.17* |
+| 205 Z1 ball 2x12 | ball_end | 2.0 | 12.0 (long) | Hardwood 2.00*; Softwood 4.00*; Plastic 2.00* |
+| 206 Z1 ball 1x4 | ball_end | 1.0 | 4.0 (long) | Hardwood 1.00*; Softwood 2.00*; Plastic 1.00* |
+| 207 Z1 ball metal 4x12 | ball_end | 4.0 | 12.0 | Hardwood 8.00; Softwood 8.00; Plastic 8.00; Aluminum 3.20; Brass 3.20; Copper 1.60 |
+| 208 Z1 ball metal 6x18 | ball_end | 6.0 | 18.0 | Hardwood 18.00; Softwood 18.00; Plastic 18.00; Aluminum 7.20; Brass 7.20; Copper 3.60 |
+| 209 Z1 ball 4x12 | ball_end | 4.0 | 12.0 | Hardwood 8.00; Softwood 8.00; Plastic 8.00 |
+| 210 Z1 ball 4x22 | ball_end | 4.0 | 22.0 (long) | Hardwood 4.00; Softwood 8.00*; Plastic 4.00 |
+| 211 Z1 ball 4x32 | ball_end | 4.0 | 32.0 (long) | Hardwood 4.00; Softwood 8.00*; Plastic 4.00 |
+| 212 Z1 ball 6x12 | ball_end | 6.0 | 12.0 | Hardwood 18.00; Softwood 18.00; Plastic 18.00 |
+| 213 Z1 ball 6x22 | ball_end | 6.0 | 22.0 (long) | Hardwood 9.00; Softwood 12.00*; Plastic 9.00 |
+| 214 Z1 ball 6x32 | ball_end | 6.0 | 32.0 (long) | Hardwood 9.00; Softwood 12.00*; Plastic 9.00 |
+| 301 Z1 V-bit 60 deg tip 0.1 | v_bit | 3.175 | 8.0 | Hardwood none; Softwood none; Plastic none; Aluminum none; Brass none; Copper none; PCB none |
+| 302 Z1 V-bit 30 deg tip 0.2 | v_bit | 3.175 | 9.0 | Hardwood none; Softwood none; Plastic none; Aluminum none; Brass none; Copper none; PCB none |
+| 303 Z1 V-bit 30 deg tip 0.3 | v_bit | 3.175 | 9.0 | Hardwood none; Softwood none; Plastic none; Aluminum none; Brass none; Copper none; PCB none |
+| 304 Z1 V-bit metal 30 deg tip 0.3 shank 4 | v_bit | 4.0 | 7.0 | Hardwood none; Softwood none; Plastic none; Aluminum none; Brass none; Copper none; PCB none |
+| 305 Z1 V-bit metal 30 deg tip 0.4 shank 4 | v_bit | 4.0 | 7.0 | Hardwood none; Softwood none; Plastic none; Aluminum none; Brass none; Copper none; PCB none |
+| 306 Z1 V-bit metal 30 deg tip 0.5 shank 4 | v_bit | 4.0 | 7.0 | Hardwood none; Softwood none; Plastic none; Aluminum none; Brass none; Copper none; PCB none |
+| 307 Z1 V-bit 30 deg tip 0.1 shank 4 | v_bit | 3.85 | 7.0 | Hardwood none; Softwood none; Plastic none |
+| 308 Z1 V-bit 30 deg tip 0.2 shank 4 | v_bit | 3.95 | 7.0 | Hardwood none; Softwood none; Plastic none |
+| 309 Z1 V-bit 30 deg tip 0.3 shank 4 | v_bit | 4.0 | 7.0 | Hardwood none; Softwood none; Plastic none |
+| 310 Z1 V-bit 30 deg tip 0.4 shank 4 | v_bit | 4.0 | 7.0 | Hardwood none; Softwood none; Plastic none |
+| 311 Z1 V-bit 30 deg tip 0.5 shank 4 | v_bit | 4.0 | 7.0 | Hardwood none; Softwood none; Plastic none |
+| 312 Z1 V-bit 20 deg tip 0.3 shank 6 | v_bit | 6.0 | 17.0 | Hardwood none; Softwood none; Plastic none |
+| 313 Z1 V-bit 20 deg tip 0.4 shank 6 | v_bit | 6.0 | 17.0 | Hardwood none; Softwood none; Plastic none |
+| 314 Z1 V-bit 20 deg tip 0.5 shank 6 | v_bit | 6.0 | 17.0 | Hardwood none; Softwood none; Plastic none |
+| 401 Z1 chamfer 90 deg | chamfer | 3.175 | 3.0 | no cutting data: no value |
+| 501 Z1 drill 1 | drill | 1.0 | 10.0 | no cutting data: no value |
+| 502 Z1 drill 2 | drill | 2.0 | 12.0 | no cutting data: no value |
+| 503 Z1 drill 2.5 | drill | 2.5 | 12.0 | no cutting data: no value |
+| 504 Z1 drill 3 | drill | 3.0 | 12.0 | no cutting data: no value |
+
+(long): flutes longer than three diameters, so `r` = 0.5. *: set by the floor, the maker's own slot (stepdown × D). none: no nominal value; the fallback rules apply.
+
+On the crankshaft: tool 104 in Hardwood gets 3.17 mm² (the maker's slot at 1.0 mm), tool 204 3.17 mm² likewise. With them, the finish alone is warned (7,944 stretches past 3.17, up to 185.7 mm²) and the finish after roughing is not (largest 1.47); **the guide's own roughing is warned too**: 1,388 of 23,120 stretches pass 3.17, up to 5.32 mm² (1.7 times the maker's slot), at its first passes and shoulders. That is what a conservative nominal value gives with the maker's 1 mm stepdown; the guide's example says so, and a user who judges that load acceptable raises the operation's value. Without the floor it would be 2,639 stretches past 2.52.
+
+**What TL-1 needs.** TL-1 needs none of the new field: it measures, warns against rules 1, 3 and 4 (the operation's override, which is in the parameter map, and the fallbacks), shows the removal-rate statistics, and has no schema or library-family change. The field, the nominal values, the library window's row and the migration are a pull request of their own, **TL-1b**, straight after TL-1: about 3 to 4 days; the library-family minor bump; the schema number; after MOPUP-1's #864 fix. The owner judges TL-1's warning first, then TL-1b brings the per-tool values.
+
+#### The options as they were put
+
 The measure needs a limit to warn against. The tool's cutting data (TL-05) already says, per stock material, the stepdown and stepover the user wants for this tool. A full-width slot at that stepdown, stepdown × diameter, is the heaviest cut that data describes.
 
 - **A. Twice the tool's slot at its own stepdown (recommended).** Warn where a stretch's cut section passes 2 × stepdown × diameter, from the cutting data for the setup's material; where the tool has no cutting data for it, a stepdown of half the diameter (so the limit is the diameter squared). No new setting in TL-1; TL-2 adds the operation's own limit (Q4). On the crankshaft this limit is 6.35 mm²: the finish alone is warned (4,757 stretches past it, up to 185.7 mm²), the guide's rough (largest 5.3) and the finish after it (1.5) are not. The factor of two leaves room for rotary roughing, which reaches up to 1.7 times its slot on the crankshaft; a cut past it is outside anything the cutting data describes.
@@ -216,10 +325,11 @@ The words the program, the guide and PATH-QUALITY's PQ-2 use (Q6 A):
 | Pull request | What | Effort | Risk | Program and golden changes | Library API | Can go alone |
 | --- | --- | --- | --- | --- | --- | --- |
 | TL-1 | The measure in `openchuck-sim` (per-pose tally, stretches of one diameter, per-operation summary); the warning and the Results line in `openchuck-app`; the `simulate` line in `openchuck-cli`; the average and highest removal rate in the Simulate inspector and the job's summary line (Q2's addition); the guide's simulation and Messages pages; SIM-16 added to the requirements and the verification plan | 6 to 8 days | low to medium (the simulation's inner loop; budget: no more than 10 % added to the crankshaft finish's simulation, measured in the pull request) | none; warnings and information only | none in the library family (`openchuck-sim`, `openchuck-app` only) | yes; first |
+| TL-1b | Largest cut section (Q3 C): the `CuttingData` field in `openchuck-types`, tool library files and project snapshots with the migration step, the tool library window's row, the nominal values in the built-in Makera Z1 files, the warning's rule 2 and the hint's source; the guide's tool library page | 3 to 4 days | low | none (the limit only warns) | **breaking**: a public field of `CuttingData`; workspace minor bump and changelog (decision 0048), version assigned by the coordinator | after TL-1, and after lane MOPUP-1's #864 fix; takes the next project schema number |
 | TL-3 | "Add roughing before this operation" from the warning | 2 to 3 days | low | none (an edit the user makes) | none | after TL-1 |
 | TL-2 | Limit tool load: the `StockModel` depth query (defaulted, implemented in `openchuck-sim`); layers where needed in helical, axial and indexed finishing, and new layers in simultaneous finishing; roughing's split; the form and the guide; OP-29 added | 13 to 19 days | medium (simultaneous finishing's layers are new; they follow SIMUL-EDGE in `simultaneous.rs`) | none for saved operations (Q7 A); new operations differ where the stock is deep | additive: a defaulted `StockModel` method and new parameter names in `openchuck-path`, as decision 0509 added its methods; no minor bump expected. If the build finds a breaking change is the better design, it bumps the workspace minor (decision 0048) and the coordinator assigns the version in merge order | after TL-1, and after SIMUL-EDGE for its simultaneous part |
 
-Total at the recommended answers: about 21 to 30 working days, 4 to 6 weeks (TL-1 about a week and a half, TL-3 about half, TL-2 about three to four). The cheap first slice is TL-1 alone: about a week, no program changes, and on the crankshaft it turns a silent 185.7 mm² cut into a warning with its figures.
+Total at the recommended answers: about 24 to 34 working days, 5 to 7 weeks (TL-1 about a week and a half, TL-1b about four days, TL-3 about half, TL-2 about three to four). The cheap first slice is TL-1 alone: about a week, no program changes, and on the crankshaft it turns a silent 185.7 mm² cut into a warning with its figures.
 
 Each pull request changes the user guide's text for what it adds, adds a *Development version* line to the release notes (no decision, open item or requirement numbers there), and, for TL-2, an entry to `crates/openchuck-path/CHANGELOG.md`.
 
@@ -248,11 +358,13 @@ The options not recommended under each question are the alternatives, with their
 
 Added (provisional numbers):
 
-- **OI-9911:** the owner's answers to Q1 to Q7 and acceptance of this record, with agreement of the requirement wording (SIM-16, OP-29). Q1 answered B and Q2 answered A with the removal-rate addition (25 Nov 2026, relayed); Q3 to Q7 open.
+- **OI-9911:** the owner's answers to Q1 to Q7 and acceptance of this record, with agreement of the requirement wording (SIM-16, OP-29). Q1 answered B, Q2 A with the removal-rate addition, Q3 C with nominal values and an operation override (25 Nov 2026, relayed); Q4 to Q7 open.
 - **OI-9912:** build TL-1: the tool-load measure in the simulation, its warning and Results line, and the average and highest removal rate in the Simulate inspector (SIM-16).
 - **OI-9913:** build TL-3: "Add roughing before this operation" from the tool-load warning.
 - **OI-9914:** build TL-2: Limit tool load in rotary roughing and helical, axial, indexed and simultaneous finishing (OP-29), after lane SIMUL-EDGE; and whether swarf, face flow, pencil, rest and edge following should relieve the load themselves later.
 - **OI-9915:** later uses of the measure, not proposed now: feed adjusted by engagement (SIM-10, P3; SUG-09), the path coloured by load in the viewport, and constant-engagement roughing (OP-17, P2).
+- **OI-9917:** build TL-1b: Largest cut section in the tool library (Q3 C), with the nominal values, the migration and the library-family minor bump, after lane MOPUP-1's #864 fix. Number provisional.
+- **OI-9918:** the nominal Largest cut section values of Q3 are conservative defaults from public rules of thumb, not confirmed for the Makera Z1: the owner confirms or replaces them (for example from cuts on the reference machine), and decides whether the floor at the maker's slot stays. Number provisional.
 - **OI-9916:** the flute check reads the exact depth of the simulated stock once TL-2's `StockModel` query exists, narrowing the bound of OI-2025 (issue #540).
 
 Updated in place: OI-1373 (material-engagement limits off the centreline): this record proposes the measure (Q2), the limit (Q3) and the relief (Q4); it stays open until TL-2 is built.
