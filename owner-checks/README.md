@@ -14,6 +14,10 @@ This branch (`owner-checks/packs`) is **not merged**. It was cut from `main` at 
 | #693 / OI-992 short-block slowdown | [693-short-block-slowdown/CHECK.md](693-short-block-slowdown/CHECK.md) | Application, then the Z1 (air cut); cut optional | 15 min + 1 h | Simulator comparison, then attended air cut of the Report and Slow down programs; firmware and delivery method |
 | #870 refused setup value no longer locks the setup (PR #891, merged) | [870-refused-setup-value/CHECK.md](870-refused-setup-value/CHECK.md) | Application only, Windows (nightly with `c8400189`) | 5 min | Start X refused with the tab message, Workholding not locked, Enter applies after the fix, one Undo |
 | #871 a dialog's own buttons never ask about an unconfirmed field (PR #891, merged) | [871-dialog-buttons/CHECK.md](871-dialog-buttons/CHECK.md) | Application only, Windows (nightly with `c8400189`) | 10 min | No question from Import model, New operation, Rename, Post and export, Open project; the inspector still asks |
+| #774, #607, #874 held-region note is information; hiding a path changes nothing written (PR #893, merged) | [774-607-874-held-region-and-hidden-path/CHECK.md](774-607-874-held-region-and-hidden-path/CHECK.md) | Application only, Windows (nightly with `e126459`) | 10 min | Kept clear row; held-region line as information; Results not stale and Write G-code allowed with a path hidden |
+| #766 a refused Generate shows only its refusal (PR #893, merged) | [766-refused-generate/CHECK.md](766-refused-generate/CHECK.md) | Application only, Windows | 5 min | Results (1) with the Lead angle refusal alone |
+| #681 forget a deleted project's recovery line (PR #893, merged) | [681-forget-recovery/CHECK.md](681-forget-recovery/CHECK.md) | Application only, any OS | 5 min | Forget this project removes the line, and it stays gone after a restart |
+| #767 tab zone lines follow the grip before Apply (PR #893, merged) | [767-zone-lines/CHECK.md](767-zone-lines/CHECK.md) | Application only, Windows | 3 min | Head zone "no room for a tab" and Kept clear to X 21.078 mm before Apply |
 | #705 undo history list (PR #904) | [705-undo-history/CHECK.md](705-undo-history/CHECK.md) | Application only, Windows (build of PR #904 until it merges) | 10 min | Title bar, Ctrl H list, jump to a step, saved mark, keyboard; Keep as one row after #891 |
 | #789 show or hide each kind of toolpath move (PR #898) | [789-path-move-kinds/CHECK.md](789-path-move-kinds/CHECK.md) | Application only (build of PR #898 until it merges) | 20 min | Legend tick boxes, chip, Show and View menus, Simulate legend, restart, smoothness on a 92,000-move path |
 | #791 face flow on a face that closes round (cylinder, blisk outside face) | [791-face-flow-closed-face/CHECK.md](791-face-flow-closed-face/CHECK.md) | Application only | 15 min | No refusal; 52 rings on the cylinder; then the owner's own #791 project, with numbers to report |
@@ -24,7 +28,7 @@ This branch (`owner-checks/packs`) is **not merged**. It was cut from `main` at 
 
 **Not packed:** #577, #578 and #580 (keyboard focus, tooltips on focus, tool windows taking the keyboard; [decision 0677](../docs/decisions/0677-keyboard-focus-tooltips-and-tool-windows.md)). The owner closed them on 23 Nov 2026.
 
-**Issues labelled `awaiting-fix-feedback`** (25 Nov 2026): #801, #791, #632, #870 and #871. #705 and #789 move to that label when their pull requests (#904, #898) merge, as will #706 when its pull request does. #693 (OI-992) and OI-2152 are open items for the owner's machine checks, not fix feedback.
+**Issues labelled `awaiting-fix-feedback`** (25 Nov 2026): #801, #791, #632, #870, #871, #766, #767, #607, #874, #681 and #774. #705 and #789 move to that label when their pull requests (#904, #898) merge, as will #706 when its pull request does. #693 (OI-992) and OI-2152 are open items for the owner's machine checks, not fix feedback.
 
 ## Folder layout
 
