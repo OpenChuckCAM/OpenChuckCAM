@@ -1653,22 +1653,7 @@ impl Project {
                 if let Some(model) = s.part {
                     require(ItemId::Model(model))?;
                 }
-                if s.material.as_ref().is_some_and(|m| m.trim().is_empty()) {
-                    return Err(openchuck_types::Error::invalid(
-                        format!("setup {}.material", s.id),
-                        "the material name is empty; leave it unset instead",
-                    )
-                    .into());
-                }
-                let field = format!("setup {}", s.id);
-                validate_setup(&s.frame, s.stock.as_ref(), s.clearance.as_ref(), &field)?;
-                s.clearance_rules
-                    .validate(&format!("{field}.clearance_rules"))?;
-                Ok(validate_workholding(
-                    &s.workholding,
-                    s.stock.as_ref(),
-                    &field,
-                )?)
+                check_setup_values(s)
             }
             Item::Tool(t) => Ok(openchuck_types::tool::validate_entry(
                 &t.tool,
@@ -1816,6 +1801,31 @@ impl Project {
             ItemId::Operation(_) => None,
         }
     }
+}
+
+/// The checks of a setup's own values that [`Project::replace`] and loading
+/// make: the material, the frame, the stock and clearance, the clearance
+/// rules, and the workholding against the stock (SET-09). A form checks a
+/// typed value with this before it applies any (decision record 0233 item
+/// 4; issue #870), so the form's check and the change cannot disagree. The
+/// setup's reference to its part is checked against the project only.
+pub fn check_setup_values(s: &Setup) -> Result<(), ProjectError> {
+    if s.material.as_ref().is_some_and(|m| m.trim().is_empty()) {
+        return Err(openchuck_types::Error::invalid(
+            format!("setup {}.material", s.id),
+            "the material name is empty; leave it unset instead",
+        )
+        .into());
+    }
+    let field = format!("setup {}", s.id);
+    validate_setup(&s.frame, s.stock.as_ref(), s.clearance.as_ref(), &field)?;
+    s.clearance_rules
+        .validate(&format!("{field}.clearance_rules"))?;
+    Ok(validate_workholding(
+        &s.workholding,
+        s.stock.as_ref(),
+        &field,
+    )?)
 }
 
 /// Triangle and mesh edge selections apply to mesh models only, and face and

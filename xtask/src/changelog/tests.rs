@@ -1068,6 +1068,45 @@ fn changelog_flow_a_commented_out_entry_is_not_an_entry() {
 }
 
 #[test]
+fn changelog_flow_an_indented_comment_stays_inside_its_entry() {
+    let text = notes(&[
+        "- **A.** One,",
+        "  <!-- a note for reviewers -->",
+        "  and its continuation.",
+        "- **B.** Two.",
+    ]);
+    assert_eq!(
+        development_entries(&text),
+        vec![
+            "- **A.** One,\n  <!-- a note for reviewers -->\n  and its continuation.",
+            "- **B.** Two."
+        ]
+    );
+}
+
+#[test]
+fn changelog_flow_start_release_takes_an_entry_with_an_indented_comment_whole() {
+    let text = notes(&[
+        "- **A.** One,",
+        "  <!-- a note for reviewers -->",
+        "  and its continuation.",
+        "- **B.** Two.",
+    ]);
+    let after = start_release(&text, "0.60.0").expect("drafted");
+    let dev = after
+        .get(after.find("## Development version").expect("dev")..)
+        .expect("dev");
+    assert!(
+        !dev.contains("continuation") && !dev.contains("a note for reviewers"),
+        "{dev}"
+    );
+    let new = after
+        .get(after.find("## 0.60.0").expect("new")..after.find("## 0.55.0").expect("old"))
+        .expect("new");
+    assert!(new.contains("  and its continuation."), "{new}");
+}
+
+#[test]
 fn changelog_flow_only_a_published_crates_deleted_changelog_is_ignored() {
     let repo = Repo::new("moved-changelog");
     repo.write(

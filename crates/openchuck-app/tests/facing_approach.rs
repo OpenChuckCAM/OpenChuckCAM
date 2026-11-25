@@ -370,59 +370,282 @@ fn posts_on_round_bar(cases: &[(f64, f64)]) {
     }
 }
 
-/// Issue #500: Facing with the Box shape on +Z of the owner's Baluster set-up
-/// (box stock, start held for 8 mm, the part starting inside the grip) was
-/// refused with "an unfinished strip remains inside the requested extent".
-/// The strip is real: Facing keeps off the held start and the tool's radius
-/// beside it, and never crops the extent silently (decision 0252). The
-/// refusal now says where, why and what to change (NFR-07). With no grip the
-/// same faces generate.
+/// Where the Baluster's grip ends: the held start runs 8 mm from the stock's
+/// start (X 16.990234375 to 24.990234375).
+const HELD_END: f64 = 24.990_234_375;
+/// How far the whole tool keeps from the grip (decision 0161).
+const HELD_CLEAR: f64 = 0.5;
+
+/// A copy of the Baluster set-up with Facing of the given shape and extent,
+/// regenerated through both posts, the start held for 8 mm.
+fn facing_beside_the_grip(shape: &str, extra: &str, threads: usize) -> Vec<Regeneration> {
+    let dir = project(shape, extra);
+    let operation = dir.join(format!("operations/{FACING}.toml"));
+    let text = std::fs::read_to_string(&operation).unwrap();
+    std::fs::write(
+        &operation,
+        text.replace("shape = \"end\"", &format!("shape = \"{shape}\"")),
+    )
+    .unwrap();
+    let runs = ["makera-z1", "linuxcnc"]
+        .into_iter()
+        .map(|name| {
+            let mut app = Application::open(&dir, Threads::Exactly(threads)).unwrap();
+            app.start_regenerate_with_post(
+                PostSelection::Builtin(name.into()),
+                OutputGrouping::Setup,
+            )
+            .wait()
+            .unwrap_or_else(|e| panic!("{shape} {extra:?} {name}: {e}"))
+        })
+        .collect();
+    std::fs::remove_dir_all(dir).unwrap();
+    runs
+}
+
+/// No fed move of the run's Facing reaches the grip widened by the tool's
+/// radius and the clearance: every tip X is at least X 27.078.
+fn assert_clear_of_the_grip(run: &Regeneration) {
+    let limit = HELD_END + RADIUS + HELD_CLEAR;
+    let group = facing(run);
+    let mut from = group.start;
+    for s in &group.segments {
+        if s.kind.is_fed() {
+            let x = from.tip.x.min(s.end.tip.x);
+            assert!(
+                x >= limit - 1e-6,
+                "a fed move reaches X {x}, inside {limit}"
+            );
+        }
+        from = s.end;
+    }
+}
+
+/// The one Facing note about the grip: information, never a warning.
+fn grip_note(run: &Regeneration) -> String {
+    assert!(
+        !run.warnings.iter().any(|w| w.contains("held start")),
+        "the limit is information, not a warning: {:?}",
+        run.warnings
+    );
+    let notes: Vec<_> = run
+        .notes
+        .iter()
+        .filter(|n| n.contains("stops short of the held start"))
+        .collect();
+    assert_eq!(notes.len(), 1, "{:?}", run.notes);
+    notes[0].clone()
+}
+
+/// Issue #500, the owner's decision of 23 Nov 2026: Box facing on +Z of
+/// the Baluster set-up (box stock, start held for 8 mm, the part starting
+/// inside the grip) was refused. It now faces up to the grip, the whole
+/// tool 0.5 mm clear of it, and its notes say where it stops, why and how
+/// much of the requested extent is left. The numbers are worked by hand:
+/// the grip ends at X 24.990, so the tool's edge stops at X 25.490; Whole
+/// stock asks from the stock's start (X 16.990), Part from the part's
+/// (X 17.990). Without the grip the same faces are faced whole.
 #[test]
-fn req_op_24_req_nfr_07_baluster_box_facing_names_the_held_start_it_keeps_off() {
-    let box_facing = |extent: &str, held: bool| {
-        let dir = project(
+fn req_op_24_req_set_09_baluster_box_facing_stops_short_of_the_held_start() {
+    for (extent, left, length) in [
+        ("whole_stock", "16.990", "8.500"),
+        ("part", "17.990", "7.500"),
+    ] {
+        let runs = facing_beside_the_grip(
             "box",
             &format!("positive_z = true\nextent = \"{extent}\"\n"),
+            2,
         );
-        let operation = dir.join(format!("operations/{FACING}.toml"));
-        let text = std::fs::read_to_string(&operation).unwrap();
-        std::fs::write(
-            &operation,
-            text.replace("shape = \"end\"", "shape = \"box\""),
-        )
-        .unwrap();
-        if !held {
-            let setup = dir.join(format!("setups/{SETUP}.toml"));
-            let text = std::fs::read_to_string(&setup).unwrap();
-            assert!(text.contains("[workholding.start]\nlength = 8.0\n"));
-            std::fs::write(
-                &setup,
-                text.replace("[workholding.start]\nlength = 8.0\n", ""),
-            )
-            .unwrap();
+        for run in &runs {
+            assert_clear_of_the_grip(run);
+            let note = grip_note(run);
+            for part in [
+                "held start (X 16.990 to 24.990)".to_string(),
+                "within 0.500 mm".into(),
+                "finished from X 25.490".into(),
+                format!("X {left} to 25.490 ({length} mm along X)"),
+                "left unfaced".into(),
+            ] {
+                assert!(note.contains(&part), "{extent}: {part} not in {note}");
+            }
+            // The final-depth rows across +Z: the first one's edge is at
+            // the stated limit, and the rows leave no strip.
+            let group = facing(run);
+            let lowest = group
+                .segments
+                .iter()
+                .filter(|s| s.kind == MoveKind::Cutting)
+                .map(|s| s.end.tip.z)
+                .fold(f64::INFINITY, f64::min);
+            let mut rows = Vec::new();
+            let mut from = group.start;
+            for s in &group.segments {
+                if s.kind == MoveKind::Cutting
+                    && (from.tip.z - lowest).abs() < 1e-9
+                    && (s.end.tip.z - lowest).abs() < 1e-9
+                    && (from.tip.x - s.end.tip.x).abs() < 1e-9
+                {
+                    rows.push(from.tip.x);
+                }
+                from = s.end;
+            }
+            rows.sort_by(f64::total_cmp);
+            rows.dedup();
+            assert!(
+                (rows[0] - RADIUS - (HELD_END + HELD_CLEAR)).abs() < 1e-3,
+                "{extent}: the first row's edge is at X {}",
+                rows[0] - RADIUS
+            );
+            assert!(rows.windows(2).all(|w| w[1] - w[0] <= 2. * RADIUS));
         }
-        let app = Application::open(&dir, Threads::Exactly(2)).unwrap();
-        let run = app.start_regenerate().wait().map_err(|e| e.to_string());
-        std::fs::remove_dir_all(dir).unwrap();
-        run
-    };
-    for (extent, advice) in [
-        ("whole_stock", "Use the Part only extent"),
-        ("part", "Shorten the held length"),
-    ] {
-        let e = box_facing(extent, true).unwrap_err();
-        assert!(
-            e.contains("the Box faces cannot be finished from X")
-                && e.contains("the held start (X 16.990 to 24.990)")
-                && e.contains(advice),
-            "{extent}: {e}"
+        // The two posts read the same canonical path.
+        assert_eq!(
+            facing(&runs[0]).segments.len(),
+            facing(&runs[1]).segments.len()
         );
     }
-    let run = box_facing("whole_stock", false).unwrap();
-    assert!(
-        facing(&run)
-            .segments
-            .iter()
-            .any(|s| s.kind == MoveKind::Cutting)
+    // Without the grip the whole stock is faced and nothing is said of it.
+    let dir = project(
+        "box-no-grip",
+        "positive_z = true\nextent = \"whole_stock\"\n",
     );
+    let operation = dir.join(format!("operations/{FACING}.toml"));
+    let text = std::fs::read_to_string(&operation).unwrap();
+    std::fs::write(
+        &operation,
+        text.replace("shape = \"end\"", "shape = \"box\""),
+    )
+    .unwrap();
+    let setup = dir.join(format!("setups/{SETUP}.toml"));
+    let text = std::fs::read_to_string(&setup).unwrap();
+    assert!(text.contains("[workholding.start]\nlength = 8.0\n"));
+    std::fs::write(
+        &setup,
+        text.replace("[workholding.start]\nlength = 8.0\n", ""),
+    )
+    .unwrap();
+    let run = Application::open(&dir, Threads::Exactly(2))
+        .unwrap()
+        .start_regenerate()
+        .wait()
+        .unwrap();
+    std::fs::remove_dir_all(dir).unwrap();
+    assert!(!run.notes.iter().any(|n| n.contains("stops short")));
+    let first = facing(&run)
+        .segments
+        .iter()
+        .filter(|s| s.kind == MoveKind::Cutting)
+        .map(|s| s.end.tip.x)
+        .fold(f64::INFINITY, f64::min);
+    assert!(
+        first < HELD_END,
+        "without a grip the rows start at X {first}"
+    );
+}
+
+/// The same Box facing at one and four threads writes the same bytes
+/// (GC-07, NFR-06).
+#[test]
+fn req_op_24_req_gc_07_baluster_box_facing_beside_the_grip_is_deterministic() {
+    let extra = "positive_z = true\nextent = \"part\"\n";
+    let one = facing_beside_the_grip("box", extra, 1);
+    let four = facing_beside_the_grip("box", extra, 4);
+    for (a, b) in one.iter().zip(&four) {
+        assert_eq!(a.gcode, b.gcode);
+    }
+}
+
+/// The owner's decision covers the restricted legacy Flat shape too: Flat
+/// at A 0 with the Part extent was refused beside the grip. Its passes run
+/// along X from the tool's centre limit (the grip's end, the tool's radius
+/// and the clearance, X 27.078), but its target is the composite of the part
+/// and the held region with the 1 mm stock to leave round them, which lifts
+/// the passes' ends off the face. Its note reads where the face is finished
+/// from the cut: here the lowest X of the cutting moves at the face, read
+/// independently from the path. Round with the Part extent is refused on
+/// this set-up for another reason, with or without the grip (a rapid's
+/// clearance), so its limit is tested on a block in `openchuck-path`.
+#[test]
+fn req_op_24_req_set_09_baluster_flat_part_extent_stops_short_of_the_held_start() {
+    for run in &facing_beside_the_grip(
+        "flat",
+        "angles = \"0\"\nsize = 16.0\nextent = \"part\"\n",
+        2,
+    ) {
+        assert_clear_of_the_grip(run);
+        let group = facing(run);
+        let mut from = group.start;
+        let mut first = f64::INFINITY;
+        for s in &group.segments {
+            if s.kind == MoveKind::Cutting
+                && (from.tip.z - s.end.tip.z).abs() < 1e-9
+                && (from.tip.y - s.end.tip.y).abs() < 1e-9
+                && from.tip.z <= 16.0 + 0.01
+            {
+                first = first.min(from.tip.x.min(s.end.tip.x));
+            }
+            from = s.end;
+        }
+        let limit = HELD_END + RADIUS + HELD_CLEAR;
+        assert!(
+            first >= limit - 1e-6 && first <= limit + 2. * RADIUS + 1.,
+            "{first}"
+        );
+        let note = grip_note(run);
+        for part in [
+            "held start (X 16.990 to 24.990)".to_string(),
+            format!("finished from X {first:.3}"),
+            format!(
+                "X 17.990 to {first:.3} ({:.3} mm along X)",
+                first - 17.990_234_375
+            ),
+            "its passes along X end there".into(),
+        ] {
+            assert!(note.contains(&part), "{part} not in {note}");
+        }
+    }
+}
+
+/// The owner's direction (23 Nov 2026): the view's label for what is left
+/// beside the grip is short, and the numbers are in the notes. Box facing
+/// of all four sides on the Baluster set-up stops short of the held start
+/// on each: the view shows one label, "Not faced: held start" (21
+/// characters, at most 24; a draft adds the existing "<operation> · draft
+/// · " lead), in the draft and on the generated path, and no label carries
+/// the stop X.
+#[test]
+fn req_ui_03_req_op_24_baluster_overlay_marks_the_grip_with_one_short_label() {
+    let dir = project(
+        "box-overlay",
+        "positive_z = true\npositive_y = true\nnegative_z = true\nnegative_y = true\n\
+         extent = \"whole_stock\"\n",
+    );
+    let operation = dir.join(format!("operations/{FACING}.toml"));
+    let text = std::fs::read_to_string(&operation).unwrap();
+    std::fs::write(
+        &operation,
+        text.replace("shape = \"end\"", "shape = \"box\""),
+    )
+    .unwrap();
+    let app = Application::open(&dir, Threads::Exactly(2)).unwrap();
+    let run = std::sync::Arc::new(app.start_regenerate().wait().unwrap());
+    let draft = app.start_scene(None).wait().unwrap();
+    let generated = app.start_scene_with_facing(None, Some(run)).wait().unwrap();
+    std::fs::remove_dir_all(dir).unwrap();
+    for (what, view) in [("draft", &draft), ("generated", &generated)] {
+        let marks: Vec<_> = view
+            .labels
+            .iter()
+            .filter(|l| l.text.contains("Not faced"))
+            .collect();
+        assert_eq!(marks.len(), 1, "{what}: {marks:?}");
+        // A draft label carries the existing "<operation> · draft · " lead.
+        assert!(marks[0].text.ends_with("Not faced: held start"), "{what}");
+        let own = &marks[0].text[marks[0].text.find("Not faced").unwrap()..];
+        assert!(own.chars().count() <= 24, "{what}: {own}");
+        assert!(
+            !view.labels.iter().any(|l| l.text.contains("25.490")),
+            "{what}: the stop X belongs in the notes, not the view"
+        );
+    }
 }

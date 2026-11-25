@@ -3182,6 +3182,10 @@ mod tooltip_tests;
 mod focus_tests;
 
 #[cfg(test)]
+mod dialog_walk_tests;
+#[cfg(test)]
 mod import_layout_tests;
 #[cfg(test)]
 mod model_copy_tests;
+#[cfg(test)]
+mod setup_conflict_tests;

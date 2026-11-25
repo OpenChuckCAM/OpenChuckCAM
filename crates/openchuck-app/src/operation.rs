@@ -1056,9 +1056,16 @@ fn generate_unnamed(
     // decision 0056); on a mesh part's chosen edges it follows only them (OP-08,
     // OI-204; decision record 0066).
     let brep_edges = match (&placed.brep, &brep_choice) {
-        (Some(brep), Some(choice)) if operation.strategy == edge_following::NAME => Some(
-            brep_curves(operation, brep, &choice.edges, &parameters, edges)?,
-        ),
+        (Some(brep), Some(choice)) if operation.strategy == edge_following::NAME => {
+            Some(brep_curves(
+                operation,
+                brep,
+                &choice.edges,
+                &parameters,
+                edges,
+                2.0 * profile.cutting_radius(),
+            )?)
+        }
         _ => None,
     };
     let registry_strategy = strategy;
@@ -1091,7 +1098,10 @@ fn generate_unnamed(
         (None, Some(segments)) => {
             with_edges = EdgeFollowing::with_source(
                 ChosenSegments::new(segments)?
-                    .with_min_length(parameters.number(edge_following::parameter::MIN_LENGTH)?)
+                    .with_min_length(parameters.length_or_tool(
+                        edge_following::parameter::MIN_LENGTH,
+                        2.0 * profile.cutting_radius(),
+                    )?)
                     .shared(),
             );
             &with_edges
@@ -1301,8 +1311,10 @@ fn generate_unnamed(
         // In the one form, the owner's words after the lead-in (decision
         // record 0644 item 3).
         notes.push(
-            openchuck_path::Notice::information("Facing covered the end faces it was asked to.")
-                .about(crate::lead_in::topic::FACING),
+            openchuck_path::Notice::information(crate::facing::completion_note(
+                &proof.description()?,
+            ))
+            .about(crate::lead_in::topic::FACING),
         );
         if proof.description()?.extent != openchuck_path::facing::extents::FacingExtent::WholeStock
         {
@@ -1333,7 +1345,8 @@ fn generate_unnamed(
 /// operation's Exact STEP surface contact is on (`on`) and applies to the
 /// tool, or the part's tessellation, made at the import's deflection, and
 /// why. `None` for the strategies that read the exact faces or edges
-/// themselves: radial drilling, swarf and edge following.
+/// themselves: radial drilling, swarf, edge following and face-flow
+/// finishing.
 fn contact_note(
     strategy: &dyn Strategy,
     name: &str,
@@ -1554,16 +1567,42 @@ const SWARF_NEEDS_FACES: &str = "swarf needs a face set: select the ruled walls 
 const FACE_FLOW_NEEDS_FACES: &str = "Face-flow finishing needs a face set: select the faces to \
      cut, save them as a set and put it in Cut on; an edge set there is the guide";
 
+/// Why an operation of `strategy` with no face set in Cut on is refused, for
+/// the strategies that cut only the faces the user chose: swarf (decision
+/// 0111 item 1) and face-flow finishing (OP-28); `None` for the others.
+fn needs_chosen_faces(strategy: &str) -> Option<&'static str> {
+    match strategy {
+        swarf::NAME => Some(SWARF_NEEDS_FACES),
+        face_flow::NAME => Some(FACE_FLOW_NEEDS_FACES),
+        _ => None,
+    }
+}
+
+/// The Geometry section's line on what an empty Cut on means for an
+/// operation of `strategy` (OP-02; issue #614): the whole part, or, for a
+/// strategy that cuts only the faces the user chose, that it is not
+/// generated.
+#[must_use]
+pub fn empty_cut_on_hint(strategy: &str) -> &'static str {
+    match strategy {
+        swarf::NAME => {
+            "Swarf cuts only the faces you choose: with no face set in Cut on, the operation is \
+             not generated."
+        }
+        face_flow::NAME => {
+            "Face-flow finishing cuts only the faces you choose: with no face set in Cut on, the \
+             operation is not generated."
+        }
+        _ => "With nothing in Cut on, the operation cuts the whole part.",
+    }
+}
+
 /// Why `operation` cannot run yet when its strategy is swarf (decision 0111
 /// item 1) or face-flow finishing (OP-28) on a STEP part and none of its
 /// selection sets is a face set, for the parameter form. Whether the faces
 /// suit swarf is judged when it is generated ([`swarf_compatibility`]).
 pub(crate) fn needs_faces(project: &Project, operation: &Operation) -> Option<String> {
-    let reason = match operation.strategy.as_str() {
-        swarf::NAME => SWARF_NEEDS_FACES,
-        face_flow::NAME => FACE_FLOW_NEEDS_FACES,
-        _ => return None,
-    };
+    let reason = needs_chosen_faces(&operation.strategy)?;
     if !on_step_part(project, operation) {
         return None;
     }
@@ -2016,13 +2055,12 @@ fn brep_selection(
     choice.edges.sort_unstable();
     choice.edges.dedup();
     // Swarf cuts only the walls the user chose, never every face of the part
-    // (the owner's change to decision 0061 item 1, decision 0111 item 1).
-    if operation.strategy == swarf::NAME && choice.faces.is_empty() {
-        return Err(fail(SWARF_NEEDS_FACES.to_owned()));
-    }
-    // Face-flow finishing cuts only the faces the user chose (OP-28).
-    if operation.strategy == face_flow::NAME && choice.faces.is_empty() {
-        return Err(fail(FACE_FLOW_NEEDS_FACES.to_owned()));
+    // (the owner's change to decision 0061 item 1, decision 0111 item 1);
+    // face-flow finishing only the faces the user chose (OP-28).
+    if let Some(reason) = needs_chosen_faces(&operation.strategy)
+        && choice.faces.is_empty()
+    {
+        return Err(fail(reason.to_owned()));
     }
     // A wall that is cut cannot also be kept clear of (decision 0176).
     for (ids, role) in [(&operation.avoid, "avoid"), (&operation.check, "check")] {
@@ -2106,7 +2144,8 @@ fn limit_faces(
 /// The edges edge following follows on a STEP part: the chosen edges, or
 /// every real edge, at the operation's crease angle (the B-rep default of
 /// [`openchuck_path::brep_edges::DEFAULT_CREASE_DEGREES`] when the operation
-/// does not set one) and its shortest chain (decision 0056); at a crease
+/// does not set one) and its shortest chain (decision 0056; a length or the
+/// tool's diameter `tool_diameter`, issue #854); at a crease
 /// angle of zero when `options` keeps tangent edges (decision 0057).
 fn brep_curves(
     operation: &Operation,
@@ -2114,6 +2153,7 @@ fn brep_curves(
     edges: &[EdgeId],
     parameters: &openchuck_path::params::Parameters,
     options: EdgeOptions,
+    tool_diameter: f64,
 ) -> Result<Arc<dyn CurveSource>, AppError> {
     use openchuck_path::edge_following::parameter::{CREASE_ANGLE, MIN_LENGTH};
     let source = if edges.is_empty() {
@@ -2130,7 +2170,7 @@ fn brep_curves(
     };
     Ok(source
         .with_crease(crease)
-        .with_min_length(parameters.number(MIN_LENGTH)?)
+        .with_min_length(parameters.length_or_tool(MIN_LENGTH, tool_diameter)?)
         .shared())
 }
 
@@ -4915,6 +4955,32 @@ mod tests {
             notes.contains("face 0 is cut from its guide, edge 2"),
             "{notes}"
         );
+    }
+
+    /// Issue #614: the Geometry section's line on an empty Cut on matches
+    /// what generation does: the whole part for every strategy that cuts
+    /// one, and "not generated" for those refused with no face set.
+    #[test]
+    fn req_op_02_req_op_28_the_empty_cut_on_line_matches_the_refusal() {
+        let registry = Registry::builtin();
+        for name in registry.iter().map(|s| s.name()) {
+            let hint = empty_cut_on_hint(name);
+            if needs_chosen_faces(name).is_some() {
+                assert!(
+                    hint.contains("cuts only the faces you choose")
+                        && hint.contains("not generated")
+                        && !hint.contains("whole part"),
+                    "{name}: {hint}"
+                );
+            } else {
+                assert_eq!(
+                    hint, "With nothing in Cut on, the operation cuts the whole part.",
+                    "{name}"
+                );
+            }
+        }
+        assert!(empty_cut_on_hint(swarf::NAME).starts_with("Swarf "));
+        assert!(empty_cut_on_hint(face_flow::NAME).starts_with("Face-flow finishing "));
     }
 
     #[test]

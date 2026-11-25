@@ -269,6 +269,14 @@ impl ExportPanel {
         }
     }
 
+    /// Chooses the post by its place in the list (the list's length for "A
+    /// post folder") without a press in the dialog, as a test of a field
+    /// that is hidden while it holds typed text.
+    #[cfg(test)]
+    pub(crate) fn choose_post(&mut self, index: usize) {
+        self.post_index = index;
+    }
+
     /// Whether the dialog is open.
     pub fn is_open(&self) -> bool {
         self.open || self.overwrite.is_some() || self.result.is_some()
@@ -902,8 +910,10 @@ impl ExportPanel {
         });
     }
 
-    /// The footer: why Write G-code is blocked, then Cancel and Write G-code
-    /// at the right, left to right so Tab reaches Cancel first (Q3 A).
+    /// The footer: why Write G-code is blocked, then Close and Write G-code
+    /// at the right, left to right so Tab reaches Close first (Q3 A). Close,
+    /// not Cancel: closing cancels nothing, the choices are kept for the
+    /// next opening (issue #872).
     fn footer(&self, ui: &mut egui::Ui, blocker: Option<&str>, acts: &mut Vec<Act>) {
         {
             ui.add_space(4.0);
@@ -914,7 +924,7 @@ impl ExportPanel {
             }
             ui.horizontal(|ui| {
                 crate::focus::row_at_right(ui, "export footer", |ui| {
-                    if ui.button("Cancel").clicked() {
+                    if ui.button("Close").clicked() {
                         acts.push(Act::Close);
                     }
                     // The primary styling shows the action that can be taken now; a

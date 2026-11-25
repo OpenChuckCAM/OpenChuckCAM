@@ -871,6 +871,115 @@ pub fn default_tabs(
     Ok(tabs)
 }
 
+/// The default tabs a setup can have, end by end: the tabs added, and for
+/// each end that has none the reason, in words that follow "no default tab at
+/// the head" or "...the tail" (issue 676).
+#[derive(Debug, Clone, PartialEq)]
+pub struct DefaultTabsReport {
+    /// The tabs to add, head first, each with its end.
+    pub created: Vec<(openchuck_types::workholding::TabEnd, Tab)>,
+    /// The ends with no default tab, each with why.
+    pub skipped: Vec<(openchuck_types::workholding::TabEnd, String)>,
+}
+
+/// As [`default_tabs`], but an end that cannot have a default tab is skipped
+/// and said, not a refusal of the whole: the tabs of the ends that have one
+/// are given, and each end without one is listed with the reason. Refused
+/// when the setup already has tabs, when the stock's extent is not known, and
+/// when neither end can have one (the refusal names both ends and why).
+pub fn default_tabs_report(
+    workholding: &Workholding,
+    stock: &Stock,
+    mesh: &TriangleMesh,
+    part: &PartExtent,
+) -> Result<DefaultTabsReport, AppError> {
+    use openchuck_types::workholding::TabEnd;
+    if !workholding.tabs.is_empty() {
+        return Err(refuse(
+            "the setup already has tabs; remove them before adding the defaults",
+        ));
+    }
+    let zones = zone_defaults(workholding, stock, mesh, part).ok_or_else(|| {
+        refuse("the stock's extent is not known, so default tabs cannot be placed")
+    })?;
+    let mut report = DefaultTabsReport {
+        created: Vec::new(),
+        skipped: Vec::new(),
+    };
+    for (end, zone) in [TabEnd::Head, TabEnd::Tail].into_iter().zip(zones) {
+        let held = match end {
+            TabEnd::Head => workholding.start.is_some(),
+            TabEnd::Tail => workholding.end.is_some(),
+        };
+        match zone {
+            ZoneDefault::Tab(tab) => report.created.push((end, tab)),
+            ZoneDefault::NoRoom => report.skipped.push((
+                end,
+                if held {
+                    "the held region reaches the part".to_owned()
+                } else {
+                    "the stock ends at the part".to_owned()
+                },
+            )),
+            ZoneDefault::Point { x } => report.skipped.push((
+                end,
+                format!(
+                    "the part comes to a point at X {x:.3} mm, so there is no diameter to base \
+                     a tab on"
+                ),
+            )),
+            ZoneDefault::NoFit {
+                stock_diameter,
+                small,
+                x,
+            } => report.skipped.push((
+                end,
+                format!(
+                    "the stock ({stock_diameter:.3} mm across) leaves no room for a tab of \
+                     {small:.3} mm at X {x:.3} mm"
+                ),
+            )),
+        }
+    }
+    if report.created.is_empty() {
+        let why: Vec<String> = report
+            .skipped
+            .iter()
+            .map(|(end, why)| format!("at the {} {why}", end.name()))
+            .collect();
+        return Err(refuse(format!(
+            "neither end can have a default tab ({}); add the tabs by hand",
+            why.join("; ")
+        )));
+    }
+    Ok(report)
+}
+
+/// [`default_tabs_report`] for `setup` of `project`, reading and placing its
+/// part.
+pub(crate) fn default_tabs_report_of(
+    root: &std::path::Path,
+    project: &openchuck_project::Project,
+    setup: openchuck_project::id::SetupId,
+    context: &openchuck_types::job::JobContext<'_>,
+) -> Result<DefaultTabsReport, AppError> {
+    let setup = project
+        .setup(setup)
+        .ok_or_else(|| AppError::UnknownSetup(setup.to_string()))?;
+    let stock = setup
+        .stock
+        .as_ref()
+        .ok_or_else(|| refuse("the setup has no stock"))?;
+    let model = setup
+        .part
+        .and_then(|id| project.models().iter().find(|m| m.id == id))
+        .ok_or_else(|| refuse("the setup has no part"))?;
+    let mesh = crate::model::setup_mesh(root, model, setup, context)?;
+    let part = openchuck_geom::part_extent(&mesh)
+        .ok_or_else(|| refuse("the setup's part has no extent"))?;
+    default_tabs_report(&setup.workholding, stock, &mesh, &part)
+}
+
 /// What the workholding section needs from a setup's placed part (interface
 /// specification 11.7; decision record 0114 section C, OI-334 c, d and e): its
 /// extent, for the head and tail zones, the end of a frustum that faces the

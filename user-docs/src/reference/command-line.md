@@ -96,7 +96,7 @@ A model can be named by its ID, its path or its file name.
 | `--clearance-from-stock MM` or `off` | A margin added to the stock's radius for the safe cylinder. |
 | `--held-start LENGTH[,DIAMETER]`, `--held-end ...` or `none` | The [held region](../glossary.md#held-region) at the low-X or high-X end, never cut. |
 | `--tab SPEC` | A tab: `cylinder=X_START,LENGTH,DIAMETER` or `frustum=X_START,LENGTH,START_DIAMETER,END_DIAMETER`, optionally followed by `@COUNT,START_ANGLE,RADIAL_OFFSET`. Repeat it for more tabs. |
-| `--clear-tabs`, `--default-tabs` | Remove the tabs first, or add the default head and tail tabs worked out from the part. |
+| `--clear-tabs`, `--default-tabs` | Remove the tabs first, or add the default head and tail tabs worked out from the part. `--default-tabs` adds the tab for each end that can have one and says where it put it; for an end that cannot (the part comes to a point there, or a held region reaches the part) it prints a warning with the reason, and you add that tab by hand with `--tab`. It is refused, naming both ends, when neither end can have a default tab, and when the setup already has tabs. |
 
 The workholding is checked as **Apply** checks it: a tab outside the head and tail zones is refused, and nothing is saved; a tab shorter than a tool of the setup is wide, an automatic tab with no room and tabs that overlap are saved, each with a `warning:` line. The printout includes where to set the work offset on the machine, for example "set G54 to machine X ... Y ... Z ... at A 0".
 
