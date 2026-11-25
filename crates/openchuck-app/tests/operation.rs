@@ -2941,3 +2941,102 @@ fn req_ui_07_every_link_parameter_is_in_the_links_section() {
     assert!(seen >= 3, "axial, indexed and facing offer it: {seen}");
     std::fs::remove_dir_all(&dir).unwrap();
 }
+
+/// A strategy whose path depends on something the cache key does not hold:
+/// a stand-in for a change that should make an operation stale but does not
+/// (issue #559).
+#[derive(Debug)]
+struct HiddenRing(Arc<std::sync::atomic::AtomicU32>);
+
+impl Strategy for HiddenRing {
+    fn name(&self) -> &str {
+        "hidden_ring"
+    }
+    fn label(&self) -> &str {
+        "Hidden ring"
+    }
+    fn description(&self) -> &str {
+        "A strategy for tests whose path depends on a value outside its key."
+    }
+    fn schema(&self) -> ParameterSchema {
+        ParameterSchema::with_common(Vec::new())
+    }
+    fn passes(
+        &self,
+        input: &StrategyInput<'_>,
+        parameters: &Parameters,
+        context: &JobContext<'_>,
+    ) -> openchuck_path::Result<Vec<Pass>> {
+        let steps = self.0.load(std::sync::atomic::Ordering::Relaxed);
+        let mut passes = OneRing.passes(input, parameters, context)?;
+        for pass in &mut passes {
+            pass.points.truncate(37 - steps as usize);
+        }
+        Ok(passes)
+    }
+}
+
+/// "Regenerate all" (issue #559, record SIM-UX-F) makes every operation
+/// again whatever the cache holds, with the same toolpath when nothing was
+/// missed (GC-07), and warns, naming the operation and what a report needs,
+/// when a kept toolpath differs from the one made again: a change the key
+/// did not notice. The new toolpath is the one kept from then on.
+#[test]
+fn req_ui_09_req_gc_07_regenerate_all_makes_every_operation_again_and_says_when_one_differs() {
+    let (dir, mut app, ring) = project("regenerate-all");
+    let hidden = Arc::new(std::sync::atomic::AtomicU32::new(0));
+    app.register_strategy(Arc::new(OneRing)).unwrap();
+    app.register_strategy(Arc::new(HiddenRing(Arc::clone(&hidden))))
+        .unwrap();
+    let mut second = app.project().operation(ring).unwrap().clone();
+    second.id = OperationId::new();
+    second.name = "Hidden".into();
+    second.strategy = "hidden_ring".into();
+    app.execute(Command::Add {
+        item: Item::Operation(second.clone()),
+        placement: Placement::End,
+    })
+    .unwrap();
+    let first = app.regenerate().unwrap();
+    assert_eq!(first.generated.len(), 2);
+    assert!(app.regenerate().unwrap().generated.is_empty());
+
+    // Nothing missed: both made again, the same toolpath, no warning.
+    let all = app.start_regenerate_all().wait().unwrap();
+    assert_eq!(all.generated, vec![ring, second.id]);
+    assert!(all.reused.is_empty());
+    assert_eq!(all.toolpath, first.toolpath);
+    assert!(
+        !all.warnings.iter().any(|w| w.contains("not noticed")),
+        "{:?}",
+        all.warnings
+    );
+
+    // A change the key does not see: generating reuses the old path ...
+    hidden.store(6, std::sync::atomic::Ordering::Relaxed);
+    let stale = app.regenerate().unwrap();
+    assert!(stale.generated.is_empty());
+    assert_eq!(stale.toolpath, first.toolpath);
+    // ... and Regenerate all makes it again and says so, for that one only.
+    let forced = app.start_regenerate_all().wait().unwrap();
+    assert_ne!(forced.toolpath, first.toolpath);
+    let said: Vec<&String> = forced
+        .warnings
+        .iter()
+        .filter(|w| w.contains("not noticed"))
+        .collect();
+    assert_eq!(said.len(), 1, "{said:?}");
+    let warning = said[0];
+    assert!(
+        warning.starts_with("Regenerate all (operation 'Hidden'): "),
+        "{warning}"
+    );
+    assert!(warning.contains("Please report it"), "{warning}");
+    assert!(warning.contains(env!("CARGO_PKG_VERSION")), "{warning}");
+    assert!(warning.contains("moves kept"), "{warning}");
+    // The new path is the one kept from then on.
+    let after = app.regenerate().unwrap();
+    assert!(after.generated.is_empty());
+    assert_eq!(after.toolpath, forced.toolpath);
+    std::fs::remove_dir_all(&dir).unwrap();
+}

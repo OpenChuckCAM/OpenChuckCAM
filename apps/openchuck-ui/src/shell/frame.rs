@@ -112,6 +112,10 @@ pub(super) const KEY_MAP: &[(&str, &str)] = &[
     ),
     ("Shift G or Shift F5", "Generate every stale operation"),
     (
+        "Ctrl Shift G",
+        "Regenerate all: make every operation again, ignoring the kept results",
+    ),
+    (
         "Ctrl D, Del, F2",
         "Duplicate, delete, rename the selected item",
     ),
@@ -965,6 +969,19 @@ impl Shell {
                 let simulate = egui::Button::new("Generate and simulate");
                 if ui.add_enabled(open && idle, simulate).clicked() {
                     self.generate(true);
+                    ui.close();
+                }
+                let all = egui::Button::new("Regenerate all").shortcut_text("Ctrl+Shift+G");
+                if ui
+                    .add_enabled(open && idle, all)
+                    .tip(
+                        "Make every operation again, ignoring the results kept from earlier \
+                         runs. Use it when an operation should be stale but is not: you are \
+                         warned if a toolpath comes out differently.",
+                    )
+                    .clicked()
+                {
+                    self.regenerate_all();
                     ui.close();
                 }
                 let cancel = egui::Button::new("Cancel").shortcut_text("Esc");

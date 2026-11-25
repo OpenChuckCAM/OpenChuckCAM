@@ -1444,6 +1444,18 @@ impl Application {
         self.start_pipeline("regenerate", false, None)
     }
 
+    /// Starts making every enabled operation again, as a background job,
+    /// whatever the cache holds: "Regenerate all" (issue #559, record
+    /// SIM-UX-F), a way round a change that should have made an operation
+    /// stale but did not. It simulates as [`Application::start_generate`]
+    /// does. An operation whose new toolpath differs from the one kept for
+    /// the same inputs gets a warning that a change was not noticed, with
+    /// what a report needs. The G-code of an operation that was up to date
+    /// is the same (GC-07).
+    pub fn start_regenerate_all(&self) -> JobHandle<Regeneration> {
+        self.start_pipeline_with("regenerate all", self.simulates(), None, true, Ok)
+    }
+
     /// Starts generating the enabled operations up to and including
     /// `operation`, in machining order, as a background job; the ones after
     /// it are left as they are (stale if they were). Operations before it are
@@ -1521,6 +1533,19 @@ impl Application {
         until: Option<OperationId>,
         then: impl FnOnce(Regeneration) -> Result<T, AppError> + Send + 'static,
     ) -> JobHandle<T> {
+        self.start_pipeline_with(name, simulate, until, false, then)
+    }
+
+    /// [`Self::start_pipeline_then`]; with `force`, every operation is made
+    /// again whatever the cache holds ([`Application::start_regenerate_all`]).
+    fn start_pipeline_with<T: Send + 'static>(
+        &self,
+        name: &str,
+        simulate: bool,
+        until: Option<OperationId>,
+        force: bool,
+        then: impl FnOnce(Regeneration) -> Result<T, AppError> + Send + 'static,
+    ) -> JobHandle<T> {
         let document = self.document.clone();
         let strategies = self.strategies.clone();
         let post = self.post.clone();
@@ -1540,6 +1565,7 @@ impl Application {
                     &cache,
                     &record,
                     until,
+                    force,
                     context,
                 );
                 match &result {

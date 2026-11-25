@@ -32,6 +32,7 @@ A disabled button is not in the <kbd>Tab</kbd> order. Hold the mouse over it to 
 | <kbd>N</kbd> | New operation |
 | <kbd>G</kbd> or <kbd>F5</kbd> | Generate the selected operation, and the ones before it |
 | <kbd>Shift</kbd>+<kbd>G</kbd> or <kbd>Shift</kbd>+<kbd>F5</kbd> | Generate every stale operation |
+| <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>G</kbd> | **Regenerate all**: make every operation again, ignoring the results kept from earlier runs |
 | <kbd>Ctrl</kbd>+<kbd>D</kbd>, <kbd>Del</kbd>, <kbd>F2</kbd> | Duplicate, delete, rename the selected item |
 | <kbd>Alt</kbd>+<kbd>↑</kbd>, <kbd>Alt</kbd>+<kbd>↓</kbd> | Move the selected operation earlier or later |
 | <kbd>Q</kbd>, <kbd>W</kbd>, <kbd>E</kbd>, <kbd>R</kbd> | While picking: select one, flood fill, by angle, same direction. On an edge, <kbd>Q</kbd>, <kbd>W</kbd> and <kbd>E</kbd> are select one, chain and smooth chain |

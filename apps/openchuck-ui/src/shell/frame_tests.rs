@@ -2389,3 +2389,29 @@ fn req_ui_15_req_gc_05_a_confirmed_file_name_template_is_kept_across_projects() 
         Some(&mine)
     );
 }
+
+/// Ctrl Shift G is "Regenerate all" (issue #559, record SIM-UX-F): every
+/// operation is made again although none is stale, and nothing is left
+/// stale.
+#[test]
+fn req_ui_14_req_ui_09_ctrl_shift_g_makes_every_operation_again() {
+    let mut rig = Rig::cube("frame-regenerate-all", None);
+    rig.shell.generate(false);
+    let deadline = Instant::now() + Duration::from_secs(60);
+    while rig.shell.run.is_running() || !rig.shell.overview.stale.is_empty() {
+        assert!(Instant::now() < deadline, "timed out");
+        rig.settle();
+    }
+    let operations = rig.shell.app.as_ref().unwrap().project().operations().len();
+    rig.press(Key::G, Modifiers::COMMAND | Modifiers::SHIFT);
+    assert!(rig.shell.run.is_running() || rig.shell.run.last().is_some());
+    let deadline = Instant::now() + Duration::from_secs(60);
+    while rig.shell.run.is_running() {
+        assert!(Instant::now() < deadline, "timed out");
+        rig.settle();
+    }
+    let run = rig.shell.run.last().unwrap();
+    assert_eq!(run.generated.len(), operations);
+    assert!(run.reused.is_empty());
+    assert!(rig.shell.overview.stale.is_empty());
+}
