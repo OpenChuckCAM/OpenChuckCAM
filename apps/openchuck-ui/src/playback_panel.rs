@@ -1202,7 +1202,7 @@ impl PlaybackPanel {
     /// for the setup the playback is in. They are made by a job off the
     /// interface thread, once for each run and setup, and shown only while
     /// the deviation colours are on, the part is ticked and the cut part has
-    /// not failed (decision 0330: no colours anywhere then). A part that has
+    /// not failed (decision 0492: no colours anywhere then). A part that has
     /// changed since the run is drawn plain with a note, never with the old
     /// values (UI-11). Returns true while the job runs.
     fn update_part_colours(
@@ -3045,7 +3045,7 @@ mod tests {
         let _ = std::fs::remove_dir_all(dir);
     }
 
-    /// Decision 0330 and 0492: when the cut part could not be prepared the
+    /// Decision 0492: when the cut part could not be prepared the
     /// deviation colours are off everywhere, the part's included.
     #[test]
     fn req_sim_05_no_colours_anywhere_when_cut_part_preparation_failed() {

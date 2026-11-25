@@ -70,6 +70,8 @@ mod facing_end_plan;
 mod facing_extents;
 #[path = "facing_geometry.rs"]
 mod facing_geometry;
+#[path = "facing_held_limit.rs"]
+mod facing_held_limit;
 #[path = "facing_legacy_scope.rs"]
 mod facing_legacy_scope;
 #[path = "facing_motion.rs"]

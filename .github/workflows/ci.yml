@@ -636,6 +636,21 @@ jobs:
         id: conflicts
         if: always()
         run: cargo xtask conflicts
+      # The changelog since the last release (decision record 0678): a pull request that
+      # changes what users see adds or changes a bullet under "Development version" in
+      # user-docs/src/release-notes.md (and a library-family crate its CHANGELOG.md), or its description
+      # has a line "No user-visible change: <reason>". Drafts too (decision 0052: Fast checks run on a
+      # draft). The description is read from the event, so it is read again when the pull request is
+      # opened, on each push and when it is marked ready for review; an edit alone runs nothing. No
+      # `edited` trigger: it would run the whole workflow again. xtask is already built by the
+      # conflicts step; the check itself takes well under a second.
+      - name: Changelog since the last release
+        id: changelog
+        if: always() && github.event_name == 'pull_request'
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: cargo xtask changelog check-pr --base "$BASE"
       - name: Traceability report
         id: trace
         if: always() && (needs.changes.outputs.rust == 'true' || needs.changes.outputs.records == 'true')
@@ -701,6 +716,7 @@ jobs:
           AUDIT: ${{ steps.audit.outcome }}
           ABOUT: ${{ steps.about.outcome }}
           SEMVER: ${{ steps.semver.outcome }}
+          CHANGELOG: ${{ steps.changelog.outcome }}
         run: |
           bad=""
           # check NAME DUE OUTCOME: DUE is "true" when the check should have run.
@@ -722,6 +738,8 @@ jobs:
           check "cargo about" "$RUST" "$ABOUT"
           semver=false; if [ "$RUST" = true ] && { [ "$EVENT" = pull_request ] || [ "$EVENT" = merge_group ]; }; then semver=true; fi
           check "cargo semver-checks" "$semver" "$SEMVER"
+          pr=false; if [ "$EVENT" = pull_request ]; then pr=true; fi
+          check "changelog" "$pr" "$CHANGELOG"
           if [ -n "$bad" ]; then
             echo "::error title=Fast checks did not pass::${bad#, }"
             exit 1

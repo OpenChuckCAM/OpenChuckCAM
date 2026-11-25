@@ -1,5 +1,28 @@
 # Changelog
 
+## 0.63.0 (FACEFLOW; issues #791, #631, #614, #615 and #854; decisions 0675, 0676 and 0686, accepted)
+
+- **Changed:** a new face-flow finishing operation is written with Stay down between passes on, Pattern Automatic, Steps between rings Blended (decision 0545's rule, now reaching face flow) and a Shortest cut of its tool's diameter. An operation saved without them keeps its program.
+- **Added:** `operation::empty_cut_on_hint(strategy)`, the Geometry section's line on an empty Cut on: the whole part is cut, except for swarf and face-flow finishing, which are not generated with no face set there (the refusal they share is now one list). `SelectionSummary::counted()`, the set's count with its noun agreeing ("1 face", "3 edges").
+
+## 0.62.0 (FACING-GRIP; issue #500; decision 0685, accepted)
+
+- **Changed output:** Facing beside a held region faces what the tool reaches and its notes say what it leaves (see `openchuck-path` 0.62.0). The Facing completion note says, when a face stops short of a held region, that it covered the faces up to the held region and that the held-region note gives the numbers; otherwise it is unchanged.
+- **Changed:** the Facing overlay draws where each face stops beside a held region (legacy Flat's from the cut, `describe_path`) and marks it once per held end with the short label "Not faced: held start" (or "held far end"); the numbers are in the notes.
+
+## 0.61.0 (PENCIL-REST; issue #632; decision 0684, accepted; not breaking)
+
+- **Changed:** the Exact STEP surface contact row is in the operation inspector's Advanced section for every strategy that has it (it was in Pattern and tolerance, after Tolerance).
+- **Added, changed output:** pencil clean-up's Shortest cut (`min_length`) starts at the tool's diameter where the operation sets none, in the form (as its default) and when the path is made, as the distance past the stock follows the tool. A saved pencil operation takes it, so stretches of a corner shorter than the tool's diameter, and single points, are no longer cut; the notes say where.
+
+## 0.60.0 (POST-COMMENTS; issue #851; decision 0681, accepted)
+
+- **Added:** when the post writes `_` in front of text from the project because it would have started a comment the controller acts on (LinuxCNC's `MSG,`, `LOGOPEN,` and others), the run has one warning per text and where it came from: the project name, the setup name, the operation name, the name of tool T<n>, the revision, the version line or a comment of the post, with the opening matched and the post's name. The text is quoted, escaped (control characters, quotes, backslashes and non-ASCII) and cut after 48 characters. It is an ordinary run warning (Messages tab, `warning:` on the command line); nothing is saved and nothing needs acknowledging. The setup name in its prefix is escaped the same way, and each warning is said once per setup, field and text in a run, whatever the output grouping.
+
+## Unreleased (FUZZ-NFR07; issue #628; decision 0679, accepted)
+
+- **Changed:** the tool form's Diameter and Shank diameter fields have a maximum of 2000 mm and Flute length and Overall length 1000 mm, the sizes the tool check accepts. No API change.
+
 ## 0.58.0 (FACING-STEP; issue #800; decision 0666 option C, accepted)
 
 - **Changed output:** Facing with the End or Box shape, a Part or Part plus tabs extent, or an extent margin now generates on a STEP part, bounding the part from its exact faces (`openchuck_path::enclose`), not its tessellation. The interim refusal before generating (#836) is removed. Each such operation's notes say so, and, where the part has B-spline faces, how far Facing may stop short of an extreme on one, leaving that much more stock.

@@ -54,10 +54,13 @@ use crate::params::{CommonParameters, EntryParameters, Retract};
 use crate::rotary::{AxisPosition, RotaryMapping, fit_range, unwrap_continuous};
 use crate::stock::{CollisionOracle, StockModel};
 use crate::strategy::{CutPoint, Pass, PassStock, StrategyInput};
+use crate::surface::SurfaceSource;
 use openchuck_types::machine::{MaxFeeds, RotaryInFeed};
 
-/// An area of the part a strategy could not reach with the tool (OP-20;
-/// decision record 0368): the path leaves it uncut, and a warning says so.
+/// An area of the part a strategy leaves uncut (OP-20; decision record
+/// 0368): one it could not reach with the tool, or, for
+/// [`UnreachedReason::TooShort`], one it could reach but leaves out on
+/// purpose (decision 0686). A warning says so.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Unreached {
     /// The X range it spans, `(low, high)`, in millimetres.
@@ -67,9 +70,10 @@ pub struct Unreached {
     pub a: (f64, f64),
     /// Its area, in square millimetres.
     pub area: f64,
-    /// Why the tool cannot reach it.
+    /// Why it is left uncut.
     pub reason: UnreachedReason,
-    /// The points of the part's surface in it that the tool cannot reach,
+    /// The points of the part's surface in it that are left uncut (for
+    /// [`UnreachedReason::TooShort`], the contacts of the cut left out),
     /// as the strategy sampled them, in its order: so a viewer marks those
     /// surfaces and not the reached ones in the same X and A range (issue
     /// #416, decision record 0515). At most [`MAX_UNREACHED_POINTS`], taken
@@ -101,6 +105,13 @@ pub enum UnreachedReason {
     /// the stock, which every tool keeps clear of by its radius (SET-09;
     /// decision records 0161 and 0505).
     NearHeldRegion,
+    /// The tool reaches it, but only in a cut (from one lift to the next)
+    /// shorter than the operation's Shortest cut, so that cut is left out
+    /// (face-flow finishing; issue #854).
+    TooShort {
+        /// The length of the cut left out, in millimetres.
+        length: f64,
+    },
 }
 
 /// A place where a strategy broke a pass because the tool's shank, wider
@@ -449,13 +460,17 @@ pub fn assemble_with_entry(
     entry: &EntryParameters,
     context: &JobContext<'_>,
 ) -> Result<GeneratedPath> {
-    assemble_limited(passes, input, common, entry, None, true, context)
+    assemble_limited(passes, input, common, entry, None, true, None, context)
 }
 
 /// [`assemble_with_entry`], with every cutting move inside a pass that goes
 /// down along the tool axis slowed, where needed, so its tip goes down no
 /// faster than `descent_limit` (the plunge feed; decision record 0548).
 /// `round_the_part` is [`Strategy::ramps_round_the_part`](crate::Strategy::ramps_round_the_part).
+/// `beside` is the faces next to the face set
+/// ([`RegionConstraint::neighbours`](crate::RegionConstraint::neighbours)),
+/// which the entry and exit moves are checked against as well as the
+/// finished surface (decision record 0682).
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn assemble_limited(
     passes: &[Pass],
@@ -464,6 +479,7 @@ pub(crate) fn assemble_limited(
     entry: &EntryParameters,
     descent_limit: Option<FeedRate>,
     round_the_part: bool,
+    beside: Option<&dyn SurfaceSource>,
     context: &JobContext<'_>,
 ) -> Result<GeneratedPath> {
     let rotary = input.rotary;
@@ -580,7 +596,7 @@ pub(crate) fn assemble_limited(
         straight_plunges: Vec::new(),
     };
 
-    let entry = entry::Entry::new(input, common, entry, round_the_part)?;
+    let entry = entry::Entry::new(input, common, entry, round_the_part, beside)?;
     let entry_nub_radius = entry.nub_radius();
     if entry_nub_radius > 0.0 {
         split_nubs(

@@ -1,6 +1,6 @@
 # Release notes
 
-What changed in each release of OpenChuckCAM, what it cannot do yet, and which Makera Z1 machine values were confirmed for it. Each release adds a section headed with its version number, newest first, before it is released. The release workflow refuses to publish a release whose section is missing.
+What changed in each release of OpenChuckCAM, what it cannot do yet, and which Makera Z1 machine values were confirmed for it. The *Development version* section at the end lists what has changed since the last release. Each release adds a section headed with its version number, newest first, before it is released. The release workflow refuses to publish a release whose section is missing.
 
 Every section ends with the same reminder: generated G-code must be verified by you before it is run on a machine.
 
@@ -62,7 +62,7 @@ The open bugs at this release, most serious first in each group. The number is t
 - Facing refuses every STEP part ("no established projection bound"). Import the part as STL for Facing, or face the stock to length before it goes in the chuck (#800).
 - Face flow refuses a closed shape whose edges do not join, such as a cylinder. Split the face along its seam in your CAD program (#791).
 - End facing on a round bar can be refused at posting with larger slices; use a **Stepdown (band along the tool)** of about 1 to 1.5 mm (#650). Facing with the **Box** shape refuses on the baluster example (#500).
-- A helical finish with a set in **Avoid** set to **Cut short** gives about four times the moves (#608); pencil clean-up with **Exact STEP surface contact** on can make many more passes at a corner (#632); the last move of a lead-in is fed slightly slower than it needs (#685).
+- A helical finish with a set in **Avoid** set to **Cut short** gives about four times the moves (#608); pencil clean-up with a flat end can leave most of a sharp inside corner uncut, or, with **Exact STEP surface contact** on, cut it in many short passes; check the corner in the simulation (#632); the last move of a lead-in is fed slightly slower than it needs (#685).
 
 **Setups, machines and workholding**
 
@@ -79,8 +79,8 @@ The open bugs at this release, most serious first in each group. The number is t
 
 - After a refused **Generate**, Results still shows the previous run under the new error (#766). Hiding a path asks you to generate again, which you need not do (#607).
 - Rest machining: raw words in **Pass order** (#613). Face flow and swarf: the hint says an empty **Cut on** cuts the whole part, but both refuse (#614); face flow shows two pass counts that seem to disagree (#631). "1 faces" and similar wording (#615).
-- The **Geometry** section is crowded with several selection sets (#759). A deleted project's recovery warning cannot be dismissed (#681). The default tools file starts with an internal reference number (#775).
-- `openchuck-cli` does not print the reminder to verify the G-code when it refuses for a missing acknowledgement; nothing is written (#645). On macOS, the OpenCASCADE notice does not say that replacing the STEP reader inside the app needs `codesign --force --deep --sign - OpenChuckCAM.app` (#589).
+- The **Geometry** section is crowded with several selection sets (#759). A deleted project's recovery warning cannot be dismissed (#681).
+- `openchuck-cli` does not print the reminder to verify the G-code when it refuses for a missing acknowledgement; nothing is written (#645).
 
 Other open bugs concern only the project's own tests, build and documentation; they are on the [issue tracker](https://github.com/OpenChuckCAM/OpenChuckCAM/issues?q=is%3Aissue+is%3Aopen+label%3Abug).
 
@@ -88,9 +88,21 @@ Generated G-code must be verified by you before it is run on a machine. OpenChuc
 
 ## Development version
 
-The *latest* version of this guide describes the nightly build, the [development build](start/install.md#download-a-development-build) made each night from the main branch. Its limits are on [Known limitations](start/limitations.md).
+The *latest* version of this guide describes the nightly build, the [development build](start/install.md#download-a-development-build) made each night from the main branch. Its limits are on [Known limitations](start/limitations.md). The changes below are those since the last release; the page of the [`nightly` pre-release](https://github.com/OpenChuckCAM/OpenChuckCAM/releases/tag/nightly) lists the same, and when a release is made they move into its own section.
 
 - **Keyboard.** A window that opens takes the keyboard and the first <kbd>Tab</kbd> goes into it, <kbd>Tab</kbd> follows reading order and scrolls the control it reaches into view, <kbd>Esc</kbd> closes a tool window, <kbd>1</kbd>, <kbd>3</kbd>, <kbd>7</kbd> and <kbd>0</kbd> turn the view, tooltips open on keyboard focus (including why a step is not available yet), letter keys work while a button has focus, **Help > Keyboard shortcuts** lists every key, **Project > Add setup** and **Edit > Delete** for a selection set are in the menus, and **Add** in **New operation** is the filled button at the bottom right (#577, #578, #580, #581). See [Keyboard and shortcuts](reference/keyboard.md).
+- **What has changed.** The page of the `nightly` pre-release now lists what has changed since the last release, as this section does. See [Install and first run](start/install.md#download-a-development-build).
+- **Tool sizes.** A tool larger than any real cutter (a diameter above 2000 mm, a length above 1000 mm, or a custom profile point more than 1000 mm from the tip) is refused with a message naming the size, instead of being accepted.
+- **Post templates.** A `namespace` key in a post template must be a name, and a template that stores a namespace inside itself no longer leaks memory.
+- **Names in LinuxCNC comments.** A project, setup, operation or tool name that would start a comment LinuxCNC acts on, such as `MSG,` or `LOGOPEN,`, is written with `_` in front, so it stays an ordinary comment, and generating warns you which name was changed and where it came from. A post of your own can list its controller's words with the new option `active_comment_prefixes` ([Writing a post-processor](reference/writing-a-post.md)).
+- **Swarf entries.** A lead or helix entry that would cut a face next to the selected faces deeper than the pass itself does, such as a lead-out running on into the wall at the end of a blade, is now refused, naming the face; the face's note gives the tool's reach past the end of the rulings after any lift.
+- **Pencil clean-up.** With a flat end it now cleans a sharp inside corner of a STEP part in one pass, with **Exact STEP surface contact** off or on: it judges the material left from the tool as it rests, and rests just clear of the wall beside it. A new setting, **Shortest cut** (by default the tool's diameter), leaves stretches shorter than it, and single points, uncut, and the notes say where (#632).
+- **Exact STEP surface contact** has moved to the **Advanced** section of every operation that has it, and its tooltip now says how much closer to the surface and how much slower it was on test parts.
+- **Facing beside a grip.** Box facing, and Flat or Round facing with the Part or Part plus tabs extent or a margin, no longer refuse when the requested extent reaches the held region. They face what the tool can reach, the whole tool 0.5 mm clear of the grip, and the operation's notes say where along X the face stops, why, and how much of the extent is left unfaced (#500). See [Facing](reference/operations.md#facing).
+- **Face flow on round faces.** Face flow finishing cuts a face that closes round on itself, such as the whole side of a cylinder, in rings from one end to the other, instead of refusing it (#791).
+- **Face flow with fewer lifts.** Face flow finishing has four new settings (#854). **Stay down between passes** goes from one pass to the next along the face instead of lifting, where the way is clear. **Pattern** can follow a face's own outline inwards, for faces with fingers, notches or holes such as the outside of a blisk between its blades; **Automatic** chooses. Rings round a face that closes on itself never reverse and are joined by **Steps between rings** (Sharp or Blended), as on the other ring strategies. **Shortest cut** leaves out cuts shorter than it and marks them on the part as not cut; it can be a length or the tool's diameter, as can edge following's **Shortest chain**. A new operation starts with them on (Shortest cut at the tool's diameter); an operation saved before keeps its program.
+- **Face flow notes.** The two pass counts in the Results now agree, the face's line saying how many of its passes cut (#631). The Geometry line for face flow and swarf says they are not generated with no face set in **Cut on** (#614). A set of one face or edge reads "1 face" or "1 edge", and the STEP import note names face flow finishing among the strategies that use the exact faces (#615).
+- **Small wording fixes.** The tools file in your tools folder no longer starts with an internal reference number, and the OpenCASCADE notice (in **Help > About**) now says that replacing the STEP reader inside `OpenChuckCAM.app` breaks the app's seal and how to seal it again (#775, #589).
 - **Plainer messages.** When pass order by region saves time between passes, the note says "about 11.4 s less" and not "about -11.4 s". An area that lies at one X in a "cannot reach" warning reads "X 10.000" and not "X 10.000 to 10.000" (#612, #613).
 
 Generated G-code must be verified by you before it is run on a machine. OpenChuckCAM does not guarantee that a program is safe or correct for any machine, tool or setup.

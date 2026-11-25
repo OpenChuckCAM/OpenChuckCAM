@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="760" height="510" viewBox="0 0 760 510" font-family="Helvetica, Arial, sans-serif" font-size="12">
+  <title>Decision 0684, cause A: pencil judges material from the flat end's contact point, which is arbitrary along its flat bottom</title>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#333"/>
+    </marker>
+  </defs>
+  <rect width="760" height="510" fill="#ffffff"/>
+  <text x="20" y="22" font-weight="bold" font-size="13">Cause A: material is judged within 1.5 mm of the contact point, and a flat end's contact point is arbitrary</text>
+  <polygon points="60.0,460.0 60.0,420.0 300.0,420.0 300.0,260.0 420.0,260.0 420.0,460.0" fill="#85929e"/>
+  <text x="66.0" y="440.0" fill="#ffffff">bar, radius 8</text>
+  <text x="312.0" y="340.0" fill="#ffffff">shoulder</text>
+  <text x="312.0" y="356.0" fill="#ffffff">(wall at X 12)</text>
+  <rect x="200.0" y="240.0" width="120.0" height="180.0" fill="#27ae60" fill-opacity="0.15" stroke="#27ae60" stroke-dasharray="3 3"/>
+  <rect x="220.0" y="260.0" width="80.0" height="160.0" fill="#d6eaf8" fill-opacity="0.55" stroke="#2c3e50" stroke-width="2"/>
+  <text x="226.0" y="276.0" fill="#2c3e50">2 mm flat</text>
+  <line x1="260.0" y1="212.0" x2="260.0" y2="420.0" stroke="#2c3e50" stroke-dasharray="8 3 2 3"/>
+  <text x="246.0" y="208.0" fill="#2c3e50">axis</text>
+  <circle cx="220.0" cy="420.0" r="60" fill="none" stroke="#c0392b" stroke-width="1.5" stroke-dasharray="5 3"/>
+  <circle cx="220.0" cy="420.0" r="5" fill="#c0392b"/>
+  <line x1="219.6" y1="430.0" x2="285.2" y2="430.0" stroke="#8e44ad" stroke-width="4"/>
+  <text x="434.0" y="160.0" fill="#c0392b">Red dot: the contact the tessellated drop reports, X 10.0,</text>
+  <text x="434.0" y="178.0" fill="#c0392b">the far edge of the flat. Red circle: 1.5 mm reach from it.</text>
+  <text x="434.0" y="196.0" fill="#c0392b">Nearest material 1.56 to 1.78 mm away: not cut (off refuses).</text>
+  <text x="434.0" y="214.0" fill="#8e44ad">Purple bar (just under the floor): where the exact drop's</text>
+  <text x="434.0" y="232.0" fill="#8e44ad">contact falls, X 9.99 to 11.63, varying with A: in and out</text>
+  <text x="434.0" y="250.0" fill="#8e44ad">of reach, so the corner splits into 31 passes.</text>
+  <text x="434.0" y="268.0" fill="#e67e22">Orange: material the tapered ball left (drawn wider).</text>
+  <text x="434.0" y="286.0" fill="#27ae60">Green: 1.5 mm from the tool's axis (option M1): the material</text>
+  <text x="434.0" y="304.0" fill="#27ae60">is 0.56 to 0.78 mm away at every point, off and on alike.</text>
+  <line x1="140.0" y1="460.0" x2="140.0" y2="465.0" stroke="#333"/>
+  <text x="132.0" y="478.0" fill="#333">X 8</text>
+  <line x1="220.0" y1="460.0" x2="220.0" y2="465.0" stroke="#333"/>
+  <text x="212.0" y="478.0" fill="#333">X 10</text>
+  <line x1="260.0" y1="460.0" x2="260.0" y2="465.0" stroke="#333"/>
+  <text x="252.0" y="478.0" fill="#333">X 11</text>
+  <line x1="300.0" y1="460.0" x2="300.0" y2="465.0" stroke="#333"/>
+  <text x="292.0" y="478.0" fill="#333">X 12</text>
+  <line x1="380.0" y1="460.0" x2="380.0" y2="465.0" stroke="#333"/>
+  <text x="372.0" y="478.0" fill="#333">X 14</text>
+  <text x="60.0" y="494.0" fill="#555">Section through the rotary axis (along X, left to right); up the page is up the tool axis, away from the bar. 1 mm = 40 px.</text>
+  <polygon points="300.0,420.0 284.0,420.0 300.0,280.0" fill="#e67e22"/>
+</svg>

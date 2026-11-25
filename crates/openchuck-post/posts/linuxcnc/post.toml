@@ -28,6 +28,15 @@ comments = true
 safety_notice = true
 # LinuxCNC reads lines of up to 255 characters (decision 0656).
 max_line_length = 255
+# Comments LinuxCNC acts on instead of skipping: it shows, prints or logs the text, writes a
+# log or probe file on the controller, runs Python, or stops the program (from its source:
+# convert_comment in rs274ngc/interp_convert.cc and COMMENT in task/emccanon.cc). A comment
+# from the project's names, or a line of a wrapped comment, that would start with one of
+# these (in any case, after spaces) is written with "_" in front (issue #851).
+active_comment_prefixes = [
+    "MSG,", "DEBUG,", "PRINT,", "LOG,", "LOGOPEN,", "LOGAPPEND,", "LOGCLOSE",
+    "PY,", "PYRUN,", "PYRELOAD", "ABORT,", "PROBEOPEN", "PROBECLOSE", "RPY",
+]
 file_extension = "ngc"
 
 [options.tool_change]

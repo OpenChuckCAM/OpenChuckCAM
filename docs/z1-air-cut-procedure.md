@@ -88,7 +88,7 @@ Result (pass / fail), defect id if any:
 
 ## After the air cut
 
-Gate 5 (the first cut in wax, foam or tooling board) follows only when gate 4 has passed and the checklist (sections 3 and 4) has been reviewed by the operator. The first-cut limit is ±0.1 mm, with no 3-axis test part first ([decision 0221](decisions/0221-gate-5-first-cut-project-and-limit.md)). The tool change was tested attended (OI-41, closed 14 Nov 2026) and with a real tool at the rc3 first cut (E-03).
+Gate 5 (the first cut in wax, foam or tooling board) follows only when gate 4 has passed and the checklist (sections 3 and 4) has been reviewed by the operator. The first-cut limit is ±0.1 mm, with no 3-axis test part first ([decision 0221](decisions/0221-gate-5-first-cut-project-and-limit.md)). Since [decision 0680](decisions/0680-the-gate-5-reference-part-is-a-stepped-cylinder.md) (23 Nov 2026) the first-cut part is a stepped cylinder: ±0.1 mm on a diameter, ±0.05 mm on a radius and ±0.1 mm on positions and lengths, against the simulated part. The program has one tool, the flat end 104 as T1 (one `T1 M6` at the start), and X0 is set from the probed tail end face of the stock (the [gate 5 instructions](z1-gates-4-5-test-instructions.md), section 5). The tool change was tested attended (OI-41, closed 14 Nov 2026) and with a real tool at the rc3 first cut (E-03).
 
 Before gate 5, with the program's own tool fitted and measured (no material, stop in reach, 10 % override), check the spindle at the first safe-Z rapid: with the tool L mm out of the collet face, the expected machine Z is −73.000 + L + 45 at safe Z 45, which must stay below the −1.0 soft limit; any tool with L up to 27 mm does (decision 0649 Verification; rc3 record part 1, B-08). A check with no tool fitted (−28.0) shows nothing about that margin. The figure holds for the owner's Z1 with the tool length offset calibrated to the collet face.
 
@@ -111,3 +111,5 @@ Found in the rc3 runs (rc3 record part 2, C2; machine behaviour, not software):
 - The reference-jobs test command names the `integration` test binary ([decision 0516](decisions/0516-ci-architecture.md)).
 
 Kept unchanged, because the findings did not change them: the rules, the 10 % first-run override, the steps, the pass and fail criteria, and the A direction and unwind. Not supported by the sources and so not stated: the soft-limit refusal's message, the probe's tool number, and the values on any other Z1, chuck or firmware. The step-by-step instructions are not updated here (OI-2154).
+
+**23 Nov 2026** (lane STEPPED-CYL, [decision 0680](decisions/0680-the-gate-5-reference-part-is-a-stepped-cylinder.md), accepted by the owner, relayed): the *After the air cut* paragraph names the stepped first-cut part, its limits against the simulated part, its one tool and X0 from the probed tail end face. Nothing else changes.
