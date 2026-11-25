@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased (PATH-QUALITY, PQ-4; issue #826, OI-2198; decision record PATH-QUALITY-1, accepted)
+
+- **Fixed, changed output only with adaptive spacing on (helical finishing as a spiral):** adaptive spacing measures the gaps between the helix's wraps only where the whole gap is outside the held regions' keep-out bands and more than the tool's reach from each face turn of decision 0297. It no longer spends its geometry queries inside a held region, or reports a partial path at a step wall where a flat end's height jumps from one wrap to the next (the face turn cuts that corner). Rings, and every operation with adaptive spacing off, are unchanged. No API change.
+
 ## Unreleased (WORDING-DOCS; issues #612 and #613)
 
 - **Changed text:** the pass-order note of rest machining and the helical and simultaneous strategies says a saving as "about 11.4 s less" (or "about N s more", or "about the same time") and not as "about -11.4 s"; an unreached area whose two X ends agree to three decimals is listed as "X 10.000", not "X 10.000 to 10.000" (simultaneous finishing and rest machining). No API change and no version change: the helper is crate-private.
