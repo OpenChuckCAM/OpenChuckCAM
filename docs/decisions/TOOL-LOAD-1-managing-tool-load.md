@@ -159,6 +159,16 @@ The owner's answer to PATH-QUALITY-1 Q3 makes the ramp manage the tool's load, w
 
 *If you answer as recommended:* this record's glossary (*Terms*, below) is the one PQ-2's path notes use; lane PATH-QUALITY is told before it writes them.
 
+#### The ramp's settings and the load limit (the owner's question of 25 Nov 2026, relayed)
+
+The owner asked whether the ramp's settings, angle-based today, should change now that a ramp's purpose is the tool's load. Lane PATH-QUALITY is writing the options for the ramp's own settings in PQ-2 (pull request #930); this note is how this record's limit relates to them, so the two lanes give one answer.
+
+- **On a ramp, the load is set by the depth per traverse, not the angle.** Where a leg passes over a place the tool has already cut, it cuts the full width of the tool, as deep as the step since that last traverse. So a ramp's cut section is about the tool's diameter times its depth per traverse (less with a ball end). A cut-section limit `L` therefore means a depth per traverse of at most `L ÷ diameter`: with Q3 A, twice the tool's stepdown (2 mm for the crankshaft's tools in hardwood).
+- **The angle stays, beside the limit, not replaced by it.** The angle sets how steeply the tool's end cuts into fresh material and how long the ramp is; that is about the tool's end (whether and how steeply it can cut downwards), which the cut section does not capture. Saved operations store an angle, and the tool makers state a ramp angle.
+- **The limit adds a second bound on PQ-2's legs.** PQ-2 already bounds the depth per traverse by one turn of the spiral ramp at the same radius and by the tool's radius. With Limit tool load on (TL-2), it is also bounded by `L ÷ diameter`, by shortening the legs (more legs; time, not load), as PQ-2 does for its own bound. With it off, the ramp is as PQ-2 builds it, and TL-1's measure checks it after the fact like any other stretch (Q6 A).
+- **Who owns what.** Lane PATH-QUALITY owns the ramp's geometry and its settings (Ramp angle, Maximum ramp angle, Steeper ramp near the axis, the legs and their bounds). This lane owns the measure, the limit and where its value comes from (Q3), and Limit tool load (Q4). TL-2 passes the limit into PQ-2's leg bound and adds no ramp setting of its own.
+- **If the owner wants a load-based ramp setting instead of the angle** (for example, a target depth per traverse that sets the legs), that is a change to the ramp's settings and belongs in PQ-2's options; this record's limit would then feed it as the default, and nothing here changes.
+
 ### Q7: saved projects and the goldens
 
 - **A. The measure for every project; Limit tool load for new operations (recommended).** The measure and its warning change no program, so they apply at once to every project that is simulated: a saved project with a heavy cut gains a warning, which is the point of #844. Limit tool load follows decision 0545 D3: on for a new operation of a strategy that has it, off for an operation saved without it, so saved programs, the reference projects and every golden G-code file stay byte-identical.
