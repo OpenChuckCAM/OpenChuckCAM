@@ -22,7 +22,7 @@
 <text x="20" y="420" fill="#222">Measured: 1.7 to 2.55 mm cut into the tips with a 3 mm flat end.</text>
 <line x1="500" y1="70" x2="500" y2="470" stroke="#ddd"/>
 <!-- Right: option A -->
-<text x="520" y="86" font-weight="bold" fill="#222">Option A: the smallest clearance of the whole tool</text>
+<text x="520" y="86" font-weight="bold" fill="#222">Option A: the smallest gap of the whole tool (the tool gap)</text>
 <polygon points="560,250 730,250 730,370 560,370" fill="#e6eef7" stroke="#2b5d8a" stroke-width="2"/>
 <text x="645" y="355" text-anchor="middle" fill="#2b5d8a" font-weight="bold">blade</text>
 <g transform="rotate(-20 730 250)">
@@ -36,7 +36,7 @@
 <text x="784" y="328" fill="#c0392b">pose fails when it is over</text>
 <text x="784" y="344" fill="#c0392b">the limit</text>
 <text x="780" y="140" fill="#222">cutting part, capped at its top:</text>
-<text x="780" y="156" fill="#222">a convex solid, so its clearance</text>
+<text x="780" y="156" fill="#222">a convex solid, so its gap</text>
 <text x="780" y="172" fill="#222">has one deepest point per piece</text>
 <text x="780" y="188" fill="#222">of surface (decision 0255's argument)</text>
 <text x="520" y="404" fill="#222">One query on SurfaceSource answers it for a mesh, a STEP part (on its</text>
