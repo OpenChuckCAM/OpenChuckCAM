@@ -1,12 +1,12 @@
-# UI-BUGS-A: A refused setup value never blocks the edit that fixes it, a dialog's own buttons never ask about unconfirmed changes, and Post and export closes with Close (UI-07, UI-08, UI-10, UI-14, SET-09, NFR-07; issues #870, #871, #872; lane UI-BUGS)
+# 0688: A refused setup value never blocks the edit that fixes it, a dialog's own buttons never ask about unconfirmed changes, and Post and export closes with Close (UI-07, UI-08, UI-10, UI-14, SET-09, NFR-07; issues #870, #871, #872; lane UI-BUGS)
 
-- **Status:** Accepted by the project owner on 25 Nov 2026, relayed by the coordinator (decision 0049). Proposed by lane UI-BUGS on 24 Nov 2026 and built in the lane's first pull request as the owner answered the lane's questions on 24 Nov 2026, relayed by the coordinator: Q1 option A (#870), Q2 option A (#871), Q3 option A (#872, the dialog is Post and export), Q8 option A (#870, values kept together are one undoable step). The specification's wording stays proposed (OI-9982).
+- **Status:** Accepted by the project owner on 24 Nov 2026, relayed by the coordinator (decision 0049). Proposed by lane UI-BUGS on 24 Nov 2026 and built in the lane's first pull request as the owner answered the lane's questions on 24 Nov 2026, relayed by the coordinator: Q1 option A (#870), Q2 option A (#871), Q3 option A (#872, the dialog is Post and export), Q8 option A (#870, values kept together are one undoable step). The specification's wording stays proposed (OI-2210).
 - **Date:** 24 Nov 2026.
 - **Requirements:** UI-07 (validated fields), UI-08 (one undoable command per change), UI-10 (workflow navigation), UI-14 (keyboard), SET-09 (held regions and tabs), NFR-07 (a clear refusal that says what to change), NFR-12 (generated G-code is the user's to verify).
-- **Amends:** [decision 0233](0233-unconfirmed-edits-before-leaving-a-form.md) (accepted) items 3 and 4, and the specification's section 8 sentences "This applies to navigation, item or selection changes, generation, opening dialogs, save and close, in inspectors and dialogs alike" and "Each applied project value is one undoable command"; extends [decision 0246](0246-new-project-buttons-resolve-their-own-fields.md) (accepted) from the New project dialog to every dialog and tool window; amends the specification's section 11.6 footer ("Cancel, and Write G-code"). The specification is not edited here: the wording proposed below waits for the owner (OI-9982).
-- **Open items:** adds OI-9981 (the owner's acceptance of this record), closed by the acceptance on 25 Nov 2026, and OI-9982 (the specification's section 8 and 11.6 wording), which stays open.
+- **Amends:** [decision 0233](0233-unconfirmed-edits-before-leaving-a-form.md) (accepted) items 3 and 4, and the specification's section 8 sentences "This applies to navigation, item or selection changes, generation, opening dialogs, save and close, in inspectors and dialogs alike" and "Each applied project value is one undoable command"; extends [decision 0246](0246-new-project-buttons-resolve-their-own-fields.md) (accepted) from the New project dialog to every dialog and tool window; amends the specification's section 11.6 footer ("Cancel, and Write G-code"). The specification is not edited here: the wording proposed below waits for the owner (OI-2210).
+- **Open items:** adds OI-2209 (the owner's acceptance of this record), closed by the acceptance on 24 Nov 2026, and OI-2210 (the specification's section 8 and 11.6 wording), which stays open.
 
-Numbering: provisional. The coordinator assigns the record number and the OI numbers at release, in merge order. No project schema number: nothing stored changes. No library-family API change: `openchuck-project` gains a public function, `openchuck-app` and `openchuck-ui` change, and neither is in the library family.
+No project schema number: nothing stored changes. No library-family API change: `openchuck-project` gains a public function, `openchuck-app` and `openchuck-ui` change, and neither is in the library family.
 
 ## Context
 
@@ -25,7 +25,7 @@ The values and rules that can conflict: a cylinder's Diameter, Length and Start 
 
 **#872, sev3: the Post and export dialog's Cancel only closes.** The post, output folder and file names chosen are kept for the next opening, tool numbers already applied stay applied, and the G-code shown was a preview: nothing is cancelled.
 
-![The lock of #870 and how the refused value no longer blocks the Apply](UI-BUGS-A-refused-value.svg)
+![The lock of #870 and how the refused value no longer blocks the Apply](0688-refused-value.svg)
 
 ## Decision
 
@@ -38,12 +38,12 @@ The values and rules that can conflict: a cylinder's Diameter, Length and Start 
 7. **A new dialog joins the walk.** A test walks every dialog with a field; a source scan lists every dialog, tool window and question by file, and the shell's dialogs are placed by an exhaustive match, so a dialog added later is walked or listed with why not.
 8. **Post and export closes with Close (#872, the owner's answer A).** The footer reads Close and Write G-code. Close, Esc and the close box keep the choices for the next opening, as before. Every other Cancel in the program cancels something and stays: an import, a new operation, a rename, opening or creating a project, the Replace files question, a library draft, Locate moved project, Turn on adaptive spacing, the selection-clear question and a running job.
 
-![A dialog's own controls confirm its field; the main window's panels keep the question](UI-BUGS-A-dialog-rule.svg)
+![A dialog's own controls confirm its field; the main window's panels keep the question](0688-dialog-rule.svg)
 
-### Proposed specification wording (OI-9982; not edited here)
+### Proposed specification wording (OI-2210; not edited here)
 
-- Section 8, *Committing*: replace "This applies to navigation, item or selection changes, generation, opening dialogs, save and close, in inspectors and dialogs alike. The New project dialog's enabled OK and Cancel buttons themselves accept or discard that dialog's input without this additional question (decision 0246); other departures retain the guard." with "This applies to navigation, item or selection changes, generation, opening dialogs, save and close from an inspector. In a dialog or tool window, its own controls confirm a typed field as moving to another field does, and its Cancel, close box and Esc drop the dialog's input, without this question (decisions 0246 and UI-BUGS-A)."
-- Section 8, *Committing*: after "Each applied project value is one undoable command." add "Values of one setup kept together by Keep are one command (decision UI-BUGS-A)."
+- Section 8, *Committing*: replace "This applies to navigation, item or selection changes, generation, opening dialogs, save and close, in inspectors and dialogs alike. The New project dialog's enabled OK and Cancel buttons themselves accept or discard that dialog's input without this additional question (decision 0246); other departures retain the guard." with "This applies to navigation, item or selection changes, generation, opening dialogs, save and close from an inspector. In a dialog or tool window, its own controls confirm a typed field as moving to another field does, and its Cancel, close box and Esc drop the dialog's input, without this question (decisions 0246 and 0688)."
+- Section 8, *Committing*: after "Each applied project value is one undoable command." add "Values of one setup kept together by Keep are one command (decision 0688)."
 - Section 8: add "A value refused because it conflicts with another part of the form (a setup value and the tabs) stays in its box with the reason, names the conflict and both ways out, and does not block an action of the form that would resolve it; once resolved, the box says Enter applies it."
 - Section 11.6, *Footer*: "Close, and Write G-code (primary) on the right."
 
