@@ -22,23 +22,23 @@ def run(cap, work):
     b.save_set(cap, "Floor guide")
     b.leave_picking(cap)
     b.add_operation(cap, "face_flow", "ball", "Floor finish")
-    cap.click(1780, 524, 1)                    # Cut on: add...
-    cap.click(1770, 557, 1.5)                  # Hub floor
+    cap.click(1820, 524, 1)                    # Cut on: Add a set...
+    cap.click(1810, 557, 1.5)                  # Hub floor
     cap.shot("01-geometry")
     b.generate(cap)
     cap.click(450, 790, 1)                     # Results
     cap.shot("02-stepover")
     b.dump_results(cap, work, "stepover")
     cap.scroll(1740, 700, 6)                   # down to Pattern and tolerance
-    cap.fill(1815, 856, "0.02")                # Scallop height
+    cap.fill(1815, 828, "0.02")                # Scallop height
     cap.shot("03-scallop-setting")
     b.generate(cap)
     cap.click(450, 790, 1)                     # Results
     cap.shot("04-scallop")
     b.dump_results(cap, work, "scallop")
     cap.scroll(1740, 500, 10, down=False)
-    cap.click(1780, 556, 1)                    # Guide edge: add...
-    cap.click(1770, 589, 1.5)                  # Floor guide
+    cap.click(1820, 588, 1)                    # Guide edge: Add a set... (under Hub floor's line)
+    cap.click(1810, 621, 1.5)                  # Floor guide
     b.generate(cap)
     cap.click(450, 790, 1)                     # Results
     cap.shot("05-guide-result")
