@@ -691,11 +691,11 @@ fn not_noticed(
         "Regenerate all (operation '{name}'): its toolpath came out differently from the one \
          kept, although nothing it is made from had changed, so a change was not noticed. \
          The new toolpath is the one used now. Please report it, with this message: build {}, \
-         key {}, {} moves kept, {} moves now, first difference at move {first}.",
+         key {}, {} kept, {} now, first difference at move {first}.",
         env!("CARGO_PKG_VERSION"),
         key.get(..19).unwrap_or(&key),
-        before.len(),
-        after.len(),
+        openchuck_path::counted(before.len(), "move", "moves"),
+        openchuck_path::counted(after.len(), "move", "moves"),
     )
 }
 
