@@ -1,6 +1,6 @@
 # TOOL-LOAD-1: Managing the load on the tool: measure the engagement in the simulation, warn past a limit, and let the strategies keep within it (SIM-03, SIM-06, OP-03 to OP-11, OP-17, TL-04, TL-05, NFR-04, NFR-06, NFR-12; issue #844; lane TOOL-LOAD)
 
-- **Status:** Proposed by lane TOOL-LOAD on 25 Nov 2026 (phase 1, planning only; no product code is built until the owner answers). Only the project owner accepts this record (decision 0049). The questions are Q1 to Q7 below, each with options, a recommendation and what follows "if you answer as recommended". It proposes requirement wording (Q1) for the owner's agreement; `docs/requirements.md` and `docs/architecture.md` are not edited until the owner agrees. **Answered so far (25 Nov 2026, the owner's answers relayed by the coordinator): Q1 B**, SIM-16 and OP-29 both P1, with the wording as written, the requirements edited only in the build pull requests after the record is accepted; **Q2 A**, measured in the simulation on the stock at each move, **with an addition: the average and highest removal rate (mm³/min) shown as statistics in the Simulate step's inspector**, per operation and for the whole job (Q2, *The owner's addition*). **Q4 C**, with the requirement that Limit tool load keeps the paths smooth (Q4, *TL-2 makes smooth paths*); **Q3 C**, a largest cut section of its own per tool and material in the tool library, with conservative nominal values for every built-in set and an operation override (Q3, *The limit as answered*). Q5 to Q7 are still open.
+- **Status:** Proposed by lane TOOL-LOAD on 25 Nov 2026 (phase 1, planning only; no product code is built until the record is accepted). Only the project owner accepts this record (decision 0049). **All seven questions answered by the owner on 25 Nov 2026, relayed by the coordinator** (the table below); awaiting acceptance, with three points flagged for it (*For acceptance*). The requirement wording (Q1) is agreed; `docs/requirements.md` and `docs/verification-plan.md` are edited only in the build pull requests after acceptance, and `docs/architecture.md` does not change.
 - **Date:** 25 Nov 2026.
 - **Issue:** [#844](https://github.com/OpenChuckCAM/OpenChuckCAM/issues/844) (a strategy can put a large amount of material along the whole cutting edge at once, with nothing said). The owner took it into its own lane on 25 Nov 2026 (decision [PATH-QUALITY-1](PATH-QUALITY-1-finishing-edges-points-and-ramps.md), Q5, relayed by the coordinator), with the guiding point: **the goal of ramping, and more widely of toolpath strategy, is to manage the tool's load, so it must be designed in, not only gouge safety.**
 - **Requirements:** none covers this yet (the issue says so). Related: SIM-03 and SIM-06 (the simulation and its carried stock), OP-11 (stepdown, stepover, ramping), OP-17 (adaptive roughing, P2), TL-04 and TL-05 (flute length, cutting data), SIM-10 (feed by engagement, P3), NFR-04 (never block, use the cores), NFR-06 (determinism), NFR-12 (the user verifies the program).
@@ -12,15 +12,38 @@ Numbering: provisional. The record carries the lane's name, and its open items a
 
 ## For the owner
 
-What this record asks of you, in the order the coordinator will put it:
+The owner's answers (25 Nov 2026, relayed by the coordinator):
+
+| Question | Answer | What follows |
+| --- | --- | --- |
+| Q1 requirement wording | B | SIM-16 and OP-29 both P1, wording as written; the removal-rate clause in SIM-16 to confirm (*For acceptance*, 1) |
+| Q2 the measure | A, with the removal-rate statistics | measured in the simulation on the stock at each move; average and highest removal rate per operation, setup and job (Q2, *The owner's addition*) |
+| Q3 the limit | C, with nominal values and an operation override | a Largest cut section per tool and material, conservative nominal values with their sources, an override in the operation like Spindle speed, fallback rules for entries without one (Q3, *The limit as answered*) |
+| Q4 the response | C, with smooth relief | TL-1, TL-3, then TL-2; Limit tool load relieves whole zones in blended layers and warns, never pecks, at small high-load areas (Q4, *TL-2 makes smooth paths*) |
+| Q5 the flute check | A | the flute check unchanged, beside the new measure (Q5, the owner's question on box stock answered there) |
+| Q6 ramps | A | one set of terms with PQ-2; ramp moves measured like any other |
+| Q7 saved projects | A | the measure and warning apply to every project; Limit tool load on for new operations only; no golden changes |
+
+## For acceptance
+
+Three points the owner's acceptance settles, each with the lane's recommendation:
+
+1. **The SIM-16 removal-rate clause.** Q1 was answered "as written", and Q2's addition implies one more clause in SIM-16: after "Show the heaviest cut of each operation, with where it is," add "**and the average and highest removal rate of each operation and of the whole job,**". Recommended: accept it, so the statistics are traced to a requirement and tested by `req_sim_16_...`.
+2. **The floor of the nominal values, and the guide's roughing (OI-9918).** With the floor at the tool maker's own slot (stepdown × D), tools 104 and 204 in Hardwood get 3.17 mm², and the guide's own roughing on the crankshaft is warned: 1,388 of 23,120 stretches, up to 5.32 mm² (1.7 times the maker's slot), at its first passes and shoulders. The choices:
+   - **Keep the floor and the values (recommended).** It is the conservative reading the owner asked for, and the roughing does cut up to 1.7 times what the maker's data describes. The guide's simultaneous-finishing example then says, at the roughing step: "Generating shows a Tool load warning on the roughing: at its first passes and at the shoulders it removes up to about 5.3 mm² per millimetre of travel, against the tool's nominal 3.17 mm². The nominal value is conservative, not a measured limit for your machine. If you judge that load acceptable for your tool and machine, enter a larger Largest cut section on this operation; otherwise lower its Stepdown." No program changes; the user sees and decides.
+   - **Raise the floor to twice the maker's slot** (2 × stepdown × D, the first proposal's rule): 6.35 mm² for 104 and 204 in Hardwood; the guide's roughing is not warned, the finish alone still is. Less conservative than asked.
+   - **No floor:** 2.52 mm² for these long-flute tools; 2,639 stretches of the guide's roughing warned. The most conservative, and it warns against the maker's own data.
+3. **TL-1b's breaking change and schema.** The Largest cut section field is a public field of `CuttingData` in `openchuck-types`: a breaking change of the library family (workspace minor bump and changelog, decision 0048), and the next project schema number. Both are assigned by the coordinator in merge order, after lane MOPUP-1's fix for #864 (which makes an older program refuse a newer tool library cleanly); the work breakdown's schema table carries the provisional claim. TL-1 itself needs neither.
+
+The questions as they were put, in the order the coordinator put them:
 
 1. **Q1: the requirement wording. Answered B:** both requirements P1, with the wording as written. SIM-16, the simulation measures the load on the tool and warns past a limit; OP-29, an operation can limit the load, and the strategies keep within it.
 2. **Q2: what "engagement" is and where it is measured. Answered A, with the average and highest removal rate added to the Simulate inspector.** As recommended: in the simulation, on the stock as it is at each move, over each stretch of one tool diameter of travel: the length of flute in the material, the width of cut, and the **cut section** (material removed per millimetre of travel), which sets the load.
 3. **Q3: what counts as too much. Answered C:** a Largest cut section per tool and material in the tool library, conservative nominal values for the built-in sets with their sources, and an operation override like Spindle speed. As first recommended, **A**: twice a full-width slot at the tool's own stepdown from its cutting data (for the crankshaft's tools in hardwood, 2 × 1.0 mm × 3.175 mm = 6.35 mm²).
 4. **Q4: what the program does about it. Answered C**, with the requirement that TL-2's relief gives smooth paths (no pecking or chatter at small high-load areas). As recommended, **C**, built in stages: TL-1 measures and warns (the first slice, about a week, for you to judge); TL-3 lets the warning add a roughing operation before the heavy one; TL-2 adds **Limit tool load** to the strategies, which cut in layers only where the stock is deep.
-5. **Q5: the flute check.** Recommended: **A**, keep it as it is, beside the new measure, and record the later narrowing.
-6. **Q6: ramps (PATH-QUALITY's PQ-2).** Recommended: **A**, one set of terms; ramp moves are measured like any other, and a heavy stretch inside a ramp names the entry.
-7. **Q7: saved projects.** Recommended: **A**, the measure and its warning apply to every project at once (they change no program); Limit tool load is on for new operations and off for saved ones, so saved programs and every golden are unchanged.
+5. **Q5: the flute check. Answered A.** Recommended: **A**, keep it as it is, beside the new measure, and record the later narrowing.
+6. **Q6: ramps (PATH-QUALITY's PQ-2). Answered A.** Recommended: **A**, one set of terms; ramp moves are measured like any other, and a heavy stretch inside a ramp names the entry.
+7. **Q7: saved projects. Answered A.** Recommended: **A**, the measure and its warning apply to every project at once (they change no program); Limit tool load is on for new operations and off for saved ones, so saved programs and every golden are unchanged.
 
 And what to look at: the three figures below, and the measurement in [docs/archive/TOOL-LOAD-1-phase-1](../archive/TOOL-LOAD-1-phase-1/README.md).
 
@@ -299,6 +322,8 @@ The owner's point is that tool load is designed in, not only reported. The choic
 
 ### Q5: the flute check
 
+**The owner's answer (25 Nov 2026, relayed by the coordinator): A.** The flute check stays as it is, beside the new measure. **The owner asked whether the flute check handles stock that is not a cylinder, such as box stock.** It does, for the setup's own stock: decision 0509 item 1 reads box and round stock exactly at every A, in closed form (`StockModel::top_over_disc` in `openchuck_path::flutes`), so a box's corner is measured where it is uppermost over the axis, stock off the axis and stock turned about X as they lie, and nothing can fall between readings; it is tested (the 35 × 35 mm box crankshaft with 25 mm of flute, warned at 25.096 mm, and 27.231 mm with the box off the axis; `crates/openchuck-path/tests/flutes.rs`, decision 0522's Verification). Only the stock that earlier operations left (the simulation's stock, carried to the next operation) is not read exactly: it is held to the conservative bound of its farthest radius from the axis less the tip's height, plus 1 mm, narrowed to the tool's reach by decision 0524 (OI-2025, issue #540), so it can warn where the real stock would not. OI-9916 records how TL-2's exact query would narrow it. The options are kept as they were put.
+
 The flute check of decisions 0509 and 0522 warns where the stock stands over the tip further than the flute length. It reads the stock before the operation, and on stock earlier operations left it is a conservative bound (OI-2025, issue #540), which can warn where the real stock would not.
 
 - **A. Keep it as it is, beside the new measure (recommended).** Two separate warnings: the flute check says the shank may meet the stock; the tool-load warning says the cut is heavy. Nothing that warns today stops warning. When TL-2 adds the exact `StockModel` depth query, the flute check uses it on simulated stock, which narrows the bound for #540 (OI-9916); that is a separate small change.
@@ -308,6 +333,8 @@ The flute check of decisions 0509 and 0522 warns where the stock stands over the
 *If you answer as recommended:* the flute warning, its tests and decision 0522 are unchanged; the tool-load warning names the flute length beside the engaged length, so the two read together.
 
 ### Q6: ramps, and PATH-QUALITY's PQ-2
+
+**The owner's answer (25 Nov 2026, relayed by the coordinator): A**, one set of terms (*Terms*), shared with lane PATH-QUALITY's PQ-2; the relation of the load limit to the ramp's settings is below. The options are kept as they were put.
 
 The owner's answer to PATH-QUALITY-1 Q3 makes the ramp manage the tool's load, with its own figures: the angle along the tip's real path, the number of legs and the deepest step per traverse, in the ramp's path note, and in PQ-2's verification "the material removed per millimetre of ramp". The two lanes are to agree the terms before PQ-2's notes are written.
 
@@ -327,6 +354,8 @@ The owner asked whether the ramp's settings, angle-based today, should change no
 - **If the owner wants a load-based ramp setting instead of the angle** (for example, a target depth per traverse that sets the legs), that is a change to the ramp's settings and belongs in PQ-2's options; this record's limit would then feed it as the default, and nothing here changes.
 
 ### Q7: saved projects and the goldens
+
+**The owner's answer (25 Nov 2026, relayed by the coordinator): A.** The measure and its warning apply to every simulated project at once; Limit tool load is on for new operations and off for saved ones, so saved programs, the reference projects and every golden G-code file are unchanged. The options are kept as they were put.
 
 - **A. The measure for every project; Limit tool load for new operations (recommended).** The measure and its warning change no program, so they apply at once to every project that is simulated: a saved project with a heavy cut gains a warning, which is the point of #844. Limit tool load follows decision 0545 D3: on for a new operation of a strategy that has it, off for an operation saved without it, so saved programs, the reference projects and every golden G-code file stay byte-identical.
 - **B. Limit tool load on for every operation.** Saved programs change wherever the stock is deep; the goldens are re-blessed where they cut deep (none of the reference projects' finishes run first on a bar, so few or none would change, but each must be checked).
@@ -388,7 +417,7 @@ The options not recommended under each question are the alternatives, with their
 
 Added (provisional numbers):
 
-- **OI-9911:** the owner's answers to Q1 to Q7 and acceptance of this record, with agreement of the requirement wording (SIM-16, OP-29). Q1 answered B, Q2 A with the removal-rate addition, Q3 C with nominal values and an operation override, Q4 C with smooth relief (25 Nov 2026, relayed); Q5 to Q7 open.
+- **OI-9911:** the owner's answers to Q1 to Q7 and acceptance of this record, with agreement of the requirement wording (SIM-16, OP-29). All answered on 25 Nov 2026, relayed (Q1 B, Q2 A with the removal-rate statistics, Q3 C with nominal values and an operation override, Q4 C with smooth relief, Q5 A, Q6 A, Q7 A); acceptance open, with the three points of *For acceptance*.
 - **OI-9912:** build TL-1: the tool-load measure in the simulation, its warning and Results line, and the average and highest removal rate in the Simulate inspector (SIM-16).
 - **OI-9913:** build TL-3: "Add roughing before this operation" from the tool-load warning.
 - **OI-9914:** build TL-2: Limit tool load in rotary roughing and helical, axial, indexed and simultaneous finishing (OP-29), meeting Q4's smoothness rules and criteria (zones, hysteresis, a minimum extent, blended layers, no retracts inside a zone, short blocks not increased), after lane SIMUL-EDGE; and whether swarf, face flow, pencil, rest and edge following should relieve the load themselves later.
