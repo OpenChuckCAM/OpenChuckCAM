@@ -7,7 +7,7 @@
 
 ## What changed, and what to check
 
-The change is pull request #911 (lane SIM-UX, record SIM-UX-F, head `39a71c7e`), for issue #559. **Project > Regenerate all** (Ctrl Shift G) makes every enabled operation again, whatever results are kept from earlier runs. If an operation's toolpath comes out differently from the kept one, a change was missed, and the run gives a warning saying so.
+The change is pull request #911 (lane SIM-UX, record SIM-UX-F, head `936c9b52`), for issue #559. **Project > Regenerate all** (Ctrl Shift G) makes every enabled operation again, whatever results are kept from earlier runs. If an operation's toolpath comes out differently from the kept one, a change was missed, and the run gives a warning saying so.
 
 **#559's warning is verified by test, not by you.** Its test, `operation::req_ui_09_req_gc_07_regenerate_all_makes_every_operation_again_and_says_when_one_differs`, uses a test strategy that stands in for a missed change. A real project cannot show the warning unless a missed change exists. Your check is that the command is there, works, and changes nothing when nothing was missed.
 
@@ -24,7 +24,7 @@ The public tutorial project `testdata/examples/baluster/baluster-project`, as th
 
 ## Steps
 
-Use a build of PR #911 (`39a71c7e` or later), or a nightly after it merges, on Windows.
+Use a build of PR #911 (`936c9b52` or later), or a nightly after it merges, on Windows.
 
 1. Copy `testdata/examples/baluster/baluster-project` and open the copy (**File > Open project**). On **Operations**, press **Generate stale (2)** at the bottom right. Wait for **Ready**. **Jobs** reads "Generating and simulating: Generated 2, simulated" (screenshot 1).
 2. Open the **Project** menu and hold the pointer on **Regenerate all**: "Ctrl+Shift+G", after "Generate and simulate", with the tooltip above (screenshot 2). Press Esc.
@@ -64,13 +64,13 @@ Result: PASS / FAIL
 - Results reads "Generated: Rough, Finish" with a new time;
 - the program is the same.
 
-But the Jobs tab adds no line, before or after it finishes (screenshot 4). This pack checks the footer and Results instead. Either the Jobs tab should list the run, or the record's step should change.
+But the Jobs tab adds no line, before or after it finishes (screenshot 4). `936c9b52` changes only the warning text, so this is unchanged there. This pack checks the footer and Results instead. Either the Jobs tab should list the run, or the record's step should change.
 
 The menu on this build lists "Generate selected G" and "Generate stale Shift+G", the keys from before #910. Once #910 merges they swap, and Regenerate all keeps Ctrl+Shift+G.
 
 ## As captured here
 
-True captures from the release build of PR #911 at `39a71c7e`, on Linux, Xvfb with Mesa lavapipe, at 1920 × 1080, doing the steps above in one session. The footer strip (screenshot 3) is four frames one second apart. Not checked here: a real Windows keyboard. The warning path is covered by the test named above, not here.
+Screenshots 1 to 7 are true captures from the release build of PR #911 at `39a71c7e`, the head when the pack was made. The head then moved to `936c9b52`, which changes only the wording of the missed-change warning ("1 move" or "N moves"); that warning does not appear in this check. Steps 1, 3, 4 and 5 were run again on a release build of `936c9b52` with the same results (screenshot 8). The captures were made on Linux, Xvfb with Mesa lavapipe, at 1920 × 1080, doing the steps above in one session. The footer strip (screenshot 3) is four frames one second apart. Not checked here: a real Windows keyboard. The warning path is covered by the test named above, not here.
 
 1. Generate stale: Jobs "Generated 2".
    ![Jobs after Generate stale](screens/01-generate-stale-jobs-generated-2.png)
@@ -86,3 +86,5 @@ True captures from the release build of PR #911 at `39a71c7e`, on Linux, Xvfb wi
    ![Post and export](screens/06-post-and-export-before.png)
 7. The file row and SHA-256 before (top) and after (bottom) a second Ctrl Shift G: identical.
    ![Before and after](screens/07-export-row-and-sha-before-and-after.png)
+8. Re-check on `936c9b52`. Top: the export row and SHA-256 before and after Ctrl Shift G, identical. Bottom: the footer while it runs, and Results "Generated: Rough, Finish".
+   ![Re-check on 936c9b52](screens/08-recheck-on-936c9b52.png)
