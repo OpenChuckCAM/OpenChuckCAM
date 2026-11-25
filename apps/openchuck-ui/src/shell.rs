@@ -3176,6 +3176,9 @@ mod machine_library_tests;
 mod tool_library_tests;
 
 #[cfg(test)]
+mod tool_chip_tests;
+
+#[cfg(test)]
 mod tooltip_tests;
 
 #[cfg(test)]
