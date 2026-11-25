@@ -21,8 +21,10 @@ with the one you built, and the application will use it, because it finds the wo
 itself, unless the environment variable OPENCHUCK_STEP_WORKER names a worker program (the
 application then uses that one, and the file beside it is not used). On macOS the application
 is OpenChuckCAM.app, which holds its own copy in OpenChuckCAM.app/Contents/MacOS, and another
-copy sits beside openchuck-cli; replace both. This is a description of how the build works, not
-legal advice.
+copy sits beside openchuck-cli; replace both. Replacing the worker inside
+OpenChuckCAM.app breaks the application's ad-hoc seal; to seal it again, run
+"codesign --force --deep --sign - OpenChuckCAM.app" (no certificate is needed). This is a
+description of how the build works, not legal advice.
 
 The Open CASCADE exception text and the LGPL-2.1 text govern the kernel; where this
 notice and those texts differ, they win.

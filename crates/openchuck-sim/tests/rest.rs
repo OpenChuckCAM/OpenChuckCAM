@@ -466,3 +466,301 @@ fn req_nfr_06_req_op_09_rest_machining_is_identical_at_1_2_and_n_threads() {
     .unwrap();
     assert_eq!(runs.len(), 4);
 }
+
+// ---- A flat end in the sharp corner of a STEP part (issue #632; decision 0684) ----
+
+/// The closed-form shouldered shaft of decision 0226 (a bar of radius 8 with a
+/// sharp shoulder out to radius 12 at X 12), finished axially with a 3.175 mm
+/// tapered ball (tip radius 0.5, 5 degrees), as in the OWNERCHECKS project of
+/// issue #632. The stock reaches X 8 to 16, about the corner, so the test
+/// stays short. The finish is cut once and shared.
+struct Corner {
+    model: openchuck_types::brep::BrepModel,
+    machine: MachineProfile,
+    tags: PathTags,
+    after: DexelStock,
+}
+
+/// The X of the sharp inside corner, and the bar's radius there.
+const CORNER_X: f64 = 12.0;
+const BAR: f64 = 8.0;
+
+fn corner() -> &'static Corner {
+    static CORNER: std::sync::OnceLock<Corner> = std::sync::OnceLock::new();
+    CORNER.get_or_init(|| {
+        let model = openchuck_testkit::brep::shouldered_shaft(4);
+        let machine = MachineProfile::example_x_rotary();
+        let tags = PathTags {
+            operation: "op".to_owned(),
+            setup: "setup".to_owned(),
+            tool: "tool".to_owned(),
+        };
+        let fresh = DexelStock::from_stock(
+            &Stock::Cylinder {
+                diameter: Millimetres(26.0),
+                length: Millimetres(8.0),
+                x_start: Millimetres(8.0),
+            },
+            None,
+            CELL,
+        )
+        .unwrap();
+        let tapered = tapered_ball();
+        let surface = openchuck_path::BrepSurface::new(&model).unwrap();
+        let cancel = CancelToken::new();
+        let ctx = JobContext::new(&cancel, &NoProgress);
+        let input = corner_input(&surface, &fresh, &tapered, &machine, &tags);
+        let axial = generate(
+            &openchuck_path::AxialFinishing,
+            &input,
+            &values(&[(names::STEPOVER, 1.5)]),
+            &ctx,
+        )
+        .unwrap();
+        let mut sim = Simulator::without_checkpoints(fresh, &machine);
+        let result = sim.run_group(&axial.group, &tapered, &ctx).unwrap();
+        assert!(
+            result.rapid_cuts.is_empty(),
+            "the axial finish cuts on a rapid"
+        );
+        Corner {
+            model,
+            machine,
+            tags,
+            after: sim.into_stock(),
+        }
+    })
+}
+
+fn tapered_ball() -> RevolvedProfile {
+    Tool {
+        shape: ToolShape::TaperedBall {
+            tip_radius: Millimetres(0.5),
+            taper_half_angle: openchuck_types::units::Degrees(5.0),
+        },
+        diameter: Millimetres(3.175),
+        flute_length: Millimetres(20.0),
+        overall_length: Millimetres(50.0),
+        shank_diameter: Millimetres(3.175),
+        flute_count: 2,
+        material: None,
+        centre_cutting: None,
+        stick_out: None,
+    }
+    .profile()
+    .unwrap()
+}
+
+fn flat_2mm() -> RevolvedProfile {
+    Tool {
+        flute_length: Millimetres(10.0),
+        ..tool(ToolShape::FlatEnd, 2.0)
+    }
+    .profile()
+    .unwrap()
+}
+
+fn corner_input<'a>(
+    surface: &'a openchuck_path::BrepSurface,
+    stock: &'a DexelStock,
+    tool: &'a RevolvedProfile,
+    machine: &'a MachineProfile,
+    tags: &'a PathTags,
+) -> StrategyInput<'a> {
+    StrategyInput {
+        surface,
+        stock,
+        collision: &AcceptAll,
+        tool,
+        rotary: RotaryMapping::of_profile(machine),
+        clearance: Clearance {
+            radius: Millimetres(19.0),
+            safe_z: Millimetres(29.0),
+        },
+        max_feeds: machine.max_feeds,
+        tags,
+        facing: None,
+        keep_out: &[],
+        shank: None,
+    }
+}
+
+/// Pencil with the 2 mm flat end in the corner, with Exact STEP surface
+/// contact `exact`, its defaults and `extra`.
+fn corner_pencil(
+    exact: bool,
+    extra: &[(&str, f64)],
+) -> openchuck_path::Result<openchuck_path::StrategyOutput> {
+    let c = corner();
+    let surface = openchuck_path::BrepSurface::new(&c.model)
+        .unwrap()
+        .with_exact_drops(exact);
+    let flat = flat_2mm();
+    let input = corner_input(&surface, &c.after, &flat, &c.machine, &c.tags);
+    let pencil = PencilFinishing::on_brep(&c.model).unwrap();
+    let parameters = pencil.schema().resolve(&values(extra)).unwrap();
+    let cancel = CancelToken::new();
+    let ctx = JobContext::new(&cancel, &NoProgress);
+    pencil.passes_with_notes(&input, None, &parameters, &ctx)
+}
+
+/// The degrees of the turn about X a pass covers, from its contact points.
+fn degrees_covered(pass: &openchuck_path::Pass) -> f64 {
+    pass.points
+        .windows(2)
+        .map(|w| {
+            let a = w[0].tip.z.atan2(w[0].tip.y);
+            let b = w[1].tip.z.atan2(w[1].tip.y);
+            let d = (b - a).abs().to_degrees();
+            if d > 180.0 { 360.0 - d } else { d }
+        })
+        .sum()
+}
+
+#[test]
+fn req_op_09_req_op_27_req_nfr_12_a_flat_end_cleans_the_sharp_corner_off_and_on_without_lifting() {
+    // Issue #632. The corner's material is a thin wedge on the wall. Judged
+    // from the drop's contact, which a flat end's line contact puts anywhere
+    // along its flat bottom, the corner was refused with exact contact off
+    // and cut in 31 stretches with it on; and a rest flush with the wall was
+    // a knife edge for the drop, which read the tool as resting on the
+    // shoulder 4 mm up. Judged from the tool's axis (M1), with the rest a
+    // tenth of the tolerance clear of the wall (P1), both settings give one
+    // pass right round the corner, on the bar, clear of the wall. One test,
+    // because the finish before it is the costly part.
+    let tolerance = 0.01;
+    for exact in [false, true] {
+        let out = corner_pencil(exact, &[]).unwrap();
+        assert_eq!(
+            out.passes.len(),
+            1,
+            "exact contact {exact}: {} passes",
+            out.passes.len()
+        );
+        let turn = degrees_covered(&out.passes[0]);
+        assert!(turn > 359.0, "exact contact {exact}: {turn} degrees");
+        for p in &out.passes[0].points {
+            let radial = p.tip.y.hypot(p.tip.z);
+            assert!(
+                (radial - BAR).abs() < tolerance,
+                "exact contact {exact}: a tip at radius {radial}"
+            );
+            let clear = CORNER_X - 1.0 - p.tip.x;
+            assert!(
+                clear > 0.05 * tolerance && clear < tolerance,
+                "exact contact {exact}: the tool's side {clear} mm from the wall"
+            );
+        }
+    }
+
+    // The pass (exact contact off, the default) takes the wedge the tapered
+    // ball left, and cuts nothing it should not.
+    let c = corner();
+    let surface = openchuck_path::BrepSurface::new(&c.model).unwrap();
+    let flat = flat_2mm();
+    let input = corner_input(&surface, &c.after, &flat, &c.machine, &c.tags);
+    let cancel = CancelToken::new();
+    let ctx = JobContext::new(&cancel, &NoProgress);
+    let pencil = PencilFinishing::on_brep(&c.model).unwrap();
+    let path = generate(&pencil, &input, &values(&[]), &ctx).unwrap();
+    let mut sim = Simulator::without_checkpoints(c.after.clone(), &c.machine);
+    let result = sim.run_group(&path.group, &flat, &ctx).unwrap();
+    assert!(result.rapid_cuts.is_empty(), "a rapid move cuts");
+    let after = sim.into_stock();
+    let in_corner = |stock: &DexelStock| {
+        openchuck_path::rest::RemainingMap::detect(&surface, stock, 0.15, 0.25, 0.5, &ctx)
+            .unwrap()
+            .samples()
+            .into_iter()
+            .filter(|p| (p.x - CORNER_X).abs() < 1.0 && p.y.hypot(p.z) < BAR + 2.0)
+            .count()
+    };
+    let (before, now) = (in_corner(&c.after), in_corner(&after));
+    assert!(before > 100, "the tapered ball leaves the corner: {before}");
+    assert!(
+        now * 10 < before,
+        "the corner keeps {now} of {before} samples"
+    );
+    // The test's stock covers only part of the 40 mm part, so the part
+    // beyond it reads as overcut before and after alike: the pass adds none.
+    let (mesh, _) = c.model.joined_tessellation();
+    let overcut = |stock: &DexelStock| {
+        compare(
+            stock,
+            &mesh,
+            &DeviationOptions {
+                spacing: 0.25,
+                ..DeviationOptions::for_cell(CELL)
+            },
+        )
+        .unwrap()
+        .overcut_count
+    };
+    assert_eq!(overcut(&after), overcut(&c.after), "the pencil pass gouges");
+}
+
+#[test]
+fn req_op_09_req_nfr_12_a_corner_shorter_than_the_shortest_cut_is_refused_and_said() {
+    // D2 with the owner's Shortest cut (decision record 0684 item
+    // 3): a stretch shorter than it is not cut. The stepped shaft's corner is
+    // a circle of radius 6, about 38 mm round: a shortest cut of 40 mm leaves
+    // nothing to cut, and the refusal names the setting; at its default of 0
+    // the whole corner is one pass.
+    let rig = Rig::new();
+    let stock = rig.after_big_ball();
+    let small = small_ball();
+    let all = rig
+        .generate(&PencilFinishing::default(), &small, &stock, &values(&[]))
+        .unwrap();
+    assert!(
+        all.group
+            .segments
+            .iter()
+            .any(|s| s.kind == MoveKind::Cutting)
+    );
+    let err = rig
+        .generate(
+            &PencilFinishing::default(),
+            &small,
+            &stock,
+            &values(&[(pencil_parameter::MIN_LENGTH, 40.0)]),
+        )
+        .unwrap_err();
+    let text = err.to_string();
+    assert!(text.contains("shortest cut (40 mm)"), "{text}");
+    assert!(
+        matches!(
+            &err,
+            openchuck_path::PathError::Refused { setting: Some(s), .. }
+                if s == pencil_parameter::MIN_LENGTH
+        ),
+        "{err:?}"
+    );
+}
+
+#[test]
+fn req_op_09_req_nfr_12_pencil_counts_the_corners_material_with_stock_to_leave() {
+    // Decision 0684 item 1 with stock to leave (CodeRabbit on pull request
+    // #856): the tool's axis rests its radius plus the stock to leave from
+    // the part, and the reach from the axis takes the leave too. Beside a
+    // true wall (parallel to the tool's axis), with 0.3 mm to leave, the
+    // corner's material is found and cut.
+    let rig = Rig::walled();
+    let stock = rig.after_big_ball();
+    let small = small_ball();
+    let path = rig
+        .generate(
+            &PencilFinishing::default(),
+            &small,
+            &stock,
+            &values(&[(names::STOCK_TO_LEAVE, 0.3)]),
+        )
+        .expect("the corner holds material beyond the stock to leave");
+    assert!(
+        path.group
+            .segments
+            .iter()
+            .any(|s| s.kind == MoveKind::Cutting),
+        "no cut"
+    );
+}

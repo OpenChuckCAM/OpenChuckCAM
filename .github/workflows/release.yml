@@ -215,6 +215,18 @@ jobs:
           tool: cargo-deny
       - name: Get the LinuxCNC image
         run: docker pull "$LINUXCNC_IMAGE" || docker build -t "$LINUXCNC_IMAGE" docker/linuxcnc
+      # The release notes since the last release (decision record 0678): the version's
+      # section is written (not the draft that `cargo xtask changelog start-release` makes) and the
+      # Development version section has no entries left, so it again means "since the last release".
+      # An application release only. On a publishing run a failure stops the release (the archives
+      # and publish-app need this job); on a dry run it is reported and the run goes on, as the user
+      # guide's release checks are.
+      - name: Release notes since the last release
+        if: needs.plan.outputs.app == 'true'
+        continue-on-error: ${{ needs.plan.outputs.publish != 'true' }}
+        env:
+          VERSION: ${{ needs.plan.outputs.version }}
+        run: cargo xtask changelog check-release "$VERSION"
       - name: Run the release gate
         env:
           TAG: ${{ needs.plan.outputs.tag }}
@@ -429,7 +441,7 @@ jobs:
           fi
       - name: Get a token from the docs release App
         id: app
-        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        uses: actions/create-github-app-token@f418cff399f7aef4c2f0ad47e25ca7a6abbdd6fc # v3.4.0
         with:
           client-id: ${{ vars.DOCS_RELEASE_APP_CLIENT_ID }}
           private-key: ${{ secrets.DOCS_RELEASE_APP_PRIVATE_KEY }}

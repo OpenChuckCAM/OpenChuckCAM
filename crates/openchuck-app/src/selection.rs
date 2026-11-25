@@ -190,6 +190,16 @@ pub struct SelectionSummary {
     pub colour: Option<String>,
 }
 
+impl SelectionSummary {
+    /// How many it holds, with the noun agreeing: "1 face", "3 edges"
+    /// (issue #615; decision record 0644's rule for counts).
+    #[must_use]
+    pub fn counted(&self) -> String {
+        let one = self.kind.strip_suffix('s').unwrap_or(self.kind);
+        crate::path::counted(self.count, one, self.kind)
+    }
+}
+
 /// A selection set whose target has been checked against its model, ready to
 /// be stored by [`Application::finish_save_selection`] or
 /// [`Application::finish_edit_selection`].
@@ -1521,5 +1531,26 @@ mod tests {
         check(mesh_edges, None).unwrap();
         let beyond = SelectionTarget::MeshEdges([MeshEdge::new(u32::MAX, 0).unwrap()].into());
         assert!(err(check(beyond, None)).contains("does not exist"));
+    }
+
+    /// Issue #615: the tree and the set inspector say "1 face", not "1 faces".
+    #[test]
+    fn req_ui_12_a_set_of_one_face_or_edge_is_counted_in_the_singular() {
+        let summary = |kind: &'static str, count: usize| SelectionSummary {
+            id: SelectionSetId::new(),
+            name: "Set".to_owned(),
+            model: ModelId::new(),
+            model_path: None,
+            kind,
+            count,
+            uses: Vec::new(),
+            problem: None,
+            colour: None,
+        };
+        assert_eq!(summary("faces", 1).counted(), "1 face");
+        assert_eq!(summary("edges", 1).counted(), "1 edge");
+        assert_eq!(summary("triangles", 1).counted(), "1 triangle");
+        assert_eq!(summary("faces", 3).counted(), "3 faces");
+        assert_eq!(summary("edges", 0).counted(), "0 edges");
     }
 }

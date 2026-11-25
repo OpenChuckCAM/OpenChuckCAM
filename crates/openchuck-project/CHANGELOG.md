@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased (FUZZ-NFR07; issue #628; decision 0679, accepted)
+
+- **Changed:** a custom profile file with a size above `openchuck_types::tool::profile::MAX_PROFILE_SIZE` is refused naming the segment (the check is in `openchuck-types`); the corpus gains the nightly fuzz input. No API or schema change.
+
 ## Unreleased (ALIMIT, issue #793; decision 0647, accepted)
 
 - **Changed:** the built-in Makera Z1 profile limits A to 1800 deg/min for feeds and rapids (was 3600): the firmware caps A at 30 deg/s (`Robot.cpp:295-298`) and the owner's Z1 prints `A: 30` for `M203.1`. Every Z1 program that turns A near the axis is timed for it, so its F words and estimates change; no position changes. No schema change.

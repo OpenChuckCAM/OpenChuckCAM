@@ -105,7 +105,7 @@ impl PostDefinition {
         }
         let template = normalise(template);
         // Compile now so a syntax error names its line at load time.
-        let mut env = engine::environment(0)?;
+        let (mut env, _namespaces) = engine::environment(0)?;
         env.add_template_owned(manifest.template.clone(), template.clone())
             .map_err(|e| PostError::Template(engine::describe(&e)))?;
         Ok(Self {

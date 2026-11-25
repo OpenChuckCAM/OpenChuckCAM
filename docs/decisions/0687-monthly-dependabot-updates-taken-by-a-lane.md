@@ -1,14 +1,14 @@
-# DEPS-UPDATES-A: Dependabot runs monthly, its pull requests stay drafts, and a dependency lane turns them into one reviewed pull request (lane DEPS-UPDATES)
+# 0687: Dependabot runs monthly, its pull requests stay drafts, and a dependency lane turns them into one reviewed pull request (lane DEPS-UPDATES)
 
-- **Status:** Accepted by the project owner on 24 Nov 2026, relayed by the coordinator (decision 0049). Proposed by lane DEPS-UPDATES on 23 Nov 2026; the owner chose the policy (items 1 to 5 below) on 23 Nov 2026 ("accept all as recommended", relayed) and accepted the record's text on 24 Nov 2026 (OI-9971, closed).
-- **Number:** provisional. Under the owner's rule of 23 Nov 2026, provisional numbers are unique across lanes and real numbers follow `main` in merge order. The record is `DEPS-UPDATES-A`; its open items are OI-9971 and OI-9972, from the numbers the coordinator set aside for this lane. No project schema number. No spike.
+- **Status:** Accepted by the project owner on 24 Nov 2026, relayed by the coordinator (decision 0049). Proposed by lane DEPS-UPDATES on 23 Nov 2026; the owner chose the policy (items 1 to 5 below) on 23 Nov 2026 ("accept all as recommended", relayed) and accepted the record's text on 24 Nov 2026 (OI-2207, closed).
+- **Number:** 0687, assigned by the coordinator when the Merge Manager released the pull request (provisional `DEPS-UPDATES-A` until then). Its open items are OI-2207 (the acceptance, closed) and OI-2208 (provisional OI-9971 and OI-9972). No project schema number. No spike.
 - **Date:** 23 Nov 2026.
-- **Lane:** DEPS-UPDATES, branch `claude/lane-deps-updates`, from `main` at `445286b` (library family 0.59.0).
+- **Lane:** DEPS-UPDATES, branch `claude/lane-deps-updates`, from `main` at `445286b` (library family 0.59.0), merged with `main` at `dd5ab10` (0.63.0) on release.
 - **Requirements:** NFR-14 (dependency justification), NFR-10 (licences), NFR-06 and GC-07 (byte-identical output), NFR-07 (invalid input never crashes). No requirement change. `docs/requirements.md` and `docs/architecture.md` are not edited.
 - **Amends:** the *Upgrade cadence* and *Update and activity checks* lines of `docs/dependencies.md` (edited in this pull request), and `.github/dependabot.yml` (weekly to monthly, the cargo groups, the fuzz workspace with the main one).
-- **Open items:** adds OI-9971 (the owner accepts this record's text; closed 24 Nov 2026) and OI-9972 (the first monthly run is checked against items 1 and 2). Refers to issue #876 (the fuzz lock file is behind `main` and the fuzz smoke job resolves without `--locked`), which this record does not fix.
+- **Open items:** adds OI-2207 (the owner accepts this record's text; closed 24 Nov 2026) and OI-2208 (the first monthly run is checked against items 1 and 2). Refers to issue #876 (the fuzz lock file is behind `main` and the fuzz smoke job resolves without `--locked`), which this record does not fix.
 
-![Dependabot opens draft notices each month; a dependency lane checks them and opens one reviewed pull request; the notices are closed after it merges](DEPS-UPDATES-A-monthly-dependabot-updates-taken-by-a-lane.svg)
+![Dependabot opens draft notices each month; a dependency lane checks them and opens one reviewed pull request; the notices are closed after it merges](0687-monthly-dependabot-updates-taken-by-a-lane.svg)
 
 ## Context
 
@@ -32,7 +32,7 @@ The earlier dependency lanes (DEP, DEPS: #386) had already taken Dependabot's pu
 
 - The documentation (the `github/docs` source of the Dependabot options reference) says a dependency in more than one group goes to the first group it matches, and that `monthly` runs on the first day of each month.
 - It reads every `x.y.z` version as major, minor, patch, so a pre-1.0 change such as `sha2` 0.10.9 to 0.11.1 counts as *minor* and lands in `cargo-minor-patch`. Under Cargo's rules such a change is breaking. The owner's choice (majors and 0.x minors on their own) cannot be written as a Dependabot rule; the lane reads each 0.x minor's release notes and splits it out when its interface or output changes (item 4). The config says so in a comment.
-- The documentation describes one pull request across directories for `group-by: dependency-name` (one pull request per dependency, across all directories). It does not say in so many words whether a pattern group spans the listed directories in one pull request; the Actions group's title (#861, "across 1 directory") suggests it does. OI-9972 checks the first monthly run (1 Dec 2026): one cargo pull request per group covering `/` and `/fuzz`. If it gives one per directory, the lane still regenerates both lock files in its own pull request, so nothing breaks; the config can then add `group-by: dependency-name` or go back to two entries.
+- The documentation describes one pull request across directories for `group-by: dependency-name` (one pull request per dependency, across all directories). It does not say in so many words whether a pattern group spans the listed directories in one pull request; the Actions group's title (#861, "across 1 directory") suggests it does. OI-2208 checks the first monthly run (1 Dec 2026): one cargo pull request per group covering `/` and `/fuzz`. If it gives one per directory, the lane still regenerates both lock files in its own pull request, so nothing breaks; the config can then add `group-by: dependency-name` or go back to two entries.
 - Dependabot has no setting to open its pull requests as drafts. They are set to draft by hand, as now. A ready one would start the heavy CI jobs and fail `records`.
 
 ## Alternatives considered
@@ -53,7 +53,7 @@ The earlier dependency lanes (DEP, DEPS: #386) had already taken Dependabot's pu
 
 Environment: the lane's cloud container, Linux x86-64, Rust 1.97.0, from `main` at `445286b`.
 
-- **Lock files.** `cargo update -w` in `/` and in `fuzz/` after the pin edits; the result is the same as the trial run. New crates: `hybrid-array` 0.4.15 and `const-oid` 0.10.3 (RustCrypto, MIT OR Apache-2.0, no build script). Removed: `generic-array` 0.14.7 and `cpufeatures` 0.2.17.
+- **Lock files.** `cargo update -w` in `/` and in `fuzz/` after the pin edits; the result is the same as the trial run. New crates: `hybrid-array` 0.4.15 and `const-oid` 0.10.3 (RustCrypto, MIT OR Apache-2.0, no build script). Removed: `generic-array` 0.14.7 and `cpufeatures` 0.2.17. On release both lock files were made again the same way from `main`'s at `dd5ab10`; the only difference from the trial is `toml_parser` 1.1.7, a patch release published since (the `toml` pin stays at the reviewed 1.2.2, though 1.2.3 is out).
 - **Tests.** `openchuck-app`, `openchuck-post`, `openchuck-project` and `openchuck-ui` (1,935 tests, all passed) and `xtask` (157 passed); `cargo clippy --all-targets` on `openchuck-app`, `openchuck-post`, `openchuck-project` and `xtask` with no warning; `cargo xtask deps`, `licences`, `records` and `trace` pass. Times and coverage are in the pull request.
 - **sha2.** The known-answer tests (`abc` and the empty input) pass. A throw-away program hashed all 241 tracked files under `testdata/` and the built-in posts with 0.10.9 and with 0.11.1: none differ, and both equal `sha256sum`. No hash on a setup sheet or in a committed file changes. The release manifests (`MANIFEST.sha256`, the archive sums) are made with `sha256sum`, not this crate; the cache keys use BLAKE3.
 - **minijinja.** The golden and post tests are byte-identical. A throw-away instrumented build counted the fuel each post-test render used under 3.0.3 and 3.1.0: 1 to 5% more (median 3.4%); the busiest render used 9.9% of its budget (9.8% before), and each step costs about 169 fuel against the 400 the budget allows.

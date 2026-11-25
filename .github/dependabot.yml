@@ -8,7 +8,7 @@
 # Monthly, and the pull requests Dependabot opens are notices: they stay drafts
 # and are never merged as they are. A dependency lane takes them, checks each
 # bump and opens one reviewed pull request that updates the pins, both lock
-# files and the register rows (decision DEPS-UPDATES-A, docs/dependencies.md).
+# files and the register rows (decision 0687, docs/dependencies.md).
 version: 2
 updates:
   - package-ecosystem: cargo
