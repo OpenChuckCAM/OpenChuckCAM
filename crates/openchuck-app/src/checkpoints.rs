@@ -484,14 +484,24 @@ pub fn locate(config: &Path, missing: &Candidate, folder: &Path) -> Result<Candi
 /// discard it. Such a project's line offers Open, not Locate, so the refusal
 /// only guards against a folder put back meanwhile.
 pub fn forget(config: &Path, missing: &Candidate) -> Result<(), String> {
-    if Catalog::read(&missing.folder)
-        .is_ok_and(|catalog| catalog.project_id.as_deref() == Some(missing.project_id.as_str()))
-    {
-        return Err(format!(
-            "'{}' still holds this project's recovery data: open that project to recover or \
-             discard its kept changes.",
-            missing.folder.display()
-        ));
+    match Catalog::read(&missing.folder) {
+        Ok(catalog) if catalog.project_id.as_deref() == Some(missing.project_id.as_str()) => {
+            return Err(format!(
+                "'{}' still holds this project's recovery data: open that project to recover \
+                 or discard its kept changes.",
+                missing.folder.display()
+            ));
+        }
+        Ok(_) => {}
+        // Recovery data that cannot be read may still be this project's:
+        // keep the line that leads to it.
+        Err(e) => {
+            return Err(format!(
+                "'{}' has recovery data that cannot be read ({e}), so this project is not \
+                 forgotten. Open the folder to look at it.",
+                missing.folder.display()
+            ));
+        }
     }
     let key = index_key(&missing.folder, &missing.project_id);
     let path = config
@@ -613,6 +623,45 @@ mod forget_tests {
             refused.contains("still holds this project's recovery data"),
             "{refused}"
         );
+        assert_eq!(discover(&config).projects.len(), 1, "the note stays");
+        std::fs::remove_dir_all(&root).unwrap();
+    }
+
+    /// Recovery data that cannot be read may still be the project's, so the
+    /// line that leads to it is kept (from the review of pull request #893;
+    /// issue #681). Here the recovery folder is a symbolic link, which the
+    /// store refuses to read.
+    #[cfg(unix)]
+    #[test]
+    fn req_prj_08_req_nfr_07_unreadable_recovery_data_is_not_forgotten() {
+        let root =
+            std::env::temp_dir().join(format!("openchuck-unreadable-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        let config = root.join("config");
+        let folder = root.join("project");
+        let elsewhere = root.join("elsewhere");
+        std::fs::create_dir_all(&folder).unwrap();
+        std::fs::create_dir_all(&elsewhere).unwrap();
+        let id = Store::open(&folder)
+            .unwrap()
+            .metadata(openchuck_project::recovery::Kind::Periodic, 0, 0)
+            .project_id;
+        register(&config, &folder, &id).unwrap();
+        let recovery = std::fs::read_dir(&folder)
+            .unwrap()
+            .map(|e| e.unwrap().path())
+            .find(|p| p.is_dir())
+            .expect("the recovery folder");
+        std::fs::rename(&recovery, elsewhere.join("moved")).unwrap();
+        std::os::unix::fs::symlink(elsewhere.join("moved"), &recovery).unwrap();
+        let found = discover(&config);
+        let line = found
+            .projects
+            .iter()
+            .find(|c| c.project_id == id)
+            .expect("the project is listed");
+        let refused = forget(&config, line).unwrap_err();
+        assert!(refused.contains("cannot be read"), "{refused}");
         assert_eq!(discover(&config).projects.len(), 1, "the note stays");
         std::fs::remove_dir_all(&root).unwrap();
     }

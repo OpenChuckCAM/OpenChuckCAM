@@ -161,8 +161,10 @@ pub struct StrategyInput<'a> {
     pub facing: Option<&'a crate::facing::plan::FacingSetup<'a>>,
     /// Model X intervals, as (low, high), that the tool's tip never enters
     /// while it cuts: each held region of the setup widened on both sides by
-    /// the tool's largest radius, so no part of the tool reaches over the
-    /// gripped length (SET-09; decision record 0161). The tool is always
+    /// the tool's largest radius and [`HELD_CLEARANCE`], so no part of the
+    /// tool comes within that distance of the gripped length (SET-09;
+    /// decision record 0161). The held-region note this crate gives names
+    /// [`HELD_CLEARANCE`], so a caller widens by it as well (issue #774). The tool is always
     /// across the rotary axis, so its body spans its tip's X plus and minus
     /// that radius. Passes are cut short where they would enter one, and a
     /// path whose entry, exit or link at feed still would is refused. Empty

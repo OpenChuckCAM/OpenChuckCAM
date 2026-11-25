@@ -680,9 +680,6 @@ impl RunPanel {
     pub(crate) fn record_failure(&mut self, message: String) {
         self.last_error = Some(message);
         self.failed = true;
-        // The tab counts the refusal alone, not the earlier run's warnings
-        // (issue #766).
-        self.counts = LevelCounts::default();
         self.wants_tab = true;
     }
 
@@ -693,10 +690,15 @@ impl RunPanel {
     }
 
     /// The number on the Results tab: the warnings and errors of the latest
-    /// run, a group once, and one more for a failed run. Information is not
+    /// run, a group once, or one for a refused run. Information is not
     /// counted, and the tab's filters do not change it (owner, 1 Nov 2026).
     pub fn results_count(&self) -> usize {
-        self.counts.errors + self.counts.warnings + usize::from(self.failed)
+        // A refused run counts its refusal alone, not the retained run's
+        // warnings (issue #766); the retained run keeps its own count.
+        if self.failed {
+            return 1;
+        }
+        self.counts.errors + self.counts.warnings
     }
 
     /// Opens the add-operation dialog (11.4): the setup and tool of the
@@ -1799,6 +1801,27 @@ mod tests {
         assert_eq!(panel.results_count(), 1);
         panel.record_run(Arc::new(Regeneration::default()));
         assert_eq!(panel.results_count(), 0, "a later run clears the failure");
+    }
+
+    /// Issue #766 (from the review of pull request #893): a refused
+    /// Generate counts its refusal alone, and the retained run keeps its own
+    /// count, so a retry that starts and is cancelled shows the retained
+    /// run's lines with their number again.
+    #[test]
+    fn req_ui_12_a_cancelled_retry_after_a_refusal_counts_the_retained_run() {
+        let mut panel = RunPanel::default();
+        panel.record_run(Arc::new(Regeneration {
+            warnings: vec![WARNING_A.to_owned(), WARNING_B.to_owned()],
+            ..Regeneration::default()
+        }));
+        assert_eq!(panel.results_count(), 2);
+        panel.record_failure("the engine stopped".to_owned());
+        assert_eq!(panel.results_count(), 1, "the refusal alone");
+        // A retry starts (`begin` clears the failure) and is cancelled:
+        // the retained run is shown again, with its count.
+        panel.failed = false;
+        panel.last_error = Some("Cancelled. Nothing was kept from that run.".to_owned());
+        assert_eq!(panel.results_count(), 2, "the retained run's warnings");
     }
 
     #[test]

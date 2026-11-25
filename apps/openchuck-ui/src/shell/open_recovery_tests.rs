@@ -615,6 +615,9 @@ fn req_prj_08_a_deleted_projects_recovery_line_can_be_forgotten() {
     });
     assert!(rig.shell.recovery.elsewhere.is_empty());
     assert!(!rig.shows("Locate folder"));
+    // Keep the recovery notes under `root` for the relaunch, so it shows
+    // that Forget wrote its change; the second rig removes `root`.
+    rig.dirs.clear();
     drop(rig);
     let mut again = launch(&root, &config, None);
     until(&mut again, "startup discovery", |r| {

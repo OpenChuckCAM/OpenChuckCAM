@@ -91,6 +91,12 @@ Linux container, 4 cores; tests run uninstrumented with `cargo nextest`, on the 
 
 Two capture scripts were fixed: the tabs example's Grip length position below the new row; the simultaneous example's Add at its decision-0677 place, and its Lead angle and Pattern positions after #856 moved Exact STEP surface contact to Advanced. The simultaneous capture needs `openchuck-step-worker` built beside the release binary. The user guide builds with mdBook 0.5.4, and `user-docs/tools/check.py --screens strict` reports 0 errors and 0 warnings.
 
+**At the release push** (merge of `main` `c840018`), from CodeRabbit's review of `a24b65d`:
+- a refused Generate counts its refusal alone, and the retained run keeps its own count, so a retry that is cancelled counts the retained run again: `run_panel::tests::req_ui_12_a_cancelled_retry_after_a_refusal_counts_the_retained_run`, seen to fail first (0 instead of 2);
+- recovery data that cannot be read is not forgotten (item 2): `checkpoints::forget_tests::req_prj_08_req_nfr_07_unreadable_recovery_data_is_not_forgotten`, seen to fail with the old check;
+- `req_prj_08_a_deleted_projects_recovery_line_can_be_forgotten` keeps the recovery notes for its relaunch, so it shows that Forget wrote its change;
+- `StrategyInput::keep_out` documents the `HELD_CLEARANCE` its producer adds, the distance the note names.
+
 **Not verified here:** Windows and macOS (the change is not platform-specific); a screen reader (OI-2110).
 
 **Open items:** none left: OI-2211 (the owner's acceptance) closed on 24 Nov 2026.
