@@ -18,10 +18,21 @@ pub fn counted(n: usize, one: &str, many: &str) -> String {
 /// when both ends are the same to three decimals (a line across the part,
 /// not a range).
 pub(crate) fn x_span(low: f64, high: f64) -> String {
-    if format!("{low:.3}") == format!("{high:.3}") {
-        format!("X {low:.3}")
+    // The three decimals as written; a value that rounds to zero is "0.000",
+    // never "-0.000".
+    let written = |x: f64| {
+        let text = format!("{x:.3}");
+        if text == "-0.000" {
+            "0.000".to_owned()
+        } else {
+            text
+        }
+    };
+    let (low, high) = (written(low), written(high));
+    if low == high {
+        format!("X {low}")
     } else {
-        format!("X {low:.3} to {high:.3}")
+        format!("X {low} to {high}")
     }
 }
 
@@ -44,5 +55,8 @@ mod tests {
         assert_eq!(x_span(10.0, 10.0004), "X 10.000");
         assert_eq!(x_span(10.0, 12.5), "X 10.000 to 12.500");
         assert_eq!(x_span(-1.0, 0.0), "X -1.000 to 0.000");
+        // A value that rounds to zero is zero, whatever its sign.
+        assert_eq!(x_span(-0.0001, 0.0001), "X 0.000");
+        assert_eq!(x_span(-0.0001, 2.0), "X 0.000 to 2.000");
     }
 }
