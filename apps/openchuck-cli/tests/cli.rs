@@ -1797,3 +1797,52 @@ fn walk(dir: &std::path::Path) -> Vec<std::path::PathBuf> {
     }
     out
 }
+
+/// An avoid set on Ignore limits nothing, and `regenerate` says so once as
+/// a `note:` line, not a `warning:` (decision UI-BUGS-C item 8, the owner's
+/// D3 answer A; OP-21).
+#[test]
+fn req_op_21_cli_says_a_set_on_ignore_as_a_note() {
+    use openchuck_app::project::{OnBreak, SelectionTarget};
+    use openchuck_app::selection::SelectionRole;
+    use openchuck_app::{Application, Threads};
+    let from = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../testdata/examples/baluster/baluster-project");
+    let dir = std::env::temp_dir().join(format!("openchuck-ignore-note-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    for entry in walk(&from) {
+        let target = dir.join(entry.strip_prefix(&from).unwrap());
+        std::fs::create_dir_all(target.parent().unwrap()).unwrap();
+        std::fs::copy(&entry, target).unwrap();
+    }
+    {
+        let mut app = Application::open(&dir, Threads::Exactly(1)).unwrap();
+        let model = app.project().models()[0].id;
+        let finish = app
+            .project()
+            .operations()
+            .iter()
+            .find(|o| o.name == "Finish")
+            .unwrap()
+            .id;
+        // A few triangles of the part: on Ignore, which they are does not
+        // matter.
+        let ends = [0, 1, 2].into();
+        let set = app
+            .save_selection("End", model, SelectionTarget::Triangles(ends))
+            .unwrap();
+        app.set_operation_selection(finish, SelectionRole::Avoid, set, true)
+            .unwrap();
+        app.set_on_break(finish, SelectionRole::Avoid, set, OnBreak::Ignore)
+            .unwrap();
+        app.save().unwrap();
+    }
+    let out = run(&args(&["regenerate", dir.to_str().unwrap()]));
+    assert_eq!(out.code, Some(0), "{}", out.stderr);
+    let all = format!("{}{}", out.stdout, out.stderr);
+    let said = "the avoid set 'End' limits nothing, because it is set to Ignore";
+    let lines: Vec<&str> = all.lines().filter(|l| l.contains(said)).collect();
+    assert_eq!(lines.len(), 1, "{all}");
+    assert!(lines[0].starts_with("note: "), "{all}");
+    std::fs::remove_dir_all(&dir).unwrap();
+}

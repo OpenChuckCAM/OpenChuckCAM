@@ -26,7 +26,7 @@ Avoid
 Check
 : "The tool must not touch these surfaces."
 
-A set in **Avoid** or **Check** has a choice beside it: **Cut short** (the path stops where the tool would reach the set), **Warn only** (the path is kept and generation warns where it reaches the set) and **Ignore** (the set is not used for this operation). **Warn only** samples the path and can miss a narrow set.
+A set in **Avoid** or **Check** has a choice just under its name: **Cut short** (the path stops where the tool would reach the set), **Warn only** (the path is kept and generation warns where it reaches the set) and **Ignore** (the set is not used for this operation). **Warn only** samples the path and can miss a narrow set.
 
 A path limited to a selection stops at the edge between a selected surface and an unselected one: a contact on that edge counts as off the selection.
 
@@ -62,7 +62,7 @@ The first line of the Results list is a note for the finish, counted under Infor
 
 ## 3. Only the ball: Cut on
 
-1. In the Inspector, under **Geometry**, open the list beside **Cut on** and choose **Finial ball**.
+1. In the Inspector, under **Geometry**, open **Add a set…** beside **Cut on** and choose **Finial ball**.
 2. Click **Generate**.
 
 <figure>
@@ -74,8 +74,8 @@ The finish now has 2,236 moves instead of about 19,150, and removes 204 mm³. Th
 
 ## 4. Everything but the ball: Avoid
 
-1. Click the **×** on **Finial ball** beside **Cut on**, so that it is empty again.
-2. Open the list beside **Avoid** and choose **Finial ball**. **Cut short** is chosen beside it.
+1. Click the **×** at the end of the **Finial ball** line under **Cut on**, so that it is empty again.
+2. Open **Add a set…** beside **Avoid** and choose **Finial ball**. **Cut short** is chosen under it.
 3. Click **Generate**.
 
 <figure>
@@ -104,9 +104,9 @@ The set takes more or less than you meant
 : **By angle** stops where the surface turns more than the angle. Lower the angle to stop sooner, or Shift-click and Ctrl-click to change the set.
 
 "Warn only samples the path and can miss a narrow set."
-: The program says this beside **Warn only**. Use **Cut short** where the set must not be cut.
+: The program says this under **Avoid** or **Check** when one of its sets is on **Warn only**. Use **Cut short** where the set must not be cut.
 
 "... it is set to Ignore: the tool is not kept clear of it"
-: A set in **Avoid** or **Check** with **Ignore** chosen is not used. Choose **Cut short** or **Warn only**.
+: A note in **Results**. A set in **Avoid** or **Check** with **Ignore** chosen is not used, and its name is struck through in the Geometry section. Choose **Cut short** or **Warn only** if it should limit the path.
 
 Related: [Tabs and held regions](tabs-and-held-regions.md), [Operations and strategies](../reference/operations.md).

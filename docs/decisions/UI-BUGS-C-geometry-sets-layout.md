@@ -59,6 +59,15 @@ What depends on the removed line, and what the build changes with it:
 - About seven pages of the user guide show this section (the operations reference, the selection-sets, swarf, face flow and limit-to-a-region examples and how-to); their screenshots are captured again in the build, and their text is checked.
 - The inspector's layout tests gain a case with several sets per role at 340 px and at the default width.
 
+## Build notes
+
+Choices the build made within the approved design:
+
+- **The boundary of swarf.** Design item 4 and the first consequence remove the line "The set 'X' limits nothing." for a set on Ignore. A swarf boundary with both Limits the pass and Limits the tip off is not a set on Ignore, and D3 keeps its operation message a warning; its line under the role's options stays, so the inspector still warns before a boundary that limits nothing is generated.
+- **A set with a problem.** Its name is drawn in red with "· N not found" on its line, and × has the red border the old button had; the reason is the tooltip of both, as before.
+- **The name's tooltip.** Only a set on Ignore or with a problem has one, and only those names are Tab stops; a set's name otherwise needs no tooltip, and × keeps "Take it out of this role", with the accessible name "Take {set} out of this role".
+- **The message's words** (D3) are those of decision 0176, as Results and the command line word any note: "Selection set (operation 'Finish'): the avoid set 'Bead' limits nothing, because it is set to Ignore: …".
+
 ## Verification
 
-None yet: the design is approved, and the build's tests are written first from this record in the lane's third pull request, after #854.
+PENDING

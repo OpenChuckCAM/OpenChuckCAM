@@ -79,9 +79,9 @@ In the same way, make two more face sets with **Faces** and **Select one (Q)**:
 Face-flow finishing cuts the faces in **Cut on** with passes that run along a guide edge ([Face-flow finishing on a blisk floor](faceflow.md) goes through it in detail).
 
 1. Click **+ New operation**. Choose **Face flow finishing**, tool **3 mm ball**, name it `Floor finish`, and click **Add**.
-2. In the Inspector, under **Geometry**, open the list beside **Cut on** and choose **Hub floor**.
-3. Open the list beside **Guide edge** and choose **Floor guide**. This list offers only edge sets.
-4. Open the list beside **Check** and choose **Blade wall**. Leave its choice on **Cut short**.
+2. In the Inspector, under **Geometry**, open **Add a set…** beside **Cut on** and choose **Hub floor**.
+3. Open **Add a set…** beside **Guide edge** and choose **Floor guide**. This list offers only edge sets.
+4. Open **Add a set…** beside **Check** and choose **Blade wall**. Leave its choice, under its name, on **Cut short**.
 5. Scroll down to **Pattern and tolerance** and set **Stock to leave** to `0.2` mm.
 
 <figure>
@@ -127,7 +127,7 @@ With only **Cut on**, the Results warn that the tool reaches the faces beside th
 Now add the avoid sets:
 
 4. Beside **Avoid**, choose **Hub floor**. Leave it on **Cut short**.
-5. Open the **add...** list under it and choose **Rim**. Under **Rim**, click **Warn only**.
+5. Open **Add a set…** beside **Avoid** again and choose **Rim**. Under **Rim**, click **Warn only**.
 
 <figure>
 <a href="images/blisk_selection_sets/09-swarf-sets.png"><img src="images/blisk_selection_sets/09-swarf-sets.png" width="1920" height="1080" alt="The Geometry section of Blade wall swarf: Cut on Blade wall; Avoid Hub floor and Rim; under Hub floor the choice Cut short is chosen, under Rim the choice Warn only is chosen."></a>

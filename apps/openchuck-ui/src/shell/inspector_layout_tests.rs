@@ -23,6 +23,11 @@ struct Drawn {
 }
 
 fn drawn(select: impl FnOnce(&mut Rig), pane: f32, name: &str) -> Drawn {
+    drawn_rig(select, pane, name).1
+}
+
+/// The rig, its inspector dragged to `pane`, and what the inspector drew.
+fn drawn_rig(select: impl FnOnce(&mut Rig), pane: f32, name: &str) -> (Rig, Drawn) {
     let mut rig = Rig::cube(name, None);
     crate::theme::install_style(&rig.ctx, crate::theme::Theme::Dark);
     rig.size = egui::vec2(1920.0, 1080.0);
@@ -42,7 +47,7 @@ fn drawn(select: impl FnOnce(&mut Rig), pane: f32, name: &str) -> Drawn {
         rig.shell.settings.inspector.size
     );
     let left = rig.size.x - rig.shell.settings.inspector.size;
-    Drawn {
+    let drawn = Drawn {
         left,
         texts: rig
             .text_rects()
@@ -60,7 +65,8 @@ fn drawn(select: impl FnOnce(&mut Rig), pane: f32, name: &str) -> Drawn {
             .into_iter()
             .filter(|r| r.left() > left && r.height() < 30.0)
             .collect(),
-    }
+    };
+    (rig, drawn)
 }
 
 fn operation(rig: &mut Rig) {
@@ -275,9 +281,9 @@ fn req_ui_07_req_ui_16_the_avoid_choice_row_wraps_inside_the_value_column() {
             .unwrap_or_else(|| panic!("{text} is drawn: {:?}", d.texts))
             .1
     };
-    // The value column starts where the role's set buttons do: their text
-    // is inset by the button padding.
-    let column = at("Finial ball \u{d7}").left() - 2.0 * crate::theme::GRID;
+    // The value column starts where the role's list does: its text is
+    // inset by the list's padding.
+    let column = at("Add a set\u{2026}").left() - 2.0 * crate::theme::GRID;
     assert!(
         column > d.left + 40.0,
         "{column} is right of the label column"
@@ -289,4 +295,225 @@ fn req_ui_07_req_ui_16_the_avoid_choice_row_wraps_inside_the_value_column() {
             at(choice).left()
         );
     }
+}
+
+/// The sets of issue #759: in Avoid, Rib and Bead on Warn only; in Check,
+/// Lip on Cut short and Fence on Ignore (decision UI-BUGS-C).
+fn several_sets(rig: &mut Rig) {
+    use openchuck_app::project::{OnBreak, SelectionTarget};
+    use openchuck_app::selection::SelectionRole;
+    let app = rig.shell.app.as_mut().unwrap();
+    let op = app.project().operations()[0].id;
+    let model = app.project().models()[0].id;
+    for (i, (name, role, choice)) in [
+        ("Rib", SelectionRole::Avoid, OnBreak::Warn),
+        ("Bead", SelectionRole::Avoid, OnBreak::Warn),
+        ("Lip", SelectionRole::Check, OnBreak::CutShort),
+        ("Fence", SelectionRole::Check, OnBreak::Ignore),
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        let set = app
+            .save_selection(
+                name,
+                model,
+                SelectionTarget::Triangles([u32::try_from(i).unwrap()].into()),
+            )
+            .unwrap();
+        app.set_operation_selection(op, role, set, true).unwrap();
+        app.set_on_break(op, role, set, choice).unwrap();
+    }
+    rig.settle();
+    // Tall enough that the whole Geometry section is in the pane.
+    rig.size = egui::vec2(1920.0, 1600.0);
+    operation(rig);
+}
+
+/// Issue #759 (decision UI-BUGS-C items 1 to 3, 5 and 6): with several sets
+/// in each role, each set is named once, on its own line in the value
+/// column with × at its right end, its choice just under its name; the
+/// role's line holds its name and "Add a set…"; Warn only's note is said
+/// once for the role; nothing starts left of the value column. At the
+/// narrowest, the default and the widest inspector.
+#[test]
+fn req_ui_07_req_ui_16_each_set_is_named_once_on_its_own_line_with_its_choice_under_it() {
+    for pane in [width::INSPECTOR.1, width::INSPECTOR.0, width::INSPECTOR.2] {
+        let d = drawn(several_sets, pane, "geometry-several-sets");
+        let all = |text: &str| -> Vec<egui::Rect> {
+            d.texts
+                .iter()
+                .filter(|(t, _)| t == text)
+                .map(|(_, r)| *r)
+                .collect()
+        };
+        let one = |text: &str| {
+            let found = all(text);
+            assert_eq!(
+                found.len(),
+                1,
+                "{pane}: {text} is drawn once: {:?}",
+                d.texts
+            );
+            found[0]
+        };
+        let lists = all("Add a set\u{2026}");
+        assert!(
+            lists.len() >= 2,
+            "{pane}: each role offers its list: {:?}",
+            d.texts
+        );
+        let column = lists[0].left() - 2.0 * crate::theme::GRID;
+        for (set, role) in [
+            ("Rib", "Avoid"),
+            ("Bead", "Avoid"),
+            ("Lip", "Check"),
+            ("Fence", "Check"),
+        ] {
+            let name = one(set);
+            let label = one(role);
+            assert!(name.top() > label.top(), "{pane}: {set} is under {role}");
+            assert!(
+                name.left() >= column - 0.5,
+                "{pane}: {set} is in the value column"
+            );
+            // × at the right end of the set's own line.
+            let cross = d
+                .texts
+                .iter()
+                .filter(|(t, r)| t == "\u{d7}" && (r.center().y - name.center().y).abs() < 4.0)
+                .map(|(_, r)| *r)
+                .next()
+                .unwrap_or_else(|| panic!("{pane}: {set} has × on its line: {:?}", d.texts));
+            assert!(cross.left() > name.right(), "{pane}: × is right of {set}");
+            assert!(
+                cross.right() > d.left + pane - 40.0,
+                "{pane}: × of {set} is at the right end, {} of {}",
+                cross.right(),
+                d.left + pane
+            );
+        }
+        // No set is drawn as a "name ×" button any more.
+        assert!(
+            !d.texts.iter().any(|(t, _)| t.ends_with(" \u{d7}")),
+            "{pane}: {:?}",
+            d.texts
+        );
+        // Each set's choice is just under its name: its Cut short is the
+        // first below the name and above the next set.
+        let mut names: Vec<(&str, egui::Rect)> = ["Rib", "Bead", "Lip", "Fence"]
+            .iter()
+            .map(|s| (*s, one(s)))
+            .collect();
+        names.sort_by(|a, b| a.1.top().total_cmp(&b.1.top()));
+        let cuts = all("Cut short");
+        assert_eq!(cuts.len(), 4, "{pane}: one choice per set: {:?}", d.texts);
+        for (i, (set, name)) in names.iter().enumerate() {
+            let next = names.get(i + 1).map_or(f32::INFINITY, |n| n.1.top());
+            assert!(
+                cuts.iter()
+                    .any(|c| c.top() > name.top() && c.top() < next && c.left() >= column - 0.5),
+                "{pane}: {set}'s choice is under it"
+            );
+        }
+        // Warn only's sampling note once, for Avoid's two sets on it.
+        let notes = d
+            .texts
+            .iter()
+            .filter(|(t, _)| t.starts_with("Warn only samples the path"))
+            .count();
+        assert_eq!(notes, 1, "{pane}: {:?}", d.texts);
+        // Nothing of the section starts left of the value column but the
+        // roles' names and the section's own lines.
+        for (t, r) in &d.texts {
+            if [
+                "Rib",
+                "Bead",
+                "Lip",
+                "Fence",
+                "Cut short",
+                "Warn only",
+                "Ignore",
+                "\u{d7}",
+            ]
+            .contains(&t.as_str())
+            {
+                assert!(
+                    r.left() >= column - 0.5,
+                    "{pane}: {t} at {} is left of {column}",
+                    r.left()
+                );
+            }
+        }
+        // A set on Ignore says nothing under it (the owner's change).
+        assert!(
+            !d.texts.iter().any(|(t, _)| t.contains("limits nothing")),
+            "{pane}: {:?}",
+            d.texts
+        );
+    }
+}
+
+/// Whether the text `text` is drawn struck through, in the pane right of
+/// `left`.
+fn struck(rig: &Rig, text: &str, left: f32) -> Option<bool> {
+    fn walk(shape: &egui::Shape, text: &str, left: f32) -> Option<bool> {
+        match shape {
+            egui::Shape::Text(t) if t.galley.text() == text && t.pos.x >= left => Some(
+                t.galley
+                    .job
+                    .sections
+                    .iter()
+                    .any(|s| s.format.strikethrough.width > 0.0),
+            ),
+            egui::Shape::Vec(shapes) => shapes.iter().find_map(|s| walk(s, text, left)),
+            _ => None,
+        }
+    }
+    rig.shapes.iter().find_map(|s| walk(&s.shape, text, left))
+}
+
+/// Decision UI-BUGS-C items 4 and 7: a set on Ignore is greyed and struck
+/// through, with no warning line; its tooltip, on hover and on keyboard
+/// focus, says "Ignored: this set limits nothing", and it gives its state
+/// in its accessible name. A set on another choice is not struck through.
+#[test]
+fn req_ui_07_req_op_21_a_set_on_ignore_is_struck_through_and_says_so_in_words() {
+    let (mut rig, d) = drawn_rig(several_sets, width::INSPECTOR.0, "geometry-ignored");
+    assert_eq!(struck(&rig, "Fence", d.left), Some(true));
+    for set in ["Rib", "Bead", "Lip"] {
+        assert_eq!(struck(&rig, set, d.left), Some(false), "{set}");
+    }
+    let tip = "Ignored: this set limits nothing";
+    assert!(!rig.shows(tip));
+    // On hover.
+    let fence = d.texts.iter().find(|(t, _)| t == "Fence").unwrap().1;
+    rig.frame(vec![egui::Event::PointerMoved(fence.center())]);
+    for _ in 0..60 {
+        rig.frame(Vec::new());
+    }
+    assert!(rig.shows(tip), "the tooltip shows on hover");
+    rig.frame(vec![egui::Event::PointerMoved(egui::pos2(10.0, 10.0))]);
+    for _ in 0..10 {
+        rig.frame(Vec::new());
+    }
+    // On keyboard focus, with its state in its accessible name: Tab from
+    // the first field of the inspector until the line has the keyboard.
+    let named = "Fence, ignored: this set limits nothing";
+    let mut reached = false;
+    for _ in 0..200 {
+        rig.press(egui::Key::Tab, egui::Modifiers::NONE);
+        if rig.events.iter().any(|e| {
+            matches!(e, egui::output::OutputEvent::FocusGained(info)
+                if info.label.as_deref() == Some(named))
+        }) {
+            reached = true;
+            break;
+        }
+    }
+    assert!(reached, "Tab reaches the ignored set's line, named {named}");
+    for _ in 0..60 {
+        rig.frame(Vec::new());
+    }
+    assert!(rig.shows(tip), "the tooltip shows on keyboard focus");
 }

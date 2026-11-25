@@ -93,7 +93,7 @@ Avoid
 Check
 : The tool must not touch these surfaces.
 
-For each set in **Avoid** or **Check**, the strategies that take selections (rotary roughing, helical, axial, indexed, simultaneous and face flow finishing, and swarf) offer three choices:
+Each set in a role has a line of its own under the role, with its colour, its name and **×** to take it out of the role; **Add a set…** on the role's line puts another set in it. For each set in **Avoid** or **Check**, the strategies that take selections (rotary roughing, helical, axial, indexed, simultaneous and face flow finishing, and swarf) offer three choices, just under the set's name:
 
 Cut short
 : Where the tool would break the set, the pass stops short of it and starts again after it. In rotary roughing, on a Check set, the tool is instead lifted to stay the stock to leave above the set, and the material over it is still roughed. In swarf, the tool is first lifted up the face it cuts by the least that keeps it off the set, leaving a strip of that width uncut.
@@ -102,7 +102,7 @@ Warn only
 : The path is kept where the tool would break the set: the tool is not kept clear of it. A warning says how far along the path it breaks the set. On a **Check** set it is a warning to acknowledge, since a check set often stands for a clamp. It samples the path and can miss a narrow set, so no warning does not show that the tool is clear.
 
 Ignore
-: The set limits nothing, and the operation warns that it limits nothing.
+: The set limits nothing. Its name is greyed and struck through in the Geometry section, and when the operation is generated, Results says so in a note.
 
 Swarf also has two choices for a set in **Contain within**: **Limits the pass** (cut only the rulings that lie wholly inside the boundary) and **Limits the tip** (raise the tool tip so the bottom of the flank stops where a ruling enters the boundary).
 
