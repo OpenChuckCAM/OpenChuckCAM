@@ -995,6 +995,7 @@ pub fn choice_row(
                         &[options, &[shown]].concat(),
                         ui.available_width(),
                     ))
+                    .truncate()
                     .show_ui(ui, |ui| {
                         for (i, option) in options.iter().enumerate() {
                             if ui.selectable_label(current == Some(i), *option).clicked()

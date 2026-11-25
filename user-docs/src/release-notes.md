@@ -78,7 +78,7 @@ The open bugs at this release, most serious first in each group. The number is t
 **Wording and display**
 
 - After a refused **Generate**, Results still shows the previous run under the new error (#766). Hiding a path asks you to generate again, which you need not do (#607).
-- Rest machining: raw words in **Pass order** (#613). Face flow and swarf: the hint says an empty **Cut on** cuts the whole part, but both refuse (#614); face flow shows two pass counts that seem to disagree (#631). "1 faces" and similar wording (#615).
+- Face flow and swarf: the hint says an empty **Cut on** cuts the whole part, but both refuse (#614); face flow shows two pass counts that seem to disagree (#631). "1 faces" and similar wording (#615).
 - The **Geometry** section is crowded with several selection sets (#759). A deleted project's recovery warning cannot be dismissed (#681).
 - `openchuck-cli` does not print the reminder to verify the G-code when it refuses for a missing acknowledgement; nothing is written (#645).
 
@@ -91,6 +91,7 @@ Generated G-code must be verified by you before it is run on a machine. OpenChuc
 The *latest* version of this guide describes the nightly build, the [development build](start/install.md#download-a-development-build) made each night from the main branch. Its limits are on [Known limitations](start/limitations.md). The changes below are those since the last release; the page of the [`nightly` pre-release](https://github.com/OpenChuckCAM/OpenChuckCAM/releases/tag/nightly) lists the same, and when a release is made they move into its own section.
 
 - **Keyboard.** A window that opens takes the keyboard and the first <kbd>Tab</kbd> goes into it, <kbd>Tab</kbd> follows reading order and scrolls the control it reaches into view, <kbd>Esc</kbd> closes a tool window, <kbd>1</kbd>, <kbd>3</kbd>, <kbd>7</kbd> and <kbd>0</kbd> turn the view, tooltips open on keyboard focus (including why a step is not available yet), letter keys work while a button has focus, **Help > Keyboard shortcuts** lists every key, **Project > Add setup** and **Edit > Delete** for a selection set are in the menus, and **Add** in **New operation** is the filled button at the bottom right (#577, #578, #580, #581). See [Keyboard and shortcuts](reference/keyboard.md).
+- **Names for every choice.** Every choice in an operation's settings is shown with a plain name, for example **By region** and **After main passes** for **Pass order**, **Zig-zag** and **Climb** for **Direction**, and **Safe cylinder** and **Safe Z** for **Retract**, and not the short word a project file stores. Project files and saved settings are unchanged. See [Operations and strategies](reference/operations.md) (#613).
 - **What has changed.** The page of the `nightly` pre-release now lists what has changed since the last release, as this section does. See [Install and first run](start/install.md#download-a-development-build).
 - **Tool sizes.** A tool larger than any real cutter (a diameter above 2000 mm, a length above 1000 mm, or a custom profile point more than 1000 mm from the tip) is refused with a message naming the size, instead of being accepted.
 - **Post templates.** A `namespace` key in a post template must be a name, and a template that stores a namespace inside itself no longer leaks memory.

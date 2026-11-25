@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased (WORDING-DOCS; issue #613)
+
+- **Added:** `form::choice_label(setting, stored_word)`, the plain name the inspector shows for each choice of every built-in strategy; a test fails if a strategy has a choice with no name. The inspector uses it. No stored value changes.
+
 ## 0.63.0 (FACEFLOW; issues #791, #631, #614, #615 and #854; decisions 0675, 0676 and 0686, accepted)
 
 - **Changed:** a new face-flow finishing operation is written with Stay down between passes on, Pattern Automatic, Steps between rings Blended (decision 0545's rule, now reaching face flow) and a Shortest cut of its tool's diameter. An operation saved without them keeps its program.
