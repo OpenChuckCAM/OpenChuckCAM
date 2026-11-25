@@ -2208,7 +2208,7 @@ fn keep_out_of(
 
 /// The largest radius of `tool`, its cutting profile or its shank: how far
 /// its middle keeps from a held region (decision 0161).
-fn tool_reach(
+pub(crate) fn tool_reach(
     profile: &openchuck_types::tool::profile::RevolvedProfile,
     tool: &openchuck_types::tool::Tool,
 ) -> f64 {

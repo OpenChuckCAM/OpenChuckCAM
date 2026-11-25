@@ -285,28 +285,22 @@ fn req_ui_14_req_ui_07_picker_can_be_opened_and_chosen_with_the_keyboard() {
     );
 }
 
+/// The dialog's own Cancel drops the typed name without the Unconfirmed
+/// changes question (issue #871, the owner's answer A; decision 0246 for
+/// every dialog): nothing typed in the dialog reaches the project.
 #[test]
-fn req_ui_07_req_ui_08_picker_departure_keeps_the_shared_pending_edit_guard() {
-    for answer in ["Keep", "Discard", "Cancel"] {
-        let mut rig = open(&format!("picker-close-{answer}"));
-        let before = rig.shell.app.as_ref().unwrap().project().clone();
-        click(&mut rig, "Operation 2");
-        rig.press(Key::A, Modifiers::COMMAND);
-        rig.frame(vec![egui::Event::Text("Unconfirmed operation".into())]);
-        assert!(!crate::pending_edits::entries(&rig.ctx).is_empty());
-        click(&mut rig, "Cancel");
-        assert!(rig.shows("Unconfirmed changes"));
-        click(&mut rig, answer);
-        assert_eq!(rig.shell.app.as_ref().unwrap().project(), &before);
-        assert_eq!(rig.shell.run.is_adding(), answer == "Cancel");
-        if answer == "Cancel" {
-            assert!(
-                rig.ctx.egui_wants_keyboard_input(),
-                "cancel restores field focus"
-            );
-            assert!(rig.shows("Unconfirmed operation"));
-        }
-    }
+fn req_ui_07_req_ui_08_picker_cancel_drops_the_typed_name_without_asking() {
+    let mut rig = open("picker-close");
+    let before = rig.shell.app.as_ref().unwrap().project().clone();
+    click(&mut rig, "Operation 2");
+    rig.press(Key::A, Modifiers::COMMAND);
+    rig.frame(vec![egui::Event::Text("Unconfirmed operation".into())]);
+    assert!(!crate::pending_edits::entries(&rig.ctx).is_empty());
+    click(&mut rig, "Cancel");
+    assert!(!rig.shows("Unconfirmed changes"));
+    assert!(!rig.shell.run.is_adding());
+    assert_eq!(rig.shell.app.as_ref().unwrap().project(), &before);
+    assert!(crate::pending_edits::entries(&rig.ctx).is_empty());
 }
 
 #[test]
@@ -383,26 +377,25 @@ fn req_ui_07_req_ui_08_strategy_choice_confirms_a_name_in_the_same_creation_form
     assert_eq!(operation.strategy, "helical_finishing");
 }
 
+/// "From the library…" is one of the dialog's own controls: it takes the
+/// typed name, as moving to another field does, and opens the library
+/// without the Unconfirmed changes question; the creation draft keeps the
+/// name (issue #871, the owner's answer A).
 #[test]
-fn req_ui_07_req_tl_01_creation_library_handoff_resolves_the_name_first() {
-    for answer in ["Keep", "Discard", "Cancel"] {
-        let mut rig = open(&format!("picker-library-{answer}"));
-        click(&mut rig, "Operation 2");
-        rig.press(Key::A, Modifiers::COMMAND);
-        rig.frame(vec![egui::Event::Text("Draft operation".into())]);
-        click(&mut rig, "From the library…");
-        assert!(rig.shows("Unconfirmed changes"));
-        assert!(!rig.shell.tool_library.is_open());
-        click(&mut rig, answer);
-        assert_eq!(rig.shell.tool_library.is_open(), answer != "Cancel");
-        assert!(
-            rig.shell.run.is_adding(),
-            "the creation draft survives the library handoff"
-        );
-        if answer == "Cancel" {
-            assert!(rig.ctx.egui_wants_keyboard_input());
-        }
-    }
+fn req_ui_07_req_tl_01_creation_library_handoff_keeps_the_name_without_asking() {
+    let mut rig = open("picker-library");
+    click(&mut rig, "Operation 2");
+    rig.press(Key::A, Modifiers::COMMAND);
+    rig.frame(vec![egui::Event::Text("Draft operation".into())]);
+    click(&mut rig, "From the library…");
+    assert!(!rig.shows("Unconfirmed changes"));
+    assert!(rig.shell.tool_library.is_open());
+    assert!(
+        rig.shell.run.is_adding(),
+        "the creation draft survives the library handoff"
+    );
+    assert!(crate::pending_edits::entries(&rig.ctx).is_empty());
+    assert!(rig.shows("Draft operation"), "the name is kept");
 }
 
 #[test]

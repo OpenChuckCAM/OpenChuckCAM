@@ -117,7 +117,8 @@ fn entry_spans(lines: &[&str], start: usize, end: usize) -> Vec<(usize, usize)> 
         i += 1;
         let mut last = i;
         while i < end {
-            if is_bullet(line(i)) || opens_comment(line(i)) {
+            // Only an unindented comment ends the entry: an indented one is part of it.
+            if is_bullet(line(i)) || line(i).starts_with("<!--") {
                 break;
             }
             if is_blank(line(i)) {
