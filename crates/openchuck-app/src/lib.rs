@@ -506,6 +506,26 @@ impl Application {
             })
     }
 
+    /// The default tabs of `setup` end by end: those to add, and for each end
+    /// without one why (issue 676). Refused when neither end can have one.
+    /// The setup is not changed. Reads and places the part, so it runs as a
+    /// job.
+    pub fn start_default_tabs_report(
+        &self,
+        setup: openchuck_project::id::SetupId,
+    ) -> JobHandle<workholding::DefaultTabsReport> {
+        let document = self.document.clone();
+        self.jobs
+            .submit("default tabs", self.events_tx.clone(), move |context| {
+                workholding::default_tabs_report_of(
+                    &document.location,
+                    &document.project,
+                    setup,
+                    context,
+                )
+            })
+    }
+
     /// What the workholding section needs from the placed part of `setup`:
     /// its extent and the default tab of each zone for the stored held regions
     /// (interface specification 11.7; decision record 0114, OI-334 c, d and

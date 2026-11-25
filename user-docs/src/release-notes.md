@@ -68,7 +68,7 @@ The open bugs at this release, most serious first in each group. The number is t
 
 - A setup can be refused with "the start of the stock is at machine X ..., outside the travel" while the stock looks inside the machine. On the Makera Z1, model X 0 is the headstock face, so stock starting at a negative X lies behind it: set **Offset along X** and **Zero at X** so the stock starts past your chuck (#820).
 - The machine section says a copy differs in "axis height" when it differs in the rotary reference point (#824).
-- The held-region warning understates the uncut zone by 0.5 mm (#774); the head zone line is out of date until you press **Apply** (#767); `openchuck-cli setup --default-tabs` refuses when only one end can have a tab, so add tabs in the window (#676).
+- The held-region warning understates the uncut zone by 0.5 mm (#774); the head zone line is out of date until you press **Apply** (#767).
 
 **Keyboard and accessibility**
 
@@ -92,6 +92,7 @@ The *latest* version of this guide describes the nightly build, the [development
 
 - **Keyboard.** A window that opens takes the keyboard and the first <kbd>Tab</kbd> goes into it, <kbd>Tab</kbd> follows reading order and scrolls the control it reaches into view, <kbd>Esc</kbd> closes a tool window, <kbd>1</kbd>, <kbd>3</kbd>, <kbd>7</kbd> and <kbd>0</kbd> turn the view, tooltips open on keyboard focus (including why a step is not available yet), letter keys work while a button has focus, **Help > Keyboard shortcuts** lists every key, **Project > Add setup** and **Edit > Delete** for a selection set are in the menus, and **Add** in **New operation** is the filled button at the bottom right (#577, #578, #580, #581). See [Keyboard and shortcuts](reference/keyboard.md).
 - **Names for every choice.** Every choice in an operation's settings is shown with a plain name, for example **By region** and **After main passes** for **Pass order**, **Zig-zag** and **Climb** for **Direction**, and **Safe cylinder** and **Safe Z** for **Retract**, and not the short word a project file stores. Project files and saved settings are unchanged. See [Operations and strategies](reference/operations.md) (#613).
+- **Default tabs from the command line.** `openchuck-cli setup --default-tabs` now adds the default tab for each end that can have one, says where it put each, and prints a warning naming an end that cannot have one and why, so you add that one by hand. Before, it refused the whole command when one end had none. It still refuses, naming both ends, when neither end can have one (#676). See [Command line](reference/command-line.md).
 - **What has changed.** The page of the `nightly` pre-release now lists what has changed since the last release, as this section does. See [Install and first run](start/install.md#download-a-development-build).
 - **Tool sizes.** A tool larger than any real cutter (a diameter above 2000 mm, a length above 1000 mm, or a custom profile point more than 1000 mm from the tip) is refused with a message naming the size, instead of being accepted.
 - **Post templates.** A `namespace` key in a post template must be a name, and a template that stores a namespace inside itself no longer leaks memory.
