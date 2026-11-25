@@ -1,6 +1,6 @@
 # PATH-QUALITY-1: Simultaneous finishing over sharp edges, a true point at a finial, one rule for ramp entries, and ramps on STEP parts (OP-05, OP-06, OP-11, OP-12, OP-20, OP-21, NFR-07, NFR-12, GC-07; issues #710, #779, #786, #421, #844, #826; lane PATH-QUALITY)
 
-- **Status:** Accepted by the project owner on 25 Nov 2026, relayed by the coordinator (decision 0049), at head `23d3117` of pull request #913, with the answers below (OI-9991, closed). Proposed by lane PATH-QUALITY on 25 Nov 2026 (phase 1, planning only; no code is built until the owner answers). Only the project owner accepts this record (decision 0049). The questions are Q1 to Q7 below, each with options, a recommendation and what follows "if you answer as recommended". **Q1 answered (25 Nov 2026, the owner's answer relayed by the coordinator): option C**, the general continuous seed and a clearance test of the whole tool, taken into its own lane, SIMUL-EDGE; #710 leaves this lane's scope. **Q3 answered (25 Nov 2026, relayed): option A**, with the owner's design requirement that a ramp is there to manage the tool's load (*Q3: the owner's answer and the tool-load requirement* below). **Q4 answered (25 Nov 2026, relayed): option A**, with the tool-load point applied to its defaults. **Q2 answered (25 Nov 2026, relayed): (a) A, (b) A, (c) B**: the adaptive stepover over the tip is built now, with Finish to a point (not this lane's recommendation, A). **Q6 answered (25 Nov 2026, relayed): option A.** **Q5 answered (25 Nov 2026, relayed): #844 taken into its own lane, TOOL-LOAD**, in this milestone (neither A nor B as written). **Q7 answered (25 Nov 2026, relayed): option A**; the coordinator closed #421 with a comment naming decision 0543 D7 and D10 and PQ-2. **All seven questions are answered, and the record is accepted (25 Nov 2026, relayed; OI-9991 closed).**
+- **Status:** Accepted by the project owner on 25 Nov 2026, relayed by the coordinator (decision 0049), at head `23d3117` of pull request #913, with the answers below (OI-9991, closed). Proposed by lane PATH-QUALITY on 25 Nov 2026 (phase 1, planning only; no code is built until the owner answers). Only the project owner accepts this record (decision 0049). The questions are Q1 to Q7 below, each with options, a recommendation and what follows "if you answer as recommended". **Q1 answered (25 Nov 2026, the owner's answer relayed by the coordinator): option C**, the general continuous seed and a clearance test of the whole tool, taken into its own lane, SIMUL-EDGE; #710 leaves this lane's scope. **Q3 answered (25 Nov 2026, relayed): option A**, with the owner's design requirement that a ramp is there to manage the tool's load (*Q3: the owner's answer and the tool-load requirement* below). **Q4 answered (25 Nov 2026, relayed): option A**, with the tool-load point applied to its defaults. **Q2 answered (25 Nov 2026, relayed): (a) A, (b) A, (c) B**: the adaptive stepover over the tip is built now, with Finish to a point (not this lane's recommendation, A). **Q6 answered (25 Nov 2026, relayed): option A.** **Q5 answered (25 Nov 2026, relayed): #844 taken into its own lane, TOOL-LOAD**, in this milestone (neither A nor B as written). **Q7 answered (25 Nov 2026, relayed): option A**; the coordinator closed #421 with a comment naming decision 0543 D7 and D10 and PQ-2. **All seven questions are answered, and the record is accepted (25 Nov 2026, relayed; OI-9991 closed).** **Addendum (25 Nov 2026):** two later questions, Q8 (the tool-radius bound on every ramp: the owner answered A, to be built once the measured impact is seen, OI-9990) and Q9 (the settings that configure a ramp: open for the owner, OI-9999).
 - **Date:** 25 Nov 2026.
 - **Issues:** #710 (simultaneous finishing on the blisk: sharp edges and walls facing along the axis; OI-318, OI-337), #779 (a true point at a finial; an adaptive stepover for such curves), #786 (ramping across every strategy), #421 (ramps on STEP parts and a plunge into single-point passes; OI-1270, OI-1271), and the fold-in checks of #844 (a tool engaged along its whole length) and #826's OI-2198 (adaptive spacing on the stepped cylinder with a flat end).
 - **Requirements:** OP-05, OP-06, OP-20 (simultaneous finishing, tool axis, hidden surfaces), OP-11 (ramping), OP-12 (gouge protection), OP-14 (linking), OP-21 (tabs), SET-09 (held regions), NFR-07, NFR-12, GC-07 and NFR-06 (determinism).
@@ -231,6 +231,115 @@ Sub-question (c), the adaptive stepover over the tip (your idea 2):
 
 **The owner's answer (25 Nov 2026, relayed by the coordinator): A.** The coordinator closed #421 with a comment naming decision 0543 D7 and D10 and PQ-2.
 
+## Addendum (25 Nov 2026): the tool-radius bound on every ramp, and the ramp settings
+
+Two questions came to the owner after PQ-2 opened (#930). They are relayed by the coordinator, and no code changes before the owner answers.
+
+### Q8: the depth per traverse on lines and partial rings
+
+PQ-2 bounds the depth per traverse only on passes that start as a spiral, as Q3 point 2 says. On a line or a partial ring the legs are as long as the path allows. On the public crankshaft's helical finish with the steeper ramp, one line pass therefore steps 3.068 mm per traverse, against a tool radius of 1.59 mm.
+
+**The owner's answer (25 Nov 2026, relayed): A.** The tool-radius bound applies to every back-and-forth ramp: a leg is at most `R / (2 · tan θ)`, so the depth per traverse is never more than the tool radius. **Measure the impact first.** The numbers are below, and the change is built in PQ-2 (#930) only once the owner has seen them (OI-9990).
+
+**Measured (25 Nov 2026).** The change was made in a throwaway worktree of PQ-2's head `8db9f4cd`, on a Linux container with release builds: on a line or partial ring the longest leg becomes `0.5 · R / tan θ` in place of no bound. Nothing was committed.
+
+- **Tests and goldens:** all tests pass, and no golden or stored program changes.
+  - `openchuck-path`: 135 unit, 878 integration and 1 doc test.
+  - `openchuck-app`: 293 unit and 618 integration tests, including the golden audit, the reference jobs and the ramp and lead examples, with the two STEP ramp tests run with the kernel.
+  - None of the 49 goldens or the reference projects uses Entry Ramp.
+- **Shipped examples:** none uses Entry Ramp, so no example's program changes.
+
+  For a sense of scale, the public baluster was also run with Ramp forced on, as the `ramp_example` test sets it up. Only Rough changes:
+  - **Rings at 3°:** 7 of its 49 line and arc ramps change, with 18 more legs. The ramp grows from 3698.7 to 3819.5 mm, which adds 35.0 s, and the program grows from 4448.0 to 4483.1 s (+0.8%). The deepest depth per traverse on these ramps falls from 4.127 to 1.587 mm.
+  - **Rings at 6°:** the program grows by 16.7 s (+0.4%).
+  - **Helix:** unchanged.
+  - **Overcut:** unchanged.
+- **The OI-9993 cases.** Four are unchanged: blisk face flow, blisk pencil, blisk simultaneous on face 20 and crankshaft simultaneous. Their ramps already keep within the radius. Two change:
+
+  | Case | Ramps changed | Deepest depth per traverse | Program time | Deepest overcut |
+  | --- | --- | --- | --- | --- |
+  | Blisk simultaneous, face 19 (ball R 1.5) | 3 of 24 arcs | 2.617 → 1.500 mm (pass 130) | 16239.2 → 16289.0 s (+0.3%) | 0.0485 mm, the same |
+  | Crankshaft helical, steeper ramp (ball R 1.5875) | 4 of 12 arcs | **3.068 → 1.587 mm** (pass 1302) | 192617.8 → 192577.9 s (−0.02%) | 0.0455 mm, the same |
+
+  - **The crankshaft's pass 1302** is a partial ring at a shoulder. It goes from 12 legs of 29.27 mm to 20 legs of 15.15 mm, and its ramp shortens from 351.2 to 302.9 mm of tip travel, because the old legs ran the whole pass and the count was rounded up.
+  - **Cut section** at the deepest leg end. This is an estimate, from the ball's engaged cross-section, because the simulation reports removal per operation, not per move:
+    - crankshaft pass 1302: about 8.7 → 4.0 mm²;
+    - blisk face 19 pass 130: about 6.9 → 3.5 mm²;
+    - the baluster's forced rough (flat end, depth × diameter): about 13.1 → 5.0 mm².
+  - **Material removed:** the same per operation in every case.
+- **Refusals and plunges:** no operation now refuses (too many legs or moves), and none newly falls back to a plunge.
+- **Raw output:** the logs and helper scripts were kept only in the session's scratch space. They were noise for the archive and were not committed.
+
+**One thing Q8 does not cover.** A whole ring still ramps round itself (Q3), and each turn takes `2πr · tan θ`, which grows with the radius. On the baluster's forced rough at 6°, a ring ramp reaches a depth per traverse of 4.700 mm against the 1.5875 mm radius, and Q8's bound does not touch it. Bounding it the same way would mean ramping a large ring back and forth, or limiting the angle by the radius. That is left to Q9's answer (OI-9999) rather than built silently.
+
+### Q9: the settings that configure a ramp
+
+The owner asks whether the settings that configure ramping should change, now that a ramp is there to manage the tool's load (Q3).
+
+#### Today's settings
+
+These are the settings in the Entry, links and retract section that act on an entry. They are all stored in the operation's parameter map (decisions 0390, 0543 and 0545).
+
+| Setting | Default | What it controls | Its effect on the tool's load |
+| --- | --- | --- | --- |
+| **Entry** | Plunge | How the tool enters a pass: Plunge, Lead, Ramp or Helix | Plunge takes the whole descent in one move on the tool's end, the heaviest load. Ramp and Helix spread it over a length. Lead enters from the side at the pass's depth. |
+| **Ramp angle** | 3° | The slope of a ramp or helix along the tip's real path | Sets the depth taken per mm of travel (`tan θ`), and so the cut section at the start of each leg. It is the same value for Ramp and Helix. |
+| **Plunge feed** | from the tool | The feed of every plunge, ramp and helix | A steeper ramp at the same feed loads the tool more. There is no separate ramp feed. |
+| **Allow single-point plunge** | off (on for new operations after PQ-2) | Plunges a pass that has no room for a ramp: a single point, a stretch shorter than the shortest ramp, or a ring or spiral needing more than 10 turns even at the Maximum ramp angle | Turns a refusal into the heaviest entry, a straight plunge of the whole descent. PQ-2's note names each plunge with its depth. |
+| **Steeper ramp near the axis** | off (on for new operations after PQ-2) | Raises the angle of a ring or spiral ramp that would need more than 10 turns, just enough to fit in 10 | Raises the depth per mm near the axis, where the tool is close to the centre and the path is short. |
+| **Maximum ramp angle** | 15° | The steepest angle the steeper ramp may use | The upper limit of that exception. |
+| **Plunge to remove face nubs** and **Face nub diameter** | off, and the tool's diameter | Roughing in rings only: plunges at the axis to remove a nub instead of ramping round ever smaller rings | Another plunge, under its own setting. |
+| **Helix diameter** | 0.75 of the tool | The circle of a helix entry | The smaller the circle, the closer the helix comes to a plunge. |
+| **Lead radius** | the tool's radius | The arcs of a lead entry | Does not change the depth. |
+| **Back-and-forth ramp** | off | Nothing since decision 0543 | Nothing. It is shown only where a saved operation has it on, marked inactive. |
+
+The program also holds fixed bounds that no setting shows:
+- at most 10 turns, or 10 turns' length, for a ring or spiral ramp;
+- a shortest ramp of ten path tolerances, never more than the tool radius;
+- legs at least the tool radius where the path allows it;
+- after PQ-2, a depth per traverse of at most the tool radius (and, with Q8 A, on every ramp).
+
+#### Where they confuse or conflict
+
+1. **The angle is the only load setting, and it is indirect.** The same 3° gives a different cut section with a different tool or a different leg length. The depth per traverse, the figure the owner named in Q3, has no setting: the program fixes it at the tool radius.
+2. **Three settings make a plunge, under three names.** Entry Plunge, Allow single-point plunge and Plunge to remove face nubs each plunge in different places. "Single-point" no longer describes what the setting covers, since PQ-2 added a short stretch and a ring with too many turns.
+3. **Two settings for one exception that goes against the load goal.** Steeper ramp near the axis and Maximum ramp angle make the ramp steeper, which is more load per mm, so as to avoid either a plunge or a refusal. That trade only makes sense in comparison with a plunge, but the settings do not say so.
+4. **One angle for Ramp and Helix.** A helix's depth per turn is `π · d_helix · tan θ`, so the same angle loads the tool differently on a helix than on a back-and-forth ramp.
+5. **The overlap with lane TOOL-LOAD.** TOOL-LOAD-1 (#927) proposes **Limit tool load**: a cut-section limit for the cutting moves, measured in the simulation. Its Q6 A measures entry moves like any other and names the Ramp angle setting when the heaviest stretch is in an entry. A second load setting on the ramp would give the user two limits for one tool.
+
+#### Options
+
+- **A. Keep the angle-based settings, and make them clearer (recommended).**
+  - Group the settings: a basic group (Entry, Ramp angle, and "Plunge where no ramp fits", the new label of Allow single-point plunge), and an Advanced group (Steeper ramp near the axis, Maximum ramp angle, Plunge to remove face nubs, Face nub diameter, Helix diameter, Lead radius).
+  - Each tooltip says what the setting does to the load in TOOL-LOAD's terms (Ramp angle, Depth per traverse, Cut section).
+  - The fixed bounds are stated in the guide, and PQ-2's note shows the figures for each operation.
+  - The labels change but the parameter names do not, so saved projects open unchanged and keep their programs. There is no schema change and no change to a golden.
+  - About 1 day, in PQ-2 (#930) or straight after it. Low risk.
+- **B. A, and a Depth per traverse setting.** "Largest depth per traverse", in mm, with a default of the tool radius (0 means the tool radius):
+  - the ramp shortens its legs to keep within it;
+  - the steeper ramp may raise the angle only while it keeps within it;
+  - a plunge is named with its depth against it.
+
+  The setting goes in the parameter map, so there is no schema number. A saved operation reads the default, so its program changes only where Q8 A already changes it. About 2 days more, with tests. Low to medium risk. It gives the owner's Q3 figure a setting of its own. Its good value will almost always be the default, though, and it is one more number for the user.
+- **C. Configure by a load target, and let the angle follow.** The ramp takes its angle from a cut-section limit, TOOL-LOAD's Limit tool load, and the stock it enters. That needs the depth of the stock over the tool before the pass, which is TOOL-LOAD's TL-2 `StockModel` query. It would duplicate or depend on TL-2, which follows lane SIMUL-EDGE. Several weeks of work, medium to high risk, and not buildable before TL-2.
+- **D. A simple preset, with the settings behind it.** Entry "Ramp: Gentle, Normal or Steep" sets the angle and the maximum. The settings stay in Advanced. It could be added to A or B later. On its own it hides the figures the owner wants to see.
+
+*If you answer as recommended (A):* PQ-2 relabels and regroups the entry settings and rewrites their tooltips in TOOL-LOAD's terms. The guide's Entry page lists the fixed bounds. Nothing is stored differently. The load limit stays a single setting, TOOL-LOAD's Limit tool load. When TL-2 is built, it can decide whether Limit tool load also caps the ramp's cut section in deep stock. Option B stays open if the owner wants the depth per traverse as a setting of its own. The large-ring depth per traverse (above) is part of this question: under A it is reported in the note and measured by TOOL-LOAD's TL-1; under B it would be held to the setting by ramping such a ring back and forth.
+
+**What belongs where.** These belong in PQ-2:
+- the ramp's geometry and its figures, known before cutting: Ramp angle, legs, Depth per traverse;
+- the bound of Q8;
+- the labels, the grouping and the note.
+
+These belong in TOOL-LOAD:
+- the cut section, measured in the simulation on the real stock, ramps included (its Q6 A);
+- the limit and the warning;
+- Limit tool load, and any rule that ties the ramp's angle to the stock (option C).
+
+Neither lane adds a second load limit.
+
+**Saved projects, under every option.** A saved operation keeps its settings. The labels and grouping (A) change no program. Q8 A changes the program of a saved operation with Entry Ramp on a line or partial ring whose legs are longer than `R / (2 · tan θ)`; the measurement above lists those that change. B adds no change beyond Q8. C would change programs only through TL-2's own rule for saved operations (TOOL-LOAD-1 Q7).
+
 ## Effort, risk and how the work would be split
 
 | Pull request | Issue, answer | Effort | Risk | Golden changes | `openchuck-path` API | Can go alone |
@@ -270,6 +379,11 @@ Added (provisional numbers):
 - **OI-9995:** spurious off-axis zones in four 0.05 mm strips on the STEP blisk (decision 0363 item 3). Not in this lane's scope.
 - **OI-9996:** the build of Q1 C, the owner's answer: the general continuous seed (OI-337 item 1) and a clearance test of the whole tool at every test point, in lane SIMUL-EDGE.
 - **OI-9997:** adaptive spacing over the path past a pointed end (#779's idea 2). The owner chose to build it now (Q2 (c) B, 25 Nov 2026, relayed): in PQ-3, after PQ-4, within the time budget of Q2.
+
+Added by the addendum (provisional numbers):
+
+- **OI-9990:** build Q8 A in PQ-2 (#930): the tool-radius bound on the depth per traverse of every back-and-forth ramp, once the owner has seen the measured impact.
+- **OI-9999:** the owner's answer to Q9, the settings that configure a ramp (A, B, C or D), including whether a whole ring's depth per traverse is bounded too.
 
 Updated in place: OI-318 and OI-337 (the blisk now generates and cuts its blade tips; this record), OI-2198 (the causes found).
 
