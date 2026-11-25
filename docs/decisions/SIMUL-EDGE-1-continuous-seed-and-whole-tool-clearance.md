@@ -1,13 +1,13 @@
 # SIMUL-EDGE-1: Simultaneous finishing that never cuts into a sharp edge: a continuous seed and a gap test of the whole tool (OP-05, OP-06, OP-12, OP-14, OP-20, NFR-04, NFR-06, NFR-07, NFR-12, GC-07; issues #914, #710; lane SIMUL-EDGE)
 
-- **Status:** Proposed by lane SIMUL-EDGE on 25 Nov 2026 (phase 1, planning only). **The owner answered all seven questions on 25 Nov 2026, each as recommended (A), with three additions** (relayed by the coordinator session, decision 0049; see *The owner's answers* below). The record is updated to the answers and awaits the owner's acceptance; only the project owner accepts it. No code is built before acceptance.
+- **Status:** Accepted by the project owner on 25 Nov 2026, relayed by the coordinator (decision 0049). Proposed by lane SIMUL-EDGE on 25 Nov 2026; the owner answered all seven questions the same day, each as recommended (A), with three additions (see *The owner's answers* below), and accepted the record as updated to them, including the name *tool gap* (`SurfaceSource::tool_gap`, `ToolGap`).
 - **Date:** 25 Nov 2026.
 - **Starts from:** the owner's answer to Q1 of the proposed record [PATH-QUALITY-1](https://github.com/openchuckcam/openchuckcam/blob/docs/decision-PATH-QUALITY-1-finishing-and-ramps/docs/decisions/PATH-QUALITY-1-finishing-edges-points-and-ramps.md) (draft pull request #913, on branch `docs/decision-PATH-QUALITY-1-finishing-and-ramps`), relayed by the coordinator on 25 Nov 2026: **option C, in its own lane** (this one). Option C is the general continuous seed of OI-337 item 1, and a clearance test of the whole tool at every test point, so that simultaneous finishing never cuts into the part, instead of only catching the cut (option A) or only rolling round edges (option B).
 - **Issues:** #914 (simultaneous finishing cuts the public blisk's blade tips; sev2), #710 (simultaneous finishing over sharp edges and walls facing along the axis). Open items OI-318 and OI-337 (`main`); OI-9992 and OI-9996 (provisional, on PATH-QUALITY-1's unmerged branch), which this lane's work takes up.
 - **Requirements:** OP-12 (gouge protection; P1), OP-05 and OP-06 (simultaneous finishing and its tool axis), OP-20 (hidden surfaces), OP-14 (linking round a break), NFR-04 (multiple cores, the UI never blocked), NFR-06 and GC-07 (determinism at any thread count), NFR-07 (clear messages, never a crash), NFR-12 (the user verifies the program).
 - **Builds on:** accepted [decision 0255](0255-bounded-tool-contact-checker.md) (the convex-tool argument behind a bounded tool-to-surface distance, and the independent checker `openchuck_testkit::contact`), [0363](0363-simultaneous-finishing-off-axis-sections-walls-and-held-ends.md) item 2 (the wall move, the narrow seed fix), [0133](0133-simultaneous-fitter-tests-the-quarter-points.md) and [0113](0113-toolpath-choices-rounding-cannot-flip.md) (the move test), [0368](0368-simultaneous-finishing-of-hidden-surfaces.md) (hidden surfaces, and breaks where the shank meets the part), [0515](0515-unreachable-areas-in-the-viewport.md) (unreached areas on the part), [0048](0048-pre-1-0-api-changes.md) (a breaking library change bumps the workspace minor version) and [0545](0545-blended-steps-between-rings.md) D3 (when saved operations keep their programs).
 - **Would amend, if answered as recommended:** decision 0363 item 2's narrow seed (the flat bottom's blend from centre to corner is replaced by Q1's seed), and decision 0133's move test (its quarter points become Q3's proven test). Decision 0545 D3's rule that saved operations keep their programs is not applied here (Q5), with the reason given.
-- **Open items:** adds OI-9971 to OI-9973 (provisional; listed under *Open items* below). Depends on no open item. OI-318 and OI-337 are updated when this record is accepted, not now, because PATH-QUALITY-1's unmerged branch edits the same rows (decision 0130: a row two branches edit is kept twice).
+- **Open items:** adds OI-9971 to OI-9973 (provisional; listed under *Open items* below). Depends on no open item. OI-318 and OI-337 are updated in the first build pull request that lands after PATH-QUALITY-1's branch merges, not in this record, because PATH-QUALITY-1's unmerged branch edits the same rows (decision 0130: a row two branches edit is kept twice).
 
 Numbering: provisional. The record carries the lane's name, and the open items OI-9971 to OI-9973 were free on `main` (`aadf3cc8`) and on every fetched branch on 25 Nov 2026 (the branches use OI-9931 to OI-9934, OI-9941 and OI-9942, OI-9951 to OI-9954, OI-9961 to OI-9966, OI-9981 to OI-9985 and OI-9991 to OI-9997). The coordinator assigns the real numbers, and the library version, at release in merge order. No project schema number is needed: nothing stored changes under the recommended answers (Q5 B would store a parameter in the operation's free map, as decision 0545 did). No spike.
 
@@ -201,11 +201,11 @@ The options not recommended under each question are the alternatives, with their
 
 Added (provisional numbers):
 
-- **OI-9971:** the owner's answers to Q1 to Q7 of this record (given 25 Nov 2026: all A, with three additions) and its acceptance (pending).
+- **OI-9971:** the owner's answers to Q1 to Q7 of this record and its acceptance: closed 25 Nov 2026 (all A, with three additions; accepted).
 - **OI-9972:** simultaneous finishing never cuts into a sharp edge: the build of this record in pull requests SE-1 to SE-4 (#914, #710). It takes up PATH-QUALITY-1's OI-9992 and OI-9996 (on that unmerged branch); the coordinator reconciles the three at merge.
 - **OI-9973:** a STEP part's tool gap against its exact faces rather than its tessellation (Q2 B), deferred if Q2 is answered A.
 
-To update when this record is accepted: OI-318 and OI-337 (the owner's choice and this record).
+To update in the first build pull request after PATH-QUALITY-1 merges: OI-318 and OI-337 (the owner's choice and this record).
 
 ## Verification (phase 1)
 
