@@ -6,9 +6,9 @@
 - **Requirements:** none covers this yet (the issue says so). Related: SIM-03 and SIM-06 (the simulation and its carried stock), OP-11 (stepdown, stepover, ramping), OP-17 (adaptive roughing, P2), TL-04 and TL-05 (flute length, cutting data), SIM-10 (feed by engagement, P3), NFR-04 (never block, use the cores), NFR-06 (determinism), NFR-12 (the user verifies the program).
 - **Builds on:** accepted decisions [0509](0509-flute-length-against-the-deepest-cut.md) and [0522](0522-the-flute-check-warns.md) (the flute check, which warns only past the flute length), [0345](0345-finishing-layers.md) (Finishing layers, with "no engagement promise", OI-1373), [0545](0545-blended-steps-between-rings.md) D3 (new operations get a new default, saved ones keep their programs), [0536](0536-message-levels-operation-reference-and-setting-links.md) (message levels), [0168](0168-simulate-controls-and-stock-simulation.md) (the stock is simulated by default), [0661](0661-a-rapid-that-removes-less-than-the-simulation-resolves.md) (the simulation's per-column depth), and [PATH-QUALITY-1](PATH-QUALITY-1-finishing-edges-points-and-ramps.md) (accepted 25 Nov 2026, relayed) Q3's tool-load requirement for ramps (PQ-2), whose terms this record shares (Q6).
 - **Would amend, if answered as recommended:** nothing accepted. It adds two requirements (Q1) and their verification-plan rows, once the owner agrees the wording. It answers OI-1373 in part (Q2 to Q4).
-- **Open items:** adds OI-9911 to OI-9918 (provisional numbers; listed under *Open items* below). Updates OI-1373 in place. Depends on no open item for TL-1. TL-2's simultaneous-finishing part waits for lane SIMUL-EDGE's build (OI-9996), which changes the same code.
+- **Open items:** adds OI-9911 to OI-9919 (provisional numbers; listed under *Open items* below). Updates OI-1373 in place. Depends on no open item for TL-1. TL-2's simultaneous-finishing part waits for lane SIMUL-EDGE's build (OI-9996), which changes the same code.
 
-Numbering: provisional. The record carries the lane's name, and its open items are OI-9911 to OI-9918 (free on `main` and on every unmerged branch on 25 Nov 2026; the records check takes numbers only, so the block is numeric, not lettered); the coordinator assigns the real numbers at release, in merge order. The requirement IDs proposed in Q1, SIM-16 and OP-29, are the next free ones on `main` and every unmerged branch on 25 Nov 2026, and are provisional too. No project schema number was needed for any answer first recommended; the owner's answer to Q3 (C) needs one, claimed provisionally (Q3). Otherwise a new operation setting is stored in the operation's free parameter map, as decisions 0390, 0543 and 0545 did. No spike: the measurement below was made with a throwaway change to the simulator, kept only as a patch in the archive.
+Numbering: provisional. The record carries the lane's name, and its open items are OI-9911 to OI-9919 (free on `main` and on every unmerged branch on 25 Nov 2026; the records check takes numbers only, so the block is numeric, not lettered); the coordinator assigns the real numbers at release, in merge order. The requirement IDs proposed in Q1, SIM-16 and OP-29, are the next free ones on `main` and every unmerged branch on 25 Nov 2026, and are provisional too. No project schema number was needed for any answer first recommended; the owner's answer to Q3 (C) needs one, claimed provisionally (Q3). Otherwise a new operation setting is stored in the operation's free parameter map, as decisions 0390, 0543 and 0545 did. No spike: the measurement below was made with a throwaway change to the simulator, kept only as a patch in the archive.
 
 ## For the owner
 
@@ -26,7 +26,7 @@ The owner's answers (25 Nov 2026, relayed by the coordinator):
 
 ## For acceptance
 
-Three points the owner's acceptance settles, each with the lane's recommendation:
+Four points the owner's acceptance settles, each with the lane's recommendation:
 
 1. **The SIM-16 removal-rate clause.** Q1 was answered "as written", and Q2's addition implies one more clause in SIM-16: after "Show the heaviest cut of each operation, with where it is," add "**and the average and highest removal rate of each operation and of the whole job,**". Recommended: accept it, so the statistics are traced to a requirement and tested by `req_sim_16_...`.
 2. **The floor of the nominal values, and the guide's roughing (OI-9918).** With the floor at the tool maker's own slot (stepdown × D), tools 104 and 204 in Hardwood get 3.17 mm², and the guide's own roughing on the crankshaft is warned: 1,388 of 23,120 stretches, up to 5.32 mm² (1.7 times the maker's slot), at its first passes and shoulders. The choices:
@@ -34,6 +34,7 @@ Three points the owner's acceptance settles, each with the lane's recommendation
    - **Raise the floor to twice the maker's slot** (2 × stepdown × D, the first proposal's rule): 6.35 mm² for 104 and 204 in Hardwood; the guide's roughing is not warned, the finish alone still is. Less conservative than asked.
    - **No floor:** 2.52 mm² for these long-flute tools; 2,639 stretches of the guide's roughing warned. The most conservative, and it warns against the maker's own data.
 3. **TL-1b's breaking change and schema.** The Largest cut section field is a public field of `CuttingData` in `openchuck-types`: a breaking change of the library family (workspace minor bump and changelog, decision 0048), and the next project schema number. Both are assigned by the coordinator in merge order, after lane MOPUP-1's fix for #864 (which makes an older program refuse a newer tool library cleanly); the work breakdown's schema table carries the provisional claim. TL-1 itself needs neither.
+4. **The metal values and a spindle-power limit.** After the owner-supplied Z1 aluminium figures, the Aluminum and Brass factor is 0.1 and Copper 0.05 (first drafted at 0.2 and 0.1), so tool 101 in Aluminum sits on Makera's own 0.635 mm² slot. Recommended: accept these values, and keep a machine-level removal-rate limit against the spindle's power as OI-9919, to decide after TL-1 shows real removal rates.
 
 The questions as they were put, in the order the coordinator put them:
 
@@ -176,8 +177,8 @@ The warning and the inspector's tooltip say which applied ("the tool's largest c
   | Hardwood | 0.5 | Onsrud's hardwood chip-load chart takes a depth of cut of 1 × D as the depth its recommended chip load applies to, and asks for 25 % and 50 % less chip load at 2 × D and 3 × D ([Onsrud chart, on WoodWeb](https://www.woodweb.com/knowledge_base_images/zp/Chipload_Hardwood.pdf)). That chart is for production routers; for a light desktop machine this lane halves it (a judgement, not from the source). |
   | Softwood | 0.5 | No separate public softwood rule was found; taken as hardwood, which is the conservative side (softwood cuts more easily). |
   | Plastic | 0.5 | No public slotting depth rule for plastics was found; taken as wood (a judgement), which also keeps the chip from melting into the slot on deep cuts. |
-  | Aluminum, Brass | 0.2 | Mitsubishi Materials' carbide end-mill guide: for slotting with an ordinary cutting edge, a depth of 0.05 to 0.2 × D; up to 1 × D only for roughing-type edges ([Mitsubishi Materials, depth of cut](https://www.mmc-carbide.com/permanent/courses/70/depth-of-cut.html)). The top of the ordinary range is taken. Haas's slotting tables for its high-performance aluminium end mills go to 1 × D ([Haas HSAM2 slotting, metric](https://www.haascnc.com/content/dam/haascnc/ecommerce-assets/linedrawings/milling/end_mills/speeds-and-feeds/(03-1851%20to%2003-1856)%20End%20Mills,%20HSAM2,%20Speeds%20and%20Feeds,%20Slotting,%20Metric.pdf)), on a rigid machining centre, so not taken. Brass is taken as aluminium (a judgement). |
-  | Copper | 0.1 | The middle of Mitsubishi's ordinary range (above), because copper is gummy and loads small tools (a judgement). |
+  | Aluminum, Brass | 0.1 | Mitsubishi Materials' carbide end-mill guide: for slotting with an ordinary cutting edge, a depth of 0.05 to 0.2 × D; up to 1 × D only for roughing-type edges ([Mitsubishi Materials, depth of cut](https://www.mmc-carbide.com/permanent/courses/70/depth-of-cut.html)). The middle of the ordinary range is taken, not its top, for the Z1's 150 W spindle, after the owner-supplied figures below (first drafted at 0.2). Haas's slotting tables for its high-performance aluminium end mills go to 1 × D ([Haas HSAM2 slotting, metric](https://www.haascnc.com/content/dam/haascnc/ecommerce-assets/linedrawings/milling/end_mills/speeds-and-feeds/(03-1851%20to%2003-1856)%20End%20Mills,%20HSAM2,%20Speeds%20and%20Feeds,%20Slotting,%20Metric.pdf)), on a rigid machining centre, so not taken. Brass is taken as aluminium (a judgement). |
+  | Copper | 0.05 | The bottom of Mitsubishi's ordinary range (above), because copper is gummy and loads small tools (a judgement; first drafted at 0.1). |
   | Carbon Fiber, PCB | none | No public rule in these terms was found for abrasive laminates cut with burr ("corn") bits; no nominal value. |
 
 - `r` is 0.5 for a tool whose flutes are longer than three diameters, and 1 otherwise: Haas's speeds-and-feeds sheets ask for "cut depth and feed reduced by 50 % for long-flute or long-reach tools" (the sheet above); the three-diameter threshold is this lane's choice.
@@ -187,38 +188,38 @@ The warning and the inspector's tooltip say which applied ("the tool's largest c
 
 | Tool | Type | D mm | Flute mm | Nominal largest cut section, mm², by material |
 | --- | --- | --- | --- | --- |
-| 101 Z1 O-flute metal 3.175x12 | flat_end | 3.175 | 12.0 (long) | Hardwood 3.17*; Softwood 6.35*; Plastic 3.17*; Aluminum 1.01; Brass 1.01; Copper 0.50 |
-| 102 Z1 O-flute metal 2x8 | flat_end | 2.0 | 8.0 (long) | Hardwood 1.00; Softwood 2.00*; Plastic 1.00; Aluminum 0.40; Brass 0.40; Copper 0.20 |
+| 101 Z1 O-flute metal 3.175x12 | flat_end | 3.175 | 12.0 (long) | Hardwood 3.17*; Softwood 6.35*; Plastic 3.17*; Aluminum 0.64*; Brass 0.50; Copper 0.32* |
+| 102 Z1 O-flute metal 2x8 | flat_end | 2.0 | 8.0 (long) | Hardwood 1.00*; Softwood 2.00*; Plastic 1.00*; Aluminum 0.30*; Brass 0.20*; Copper 0.20* |
 | 103 Z1 O-flute metal 1x3 | flat_end | 1.0 | 3.0 | no cutting data: no value |
 | 104 Z1 O-flute 3.175x25 | flat_end | 3.175 | 25.0 (long) | Hardwood 3.17*; Softwood 6.35*; Plastic 3.17* |
 | 105 Z1 O-flute 3.175x42 | flat_end | 3.175 | 42.0 (long) | Hardwood 3.17*; Softwood 6.35*; Plastic 3.17* |
 | 106 Z1 corn 0.6x3 | flat_end | 0.6 | 3.0 (long) | Carbon Fiber none; PCB none |
 | 107 Z1 corn 1x7 | flat_end | 1.0 | 7.0 (long) | Carbon Fiber none; PCB none |
 | 108 Z1 corn 2x10.5 | flat_end | 2.0 | 10.5 (long) | Carbon Fiber none; PCB none |
-| 109 Z1 corn 3x12 | flat_end | 3.0 | 12.0 | no cutting data: no value |
+| 109 Z1 corn 3x12 | flat_end | 3.0 | 12.0 (long) | no cutting data: no value |
 | 110 Z1 O-flute metal 4x12 | flat_end | 4.0 | 12.0 | no cutting data: no value |
-| 111 Z1 O-flute metal 4x17 | flat_end | 4.0 | 17.0 | no cutting data: no value |
-| 112 Z1 O-flute metal 4x22 | flat_end | 4.0 | 22.0 | no cutting data: no value |
-| 113 Z1 O-flute 4x22 | flat_end | 4.0 | 22.0 | no cutting data: no value |
-| 114 Z1 O-flute 4x25 | flat_end | 4.0 | 25.0 | no cutting data: no value |
-| 115 Z1 O-flute 4x32 | flat_end | 4.0 | 32.0 | no cutting data: no value |
+| 111 Z1 O-flute metal 4x17 | flat_end | 4.0 | 17.0 (long) | no cutting data: no value |
+| 112 Z1 O-flute metal 4x22 | flat_end | 4.0 | 22.0 (long) | no cutting data: no value |
+| 113 Z1 O-flute 4x22 | flat_end | 4.0 | 22.0 (long) | no cutting data: no value |
+| 114 Z1 O-flute 4x25 | flat_end | 4.0 | 25.0 (long) | no cutting data: no value |
+| 115 Z1 O-flute 4x32 | flat_end | 4.0 | 32.0 (long) | no cutting data: no value |
 | 116 Z1 O-flute metal 6x17 | flat_end | 6.0 | 17.0 | no cutting data: no value |
-| 117 Z1 O-flute metal 6x25 | flat_end | 6.0 | 25.0 | no cutting data: no value |
-| 118 Z1 O-flute metal 6x30 | flat_end | 6.0 | 30.0 | no cutting data: no value |
-| 119 Z1 O-flute 6x22 | flat_end | 6.0 | 22.0 | no cutting data: no value |
-| 120 Z1 O-flute 6x25 | flat_end | 6.0 | 25.0 | no cutting data: no value |
-| 121 Z1 O-flute 6x32 | flat_end | 6.0 | 32.0 | no cutting data: no value |
-| 201 Z1 ball metal 3.175x10 | ball_end | 3.175 | 10.0 (long) | Hardwood 3.17*; Softwood 6.35*; Plastic 3.17*; Aluminum 1.01; Brass 1.01; Copper 0.50 |
-| 202 Z1 ball metal 2x6 | ball_end | 2.0 | 6.0 | Hardwood 2.00; Softwood 4.00*; Plastic 2.00; Aluminum 0.80; Brass 0.80; Copper 0.40 |
-| 203 Z1 ball metal 1x3 | ball_end | 1.0 | 3.0 | Hardwood 1.00*; Softwood 2.00*; Plastic 1.00*; Aluminum 0.20; Brass 0.20; Copper 0.10 |
+| 117 Z1 O-flute metal 6x25 | flat_end | 6.0 | 25.0 (long) | no cutting data: no value |
+| 118 Z1 O-flute metal 6x30 | flat_end | 6.0 | 30.0 (long) | no cutting data: no value |
+| 119 Z1 O-flute 6x22 | flat_end | 6.0 | 22.0 (long) | no cutting data: no value |
+| 120 Z1 O-flute 6x25 | flat_end | 6.0 | 25.0 (long) | no cutting data: no value |
+| 121 Z1 O-flute 6x32 | flat_end | 6.0 | 32.0 (long) | no cutting data: no value |
+| 201 Z1 ball metal 3.175x10 | ball_end | 3.175 | 10.0 (long) | Hardwood 3.17*; Softwood 6.35*; Plastic 3.17*; Aluminum 0.64*; Brass 0.50; Copper 0.32* |
+| 202 Z1 ball metal 2x6 | ball_end | 2.0 | 6.0 | Hardwood 2.00*; Softwood 4.00*; Plastic 2.00*; Aluminum 0.40*; Brass 0.40; Copper 0.20* |
+| 203 Z1 ball metal 1x3 | ball_end | 1.0 | 3.0 | Hardwood 1.00*; Softwood 2.00*; Plastic 1.00*; Aluminum 0.20*; Brass 0.10*; Copper 0.10* |
 | 204 Z1 ball 3.175x22 | ball_end | 3.175 | 22.0 (long) | Hardwood 3.17*; Softwood 6.35*; Plastic 3.17* |
 | 205 Z1 ball 2x12 | ball_end | 2.0 | 12.0 (long) | Hardwood 2.00*; Softwood 4.00*; Plastic 2.00* |
 | 206 Z1 ball 1x4 | ball_end | 1.0 | 4.0 (long) | Hardwood 1.00*; Softwood 2.00*; Plastic 1.00* |
-| 207 Z1 ball metal 4x12 | ball_end | 4.0 | 12.0 | Hardwood 8.00; Softwood 8.00; Plastic 8.00; Aluminum 3.20; Brass 3.20; Copper 1.60 |
-| 208 Z1 ball metal 6x18 | ball_end | 6.0 | 18.0 | Hardwood 18.00; Softwood 18.00; Plastic 18.00; Aluminum 7.20; Brass 7.20; Copper 3.60 |
-| 209 Z1 ball 4x12 | ball_end | 4.0 | 12.0 | Hardwood 8.00; Softwood 8.00; Plastic 8.00 |
-| 210 Z1 ball 4x22 | ball_end | 4.0 | 22.0 (long) | Hardwood 4.00; Softwood 8.00*; Plastic 4.00 |
-| 211 Z1 ball 4x32 | ball_end | 4.0 | 32.0 (long) | Hardwood 4.00; Softwood 8.00*; Plastic 4.00 |
+| 207 Z1 ball metal 4x12 | ball_end | 4.0 | 12.0 | Hardwood 8.00; Softwood 8.00*; Plastic 8.00; Aluminum 1.60; Brass 1.60; Copper 0.80 |
+| 208 Z1 ball metal 6x18 | ball_end | 6.0 | 18.0 | Hardwood 18.00; Softwood 18.00; Plastic 18.00; Aluminum 3.60; Brass 3.60; Copper 1.80 |
+| 209 Z1 ball 4x12 | ball_end | 4.0 | 12.0 | Hardwood 8.00; Softwood 8.00*; Plastic 8.00 |
+| 210 Z1 ball 4x22 | ball_end | 4.0 | 22.0 (long) | Hardwood 4.00*; Softwood 8.00*; Plastic 4.00* |
+| 211 Z1 ball 4x32 | ball_end | 4.0 | 32.0 (long) | Hardwood 4.00*; Softwood 8.00*; Plastic 4.00* |
 | 212 Z1 ball 6x12 | ball_end | 6.0 | 12.0 | Hardwood 18.00; Softwood 18.00; Plastic 18.00 |
 | 213 Z1 ball 6x22 | ball_end | 6.0 | 22.0 (long) | Hardwood 9.00; Softwood 12.00*; Plastic 9.00 |
 | 214 Z1 ball 6x32 | ball_end | 6.0 | 32.0 (long) | Hardwood 9.00; Softwood 12.00*; Plastic 9.00 |
@@ -237,12 +238,27 @@ The warning and the inspector's tooltip say which applied ("the tool's largest c
 | 313 Z1 V-bit 20 deg tip 0.4 shank 6 | v_bit | 6.0 | 17.0 | Hardwood none; Softwood none; Plastic none |
 | 314 Z1 V-bit 20 deg tip 0.5 shank 6 | v_bit | 6.0 | 17.0 | Hardwood none; Softwood none; Plastic none |
 | 401 Z1 chamfer 90 deg | chamfer | 3.175 | 3.0 | no cutting data: no value |
-| 501 Z1 drill 1 | drill | 1.0 | 10.0 | no cutting data: no value |
-| 502 Z1 drill 2 | drill | 2.0 | 12.0 | no cutting data: no value |
-| 503 Z1 drill 2.5 | drill | 2.5 | 12.0 | no cutting data: no value |
-| 504 Z1 drill 3 | drill | 3.0 | 12.0 | no cutting data: no value |
+| 501 Z1 drill 1 | drill | 1.0 | 10.0 (long) | no cutting data: no value |
+| 502 Z1 drill 2 | drill | 2.0 | 12.0 (long) | no cutting data: no value |
+| 503 Z1 drill 2.5 | drill | 2.5 | 12.0 (long) | no cutting data: no value |
+| 504 Z1 drill 3 | drill | 3.0 | 12.0 (long) | no cutting data: no value |
 
 (long): flutes longer than three diameters, so `r` = 0.5. *: set by the floor, the maker's own slot (stepdown × D). none: no nominal value; the fallback rules apply.
+
+**The owner-supplied Z1 aluminium figures (25 Nov 2026, relayed by the coordinator; owner-supplied, secondary, not confirmed by this lane or for this machine).** For the Z1's 150 W spindle (up to 13,000 rpm), aluminium 6061 and a 3.175 mm single-flute metal end mill (tool 101), as cut sections (depth × width of cut):
+
+| Figure | Section, mm² | Where it comes from (as supplied) |
+| --- | --- | --- |
+| Makera's default slot | 0.635 (0.2 mm × 3.175 mm, 12,000 rpm, 500 mm/min) | Makera Wiki, Speeds & Feeds |
+| A real-world test | 0.60 to 1.20 (1.0 to 1.5 mm × 0.6 to 0.8 mm), about 1.0 cm³/min at 1,200 mm/min | one independent video benchmark, which measured about 12 N of cutting force and chatter at that level |
+| Adaptive roughing at most | 1.28 to 2.00 (2.0 to 2.5 mm × 0.64 to 0.80 mm) | calculated by its author from cutting-energy figures; not published by Makera |
+| The spindle's practical ceiling, as claimed | about 1.5 to 2.0 at 1,000 to 1,200 mm/min, about 2 cm³/min (50 to 70 W at the tool) | the same secondary source |
+
+**How the nominal values compare.** As first drafted (`f` = 0.2), tool 101 in Aluminum got 1.01 mm²: inside the real-world test's band, at the level where that test found chatter, and above Makera's default slot. That is not conservative enough for this machine, so `f` for Aluminum and Brass is now 0.1 and for Copper 0.05, the middle and bottom of Mitsubishi's ordinary range. Tool 101 in Aluminum then gets 0.64 mm², set by the floor: Makera's own default slot (0.2 mm × 3.175 mm = 0.635 mm²), which is exactly the first owner-supplied figure, so the floor and the figure agree. The 4 mm and 6 mm metal ball ends (207, 208) get 1.60 and 3.60 mm² in Aluminum: the 6 mm's value is above the claimed spindle ceiling. A section limit per tool cannot see the spindle's power, which is a limit on the removal rate at the feed, not on the section; that is the second limit below.
+
+**The floor is chosen per tool and material,** from that entry's own stepdown in the maker's cutting data (stepdown × D): 0.635 mm² for tool 101 in Aluminum (stepdown 0.2 mm), 3.175 mm² for tools 104 and 204 in Hardwood (stepdown 1.0 mm). There is no single floor across materials, and the aluminium figures say nothing about wood directly. Wood takes much less energy per cubic millimetre removed than aluminium, so the hardwood values are not contradicted by a spindle limit measured in aluminium, but the spindle's power applies to every material: a heavy wood cut at a high feed can reach it too. The guide-example question (*For acceptance*, 2) is unchanged by these figures.
+
+**A second, machine-level limit: removal rate against the spindle's power.** The figures point to a limit the per-tool section cannot express: the material removed per minute that a 150 W spindle can drive, which depends on the material and the feed, not on the tool. TL-1's removal-rate statistic already measures the removal rate per stretch. A machine-profile value per stock material, "Largest removal rate" (mm³/min), with a warning past it, would use it directly. **Recommended: an open item now (OI-9919), not a part of this record's build.** It needs a value per material with a sourced derivation (spindle power times a usable share, divided by each material's specific cutting energy, all from public sources, with the owner-supplied 2 cm³/min in aluminium as a check, not a fact), a machine-profile field (a machine schema number) and its editor, and the removal-rate statistic of TL-1 to exist first. About 4 to 5 days, after TL-1b; whether to do it, and when, is the owner's call once TL-1's statistics show real removal rates on the Z1.
 
 On the crankshaft: tool 104 in Hardwood gets 3.17 mm² (the maker's slot at 1.0 mm), tool 204 3.17 mm² likewise. With them, the finish alone is warned (7,944 stretches past 3.17, up to 185.7 mm²) and the finish after roughing is not (largest 1.47); **the guide's own roughing is warned too**: 1,388 of 23,120 stretches pass 3.17, up to 5.32 mm² (1.7 times the maker's slot), at its first passes and shoulders. That is what a conservative nominal value gives with the maker's 1 mm stepdown; the guide's example says so, and a user who judges that load acceptable raises the operation's value. Without the floor it would be 2,639 stretches past 2.52.
 
@@ -424,6 +440,7 @@ Added (provisional numbers):
 - **OI-9915:** later uses of the measure, not proposed now: feed adjusted by engagement (SIM-10, P3; SUG-09), the path coloured by load in the viewport, and constant-engagement roughing (OP-17, P2).
 - **OI-9917:** build TL-1b: Largest cut section in the tool library (Q3 C), with the nominal values, the migration and the library-family minor bump, after lane MOPUP-1's #864 fix. Number provisional.
 - **OI-9918:** the nominal Largest cut section values of Q3 are conservative defaults from public rules of thumb, not confirmed for the Makera Z1: the owner confirms or replaces them (for example from cuts on the reference machine), and decides whether the floor at the maker's slot stays. Number provisional.
+- **OI-9919:** a machine-level limit on the removal rate (mm³/min) against the spindle's power, per stock material, in the machine profile, with a warning past it; suggested by the owner-supplied Z1 aluminium figures (150 W spindle, about 2 cm³/min claimed in aluminium; secondary, not confirmed). After TL-1's removal-rate statistic and TL-1b; about 4 to 5 days and a machine schema number. Number provisional.
 - **OI-9916:** the flute check reads the exact depth of the simulated stock once TL-2's `StockModel` query exists, narrowing the bound of OI-2025 (issue #540).
 
 Updated in place: OI-1373 (material-engagement limits off the centreline): this record proposes the measure (Q2), the limit (Q3) and the relief (Q4); it stays open until TL-2 is built.
