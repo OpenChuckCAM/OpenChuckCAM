@@ -1,13 +1,13 @@
 # Changelog
 
+## Unreleased (UI-BUGS, PR 2; issue #774; not breaking, no version change)
+
+- **Changed text and level (#774; the owner's answer of 24 Nov 2026):** the note an operation gets when a held region cuts its path short (topic Held region) is information, not a warning, and says what the tool keeps: "No part of the tool comes within 0.500 mm of {the held region at the start of the stock}, so the surface beside it is not cut there, and corners beside it may keep more. The setup's Workholding section shows where the tools keep clear." It said "Nothing within one tool radius of … is cut", which understated the zone by `HELD_CLEARANCE`. The note on holes not drilled beside a held region stays a warning. No public API change.
+
 ## Unreleased (WORDING-DOCS; issues #612 and #613)
 
 - **Changed text:** the pass-order note of rest machining and the helical and simultaneous strategies says a saving as "about 11.4 s less" (or "about N s more", or "about the same time") and not as "about -11.4 s"; an unreached area whose two X ends agree to three decimals is listed as "X 10.000", not "X 10.000 to 10.000" (simultaneous finishing and rest machining). No API change and no version change: the helper is crate-private.
 - **Changed text:** the descriptions of the drill's peck mode and blind hole depth name the choices as the inspector shows them (Full retract, Chip break, Full diameter, Tool tip). No API change.
-
-## 0.63.0 (UI-BUGS, PR 2; issue #774; not breaking)
-
-- **Changed text and level (#774; the owner's answer of 24 Nov 2026):** the note an operation gets when a held region cuts its path short (topic Held region) is information, not a warning, and says what the tool keeps: "No part of the tool comes within 0.500 mm of {the held region at the start of the stock}, so the surface beside it is not cut there, and corners beside it may keep more. The setup's Workholding section shows where the tools keep clear." It said "Nothing within one tool radius of … is cut", which understated the zone by `HELD_CLEARANCE`. The note on holes not drilled beside a held region stays a warning. No public API change.
 
 ## 0.63.0 (FACEFLOW; issues #791, #631, #614, #615 and #854; decisions 0675, 0676 and 0686, accepted)
 

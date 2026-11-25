@@ -1,6 +1,6 @@
-# UI-BUGS-B: A refused Generate shows only its refusal, a deleted project's recovery line can be forgotten, and the held-region note is information shown in the setup too (UI-12, UI-25, PRJ-08, SET-09, NFR-07, NFR-12; issues #766, #681, #774, with #607, #874, #767, #609 and #824; lane UI-BUGS)
+# 0689: A refused Generate shows only its refusal, a deleted project's recovery line can be forgotten, and the held-region note is information shown in the setup too (UI-12, UI-25, PRJ-08, SET-09, NFR-07, NFR-12; issues #766, #681, #774, with #607, #874, #767, #609 and #824; lane UI-BUGS)
 
-- **Status:** Accepted by the project owner on 25 Nov 2026, relayed by the coordinator (decision 0049). Proposed by lane UI-BUGS on 24 Nov 2026 and built in the lane's second pull request as the project owner answered the lane's questions on 24 Nov 2026, relayed by the coordinator (decision 0049): Q4 option A (#766), Q5 option A (#681), Q7 option A (#774) as information, not a warning, with the setup row the owner approved with one wording edit.
+- **Status:** Accepted by the project owner on 24 Nov 2026, relayed by the coordinator (decision 0049). Proposed by lane UI-BUGS on 24 Nov 2026 and built in the lane's second pull request as the project owner answered the lane's questions on 24 Nov 2026, relayed by the coordinator (decision 0049): Q4 option A (#766), Q5 option A (#681), Q7 option A (#774) as information, not a warning, with the setup row the owner approved with one wording edit.
 - **Date:** 24 Nov 2026.
 - **Requirements:** UI-12 (results and messages), UI-25 (workholding in the interface), PRJ-08 (recovery), SET-09 (held regions), NFR-07 (clear messages), NFR-12 (generated G-code is the user's to verify), GC-07 (a run's output follows its project).
 - **Amends:**
@@ -8,9 +8,9 @@
   - [decision 0460](0460-recovery-offered-only-for-the-opened-project.md) (accepted) item 1 ("Nothing is deleted. The line stays until that project is opened"): the line of a project whose folder is gone can be forgotten;
   - [decision 0536](0536-message-levels-operation-reference-and-setting-links.md) (accepted) build step 2, the owner's row P65 of the message review (`docs/message-review/path.md`, KEEP-WARNING): the held-region note is information;
   - the held-region note's words quoted in [decision 0161](0161-tools-keep-clear-of-the-gripped-length.md) items 3 and 7 and [decision 0551](0551-the-held-regions-own-end-is-not-a-shoulder.md), which stay as history.
-- **Open items:** adds OI-9984 (the owner's acceptance of this record), closed by the acceptance on 25 Nov 2026.
+- **Open items:** adds OI-2211 (the owner's acceptance of this record), closed by the acceptance on 24 Nov 2026.
 
-Numbering: provisional. The coordinator assigns the record number and the OI number at release, in merge order. No project schema number: nothing stored changes. Library family: `openchuck-path` changes the held-region note's level and words, with no public API change and no version bump (its `CHANGELOG.md` says so).
+No project schema number: nothing stored changes. Library family: `openchuck-path` changes the held-region note's level and words, with no public API change and no version bump (its `CHANGELOG.md` says so).
 
 ## Context
 
@@ -24,7 +24,7 @@ Issues of milestone 2026.2, each checked on `main` (`aa99eab`) with the syntheti
 - **#609.** The Geometry section's indented rows (the Cut short / Warn only / Ignore row, the limits, warnings and notes) started with a space inside a wrapping row, so a wrapped line began left of the label column.
 - **#824.** The machine profile comparison called any difference in the rotary reference point "axis height"; a profile whose Y differed was said to differ in its axis height.
 
-![The held region section with its Kept clear row](UI-BUGS-B-held-region-kept-clear.svg)
+![The held region section with its Kept clear row](0689-held-region-kept-clear.svg)
 
 ## Decision
 
@@ -93,4 +93,4 @@ Two capture scripts were fixed: the tabs example's Grip length position below th
 
 **Not verified here:** Windows and macOS (the change is not platform-specific); a screen reader (OI-2110).
 
-**Open items:** none left: OI-9984 (the owner's acceptance) closed on 25 Nov 2026.
+**Open items:** none left: OI-2211 (the owner's acceptance) closed on 24 Nov 2026.

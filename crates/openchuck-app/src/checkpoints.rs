@@ -589,7 +589,7 @@ mod forget_tests {
 
     /// A folder that still holds that project's recovery data is not
     /// forgotten: its kept changes are recovered or discarded by opening the
-    /// project (decision record UI-BUGS-B item 2; issue #681).
+    /// project (decision record 0689 item 2; issue #681).
     #[test]
     fn req_prj_08_a_folder_that_still_holds_its_recovery_is_not_forgotten() {
         let root = std::env::temp_dir().join(format!("openchuck-keep-{}", std::process::id()));
