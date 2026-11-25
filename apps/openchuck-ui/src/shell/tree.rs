@@ -76,7 +76,7 @@ struct Row<'a> {
 }
 
 /// What an operation row's tool chip shows (issue #790; decision record
-/// PROJUX-A-3, the owner's answers T1 A and T2 A): the tool's number, with
+/// 0690, the owner's answers T1 A and T2 A): the tool's number, with
 /// its name and what it is in the tooltip; or, for an operation with no tool
 /// or whose tool is not in the project's tool list, a chip saying so, drawn
 /// with the error colour's outline, whose tooltip is the operation's own

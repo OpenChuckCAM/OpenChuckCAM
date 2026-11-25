@@ -384,7 +384,7 @@ pub fn info_sense() -> egui::Sense {
 /// it opens on hover over `response` (the information), and at once while
 /// `holder` (the row) has the keyboard. The information takes no Tab stop of
 /// its own, and is still reached from the keyboard through the row (UI-14;
-/// decision 0677 item 3 met through the row; decision record PROJUX-A-3, the
+/// decision 0677 item 3 met through the row; decision record 0690, the
 /// owner's answer T2, the project panel's tool chip).
 pub fn tip_through(
     response: &egui::Response,

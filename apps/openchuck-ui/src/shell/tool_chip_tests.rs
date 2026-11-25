@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //! The tool chip of an operation row in the project panel (issue #790;
-//! decision record PROJUX-A-3, the owner's answers T1 A and T2 A of 25 Nov
+//! decision record 0690, the owner's answers T1 A and T2 A of 25 Nov
 //! 2026): the chip shows the tool's number, and its tooltip names the tool
 //! and says what it is; an operation with no tool, or whose tool is missing
 //! from the project's tool list, has a chip that says so with the operation's
