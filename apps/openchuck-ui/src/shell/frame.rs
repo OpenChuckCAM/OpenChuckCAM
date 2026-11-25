@@ -466,6 +466,7 @@ impl Shell {
         } else {
             crate::focus::main_window::INSPECTOR
         };
+        let splitter = ui.scope_id().with(id).with("__resize");
         let response = builder.show(ui, |ui| {
             crate::focus::region(ui, order, |ui| {
                 self.panel_header(ui, region);
@@ -489,6 +490,10 @@ impl Shell {
                 }
             })
         });
+        // The splitter is not a Tab stop (UI-14): Tab passes over it.
+        // egui's panel registers its handle as `scope_id().with(salt)` and
+        // then `"__resize"`.
+        crate::focus::pass_over(ui.ctx(), splitter, order);
         let rect = response.response.rect;
         let edge = if left { rect.right() } else { rect.left() };
         self.remember_size(ui, region, rect.width(), |p| (p.x - edge).abs() <= 4.0);

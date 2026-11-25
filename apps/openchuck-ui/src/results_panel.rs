@@ -1201,20 +1201,35 @@ fn removal_rate_block(ui: &mut egui::Ui, r: &SetupResults) {
             let row = |ui: &mut egui::Ui, name: &str, l: &LoadRow, strong: bool| {
                 let name = RichText::new(name);
                 ui.label(if strong { name.strong() } else { name });
-                ui.label(RichText::new(rate_text(l.average())).monospace())
-                    .on_hover_text(average_tooltip(l));
-                ui.label(RichText::new(rate_text(l.highest)).monospace())
-                    .on_hover_text(highest_tooltip(l));
+                // Each figure is a Tab stop whose tooltip opens on focus as
+                // well as hover (UI-14).
+                let figure = |ui: &mut egui::Ui, text: RichText, tip: String| {
+                    ui.add(egui::Label::new(text).sense(crate::focus::info_sense()))
+                        .tip(tip);
+                };
+                figure(
+                    ui,
+                    RichText::new(rate_text(l.average())).monospace(),
+                    average_tooltip(l),
+                );
+                figure(
+                    ui,
+                    RichText::new(rate_text(l.highest)).monospace(),
+                    highest_tooltip(l),
+                );
                 let load = l
                     .heaviest
                     .map_or_else(|| "—".to_owned(), |h| format!("{h:.2} mm²"));
                 let text = RichText::new(load).monospace();
-                ui.label(if l.over > 0 {
-                    text.color(DARK.warning)
-                } else {
-                    text
-                })
-                .on_hover_text(load_tooltip(l));
+                figure(
+                    ui,
+                    if l.over > 0 {
+                        text.color(DARK.warning)
+                    } else {
+                        text
+                    },
+                    load_tooltip(l),
+                );
                 ui.end_row();
             };
             for (name, l) in &rows {

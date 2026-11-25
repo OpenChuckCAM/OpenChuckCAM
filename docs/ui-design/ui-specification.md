@@ -67,7 +67,7 @@ Sizes are logical pixels at 100% scale. The default scale is 100% (decision 0148
 | Inspector | 340 wide (280 to 520) | The selected item (section 8) |
 | Footer | 48 high | Status on the left; display settings and the step's actions on the right, primary right-most (section 10) |
 
-- **Splitters** are 5 pixels with a grip mark. Double-clicking one resets its panel to the default size.
+- **Splitters** are 5 pixels with a grip mark. Double-clicking one resets its panel to the default size. A splitter is not a Tab stop: Tab passes over it to the next region, also when the panel beside it scrolls (UI-14).
 - **Collapsing.** The project panel, the inspector and the dock collapse with the chevron in their headers, or Ctrl 1, Ctrl 2 and Ctrl 3. A collapsed side panel leaves a 28-pixel rail with its icon. The collapsed dock leaves a rail with its tabs at the left and its open button at the right end, where the open dock's collapse button is (decision 0440). *(UI-16)*
 - **Smallest window.** At 100% scale, everything stays usable at 1366 × 768 logical pixels (UI-16). At the default 100% a 1366 × 768 screen gives the full 1366 × 768 logical pixels, so no change of scale is needed. At that size: the panels keep their defaults, the viewport shrinks, and overlays keep clear of each other (the "Operations at 1366 × 768" board). Below that size the dock collapses, and the inspector too when the viewport would be narrower than 420 pixels. Neither is kept as the user's choice: the user can open either again, and the rule applies afresh once the window is large again. *(UI-16)*
 - **Remembered layout.** Panel sizes, collapsed panels, open sections, scale and theme are remembered per user on the computer, never in the project (section 13). *(UI-15)*
