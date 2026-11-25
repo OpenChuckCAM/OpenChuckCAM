@@ -78,7 +78,7 @@ The open bugs at this release, most serious first in each group. The number is t
 **Wording and display**
 
 - After a refused **Generate**, Results still shows the previous run under the new error (#766). Hiding a path asks you to generate again, which you need not do (#607).
-- Rest machining: a saving shown as a negative time (#612), zero-length areas and raw words in **Pass order** (#613). Face flow and swarf: the hint says an empty **Cut on** cuts the whole part, but both refuse (#614); face flow shows two pass counts that seem to disagree (#631). "1 faces" and similar wording (#615).
+- Rest machining: raw words in **Pass order** (#613). Face flow and swarf: the hint says an empty **Cut on** cuts the whole part, but both refuse (#614); face flow shows two pass counts that seem to disagree (#631). "1 faces" and similar wording (#615).
 - The **Geometry** section is crowded with several selection sets (#759). A deleted project's recovery warning cannot be dismissed (#681).
 - `openchuck-cli` does not print the reminder to verify the G-code when it refuses for a missing acknowledgement; nothing is written (#645).
 
@@ -103,5 +103,6 @@ The *latest* version of this guide describes the nightly build, the [development
 - **Face flow with fewer lifts.** Face flow finishing has four new settings (#854). **Stay down between passes** goes from one pass to the next along the face instead of lifting, where the way is clear. **Pattern** can follow a face's own outline inwards, for faces with fingers, notches or holes such as the outside of a blisk between its blades; **Automatic** chooses. Rings round a face that closes on itself never reverse and are joined by **Steps between rings** (Sharp or Blended), as on the other ring strategies. **Shortest cut** leaves out cuts shorter than it and marks them on the part as not cut; it can be a length or the tool's diameter, as can edge following's **Shortest chain**. A new operation starts with them on (Shortest cut at the tool's diameter); an operation saved before keeps its program.
 - **Face flow notes.** The two pass counts in the Results now agree, the face's line saying how many of its passes cut (#631). The Geometry line for face flow and swarf says they are not generated with no face set in **Cut on** (#614). A set of one face or edge reads "1 face" or "1 edge", and the STEP import note names face flow finishing among the strategies that use the exact faces (#615).
 - **Small wording fixes.** The tools file in your tools folder no longer starts with an internal reference number, and the OpenCASCADE notice (in **Help > About**) now says that replacing the STEP reader inside `OpenChuckCAM.app` breaks the app's seal and how to seal it again (#775, #589).
+- **Plainer messages.** When pass order by region saves time between passes, the note says "about 11.4 s less" and not "about -11.4 s". An area that lies at one X in a "cannot reach" warning reads "X 10.000" and not "X 10.000 to 10.000" (#612, #613).
 
 Generated G-code must be verified by you before it is run on a machine. OpenChuckCAM does not guarantee that a program is safe or correct for any machine, tool or setup.
