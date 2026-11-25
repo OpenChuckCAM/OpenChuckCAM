@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 440" width="1000" height="440" font-family="Helvetica, Arial, sans-serif" font-size="13">
+<title>Why testing poses close enough together proves the whole move</title>
+<rect width="1000" height="440" fill="#ffffff"/>
+<text x="20" y="28" font-size="17" font-weight="bold" fill="#222">Proving a whole move from tested poses (option A of Q3, schematic)</text>
+<text x="20" y="48" fill="#444">One straight machine move (X, Y, Z and A linear) from a kept point to the next. Tested poses at every halving level.</text>
+<!-- surface -->
+<path d="M40,330 L385,330 L400,306 L415,330 L960,330 L960,400 L40,400 Z" fill="#e6eef7" stroke="#2b5d8a" stroke-width="2"/>
+<line x1="404" y1="310" x2="460" y2="345" stroke="#c0392b" stroke-width="0.8"/>
+<text x="464" y="352" fill="#c0392b">a sharp edge between two tested poses: only the bound catches it</text>
+<text x="150" y="380" text-anchor="middle" fill="#2b5d8a" font-weight="bold">surface</text>
+<!-- poses -->
+<g fill="none" stroke-width="2">
+<circle cx="100" cy="290" r="38" stroke="#222"/>
+<circle cx="300" cy="290" r="38" stroke="#1e8449"/>
+<circle cx="500" cy="290" r="38" stroke="#1e8449"/>
+<circle cx="700" cy="290" r="38" stroke="#1e8449"/>
+<circle cx="900" cy="290" r="38" stroke="#222"/>
+</g>
+<circle cx="400" cy="290" r="38" fill="#888" fill-opacity="0.08" stroke="#888" stroke-dasharray="4 3"/>
+<text x="100" y="240" text-anchor="middle" fill="#222">kept point</text>
+<text x="900" y="240" text-anchor="middle" fill="#222">kept point</text>
+<text x="300" y="240" text-anchor="middle" fill="#1e8449">quarter</text>
+<text x="500" y="240" text-anchor="middle" fill="#1e8449">middle</text>
+<text x="700" y="240" text-anchor="middle" fill="#1e8449">three-quarter</text>
+<text x="400" y="232" text-anchor="middle" fill="#666">any pose between</text>
+<!-- displacement arrow -->
+<line x1="300" y1="190" x2="500" y2="190" stroke="#666" stroke-width="1"/>
+<line x1="300" y1="184" x2="300" y2="196" stroke="#666"/>
+<line x1="500" y1="184" x2="500" y2="196" stroke="#666"/>
+<text x="400" y="182" text-anchor="middle" fill="#666">D: the most any point of the tool moves between them</text>
+<text x="20" y="96" fill="#222">Every point of the tool at a pose between two tested poses is within D/2 of the same point at one of them</text>
+<text x="20" y="112" fill="#222">(halfway is the worst case). So no surface point can be deeper inside it than the deeper of the two readings plus D/2.</text>
+<text x="20" y="136" font-weight="bold" fill="#1e8449">Rule: keep the move when every tested pose clears to within (tolerance less D/2); otherwise test more poses or halve it.</text>
+<text x="20" y="156" fill="#222">A ball moving without turning gains less than D/2 (the sagitta, D squared over 8R), so it needs fewer poses; a flat end's corner gains up to D/2.</text>
+<text x="20" y="425" fill="#444">D counts both the tip's travel and A's turn times the furthest distance of the cutting part from the rotary axis.</text>
+</svg>
