@@ -26,13 +26,13 @@
 <text x="602" y="316">Finish</text><text x="700" y="316" font-family="monospace">c</text><text x="772" y="316" font-family="monospace">d</text><text x="848" y="316">1.5 mm²</text>
 <line x1="602" y1="326" x2="918" y2="326" stroke="#555"/>
 <text x="602" y="344">This setup</text><text x="700" y="344" font-family="monospace">e</text><text x="772" y="344" font-family="monospace">f</text><text x="848" y="344">—</text>
-<text x="602" y="368" fill="#8a9099" font-size="11">Average while cutting material; rapids left out.</text>
+<text x="602" y="368" fill="#8a9099" font-size="11">Average over the cutting time; rapids left out.</text>
 </g>
 <text x="602" y="410" fill="#8a9099" font-size="11">… resolution and its cost (unchanged) …</text>
 <!-- callouts -->
 <g font-size="13" fill="#333">
-<text x="40" y="112">Average: material removed ÷ time spent cutting material</text>
-<text x="40" y="130">(fed moves that remove material, at the programmed time,</text>
+<text x="40" y="112">Average: material removed ÷ cutting time</text>
+<text x="40" y="130">(the programmed time of the moves that remove material,</text>
 <text x="40" y="148">machine feed limits included). Rapids and air moves left out.</text>
 <text x="40" y="176">Highest: the highest rate over any stretch of one tool</text>
 <text x="40" y="194">diameter of travel. Load: the heaviest cut section.</text>
