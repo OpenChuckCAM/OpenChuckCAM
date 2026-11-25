@@ -56,6 +56,9 @@ pub(crate) fn stored_values(operation: &Operation) -> BTreeMap<String, Parameter
     operation
         .parameters
         .iter()
+        // The application's own settings, which no strategy takes (the
+        // tool-load limit, SIM-16), stay with the application.
+        .filter(|(k, _)| k.as_str() != crate::tool_load::LARGEST_CUT_SECTION)
         .map(|(k, v)| {
             let v = match v {
                 openchuck_project::ParameterValue::Integer(v) => ParameterValue::Integer(*v),

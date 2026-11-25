@@ -84,6 +84,9 @@ pub enum Source {
     Default,
     /// Nothing gives it, and it is required.
     Missing,
+    /// Worked out by the application from other values, said in these
+    /// words (the tool-load limit from the tool's stepdown, SIM-16).
+    Derived(&'static str),
 }
 
 /// The section of the operation inspector a field is shown in (interface
@@ -378,12 +381,56 @@ pub fn parameter_form(
                 },
             }
         })
-        .collect();
+        .collect::<Vec<_>>();
+    let mut fields = fields;
+    if let Some(field) = tool_load_field(project, op) {
+        fields.push(field);
+    }
     Ok(ParameterForm {
         operation,
         strategy: op.strategy.clone(),
         fields,
         notes,
+    })
+}
+
+/// The operation's Largest cut section (SIM-16; decision record TOOL-LOAD-1,
+/// Q3): the most material the tool should remove per millimetre of travel,
+/// above which the simulation warns. Empty, it shows the limit that applies
+/// and where it comes from, as the cutting-data fields do. `None` with no
+/// tool, as there is nothing to measure against.
+fn tool_load_field(project: &Project, op: &Operation) -> Option<Field> {
+    use crate::tool_load::{LARGEST_CUT_SECTION, LimitSource};
+    let limit = crate::tool_load::limit(project, op)?;
+    let set = op.parameters.get(LARGEST_CUT_SECTION).cloned();
+    let source = match (&set, &limit.source) {
+        (Some(_), _) | (None, LimitSource::Operation) => Source::Operation,
+        (None, other) => Source::Derived(match other {
+            LimitSource::TwiceTheSlot { .. } => "twice the slot at the tool's stepdown",
+            _ => "the tool's diameter squared",
+        }),
+    };
+    Some(Field {
+        name: LARGEST_CUT_SECTION.to_owned(),
+        label: "Largest cut section".to_owned(),
+        description: "The most material this tool should remove per millimetre it travels: \
+                      about the depth of cut times the width of cut. The simulation warns \
+                      where a cut removes more. Empty, it is twice a full-width slot at the \
+                      stepdown of the tool's cutting data for the stock material. A nominal \
+                      value: a heavier cut is not said to be unacceptable, nor a lighter one \
+                      to be acceptable, for your tool and machine."
+            .to_owned(),
+        kind: FieldKind::Number {
+            unit: "mm²",
+            min: Some(0.0),
+            min_exclusive: true,
+            max: None,
+        },
+        value: Some(set.clone().unwrap_or(ParameterValue::Number(limit.value))),
+        set,
+        source,
+        section: FormSection::ToolAndFeeds,
+        problem: None,
     })
 }
 
@@ -452,6 +499,22 @@ pub(crate) fn check_parameter(
     let op = project
         .operation(operation)
         .ok_or_else(|| AppError::UnknownOperation(operation.to_string()))?;
+    // The application's own Largest cut section (SIM-16): a number above
+    // zero, checked here, as no strategy takes it.
+    if name == crate::tool_load::LARGEST_CUT_SECTION {
+        return match value {
+            None => Ok(()),
+            Some(ParameterValue::Number(v)) if v.is_finite() && *v > 0.0 => Ok(()),
+            #[allow(clippy::cast_precision_loss)]
+            Some(ParameterValue::Integer(v)) if *v > 0 => Ok(()),
+            Some(_) => Err(AppError::refused(
+                openchuck_path::topic::SETTING,
+                &op.name,
+                "parameter largest_cut_section: the largest cut section must be a number \
+                 of mm² greater than 0",
+            )),
+        };
+    }
     let strategy = registry.get(&op.strategy)?;
     let schema = strategy.schema();
     let mut proposed = crate::operation::stored_values(op);

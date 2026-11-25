@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased (TOOL-LOAD, TL-1; issue #844; decision TOOL-LOAD-1, accepted)
+
+- **Added:** the tool load through the application (SIM-16): `tool_load` (the limit, `LARGEST_CUT_SECTION`, the warning, the information line and the job's line), `OperationSimulation::load`, `Regeneration::tool_loads`, the topic `lead_in::topic::TOOL_LOAD` (it names the tool), and `form::Source::Derived` for the form's Largest cut section field in Tool and feeds. The operation's `largest_cut_section` parameter belongs to the application and is not passed to the strategy. A simulated operation whose stretches pass its limit gets a Tool load warning (radial drilling is measured but not warned). No toolpath or G-code changes.
+
 ## Unreleased (WORDING-DOCS; issues #613 and #676)
 
 - **Added:** `form::choice_label(setting, stored_word)`, the plain name the inspector shows for each choice of every built-in strategy; a test fails if a strategy has a choice with no name. The inspector uses it. No stored value changes.

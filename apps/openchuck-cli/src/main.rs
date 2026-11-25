@@ -1506,6 +1506,20 @@ fn print_simulation(
                 openchuck_app::path::counted(op.poses, "pose", "poses"),
                 op.removed_volume
             );
+            // The load on the tool as the simulation measured it (SIM-16).
+            if let Some(load) = &op.load {
+                let rate = |r: Option<f64>| r.map_or_else(|| "-".to_owned(), |r| format!("{r:.0}"));
+                println!(
+                    "      tool load: heaviest cut {} mm2 per mm of travel (limit {:.2}, {} past it); \
+                     removal rate {} mm3/min on average over the cutting time, {} at most",
+                    load.heaviest
+                        .map_or_else(|| "-".to_owned(), |h| format!("{:.2}", h.section)),
+                    load.limit,
+                    openchuck_app::path::counted(load.over, "stretch", "stretches"),
+                    rate(load.average_rate()),
+                    rate(load.fastest.and_then(|f| f.rate)),
+                );
+            }
             // Deeper into the stock than one cell, a rapid fails the run; no
             // deeper, it is within what the simulation resolves and is
             // listed only (decision record 0661, option C).

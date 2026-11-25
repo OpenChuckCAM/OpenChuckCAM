@@ -54,6 +54,25 @@ Left, not classified
 
 **DEVIATION DISTRIBUTION** splits the surface into bands, with how many points fall in each; untick a band to hide it on the part, or type a range in **Show only from** and **to**. **BY OPERATION** lists each operation's moves and the volume it removed, and says **Clean**, or how many rapid moves cut deeper than one cell into the stock: such a rapid move is a fault in the toolpath.
 
+## Tool load and removal rate
+
+As it cuts the stock, the simulation measures how much material each move of the tool removes, so you can see how hard the tool works before you run the program:
+
+Cut section
+: The material removed per millimetre the tool travels, in mm², over a stretch of one tool diameter of travel: about the depth of the cut times its width. This is what loads the tool.
+
+Engaged length
+: How much of the cutting edge is in the material, measured along the tool. A long engaged length on a thin sliver is a light cut; the cut section tells them apart.
+
+Removal rate
+: The material removed per minute, in mm³/min. **Average** is over the cutting time, the time of the moves that remove material; rapids and moves in air are left out. **Highest** is the highest over any stretch of one tool diameter.
+
+Each operation is measured against its **Largest cut section**. Unless you set one on the operation, it is twice a full-width slot at the stepdown in the tool's cutting data for the stock material (for a 3.175 mm tool with a 1 mm stepdown, 6.35 mm²); with no cutting data, the tool's diameter squared. Where stretches of the path remove more, the operation gets a **Tool load** warning with the heaviest cut, where it is and how much of the flute was in the material. Rough the setup first, use **Finishing layers** where the operation has them, take a smaller stepdown or stepover, or, if you judge the load acceptable for your tool and machine, set a larger **Largest cut section** on the operation. Radial drilling is measured but not warned of: a drill cuts on its end by design.
+
+Under **BY OPERATION**, **REMOVAL RATE, MM³/MIN** lists each operation's **Average** and **Highest** removal rate and its heaviest cut (**Load**), and the setup's own figures in **This setup**. Rest the pointer on a figure for what it means and the move it is at. The **Results** tab gives the same for each operation as information, and one line for the whole job.
+
+The limit is a nominal value for a warning, not a measured limit for your tool and machine. A warning says the cut is heavy; no warning does not say the cut is acceptable. With **Skip stock simulation** on, nothing is measured, and the **Results** tab says so.
+
 ## Reading the result
 
 - Grey where the part is finished, and blue where a later operation will cut, is what you want to see.

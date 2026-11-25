@@ -338,3 +338,128 @@ fn req_tl_04_req_nfr_12_a_finish_with_flutes_past_the_stock_in_reach_is_not_warn
         flute_warnings(&run)
     );
 }
+
+/// The tool-load warnings among the run's paths (SIM-16; decision record
+/// TOOL-LOAD-1, TL-1).
+fn tool_load_warnings(run: &openchuck_app::Regeneration) -> Vec<String> {
+    run.groups
+        .iter()
+        .flat_map(|g| g.warnings.iter())
+        .filter(|w| w.topic.as_deref() == Some(openchuck_app::lead_in::topic::TOOL_LOAD))
+        .map(|w| w.text.clone())
+        .collect()
+}
+
+#[test]
+fn req_sim_16_req_nfr_12_finishing_the_crankshaft_blank_is_warned_of_its_tool_load() {
+    // A finish run first on the blank buries the tool along its flute: the
+    // simulation measures the cut and warns, naming the operation and its
+    // tool, with the figures; it calls nothing safe. The guide's order
+    // (roughing first) is not warned on its finish.
+    let app = crankshaft("load-blank", 25.0, &[finish()]);
+    let run = app.simulate().unwrap_or_else(|e| panic!("{e}"));
+    let warnings = tool_load_warnings(&run);
+    assert_eq!(warnings.len(), 1, "{warnings:?}");
+    assert!(
+        warnings[0].contains("mm² per millimetre of travel"),
+        "{warnings:?}"
+    );
+    // Twice a full-width slot at the tool's 2 mm stepdown in oak.
+    assert!(warnings[0].contains("more than 12.70 mm²"), "{warnings:?}");
+    let messages: Vec<_> = app
+        .overview(None, &openchuck_app::JobLog::default())
+        .messages
+        .into_iter()
+        .filter(|m| m.text.starts_with("Tool load"))
+        .collect();
+    assert_eq!(messages.len(), 1, "{messages:?}");
+    let text = &messages[0].text;
+    assert!(
+        text.starts_with("Tool load (operation 'Op 1', tool '3.175 mm flat'): "),
+        "{text}"
+    );
+    let own = text.trim_end_matches(openchuck_app::VERIFY_GCODE_NOTICE);
+    assert!(!own.to_lowercase().contains("safe"), "{own}");
+    // The operation's figures and the job's are information in Results.
+    assert!(
+        run.notes
+            .iter()
+            .any(|n| n.starts_with("Tool load (operation 'Op 1'") && n.contains("removal rate")),
+        "{:?}",
+        run.notes
+    );
+    assert!(
+        run.notes
+            .iter()
+            .any(|n| n.starts_with("Tool load: the removal rate over the job")),
+        "{:?}",
+        run.notes
+    );
+    let simulation = run.simulation.as_ref().unwrap();
+    let load = simulation.setups[0].operations[0].load.as_ref().unwrap();
+    assert!(load.over > 0);
+    assert!(load.heaviest.unwrap().section > 12.7);
+    assert!(load.average_rate().unwrap() > 0.0);
+}
+
+#[test]
+fn req_sim_16_roughing_first_leaves_the_finish_within_its_tool_load() {
+    let app = crankshaft("load-roughed", 25.0, &[rough(), finish()]);
+    let run = app.simulate().unwrap_or_else(|e| panic!("{e}"));
+    let finish_id = app.project().operations()[1].id;
+    let finish_warned = run
+        .groups
+        .iter()
+        .filter(|g| g.operation == finish_id)
+        .flat_map(|g| g.warnings.iter())
+        .any(|w| w.topic.as_deref() == Some(openchuck_app::lead_in::topic::TOOL_LOAD));
+    assert!(!finish_warned, "{:?}", tool_load_warnings(&run));
+}
+
+#[test]
+fn req_sim_16_the_operations_own_largest_cut_section_sets_the_limit() {
+    // The operation's own value overrides the limit from the tool's cutting
+    // data, as the operation's own feeds do: set high, nothing is warned.
+    let (strategy, mut parameters) = finish();
+    parameters.push((openchuck_app::tool_load::LARGEST_CUT_SECTION, 10_000.0));
+    let mut app = crankshaft("load-own", 25.0, &[(strategy, parameters)]);
+    let run = app.simulate().unwrap_or_else(|e| panic!("{e}"));
+    assert!(
+        tool_load_warnings(&run).is_empty(),
+        "{:?}",
+        tool_load_warnings(&run)
+    );
+    // The form shows it in Tool and feeds, set by the operation; cleared, it
+    // shows the limit from the tool's stepdown as a hint with its source.
+    let id = app.project().operations()[0].id;
+    let field = |app: &Application| {
+        app.parameter_form(id)
+            .unwrap()
+            .fields
+            .into_iter()
+            .find(|f| f.name == openchuck_app::tool_load::LARGEST_CUT_SECTION)
+            .unwrap()
+    };
+    let set = field(&app);
+    assert_eq!(set.source, openchuck_app::form::Source::Operation);
+    assert_eq!(set.section, openchuck_app::form::FormSection::ToolAndFeeds);
+    app.set_parameter(id, openchuck_app::tool_load::LARGEST_CUT_SECTION, None)
+        .unwrap();
+    let cleared = field(&app);
+    assert_eq!(cleared.set, None);
+    assert_eq!(
+        cleared.value,
+        Some(ParameterValue::Number(2.0 * 2.0 * 3.175))
+    );
+    assert_eq!(
+        cleared.source,
+        openchuck_app::form::Source::Derived("twice the slot at the tool's stepdown")
+    );
+    // A value of zero or less is refused by name.
+    let refused = app.set_parameter(
+        id,
+        openchuck_app::tool_load::LARGEST_CUT_SECTION,
+        Some(ParameterValue::Number(0.0)),
+    );
+    assert!(refused.is_err());
+}

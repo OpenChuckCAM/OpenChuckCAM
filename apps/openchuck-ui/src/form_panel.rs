@@ -92,6 +92,7 @@ fn source_text(source: Source) -> &'static str {
         Source::CuttingData => "from the tool's cutting data",
         Source::Default => "default",
         Source::Missing => "required",
+        Source::Derived(words) => words,
         _ => "",
     }
 }
