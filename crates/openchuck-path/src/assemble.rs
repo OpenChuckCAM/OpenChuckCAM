@@ -279,8 +279,20 @@ impl Builder<'_> {
             (to.across - from.across).abs(),
             (to.height - from.height).abs(),
         );
+        // The post writes A to three decimals and works XYZ out at that A,
+        // which can move each end point by up to its distance from the
+        // rotary axis times half a unit of A (issue #929; decision record
+        // SEV1-929-1). Fed moves are timed for that too.
+        let a_shift = if kind.is_fed() {
+            written_a_shift(
+                from.across.hypot(from.height),
+                to.across.hypot(to.height),
+            )
+        } else {
+            0.0
+        };
         let allowance = if kind.is_fed() {
-            WRITTEN_ALLOWANCE
+            WRITTEN_ALLOWANCE + a_shift
         } else {
             0.0
         };
@@ -297,10 +309,12 @@ impl Builder<'_> {
         } else {
             line + allowance
         };
-        // A move that changes X or Y by less than a written unit may be
-        // written with or without that change, so it is checked against
-        // either limit: it is timed for the lower (decision record 0050).
-        let line_limit = if dx >= WRITTEN_UNIT || dy >= WRITTEN_UNIT {
+        // A move that changes X or Y by less than a written unit, widened by
+        // the shift from writing A, may be written with or without that
+        // change, so it is checked against either limit: it is timed for
+        // the lower (decision records 0050 and SEV1-929-1).
+        let written_band = WRITTEN_UNIT + a_shift;
+        let line_limit = if dx >= written_band || dy >= written_band {
             linear
         } else if dx > EPS || dy > EPS {
             linear.min(z)
@@ -408,6 +422,19 @@ const WRITTEN_A_ALLOWANCE: f64 = 0.001;
 /// How much the end point's distance from the rotary axis can grow when its
 /// two coordinates across the axis are written to three decimals.
 const WRITTEN_RADIUS_ALLOWANCE: f64 = 0.001;
+
+/// Half a written unit of A (0.0005 degree), in radians.
+const WRITTEN_A_HALF_UNIT_RADIANS: f64 = 0.0005 * std::f64::consts::PI / 180.0;
+
+/// How far, in millimetres, the post's rounding of A can move the two ends
+/// of a move between them: the post writes A to three decimals and works XYZ
+/// out at that A (issue #780), which moves each end point by up to its
+/// distance from the rotary axis times half a unit of A (issue #929;
+/// decision record SEV1-929-1). `from_radius` and `to_radius` are the ends'
+/// distances from the rotary axis.
+fn written_a_shift(from_radius: f64, to_radius: f64) -> f64 {
+    (from_radius + to_radius + 2.0 * WRITTEN_RADIUS_ALLOWANCE) * WRITTEN_A_HALF_UNIT_RADIANS
+}
 
 /// The length, in millimetres, that a controller counts for a change of A of
 /// `da` degrees ending `radius` from the rotary axis, with the written
@@ -1797,6 +1824,113 @@ mod tests {
         );
         assert!(text.contains("500.0 mm/min"), "{text}");
         assert!(!b.notes[0].is_warning());
+    }
+
+    /// Issue #929: on the Makera Z1 a simultaneous finishing move climbs
+    /// 0.042 mm in Z while A turns 0.005 degree, 21.8 mm from the axis, and Y
+    /// changes by 0.0011 mm. The post writes A to three decimals and works
+    /// XYZ out at that A, which moves the point by up to `r` times half a
+    /// unit of A at each end: here both ends' Y are written `-4.871`, so the
+    /// block changes only Z and A, and gate 1 holds its F word to Z's limit.
+    /// Timed for the linear limit because Y changed by more than a written
+    /// unit, the move's Z term had no written allowance and the F word came
+    /// out 0.14 % over Z's limit (`F650.9` against 650 on the reporter's
+    /// machine). Written as the post writes it, the F word stays within the
+    /// limit the checker applies (OP-13, GC-04, GC-08, GC-09, GC-10).
+    #[test]
+    fn req_op_13_req_gc_08_a_move_whose_y_change_rounds_away_with_a_stays_within_z_s_limit() {
+        let machine = MachineProfile::example_x_rotary();
+        let rotary = RotaryMapping::of_profile(&machine);
+        let profile = Tool {
+            shape: ToolShape::BallEnd,
+            diameter: openchuck_types::units::Millimetres(3.0),
+            flute_length: openchuck_types::units::Millimetres(8.0),
+            overall_length: openchuck_types::units::Millimetres(40.0),
+            shank_diameter: openchuck_types::units::Millimetres(3.0),
+            flute_count: 2,
+            material: None,
+            centre_cutting: None,
+            stick_out: None,
+        }
+        .profile()
+        .unwrap();
+        let (linear, z, a_limit) = (1200.0, 600.0, 1800.0);
+        let mut feeds = machine.max_feeds;
+        (feeds.linear, feeds.z, feeds.rotary) =
+            (FeedRate(linear), FeedRate(z), RotaryFeedRate(a_limit));
+        feeds.rotary_in_feed = RotaryInFeed::Makera;
+        // The reporter's move, in the axis frame (the instrumented values).
+        let end = AxisPosition {
+            along: 63.1017,
+            across: -4.8705,
+            height: 21.2989,
+        };
+        let start = AxisPosition {
+            along: end.along - 0.000018,
+            across: end.across - 0.001096,
+            height: end.height - 0.041942,
+        };
+        let (a0, a1) = (32_328.3424, 32_328.3424 + 0.005372);
+        let at = |p: AxisPosition, a: f64| CutPoint {
+            tip: rotary.to_model(p, Degrees(a)),
+            a: Degrees(a),
+            contact: rotary.to_model(p, Degrees(a)),
+        };
+        let (from, to) = (at(start, a0), at(end, a1));
+        let mut b = Builder {
+            rotary,
+            tool_radius: 1.5,
+            profile: &profile,
+            max_feeds: feeds,
+            collision: &AcceptAll,
+            pose: ToolPose {
+                tip: from.tip,
+                axis: rotary.tool_axis(from.a),
+                a: from.a,
+            },
+            contact: from.tip,
+            segments: Vec::new(),
+            notes: Vec::new(),
+            raised_entries: 0,
+            steep_ramps: Vec::new(),
+            single_point_plunges: Vec::new(),
+            steepened_ramps: Vec::new(),
+            nubs: Vec::new(),
+            reversed_ramps: Vec::new(),
+            on_axis_ramps: Vec::new(),
+            straight_plunges: Vec::new(),
+        };
+        let pose = b.pose(to.tip, to.a);
+        // A contact feed far above the limits, so the axes set the time.
+        b.push(MoveKind::Cutting, pose, Some(to.tip), Some(FeedRate(1.0e6)))
+            .unwrap();
+        let seconds = b.segments[0].duration.0;
+        // Written as the post writes it: A to three decimals, then XYZ at
+        // that A, to three decimals.
+        let round = |v: f64| (v * 1000.0).round() / 1000.0;
+        let written = |p: &CutPoint| {
+            let a = round(p.a.0);
+            let q = rotary.to_axis(p.tip, Degrees(a));
+            ([round(q.along), round(q.across), round(q.height)], a)
+        };
+        let ((w0, wa0), (w1, wa1)) = (written(&from), written(&to));
+        // The reporter's blocks: `Y-4.871 Z21.257 A32328.342` then
+        // `Z21.299 A32328.348`.
+        assert_eq!((w0, wa0), ([63.102, -4.871, 21.257], 32_328.342));
+        assert_eq!((w1, wa1), ([63.102, -4.871, 21.299], 32_328.348));
+        // Gate 1's limit for the block: linear if X or Y is written to
+        // change, else Z's (openchuck-gcode `FeedLimits::for_move`).
+        let moved = |i: usize| (w1[i] - w0[i]).abs() > 1e-9;
+        let limit = if moved(0) || moved(1) { linear } else { z };
+        assert_eq!(limit, z);
+        // The Z1's F word: the longer of the line and A's travel round the
+        // part over the move's time (decision record 0007).
+        let line = ((w1[0] - w0[0]).powi(2) + (w1[1] - w0[1]).powi(2) + (w1[2] - w0[2]).powi(2))
+            .sqrt();
+        let radius = w1[1].hypot(w1[2]).max(1.0);
+        let counted = (wa1 - wa0).abs() * (std::f64::consts::TAU * radius + 30.0) / 360.0;
+        let f = 60.0 * line.max(counted) / seconds;
+        assert!(f <= limit, "F{f:.3} against {limit}");
     }
 
     #[test]
