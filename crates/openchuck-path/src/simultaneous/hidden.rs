@@ -1248,6 +1248,8 @@ impl Plan<'_> {
             UnreachedReason::NearHeldRegion => 3,
             // Face flow's only.
             UnreachedReason::TooShort { .. } => 4,
+            // The move test's (decision record SIMUL-EDGE-1, Q4).
+            UnreachedReason::WouldGouge { .. } => 5,
         };
         // Neighbours: the same reason, on the same or a neighbouring
         // section, near enough.

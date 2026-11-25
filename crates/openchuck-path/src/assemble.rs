@@ -112,6 +112,17 @@ pub enum UnreachedReason {
         /// The length of the cut left out, in millimetres.
         length: f64,
     },
+    /// The tool reaches it, but following the surface there would gouge
+    /// (overcut) the finished surface by more than the tolerance, so the
+    /// pass breaks round it and it is left uncut (simultaneous finishing;
+    /// decision record SIMUL-EDGE-1, Q4).
+    WouldGouge {
+        /// About how far the move left out would have cut into the
+        /// finished surface, in millimetres.
+        depth: f64,
+        /// The operation's tolerance, in millimetres.
+        tolerance: f64,
+    },
 }
 
 /// A place where a strategy broke a pass because the tool's shank, wider

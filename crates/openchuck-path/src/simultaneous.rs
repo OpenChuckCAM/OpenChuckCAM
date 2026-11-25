@@ -47,8 +47,24 @@
 //! (positive: the move would cut in; negative: it would leave material) and
 //! taken along the surface normal. The quarter points of a move are the
 //! middles of its halves, so their drops are handed down when the move is
-//! split. A move that still cuts in by more than the tolerance at its middle
-//! after [`MAX_DEPTH`] halvings is refused with a message naming it.
+//! split.
+//!
+//! **Every kept move is proven (OP-12; decision record SIMUL-EDGE-1, Q3).**
+//! Before a move is kept, the whole tool is tested over the whole move, not
+//! only at those poses: in the machine's frame the tool only translates
+//! while the part turns under it, so each piece of the move sweeps a convex
+//! shape whose gap from the surface the source answers proven
+//! ([`SurfaceSource::tool_gap`](crate::SurfaceSource::tool_gap)), and the
+//! part's turn over the piece moves no point of it further than half the
+//! turn times its distance from the rotary axis. A move is kept only when,
+//! with that allowance, no piece cuts deeper than the tolerance less the
+//! source's stated accuracy. A move that fails is halved; after the last
+//! halving and the raised pose it is left out: the pass breaks there and
+//! links round, and the place is marked as an area left uncut because
+//! following the surface would gouge it ([`UnreachedReason::WouldGouge`]),
+//! with a warning. The operation is not refused for it.
+//!
+//! [`UnreachedReason::WouldGouge`]: crate::assemble::UnreachedReason::WouldGouge
 
 use crate::notice::{Level, Notice, topic};
 use openchuck_types::geometry::{Point3, UnitVec3, Vec3};
@@ -58,6 +74,7 @@ use openchuck_types::units::Degrees;
 
 use crate::adaptive::{self, Counting, Family, Interval, Pose};
 use crate::cutter::{self, Contact, ToolLine};
+use crate::gap::GapQuery;
 use crate::error::{PathError, Result};
 use crate::faces;
 use crate::parallel;
@@ -137,6 +154,11 @@ const RAISES: u32 = 12;
 
 /// How many times the limit of an allowed region is bisected.
 const EDGE_STEPS: u32 = 12;
+
+/// How many times a piece of a move is split in two because the part turns
+/// too far over it for the proof (decision record SIMUL-EDGE-1, Q3): at most
+/// 256 pieces. A move that needs more is not proven, and is halved.
+const TURN_SPLITS: u32 = 8;
 
 /// Most drive samples one run may make (NFR-07).
 const MAX_SAMPLES: f64 = 5.0e6;
@@ -489,6 +511,12 @@ struct Plan<'a> {
     leave: f64,
     tolerance: f64,
     chord: f64,
+    /// The deepest a kept move may cut into the surface the source answers
+    /// on: the tolerance less the source's stated accuracy (decision record
+    /// SIMUL-EDGE-1, Q2 and Q3).
+    allowed: f64,
+    /// The furthest any point of the surface lies from the rotary axis, mm.
+    part_radius: f64,
     /// Radius from which drive rays start.
     outside: f64,
     /// The X zones and the centres their drive rays aim at (OP-26).
@@ -516,6 +544,22 @@ struct Findings {
     lean_at: Option<(f64, f64)>,
     /// Where a pass broke because the shank would meet the part.
     shank_breaks: Vec<crate::assemble::ShankBreak>,
+    /// Where a move was left out because it would gouge the surface.
+    gouges: Vec<Gouge>,
+}
+
+/// A move left out because following the surface there would gouge it
+/// (decision record SIMUL-EDGE-1, Q4).
+#[derive(Debug, Clone, Copy, PartialEq)]
+struct Gouge {
+    /// The two ends' contact points and the deepest surface point found.
+    points: [Point3; 3],
+    /// A at the two ends, degrees.
+    a: (f64, f64),
+    /// About how deep the move would have cut, mm.
+    depth: f64,
+    /// The tool's diameter, for the area left.
+    width: f64,
 }
 
 /// The points a move is refined into, and the most material it leaves.
@@ -525,6 +569,8 @@ struct Refined {
     under: f64,
     /// Where the pass broke because the shank would meet the part.
     breaks: Vec<crate::assemble::ShankBreak>,
+    /// Where a move was left out because it would gouge the surface.
+    gouges: Vec<Gouge>,
 }
 
 fn run(
@@ -724,6 +770,13 @@ fn run(
         leave,
         tolerance,
         chord: CHORD_FACTOR * tolerance,
+        allowed: tolerance - input.surface.tool_gap_accuracy(),
+        part_radius: {
+            let b = input.surface.bounds();
+            let y = b.min.y.abs().max(b.max.y.abs());
+            let z = b.min.z.abs().max(b.max.z.abs());
+            y.hypot(z)
+        },
         outside: radius + 1.0,
         sense,
         zones: &zones,
@@ -993,12 +1046,14 @@ fn run(
         );
     }
     let shank_breaks = places(std::mem::take(&mut findings.shank_breaks));
+    let gouged = gouge_areas(std::mem::take(&mut findings.gouges), tolerance);
     let mut warnings: Vec<Notice> = unreached_warning(
         &found.unreached,
         2.0 * input.tool.cutting_radius(),
         max_lean,
     )
     .into_iter()
+    .chain(gouge_warning(&gouged, 2.0 * input.tool.cutting_radius(), max_lean))
     .chain(shank_warning(&shank_breaks))
     .chain(under_warning(findings.under))
     .chain(faces::held_warning(&held))
@@ -1015,7 +1070,7 @@ fn run(
     Ok(StrategyOutput {
         passes,
         notices: crate::strategy::notices(warnings, notes),
-        unreached: found.unreached,
+        unreached: found.unreached.into_iter().chain(gouged).collect(),
         shank_breaks,
     })
 }
@@ -1062,6 +1117,102 @@ fn places(mut breaks: Vec<crate::assemble::ShankBreak>) -> Vec<crate::assemble::
 /// How near two breaks for the shank are one place, mm along X and degrees
 /// of A.
 const BREAK_NEAR: f64 = 1.0;
+
+/// The areas left uncut because following the surface would gouge it
+/// (decision record SIMUL-EDGE-1, Q4): the moves left out, joined where
+/// their X ranges come within [`BREAK_NEAR`] mm and their A ranges within as
+/// many degrees of each other (the halvings round one edge find it several
+/// times), largest first. Each move's area is its length times the tool's
+/// width; its points are the contacts at its ends and the deepest point
+/// found.
+fn gouge_areas(mut gouges: Vec<Gouge>, tolerance: f64) -> Vec<crate::assemble::Unreached> {
+    use crate::assemble::{MAX_UNREACHED_POINTS, Unreached, UnreachedReason};
+    let span = |g: &Gouge| {
+        let xs = g.points.map(|p| p.x);
+        (
+            xs.iter().copied().fold(f64::INFINITY, f64::min),
+            xs.iter().copied().fold(f64::NEG_INFINITY, f64::max),
+        )
+    };
+    gouges.sort_by(|a, b| {
+        span(a)
+            .0
+            .total_cmp(&span(b).0)
+            .then(a.a.0.rem_euclid(TURN).total_cmp(&b.a.0.rem_euclid(TURN)))
+    });
+    let mut areas: Vec<Unreached> = Vec::new();
+    for g in gouges {
+        let (x0, x1) = span(&g);
+        let (lo, hi) = if g.a.0 <= g.a.1 { g.a } else { (g.a.1, g.a.0) };
+        let area = g.points[0].distance(g.points[1]).max(g.width) * g.width;
+        let joined = areas.iter_mut().rev().find(|u| {
+            let close_x = x0 <= u.x.1 + BREAK_NEAR && u.x.0 <= x1 + BREAK_NEAR;
+            // A ranges compared a whole number of turns apart.
+            let shift = TURN * ((0.5 * (u.a.0 + u.a.1) - 0.5 * (lo + hi)) / TURN).round();
+            let close_a = lo + shift <= u.a.1 + BREAK_NEAR && u.a.0 <= hi + shift + BREAK_NEAR;
+            close_x && close_a
+        });
+        match joined {
+            Some(u) => {
+                let shift = TURN * ((0.5 * (u.a.0 + u.a.1) - 0.5 * (lo + hi)) / TURN).round();
+                u.x = (u.x.0.min(x0), u.x.1.max(x1));
+                u.a = (u.a.0.min(lo + shift), u.a.1.max(hi + shift));
+                u.area += area;
+                if let UnreachedReason::WouldGouge { depth, .. } = &mut u.reason {
+                    *depth = depth.max(g.depth);
+                }
+                for p in g.points {
+                    if u.points.len() < MAX_UNREACHED_POINTS {
+                        u.points.push(p);
+                    }
+                }
+            }
+            None => areas.push(Unreached {
+                x: (x0, x1),
+                a: (lo, hi),
+                area,
+                reason: UnreachedReason::WouldGouge {
+                    depth: g.depth,
+                    tolerance,
+                },
+                points: g.points.to_vec(),
+            }),
+        }
+    }
+    areas.sort_by(|a, b| b.area.total_cmp(&a.area).then(a.x.0.total_cmp(&b.x.0)));
+    areas
+}
+
+/// The warning for areas left uncut because following the surface would
+/// gouge it (decision record SIMUL-EDGE-1, Q4, with the owner's wording).
+fn gouge_warning(
+    areas: &[crate::assemble::Unreached],
+    diameter: f64,
+    max_lean: f64,
+) -> Option<Notice> {
+    if areas.is_empty() {
+        return None;
+    }
+    let count = if areas.len() == 1 {
+        "1 area".to_owned()
+    } else {
+        format!("{} areas", areas.len())
+    };
+    Some(Notice {
+        level: Level::Warning,
+        topic: Some(topic::UNREACHED_AREAS.to_owned()),
+        segment: None,
+        text: format!(
+            "simultaneous finishing leaves {count} of the part uncut, because following \
+             the surface there would gouge (overcut) the finished surface by more than the \
+             tolerance: {}; finish them with another strategy or a smaller tool, then check them \
+             in the simulation before running the program",
+            unreached_list(areas, diameter, max_lean)
+        ),
+        setting: None,
+        acknowledgement: None,
+    })
+}
 
 /// The warning for the places a pass broke because the tool's shank would
 /// meet the part (decision record 0368, the owner's answer on OI-1456).
@@ -1171,6 +1322,11 @@ pub(crate) fn unreached_list(
                 UnreachedReason::TooShort { length } => {
                     format!("a cut of {length:.1} mm, shorter than the Shortest cut")
                 }
+                UnreachedReason::WouldGouge { depth, tolerance } => format!(
+                    "left uncut: following the surface here would gouge the finished surface, \
+                     cutting about {depth:.3} mm into it, more than the tolerance of \
+                     {tolerance} mm"
+                ),
             };
             format!(
                 "{} {place} ({:.1} mm2), {why}",
@@ -1481,6 +1637,8 @@ fn adaptive_passes(
             leave: plan.leave,
             tolerance: plan.tolerance,
             chord: plan.chord,
+            allowed: plan.allowed,
+            part_radius: plan.part_radius,
             outside: plan.outside,
             zones: plan.zones,
             sense: plan.sense,
@@ -2495,23 +2653,15 @@ impl Plan<'_> {
                         self.refine_from(track, axis, a, &raised, depth + 1, None, out)?;
                         return self.refine_from(track, axis, &raised, b, depth + 1, None, out);
                     }
-                    if error > self.tolerance && track.contour.is_some() {
-                        // A pass on a hidden surface breaks where it cannot
-                        // be kept within the tolerance (OP-20).
+                    if error > self.tolerance {
+                        // The pass breaks where it cannot be kept within the
+                        // tolerance, on every pass (OP-20; decision record
+                        // SIMUL-EDGE-1, Q4): the move is left out and the
+                        // place marked, never refused.
+                        out.gouges.push(self.gouge(a, b, error, mid.contact.contact));
                         out.points.push(None);
-                    } else if error > self.tolerance {
-                        return Err(PathError::refused(
-                            crate::topic::SIMULTANEOUS_FINISHING,
-                            format!(
-                                "simultaneous finishing cannot keep the move to X {:.3}, A {:.3} \
-                             within the tolerance: it would cut {error:.4} mm into the surface; \
-                             the tool jumps between two surfaces there (a sharp edge, or a wall \
-                             the drive meets), so a smaller largest tilt or angle step does not \
-                             help: limit the operation to a region away from it, or finish that \
-                             part with helical finishing",
-                                b.contact.tip.x, b.a.0
-                            ),
-                        ));
+                        out.points.push(Some(*b));
+                        return Ok(());
                     }
                     if -error > self.tolerance {
                         out.under = out.under.max(-error);
@@ -2541,8 +2691,100 @@ impl Plan<'_> {
             }
             None => {}
         }
+        // The proof (decision record SIMUL-EDGE-1, Q3): the move is kept
+        // only when the whole tool over the whole move cuts no deeper than
+        // allowed. One that fails is halved, then raised at its middle;
+        // after that it is left out and the place marked.
+        if let Some((cut, deepest)) = self.gouges(a, b) {
+            if depth < MAX_DEPTH + RAISES {
+                let split = match middle {
+                    Some(m) if depth < MAX_DEPTH => Some(m),
+                    Some(m) => self.raised(a, b, &m),
+                    None => None,
+                };
+                if let Some(m) = split.filter(|m| m.t > a.t && m.t < b.t) {
+                    self.refine_from(track, axis, a, &m, depth + 1, None, out)?;
+                    return self.refine_from(track, axis, &m, b, depth + 1, None, out);
+                }
+            }
+            out.gouges.push(self.gouge(a, b, cut, deepest));
+            out.points.push(None);
+        }
         out.points.push(Some(*b));
         Ok(())
+    }
+
+    /// Where the move from `a` to `b` cuts deeper into the surface than
+    /// allowed, at any pose of the whole tool along it: about how deep, and
+    /// the deepest surface point found. `None` when proven within it
+    /// (decision record SIMUL-EDGE-1, Q3).
+    ///
+    /// In the machine's frame the tool only translates along the move while
+    /// the part turns by A. Over a piece of the move the part is held at the
+    /// piece's middle A, where the tool's sweep is straight and the source
+    /// answers its gap proven; the part's turn over the piece moves no point
+    /// of it further than half the turn times the point's distance from the
+    /// rotary axis, which is taken off the allowance. A piece where that
+    /// leaves less than half the allowance is split in two, up to
+    /// [`TURN_SPLITS`] times.
+    fn gouges(&self, a: &Node, b: &Node) -> Option<(f64, Point3)> {
+        let rotary = &self.input.rotary;
+        let (pa, pb) = (
+            rotary.to_axis(a.contact.tip, a.a),
+            rotary.to_axis(b.contact.tip, b.a),
+        );
+        let (a0, a1) = (a.a.0, crate::rotary::nearest_turn(b.a, a.a).0);
+        let at = |f: f64| AxisPosition {
+            along: pa.along + f * (pb.along - pa.along),
+            across: pa.across + f * (pb.across - pa.across),
+            height: pa.height + f * (pb.height - pa.height),
+        };
+        let top = self.drop_profile.top();
+        let radius = self.drop_profile.cutting_radius();
+        let limit = self.tolerance.max(self.allowed.abs());
+        let mut pieces = vec![(0.0_f64, 1.0_f64, 0_u32)];
+        while let Some((f0, f1, level)) = pieces.pop() {
+            let fm = 0.5 * (f0 + f1);
+            let am = Degrees(a0 + fm * (a1 - a0));
+            let axis = rotary.tool_axis(am);
+            let (t0, t1) = (rotary.to_model(at(f0), am), rotary.to_model(at(f1), am));
+            let turn = ((f1 - f0) * (a1 - a0)).abs().to_radians();
+            let reach = [t0, t1, t0 + axis.get() * top, t1 + axis.get() * top]
+                .iter()
+                .map(|p| p.y.hypot(p.z) + radius)
+                .fold(0.0, f64::max);
+            let slack = 0.5 * turn * reach.min(self.part_radius);
+            if slack > 0.5 * self.allowed.max(0.0) {
+                if level < TURN_SPLITS {
+                    pieces.push((fm, f1, level + 1));
+                    pieces.push((f0, fm, level + 1));
+                    continue;
+                }
+                return Some((slack, t0));
+            }
+            let floor = -(self.allowed - slack);
+            let line = ToolLine {
+                origin: t0,
+                axis,
+            };
+            let query = GapQuery::swept(t1 - t0, limit).accept_above(floor);
+            if let Some(g) = self.input.surface.tool_gap(self.drop_profile, &line, &query)
+                && g.lower < floor
+            {
+                return Some(((-g.upper).max(slack), g.at));
+            }
+        }
+        None
+    }
+
+    /// The place of a move left out because it would gouge the surface.
+    fn gouge(&self, a: &Node, b: &Node, depth: f64, deepest: Point3) -> Gouge {
+        Gouge {
+            points: [a.contact.contact, b.contact.contact, deepest],
+            a: (a.a.0, crate::rotary::nearest_turn(b.a, a.a).0),
+            depth,
+            width: 2.0 * self.input.tool.cutting_radius(),
+        }
     }
 
     /// Whether a node where the tool may not cut breaks the pass, rather
@@ -2625,6 +2867,7 @@ impl Plan<'_> {
             let mut breaks = Vec::new();
             let offset = lead * track.travel();
             let mut under = 0.0_f64;
+            let mut gouges = Vec::new();
             let mut push = |n: &Node, points: &mut Vec<CutPoint>| {
                 if track.contour.is_some() {
                     self.note_hidden(n, findings);
@@ -2640,6 +2883,7 @@ impl Plan<'_> {
                 let steps = steps?;
                 under = under.max(steps.under);
                 breaks.extend(steps.breaks);
+                gouges.extend(steps.gouges);
                 for step in steps.points {
                     match step {
                         Some(n) => push(&n, &mut points),
@@ -2660,6 +2904,7 @@ impl Plan<'_> {
             }
             findings.under = findings.under.max(under);
             findings.shank_breaks.extend(breaks);
+            findings.gouges.extend(gouges);
             if !points.is_empty() {
                 passes.push(Pass {
                     helical_pass_start: false,
