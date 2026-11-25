@@ -1,6 +1,6 @@
 # PATH-QUALITY-1: Simultaneous finishing over sharp edges, a true point at a finial, one rule for ramp entries, and ramps on STEP parts (OP-05, OP-06, OP-11, OP-12, OP-20, OP-21, NFR-07, NFR-12, GC-07; issues #710, #779, #786, #421, #844, #826; lane PATH-QUALITY)
 
-- **Status:** Proposed by lane PATH-QUALITY on 25 Nov 2026 (phase 1, planning only; no code is built until the owner answers). Only the project owner accepts this record (decision 0049). The questions are Q1 to Q7 below, each with options, a recommendation and what follows "if you answer as recommended". **Q1 answered (25 Nov 2026, the owner's answer relayed by the coordinator): option C**, the general continuous seed and a clearance test of the whole tool, taken into its own lane, SIMUL-EDGE; #710 leaves this lane's scope. **Q3 answered (25 Nov 2026, relayed): option A**, with the owner's design requirement that a ramp is there to manage the tool's load (*Q3: the owner's answer and the tool-load requirement* below). **Q4 answered (25 Nov 2026, relayed): option A**, with the tool-load point applied to its defaults. **Q2 answered (25 Nov 2026, relayed): (a) A, (b) A, (c) B**: the adaptive stepover over the tip is built now, with Finish to a point (not this lane's recommendation, A). **Q6 answered (25 Nov 2026, relayed): option A.** **Q5 answered (25 Nov 2026, relayed): #844 taken into its own lane, TOOL-LOAD**, in this milestone (neither A nor B as written). Q7 is still open.
+- **Status:** Proposed by lane PATH-QUALITY on 25 Nov 2026 (phase 1, planning only; no code is built until the owner answers). Only the project owner accepts this record (decision 0049). The questions are Q1 to Q7 below, each with options, a recommendation and what follows "if you answer as recommended". **Q1 answered (25 Nov 2026, the owner's answer relayed by the coordinator): option C**, the general continuous seed and a clearance test of the whole tool, taken into its own lane, SIMUL-EDGE; #710 leaves this lane's scope. **Q3 answered (25 Nov 2026, relayed): option A**, with the owner's design requirement that a ramp is there to manage the tool's load (*Q3: the owner's answer and the tool-load requirement* below). **Q4 answered (25 Nov 2026, relayed): option A**, with the tool-load point applied to its defaults. **Q2 answered (25 Nov 2026, relayed): (a) A, (b) A, (c) B**: the adaptive stepover over the tip is built now, with Finish to a point (not this lane's recommendation, A). **Q6 answered (25 Nov 2026, relayed): option A.** **Q5 answered (25 Nov 2026, relayed): #844 taken into its own lane, TOOL-LOAD**, in this milestone (neither A nor B as written). **Q7 answered (25 Nov 2026, relayed): option A**; the coordinator closed #421 with a comment naming decision 0543 D7 and D10 and PQ-2. **All seven questions are answered; the record awaits the owner's acceptance (OI-9991).**
 - **Date:** 25 Nov 2026.
 - **Issues:** #710 (simultaneous finishing on the blisk: sharp edges and walls facing along the axis; OI-318, OI-337), #779 (a true point at a finial; an adaptive stepover for such curves), #786 (ramping across every strategy), #421 (ramps on STEP parts and a plunge into single-point passes; OI-1270, OI-1271), and the fold-in checks of #844 (a tool engaged along its whole length) and #826's OI-2198 (adaptive spacing on the stepped cylinder with a flat end).
 - **Requirements:** OP-05, OP-06, OP-20 (simultaneous finishing, tool axis, hidden surfaces), OP-11 (ramping), OP-12 (gouge protection), OP-14 (linking), OP-21 (tabs), SET-09 (held regions), NFR-07, NFR-12, GC-07 and NFR-06 (determinism).
@@ -11,7 +11,21 @@ Numbering: provisional. The record carries the lane's name and the open items OI
 
 ## For the owner
 
-What this record asks of you, in the order the coordinator will put it:
+**Your answers (25 Nov 2026, relayed by the coordinator):**
+
+| Question | Answer | What it means |
+| --- | --- | --- |
+| Q1 (#710) | C | the general continuous seed and a whole-tool clearance test, in its own lane, SIMUL-EDGE (OI-9996) |
+| Q2 (#779) | (a) A, (b) A, (c) B | Finish to a point (new operations), to the axis with the "Part cut free" warning, and the adaptive stepover over the tip now (PQ-3, after PQ-4, within a time budget) |
+| Q3 (#786) | A, with a tool-load requirement | every ramp follows its own pass; the ramp is designed to manage the tool's load (PQ-2) |
+| Q4 (#786) | A | a plunge only where no ramp fits, each said with its depth; new operations get Allow single-point plunge and Steeper ramp near the axis on (PQ-2) |
+| Q5 (#844) | its own lane, TOOL-LOAD | neither A nor B as written; PQ-2's load figures are shared with it |
+| Q6 (OI-2198) | A | fix the three causes (PQ-4) |
+| Q7 (#421) | A | #421 closed by the coordinator |
+
+What is left for you: **accept this record** (OI-9991). The build is then PQ-2 (independent), PQ-4, then PQ-3.
+
+What this record asked of you, in the order the coordinator put it:
 
 1. **Q1 (#710), answered C and moved to lane SIMUL-EDGE: the blisk's simultaneous finish cuts into its blade tips today.** It is no longer refused; it generates, and the simulation finds up to 0.94 mm cut into the blade tips with the 3 mm ball on the STEP blisk and 1.7 to 2.5 mm with the 3 mm flat end. This is a gap in gouge protection (OP-12), so it is put first. Recommended: **A**, tighten the move check so these moves are caught, break the pass there with a warning, and document the blisk's limit and its workaround.
 2. **Q3 (#786), answered A with a tool-load requirement: a ramp that goes round the part cuts into it.** Face flow, pencil, simultaneous finishing on a face set and, with the steeper ramp on, helical and simultaneous on the crankshaft cut 0.26 to 0.68 mm into the part when Entry is Ramp (the same operations with Plunge do not). Recommended: **A**, every ramp follows its own pass, back and forth, as swarf's already does.
@@ -19,7 +33,7 @@ What this record asks of you, in the order the coordinator will put it:
 4. **Q2 (#779), answered (a) A, (b) A, (c) B: the finial's tip.** Recommended: **A**, a new setting **Finish to a point** (on for new helical, axial and indexed finishing operations; saved operations keep their programs) that carries the finish past a pointed end down to the rotary axis, with the existing "part cut free" warning.
 5. **Q6 (OI-2198), answered A: adaptive spacing on the stepped cylinder.** Recommended: **A**, fix the three causes found.
 6. **Q5 (#844), answered: taken into its own lane, TOOL-LOAD.** Recommended: **A**, keep #844 separate in 2027.1.
-7. **Q7 (#421): close it.** Recommended: **A**, close #421 on the evidence below: both its items were settled by decision 0543 and ramps generate on STEP parts.
+7. **Q7 (#421), answered A: close it.** Recommended: **A**, close #421 on the evidence below: both its items were settled by decision 0543 and ramps generate on STEP parts.
 
 And what to look at: the two figures below, and the evidence in [docs/archive/PATH-QUALITY-1-phase-1](../archive/PATH-QUALITY-1-phase-1/README.md).
 
@@ -214,6 +228,8 @@ Sub-question (c), the adaptive stepover over the tip (your idea 2):
 
 - **A. Close #421 (recommended)** on the evidence above: both its items were settled by decision 0543, and Ramp entry and Allow single-point plunge work on STEP parts. What it found that remains is in #786 (Q3, Q4).
 - **B. Keep it open** until Q3 and Q4 are built.
+
+**The owner's answer (25 Nov 2026, relayed by the coordinator): A.** The coordinator closed #421 with a comment naming decision 0543 D7 and D10 and PQ-2.
 
 ## Effort, risk and how the work would be split
 
