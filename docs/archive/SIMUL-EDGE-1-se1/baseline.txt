@@ -1,0 +1,20 @@
+# Baseline generation times (main aadf3cc8, 0.63.0), release, uninstrumented, --threads 4, LinuxCNC post
+# first pass (lobed and crank_stl failed to start: model not yet generated, cutting data for the wrong material; fixed and rerun below)
+lobed rc=1 0.0 s moves=0
+crank_stl rc=1 0.0 s moves=0
+blisk_flat rc=0 7.8 s moves=98631
+blisk_ball rc=0 40.7 s moves=129849
+step_flat rc=0 140.0 s moves=79813
+step_ball rc=0 168.0 s moves=93748
+lobed rc=0 1.7 s moves=1805
+crank_stl rc=0 1.7 s moves=20493
+# repeats
+lobed rc=0 1.8 s moves=1805
+crank_stl rc=0 1.7 s moves=20493
+blisk_flat rc=0 7.8 s moves=98631
+lobed rc=0 1.6 s moves=1805
+crank_stl rc=0 1.7 s moves=20493
+blisk_flat rc=0 7.7 s moves=98631
+lobed rc=0 1.6 s moves=1805
+crank_stl rc=0 1.7 s moves=20493
+blisk_flat rc=0 7.8 s moves=98631

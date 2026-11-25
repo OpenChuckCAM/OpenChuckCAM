@@ -1,0 +1,8 @@
+ball sweep 0 accept None: 10000 poses, 300.2 us/query, answered 10000, deepest lower -0.00010
+ball sweep 0 accept Some(-0.006): 10000 poses, 158.8 us/query, answered 10000, deepest lower -0.00600
+ball sweep 0.5 accept None: 10000 poses, 2916.6 us/query, answered 10000, deepest lower -1.53873
+ball sweep 0.5 accept Some(-0.006): 10000 poses, 1632.0 us/query, answered 10000, deepest lower -1.53873
+flat sweep 0 accept None: 10000 poses, 519.6 us/query, answered 10000, deepest lower -0.00010
+flat sweep 0 accept Some(-0.006): 10000 poses, 227.4 us/query, answered 10000, deepest lower -0.00600
+flat sweep 0.5 accept None: 10000 poses, 4042.7 us/query, answered 10000, deepest lower -1.21025
+flat sweep 0.5 accept Some(-0.006): 10000 poses, 1804.2 us/query, answered 10000, deepest lower -1.21025

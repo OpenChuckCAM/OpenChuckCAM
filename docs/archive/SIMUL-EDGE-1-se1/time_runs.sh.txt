@@ -1,0 +1,14 @@
+#!/bin/bash
+# Throwaway timing script (see README.md); run from a scratch folder holding the projects.
+# Baseline generation times, release, uninstrumented, 4 threads, one run at a time.
+S=/tmp/claude-0/-home-user-OpenChuckCAM/ac38ede3-4429-5faf-80c8-0c5d92e60402/scratchpad
+CLI=${CLI:-$S/base/openchuck-cli}
+cd $S/runs
+for p in "$@"; do
+  rm -rf $p/out
+  start=$(date +%s.%N)
+  $CLI --threads 4 regenerate $p --post linuxcnc --tool-numbers keep --out $p/out --acknowledge-partial-path --acknowledge-collision-warnings > $p.log 2>&1
+  rc=$?
+  end=$(date +%s.%N)
+  printf "%s rc=%s %.1f s moves=%s\n" "$p" "$rc" "$(echo "$end - $start" | bc)" "$(cat $p/out/*.ngc 2>/dev/null | grep -c '^G1\|^G0\|^X\|^Y\|^Z\|^A')"
+done

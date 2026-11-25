@@ -33,6 +33,8 @@
 //! for exact evaluation.
 
 use openchuck_types::geometry::{Aabb, Point3, UnitVec3, Vec3};
+
+use crate::gap::{GapQuery, ToolGap};
 use openchuck_types::mesh::TriangleMesh;
 use openchuck_types::tool::profile::RevolvedProfile;
 use parry3d_f64::math::Vector;
@@ -195,6 +197,46 @@ pub trait SurfaceSource: Send + Sync + std::fmt::Debug {
     /// 0277). Tests that compare two drops, or a contact with a surface,
     /// accept differences within it (OI-833).
     fn drop_accuracy(&self) -> f64 {
+        0.0
+    }
+
+    /// The tool gap (decision record SIMUL-EDGE-1, Q2; OP-12): the smallest
+    /// signed distance between the tool described by `profile`, its tip at
+    /// `line.origin` and its axis along `line.axis`, and this surface, over
+    /// every pose as the tool moves without turning along `query.sweep`
+    /// (zero for one pose). Negative when the surface lies inside the tool:
+    /// the overcut depth. The tool is its cutting part, revolved and capped at the top
+    /// of its profile; a profile that is not convex is taken as the cylinder
+    /// of its cutting radius, which holds it.
+    ///
+    /// The answer is an interval ([`ToolGap`]) whose `lower` is proven
+    /// against the surface this source answers on, its tessellation for an
+    /// exact source (see [`tool_gap_accuracy`](Self::tool_gap_accuracy)).
+    /// `None` when no surface lies within `query.limit` of the tool. The
+    /// search stops once it finds the surface deeper than the limit inside
+    /// the tool, so callers pass a limit at least their tolerance, and, with
+    /// [`GapQuery::accept_above`], once the gap is proven above what the
+    /// caller accepts. Otherwise `upper - lower` is at most
+    /// [`GAP_ACCURACY`](crate::GAP_ACCURACY) unless the search's budget runs
+    /// out. The default
+    /// answers on [`tessellation`](Self::tessellation), testing every
+    /// triangle; a source with a search structure answers faster.
+    fn tool_gap(
+        &self,
+        profile: &RevolvedProfile,
+        line: &ToolLine,
+        query: &GapQuery,
+    ) -> Option<ToolGap> {
+        crate::gap::on_mesh(self.tessellation(), profile, line, query)
+    }
+
+    /// How far, in millimetres, the surface [`tool_gap`](Self::tool_gap)
+    /// answers on may lie from the part's own surface: 0 for a mesh, which
+    /// is its own surface; the tessellation's stated deviation for an exact
+    /// (B-rep) source; the largest chord error of the tessellated solids for
+    /// a part joined to held regions or tabs. A caller takes it off its
+    /// tolerance (decision record SIMUL-EDGE-1, Q2).
+    fn tool_gap_accuracy(&self) -> f64 {
         0.0
     }
 
@@ -451,6 +493,39 @@ impl SurfaceSource for MeshSurface {
     ) -> Option<Contact> {
         // A hair below, so a tie with the bound is decided as without it.
         cutter::drop_on_mesh_above(self, profile, line, Some(at_least - 1e-7))
+    }
+
+    fn tool_gap(
+        &self,
+        profile: &RevolvedProfile,
+        line: &ToolLine,
+        query: &GapQuery,
+    ) -> Option<ToolGap> {
+        if !line.origin.is_finite() || !query.limit.is_finite() {
+            return None;
+        }
+        let outline = crate::gap::Outline::new(profile);
+        let body = crate::gap::Body::new(&outline, line, query.sweep);
+        let near = body.bounds(query.limit);
+        let mut found: Vec<u32> = self
+            .bvh
+            .bvh()
+            .leaves(|node: &BvhNode| {
+                let (lo, hi) = (node.mins(), node.maxs());
+                crate::gap::overlaps(
+                    &near,
+                    &Aabb {
+                        min: Point3::new(lo.x, lo.y, lo.z),
+                        max: Point3::new(hi.x, hi.y, hi.z),
+                    },
+                )
+            })
+            .collect();
+        found.sort_unstable();
+        let triangles = found
+            .into_iter()
+            .filter_map(|i| self.triangle(i).map(|t| (i, t)));
+        crate::gap::search(&body, triangles, query.limit, query.accept)
     }
 }
 

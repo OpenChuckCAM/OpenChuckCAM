@@ -2121,6 +2121,9 @@ pub struct BrepSurface {
     holes: Vec<Hole>,
     /// Whether ball drops use the exact faces (decision 0277).
     exact_drops: bool,
+    /// The tessellation's stated largest deviation from the faces, mm (the
+    /// import's linear deflection): [`SurfaceSource::tool_gap_accuracy`].
+    deflection: f64,
 }
 
 impl BrepSurface {
@@ -2133,6 +2136,7 @@ impl BrepSurface {
             .collect::<Result<Vec<_>>>()?;
         let (mesh, face_of_triangle) = model.joined_tessellation();
         Self::assemble(faces, mesh, face_of_triangle, find_holes(model))
+            .map(|s| s.with_deflection(model.tessellation.linear))
     }
 
     /// Only the faces named in `ids` (the user's face selection). Fails when
@@ -2168,6 +2172,18 @@ impl BrepSurface {
             .filter(|h| h.faces.iter().any(|f| ids.contains(f)))
             .collect();
         Self::assemble(faces, mesh, face_of_triangle, holes)
+            .map(|s| s.with_deflection(model.tessellation.linear))
+    }
+
+    /// This source with the tessellation's stated deviation; a value that
+    /// is not a positive finite number counts as none.
+    fn with_deflection(mut self, linear: f64) -> Self {
+        self.deflection = if linear.is_finite() && linear > 0.0 {
+            linear
+        } else {
+            0.0
+        };
+        self
     }
 
     fn assemble(
@@ -2205,6 +2221,7 @@ impl BrepSurface {
             bounds,
             holes,
             exact_drops: false,
+            deflection: 0.0,
         })
     }
 
@@ -2729,6 +2746,19 @@ impl SurfaceSource for BrepSurface {
             return Some(d.contact);
         }
         self.fallback.as_ref()?.drop_tool(profile, line)
+    }
+
+    fn tool_gap(
+        &self,
+        profile: &RevolvedProfile,
+        line: &ToolLine,
+        query: &crate::gap::GapQuery,
+    ) -> Option<crate::gap::ToolGap> {
+        self.fallback.as_ref()?.tool_gap(profile, line, query)
+    }
+
+    fn tool_gap_accuracy(&self) -> f64 {
+        self.deflection
     }
 
     fn drop_accuracy(&self) -> f64 {

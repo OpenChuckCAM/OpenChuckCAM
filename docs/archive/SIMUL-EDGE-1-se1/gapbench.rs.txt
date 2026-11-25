@@ -1,0 +1,65 @@
+// Throwaway measuring program, run from a scratch Cargo project outside the repository (see README.md); not built by the workspace.
+// Throwaway: the cost of one tool gap query on the public blisk mesh, a 3 mm
+// ball and flat end, at poses resting on the part (single and swept 0.5 mm).
+use openchuck_path::{GapQuery, MeshSurface, SurfaceSource, ToolLine};
+use openchuck_types::geometry::{Point3, UnitVec3, Vec3};
+use openchuck_types::mesh::TriangleMesh;
+use openchuck_types::tool::profile::{ProfilePoint, ProfileSegment, ToolProfile};
+use std::time::Instant;
+
+fn read(path: &str) -> TriangleMesh {
+    let b = std::fs::read(path).unwrap();
+    let n = u32::from_le_bytes(b[80..84].try_into().unwrap()) as usize;
+    let mut m = TriangleMesh::default();
+    for i in 0..n {
+        let o = 84 + i * 50 + 12;
+        let f = |k: usize| f32::from_le_bytes(b[o + 4 * k..o + 4 * k + 4].try_into().unwrap()) as f64;
+        let base = m.vertices.len() as u32;
+        for v in 0..3 {
+            m.vertices.push(Point3::new(f(3 * v), f(3 * v + 1), f(3 * v + 2)));
+        }
+        m.triangles.push([base, base + 1, base + 2]);
+    }
+    m
+}
+
+fn main() {
+    let mesh = read("/home/user/OpenChuckCAM/testdata/stl/blisk.stl");
+    let s = MeshSurface::new(&mesh).unwrap();
+    let r = 1.5;
+    let ball = ToolProfile { segments: vec![
+        ProfileSegment::Arc { to: ProfilePoint::new(r, r), centre: ProfilePoint::new(0.0, r) },
+        ProfileSegment::Line { to: ProfilePoint::new(r, 16.0) }] }.validate().unwrap();
+    let flat = ToolProfile { segments: vec![
+        ProfileSegment::Line { to: ProfilePoint::new(r, 0.0) },
+        ProfileSegment::Line { to: ProfilePoint::new(r, 16.0) }] }.validate().unwrap();
+    for (name, p) in [("ball", &ball), ("flat", &flat)] {
+        for (sweep_len, accept) in [(0.0, None), (0.0, Some(-0.006)), (0.5, None), (0.5, Some(-0.006))] {
+            let mut poses = Vec::new();
+            for i in 0..100 { for j in 0..100 {
+                let x = 1.0 + 48.0 * i as f64 / 100.0;
+                let th = (j as f64) * 3.6_f64.to_radians();
+                let dir = Vec3::new(0.0, th.cos(), th.sin());
+                let origin = Point3::new(x, 30.0 * th.cos(), 30.0 * th.sin());
+                let down = UnitVec3::new(-dir).unwrap();
+                let axis = UnitVec3::new(dir).unwrap();
+                let line = ToolLine { origin, axis };
+                if let Some(c) = s.drop_tool(p, &ToolLine { origin, axis }) {
+                    let _ = (down, line);
+                    poses.push(ToolLine { origin: c.tip, axis });
+                }
+            }}
+            let t = Instant::now();
+            let mut worst = f64::INFINITY;
+            let mut n = 0;
+            for l in &poses {
+                let sweep = Vec3::new(sweep_len, 0.0, 0.0);
+                let q = GapQuery::swept(sweep, 0.05); let q = match accept { Some(a) => q.accept_above(a), None => q };
+                if let Some(g) = s.tool_gap(p, l, &q) { worst = worst.min(g.lower); n += 1; }
+            }
+            let dt = t.elapsed().as_secs_f64();
+            println!("{name} sweep {sweep_len} accept {accept:?}: {} poses, {:.1} us/query, answered {n}, deepest lower {worst:.5}",
+                poses.len(), 1e6 * dt / poses.len() as f64);
+        }
+    }
+}

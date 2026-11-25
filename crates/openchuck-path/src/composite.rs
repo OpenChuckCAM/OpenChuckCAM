@@ -21,6 +21,7 @@ use openchuck_types::mesh::TriangleMesh;
 use openchuck_types::tool::profile::RevolvedProfile;
 
 use crate::cutter::{Contact, ToolLine};
+use crate::gap::{GapQuery, ToolGap};
 use crate::holes::Hole;
 use crate::solid::Solid;
 use crate::surface::{FaceRef, RayHit, SurfacePoint, SurfaceSource};
@@ -40,6 +41,10 @@ pub struct CompositeSurface {
     solids: Vec<Solid>,
     mesh: TriangleMesh,
     bounds: Aabb,
+    /// The solids' own tessellation, for the tool gap (decision record
+    /// SIMUL-EDGE-1, Q2), and the largest distance from it to a solid.
+    solid_mesh: TriangleMesh,
+    solid_accuracy: f64,
 }
 
 impl CompositeSurface {
@@ -47,7 +52,24 @@ impl CompositeSurface {
     pub fn new(model: Arc<dyn SurfaceSource>, solids: Vec<Solid>) -> Self {
         let mut mesh = model.tessellation().clone();
         let mut bounds = model.bounds();
+        let mut solid_mesh = TriangleMesh::default();
+        let mut solid_accuracy = 0.0_f64;
         for solid in &solids {
+            let own = solid.mesh(TESSELLATION_SEGMENTS);
+            let base = u32::try_from(solid_mesh.vertices.len()).unwrap_or(u32::MAX);
+            solid_mesh.vertices.extend_from_slice(&own.vertices);
+            solid_mesh.triangles.extend(
+                own.triangles
+                    .iter()
+                    .map(|t| t.map(|i| i.saturating_add(base))),
+            );
+            // A round solid's mesh is inscribed: its chords lie inside by up
+            // to the sagitta of one segment. A box's mesh is exact.
+            if solid.as_cuboid().is_none() {
+                let r = solid.base_radius().max(solid.top_radius());
+                let half = std::f64::consts::PI / f64::from(TESSELLATION_SEGMENTS);
+                solid_accuracy = solid_accuracy.max(r * (1.0 - half.cos()));
+            }
             let offset = u32::try_from(mesh.vertices.len()).unwrap_or(u32::MAX);
             let part = solid.mesh(TESSELLATION_SEGMENTS);
             mesh.vertices.extend(part.vertices);
@@ -75,6 +97,8 @@ impl CompositeSurface {
             solids,
             mesh,
             bounds,
+            solid_mesh,
+            solid_accuracy,
         }
     }
 
@@ -132,6 +156,24 @@ impl SurfaceSource for CompositeSurface {
 
     fn drop_accuracy(&self) -> f64 {
         self.model.drop_accuracy()
+    }
+
+    fn tool_gap(
+        &self,
+        profile: &RevolvedProfile,
+        line: &ToolLine,
+        query: &GapQuery,
+    ) -> Option<ToolGap> {
+        let model = self.model.tool_gap(profile, line, query);
+        let solids = crate::gap::on_mesh(&self.solid_mesh, profile, line, query);
+        match (model, solids) {
+            (Some(m), Some(s)) => Some(m.min(s)),
+            (m, s) => m.or(s),
+        }
+    }
+
+    fn tool_gap_accuracy(&self) -> f64 {
+        self.model.tool_gap_accuracy().max(self.solid_accuracy)
     }
 
     fn drop_on_part(&self, profile: &RevolvedProfile, line: &ToolLine) -> Option<Contact> {

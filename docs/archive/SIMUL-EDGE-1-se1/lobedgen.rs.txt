@@ -1,0 +1,31 @@
+// Throwaway measuring program, run from a scratch Cargo project outside the repository (see README.md); not built by the workspace.
+// Throwaway: writes the lobed reference job's model as the reference test does.
+use openchuck_testkit::parts::{LobedVase, RadialPart};
+use openchuck_types::mesh::TriangleMesh;
+use std::path::Path;
+
+fn write_stl(mesh: &TriangleMesh, path: &Path) {
+    let mut text = String::from("solid part\n");
+    for t in &mesh.triangles {
+        let v: Vec<_> = t.iter().map(|i| mesh.vertices[*i as usize]).collect();
+        let n = {
+            let (a, b) = (v[1] - v[0], v[2] - v[0]);
+            let c = a.cross(b);
+            let len = c.length();
+            if len > 0.0 { c * (1.0 / len) } else { c }
+        };
+        text.push_str(&format!("facet normal {:e} {:e} {:e}\n outer loop\n", n.x, n.y, n.z));
+        for p in v {
+            text.push_str(&format!("  vertex {:e} {:e} {:e}\n", p.x, p.y, p.z));
+        }
+        text.push_str(" endloop\nendfacet\n");
+    }
+    text.push_str("endsolid part\n");
+    std::fs::write(path, text).unwrap();
+}
+
+fn main() {
+    let part = LobedVase { base: 10.0, wave: 1.5, wave_length: 40.0, lobe: 1.0, lobes: 3, length: 20.0 };
+    let out = std::env::args().nth(1).unwrap();
+    write_stl(&part.mesh(201, 720), Path::new(&out));
+}

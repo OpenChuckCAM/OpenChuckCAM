@@ -144,6 +144,8 @@ mod spiral_rings;
 mod strategy_menu;
 #[path = "swarf.rs"]
 mod swarf;
+#[path = "tool_gap.rs"]
+mod tool_gap;
 #[path = "unroll.rs"]
 mod unroll;
 #[path = "walls.rs"]
