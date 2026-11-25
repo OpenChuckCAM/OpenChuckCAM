@@ -1,6 +1,6 @@
 # PATH-QUALITY-1: Simultaneous finishing over sharp edges, a true point at a finial, one rule for ramp entries, and ramps on STEP parts (OP-05, OP-06, OP-11, OP-12, OP-20, OP-21, NFR-07, NFR-12, GC-07; issues #710, #779, #786, #421, #844, #826; lane PATH-QUALITY)
 
-- **Status:** Proposed by lane PATH-QUALITY on 25 Nov 2026 (phase 1, planning only; no code is built until the owner answers). Only the project owner accepts this record (decision 0049). The questions are Q1 to Q7 below, each with options, a recommendation and what follows "if you answer as recommended".
+- **Status:** Proposed by lane PATH-QUALITY on 25 Nov 2026 (phase 1, planning only; no code is built until the owner answers). Only the project owner accepts this record (decision 0049). The questions are Q1 to Q7 below, each with options, a recommendation and what follows "if you answer as recommended". **Q1 answered (25 Nov 2026, the owner's answer relayed by the coordinator): option C**, the general continuous seed and a clearance test of the whole tool, taken into its own lane, SIMUL-EDGE; #710 leaves this lane's scope. Q2 to Q7 are still open.
 - **Date:** 25 Nov 2026.
 - **Issues:** #710 (simultaneous finishing on the blisk: sharp edges and walls facing along the axis; OI-318, OI-337), #779 (a true point at a finial; an adaptive stepover for such curves), #786 (ramping across every strategy), #421 (ramps on STEP parts and a plunge into single-point passes; OI-1270, OI-1271), and the fold-in checks of #844 (a tool engaged along its whole length) and #826's OI-2198 (adaptive spacing on the stepped cylinder with a flat end).
 - **Requirements:** OP-05, OP-06, OP-20 (simultaneous finishing, tool axis, hidden surfaces), OP-11 (ramping), OP-12 (gouge protection), OP-14 (linking), OP-21 (tabs), SET-09 (held regions), NFR-07, NFR-12, GC-07 and NFR-06 (determinism).
@@ -13,7 +13,7 @@ Numbering: provisional. The record carries the lane's name and the open items OI
 
 What this record asks of you, in the order the coordinator will put it:
 
-1. **Q1 (#710): the blisk's simultaneous finish cuts into its blade tips today.** It is no longer refused; it generates, and the simulation finds up to 0.94 mm cut into the blade tips with the 3 mm ball on the STEP blisk and 1.7 to 2.5 mm with the 3 mm flat end. This is a gap in gouge protection (OP-12), so it is put first. Recommended: **A**, tighten the move check so these moves are caught, break the pass there with a warning, and document the blisk's limit and its workaround.
+1. **Q1 (#710), answered C and moved to lane SIMUL-EDGE: the blisk's simultaneous finish cuts into its blade tips today.** It is no longer refused; it generates, and the simulation finds up to 0.94 mm cut into the blade tips with the 3 mm ball on the STEP blisk and 1.7 to 2.5 mm with the 3 mm flat end. This is a gap in gouge protection (OP-12), so it is put first. Recommended: **A**, tighten the move check so these moves are caught, break the pass there with a warning, and document the blisk's limit and its workaround.
 2. **Q3 (#786): a ramp that goes round the part cuts into it.** Face flow, pencil, simultaneous finishing on a face set and, with the steeper ramp on, helical and simultaneous on the crankshaft cut 0.26 to 0.68 mm into the part when Entry is Ramp (the same operations with Plunge do not). Recommended: **A**, every ramp follows its own pass, back and forth, as swarf's already does.
 3. **Q4 (#786): needless ramp refusals.** Recommended: **A**, a stretch shorter than the shortest ramp is entered as a single point is, the steeper-ramp search is fixed, and new operations get Allow single-point plunge and Steeper ramp near the axis on (saved operations keep theirs).
 4. **Q2 (#779): the finial's tip.** Recommended: **A**, a new setting **Finish to a point** (on for new helical, axial and indexed finishing operations; saved operations keep their programs) that carries the finish past a pointed end down to the rotary axis, with the existing "part cut free" warning.
@@ -109,6 +109,8 @@ On the crankshaft example, the guide's Rough then Finish: 163 of 16,751 finishin
 
 ### Q1 (#710): what the simultaneous finish does over sharp edges
 
+**The owner's answer (25 Nov 2026, relayed by the coordinator): C**, built in its own lane, SIMUL-EDGE, not in this one. That lane owns #710, OI-9992 and OI-9996, and decides its own design and record; the options below are kept as they were put.
+
 - **A. Catch the move and break the pass (recommended).** Test the quarter points and long-move poses at every halving; count a middle with nothing under it as a failure; measure a flat end's cut on hidden-surface passes from the whole tool, not the point it rests on; correct the largest-tilt note. Where a move still cuts after the last halving, the pass is broken there, the tool lifts round the edge as linking does (OP-14), and a warning says where material is left, as an unreached area marked on the part. The user guide's simultaneous page states the blisk's limit and the workaround: a region on the blades and hub, the shoulder and the root corners by another strategy or a smaller tool, rest machining after. About 3 to 4 days; low risk to other parts (the lobed and cone goldens have no sharp edges; the golden suite confirms). No public API change.
 - **B. A, and roll round sharp convex edges.** Find an edge where the drive normals jump, and add poses that pivot the tool about it (contact held on the edge while A turns), so the tip and rim are finished instead of left. About 6 to 9 days; medium risk (a mesh's facet boundaries may read as edges); the STEP crankshaft's and blisk's programs change. No public API change.
 - **C. The general continuous seed of OI-337 item 1, and a clearance test of the whole tool at every test point.** About 2 to 3 weeks; every simultaneous program changes (the lobed golden, the end-to-end goldens, the guide's figures); a clearance query added to the public `SurfaceSource` trait is a breaking change (decision 0048: a workspace minor bump and changelog).
@@ -176,15 +178,15 @@ Sub-question (c), the adaptive stepover over the tip (your idea 2):
 
 | Pull request | Issue, answer | Effort | Risk | Golden changes | `openchuck-path` API | Can go alone |
 | --- | --- | --- | --- | --- | --- | --- |
-| PQ-1 | #710 Q1 A | 3 to 4 days | low | none expected; blisk output changes | none | yes; first (OP-12) |
+| (PQ-1) | #710, Q1 answered C | moved to lane SIMUL-EDGE | — | every simultaneous program (that lane's record) | breaking if a clearance query is added to `SurfaceSource`: minor bump | that lane |
 | PQ-2 | #786 Q3 A and Q4 A | 4 to 5 days | low | none (no reference project uses Ramp) | breaking (`ramps_round_the_part` removed): minor bump | yes |
 | PQ-3 | #779 Q2 A | 4 to 6 days | medium | none (saved operations keep theirs) | additive (a parameter name) | yes; after PQ-4 if both touch `helical.rs` at once |
 | PQ-4 | OI-2198 Q6 A | 3 to 4 days | low to medium | none | none | yes |
 | — | #421 Q7 A | close with this record | — | — | — | — |
 
-PQ-1 is in `simultaneous.rs`, PQ-2 in `assemble/entry.rs`, `strategy.rs` and `swarf.rs`, PQ-3 in `extend.rs` and `helical.rs` (and the finishing schemas), PQ-4 in `helical.rs` (the adaptive measure). PQ-3 and PQ-4 share `helical.rs`, so they are merged one after the other. Only PQ-2 needs the workspace minor bump; if it merges in the same release as another breaking change, one bump covers both (decision 0048). Each changes the user guide's text for what it changes, and each adds a *Development version* line to the release notes and an entry to `crates/openchuck-path/CHANGELOG.md`. Total about 3 weeks of lane time at the recommended answers; B for Q1 adds about a week.
+Lane SIMUL-EDGE works in `simultaneous.rs` and `simultaneous/hidden.rs`, and in `surface.rs` with the `SurfaceSource` implementations if it adds a clearance query. This lane's PQ-2 is in `assemble/entry.rs`, `strategy.rs` and `swarf.rs`, PQ-3 in `extend.rs` and `helical.rs` (and the finishing schemas), PQ-4 in `helical.rs` (the adaptive measure). PQ-3 and PQ-4 share `helical.rs`, so they are merged one after the other. In this lane only PQ-2 needs the workspace minor bump. Lane SIMUL-EDGE's clearance query, if added to the public `SurfaceSource` trait, is a second breaking change; the two do not collide in what they change (PQ-2 removes `Strategy::ramps_round_the_part` and the spiral ramp's drop on the surface; SIMUL-EDGE adds to `SurfaceSource`), and they meet only in test files that implement `SurfaceSource` (for example `crates/openchuck-path/tests/swarf.rs`), a textual merge. Each takes its own minor bump in merge order (decision 0048), as the coordinator set. Each changes the user guide's text for what it changes, and each adds a *Development version* line to the release notes and an entry to `crates/openchuck-path/CHANGELOG.md`. Total for this lane, without #710: about 11 to 15 days (PQ-2 4 to 5, PQ-3 4 to 6, PQ-4 3 to 4), so about two and a half weeks at the recommended answers; Q2 (c) B would add about 4 days.
 
-Nothing here needs the owner's hand test before it is built. After PQ-1 and PQ-3, an optional air cut or a cut in wood of the baluster's tip and a blisk region would be routed through lane OWNERCHECKS-PACKS with public example projects.
+Nothing here needs the owner's hand test before it is built. After PQ-3 (and lane SIMUL-EDGE's build), an optional air cut or a cut in wood of the baluster's tip and a blisk region would be routed through lane OWNERCHECKS-PACKS with public example projects.
 
 ## Alternatives considered
 
@@ -195,7 +197,7 @@ The options not recommended under each question above are the alternatives, with
 
 ## Consequences
 
-- **Code** (after the answers): `crates/openchuck-path/src/simultaneous.rs` and `simultaneous/hidden.rs` (Q1); `assemble/entry.rs`, `strategy.rs`, `swarf.rs` (Q3, Q4); `extend.rs`, `helical.rs`, `axial.rs`, `indexed.rs`, `finishing.rs` and the finishing schemas (Q2); `helical.rs` (Q6); `crates/openchuck-app` where new operations get their defaults (Q2, Q4) and in the form (Q2's setting). Tests named by requirement (OP-12, OP-11, OP-20, OP-21) on public or synthetic parts.
+- **Code** (after the answers): `assemble/entry.rs`, `strategy.rs`, `swarf.rs` (Q3, Q4); `extend.rs`, `helical.rs`, `axial.rs`, `indexed.rs`, `finishing.rs` and the finishing schemas (Q2); `helical.rs` (Q6); `crates/openchuck-app` where new operations get their defaults (Q2, Q4) and in the form (Q2's setting). Tests named by requirement (OP-12, OP-11, OP-20, OP-21) on public or synthetic parts.
 - **Documents:** the user guide's simultaneous finishing, Entry, Extend and Face free ends text; `docs/ui-design/ui-specification.md` for the new setting (Q2); the verification plan's OP-11 and OP-12 rows if a new test is named there. `docs/requirements.md` and `docs/architecture.md` do not change.
 - **Accepted records amended** (if answered as recommended): 0543 D2, 0645 item 1, 0212 part B item 3, 0546 item 3.
 - **NFR-12.** Nothing here says a program is safe. The warnings say what is left or cut free and to check it in the simulation; generated G-code remains the user's to verify before running it on a machine.
@@ -205,11 +207,11 @@ The options not recommended under each question above are the alternatives, with
 Added (provisional numbers):
 
 - **OI-9991:** the owner's answers to Q1 to Q7 and acceptance of this record.
-- **OI-9992:** simultaneous finishing cuts into sharp convex edges (the blisk's blade tips, up to 2.55 mm with a flat end): the move check and the flat end's hidden-surface check (Q1). Built by PQ-1.
+- **OI-9992:** simultaneous finishing cuts into sharp convex edges (the blisk's blade tips, up to 2.55 mm with a flat end): the move check and the flat end's hidden-surface check (Q1). Settled by lane SIMUL-EDGE's build of Q1 C (OI-9996).
 - **OI-9993:** a ramp that goes round the part cuts into it (face flow, pencil, simultaneous on a face set, crankshaft helical and simultaneous), and the steeper-ramp search stops short (Q3, Q4). Built by PQ-2. Lead and Helix against the whole part stay in the #572 family.
 - **OI-9994:** the Makera Z1 post refuses the STL blisk's simultaneous finish in the axial pattern (the replay's rotary counter reset); LinuxCNC writes it. Not in this lane's scope; for the coordinator to route.
 - **OI-9995:** spurious off-axis zones in four 0.05 mm strips on the STEP blisk (decision 0363 item 3). Not in this lane's scope.
-- **OI-9996:** finishing over sharp convex edges by rolling round them, and the general continuous seed (OI-337 item 1); Q1 options B and C, deferred.
+- **OI-9996:** the build of Q1 C, the owner's answer: the general continuous seed (OI-337 item 1) and a clearance test of the whole tool at every test point, in lane SIMUL-EDGE.
 - **OI-9997:** adaptive spacing over the path past a pointed end (#779's idea 2), after Q2 and Q6.
 
 Updated in place: OI-318 and OI-337 (the blisk now generates and cuts its blade tips; this record), OI-2198 (the causes found).
