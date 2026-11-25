@@ -1,0 +1,52 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 520" width="1000" height="520" font-family="Helvetica, Arial, sans-serif" font-size="13">
+<title>Where the tool is seeded at a sharp edge: today, and the continuous seed of option A</title>
+<rect width="1000" height="520" fill="#ffffff"/>
+<text x="20" y="28" font-size="17" font-weight="bold" fill="#222">Seeding the tool at a blade tip (schematic, section across the rotary axis)</text>
+<text x="20" y="48" fill="#444">Ball end. The rotary axis is below the figure; the tool's axis points away from it. Track points move left to right over the tip.</text>
+<!-- Left panel: today -->
+<text x="20" y="86" font-weight="bold" fill="#222">Today: the seed follows the surface normal</text>
+<polygon points="110,200 250,200 250,440 110,440" fill="#e6eef7" stroke="#2b5d8a" stroke-width="2"/>
+<text x="180" y="410" text-anchor="middle" fill="#2b5d8a" font-weight="bold">blade</text>
+<!-- balls on the top face, normal up -->
+<circle cx="170" cy="170" r="30" fill="none" stroke="#222" stroke-width="2"/>
+<circle cx="215" cy="170" r="30" fill="none" stroke="#222" stroke-width="2"/>
+<!-- jump: ball on the side face, normal sideways -->
+<circle cx="280" cy="250" r="30" fill="none" stroke="#c0392b" stroke-width="2" stroke-dasharray="5 3"/>
+<line x1="248" y1="185" x2="268" y2="225" stroke="#c0392b" stroke-width="2" marker-end="url(#arrowRed)"/>
+<defs>
+<marker id="arrowRed" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#c0392b"/></marker>
+<marker id="arrowGreen" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#1e8449"/></marker>
+<marker id="arrowGrey" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#666"/></marker>
+</defs>
+<line x1="250" y1="200" x2="250" y2="200" stroke="#000"/>
+<circle cx="250" cy="200" r="3" fill="#222"/>
+<text x="258" y="196" fill="#222">sharp edge</text>
+<text x="20" y="470" fill="#c0392b">Two track points 1e-7 apart either side of the edge: the normal turns</text>
+<text x="20" y="486" fill="#c0392b">about 80 degrees, so the seeded tool jumps from the top to the side.</text>
+<text x="20" y="502" fill="#c0392b">The straight move between them is what cut the tips (#914).</text>
+<line x1="500" y1="70" x2="500" y2="505" stroke="#ddd"/>
+<!-- Right panel: option A -->
+<text x="520" y="86" font-weight="bold" fill="#222">Option A: drop along the track's ray, then lean and drop again</text>
+<polygon points="610,200 750,200 750,440 610,440" fill="#e6eef7" stroke="#2b5d8a" stroke-width="2"/>
+<text x="680" y="410" text-anchor="middle" fill="#2b5d8a" font-weight="bold">blade</text>
+<!-- rolling arc of ball centres about the edge (750,200), radius 30 -->
+<path d="M750,170 A30,30 0 0 1 780,200" fill="none" stroke="#1e8449" stroke-width="1.5" stroke-dasharray="3 3"/>
+<circle cx="715" cy="170" r="30" fill="none" stroke="#222" stroke-width="1.5"/>
+<circle cx="750" cy="170" r="30" fill="none" stroke="#1e8449" stroke-width="2"/>
+<circle cx="771.2" cy="178.8" r="30" fill="none" stroke="#1e8449" stroke-width="2"/>
+<circle cx="780" cy="200" r="30" fill="none" stroke="#1e8449" stroke-width="2"/>
+<circle cx="780" cy="240" r="30" fill="none" stroke="#222" stroke-width="1.5"/>
+<circle cx="750" cy="200" r="3" fill="#222"/>
+<!-- rays from outside -->
+<line x1="715" y1="105" x2="715" y2="135" stroke="#666" stroke-width="1" marker-end="url(#arrowGrey)"/>
+<line x1="750" y1="105" x2="750" y2="135" stroke="#666" stroke-width="1" marker-end="url(#arrowGrey)"/>
+<line x1="790" y1="105" x2="785" y2="140" stroke="#666" stroke-width="1" marker-end="url(#arrowGrey)"/>
+<text x="800" y="118" fill="#666">track's rays</text>
+<text x="820" y="176" fill="#1e8449">the ball rolls round</text>
+<text x="820" y="192" fill="#1e8449">the edge: its contact</text>
+<text x="820" y="208" fill="#1e8449">stays on the edge while</text>
+<text x="820" y="224" fill="#1e8449">the lean turns</text>
+<text x="520" y="470" fill="#1e8449">The tool's line comes only from the track position and the planned axis,</text>
+<text x="520" y="486" fill="#1e8449">and a drop moves continuously with its line, so neighbouring track points</text>
+<text x="520" y="502" fill="#1e8449">give neighbouring tool positions: no jump, and the tip is finished.</text>
+</svg>

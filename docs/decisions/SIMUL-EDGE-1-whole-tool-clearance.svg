@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 480" width="1000" height="480" font-family="Helvetica, Arial, sans-serif" font-size="13">
+<title>Measuring a cut from the rest point, and from the whole tool</title>
+<rect width="1000" height="480" fill="#ffffff"/>
+<text x="20" y="28" font-size="17" font-weight="bold" fill="#222">What a test pose measures: the rest point, or the whole tool (schematic)</text>
+<text x="20" y="48" fill="#444">Flat end at a test pose between two kept points, crossing a blade edge on a hidden-surface pass.</text>
+<!-- Left: today -->
+<text x="20" y="86" font-weight="bold" fill="#222">Today: the gap at the point the tool rests on</text>
+<polygon points="60,250 230,250 230,370 60,370" fill="#e6eef7" stroke="#2b5d8a" stroke-width="2"/>
+<text x="145" y="355" text-anchor="middle" fill="#2b5d8a" font-weight="bold">blade</text>
+<!-- flat end tilted, overlapping blade corner -->
+<g transform="rotate(-20 230 250)">
+<rect x="190" y="130" width="70" height="125" fill="#c0392b" fill-opacity="0.08" stroke="#222" stroke-width="2"/>
+</g>
+<circle cx="230" cy="250" r="4" fill="#1e8449"/>
+<line x1="234" y1="252" x2="300" y2="300" stroke="#1e8449" stroke-width="0.8"/>
+<text x="304" y="304" fill="#1e8449">rest point (the corner):</text>
+<text x="304" y="320" fill="#1e8449">reads about 0 mm</text>
+<polygon points="190,250 230,250 230,264 202,264" fill="#c0392b" fill-opacity="0.45"/>
+<line x1="196" y1="256" x2="110" y2="160" stroke="#c0392b" stroke-width="0.8"/>
+<text x="20" y="140" fill="#c0392b">material inside the tool:</text>
+<text x="20" y="156" fill="#c0392b">not measured</text>
+<text x="20" y="420" fill="#222">Measured: 1.7 to 2.55 mm cut into the tips with a 3 mm flat end.</text>
+<line x1="500" y1="70" x2="500" y2="470" stroke="#ddd"/>
+<!-- Right: option A -->
+<text x="520" y="86" font-weight="bold" fill="#222">Option A: the smallest clearance of the whole tool</text>
+<polygon points="560,250 730,250 730,370 560,370" fill="#e6eef7" stroke="#2b5d8a" stroke-width="2"/>
+<text x="645" y="355" text-anchor="middle" fill="#2b5d8a" font-weight="bold">blade</text>
+<g transform="rotate(-20 730 250)">
+<rect x="690" y="130" width="70" height="125" fill="#c0392b" fill-opacity="0.08" stroke="#222" stroke-width="2"/>
+</g>
+<polygon points="690,250 730,250 730,264 702,264" fill="#c0392b" fill-opacity="0.45"/>
+<line x1="703" y1="252" x2="703" y2="266" stroke="#c0392b" stroke-width="2"/>
+<line x1="706" y1="262" x2="780" y2="300" stroke="#c0392b" stroke-width="0.8"/>
+<text x="784" y="296" fill="#c0392b">deepest surface point inside</text>
+<text x="784" y="312" fill="#c0392b">the tool, and how deep: the</text>
+<text x="784" y="328" fill="#c0392b">pose fails when it is over</text>
+<text x="784" y="344" fill="#c0392b">the limit</text>
+<text x="780" y="140" fill="#222">cutting part, capped at its top:</text>
+<text x="780" y="156" fill="#222">a convex solid, so its clearance</text>
+<text x="780" y="172" fill="#222">has one deepest point per piece</text>
+<text x="780" y="188" fill="#222">of surface (decision 0255's argument)</text>
+<text x="520" y="404" fill="#222">One query on SurfaceSource answers it for a mesh, a STEP part (on its</text>
+<text x="520" y="420" fill="#222">tessellation) and a part with held regions and tabs, for ball, flat and bull ends.</text>
+</svg>
