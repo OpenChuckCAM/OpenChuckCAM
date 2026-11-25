@@ -1,6 +1,6 @@
 # PATH-QUALITY-1: Simultaneous finishing over sharp edges, a true point at a finial, one rule for ramp entries, and ramps on STEP parts (OP-05, OP-06, OP-11, OP-12, OP-20, OP-21, NFR-07, NFR-12, GC-07; issues #710, #779, #786, #421, #844, #826; lane PATH-QUALITY)
 
-- **Status:** Accepted by the project owner on 25 Nov 2026, relayed by the coordinator (decision 0049), at head `23d3117` of pull request #913, with the answers below (OI-9991, closed). Proposed by lane PATH-QUALITY on 25 Nov 2026 (phase 1, planning only; no code is built until the owner answers). Only the project owner accepts this record (decision 0049). The questions are Q1 to Q7 below, each with options, a recommendation and what follows "if you answer as recommended". **Q1 answered (25 Nov 2026, the owner's answer relayed by the coordinator): option C**, the general continuous seed and a clearance test of the whole tool, taken into its own lane, SIMUL-EDGE; #710 leaves this lane's scope. **Q3 answered (25 Nov 2026, relayed): option A**, with the owner's design requirement that a ramp is there to manage the tool's load (*Q3: the owner's answer and the tool-load requirement* below). **Q4 answered (25 Nov 2026, relayed): option A**, with the tool-load point applied to its defaults. **Q2 answered (25 Nov 2026, relayed): (a) A, (b) A, (c) B**: the adaptive stepover over the tip is built now, with Finish to a point (not this lane's recommendation, A). **Q6 answered (25 Nov 2026, relayed): option A.** **Q5 answered (25 Nov 2026, relayed): #844 taken into its own lane, TOOL-LOAD**, in this milestone (neither A nor B as written). **Q7 answered (25 Nov 2026, relayed): option A**; the coordinator closed #421 with a comment naming decision 0543 D7 and D10 and PQ-2. **All seven questions are answered, and the record is accepted (25 Nov 2026, relayed; OI-9991 closed).** **Addendum (25 Nov 2026):** two later questions, Q8 (the tool-radius bound on every ramp: the owner answered A, to be built once the measured impact is seen, OI-9990) and Q9 (the settings that configure a ramp: open for the owner, OI-9999).
+- **Status:** Accepted by the project owner on 25 Nov 2026, relayed by the coordinator (decision 0049), at head `23d3117` of pull request #913, with the answers below (OI-9991, closed). Proposed by lane PATH-QUALITY on 25 Nov 2026 (phase 1, planning only; no code is built until the owner answers). Only the project owner accepts this record (decision 0049). The questions are Q1 to Q7 below, each with options, a recommendation and what follows "if you answer as recommended". **Q1 answered (25 Nov 2026, the owner's answer relayed by the coordinator): option C**, the general continuous seed and a clearance test of the whole tool, taken into its own lane, SIMUL-EDGE; #710 leaves this lane's scope. **Q3 answered (25 Nov 2026, relayed): option A**, with the owner's design requirement that a ramp is there to manage the tool's load (*Q3: the owner's answer and the tool-load requirement* below). **Q4 answered (25 Nov 2026, relayed): option A**, with the tool-load point applied to its defaults. **Q2 answered (25 Nov 2026, relayed): (a) A, (b) A, (c) B**: the adaptive stepover over the tip is built now, with Finish to a point (not this lane's recommendation, A). **Q6 answered (25 Nov 2026, relayed): option A.** **Q5 answered (25 Nov 2026, relayed): #844 taken into its own lane, TOOL-LOAD**, in this milestone (neither A nor B as written). **Q7 answered (25 Nov 2026, relayed): option A**; the coordinator closed #421 with a comment naming decision 0543 D7 and D10 and PQ-2. **All seven questions are answered, and the record is accepted (25 Nov 2026, relayed; OI-9991 closed).** **Addendum (25 Nov 2026):** two later questions, Q8 (the tool-radius bound on every ramp: the owner answered A, and after seeing the measured impact said to build it, 25 Nov 2026, relayed; OI-9990) and Q9 (the settings that configure a ramp: **the owner answered B, with the default at the tool radius and A's regrouping, and the whole-ring part measured first**, 25 Nov 2026, relayed; OI-9999).
 - **Date:** 25 Nov 2026.
 - **Issues:** #710 (simultaneous finishing on the blisk: sharp edges and walls facing along the axis; OI-318, OI-337), #779 (a true point at a finial; an adaptive stepover for such curves), #786 (ramping across every strategy), #421 (ramps on STEP parts and a plunge into single-point passes; OI-1270, OI-1271), and the fold-in checks of #844 (a tool engaged along its whole length) and #826's OI-2198 (adaptive spacing on the stepped cylinder with a flat end).
 - **Requirements:** OP-05, OP-06, OP-20 (simultaneous finishing, tool axis, hidden surfaces), OP-11 (ramping), OP-12 (gouge protection), OP-14 (linking), OP-21 (tabs), SET-09 (held regions), NFR-07, NFR-12, GC-07 and NFR-06 (determinism).
@@ -239,7 +239,7 @@ Two questions came to the owner after PQ-2 opened (#930). They are relayed by th
 
 PQ-2 bounds the depth per traverse only on passes that start as a spiral, as Q3 point 2 says. On a line or a partial ring the legs are as long as the path allows. On the public crankshaft's helical finish with the steeper ramp, one line pass therefore steps 3.068 mm per traverse, against a tool radius of 1.59 mm.
 
-**The owner's answer (25 Nov 2026, relayed): A.** The tool-radius bound applies to every back-and-forth ramp: a leg is at most `R / (2 · tan θ)`, so the depth per traverse is never more than the tool radius. **Measure the impact first.** The numbers are below, and the change is built in PQ-2 (#930) only once the owner has seen them (OI-9990).
+**The owner's answer (25 Nov 2026, relayed): A.** The tool-radius bound applies to every back-and-forth ramp: a leg is at most `R / (2 · tan θ)`, so the depth per traverse is never more than the tool radius. **Measure the impact first.** The numbers are below. **After seeing them, the owner said to build it (25 Nov 2026, relayed)**: it is built in PQ-2 (#930), test first (a 50 mm line ramp with a 1 mm tool radius stepped 5.000 mm per traverse in two legs; it now takes ten, at most 1.000 mm).
 
 **Measured (25 Nov 2026).** The change was made in a throwaway worktree of PQ-2's head `8db9f4cd`, on a Linux container with release builds: on a line or partial ring the longest leg becomes `0.5 · R / tan θ` in place of no bound. Nothing was committed.
 
@@ -307,6 +307,46 @@ The program also holds fixed bounds that no setting shows:
 4. **One angle for Ramp and Helix.** A helix's depth per turn is `π · d_helix · tan θ`, so the same angle loads the tool differently on a helix than on a back-and-forth ramp.
 5. **The overlap with lane TOOL-LOAD.** TOOL-LOAD-1 (#927) proposes **Limit tool load**: a cut-section limit for the cutting moves, measured in the simulation. Its Q6 A measures entry moves like any other and names the Ramp angle setting when the heaviest stretch is in an entry. A second load setting on the ramp would give the user two limits for one tool.
 
+#### Every downside of each option, not only the effort
+
+*Asked by the owner (25 Nov 2026, relayed): "is the only disadvantage the extra time to build?"* No. Each downside below is marked **[saved programs]** where it could change or risk a program saved before the change, and **[surface]** where it only adds to the form, the guide or the tests.
+
+**A. Keep the angle, and regroup, relabel and explain.**
+- **The whole ring stays unbounded.** A ring ramp takes `2πr · tan θ` per turn, which can exceed the tool radius on a large ring (4.700 mm on the baluster's forced rough at 6°). Under A this is reported in the note and warned by TOOL-LOAD's TL-1, but it is not held. **[surface]** No program changes, but the load stays where it is.
+- **The load is still set indirectly.** The user sets an angle, not a load, and must read the note to see the depth per traverse. **[surface]**
+- **Users must find a moved setting.** The relabel ("Plunge where no ramp fits") and the move to Advanced change where users find a setting they know, and the guide's screenshots and text need redoing. **[surface]**
+- **No risk to saved programs.** The parameter names do not change.
+
+**B. A, and a "Largest depth per traverse" setting.**
+- **It overlaps with TOOL-LOAD's limit.** Two settings would bound related things: this one, in mm, on the ramp, and TOOL-LOAD's Limit tool load, in mm², on everything. Users have to understand which one applies. The function shared with TOOL-LOAD takes the smaller, but the form shows both. **[surface]**
+- **The default changes saved programs.** It must have a default. The tool radius is what Q8 already builds, so a saved operation changes no more than Q8 already changes it, and no golden or example changes, as measured. A different default (for example, a fraction of the radius) would change saved programs with Entry Ramp. **[saved programs, only if the default differs from the radius]**
+- **Whole rings, if B holds them.** A ring ramp deeper than the setting would have to be ramped back and forth (more legs, a longer ramp) or have its angle lowered (a longer ramp). That changes the programs and times of saved operations whose rings are large and steep. On the measured baluster case, the rough's ramps would lengthen and the time would grow. Not measured: if the owner leans to B, it is measured first, as Q8 was. **[saved programs, where a saved ring ramp is deeper than the setting]**
+- **It interacts with the steeper ramp.** Steeper ramp near the axis and Maximum ramp angle raise the angle, and so the depth per turn. Under B the steeper search must also keep within the setting. That makes refusals and plunges near the axis more likely, and so more plunges with Allow single-point plunge on. Users would then see three settings meet in one place. **[saved programs, near the axis only, where the steeper ramp is on; surface]**
+- **It adds tests and guide pages:**
+  - a parameter;
+  - its range and its relation to the radius;
+  - tests for each strategy's ramp shape and the steeper search;
+  - a guide paragraph;
+  - UI specification text.
+
+  About 2 days more than A. **[surface]**
+- **One more number** for every operation with Entry Ramp. Its good value is almost always the default. **[surface]**
+
+**C. A load target, with the angle following.**
+- **It cannot be built yet.** It needs the stock's depth before the pass (TOOL-LOAD's TL-2 `StockModel` query) and waits for lanes SIMUL-EDGE and TOOL-LOAD.
+- **It duplicates TOOL-LOAD's limit.** It is either a second copy of Limit tool load or a dependency on it. **[surface]**
+- **The angle would no longer be what the user set.** It would vary from pass to pass with the stock. That is harder to predict and to check before running (NFR-12).
+- **Every saved Entry Ramp program would change**, unless the setting is off for saved operations. **[saved programs, unless off for saved operations]**
+- **Highest risk:** the ramp's result depends on the simulated stock being right. Weeks of work.
+
+**D. A preset (Gentle, Normal or Steep).**
+- **It hides the figures** the owner wants visible: the preset sets the angle and the maximum without saying what load follows. **[surface]**
+- **A third way to set the same thing.** The preset sits alongside the Advanced settings, so users have to know which one wins. **[surface]**
+- **A saved operation needs a rule.** It would have to read as "Custom", so its program stays as it is. **[saved programs, only if the rule is wrong]**
+- **More text to keep in step.** The preset labels, the tooltips and the guide all need keeping consistent. **[surface]**
+
+**In short:** A and D only add form and guide surface. B risks saved programs only if its default differs from the radius, or if it is made to hold whole rings, and then the change should be measured first. C risks every saved Entry Ramp program unless it is off for them, and it cannot be built before TL-2.
+
 #### Options
 
 - **A. Keep the angle-based settings, and make them clearer (recommended).**
@@ -325,6 +365,24 @@ The program also holds fixed bounds that no setting shows:
 - **D. A simple preset, with the settings behind it.** Entry "Ramp: Gentle, Normal or Steep" sets the angle and the maximum. The settings stay in Advanced. It could be added to A or B later. On its own it hides the figures the owner wants to see.
 
 *If you answer as recommended (A):* PQ-2 relabels and regroups the entry settings and rewrites their tooltips in TOOL-LOAD's terms. The guide's Entry page lists the fixed bounds. Nothing is stored differently. The load limit stays a single setting, TOOL-LOAD's Limit tool load. When TL-2 is built, it can decide whether Limit tool load also caps the ramp's cut section in deep stock. Option B stays open if the owner wants the depth per traverse as a setting of its own. The large-ring depth per traverse (above) is part of this question: under A it is reported in the note and measured by TOOL-LOAD's TL-1; under B it would be held to the setting by ramping such a ring back and forth.
+
+**The owner's answer (25 Nov 2026, relayed): B, with the default at the tool radius, and A's regrouping included.**
+1. A's regrouping:
+   - basic and Advanced groups;
+   - "Allow single-point plunge" relabelled "Plunge where no ramp fits" (the stored name is unchanged);
+   - tooltips in TOOL-LOAD's terms;
+   - the fixed bounds stated in the guide.
+2. A new setting, **Largest depth per traverse** (mm), with 0 meaning the tool radius. At its default nothing changes beyond Q8, so saved operations keep their programs.
+3. **Whole rings are measured before anything is built for them.** The measure covers back and forth over the ring (V1) and a shallower angle round it (V2), and their effect on saved ramp programs, the steeper ramp near the axis, refusals and plunges, length and time. The numbers go to the owner, and the ring-holding behaviour is built only once the owner confirms them (OI-9999 stays open for that part).
+
+**Agreed with lane TOOL-LOAD (25 Nov 2026, in writing, at the owner's request; recorded in TOOL-LOAD-1 Q6 too).**
+1. **One function.** A single crate-private function in `assemble/entry.rs`, owned by PQ-2, gives a ramp's largest depth per traverse: the minimum of the tool radius, one turn of a spiral ramp at its start radius (spirals only), the Largest depth per traverse setting, and an optional cap in mm. PQ-2 passes no cap.
+   - TL-2 edits only the call site, to supply `L ÷ D` when Limit tool load is on.
+   - PQ-2 owns `path_ramp::back_and_forth`, the follow and ring-ramp code and the ramp note, including its wording "the tool-load limit", which TL-2 only selects.
+2. **Merge order.** PQ-2 (#930) merges first, and TL-2 rebases on it. TL-1 is unaffected.
+3. **Terms.** Both lanes use TOOL-LOAD-1's glossary: Ramp angle, Depth per traverse and Cut section.
+4. **Tests.** PQ-2 tests the ramp's geometry. TL-2 adds one test: with Limit tool load on and `L ÷ D` below the radius, the deepest ramp step is at most `L ÷ D` and the note names the tool-load limit. Neither lane re-tests the other's figure; TL-1 measures ramp moves like any other fed move.
+5. **Settings.** Limit tool load adds no ramp setting, under any answer.
 
 **What belongs where.** These belong in PQ-2:
 - the ramp's geometry and its figures, known before cutting: Ramp angle, legs, Depth per traverse;
