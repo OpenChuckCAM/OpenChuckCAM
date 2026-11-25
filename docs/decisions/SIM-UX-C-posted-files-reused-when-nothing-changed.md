@@ -50,6 +50,7 @@ Linux cloud container, 4 vCPU, no GPU; branch `claude/lane-sim-ux-c`, rebased on
   - another post posts again;
   - a post folder whose template is edited on disk posts again, with the edit in the output;
   - the bytes reused equal a fresh application's (GC-07).
+- `posting::req_gc_07_req_gc_12_a_reused_post_takes_the_new_time_for_the_sheet_and_names` (0.4 s), added on the owner's question (25 Nov 2026): do reused files carry a stale date? Nothing kept is dated. The G-code holds no clock time (GC-07). The setup sheet's generation time and a `{date}` in the file-name templates are read from the clock when the sheet and the names are made, after the run. With a fixed clock moved on two days, a run that reuses the posted files gives the same G-code bytes, a sheet with the new time, and file names with the new date. The test passes on this change unmodified; it pins the behaviour.
 
 **Suites.** `cargo nextest run -p openchuck-app -p openchuck-ui -p openchuck-cli`: 1,750 tests, all passed. They include the golden-program, export-dialog, posting and determinism tests. Also `cargo fmt --all --check`, `cargo clippy --workspace --all-targets` with no warnings, and `cargo xtask deps`, `licences`, `records`, `trace` and `changelog check-pr`.
 

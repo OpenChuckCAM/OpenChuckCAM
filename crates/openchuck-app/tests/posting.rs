@@ -1417,3 +1417,57 @@ fn req_gc_07_req_nfr_04_posting_again_with_nothing_changed_reuses_the_posted_fil
     assert_eq!(fresh.regenerate().unwrap().gcode, reused_again);
     std::fs::remove_dir_all(dir).unwrap();
 }
+
+/// Issue #698: reused posted files hold nothing dated. The G-code carries no
+/// clock time (GC-07); the setup sheet's generation time and a `{date}` file
+/// name are read from the clock when the sheet and the names are made, so a
+/// run that reuses the posted files still shows the time of that run
+/// (GC-12, NFR-12).
+#[test]
+fn req_gc_07_req_gc_12_a_reused_post_takes_the_new_time_for_the_sheet_and_names() {
+    use std::time::{Duration, UNIX_EPOCH};
+    let (dir, mut app, _) = project("post-reuse-time");
+    with_post(&mut app, "makera-z1");
+    app.set_file_name_templates(openchuck_app::output_names::FileNameTemplates {
+        gcode: "{date}-{n}-{contents}".into(),
+        setup_sheet: "{project}-sheet-{date}".into(),
+    });
+    let day = Duration::from_secs(24 * 3600);
+    let first_time = UNIX_EPOCH + Duration::from_secs(1_792_575_005);
+    app.set_clock(Box::new(openchuck_app::FixedClock(first_time)));
+    let first = app.regenerate().unwrap();
+    let generated = |sheet: openchuck_app::SetupSheet| {
+        sheet
+            .sections
+            .into_iter()
+            .find_map(|section| match section.body {
+                openchuck_app::SheetBody::Facts(facts) => facts
+                    .into_iter()
+                    .find(|(label, _)| label == "Generated")
+                    .map(|(_, value)| value),
+                _ => None,
+            })
+            .unwrap()
+    };
+    let first_sheet = generated(app.setup_sheet_for_run(&first));
+    let first_names = app.output_files(&first).unwrap();
+
+    // Two days later, nothing changed: the posted files are reused ...
+    app.set_clock(Box::new(openchuck_app::FixedClock(first_time + 2 * day)));
+    let again = app.regenerate().unwrap();
+    assert_eq!(app.posts_made(), 1, "the posted files were reused");
+    assert_eq!(again.gcode, first.gcode, "the G-code holds no clock time");
+    // ... and the sheet and the names take the new time.
+    let again_sheet = generated(app.setup_sheet_for_run(&again));
+    let again_names = app.output_files(&again).unwrap();
+    assert_ne!(again_sheet, first_sheet);
+    assert!(again_sheet.starts_with("2026-10-"), "{again_sheet}");
+    assert_ne!(again_names.programs[0].name, first_names.programs[0].name);
+    assert!(
+        again_names.programs[0].name.starts_with(&again_sheet[..10]),
+        "{}",
+        again_names.programs[0].name
+    );
+    assert_ne!(again_names.setup_sheet, first_names.setup_sheet);
+    std::fs::remove_dir_all(dir).unwrap();
+}
