@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased (MOPUP-1, PR M10; issue #892; not breaking)
+
+- **Changed:** pencil clean-up's `min_length` (Shortest cut) is a `ParameterKind::LengthOrTool`: a length in millimetres or `tool_diameter`, the operation's tool's diameter when the path is made, as face flow's Shortest cut is (decision 0686). Its default stays 0 mm, so a call that does not give it keeps every stretch; a number gives the same path as before. No API change: the parameter's name and the `ParameterKind` variant already exist.
+
 ## 0.73.0 (PATH-QUALITY; issues #951 and #959; decision 0695 follow-ups; not breaking, output change in rare cases)
 
 - **Changed output (Entry Ramp, whole rings):** a ring ramp's depth per traverse is now the deepest drop between one visit to a place and the next a turn later (the ring itself after the ramp's last turn), not the mean over its turns. On an uneven ring, where the floor binds or a steep drop is followed, the ramp note gives the deepest turn, and a ring whose deepest turn exceeds the largest depth per traverse is held back and forth over itself, as decision 0695's Q9 part 3 answer asks, where the mean alone kept it ramping round. An even ramp is unchanged.
