@@ -1353,8 +1353,7 @@ fn set_options(
         SelectionRole::Boundary if shown.boundary => {
             let id = sets.first()?;
             let mut boundary = options.boundary;
-            ui.horizontal_wrapped(|ui| {
-                ui.add_space(indent);
+            indented_wrapped(ui, indent, |ui| {
                 let pass = ui
                     .checkbox(&mut boundary.limits_pass, "Limits the pass")
                     .tip(
@@ -1383,8 +1382,7 @@ fn set_options(
                 }
                 .on_break;
                 let set = name(id);
-                ui.horizontal_wrapped(|ui| {
-                    ui.add_space(indent);
+                indented_wrapped(ui, indent, |ui| {
                     ui.label(RichText::new(&set).color(DARK.muted));
                     for (choice, label, tip) in ON_BREAK {
                         let tip = cut_short_tip(choice, role, shown).unwrap_or(tip);
@@ -1403,8 +1401,7 @@ fn set_options(
                 } else if current == OnBreak::Warn && !shown.boundary {
                     // These strategies use the shared sampled measurement
                     // (OI-970). Explain its limitation even without a hit.
-                    ui.horizontal_wrapped(|ui| {
-                        ui.add_space(indent);
+                    indented_wrapped(ui, indent, |ui| {
                         marks::mark_beside(ui, ItemState::Warning, "Warning");
                         ui.label(
                             RichText::new(
@@ -1422,10 +1419,19 @@ fn set_options(
     edit
 }
 
+/// A row that starts `indent` in, at the value column, and whose wrapped
+/// lines start there too, never left of it (issue #609; decision 0440).
+fn indented_wrapped<R>(ui: &mut egui::Ui, indent: f32, add: impl FnOnce(&mut egui::Ui) -> R) -> R {
+    ui.horizontal(|ui| {
+        ui.add_space(indent);
+        ui.horizontal_wrapped(add).inner
+    })
+    .inner
+}
+
 /// The warning under a set whose options leave it limiting nothing.
 fn limits_nothing(ui: &mut egui::Ui, indent: f32, set: &str) {
-    ui.horizontal_wrapped(|ui| {
-        ui.add_space(indent);
+    indented_wrapped(ui, indent, |ui| {
         marks::mark_beside(ui, ItemState::Warning, "Warning");
         ui.label(RichText::new(format!("The set '{set}' limits nothing.")).color(DARK.warning));
     });
@@ -1605,11 +1611,14 @@ fn geometry(
         // A set the strategy cannot use here, under the role that holds it
         // (decision record 0209 item 10).
         for refusal in notes.refusals.iter().filter(|r| r.role == role) {
-            ui.horizontal_wrapped(|ui| {
-                ui.add_space(crate::field_row::label_column(ui) + ui.spacing().item_spacing.x);
-                marks::mark_beside(ui, ItemState::Warning, "Warning");
-                ui.label(RichText::new(&refusal.text).color(DARK.warning));
-            });
+            indented_wrapped(
+                ui,
+                crate::field_row::label_column(ui) + ui.spacing().item_spacing.x,
+                |ui| {
+                    marks::mark_beside(ui, ItemState::Warning, "Warning");
+                    ui.label(RichText::new(&refusal.text).color(DARK.warning));
+                },
+            );
         }
         // The selection warning under the role that holds the set (11.7).
         for id in &sets {
@@ -1618,20 +1627,23 @@ fn geometry(
             };
             let quoted = format!("'{}'", s.name);
             for note in reach.iter().filter(|n| n.contains(&quoted)) {
-                ui.horizontal_wrapped(|ui| {
-                    ui.add_space(crate::field_row::label_column(ui) + ui.spacing().item_spacing.x);
-                    marks::mark_beside(ui, ItemState::Warning, "Warning");
-                    ui.label(RichText::new(note).color(DARK.warning));
-                    if ui.link("Show in view").clicked() {
-                        action = Some(ReachAction::Show(
-                            *id,
-                            crate::workholding_panel::reached_item(note),
-                        ));
-                    }
-                    if ui.link("Edit workholding").clicked() {
-                        action = Some(ReachAction::EditWorkholding);
-                    }
-                });
+                indented_wrapped(
+                    ui,
+                    crate::field_row::label_column(ui) + ui.spacing().item_spacing.x,
+                    |ui| {
+                        marks::mark_beside(ui, ItemState::Warning, "Warning");
+                        ui.label(RichText::new(note).color(DARK.warning));
+                        if ui.link("Show in view").clicked() {
+                            action = Some(ReachAction::Show(
+                                *id,
+                                crate::workholding_panel::reached_item(note),
+                            ));
+                        }
+                        if ui.link("Edit workholding").clicked() {
+                            action = Some(ReachAction::EditWorkholding);
+                        }
+                    },
+                );
             }
         }
     }
