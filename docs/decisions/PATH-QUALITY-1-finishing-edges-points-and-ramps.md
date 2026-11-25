@@ -121,6 +121,8 @@ On the crankshaft example, the guide's Rough then Finish: 163 of 16,751 finishin
 
 ## Questions for the owner
 
+*The owner's standing rule (25 Nov 2026, relayed): build time and effort are not a reason for or against an option.* The day counts and "risk" notes below are information on relative complexity only. Each recommendation rests on quality, correctness, safety, usability, and the performance of the output and of the program. Where an earlier text read as if effort decided it, that reading is withdrawn. The answers already given stand.
+
 ### Q1 (#710): what the simultaneous finish does over sharp edges
 
 **The owner's answer (25 Nov 2026, relayed by the coordinator): C**, built in its own lane, SIMUL-EDGE, not in this one. That lane owns #710, OI-9992 and OI-9996, and decides its own design and record; the options below are kept as they were put.
@@ -307,7 +309,9 @@ The program also holds fixed bounds that no setting shows:
 4. **One angle for Ramp and Helix.** A helix's depth per turn is `π · d_helix · tan θ`, so the same angle loads the tool differently on a helix than on a back-and-forth ramp.
 5. **The overlap with lane TOOL-LOAD.** TOOL-LOAD-1 (#927) proposes **Limit tool load**: a cut-section limit for the cutting moves, measured in the simulation. Its Q6 A measures entry moves like any other and names the Ramp angle setting when the heaviest stretch is in an entry. A second load setting on the ramp would give the user two limits for one tool.
 
-#### Every downside of each option, not only the effort
+#### Every downside of each option
+
+Under the owner's standing rule, the effort figures in this list are information only, not reasons.
 
 *Asked by the owner (25 Nov 2026, relayed): "is the only disadvantage the extra time to build?"* No. Each downside below is marked **[saved programs]** where it could change or risk a program saved before the change, and **[surface]** where it only adds to the form, the guide or the tests.
 
