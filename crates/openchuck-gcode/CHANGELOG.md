@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased (PATH-QUALITY, PQ-2; issue #786; decision record PATH-QUALITY-1, accepted)
+
+- **Family release (0.64.0):** `openchuck-path`'s `Strategy::ramps_round_the_part` is removed, a breaking change; no change to this crate.
+
 ## 0.63.0
 
 - **Family release (0.63.0; lane FACEFLOW; issues #791 and #854; decisions 0675 and 0686, accepted):** `openchuck-path`'s `UnreachedReason` gains the variant `TooShort`, a breaking change; no change to this crate.

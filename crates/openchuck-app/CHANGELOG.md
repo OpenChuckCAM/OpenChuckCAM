@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased (PATH-QUALITY, PQ-2; issue #786; decision record PATH-QUALITY-1, accepted)
+
+- **Changed:** a new operation whose Entry offers Ramp is written with Allow single-point plunge and Steeper ramp near the axis on, so with Entry Ramp only the passes with no room for a ramp are plunged, each named in a note with its reason and depth, instead of refusing the operation. An operation saved without them keeps them off and keeps its program.
+
 ## Unreleased (WORDING-DOCS; issues #613 and #676)
 
 - **Added:** `form::choice_label(setting, stored_word)`, the plain name the inspector shows for each choice of every built-in strategy; a test fails if a strategy has a choice with no name. The inspector uses it. No stored value changes.

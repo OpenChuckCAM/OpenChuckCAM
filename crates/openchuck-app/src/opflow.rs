@@ -343,6 +343,39 @@ impl Application {
                 ),
             );
         }
+        // A strategy that offers Allow single-point plunge and Steeper ramp
+        // near the axis starts with both on, written into the operation, so a
+        // Ramp entry plunges only the passes with no room to ramp, each said
+        // in a note, instead of refusing them; one saved without them keeps
+        // them off and keeps its program (decision record PATH-QUALITY-1,
+        // Q4 (iii), the owner's answer, in decision 0545 D3's pattern).
+        // Only where Entry offers Ramp (not drilling).
+        let offers_ramp = |schema: &openchuck_path::ParameterSchema| {
+            schema
+                .get(openchuck_path::params::names::ENTRY)
+                .is_some_and(|spec| match &spec.kind {
+                    openchuck_path::ParameterKind::Choice { options, .. } => options
+                        .iter()
+                        .any(|o| o == openchuck_path::params::EntryStyle::Ramp.name()),
+                    _ => false,
+                })
+        };
+        if let Ok(s) = self.strategies.get(strategy)
+            && offers_ramp(&s.schema())
+        {
+            let schema = s.schema();
+            for name in [
+                openchuck_path::params::names::ALLOW_SINGLE_POINT_PLUNGE,
+                openchuck_path::params::names::RAMP_STEEPER_NEAR_AXIS,
+            ] {
+                if schema.get(name).is_some() {
+                    parameters.insert(
+                        name.to_owned(),
+                        openchuck_project::ParameterValue::Flag(true),
+                    );
+                }
+            }
+        }
         let id = OperationId::new();
         self.execute(Command::Add {
             item: Item::Operation(Operation {

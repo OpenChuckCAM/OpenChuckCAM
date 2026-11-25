@@ -194,8 +194,13 @@ struct Builder<'a> {
     /// Passes whose ramp followed a drop of the pass steeper than the ramp
     /// angle just before its first point (decision 0543 D4).
     steep_ramps: Vec<usize>,
-    /// Single-point passes plunged under a ramp (decision 0543 D7).
-    single_point_plunges: Vec<usize>,
+    /// Passes plunged under a ramp where no ramp fits, with why and the
+    /// depth of the plunge (decision 0543 D7; decision record
+    /// PATH-QUALITY-1, Q4).
+    fallback_plunges: Vec<(usize, PlungeReason, f64)>,
+    /// The load figures of each ramp (decision record PATH-QUALITY-1, Q3
+    /// point 4).
+    ramp_loads: Vec<RampLoad>,
     /// Ring and spiral ramps made steeper near the axis, with the angle
     /// used (decision 0543 section 4, point 3).
     steepened_ramps: Vec<(usize, f64)>,
@@ -460,13 +465,12 @@ pub fn assemble_with_entry(
     entry: &EntryParameters,
     context: &JobContext<'_>,
 ) -> Result<GeneratedPath> {
-    assemble_limited(passes, input, common, entry, None, true, None, context)
+    assemble_limited(passes, input, common, entry, None, None, context)
 }
 
 /// [`assemble_with_entry`], with every cutting move inside a pass that goes
 /// down along the tool axis slowed, where needed, so its tip goes down no
 /// faster than `descent_limit` (the plunge feed; decision record 0548).
-/// `round_the_part` is [`Strategy::ramps_round_the_part`](crate::Strategy::ramps_round_the_part).
 /// `beside` is the faces next to the face set
 /// ([`RegionConstraint::neighbours`](crate::RegionConstraint::neighbours)),
 /// which the entry and exit moves are checked against as well as the
@@ -478,7 +482,6 @@ pub(crate) fn assemble_limited(
     common: &CommonParameters,
     entry: &EntryParameters,
     descent_limit: Option<FeedRate>,
-    round_the_part: bool,
     beside: Option<&dyn SurfaceSource>,
     context: &JobContext<'_>,
 ) -> Result<GeneratedPath> {
@@ -588,7 +591,8 @@ pub(crate) fn assemble_limited(
         notes: Vec::new(),
         raised_entries: 0,
         steep_ramps: Vec::new(),
-        single_point_plunges: Vec::new(),
+        fallback_plunges: Vec::new(),
+        ramp_loads: Vec::new(),
         steepened_ramps: Vec::new(),
         nubs: Vec::new(),
         reversed_ramps: Vec::new(),
@@ -596,7 +600,7 @@ pub(crate) fn assemble_limited(
         straight_plunges: Vec::new(),
     };
 
-    let entry = entry::Entry::new(input, common, entry, round_the_part, beside)?;
+    let entry = entry::Entry::new(input, common, entry, beside)?;
     let entry_nub_radius = entry.nub_radius();
     if entry_nub_radius > 0.0 {
         split_nubs(
@@ -760,23 +764,13 @@ pub(crate) fn assemble_limited(
     )?;
     b.retract(safe_height)?;
     let list = |passes: &[usize]| passes_named(passes);
-    if !b.single_point_plunges.is_empty() {
-        let text = format!(
-            "{} with no path for a ramp to follow, so {} entered by a straight plunge, as \
-             Allow single-point plunge asks",
-            if b.single_point_plunges.len() == 1 {
-                format!("{} is a single point", list(&b.single_point_plunges))
-            } else {
-                format!("{} are single points", list(&b.single_point_plunges))
-            },
-            if b.single_point_plunges.len() == 1 {
-                "it is"
-            } else {
-                "they are"
-            }
-        );
+    for note in fallback_notes(&b.fallback_plunges).into_iter().rev() {
         b.notes
-            .insert(0, Notice::information(text).about(topic::RAMP_ENTRY));
+            .insert(0, Notice::information(note).about(topic::RAMP_ENTRY));
+    }
+    if let Some(note) = ramp_load_note(&b.ramp_loads) {
+        b.notes
+            .insert(0, Notice::information(note).about(topic::RAMP_ENTRY));
     }
     if !b.nubs.is_empty() {
         let width = 2.0 * entry_nub_radius;
@@ -929,6 +923,132 @@ pub(crate) fn assemble_limited(
             passes
         },
     })
+}
+
+/// Why a pass under a ramp entry is plunged instead (decision 0543 D7;
+/// decision record PATH-QUALITY-1, Q4, the owner's answer: only where no
+/// ramp fits, and each said with its reason).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+enum PlungeReason {
+    /// The pass is a single point: no path to follow.
+    SinglePoint,
+    /// It starts with a stretch shorter than the shortest ramp (ten path
+    /// tolerances, never above the tool radius; 0543 amendment 4).
+    ShortStretch,
+    /// A ramp round it, or over it, would take more than 10 turns even at
+    /// the Maximum ramp angle.
+    TooManyTurns,
+}
+
+/// What one ramp asks of the tool (decision record PATH-QUALITY-1, Q3 point
+/// 4): the Ramp angle used along the tip's path, degrees; its legs back and
+/// forth or its turns round a ring; and its deepest depth per traverse, mm.
+#[derive(Debug, Clone, Copy, PartialEq)]
+struct RampLoad {
+    pass: usize,
+    angle: f64,
+    legs: Option<usize>,
+    turns: Option<f64>,
+    depth: f64,
+}
+
+/// The notes naming the passes plunged where no ramp fits, one per reason,
+/// each with the depth of the plunge: a plunge takes the whole descent in
+/// one move, so that is its depth per traverse.
+fn fallback_notes(plunged: &[(usize, PlungeReason, f64)]) -> Vec<String> {
+    let mut out = Vec::new();
+    for reason in [
+        PlungeReason::SinglePoint,
+        PlungeReason::ShortStretch,
+        PlungeReason::TooManyTurns,
+    ] {
+        let passes: Vec<usize> = plunged
+            .iter()
+            .filter(|p| p.1 == reason)
+            .map(|p| p.0)
+            .collect();
+        if passes.is_empty() {
+            continue;
+        }
+        let one = passes.len() == 1;
+        let deepest = plunged
+            .iter()
+            .filter(|p| p.1 == reason)
+            .map(|p| p.2)
+            .fold(0.0, f64::max);
+        let what = match (reason, one) {
+            (PlungeReason::SinglePoint, true) => "is a single point with no path for a ramp to \
+                follow"
+                .to_owned(),
+            (PlungeReason::SinglePoint, false) => "are single points with no path for a ramp to \
+                follow"
+                .to_owned(),
+            (PlungeReason::ShortStretch, _) => format!(
+                "{} with a stretch shorter than the shortest ramp (ten path tolerances, never \
+                 more than the tool radius)",
+                if one { "starts" } else { "start" }
+            ),
+            (PlungeReason::TooManyTurns, _) => format!(
+                "{} round the part so near the rotary axis that a ramp would take more than 10 \
+                 turns even at the Maximum ramp angle",
+                if one { "turns" } else { "turn" }
+            ),
+        };
+        out.push(format!(
+            "{} {what}, so {} entered by a straight plunge, as Allow single-point plunge asks; a \
+             plunge takes the whole descent in one move, a depth per traverse of {}{deepest:.3} mm",
+            passes_named(&passes),
+            if one { "it is" } else { "they are" },
+            if one { "" } else { "up to " }
+        ));
+    }
+    out
+}
+
+/// The note giving what the ramps ask of the tool, per operation (decision
+/// record PATH-QUALITY-1, Q3 point 4): the Ramp angle used along the tip's
+/// path, the legs back and forth and the turns round a ring, and the
+/// deepest depth per traverse with its pass. Information only: it does not
+/// say the load suits the tool (NFR-12).
+fn ramp_load_note(loads: &[RampLoad]) -> Option<String> {
+    let deepest = loads
+        .iter()
+        .copied()
+        .reduce(|a, b| if b.depth > a.depth { b } else { a })?;
+    let low = loads.iter().map(|l| l.angle).fold(f64::INFINITY, f64::min);
+    let high = loads.iter().map(|l| l.angle).fold(0.0, f64::max);
+    let angle = if high - low < 0.005 {
+        format!("{high:.2} degrees")
+    } else {
+        format!("{low:.2} to {high:.2} degrees")
+    };
+    let legs = loads.iter().filter_map(|l| l.legs).max();
+    let turns = loads
+        .iter()
+        .filter_map(|l| l.turns)
+        .fold(None, |m: Option<f64>, t| Some(m.map_or(t, |m| m.max(t))));
+    let mut how = Vec::new();
+    if let Some(legs) = legs {
+        how.push(format!(
+            "back and forth in up to {}",
+            crate::counted(legs, "leg", "legs")
+        ));
+    }
+    if let Some(turns) = turns {
+        how.push(format!(
+            "turning up to {turns:.1} times round a ring or on the axis"
+        ));
+    }
+    let one = loads.len() == 1;
+    Some(format!(
+        "{} {} ramped at {angle} along the tip's path, {}; the deepest depth per traverse is \
+         {:.3} mm, at {}",
+        crate::counted(loads.len(), "pass", "passes"),
+        if one { "is" } else { "are" },
+        how.join(", and "),
+        deepest.depth,
+        passes_named(&[deepest.pass])
+    ))
 }
 
 /// Slows the cutting move `index` of `b`, which takes the tip `down` along
@@ -1618,7 +1738,8 @@ mod tests {
                 notes: Vec::new(),
                 raised_entries: 0,
                 steep_ramps: Vec::new(),
-                single_point_plunges: Vec::new(),
+                fallback_plunges: Vec::new(),
+                ramp_loads: Vec::new(),
                 steepened_ramps: Vec::new(),
                 nubs: Vec::new(),
                 reversed_ramps: Vec::new(),
@@ -1708,7 +1829,8 @@ mod tests {
                 notes: Vec::new(),
                 raised_entries: 0,
                 steep_ramps: Vec::new(),
-                single_point_plunges: Vec::new(),
+                fallback_plunges: Vec::new(),
+                ramp_loads: Vec::new(),
                 steepened_ramps: Vec::new(),
                 nubs: Vec::new(),
                 reversed_ramps: Vec::new(),
@@ -1769,7 +1891,8 @@ mod tests {
             notes: Vec::new(),
             raised_entries: 0,
             steep_ramps: Vec::new(),
-            single_point_plunges: Vec::new(),
+            fallback_plunges: Vec::new(),
+            ramp_loads: Vec::new(),
             steepened_ramps: Vec::new(),
             nubs: Vec::new(),
             reversed_ramps: Vec::new(),
@@ -1837,7 +1960,8 @@ mod tests {
             notes: Vec::new(),
             raised_entries: 0,
             steep_ramps: Vec::new(),
-            single_point_plunges: Vec::new(),
+            fallback_plunges: Vec::new(),
+            ramp_loads: Vec::new(),
             steepened_ramps: Vec::new(),
             nubs: Vec::new(),
             reversed_ramps: Vec::new(),

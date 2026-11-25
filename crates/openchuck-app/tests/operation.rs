@@ -2941,3 +2941,53 @@ fn req_ui_07_every_link_parameter_is_in_the_links_section() {
     assert!(seen >= 3, "axial, indexed and facing offer it: {seen}");
     std::fs::remove_dir_all(&dir).unwrap();
 }
+
+#[test]
+fn req_op_11_a_new_operation_allows_single_point_plunge_and_a_steeper_ramp_near_the_axis() {
+    // Decision record PATH-QUALITY-1, Q4 (iii), the owner's answer: a new
+    // operation whose Entry offers Ramp is written with Allow single-point
+    // plunge and Steeper ramp near the axis on, so a Ramp entry plunges only
+    // the passes with no room to ramp; one saved without them keeps them
+    // off (the schema's default), and so its program (decision 0545 D3's
+    // pattern). Radial drilling offers only Plunge and gets neither.
+    use openchuck_path::params::names::{ALLOW_SINGLE_POINT_PLUNGE, RAMP_STEEPER_NEAR_AXIS};
+    let (dir, mut app, op) = project("ramp-defaults");
+    let setup = app.project().operation(op).unwrap().setup;
+    let tool = app.project().operation(op).unwrap().tool;
+    let value = |app: &Application, id, name: &str| {
+        app.project()
+            .operation(id)
+            .unwrap()
+            .parameters
+            .get(name)
+            .cloned()
+    };
+    for strategy in ["rotary_roughing", "helical_finishing", "indexed_finishing"] {
+        let added = app.add_operation(strategy, strategy, setup, tool).unwrap();
+        for name in [ALLOW_SINGLE_POINT_PLUNGE, RAMP_STEEPER_NEAR_AXIS] {
+            assert_eq!(
+                value(&app, added, name),
+                Some(ParameterValue::Flag(true)),
+                "{strategy} {name}"
+            );
+        }
+    }
+    // Drilling needs a STEP part.
+    let mut model = app.project().models()[0].clone();
+    model.path = openchuck_app::project::RelativePath::new("models/part.step").unwrap();
+    app.execute(Command::Replace(Item::Model(model))).unwrap();
+    let drill = app
+        .add_operation(
+            openchuck_path::drill::NAME,
+            openchuck_path::drill::NAME,
+            setup,
+            tool,
+        )
+        .unwrap();
+    assert_eq!(value(&app, drill, ALLOW_SINGLE_POINT_PLUNGE), None);
+    assert_eq!(value(&app, drill, RAMP_STEEPER_NEAR_AXIS), None);
+    // The operation the project was made with stands for one saved before:
+    // without the settings, so off.
+    assert_eq!(value(&app, op, ALLOW_SINGLE_POINT_PLUNGE), None);
+    std::fs::remove_dir_all(&dir).unwrap();
+}

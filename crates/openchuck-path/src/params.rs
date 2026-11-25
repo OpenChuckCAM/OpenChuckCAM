@@ -601,13 +601,13 @@ pub fn common_parameters() -> Vec<ParameterSpec> {
         ParameterSpec {
             name: ALLOW_SINGLE_POINT_PLUNGE.to_owned(),
             label: "Allow single-point plunge".to_owned(),
-            description: "A pass that is a single point has no path for a ramp to follow. With this on, the tool plunges straight down to that point instead of refusing the operation. The tool must be able to plunge (centre cutting).".to_owned(),
+            description: "A pass with no room for a ramp has no path for a ramp to follow: a single point, a pass that starts with a stretch shorter than the shortest ramp (ten times the tolerance, never more than the tool radius), or a ring or spiral near the rotary axis whose ramp would take more than 10 turns even at the Maximum ramp angle. With this on, the tool plunges straight down into such a pass instead of refusing the operation, and a note names it with its depth. A pass with room for a ramp is always ramped. The tool must be able to plunge (centre cutting).".to_owned(),
             kind: ParameterKind::Flag { default: false },
         },
         ParameterSpec {
             name: RAMP_STEEPER_NEAR_AXIS.to_owned(),
             label: "Steeper ramp near the axis".to_owned(),
-            description: "Near the rotary axis a ramp round a ring needs many turns. With this on, a ring or spiral ramp that would need more than 10 turns at the Ramp angle uses a steeper angle, just enough to fit in 10 turns, never steeper than the Maximum ramp angle. Lines are not affected. Check that the tool can enter at the steeper angle.".to_owned(),
+            description: "Near the rotary axis a ramp round a ring, or back and forth over a spiral, needs many turns' length. With this on, a ring or spiral ramp that would need more than 10 turns at the Ramp angle uses a steeper angle, just enough to fit in 10 turns, never steeper than the Maximum ramp angle. Lines are not affected. Check that the tool can enter at the steeper angle.".to_owned(),
             kind: ParameterKind::Flag { default: false },
         },
         ParameterSpec {

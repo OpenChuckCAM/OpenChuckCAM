@@ -326,19 +326,6 @@ pub trait Strategy: Send + Sync + std::fmt::Debug {
         false
     }
 
-    /// Whether a ramp entry may turn A round the part before a pass that
-    /// starts as a ring or a spiral (decision record 0543 D2), on the
-    /// stretch round the rotary axis at the pass's start that the pass
-    /// itself does not cut. True by default: a ring or spiral cuts all round
-    /// the part there. A strategy whose passes turn A without cutting all
-    /// round, such as swarf along a blade, returns false: its ramps then go
-    /// back and forth over the pass's own path, A reversing during the entry
-    /// only, so every ramp position is a pose of the pass raised along the
-    /// tool axis (decision record 0645; issue #778).
-    fn ramps_round_the_part(&self) -> bool {
-        true
-    }
-
     /// Whether the strategy works on the material earlier operations left
     /// (rest machining, pencil clean-up; OP-09). The host says so in the
     /// operation's notes when no earlier operation of the setup has made the
@@ -590,7 +577,6 @@ fn generate_with(
             &common,
             &entry,
             descent,
-            strategy.ramps_round_the_part(),
             // The faces next to the face set, which swarf alone is given:
             // its entries and exits are checked against them as well
             // (decision record 0682; issue #572).
