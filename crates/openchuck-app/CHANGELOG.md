@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased (WORDING-DOCS; issues #613 and #676)
+
+- **Added:** `form::choice_label(setting, stored_word)`, the plain name the inspector shows for each choice of every built-in strategy; a test fails if a strategy has a choice with no name. The inspector uses it. No stored value changes.
+- **Added:** `workholding::default_tabs_report` and `DefaultTabsReport`, and `Application::start_default_tabs_report`: the default tabs end by end, those to add and for each end without one why; refused only when neither end can have one, naming both. `default_tabs` and `start_default_tabs` are unchanged (all or nothing).
+
 ## 0.63.0 (FACEFLOW; issues #791, #631, #614, #615 and #854; decisions 0675, 0676 and 0686, accepted)
 
 - **Changed:** a new face-flow finishing operation is written with Stay down between passes on, Pattern Automatic, Steps between rings Blended (decision 0545's rule, now reaching face flow) and a Shortest cut of its tool's diameter. An operation saved without them keeps its program.

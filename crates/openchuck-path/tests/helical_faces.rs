@@ -1184,7 +1184,8 @@ fn req_set_09_req_op_04_the_held_regions_own_end_is_not_named_as_a_shoulder() {
     // region, never cut by design (SET-09), not a face of the part that the
     // keep-out stops the tool from reaching (decision record 0343 item 6):
     // it gets no warning. What the keep-out leaves beside the grip is said by
-    // the held region's own warning (decision record 0161 item 3).
+    // the held region's own note, information since the owner's answer to
+    // #774 (decision record 0161 item 3).
     for shape in [ToolShape::BallEnd, ToolShape::FlatEnd] {
         let (job, keep_out) = held_tenon(shape.clone());
         let tag = tags();
@@ -1207,9 +1208,12 @@ fn req_set_09_req_op_04_the_held_regions_own_end_is_not_named_as_a_shoulder() {
             !said.contains("does not turn at"),
             "{shape:?}: the held region's own end is named as a shoulder:\n{said}"
         );
+        let noted: Vec<_> = path.notices.iter().map(|n| n.text.clone()).collect();
         assert!(
-            said.contains("gripped length"),
-            "{shape:?}: the held region's warning is missing:\n{said}"
+            noted
+                .iter()
+                .any(|n| n.starts_with("No part of the tool comes within 0.500 mm of")),
+            "{shape:?}: the held region's note is missing:\n{noted:#?}"
         );
     }
 }

@@ -3190,12 +3190,19 @@ mod tool_library_tests;
 mod path_moves_tests;
 
 #[cfg(test)]
+mod tool_chip_tests;
+
+#[cfg(test)]
 mod tooltip_tests;
 
 #[cfg(test)]
 mod focus_tests;
 
 #[cfg(test)]
+mod dialog_walk_tests;
+#[cfg(test)]
 mod import_layout_tests;
 #[cfg(test)]
 mod model_copy_tests;
+#[cfg(test)]
+mod setup_conflict_tests;
