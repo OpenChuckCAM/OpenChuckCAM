@@ -49,6 +49,13 @@ fn text(s: &str) -> openchuck_path::ParameterValue {
     openchuck_path::ParameterValue::Text(s.to_owned())
 }
 
+fn flag(b: bool) -> openchuck_path::ParameterValue {
+    openchuck_path::ParameterValue::Flag(b)
+}
+
+/// The operation's values. The tests of the passes themselves (their
+/// geometry, spacing and order) set Stay down between passes off, so each
+/// pass is its own run; the stay-down tests turn it on.
 fn values(
     stepover: f64,
     extra: &[(&str, openchuck_path::ParameterValue)],
@@ -62,6 +69,7 @@ fn values(
     .into_iter()
     .map(|(k, x)| (k.to_owned(), num(x)))
     .collect();
+    v.insert(p::STAY_DOWN.to_owned(), flag(false));
     for (k, x) in extra {
         v.insert((*k).to_owned(), x.clone());
     }
@@ -416,6 +424,23 @@ fn channel(half: f64) -> BrepModel {
     b.model
 }
 
+/// As [`channel`], with a third wall across the floor's end at X 30 (on its
+/// edge 1), facing -X.
+fn channel_with_end_wall(half: f64) -> BrepModel {
+    let mut model = channel(half);
+    let mut b = Builder { model };
+    wall(
+        &mut b,
+        p3(30.0, -half, 10.0),
+        p3(30.0, half, 10.0),
+        6.0,
+        Vec3::new(-1.0, 0.0, 0.0),
+        EdgeId(1),
+    );
+    model = b.model;
+    model
+}
+
 // ---- running the strategy ---------------------------------------------------------
 
 struct Rig {
@@ -639,6 +664,49 @@ fn req_op_28_on_a_cylinder_the_scallop_height_is_met_between_passes() {
     assert!(highest <= h + 1e-4, "a cusp of {highest} mm");
     // Not needlessly close: the first steps leave at least half the height.
     assert!(cusp(radius, 3.0, angles[0], angles[1]) > 0.5 * h);
+}
+
+#[test]
+fn req_op_28_following_the_outline_on_a_cylinder_meets_the_scallop_height() {
+    // CodeRabbit on #854: the outline's loops were spaced for the scallop
+    // height on a flat, which leaves a higher ridge on a face curving away
+    // from the tool. Along the patch's straight sides the loops step round
+    // the axis, so the ridge between two is the one between two passes at
+    // their angles.
+    let radius = 10.0;
+    let rig = Rig::new(
+        cylinder_patch(radius, FRAC_PI_3, 2.0 * FRAC_PI_3, 30.0),
+        &ball(6.0),
+    );
+    let h = 0.01;
+    let passes = rig.passes(
+        &[0],
+        &[],
+        &values(5.0, &[(p::SCALLOP, num(h)), (p::PATTERN, text(p::OUTLINE))]),
+    );
+    // Each loop's angle along the side at the start of the turn, away from
+    // the ends.
+    let mut angles: Vec<f64> = passes
+        .iter()
+        .filter_map(|pass| {
+            let near: Vec<f64> = contacts(pass)
+                .iter()
+                .filter(|q| q.x > 12.0 && q.x < 18.0 && angle(**q) < 0.5 * PI)
+                .map(|q| angle(*q))
+                .collect();
+            (!near.is_empty()).then(|| near.iter().sum::<f64>() / near.len() as f64)
+        })
+        .collect();
+    angles.sort_by(f64::total_cmp);
+    assert!(angles.len() > 4, "{angles:?}");
+    let highest = angles
+        .windows(2)
+        .map(|w| cusp(radius, 3.0, w[0], w[1]))
+        .fold(0.0, f64::max);
+    // The loops follow the grid the offsets are traced on, a few hundredths
+    // of the spacing either way.
+    assert!(highest <= 1.05 * h, "a ridge of {highest} mm");
+    assert!(highest > 0.5 * h, "a ridge of {highest} mm");
 }
 
 #[test]
@@ -1380,4 +1448,1491 @@ fn req_op_28_nfr_06_the_path_is_identical_at_1_2_and_n_threads() {
     })
     .unwrap();
     assert_eq!(runs.len(), 4);
+}
+
+// ---- issue #791: a face that closes round on itself ---------------------------------
+
+/// A face of revolution about the model X axis that closes round on itself,
+/// as a STEP file gives it: `surface` evaluated by `point(u, v)` over u from
+/// 0 to a full turn and v from `v0` to `v1`; edge 0 the end at `v0`, edge 1
+/// the end at `v1` (a single point where `point` collapses there), each
+/// starting and ending at its one vertex on the seam, and edge 2 the seam
+/// at u 0, which bounds the face twice but is listed once.
+fn revolved(surface: Surface, v0: f64, v1: f64, point: &dyn Fn(f64, f64) -> Point3) -> BrepModel {
+    let tau = std::f64::consts::TAU;
+    let mut b = Builder::default();
+    let edges = vec![
+        b.edge(&[0], &|t| point(tau * t, v0), false),
+        b.edge(&[0], &|t| point(tau * t, v1), false),
+        b.edge(&[0], &|t| point(0.0, v0 + (v1 - v0) * t), false),
+    ];
+    b.face(
+        surface,
+        [0.0, tau, v0, v1],
+        None,
+        edges,
+        point,
+        &|_, _| true,
+        false,
+    );
+    b.model
+}
+
+/// The frame of a surface of revolution about the model X axis.
+fn about_x() -> Frame {
+    Frame {
+        origin: p3(0.0, 0.0, 0.0),
+        x: Vec3::new(0.0, 1.0, 0.0),
+        y: Vec3::new(0.0, 0.0, 1.0),
+        z: Vec3::new(1.0, 0.0, 0.0),
+    }
+}
+
+/// The full cylinder of `radius` about X from X 0 to `length`.
+fn full_cylinder(radius: f64, length: f64) -> BrepModel {
+    revolved(
+        Surface::Cylinder {
+            frame: about_x(),
+            radius,
+        },
+        0.0,
+        length,
+        &|u, v| p3(v, radius * u.cos(), radius * u.sin()),
+    )
+}
+
+/// The full cone about X from `r0` at X 0 to `r1` at X `length` (0 for its
+/// apex).
+fn full_cone(r0: f64, r1: f64, length: f64) -> BrepModel {
+    let angle = ((r1 - r0) / length).atan();
+    let slant = length / angle.cos();
+    revolved(
+        Surface::Cone {
+            frame: about_x(),
+            radius: r0,
+            semi_angle: angle,
+        },
+        0.0,
+        slant,
+        &move |u, v| {
+            let w = r0 + v * angle.sin();
+            p3(v * angle.cos(), w * u.cos(), w * u.sin())
+        },
+    )
+}
+
+/// The rings of `passes`: for each, its X (every contact within 1e-3 of it)
+/// and the angle it turns through round X.
+fn rings(passes: &[Pass]) -> Vec<(f64, f64)> {
+    passes
+        .iter()
+        .map(|p| {
+            let c = contacts(p);
+            let x = c[0].x;
+            assert!(
+                c.iter().all(|q| (q.x - x).abs() < 1e-3),
+                "a pass leaves X {x}"
+            );
+            let mut turn = 0.0;
+            for w in c.windows(2) {
+                let mut d = angle(w[1]) - angle(w[0]);
+                if d > PI {
+                    d -= 2.0 * PI;
+                } else if d < -PI {
+                    d += 2.0 * PI;
+                }
+                turn += d;
+            }
+            (x, turn.abs())
+        })
+        .collect()
+}
+
+#[test]
+fn req_op_28_a_full_cylinder_is_cut_in_rings_from_one_end_to_the_other() {
+    // Decision 0675 option A: the seam is not a boundary; the passes are
+    // rings round the face from its guide end (the end circles are equally
+    // long, so the one with the lower edge ID, at X 0) to the other end.
+    let (radius, length, stepover) = (10.0, 20.0, 1.0);
+    let rig = Rig::new(full_cylinder(radius, length), &ball(6.0));
+    let out = rig.output(&rig.strategy(&[0], &[]), &values(stepover, &[]));
+    let out = out.unwrap_or_else(|e| panic!("refused: {e}"));
+    for q in out.passes.iter().flat_map(contacts) {
+        assert!(
+            ((q.y * q.y + q.z * q.z).sqrt() - radius).abs() < 0.005,
+            "{q:?}"
+        );
+        assert!(q.x > -1e-6 && q.x < length + 1e-6, "{q:?}");
+    }
+    let rings = rings(&out.passes);
+    let fewest = (length / stepover).ceil() as usize + 1;
+    assert!(
+        rings.len() == fewest || rings.len() == fewest + 1,
+        "{} rings",
+        rings.len()
+    );
+    assert!(rings[0].0.abs() < 1e-3 && (rings.last().unwrap().0 - length).abs() < 1e-3);
+    for (x, turn) in &rings {
+        assert!(
+            (turn - 2.0 * PI).abs() < 0.01,
+            "the ring at X {x} turns {turn}"
+        );
+    }
+    for w in rings.windows(2) {
+        let step = w[1].0 - w[0].0;
+        assert!(
+            step > 0.5 * stepover && step <= stepover * 1.0005,
+            "{step} mm apart"
+        );
+    }
+    let notes = out.notes().join("\n");
+    assert!(
+        notes.contains("face 0 is cut from its guide, edge 0 "),
+        "{notes}"
+    );
+}
+
+#[test]
+fn req_op_28_a_cone_between_two_diameters_is_cut_in_rings_from_its_larger_end() {
+    let (r0, r1, length) = (6.0, 10.0, 12.0);
+    let rig = Rig::new(full_cone(r0, r1, length), &ball(4.0));
+    let out = rig
+        .output(&rig.strategy(&[0], &[]), &values(1.0, &[]))
+        .unwrap_or_else(|e| panic!("refused: {e}"));
+    let radius_at = |x: f64| r0 + (r1 - r0) * x / length;
+    for q in out.passes.iter().flat_map(contacts) {
+        let r = (q.y * q.y + q.z * q.z).sqrt();
+        assert!((r - radius_at(q.x)).abs() < 0.005, "{q:?} is off the cone");
+    }
+    let rings = rings(&out.passes);
+    // The guide is the larger end, edge 1 at X 12.
+    assert!((rings[0].0 - length).abs() < 1e-3, "{rings:?}");
+    assert!(rings.last().unwrap().0.abs() < 1e-3, "{rings:?}");
+    assert!(rings.windows(2).all(|w| w[1].0 < w[0].0));
+    let notes = out.notes().join("\n");
+    assert!(notes.contains("edge 1 "), "{notes}");
+}
+
+#[test]
+fn req_op_28_a_cone_to_its_apex_closes_on_it() {
+    let (r0, length) = (8.0, 10.0);
+    let rig = Rig::new(full_cone(r0, 0.0, length), &ball(4.0));
+    let out = rig
+        .output(&rig.strategy(&[0], &[]), &values(1.0, &[]))
+        .unwrap_or_else(|e| panic!("refused: {e}"));
+    let rings = rings(&out.passes);
+    assert!(rings[0].0.abs() < 1e-3, "{rings:?}");
+    assert!(rings.windows(2).all(|w| w[1].0 > w[0].0));
+    // Every ring goes once round, the apex's too (CodeRabbit on #854: a
+    // point end must turn with the guide, or each ring stops short).
+    for (x, turn) in &rings {
+        assert!(
+            (turn - 2.0 * PI).abs() < 0.01,
+            "the ring at X {x} turns {turn}"
+        );
+    }
+    // Rings are left out by their length round, not by the gap between
+    // their ends: every ring at least the tool's diameter long is kept, so
+    // the ones beside the guide are, and only those nearer the apex than a
+    // ring of the tool's diameter are left out.
+    let last = rings.last().unwrap().0;
+    let r = r0 * (1.0 - last / length);
+    assert!(2.0 * PI * r >= 4.0 - 1e-6, "a ring of radius {r} is cut");
+    assert!(rings.len() >= 8, "{} rings; {:?}", rings.len(), out.notes());
+    let apex_gap = length * (1.0 - 4.0 / (2.0 * PI * r0));
+    assert!(last > apex_gap - 1.5, "the last ring at X {last}");
+    let notes = out.notes().join("\n");
+    assert!(notes.contains("towards the opposite point"), "{notes}");
+    assert!(notes.contains("left out"), "{notes}");
+}
+
+#[test]
+fn req_op_28_req_nfr_07_the_seam_as_guide_and_a_face_with_no_end_are_refused_plainly() {
+    let rig = Rig::new(full_cylinder(10.0, 20.0), &ball(6.0));
+    let err = rig
+        .output(&rig.strategy(&[0], &[2]), &values(1.0, &[]))
+        .unwrap_err()
+        .to_string();
+    assert!(err.contains("edge 2 is the seam of face 0"), "{err}");
+    // A full torus: two seams and no end.
+    let (major, minor) = (12.0, 3.0);
+    let tau = std::f64::consts::TAU;
+    let point = move |u: f64, v: f64| {
+        let w = major + minor * v.cos();
+        p3(minor * v.sin(), w * u.cos(), w * u.sin())
+    };
+    let mut b = Builder::default();
+    let edges = vec![
+        b.edge(&[0], &|t| point(tau * t, 0.0), false),
+        b.edge(&[0], &|t| point(0.0, tau * t), false),
+    ];
+    b.face(
+        Surface::Torus {
+            frame: about_x(),
+            major,
+            minor,
+        },
+        [0.0, tau, 0.0, tau],
+        None,
+        edges,
+        &point,
+        &|_, _| true,
+        false,
+    );
+    let rig = Rig::new(b.model, &ball(4.0));
+    let err = rig
+        .output(&rig.strategy(&[0], &[]), &values(1.0, &[]))
+        .unwrap_err()
+        .to_string();
+    assert!(
+        err.contains("face 0 closes round on itself with no end edge"),
+        "{err}"
+    );
+}
+
+#[test]
+fn req_op_28_rings_blend_between_ends_that_run_opposite_ways() {
+    // The end at X 20 is stored running the other way round the axis, as a
+    // CAD file may store it: the passes are still rings, not twisted.
+    let (radius, length) = (10.0, 20.0);
+    let tau = std::f64::consts::TAU;
+    let point = move |u: f64, v: f64| p3(v, radius * u.cos(), radius * u.sin());
+    let mut b = Builder::default();
+    let edges = vec![
+        b.edge(&[0], &|t| point(tau * t, 0.0), false),
+        b.edge(&[0], &|t| point(tau * (1.0 - t), length), false),
+        b.edge(&[0], &|t| point(0.0, length * t), false),
+    ];
+    b.face(
+        Surface::Cylinder {
+            frame: about_x(),
+            radius,
+        },
+        [0.0, tau, 0.0, length],
+        None,
+        edges,
+        &point,
+        &|_, _| true,
+        false,
+    );
+    let rig = Rig::new(b.model, &ball(6.0));
+    let out = rig
+        .output(&rig.strategy(&[0], &[]), &values(1.0, &[]))
+        .unwrap_or_else(|e| panic!("refused: {e}"));
+    for (x, turn) in rings(&out.passes) {
+        assert!(
+            (turn - 2.0 * PI).abs() < 0.01,
+            "the ring at X {x} turns {turn}"
+        );
+    }
+}
+
+#[test]
+fn req_op_28_the_user_chooses_which_end_of_a_closed_face_is_the_guide() {
+    let rig = Rig::new(full_cylinder(10.0, 20.0), &ball(6.0));
+    // Edge 1, the end at X 20, as the guide: the rings start there.
+    let out = rig
+        .output(&rig.strategy(&[0], &[1]), &values(1.0, &[]))
+        .unwrap_or_else(|e| panic!("refused: {e}"));
+    let rings = rings(&out.passes);
+    assert!((rings[0].0 - 20.0).abs() < 1e-3, "{rings:?}");
+    assert!(rings.last().unwrap().0.abs() < 1e-3, "{rings:?}");
+    // Edges on both ends are not one guide.
+    let err = rig
+        .output(&rig.strategy(&[0], &[0, 1]), &values(1.0, &[]))
+        .unwrap_err()
+        .to_string();
+    assert!(err.contains("are not all on one of its ends"), "{err}");
+}
+
+/// Two full cylinders about X, faces 0 (radius 10, X 0 to 10; edges 0,
+/// 1, seam 2) and 1 (radius 12, X 20 to 30; edges 3, 4, seam 5), and, with
+/// `hole`, a small closed edge on face 0's surface that goes nowhere round
+/// it, as the edge of a hole: then edge 3, face 1's edges 4, 5 and 6.
+fn two_cylinders(hole: bool) -> BrepModel {
+    let tau = std::f64::consts::TAU;
+    let mut b = Builder::default();
+    for (id, radius, x0) in [(0u32, 10.0, 0.0), (1, 12.0, 20.0)] {
+        let point = move |u: f64, v: f64| p3(v, radius * u.cos(), radius * u.sin());
+        let mut edges = vec![
+            b.edge(&[id], &|t| point(tau * t, x0), false),
+            b.edge(&[id], &|t| point(tau * t, x0 + 10.0), false),
+            b.edge(&[id], &|t| point(0.0, x0 + 10.0 * t), false),
+        ];
+        if hole && id == 0 {
+            edges.push(b.edge(
+                &[0],
+                &|t| point(2.0 + 0.1 * (tau * t).cos(), 5.0 + 1.0 * (tau * t).sin()),
+                false,
+            ));
+        }
+        b.face(
+            Surface::Cylinder {
+                frame: about_x(),
+                radius,
+            },
+            [0.0, tau, x0, x0 + 10.0],
+            None,
+            edges,
+            &point,
+            &|_, _| true,
+            false,
+        );
+    }
+    b.model
+}
+
+#[test]
+fn req_op_28_a_guide_on_one_closed_face_leaves_the_others_their_own() {
+    // CodeRabbit on #854: the Guide edge set holds an end of face 0 only;
+    // face 1 takes its own default end rather than refusing the operation.
+    let rig = Rig::new(two_cylinders(false), &ball(6.0));
+    let out = rig
+        .output(&rig.strategy(&[0, 1], &[1]), &values(1.0, &[]))
+        .unwrap_or_else(|e| panic!("refused: {e}"));
+    let notes = out.notes().join("\n");
+    assert!(
+        notes.contains("face 0 is cut from its guide, edge 1 "),
+        "{notes}"
+    );
+    assert!(
+        notes.contains("face 1 is cut from its guide, edge 3 "),
+        "{notes}"
+    );
+}
+
+#[test]
+fn req_op_28_req_nfr_07_guide_edges_off_the_chosen_end_are_refused() {
+    // CodeRabbit on #854: an end edge with a hole's edge is not one end;
+    // the hole's edge is not silently ignored.
+    let rig = Rig::new(two_cylinders(true), &ball(6.0));
+    let err = rig
+        .output(&rig.strategy(&[0], &[0, 3]), &values(1.0, &[]))
+        .unwrap_err()
+        .to_string();
+    assert!(err.contains("are not all on one of its ends"), "{err}");
+    // The end's own edges alone are a guide.
+    rig.output(&rig.strategy(&[0], &[0]), &values(1.0, &[]))
+        .unwrap_or_else(|e| panic!("refused: {e}"));
+}
+
+#[test]
+fn req_op_28_req_gc_07_rings_are_the_same_at_1_2_and_n_threads() {
+    let rig = Rig::new(full_cone(6.0, 10.0, 12.0), &ball(4.0));
+    let strategy = rig.strategy(&[0], &[]);
+    let v = values(1.0, &[]);
+    let runs = openchuck_testkit::determinism::check(|| {
+        let path = run(|ctx| openchuck_path::generate(&strategy, &rig.input(), &v, ctx)).unwrap();
+        format!("{:?} {:?}", path.group, path.notices).into_bytes()
+    })
+    .unwrap();
+    assert_eq!(runs.len(), 4);
+}
+
+// ---- issue #631: the two pass counts of the notes agree ------------------------------
+
+/// The first number in `text` after `after`.
+fn number_after(text: &str, after: &str) -> usize {
+    let rest = &text[text
+        .find(after)
+        .unwrap_or_else(|| panic!("{after:?} in {text}"))
+        + after.len()..];
+    rest.trim_start()
+        .chars()
+        .take_while(char::is_ascii_digit)
+        .collect::<String>()
+        .parse()
+        .unwrap_or_else(|_| panic!("a number after {after:?} in {text}"))
+}
+
+#[test]
+fn req_op_28_req_nfr_07_the_summary_counts_the_passes_the_face_note_says_cut() {
+    // On the channel, the passes along the walls reach no part of the floor
+    // the ball can touch: they are planned but cut nothing.
+    let rig = Rig::new(channel(4.0), &ball(6.0));
+    let out = rig
+        .output(&rig.strategy(&[0], &[]), &values(0.5, &[]))
+        .unwrap();
+    let notes = out.notes();
+    let summary = notes
+        .iter()
+        .find(|n| n.starts_with("cuts "))
+        .unwrap_or_else(|| panic!("{notes:?}"));
+    let face = notes
+        .iter()
+        .find(|n| n.starts_with("face 0 is cut from its guide"))
+        .unwrap_or_else(|| panic!("{notes:?}"));
+    let cut = number_after(summary, "cuts");
+    let planned = number_after(face, "towards the opposite side in");
+    assert!(cut < planned, "{summary} / {face}");
+    // The face note says how many of its planned passes cut, and that is
+    // the summary's number: the two read as one account.
+    assert!(
+        face.contains(&format!("{cut} of them cut")),
+        "{summary} / {face}"
+    );
+    // The summary counts passes that cut, one per line across the face,
+    // however many pieces the unreached stretches split it into.
+    let lines: std::collections::BTreeSet<i64> = out
+        .passes
+        .iter()
+        .map(|p| (middle(p).y * 1000.0).round() as i64)
+        .collect();
+    assert_eq!(lines.len(), cut, "{summary}");
+}
+
+// ---- stay down between passes (the owner's Q2 of 23 Nov 2026) -------------------------
+
+/// The length of each move of `pass`, by its contacts.
+fn steps_of(pass: &Pass) -> Vec<f64> {
+    pass.points
+        .windows(2)
+        .map(|w| w[0].contact.distance(w[1].contact))
+        .collect()
+}
+
+#[test]
+fn req_op_28_req_op_14_meander_passes_stay_down_on_the_face() {
+    let (model, height) = twisted(30.0, 6.0, [10.0, 12.0, 11.0, 10.0]);
+    let rig = Rig::new(model, &ball(6.0));
+    let stepover = 0.8;
+    let apart = rig.passes(&[0], &[], &values(stepover, &[]));
+    let joined = rig.passes(&[0], &[], &values(stepover, &[(p::STAY_DOWN, flag(true))]));
+    // One run: the tool lifts only at the end.
+    assert!(apart.len() >= 15, "{} passes", apart.len());
+    assert_eq!(joined.len(), 1, "{} runs", joined.len());
+    // Every point of the run, the steps' too, is on the face.
+    for c in &joined[0].points {
+        let q = c.contact;
+        assert!(
+            (q.z - height(q.x, q.y)).abs() < 0.005,
+            "{q:?} is off the face"
+        );
+        assert!(
+            q.x > -1e-6 && q.x < 30.0 + 1e-6 && q.y.abs() < 6.0 + 1e-6,
+            "{q:?}"
+        );
+    }
+    // The passes are all there, in the same places; between them only steps
+    // along the face's ends, no longer than the stepover allows.
+    let total: usize = apart.iter().map(|p| p.points.len()).sum();
+    assert!(
+        joined[0].points.len() > total,
+        "{} points",
+        joined[0].points.len()
+    );
+    for p in &apart {
+        for c in &p.points {
+            assert!(
+                joined[0]
+                    .points
+                    .iter()
+                    .any(|j| j.contact.distance(c.contact) < 1e-9),
+                "a pass point {:?} is missing",
+                c.contact
+            );
+        }
+    }
+    let longest = steps_of(&joined[0]).into_iter().fold(0.0, f64::max);
+    assert!(longest <= 2.0 * stepover + 0.01, "a move of {longest} mm");
+    // The steps run along the face's ends, X 0 and X 30.
+    let at_ends = joined[0]
+        .points
+        .iter()
+        .filter(|c| c.contact.x < 1e-3 || c.contact.x > 30.0 - 1e-3)
+        .count();
+    assert!(
+        at_ends >= 2 * (apart.len() - 1),
+        "{at_ends} points at the ends"
+    );
+}
+
+#[test]
+fn req_op_28_req_op_14_climb_and_conventional_lift_between_passes() {
+    // Their passes all run the same way, so a pass ends where the next does
+    // not start: there is no step to make.
+    let (model, _) = twisted(30.0, 6.0, [10.0, 12.0, 11.0, 10.0]);
+    let rig = Rig::new(model, &ball(6.0));
+    for direction in [p::CLIMB, p::CONVENTIONAL] {
+        let off = rig.passes(&[0], &[], &values(0.8, &[(p::DIRECTION, text(direction))]));
+        let on = rig.passes(
+            &[0],
+            &[],
+            &values(
+                0.8,
+                &[(p::DIRECTION, text(direction)), (p::STAY_DOWN, flag(true))],
+            ),
+        );
+        assert_eq!(off, on, "{direction}");
+    }
+}
+
+/// Checks the ball's centre stays out of the channel's floor and walls at
+/// every point and at the middle and quarter points of every move.
+fn check_channel(rig: &Rig, passes: &[Pass], half: f64, end_wall: bool) {
+    let tol = 0.005;
+    let check = |c: &CutPoint| {
+        let o = centre_of(rig, c, 3.0);
+        assert!(o.z - 10.0 >= 3.0 - tol, "into the floor at {o:?}");
+        if o.z < 16.0 + 3.0 {
+            assert!(o.y.abs() <= half - 3.0 + tol, "into a wall at {o:?}");
+            if end_wall {
+                assert!(o.x <= 30.0 - 3.0 + tol, "into the end wall at {o:?}");
+            }
+        }
+    };
+    for pass in passes {
+        for c in &pass.points {
+            check(c);
+        }
+        for w in pass.points.windows(2) {
+            for f in [0.25, 0.5, 0.75] {
+                check(&between(rig, &w[0], &w[1], f));
+            }
+        }
+    }
+}
+
+#[test]
+fn req_op_28_req_op_12_staying_down_between_walls_never_gouges() {
+    let half = 4.0;
+    let rig = Rig::new(channel(half), &ball(6.0));
+    let on = values(0.5, &[(p::STAY_DOWN, flag(true))]);
+    let joined = rig.passes(&[0], &[], &on);
+    // The open ends at X 0 and 30 are clear, so the passes that cut join.
+    assert_eq!(joined.len(), 1, "{} runs", joined.len());
+    check_channel(&rig, &joined, half, false);
+}
+
+#[test]
+fn req_op_28_req_op_12_a_wall_at_a_pass_end_makes_the_tool_lift_there() {
+    // With a wall across the end at X 30, no pass reaches that end, so
+    // there the tool lifts; at the open end, X 0, it stays down.
+    let half = 4.0;
+    let rig = Rig::new(channel_with_end_wall(half), &ball(6.0));
+    let apart = rig.passes(&[0], &[], &values(0.5, &[]));
+    let joined = rig.passes(&[0], &[], &values(0.5, &[(p::STAY_DOWN, flag(true))]));
+    let n = apart.len();
+    assert!(n >= 3, "{n} passes");
+    // The first pass runs from X 0 towards the wall, so the joins at X 0 are
+    // after the second pass, the fourth, and so on.
+    assert_eq!(
+        joined.len(),
+        n - (n - 1) / 2,
+        "{} runs of {n} passes",
+        joined.len()
+    );
+    check_channel(&rig, &joined, half, true);
+}
+
+#[test]
+fn req_op_28_req_gc_07_staying_down_is_the_same_at_1_2_and_n_threads() {
+    let rig = Rig::new(channel(4.0), &ball(6.0));
+    let strategy = rig.strategy(&[0], &[]);
+    let v = values(0.5, &[(p::STAY_DOWN, flag(true))]);
+    let runs = openchuck_testkit::determinism::check(|| {
+        let path = run(|ctx| openchuck_path::generate(&strategy, &rig.input(), &v, ctx)).unwrap();
+        format!("{:?} {:?} {:?}", path.group, path.notices, path.unreached).into_bytes()
+    })
+    .unwrap();
+    assert_eq!(runs.len(), 4);
+}
+
+// ---- follow the outline (the owner's Q1 of 23 Nov 2026: the pattern is automatic) ----
+
+/// A flat comb at Z 10: a base from X 0 to 30, Y -10 to -2, with two fingers
+/// 5 mm wide reaching to Y 10 (X 5 to 10 and X 20 to 25), as the blisk's
+/// outer face's lands are fingers of its rim. Its outline, counter-clockwise.
+const COMB: [(f64, f64); 12] = [
+    (0.0, -10.0),
+    (30.0, -10.0),
+    (30.0, -2.0),
+    (25.0, -2.0),
+    (25.0, 10.0),
+    (20.0, 10.0),
+    (20.0, -2.0),
+    (10.0, -2.0),
+    (10.0, 10.0),
+    (5.0, 10.0),
+    (5.0, -2.0),
+    (0.0, -2.0),
+];
+
+fn comb() -> BrepModel {
+    let mut b = Builder::default();
+    flat(&mut b, 10.0, &COMB, &[]);
+    b.model
+}
+
+/// The distance from (x, y) to the comb's outline.
+fn to_comb_outline(x: f64, y: f64) -> f64 {
+    let outline: Vec<Point3> = COMB
+        .iter()
+        .chain(COMB.first())
+        .map(|&(u, v)| p3(u, v, 10.0))
+        .collect();
+    to_polyline(p3(x, y, 10.0), &outline)
+}
+
+#[test]
+fn req_op_28_a_face_with_fingers_is_cut_along_its_outline_in_few_runs() {
+    let rig = Rig::new(comb(), &ball(3.0));
+    let stepover = 0.8;
+    let v = values(
+        stepover,
+        &[(p::STAY_DOWN, flag(true)), (p::PATTERN, text(p::AUTOMATIC))],
+    );
+    let out = rig
+        .output(&rig.strategy(&[0], &[]), &v)
+        .unwrap_or_else(|e| panic!("refused: {e}"));
+    let notes = out.notes().join("\n");
+    assert!(notes.contains("follows its outline"), "{notes}");
+    // Every contact is on the face.
+    let all: Vec<Point3> = out.passes.iter().flat_map(contacts).collect();
+    for q in &all {
+        assert!((q.z - 10.0).abs() < 1e-6, "{q:?}");
+        assert!(
+            inside_polygon(&COMB, q.x, q.y) || to_comb_outline(q.x, q.y) < 0.01,
+            "{q:?} is off the face"
+        );
+    }
+    // The face is covered: every point of it is within a stepover of a
+    // contact (where offsets from both sides meet, the last pass can be up
+    // to a stepover from the middle), the fingers' tips too.
+    let mut worst: f64 = 0.0;
+    let mut at = (0.0, 0.0);
+    for i in 0..=60 {
+        for j in 0..=40 {
+            let (x, y) = (
+                30.0 * f64::from(i) / 60.0,
+                -10.0 + 20.0 * f64::from(j) / 40.0,
+            );
+            if !inside_polygon(&COMB, x, y) {
+                continue;
+            }
+            let d = all
+                .iter()
+                .map(|q| (q.x - x).hypot(q.y - y))
+                .fold(f64::INFINITY, f64::min);
+            if d > worst {
+                worst = d;
+                at = (x, y);
+            }
+        }
+    }
+    assert!(
+        worst <= stepover + 0.1,
+        "a point at {at:?} is {worst} mm from the nearest contact"
+    );
+    // The first pass follows the outline, round the fingers and their tips.
+    let first = contacts(&out.passes[0]);
+    assert!(
+        first.iter().filter(|q| q.y > 9.9).count() >= 10,
+        "the fingers' tips are not followed"
+    );
+    // Few runs: the tool stays down from one offset to the next where it can.
+    assert!(out.passes.len() <= 4, "{} runs", out.passes.len());
+    // Along the guide, the same face's passes break at the notches.
+    let blend = rig.passes(
+        &[0],
+        &[],
+        &values(
+            stepover,
+            &[
+                (p::STAY_DOWN, flag(true)),
+                (p::PATTERN, text(p::ALONG_GUIDE)),
+            ],
+        ),
+    );
+    assert!(
+        blend.len() > 4 * out.passes.len(),
+        "{} runs along the guide",
+        blend.len()
+    );
+}
+
+#[test]
+fn req_op_28_a_plain_face_keeps_the_passes_along_its_guide() {
+    // Automatic keeps the guide's passes where they stay whole: the
+    // trapezoid's passes are as before.
+    let rig = Rig::new(trapezoid(), &ball(6.0));
+    let auto = rig.passes(&[0], &[], &values(0.7, &[]));
+    let guide = rig.passes(
+        &[0],
+        &[],
+        &values(0.7, &[(p::PATTERN, text(p::ALONG_GUIDE))]),
+    );
+    assert_eq!(auto, guide);
+    let full = rig.passes(&[0], &[], &values(0.7, &[(p::PATTERN, text(p::AUTOMATIC))]));
+    assert_eq!(auto, full);
+    // A full cylinder keeps its rings with Automatic.
+    let rig = Rig::new(full_cylinder(10.0, 20.0), &ball(6.0));
+    let notes = rig
+        .output(
+            &rig.strategy(&[0], &[]),
+            &values(1.0, &[(p::PATTERN, text(p::AUTOMATIC))]),
+        )
+        .unwrap()
+        .notes()
+        .join("\n");
+    assert!(notes.contains("is cut from its guide"), "{notes}");
+}
+
+#[test]
+fn req_op_28_follow_the_outline_offsets_a_rectangle_inwards_at_the_stepover() {
+    // Chosen by the user on a plain rectangle: closed loops, each the
+    // stepover inside the last, measured on the face.
+    let mut b = Builder::default();
+    flat(
+        &mut b,
+        10.0,
+        &[(0.0, 0.0), (20.0, 0.0), (20.0, 12.0), (0.0, 12.0)],
+        &[],
+    );
+    let rig = Rig::new(b.model, &ball(3.0));
+    let stepover = 1.0;
+    let passes = rig.passes(
+        &[0],
+        &[],
+        &values(stepover, &[(p::PATTERN, text(p::OUTLINE))]),
+    );
+    // Each pass is a loop at a constant distance from the outline.
+    let edge = |q: &Point3| q.x.min(20.0 - q.x).min(q.y).min(12.0 - q.y);
+    let mut levels: Vec<f64> = Vec::new();
+    for pass in &passes {
+        let c = contacts(pass);
+        let d: Vec<f64> = c.iter().map(edge).collect();
+        let lo = d.iter().copied().fold(f64::INFINITY, f64::min);
+        // Away from the corners every point of a loop is at its level.
+        let mid = d.iter().filter(|x| (*x - lo).abs() < 0.12).count();
+        assert!(mid * 10 >= d.len() * 8, "a loop strays from its level");
+        levels.push(lo);
+    }
+    levels.sort_by(f64::total_cmp);
+    assert!(levels[0] < 0.05, "{levels:?}");
+    for w in levels.windows(2) {
+        assert!(
+            w[1] - w[0] <= stepover * 1.05 + 0.1 && w[1] - w[0] > 0.5 * stepover,
+            "{levels:?}"
+        );
+    }
+    assert!(*levels.last().unwrap() > 5.0 - stepover, "{levels:?}");
+}
+
+#[test]
+fn req_op_28_req_gc_07_following_the_outline_is_the_same_at_1_2_and_n_threads() {
+    let rig = Rig::new(comb(), &ball(3.0));
+    let strategy = rig.strategy(&[0], &[]);
+    let v = values(
+        0.8,
+        &[(p::STAY_DOWN, flag(true)), (p::PATTERN, text(p::AUTOMATIC))],
+    );
+    let runs = openchuck_testkit::determinism::check(|| {
+        let path = run(|ctx| openchuck_path::generate(&strategy, &rig.input(), &v, ctx)).unwrap();
+        format!("{:?} {:?} {:?}", path.group, path.notices, path.unreached).into_bytes()
+    })
+    .unwrap();
+    assert_eq!(runs.len(), 4);
+}
+
+// ---- joining rings (the owner's decision of 23 Nov 2026: as the helical rings,
+// a step along the seam or a blend over Blend over degrees; decision 0545's
+// parameters) ----
+
+use openchuck_path::helical::parameter::{BLENDED, RING_BLEND_ANGLE, RING_STEP, SHARP};
+
+/// A along a run, in order, in degrees.
+fn a_of(pass: &Pass) -> Vec<f64> {
+    pass.points.iter().map(|c| c.a.0).collect()
+}
+
+/// Whether A never reverses along `a` (a turn one way, with steps at a
+/// held A allowed).
+fn one_way(a: &[f64]) -> bool {
+    let d: Vec<f64> = a
+        .windows(2)
+        .map(|w| w[1] - w[0])
+        .filter(|d| d.abs() > 1e-6)
+        .collect();
+    d.iter().all(|x| *x > 0.0) || d.iter().all(|x| *x < 0.0)
+}
+
+fn ring_values(
+    join: &str,
+    direction: &str,
+    extra: &[(&str, openchuck_path::ParameterValue)],
+) -> BTreeMap<String, openchuck_path::ParameterValue> {
+    let mut v = values(
+        2.0,
+        &[
+            (p::STAY_DOWN, flag(true)),
+            (RING_STEP, text(join)),
+            (p::DIRECTION, text(direction)),
+        ],
+    );
+    for (k, x) in extra {
+        v.insert((*k).to_owned(), x.clone());
+    }
+    v
+}
+
+#[test]
+fn req_op_28_req_op_14_blended_rings_are_whole_turns_joined_by_diagonal_blends() {
+    for (what, model) in [
+        ("cylinder", full_cylinder(10.0, 20.0)),
+        ("cone", full_cone(10.0, 0.0, 15.0)),
+    ] {
+        let rig = Rig::new(model, &ball(6.0));
+        let rings = rings(&rig.passes(&[0], &[], &values(2.0, &[]))).len();
+        for direction in [p::MEANDER, p::CLIMB, p::CONVENTIONAL] {
+            for phi in [45.0, 90.0] {
+                let out = rig
+                    .output(
+                        &rig.strategy(&[0], &[]),
+                        &ring_values(BLENDED, direction, &[(RING_BLEND_ANGLE, num(phi))]),
+                    )
+                    .unwrap_or_else(|e| panic!("{what} {direction}: refused: {e}"));
+                assert_eq!(out.passes.len(), 1, "{what} {direction} {phi}: one run");
+                let a = a_of(&out.passes[0]);
+                assert!(one_way(&a), "{what} {direction} {phi}: A reverses");
+                // Whole turns, each blend φ more: 360 per ring and φ per blend.
+                let total = (a.last().unwrap() - a[0]).abs();
+                let want = 360.0 * rings as f64 + phi * (rings - 1) as f64;
+                assert!(
+                    (total - want).abs() < 1.0,
+                    "{what} {direction} {phi}: A turns {total}, not {want}"
+                );
+                // X never goes back, and the last ring (no blend after it)
+                // turns a whole turn at its place.
+                let c = contacts(&out.passes[0]);
+                // (to within the contact solve, 1e-4 mm)
+                let back = c.windows(2).map(|w| w[0].x - w[1].x).fold(0.0, f64::max);
+                assert!(back < 1e-4, "{what} {direction}: X goes back {back}");
+                let end = c.last().unwrap().x;
+                let last: Vec<f64> = out.passes[0]
+                    .points
+                    .iter()
+                    .filter(|q| (q.contact.x - end).abs() < 1e-3)
+                    .map(|q| q.a.0)
+                    .collect();
+                let span = last.iter().copied().fold(f64::NEG_INFINITY, f64::max)
+                    - last.iter().copied().fold(f64::INFINITY, f64::min);
+                assert!(
+                    (span - 360.0).abs() < 1.0,
+                    "{what} {direction}: the last ring turns {span}"
+                );
+                // Over a blend X and A move together: no point of the run
+                // moves in X with A held.
+                for w in out.passes[0].points.windows(2) {
+                    let dx = (w[1].contact.x - w[0].contact.x).abs();
+                    if dx > 1e-4 {
+                        assert!(
+                            (w[1].a.0 - w[0].a.0).abs() > 1e-3,
+                            "{what} {direction}: a step with A held"
+                        );
+                    }
+                }
+                let notes = out.notes().join("\n");
+                assert!(
+                    notes.contains(&format!("blended over {phi}")),
+                    "{what}: {notes}"
+                );
+            }
+        }
+    }
+}
+
+#[test]
+fn req_op_28_req_op_14_sharp_ring_steps_go_along_the_seam_and_rings_never_reverse() {
+    let rig = Rig::new(full_cylinder(10.0, 20.0), &ball(6.0));
+    let n = rings(&rig.passes(&[0], &[], &values(2.0, &[]))).len();
+    for direction in [p::MEANDER, p::CLIMB, p::CONVENTIONAL] {
+        let out = rig
+            .output(
+                &rig.strategy(&[0], &[]),
+                &ring_values(SHARP, direction, &[]),
+            )
+            .unwrap_or_else(|e| panic!("{direction}: refused: {e}"));
+        assert_eq!(out.passes.len(), 1, "{direction}: one run");
+        let points = &out.passes[0].points;
+        // Every move along X is a step at the seam with A held.
+        for w in points.windows(2) {
+            if (w[1].contact.x - w[0].contact.x).abs() > 1e-4 {
+                assert!(
+                    (w[1].a.0 - w[0].a.0).abs() < 1e-6,
+                    "{direction}: A turns on a step"
+                );
+                assert!(
+                    angle(w[0].contact).abs() < 1e-3,
+                    "{direction}: a step off the seam"
+                );
+            }
+        }
+        let a = a_of(&out.passes[0]);
+        let total = (a.last().unwrap() - a[0]).abs();
+        // Rings never reverse (the owner's correction of 23 Nov 2026):
+        // every ring the same way, a whole turn each, Meander too.
+        assert!(one_way(&a), "{direction}: A reverses");
+        assert!(
+            (total - 360.0 * n as f64).abs() < 1.0,
+            "{direction}: {total}"
+        );
+        if direction == p::MEANDER {
+            let notes = out.notes().join("\n");
+            assert!(
+                notes.contains("every ring still runs the same way round"),
+                "{notes}"
+            );
+        }
+    }
+}
+
+#[test]
+fn req_op_28_req_op_12_ring_joins_leave_no_strip_and_never_gouge() {
+    let (radius, length, stepover) = (10.0, 20.0, 2.0);
+    let rig = Rig::new(full_cylinder(radius, length), &ball(6.0));
+    for join in [SHARP, BLENDED] {
+        for direction in [p::MEANDER, p::CLIMB] {
+            let passes = rig.passes(&[0], &[], &ring_values(join, direction, &[]));
+            let all: Vec<Point3> = passes.iter().flat_map(contacts).collect();
+            for q in &all {
+                assert!(
+                    (q.y.hypot(q.z) - radius).abs() < 0.005,
+                    "{join} {direction}: {q:?}"
+                );
+                assert!(
+                    q.x > -1e-6 && q.x < length + 1e-6,
+                    "{join} {direction}: {q:?}"
+                );
+            }
+            // Every point of the face is within half the stepover (and a
+            // sample) of a contact, along the seam too.
+            let mut worst: f64 = 0.0;
+            for i in 0..=40 {
+                for j in 0..72 {
+                    let (x, t) = (
+                        length * f64::from(i) / 40.0,
+                        std::f64::consts::TAU * f64::from(j) / 72.0,
+                    );
+                    let q = p3(x, radius * t.cos(), radius * t.sin());
+                    let d = all
+                        .iter()
+                        .map(|c| c.distance(q))
+                        .fold(f64::INFINITY, f64::min);
+                    worst = worst.max(d);
+                }
+            }
+            assert!(
+                worst <= 0.5 * stepover + 0.3,
+                "{join} {direction}: a point {worst} mm from the nearest contact"
+            );
+        }
+    }
+}
+
+#[test]
+fn req_op_28_req_nfr_07_blend_over_out_of_range_is_refused_by_name() {
+    let rig = Rig::new(full_cylinder(10.0, 20.0), &ball(6.0));
+    for phi in [0.0, -10.0, 181.0, f64::NAN] {
+        let e = rig
+            .output(
+                &rig.strategy(&[0], &[]),
+                &ring_values(BLENDED, p::MEANDER, &[(RING_BLEND_ANGLE, num(phi))]),
+            )
+            .err()
+            .unwrap_or_else(|| panic!("{phi} degrees accepted"));
+        assert!(
+            e.to_string().contains(RING_BLEND_ANGLE) || e.to_string().contains("Blend over"),
+            "{phi}: {e}"
+        );
+    }
+}
+
+#[test]
+fn req_op_28_req_gc_07_ring_joins_are_the_same_at_1_2_and_n_threads() {
+    let rig = Rig::new(full_cone(10.0, 0.0, 15.0), &ball(6.0));
+    let strategy = rig.strategy(&[0], &[]);
+    for join in [SHARP, BLENDED] {
+        let v = ring_values(join, p::CLIMB, &[]);
+        openchuck_testkit::determinism::check(|| {
+            let path =
+                run(|ctx| openchuck_path::generate(&strategy, &rig.input(), &v, ctx)).unwrap();
+            format!("{:?} {:?} {:?}", path.group, path.notices, path.unreached).into_bytes()
+        })
+        .unwrap();
+    }
+}
+
+#[test]
+fn req_op_28_face_flow_offers_the_ring_steps_of_the_ring_strategies() {
+    let rig = Rig::new(full_cylinder(10.0, 20.0), &ball(6.0));
+    let schema = rig.strategy(&[0], &[]).schema();
+    let step = schema.get(RING_STEP).expect("Steps between rings");
+    assert_eq!(step.label, "Steps between rings");
+    let blend = schema.get(RING_BLEND_ANGLE).expect("Blend over");
+    assert_eq!(blend.label, "Blend over");
+    // A saved operation without them keeps sharp steps and does not stay
+    // down (decision 0545 D3's pattern); a new one is written with both.
+    match &step.kind {
+        openchuck_path::params::ParameterKind::Choice { default, .. } => assert_eq!(default, SHARP),
+        other => panic!("{other:?}"),
+    }
+    match &schema.get(p::STAY_DOWN).expect("Stay down").kind {
+        openchuck_path::params::ParameterKind::Flag { default } => assert!(!default),
+        other => panic!("{other:?}"),
+    }
+    match &schema.get(p::PATTERN).expect("Pattern").kind {
+        openchuck_path::params::ParameterKind::Choice { default, .. } => {
+            assert_eq!(default, p::ALONG_GUIDE)
+        }
+        other => panic!("{other:?}"),
+    }
+    // Shortest cut is a length or the tool's diameter, 0 for a saved
+    // operation (a new one is written with Tool diameter).
+    match &schema.get(p::SHORTEST_CUT).expect("Shortest cut").kind {
+        openchuck_path::params::ParameterKind::LengthOrTool { default, min, .. } => {
+            assert_eq!(
+                *default,
+                openchuck_path::params::LengthOrTool::Millimetres(0.0)
+            );
+            assert_eq!(*min, Some(0.0));
+        }
+        other => panic!("{other:?}"),
+    }
+}
+
+// ---- Shortest cut (the owner's answer of 23 Nov 2026 to Q3: applied last, to
+// whole runs; default the tool's diameter, 0 off) ----
+
+fn run_length(pass: &Pass) -> f64 {
+    contacts(pass).windows(2).map(|w| w[0].distance(w[1])).sum()
+}
+
+#[test]
+fn req_op_28_req_op_20_runs_shorter_than_the_shortest_cut_are_left_out_and_reported() {
+    // The comb along its guide: runs from 8 mm long, broken at the notches.
+    let rig = Rig::new(comb(), &ball(3.0));
+    let with = |shortest: Option<f64>| {
+        let mut v = values(
+            0.8,
+            &[
+                (p::STAY_DOWN, flag(true)),
+                (p::PATTERN, text(p::ALONG_GUIDE)),
+            ],
+        );
+        if let Some(x) = shortest {
+            v.insert(p::SHORTEST_CUT.to_owned(), num(x));
+        }
+        rig.output(&rig.strategy(&[0], &[]), &v).unwrap()
+    };
+    let every = with(Some(0.0));
+    assert!(
+        every
+            .unreached
+            .iter()
+            .all(|u| !matches!(u.reason, UnreachedReason::TooShort { .. }))
+    );
+    // An operation saved without it keeps every run (its program is
+    // unchanged); a new operation is written with the tool's diameter.
+    assert_eq!(
+        format!("{:?}", with(None).passes),
+        format!("{:?}", every.passes)
+    );
+    let limit = 9.0;
+    let short: Vec<&Pass> = every
+        .passes
+        .iter()
+        .filter(|p| run_length(p) < limit)
+        .collect();
+    assert!(
+        !short.is_empty() && short.len() < every.passes.len(),
+        "{} short runs",
+        short.len()
+    );
+    let out = with(Some(limit));
+    // Nothing inside a run is removed: the runs kept are exactly the long
+    // ones, point for point.
+    let long: Vec<String> = every
+        .passes
+        .iter()
+        .filter(|p| run_length(p) >= limit)
+        .map(|p| format!("{:?}", p.points))
+        .collect();
+    let kept: Vec<String> = out
+        .passes
+        .iter()
+        .map(|p| format!("{:?}", p.points))
+        .collect();
+    assert_eq!(kept, long);
+    // Each run left out is reported as an area left uncut, with its place
+    // and length, and named in a warning.
+    let dropped: Vec<_> = out
+        .unreached
+        .iter()
+        .filter(|u| matches!(u.reason, UnreachedReason::TooShort { .. }))
+        .collect();
+    assert_eq!(dropped.len(), short.len());
+    for (u, p) in dropped.iter().zip(&short) {
+        let UnreachedReason::TooShort { length } = u.reason else {
+            unreachable!()
+        };
+        assert!((length - run_length(p)).abs() < 1e-6, "{length}");
+        let xs: Vec<f64> = contacts(p).iter().map(|q| q.x).collect();
+        let lo = xs.iter().copied().fold(f64::INFINITY, f64::min);
+        let hi = xs.iter().copied().fold(f64::NEG_INFINITY, f64::max);
+        assert!(
+            (u.x.0 - lo).abs() < 1e-6 && (u.x.1 - hi).abs() < 1e-6,
+            "{:?}",
+            u.x
+        );
+        assert!(!u.points.is_empty());
+    }
+    let warnings: Vec<&str> = out
+        .notices
+        .iter()
+        .filter(|n| n.is_warning())
+        .map(|n| n.text.as_str())
+        .collect();
+    let warnings = warnings.join("\n");
+    assert!(
+        warnings.contains("shorter than the Shortest cut"),
+        "{warnings}"
+    );
+}
+
+#[test]
+fn req_op_28_req_nfr_07_a_negative_shortest_cut_is_refused_by_name() {
+    let rig = Rig::new(comb(), &ball(3.0));
+    for bad in [-1.0, f64::NAN] {
+        let e = rig
+            .output(
+                &rig.strategy(&[0], &[]),
+                &values(0.8, &[(p::SHORTEST_CUT, num(bad))]),
+            )
+            .err()
+            .unwrap_or_else(|| panic!("{bad} accepted"));
+        assert!(e.to_string().contains(p::SHORTEST_CUT), "{bad}: {e}");
+    }
+}
+
+#[test]
+fn req_op_28_a_shortest_cut_of_tool_diameter_is_the_tools_diameter() {
+    // The owner's decision of 23 Nov 2026: Tool diameter is a choice of its
+    // own, read from the operation's tool when it is generated.
+    let word = text(openchuck_path::params::TOOL_DIAMETER);
+    for d in [3.0, 4.0] {
+        let rig = Rig::new(comb(), &ball(d));
+        let run_with = |x: openchuck_path::ParameterValue| {
+            let v = values(
+                0.8,
+                &[
+                    (p::STAY_DOWN, flag(true)),
+                    (p::PATTERN, text(p::ALONG_GUIDE)),
+                    (p::SHORTEST_CUT, x),
+                ],
+            );
+            format!("{:?}", rig.passes(&[0], &[], &v))
+        };
+        assert_eq!(run_with(word.clone()), run_with(num(d)), "a {d} mm ball");
+    }
+}
+
+#[test]
+fn req_op_28_req_op_25_following_the_outline_climb_and_conventional_run_opposite_ways() {
+    // Climb and Conventional keep the uncut material, inside the face, on the
+    // side they ask for: every loop of one runs round the same way, and the
+    // two run round opposite ways (decision 0686 item 2; decision 0213).
+    let mut b = Builder::default();
+    flat(
+        &mut b,
+        10.0,
+        &[(0.0, 0.0), (20.0, 0.0), (20.0, 12.0), (0.0, 12.0)],
+        &[],
+    );
+    let rig = Rig::new(b.model, &ball(3.0));
+    // The signed area of each pass's contacts seen from +Z: the way it runs
+    // round, positive counter-clockwise.
+    let ways = |direction: &str| -> Vec<f64> {
+        let v = values(
+            1.0,
+            &[
+                (p::PATTERN, text(p::OUTLINE)),
+                (p::DIRECTION, text(direction)),
+            ],
+        );
+        rig.passes(&[0], &[], &v)
+            .iter()
+            .map(|pass| {
+                let c = contacts(pass);
+                c.windows(2)
+                    .map(|w| w[0].x * w[1].y - w[1].x * w[0].y)
+                    .sum::<f64>()
+            })
+            .filter(|area| area.abs() > 1.0)
+            .collect()
+    };
+    let climb = ways(p::CLIMB);
+    let conventional = ways(p::CONVENTIONAL);
+    assert!(
+        climb.len() > 2 && conventional.len() == climb.len(),
+        "{climb:?} {conventional:?}"
+    );
+    let sign = climb[0].signum();
+    assert!(climb.iter().all(|a| a.signum() == sign), "{climb:?}");
+    assert!(
+        conventional.iter().all(|a| a.signum() == -sign),
+        "{conventional:?}"
+    );
+    // Meander alternates.
+    let meander = ways(p::MEANDER);
+    assert!(
+        meander.windows(2).all(|w| w[0].signum() != w[1].signum()),
+        "{meander:?}"
+    );
+}
+
+#[test]
+fn req_op_28_req_nfr_07_the_outline_note_counts_the_loops_the_shortest_cut_leaves() {
+    // CodeRabbit on #854: where Shortest cut leaves out some of the loops,
+    // the face note says how many still cut, as along the guide.
+    let mut b = Builder::default();
+    flat(
+        &mut b,
+        10.0,
+        &[(0.0, 0.0), (20.0, 0.0), (20.0, 12.0), (0.0, 12.0)],
+        &[],
+    );
+    let rig = Rig::new(b.model, &ball(3.0));
+    let out = rig
+        .output(
+            &rig.strategy(&[0], &[]),
+            &values(
+                1.0,
+                &[
+                    (p::PATTERN, text(p::OUTLINE)),
+                    (p::STAY_DOWN, flag(false)),
+                    (p::SHORTEST_CUT, num(30.0)),
+                ],
+            ),
+        )
+        .unwrap();
+    let note = out
+        .notices
+        .iter()
+        .map(|n| n.text.as_str())
+        .find(|t| t.contains("follows its outline"))
+        .expect("the face note");
+    let planned = number_after(note, "inwards in ");
+    let cut = out.passes.len();
+    assert!(cut > 0 && cut < planned, "{note}");
+    assert!(
+        note.contains(&format!("; {cut} of them cut")),
+        "{cut} of {planned}: {note}"
+    );
+}
+
+#[test]
+fn req_op_28_req_nfr_07_a_shortest_cut_that_leaves_nothing_is_refused_naming_it() {
+    // CodeRabbit on #854: when Shortest cut leaves out every run, the
+    // refusal says so and names the setting, rather than that the faces
+    // cannot be reached.
+    let rig = Rig::new(comb(), &ball(3.0));
+    let v = values(
+        0.8,
+        &[
+            (p::STAY_DOWN, flag(true)),
+            (p::PATTERN, text(p::ALONG_GUIDE)),
+            (p::SHORTEST_CUT, num(10_000.0)),
+        ],
+    );
+    let e = rig
+        .output(&rig.strategy(&[0], &[]), &v)
+        .expect_err("every run left out is refused");
+    let text = e.to_string();
+    assert!(text.contains("Shortest cut"), "{text}");
+    assert!(!text.contains("cannot reach"), "{text}");
+}
+
+#[test]
+fn req_op_28_req_nfr_07_an_outline_needing_too_many_levels_is_refused() {
+    // CodeRabbit on #854: a stepover so fine that the outline would need
+    // more offsets than the pass limit is refused before they are traced.
+    let mut b = Builder::default();
+    flat(
+        &mut b,
+        10.0,
+        &[(0.0, 0.0), (20.0, 0.0), (20.0, 12.0), (0.0, 12.0)],
+        &[],
+    );
+    let rig = Rig::new(b.model, &ball(3.0));
+    let v = values(0.0001, &[(p::PATTERN, text(p::OUTLINE))]);
+    let started = std::time::Instant::now();
+    let e = rig
+        .output(&rig.strategy(&[0], &[]), &v)
+        .expect_err("refused");
+    assert!(e.to_string().contains("raise the stepover"), "{e}");
+    assert!(started.elapsed().as_secs() < 20, "{:?}", started.elapsed());
+}
+
+#[test]
+fn req_op_28_req_nfr_07_a_sliver_of_a_cylinder_is_not_taken_for_a_closed_face() {
+    // CodeRabbit on #854: a cylinder face whose two straight edges lie within
+    // the join distance of each other (a sliver a few millionths of a turn
+    // wide) is not a face that closes round on itself: only a span of a whole
+    // turn is.
+    let (radius, length, span) = (10.0, 20.0, 5e-5);
+    let point = move |u: f64, v: f64| p3(v, radius * u.cos(), radius * u.sin());
+    let mut b = Builder::default();
+    let edges = vec![
+        b.edge(&[0], &|t| point(span * t, 0.0), false),
+        b.edge(&[0], &|t| point(span, length * t), true),
+        b.edge(&[0], &|t| point(span * (1.0 - t), length), false),
+        b.edge(&[0], &|t| point(0.0, length * (1.0 - t)), true),
+    ];
+    b.face(
+        Surface::Cylinder {
+            frame: about_x(),
+            radius,
+        },
+        [0.0, span, 0.0, length],
+        None,
+        edges,
+        &point,
+        &|_, _| true,
+        false,
+    );
+    let rig = Rig::new(b.model, &ball(6.0));
+    let said = match rig.output(
+        &rig.strategy(&[0], &[]),
+        &values(1.0, &[(p::DIRECTION, text(p::MEANDER))]),
+    ) {
+        Ok(out) => out.notes().join("\n"),
+        Err(e) => e.to_string(),
+    };
+    // Taken for a closed face, its straight edges were read as seams and its
+    // boundary did not close.
+    assert!(!said.contains("does not close"), "{said}");
+    assert!(!said.contains("every ring"), "{said}");
+    assert!(!said.contains("closes round on itself"), "{said}");
+}
+
+#[test]
+fn req_op_28_req_nfr_07_the_pass_counts_agree_after_the_shortest_cut() {
+    // CodeRabbit on #854: the first note counts the passes that still cut
+    // once Shortest cut has left runs out, and the face's note says the same
+    // number (issue #631's agreement).
+    let rig = Rig::new(comb(), &ball(3.0));
+    let counts = |shortest: f64| {
+        let v = values(
+            0.8,
+            &[
+                (p::STAY_DOWN, flag(false)),
+                (p::PATTERN, text(p::ALONG_GUIDE)),
+                (p::SHORTEST_CUT, num(shortest)),
+            ],
+        );
+        let notes = rig
+            .output(&rig.strategy(&[0], &[]), &v)
+            .unwrap()
+            .notes()
+            .join("\n");
+        let number = |after: &str, before: &str| -> Option<usize> {
+            let i = notes.find(after)? + after.len();
+            let j = notes[i..].find(before)? + i;
+            notes[i..j].trim().parse().ok()
+        };
+        let summary = number("cuts ", " pass").expect("summary");
+        let planned = number(" in ", " passes up to").expect("planned");
+        let cut = number("; ", " of them cut").unwrap_or(planned);
+        (summary, cut, notes)
+    };
+    let (all, all_face, _) = counts(0.0);
+    assert_eq!(all, all_face);
+    let (fewer, face, notes) = counts(20.0);
+    assert_eq!(fewer, face, "{notes}");
+    assert!(fewer < all, "{fewer} against {all}: {notes}");
+}
+
+#[test]
+fn req_op_28_follow_the_outline_needs_no_guide() {
+    // CodeRabbit on #854: Follow the outline takes no guide, so a guide that
+    // Along the guide refuses (here a full cylinder's seam, edge 2) does not
+    // stop it.
+    let rig = Rig::new(full_cylinder(10.0, 20.0), &ball(6.0));
+    let guide = rig.output(
+        &rig.strategy(&[0], &[2]),
+        &values(1.0, &[(p::PATTERN, text(p::ALONG_GUIDE))]),
+    );
+    assert!(
+        guide.is_err(),
+        "the seam as guide is refused along the guide"
+    );
+    let out = rig
+        .output(
+            &rig.strategy(&[0], &[2]),
+            &values(1.0, &[(p::PATTERN, text(p::OUTLINE))]),
+        )
+        .unwrap_or_else(|e| panic!("refused: {e}"));
+    let notes = out.notes().join("\n");
+    assert!(notes.contains("face 0 follows its outline"), "{notes}");
+    for q in out.passes.iter().flat_map(contacts) {
+        assert!((q.y.hypot(q.z) - 10.0).abs() < 0.01, "{q:?}");
+    }
+}
+
+#[test]
+fn req_op_28_following_the_outline_spaces_offsets_along_a_curved_face() {
+    // CodeRabbit on #854: the offsets are the stepover apart measured along
+    // the face, not in a straight line through the part. A sector of a
+    // cylinder of radius 10 mm, a third of a turn round and 40 mm long: far
+    // from its straight sides, a straight-line measure puts the offsets about
+    // a tenth further apart than the stepover along the face.
+    let (radius, length, span) = (10.0, 40.0, std::f64::consts::TAU / 3.0);
+    let point = move |u: f64, v: f64| p3(v, radius * u.cos(), radius * u.sin());
+    let mut b = Builder::default();
+    let edges = vec![
+        b.edge(&[0], &|t| point(span * t, 0.0), false),
+        b.edge(&[0], &|t| point(span, length * t), true),
+        b.edge(&[0], &|t| point(span * (1.0 - t), length), false),
+        b.edge(&[0], &|t| point(0.0, length * (1.0 - t)), true),
+    ];
+    b.face(
+        Surface::Cylinder {
+            frame: about_x(),
+            radius,
+        },
+        [0.0, span, 0.0, length],
+        None,
+        edges,
+        &point,
+        &|_, _| true,
+        false,
+    );
+    let rig = Rig::new(b.model, &ball(1.0));
+    let stepover = 1.0;
+    let passes = rig.passes(
+        &[0],
+        &[],
+        &values(stepover, &[(p::PATTERN, text(p::OUTLINE))]),
+    );
+    // Along the middle of the sector's length, each pass crosses the angle
+    // round the face; the arc between neighbouring crossings on one side is
+    // the spacing along the face.
+    let mut angles: Vec<f64> = passes
+        .iter()
+        .flat_map(contacts)
+        .filter(|q| (q.x - 0.5 * length).abs() < 10.0)
+        .map(|q| q.z.atan2(q.y))
+        .filter(|a| *a < 0.5 * span - 0.05)
+        .collect();
+    angles.sort_by(f64::total_cmp);
+    angles.dedup_by(|a, b| (*a - *b).abs() * radius < 0.2);
+    assert!(angles.len() >= 6, "{angles:?}");
+    for w in angles.windows(2) {
+        let along = (w[1] - w[0]) * radius;
+        assert!(
+            along <= stepover * 1.05 + 0.02,
+            "{along} mm apart along the face: {angles:?}"
+        );
+    }
 }

@@ -232,7 +232,7 @@ impl Shell {
             return;
         };
         self.header(ui, ItemRef::SelectionSet(id), &s.name, true);
-        ui.label(format!("{} {}", s.count, s.kind));
+        ui.label(s.counted());
         if let Some(path) = &s.model_path {
             ui.label(RichText::new(format!("On {path}")).color(DARK.muted));
         }
@@ -1515,8 +1515,10 @@ fn geometry(
         return (None, None);
     }
     ui.label(
-        RichText::new("With nothing in Cut on, the operation cuts the whole part.")
-            .color(DARK.muted),
+        RichText::new(openchuck_app::operation::empty_cut_on_hint(
+            &operation.strategy,
+        ))
+        .color(DARK.muted),
     );
     for role in SelectionRole::ALL {
         let sets = members(operation, role);
@@ -1550,7 +1552,7 @@ fn geometry(
                     let problem = summary.and_then(|s| s.problem.clone());
                     let text = match (&problem, summary) {
                         (Some(_), Some(s)) => {
-                            format!("{name} \u{b7} {} {} not found \u{d7}", s.count, s.kind)
+                            format!("{name} \u{b7} {} not found \u{d7}", s.counted())
                         }
                         _ => format!("{name} \u{d7}"),
                     };

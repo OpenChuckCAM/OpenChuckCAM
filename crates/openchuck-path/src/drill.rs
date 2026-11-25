@@ -163,7 +163,7 @@ impl Strategy for RadialDrilling {
                 PECK_MODE,
                 "Peck mode",
                 "Between pecks the tool retracts to the retract height and rapids back \
-                 (full_retract), or backs out a short way and feeds on (chip_break).",
+                 (Full retract), or backs out a short way and feeds on (Chip break).",
                 &[FULL_RETRACT, CHIP_BREAK],
             ),
             number(
@@ -205,8 +205,8 @@ impl Strategy for RadialDrilling {
                 DEPTH_REFERENCE,
                 "Blind hole depth",
                 "A blind hole is drilled until the tool's full diameter reaches the hole's depth \
-                 (full_diameter), or until the tool tip reaches the deepest point of the hole \
-                 (tip).",
+                 (Full diameter), or until the tool tip reaches the deepest point of the hole \
+                 (Tool tip).",
                 &[FULL_DIAMETER, TIP],
             ),
             number(
