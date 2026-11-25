@@ -14,7 +14,7 @@ The change is pull request #911 (lane SIM-UX, record SIM-UX-F, head `936c9b52`),
 | Check | Expected result |
 | --- | --- |
 | **Project** menu | **Regenerate all** with "Ctrl+Shift+G", after "Generate and simulate". Its tooltip: "Make every operation again, ignoring the results kept from earlier runs. Use it when an operation should be stale but is not: you are warned if a toolpath comes out differently." |
-| Ctrl Shift G with nothing stale | Both operations are made again: the footer shows "Generating 'Rough'", then "Generating 'Finish'", then **Ready**. **Results** reads "Generated: Rough, Finish" with a new time. No new warning |
+| Ctrl Shift G with nothing stale | Both operations are made again: the footer shows "Generating 'Rough'", then "Generating 'Finish'", then **Ready**. **Jobs** lists the run, "Regenerating all" with "Generated 2" (from #911's release push; see the note below). **Results** reads "Generated: Rough, Finish" with a new time. No new warning |
 | The program | **Post and export** shows the same file, line count, programmed time and SHA-256 before and after |
 | Help > Keyboard shortcuts | "Ctrl Shift G: Regenerate all: make every operation again, ignoring the kept results" |
 
@@ -29,7 +29,7 @@ Use a build of PR #911 (`936c9b52` or later), or a nightly after it merges, on W
 1. Copy `testdata/examples/baluster/baluster-project` and open the copy (**File > Open project**). On **Operations**, press **Generate stale (2)** at the bottom right. Wait for **Ready**. **Jobs** reads "Generating and simulating: Generated 2, simulated" (screenshot 1).
 2. Open the **Project** menu and hold the pointer on **Regenerate all**: "Ctrl+Shift+G", after "Generate and simulate", with the tooltip above (screenshot 2). Press Esc.
 3. Press **Ctrl E** (Post and export). Note the file's **Lines**, **Programmed time** and the **SHA-256** under Preview (screenshot 6). Press **Cancel**.
-4. Click the 3D view, so no text field has the keyboard, and press **Ctrl Shift G**. **Expect:** the footer shows "Generating 'Rough'", then "Generating 'Finish'" (screenshot 3), then **Ready**. Open **Results**: "Generated: Rough, Finish", with a generate time different from step 1's, and no warning beginning "Regenerate all" (screenshot 5).
+4. Click the 3D view, so no text field has the keyboard, and press **Ctrl Shift G**. **Expect:** the footer shows "Generating 'Rough'", then "Generating 'Finish'" (screenshot 3), then **Ready**. **Jobs** has a new line, "Regenerating all" with "Generated 2" (see the note below). Open **Results**: "Generated: Rough, Finish", with a generate time different from step 1's, and no warning beginning "Regenerate all" (screenshot 5).
 5. Press **Ctrl E** again. **Expect:** the same lines, programmed time and SHA-256 as in step 3 (screenshot 7). Press **Cancel**.
 6. Do steps 4 and 5 once more from the menu: **Project > Regenerate all**.
 
@@ -37,7 +37,7 @@ Use a build of PR #911 (`936c9b52` or later), or a nightly after it merges, on W
 
 - **Pass:**
   - Regenerate all is in the Project menu with its key and tooltip;
-  - Ctrl Shift G and the menu item both make both operations again (footer and Results);
+  - Ctrl Shift G and the menu item both make both operations again (footer, Jobs and Results);
   - no "Regenerate all" warning;
   - the same lines, time and SHA-256 before and after.
 - **Fail:**
@@ -51,20 +51,15 @@ Use a build of PR #911 (`936c9b52` or later), or a nightly after it merges, on W
 PR #911 Regenerate all
 Build (Help > About version / commit):        Windows version:
 2 Project menu: Regenerate all, Ctrl+Shift+G, tooltip:   PASS / what differed
-4 Ctrl Shift G remade both (footer, Results "Generated: Rough, Finish"), no warning: PASS / ...
+4 Ctrl Shift G remade both (footer; Jobs "Regenerating all ... Generated 2"; Results "Generated: Rough, Finish"), no warning: PASS / ...
 5 same lines / time / SHA-256 before and after: PASS / ...  (SHA-256: ______)
 6 the menu item does the same:                  PASS / ...
 Result: PASS / FAIL
 ```
 
-## Finding when this was run here (for the lane)
+## Note: the Jobs line arrives with #911's release push
 
-**The Jobs tab gets no line for Regenerate all.** The record's step 3 says "Expect both operations to generate again (Jobs: "Generated 2")". On `39a71c7e` the run happens:
-- the footer shows "Generating 'Rough'", then "Generating 'Finish'";
-- Results reads "Generated: Rough, Finish" with a new time;
-- the program is the same.
-
-But the Jobs tab adds no line, before or after it finishes (screenshot 4). `936c9b52` changes only the warning text, so this is unchanged there. This pack checks the footer and Results instead. Either the Jobs tab should list the run, or the record's step should change.
+**On `936c9b52` the Jobs line is missing; it arrives with the release push.** Found when this pack was made, at `39a71c7e`: Regenerate all ran (footer, Results, same program), but the Jobs tab added no line for it (screenshot 4). The lane has the fix and ships it in #911's release push, after which Jobs lists the run as "Regenerating all" with "Generated 2". The steps above are written for that build. On `936c9b52` or earlier, check the footer and Results instead, and do not report the missing Jobs line. Screenshot 4 will be re-captured from the release head.
 
 The menu on this build lists "Generate selected G" and "Generate stale Shift+G", the keys from before #910. Once #910 merges they swap, and Regenerate all keeps Ctrl+Shift+G.
 
@@ -78,7 +73,7 @@ Screenshots 1 to 7 are true captures from the release build of PR #911 at `39a71
    ![Project menu](screens/02-project-menu-regenerate-all-tooltip.png)
 3. The footer while Ctrl Shift G runs: Generating 'Rough', then 'Finish'.
    ![Footer while running](screens/03-footer-while-regenerate-all-runs.png)
-4. Jobs after it finished: no new line (the finding).
+4. Jobs after it finished, at `39a71c7e`: no new line (the defect fixed in the release push; to be re-captured).
    ![Jobs after Regenerate all](screens/04-jobs-after-regenerate-all-no-new-line.png)
 5. Results: "Generated: Rough, Finish", 11.6 s to generate, against 11.1 s for the first run, and no Regenerate-all warning.
    ![Results after Regenerate all](screens/05-results-generated-rough-finish.png)
