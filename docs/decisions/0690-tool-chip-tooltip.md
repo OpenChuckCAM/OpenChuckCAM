@@ -47,3 +47,9 @@ Tests (`apps/openchuck-ui/src/shell/tool_chip_tests.rs`, written from the issue 
 - `req_ui_06_req_ui_11_a_chip_without_a_tool_is_outlined_in_the_error_colour`.
 
 Not verified here: a look at the real window. The owner check in the pull request covers it, and the issue can be closed on these tests alone.
+
+At release (25 Nov 2026), after merging `main` at `e126459` (with #888, #889, #891 and #893):
+- `cargo fmt --all --check` and `cargo clippy --workspace --all-targets`: clean.
+- `cargo nextest run -p openchuck-ui`: 777 passed, 1 skipped, in 8 min 38 s.
+- `cargo xtask deps`, `licences`, `records` and `trace`: ok.
+- CodeRabbit's review of the first push: no actionable comments.
