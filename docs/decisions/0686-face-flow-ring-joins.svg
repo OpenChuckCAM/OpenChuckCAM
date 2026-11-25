@@ -1,0 +1,101 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 960" width="1000" height="960" font-family="Helvetica, Arial, sans-serif" font-size="13">
+<title>Face flow: how ring k joins ring k+1 on a face that closes round on itself</title>
+<defs><marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerUnits="userSpaceOnUse" markerWidth="10" markerHeight="10" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#1f5fa8"/></marker><marker id="ao" viewBox="0 0 10 10" refX="9" refY="5" markerUnits="userSpaceOnUse" markerWidth="10" markerHeight="10" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#d9480f"/></marker></defs>
+<rect width="1000" height="960" fill="#ffffff"/>
+<text x="20" y="28" font-size="17" font-weight="bold" fill="#222">Face flow on a face that closes round on itself: how ring k joins ring k+1</text>
+<text x="20" y="48" fill="#444">Steps between rings, with Stay down between passes. The face unrolled: across = once round (0 to 360°), down = along the face from its guide end.</text>
+<text x="20" y="66" fill="#444">The dashed edges are the same seam on the part. Rings never reverse: every ring runs the same way round, whatever the Cutting direction.</text>
+<text x="260.0" y="94" text-anchor="middle" font-weight="bold" fill="#222">Sharp: a step along the seam</text>
+<text x="260.0" y="111" text-anchor="middle" fill="#444">A held over the step; the next ring starts on the seam</text>
+<rect x="70" y="120" width="380" height="320" fill="#eef3f8" stroke="#555"/>
+<line x1="70" y1="120" x2="70" y2="440" stroke="#5a2" stroke-width="3" stroke-dasharray="6 4"/>
+<line x1="450" y1="120" x2="450" y2="440" stroke="#5a2" stroke-width="3" stroke-dasharray="6 4"/>
+<text x="70.0" y="457" text-anchor="middle" fill="#444" font-size="11">0°</text>
+<text x="165.0" y="457" text-anchor="middle" fill="#444" font-size="11">90°</text>
+<text x="260.0" y="457" text-anchor="middle" fill="#444" font-size="11">180°</text>
+<text x="355.0" y="457" text-anchor="middle" fill="#444" font-size="11">270°</text>
+<text x="450.0" y="457" text-anchor="middle" fill="#444" font-size="11">360°</text>
+<line x1="73.0" y1="155.0" x2="447.0" y2="155.0" stroke="#1f5fa8" stroke-width="3" marker-end="url(#ar)"/>
+<line x1="450.0" y1="155.0" x2="450.0" y2="216.5" stroke="#d9480f" stroke-width="4" marker-end="url(#ao)"/>
+<line x1="70.0" y1="217.5" x2="86.0" y2="217.5" stroke="#d9480f" stroke-width="2" stroke-dasharray="3 3"/>
+<line x1="73.0" y1="217.5" x2="447.0" y2="217.5" stroke="#1f5fa8" stroke-width="3" marker-end="url(#ar)"/>
+<line x1="450.0" y1="217.5" x2="450.0" y2="279.0" stroke="#d9480f" stroke-width="4" marker-end="url(#ao)"/>
+<line x1="70.0" y1="280.0" x2="86.0" y2="280.0" stroke="#d9480f" stroke-width="2" stroke-dasharray="3 3"/>
+<line x1="73.0" y1="280.0" x2="447.0" y2="280.0" stroke="#1f5fa8" stroke-width="3" marker-end="url(#ar)"/>
+<line x1="450.0" y1="280.0" x2="450.0" y2="341.5" stroke="#d9480f" stroke-width="4" marker-end="url(#ao)"/>
+<line x1="70.0" y1="342.5" x2="86.0" y2="342.5" stroke="#d9480f" stroke-width="2" stroke-dasharray="3 3"/>
+<line x1="73.0" y1="342.5" x2="447.0" y2="342.5" stroke="#1f5fa8" stroke-width="3" marker-end="url(#ar)"/>
+<line x1="450.0" y1="342.5" x2="450.0" y2="404.0" stroke="#d9480f" stroke-width="4" marker-end="url(#ao)"/>
+<line x1="70.0" y1="405.0" x2="86.0" y2="405.0" stroke="#d9480f" stroke-width="2" stroke-dasharray="3 3"/>
+<line x1="73.0" y1="405.0" x2="447.0" y2="405.0" stroke="#1f5fa8" stroke-width="3" marker-end="url(#ar)"/>
+<text x="442.0" y="190.25" text-anchor="end" fill="#d9480f" font-size="11">step along the seam</text>
+<text x="750.0" y="94" text-anchor="middle" font-weight="bold" fill="#222">Blended: a blend over φ (Blend over, here 45°)</text>
+<text x="750.0" y="111" text-anchor="middle" fill="#444">A turns on by φ over the blend; ring k+1 starts φ further round</text>
+<rect x="560" y="120" width="380" height="320" fill="#eef3f8" stroke="#555"/>
+<line x1="560" y1="120" x2="560" y2="440" stroke="#5a2" stroke-width="3" stroke-dasharray="6 4"/>
+<line x1="940" y1="120" x2="940" y2="440" stroke="#5a2" stroke-width="3" stroke-dasharray="6 4"/>
+<text x="560.0" y="457" text-anchor="middle" fill="#444" font-size="11">0°</text>
+<text x="655.0" y="457" text-anchor="middle" fill="#444" font-size="11">90°</text>
+<text x="750.0" y="457" text-anchor="middle" fill="#444" font-size="11">180°</text>
+<text x="845.0" y="457" text-anchor="middle" fill="#444" font-size="11">270°</text>
+<text x="940.0" y="457" text-anchor="middle" fill="#444" font-size="11">360°</text>
+<line x1="563.0" y1="155.0" x2="937.0" y2="155.0" stroke="#1f5fa8" stroke-width="3" marker-end="url(#ar)"/>
+<line x1="560.0" y1="155.0" x2="607.5" y2="217.5" stroke="#d9480f" stroke-width="4" marker-end="url(#ao)"/>
+<line x1="607.5" y1="217.5" x2="940.0" y2="217.5" stroke="#1f5fa8" stroke-width="3"/>
+<line x1="560.0" y1="217.5" x2="604.5" y2="217.5" stroke="#1f5fa8" stroke-width="3" marker-end="url(#ar)"/>
+<circle cx="607.5" cy="217.5" r="3.5" fill="#1f5fa8"/>
+<line x1="607.5" y1="217.5" x2="655.0" y2="280.0" stroke="#d9480f" stroke-width="4" marker-end="url(#ao)"/>
+<line x1="655.0" y1="280.0" x2="940.0" y2="280.0" stroke="#1f5fa8" stroke-width="3"/>
+<line x1="560.0" y1="280.0" x2="652.0" y2="280.0" stroke="#1f5fa8" stroke-width="3" marker-end="url(#ar)"/>
+<circle cx="655.0" cy="280.0" r="3.5" fill="#1f5fa8"/>
+<line x1="655.0" y1="280.0" x2="702.5" y2="342.5" stroke="#d9480f" stroke-width="4" marker-end="url(#ao)"/>
+<line x1="702.5" y1="342.5" x2="940.0" y2="342.5" stroke="#1f5fa8" stroke-width="3"/>
+<line x1="560.0" y1="342.5" x2="699.5" y2="342.5" stroke="#1f5fa8" stroke-width="3" marker-end="url(#ar)"/>
+<circle cx="702.5" cy="342.5" r="3.5" fill="#1f5fa8"/>
+<line x1="702.5" y1="342.5" x2="750.0" y2="405.0" stroke="#d9480f" stroke-width="4" marker-end="url(#ao)"/>
+<line x1="750.0" y1="405.0" x2="940.0" y2="405.0" stroke="#1f5fa8" stroke-width="3"/>
+<line x1="560.0" y1="405.0" x2="747.0" y2="405.0" stroke="#1f5fa8" stroke-width="3" marker-end="url(#ar)"/>
+<circle cx="750.0" cy="405.0" r="3.5" fill="#1f5fa8"/>
+<text x="591.6666666666666" y="190.25" fill="#d9480f" font-size="11">blend over φ</text>
+<rect x="70" y="520" width="380" height="130" fill="#f7f7f7" stroke="#555"/>
+<text x="260.0" y="512" text-anchor="middle" fill="#222" font-size="12">A in cutting order: it only ever turns one way</text>
+<line x1="75" y1="642.0" x2="134.67741935483872" y2="619.2" stroke="#1f5fa8" stroke-width="3"/>
+<line x1="134.67741935483872" y1="619.2" x2="152.58064516129033" y2="619.2" stroke="#d9480f" stroke-width="4"/>
+<line x1="152.58064516129033" y1="619.2" x2="212.25806451612902" y2="596.4" stroke="#1f5fa8" stroke-width="3"/>
+<line x1="212.25806451612902" y1="596.4" x2="230.16129032258064" y2="596.4" stroke="#d9480f" stroke-width="4"/>
+<line x1="230.16129032258064" y1="596.4" x2="289.83870967741933" y2="573.6" stroke="#1f5fa8" stroke-width="3"/>
+<line x1="289.83870967741933" y1="573.6" x2="307.7419354838709" y2="573.6" stroke="#d9480f" stroke-width="4"/>
+<line x1="307.7419354838709" y1="573.6" x2="367.41935483870964" y2="550.8" stroke="#1f5fa8" stroke-width="3"/>
+<line x1="367.41935483870964" y1="550.8" x2="385.3225806451612" y2="550.8" stroke="#d9480f" stroke-width="4"/>
+<line x1="385.3225806451612" y1="550.8" x2="444.99999999999994" y2="528.0" stroke="#1f5fa8" stroke-width="3"/>
+<text x="64" y="646" text-anchor="end" fill="#444" font-size="11">0</text>
+<text x="64" y="532" text-anchor="end" fill="#444" font-size="11">1800°</text>
+<rect x="560" y="520" width="380" height="130" fill="#f7f7f7" stroke="#555"/>
+<text x="750.0" y="512" text-anchor="middle" fill="#222" font-size="12">A in cutting order: it only ever turns one way</text>
+<line x1="565" y1="642.0" x2="624.6774193548387" y2="621.2727272727273" stroke="#1f5fa8" stroke-width="3"/>
+<line x1="624.6774193548387" y1="621.2727272727273" x2="642.5806451612902" y2="618.6818181818181" stroke="#d9480f" stroke-width="4"/>
+<line x1="642.5806451612902" y1="618.6818181818181" x2="702.2580645161289" y2="597.9545454545455" stroke="#1f5fa8" stroke-width="3"/>
+<line x1="702.2580645161289" y1="597.9545454545455" x2="720.1612903225805" y2="595.3636363636364" stroke="#d9480f" stroke-width="4"/>
+<line x1="720.1612903225805" y1="595.3636363636364" x2="779.8387096774192" y2="574.6363636363636" stroke="#1f5fa8" stroke-width="3"/>
+<line x1="779.8387096774192" y1="574.6363636363636" x2="797.7419354838707" y2="572.0454545454545" stroke="#d9480f" stroke-width="4"/>
+<line x1="797.7419354838707" y1="572.0454545454545" x2="857.4193548387094" y2="551.3181818181818" stroke="#1f5fa8" stroke-width="3"/>
+<line x1="857.4193548387094" y1="551.3181818181818" x2="875.322580645161" y2="548.7272727272727" stroke="#d9480f" stroke-width="4"/>
+<line x1="875.322580645161" y1="548.7272727272727" x2="934.9999999999997" y2="528.0" stroke="#1f5fa8" stroke-width="3"/>
+<text x="554" y="646" text-anchor="end" fill="#444" font-size="11">0</text>
+<text x="554" y="532" text-anchor="end" fill="#444" font-size="11">1980°</text>
+<text x="260" y="680" text-anchor="middle" fill="#222" font-size="12">Every ring is a whole turn from the seam back to it;</text>
+<text x="260" y="696" text-anchor="middle" fill="#222" font-size="12">the tool then steps one stepover along the seam with A</text>
+<text x="260" y="712" text-anchor="middle" fill="#222" font-size="12">held (a square corner at each end) and the next ring</text>
+<text x="260" y="728" text-anchor="middle" fill="#222" font-size="12">starts on the seam, the same way round.</text>
+<text x="750" y="680" text-anchor="middle" fill="#222" font-size="12">Every ring is a whole turn from its own start; the tool</text>
+<text x="750" y="696" text-anchor="middle" fill="#222" font-size="12">then moves on to the next ring while A turns on by φ,</text>
+<text x="750" y="712" text-anchor="middle" fill="#222" font-size="12">so ring k+1 starts φ further round. A builds up</text>
+<text x="750" y="728" text-anchor="middle" fill="#222" font-size="12">360° + φ per ring. The default for a new operation.</text>
+<text x="500" y="760" text-anchor="middle" fill="#222" font-size="12.5">Either way no strip is left along the seam: every ring meets its own start, and the step or blend is an extra cut on the face, not a gap.</text>
+<text x="20" y="795" font-weight="bold" fill="#222">Where the tool lifts instead (then it links as before), for either join</text>
+<text x="34" y="819" fill="#222" font-size="12">(a) a wall or another part of the model is in the way (the tool would not sit on this face there);  (b) the join would leave the face,</text>
+<text x="34" y="839" fill="#222" font-size="12">or a ring between was left out;  (c) the face's normal along it is tilted from the tool more than Maximum tilt plus the lead angle;</text>
+<text x="34" y="859" fill="#222" font-size="12">(d) a straight move along it would stray from the face by more than the tolerance;  (e) a ring is broken by a stretch the tool cannot reach;</text>
+<text x="34" y="879" fill="#222" font-size="12">(f) Stay down between passes is off.  On a cone to its point the joins run on towards it; rings shorter round than the tool are left out and noted.</text>
+<text x="34" y="899" fill="#222" font-size="12">Measured: a full cylinder (12 rings) and a cone to its point (10 rings) are each one run, with either join and every Cutting direction.</text>
+</svg>

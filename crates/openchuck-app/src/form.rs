@@ -21,6 +21,7 @@ use crate::AppError;
 use crate::operation::parameter_values;
 
 pub use openchuck_path::facing::selection::{FaceOffset, SideRequest, decode_rows, encode_rows};
+pub use openchuck_path::params::TOOL_DIAMETER;
 pub use openchuck_types::units::Degrees;
 
 /// What kind of value a field takes.
@@ -56,6 +57,18 @@ pub enum FieldKind {
     Choice {
         /// The words, in display order.
         options: Vec<String>,
+    },
+    /// A length in millimetres, or the operation's tool's diameter, stored
+    /// as the word [`openchuck_path::params::TOOL_DIAMETER`] (issue #854):
+    /// a number field with a Tool diameter choice beside it.
+    LengthOrTool {
+        /// Lowest value, if any (inclusive).
+        min: Option<f64>,
+        /// Highest value, if any.
+        max: Option<f64>,
+        /// The operation's tool's cutting diameter now, in millimetres, to
+        /// show beside the choice; `None` with no tool chosen.
+        tool_diameter: Option<f64>,
     },
 }
 
@@ -150,9 +163,11 @@ impl FormSection {
             | "chip_break_retract"
             | "peck_mode"
             | "peck_depth" => Self::EntryLinksAndRetract,
+            // Exact STEP surface contact is in Advanced for every strategy
+            // that has it (decision record 0684 item 4).
             "diameter_tolerance" | "crease_angle" | "min_length" | "min_remaining" | "min_cut"
             | "max_material_left" | "through_allowance" | "max_step" | "max_x_step"
-            | "depth_reference" => Self::Advanced,
+            | "depth_reference" | "exact_contact" => Self::Advanced,
             _ => Self::PatternAndTolerance,
         }
     }
@@ -253,6 +268,13 @@ pub fn parameter_form(
     // (decision record 0526): it is not shown for a mesh part.
     let on_step = crate::operation::on_step_part(project, op);
     let contact_problem = exact_contact_problem(project, registry, op);
+    // The tool's cutting diameter, for a length that can be the tool's.
+    let tool_diameter = project
+        .tools()
+        .iter()
+        .find(|t| Some(t.id) == op.tool)
+        .and_then(|t| t.tool.profile().ok())
+        .map(|p| 2.0 * p.cutting_radius());
     let fields = schema
         .parameters
         .iter()
@@ -300,6 +322,14 @@ pub fn parameter_form(
                         options: options.clone(),
                     },
                     Some(ParameterValue::Text(default.clone())),
+                ),
+                ParameterKind::LengthOrTool { min, max, default } => (
+                    FieldKind::LengthOrTool {
+                        min: *min,
+                        max: *max,
+                        tool_diameter,
+                    },
+                    Some(from_path(&default.stored())),
                 ),
                 // A kind added to the library later shows as text.
                 _ => (
@@ -532,6 +562,7 @@ mod section_tests {
         assert_eq!(FormSection::of("max_tilt"), FormSection::ToolAxisAndA);
         assert_eq!(FormSection::of("entry"), FormSection::EntryLinksAndRetract);
         assert_eq!(FormSection::of("min_length"), FormSection::Advanced);
+        assert_eq!(FormSection::of("exact_contact"), FormSection::Advanced);
         assert_eq!(
             FormSection::of("stepover"),
             FormSection::PatternAndTolerance

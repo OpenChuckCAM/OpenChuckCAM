@@ -981,14 +981,22 @@ mod first_cut {
         std::fs::remove_dir_all(root).ok();
     }
 
-    /// The finishing operation's lines of the committed Z1 program, from its
-    /// operation line to the end, as (X, A) after each motion line (modal).
-    fn finish_positions() -> Vec<(f64, f64)> {
-        let program = std::fs::read_to_string(golden_path(FIRST_CUT, "makera-z1", "nc")).unwrap();
+    /// Whether a bless run is rewriting the folder or the golden programs. The
+    /// tests that read the committed programs skip in one, so none reads a
+    /// program while [`committed_first_cut_at`] rewrites it (issue #885).
+    fn blessing() -> bool {
+        std::env::var_os("OPENCHUCK_BLESS_PROJECTS").is_some()
+            || openchuck_testkit::golden::blessing()
+    }
+
+    /// The finishing operation's motion lines of `program`, from its operation
+    /// line to the end, as (cutting, X, A) after each line: X and A modal, and
+    /// cutting when the modal motion is `G1` rather than `G0`.
+    fn finish_positions(program: &str) -> Vec<(bool, f64, f64)> {
         let start = program
             .find("(operation Finish")
             .expect("a Finish operation");
-        let (mut x, mut a) = (f64::NAN, 0.0);
+        let (mut cutting, mut x, mut a) = (false, f64::NAN, 0.0);
         let mut positions = Vec::new();
         for line in program[start..].lines() {
             let word = |letter: char| {
@@ -1004,17 +1012,75 @@ mod first_cut {
             {
                 continue;
             }
+            for g in line.split_whitespace().filter(|w| w.starts_with('G')) {
+                match g {
+                    "G0" | "G00" => cutting = false,
+                    "G1" | "G01" => cutting = true,
+                    _ => {}
+                }
+            }
             x = word('X').unwrap_or(x);
             a = word('A').unwrap_or(a);
-            positions.push((x, a));
+            positions.push((cutting, x, a));
         }
         positions
+    }
+
+    /// The most A turns in one unbroken run of cutting moves that starts and
+    /// stays within `tolerance` of `face` in X. A rapid, or a move that leaves
+    /// the face, ends the run (CodeRabbit on #845, issue #885).
+    fn longest_cutting_turn(positions: &[(bool, f64, f64)], face: f64, tolerance: f64) -> f64 {
+        let at_face = |x: f64| (x - face).abs() <= tolerance;
+        let mut best = 0.0f64;
+        let mut run: Option<(f64, f64)> = None;
+        for pair in positions.windows(2) {
+            let [(_, from_x, from_a), (cutting, x, a)] = [pair[0], pair[1]];
+            if cutting && at_face(from_x) && at_face(x) {
+                let (low, high) = run.unwrap_or((from_a, from_a));
+                let span = (low.min(a), high.max(a));
+                best = best.max(span.1 - span.0);
+                run = Some(span);
+            } else {
+                run = None;
+            }
+        }
+        best
+    }
+
+    /// The check of [`longest_cutting_turn`] counts only a whole turn cut at
+    /// the face: CodeRabbit's counterexample (half a turn away from the face),
+    /// a turn made partly by a rapid and a turn broken by a move off the face
+    /// are not one (issue #885).
+    #[test]
+    fn req_op_04_a_face_turn_is_one_unbroken_cutting_run_at_the_face() {
+        let face = 80.0;
+        let whole = [(true, face, 0.0), (true, face, 180.0), (true, face, 360.0)];
+        assert!(longest_cutting_turn(&whole, face, 0.001) >= 359.9);
+        let away = [
+            (true, face, 0.0),
+            (true, face + 1.0, 180.0),
+            (true, face, 360.0),
+        ];
+        assert!(longest_cutting_turn(&away, face, 0.001) < 359.9);
+        let rapid = [(true, face, 0.0), (true, face, 180.0), (false, face, 360.0)];
+        assert!(longest_cutting_turn(&rapid, face, 0.001) < 359.9);
+        let broken = [
+            (true, face, 0.0),
+            (true, face, 180.0),
+            (true, face + 1.0, 180.0),
+            (true, face, 180.0),
+            (true, face, 360.0),
+        ];
+        assert!(longest_cutting_turn(&broken, face, 0.001) < 359.9);
     }
 
     /// The program has one tool, the flat end 104 as T1, changed once at the
     /// start, as option F2 of decision record 0680 chose (GC-09, GC-14).
     #[test]
     fn req_gc_09_req_gc_14_the_first_cut_program_has_one_tool() {
+        if blessing() {
+            return;
+        }
         for (post, ext) in POSTS {
             let program = std::fs::read_to_string(golden_path(FIRST_CUT, post, ext)).unwrap();
             let changes: Vec<&str> = program.lines().filter(|l| l.contains("M6")).collect();
@@ -1035,7 +1101,11 @@ mod first_cut {
     /// tailstock), less or plus the flat end's radius of 1.5875 mm.
     #[test]
     fn req_op_04_finishing_turns_once_round_at_each_face_between_the_steps() {
-        let positions = finish_positions();
+        if blessing() {
+            return;
+        }
+        let program = std::fs::read_to_string(golden_path(FIRST_CUT, "makera-z1", "nc")).unwrap();
+        let positions = finish_positions(&program);
         let radius = 3.175 / 2.0;
         let clear = 0.001;
         for face_turn in [
@@ -1043,17 +1113,10 @@ mod first_cut {
             80.0 + radius + clear,
             88.0 + radius + clear,
         ] {
-            let at: Vec<f64> = positions
-                .iter()
-                .filter(|(x, _)| (x - face_turn).abs() <= 0.001)
-                .map(|&(_, a)| a)
-                .collect();
-            let turned = at.iter().fold(f64::NEG_INFINITY, |m, &a| m.max(a))
-                - at.iter().fold(f64::INFINITY, |m, &a| m.min(a));
+            let turned = longest_cutting_turn(&positions, face_turn, clear);
             assert!(
                 turned >= 359.9,
-                "no whole turn at X {face_turn:.4}: A spans {turned:.3} deg over {} lines",
-                at.len()
+                "no whole cutting turn at X {face_turn:.4}: one cutting run at the face turns A {turned:.3} deg"
             );
         }
     }

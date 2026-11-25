@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 360" font-family="sans-serif" font-size="12">
+  <title>Box facing on +Z beside the Baluster's held start, seen from the side (X to the right)</title>
+  <rect width="760" height="360" fill="#ffffff"/>
+  <!-- scale: 20 px per mm, X 15 at px 40 -->
+  <!-- stock above the face (to be removed) -->
+  <rect x="79.8" y="120" width="660" height="60" fill="#f1e3c8" stroke="#a88a55"/>
+  <!-- part / stock below the face -->
+  <rect x="79.8" y="180" width="660" height="110" fill="#e6e6e6" stroke="#888"/>
+  <!-- held start X 16.990 to 24.990 -->
+  <rect x="79.8" y="110" width="160" height="190" fill="#7f8fa6" fill-opacity="0.55" stroke="#3d4b63" stroke-width="2"/>
+  <text x="159.8" y="318" text-anchor="middle" fill="#3d4b63">held start X 16.990 to 24.990</text>
+  <!-- clearance band 0.5 mm -->
+  <rect x="239.8" y="110" width="10" height="190" fill="#d9534f" fill-opacity="0.35"/>
+  <text x="252" y="104" fill="#a33">0.5 mm clear</text>
+  <!-- unfaced region (whole stock: from X 16.990 to 25.490) -->
+  <rect x="79.8" y="120" width="170" height="60" fill="none" stroke="#a33" stroke-dasharray="5 4" stroke-width="2"/>
+  <!-- faced region from X 25.490: hatch -->
+  <defs>
+    <pattern id="h" width="8" height="8" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+      <line x1="0" y1="0" x2="0" y2="8" stroke="#2e7d32" stroke-width="2"/>
+    </pattern>
+  </defs>
+  <rect x="249.8" y="120" width="490" height="60" fill="url(#h)" fill-opacity="0.6"/>
+  <line x1="249.8" y1="180" x2="740" y2="180" stroke="#2e7d32" stroke-width="3"/>
+  <text x="495" y="200" text-anchor="middle" fill="#2e7d32">+Z face finished from X 25.490 (proved by the completion check)</text>
+  <!-- tool at the first row: centre X 27.078, radius 1.588 -->
+  <rect x="249.8" y="40" width="63.5" height="140" fill="#c9daf8" fill-opacity="0.8" stroke="#1f4e9a" stroke-width="2"/>
+  <line x1="281.55" y1="30" x2="281.55" y2="190" stroke="#1f4e9a" stroke-dasharray="4 3"/>
+  <text x="290" y="56" fill="#1f4e9a">first row: tool centre X 27.078</text>
+  <text x="290" y="72" fill="#1f4e9a">(grip end + radius 1.588 + 0.5)</text>
+  <!-- requested extents -->
+  <line x1="79.8" y1="22" x2="740" y2="22" stroke="#555"/>
+  <line x1="79.8" y1="16" x2="79.8" y2="28" stroke="#555"/>
+  <text x="84" y="16" fill="#555">Whole stock extent from X 16.990</text>
+  <!-- unfaced labels -->
+  <text x="84" y="150" fill="#a33">unfaced:</text>
+  <text x="84" y="166" fill="#a33">X 16.990 to 25.490</text>
+  <text x="84" y="236" fill="#555">(Part extent: X 17.990 to 25.490, 7.500 mm)</text>
+  <text x="84" y="252" fill="#555">Whole stock: 8.500 mm along X</text>
+  <!-- axis note -->
+  <text x="740" y="348" text-anchor="end" fill="#555">X →  (not to scale vertically; 20 px per mm along X)</text>
+</svg>

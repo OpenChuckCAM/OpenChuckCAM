@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="760" height="380" viewBox="0 0 760 380" font-family="Helvetica, Arial, sans-serif" font-size="12">
+  <title>Decision 0684, option P2: only what comes inside the tool's rim can hold it up</title>
+  <rect width="760" height="380" fill="#ffffff"/>
+  <text x="20" y="22" font-weight="bold" font-size="13">Option P2 (measured; rejected by the owner): in the shared drop, only what comes inside the rim holds the tool up</text>
+  <text x="20" y="40" fill="#555">Looking down the tool axis. The circle is the tool's rim (its cutting radius R). Helical finishing finds the faces it turns at by the left case.</text>
+  <text x="20" y="80" font-weight="bold" fill="#2c3e50">A wall flush with the rim</text>
+  <circle cx="130" cy="180" r="70" fill="#d6eaf8" fill-opacity="0.6" stroke="#2c3e50" stroke-width="2"/>
+  <circle cx="130" cy="180" r="3" fill="#2c3e50"/>
+  <rect x="200" y="100" width="40" height="160" fill="#85929e"/>
+  <circle cx="200" cy="180" r="5" fill="#c0392b"/>
+  <text x="20" y="285" fill="#c0392b">Touches only on the rim (red).</text>
+  <text x="20" y="302" fill="#333">Today: holds the tool up, at the</text>
+  <text x="20" y="319" fill="#333">wall's top. P2: does not; the tool</text>
+  <text x="20" y="336" fill="#333">slides down past it, as it would.</text>
+  <text x="270" y="80" font-weight="bold" fill="#2c3e50">A wall inside the rim</text>
+  <circle cx="380" cy="180" r="70" fill="#d6eaf8" fill-opacity="0.6" stroke="#2c3e50" stroke-width="2"/>
+  <circle cx="380" cy="180" r="3" fill="#2c3e50"/>
+  <rect x="430" y="100" width="60" height="160" fill="#85929e" fill-opacity="0.85"/>
+  <text x="270" y="285" fill="#333">Comes inside the rim: it holds</text>
+  <text x="270" y="302" fill="#333">the tool up. Today and P2 alike.</text>
+  <text x="270" y="319" fill="#333">(P2 ignores only what stays within</text>
+  <text x="270" y="336" fill="#333">a millionth of a mm of the rim.)</text>
+  <text x="520" y="80" font-weight="bold" fill="#2c3e50">A slope under the tool</text>
+  <circle cx="630" cy="180" r="70" fill="#d6eaf8" fill-opacity="0.6" stroke="#2c3e50" stroke-width="2"/>
+  <circle cx="630" cy="180" r="3" fill="#2c3e50"/>
+  <polygon points="520,260 740,110 740,260" fill="#85929e" fill-opacity="0.6"/>
+  <text x="520" y="285" fill="#333">A flat end on a slope touches at</text>
+  <text x="520" y="302" fill="#333">its rim, but the slope comes inside</text>
+  <text x="520" y="319" fill="#333">the rim: unchanged by P2, which</text>
+  <text x="520" y="336" fill="#333">asks whether a part comes inside.</text>
+</svg>

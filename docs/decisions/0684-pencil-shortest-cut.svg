@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="760" height="360" viewBox="0 0 760 360" font-family="Helvetica, Arial, sans-serif" font-size="12">
+  <title>Decision 0684: pencil clean-up does not cut a stretch shorter than the Shortest cut, and says where</title>
+  <rect width="760" height="360" fill="#ffffff"/>
+  <text x="20" y="22" font-weight="bold" font-size="13">Shortest cut: stretches of a corner shorter than it are not cut, and the notes say where</text>
+  <text x="20" y="40" fill="#555">One inside corner, unrolled: left to right is along the corner (here once round the part, A 0 to 360 degrees).</text>
+  <line x1="60" y1="130" x2="700" y2="130" stroke="#85929e" stroke-width="10"/>
+  <text x="60" y="116" fill="#424949">the inside corner</text>
+  <line x1="60.0" y1="138" x2="60.0" y2="144" stroke="#333"/><text x="50.0" y="158" fill="#333">A 0</text>
+  <line x1="220.0" y1="138" x2="220.0" y2="144" stroke="#333"/><text x="210.0" y="158" fill="#333">A 90</text>
+  <line x1="380.0" y1="138" x2="380.0" y2="144" stroke="#333"/><text x="370.0" y="158" fill="#333">A 180</text>
+  <line x1="540.0" y1="138" x2="540.0" y2="144" stroke="#333"/><text x="530.0" y="158" fill="#333">A 270</text>
+  <line x1="700.0" y1="138" x2="700.0" y2="144" stroke="#333"/><text x="690.0" y="158" fill="#333">A 360</text>
+  <text x="60" y="178" fill="#424949">Where material is left (option M1), and what is cut:</text>
+  <line x1="95.6" y1="190" x2="424.4" y2="190" stroke="#27ae60" stroke-width="8"/>
+  <text x="184.4" y="212" fill="#27ae60">a stretch longer than the shortest cut: cut</text>
+  <line x1="483.1" y1="190" x2="486.7" y2="190" stroke="#c0392b" stroke-width="8"/>
+  <circle cx="593.3" cy="190" r="4" fill="#c0392b"/>
+  <text x="454.7" y="212" fill="#c0392b">shorter: not cut</text>
+  <text x="572.0" y="230" fill="#c0392b">one point: not cut</text>
+  <line x1="60" y1="270" x2="85.5" y2="270" stroke="#2c3e50" stroke-width="2"/><line x1="60" y1="264" x2="60" y2="276" stroke="#2c3e50"/><line x1="85.5" y1="264" x2="85.5" y2="276" stroke="#2c3e50"/>
+  <text x="95.5" y="274" fill="#2c3e50">Shortest cut: by default the tool's diameter (here 2 mm, on a corner of radius 8: about 14 degrees)</text>
+  <rect x="60" y="296" width="640" height="46" fill="#fdf2e9" stroke="#e67e22"/>
+  <text x="70" y="314" fill="#424949">Note (information): "Pencil clean-up left 2 stretches uncut, shorter than the shortest cut (2 mm):</text>
+  <text x="70" y="332" fill="#424949">at X 11.0, A 239; at X 11.0, A 300. Lower Shortest cut to cut them."</text>
+</svg>

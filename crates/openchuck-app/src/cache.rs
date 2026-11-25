@@ -481,6 +481,12 @@ mod tests {
             ParameterKind::IndexedFaces { .. } => {
                 ParameterValue::Text(r#"[{"angle":15,"offset":3}]"#.into())
             }
+            ParameterKind::LengthOrTool { default, .. } => match default {
+                openchuck_path::params::LengthOrTool::Millimetres(v) => {
+                    ParameterValue::Number(v + 0.125)
+                }
+                _ => ParameterValue::Number(1.25),
+            },
             other => panic!("give the sweep a value for {other:?}"),
         }
     }
