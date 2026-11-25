@@ -5,7 +5,7 @@
 //! starts as a spiral is ramped back and forth over its own path, never
 //! round the part; its legs are bounded so the depth per traverse is no
 //! more than one turn of a spiral ramp at its start radius and the tool
-//! radius; and a pass is plunged only where no ramp fits, each such pass
+//! radius, and a line's no more than the tool radius (Q8); and a pass is plunged only where no ramp fits, each such pass
 //! named with its reason and its depth. Synthetic fixtures only.
 #![allow(
     clippy::unwrap_used,
@@ -665,4 +665,46 @@ fn req_gc_07_spiral_ramps_are_the_same_at_one_two_and_many_threads() {
     let one = at(1);
     assert_eq!(one, at(2));
     assert_eq!(one, at(8));
+}
+
+/// A place on a line, by its X to a micro-millimetre.
+fn by_x(at: &AxisPosition, _: f64) -> (i64, i64) {
+    ((at.along * 1e6).round() as i64, 0)
+}
+
+#[test]
+fn req_op_11_the_depth_per_traverse_of_a_line_s_ramp_is_at_most_the_tool_radius() {
+    // Decision record PATH-QUALITY-1, Q8 (the owner's answer A): the
+    // tool-radius bound reaches every back-and-forth ramp, lines and partial
+    // rings too. A straight pass 12 mm from the axis, 50 mm long at A 0, and
+    // a 2 mm flat end (radius 1 mm): legs over the whole pass would step
+    // 2 * 50 * tan 3 = 5.2 mm per traverse; bounded, each leg is at most
+    // 1 / (2 tan 3) = 9.54 mm, so the step is at most the radius. The angle
+    // and the length the descent needs are kept.
+    let f = fixture(&tool(ToolShape::FlatEnd, 2.0));
+    let line = Points(
+        (0..=100)
+            .map(|k| (10.0 + 0.5 * f64::from(k), 12.0, 0.0))
+            .collect(),
+    );
+    let path = make(&f, &line, &values()).unwrap();
+    let (before, moves) = first_entry(&path);
+    let tan = ANGLE.to_radians().tan();
+    let measured = measure(&f, before, &moves, by_x);
+    assert!(measured.rise > 1.0, "{}", measured.rise);
+    assert!(measured.steepest <= tan + 1e-9, "{}", measured.steepest);
+    assert!(
+        measured.length >= measured.rise / tan - 0.01,
+        "{} for a rise of {}",
+        measured.length,
+        measured.rise
+    );
+    assert!(measured.depth <= 1.0 + 1e-6, "{}", measured.depth);
+    assert!(measured.depth > 0.5, "{}", measured.depth);
+    // Every ramp pose stays over the pass (X 10 to 60, A 0).
+    for m in &moves {
+        let at = f.rotary.to_axis(m.tip, m.a);
+        assert!((10.0 - 1e-9..=60.0 + 1e-9).contains(&at.along), "{at:?}");
+        assert!(m.a.0.abs() < 1e-9, "{:?}", m.a);
+    }
 }

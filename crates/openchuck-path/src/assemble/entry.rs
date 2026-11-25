@@ -675,7 +675,15 @@ impl Entry {
                     }
                 }
             }
-            Shape::Line | Shape::Arc => (self.ramp_tan, top_at(self.ramp_tan), f64::INFINITY),
+            // Every back-and-forth ramp keeps its depth per traverse,
+            // `2 S tan` at a leg's far end, within the tool radius (decision
+            // record PATH-QUALITY-1, Q8, the owner's answer A): lines and
+            // partial rings too, taking more legs instead.
+            Shape::Line | Shape::Arc => (
+                self.ramp_tan,
+                top_at(self.ramp_tan),
+                0.5 * radius / self.ramp_tan,
+            ),
         };
         let super::path_ramp::Ramp {
             moves,

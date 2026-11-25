@@ -91,10 +91,11 @@ pub(super) enum Refusal {
 /// path is that long (the tool radius, decision 0543 point 4 as accepted:
 /// the ramp is then shallower than the angle, never steeper), and never
 /// longer than `longest_leg`: the depth per traverse at a leg's far end is
-/// `2 · leg · tan`, so a pass that starts as a spiral bounds its legs to
-/// keep that within one turn of a spiral ramp at its start radius and the
-/// tool radius, taking more legs instead (decision record PATH-QUALITY-1,
-/// Q3, the owner's tool-load requirement; `f64::INFINITY` for no bound).
+/// `2 · leg · tan`, so every ramp bounds its legs to keep that within the
+/// tool radius, and a pass that starts as a spiral also within one turn of
+/// a spiral ramp at its start radius, taking more legs instead (decision
+/// record PATH-QUALITY-1, Q3, the owner's tool-load requirement, and Q8;
+/// `f64::INFINITY` for no bound).
 /// Where the two bounds meet, the longest wins: the depth per traverse is
 /// the owner's requirement, and a leg shorter than the tool radius is
 /// listed for the host's check of a tool that cannot cut straight down.
