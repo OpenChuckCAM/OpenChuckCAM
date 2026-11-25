@@ -210,3 +210,33 @@ fn req_ui_07_req_ui_08_setup_values_kept_together_are_one_undoable_step() {
     frames(&mut rig, 3);
     assert_eq!(stock(&rig), (20.0, 14.0, -7.0), "one Undo puts both back");
 }
+
+/// Issue #870 (from the review of pull request #891): a value already
+/// refused for a conflict with the tabs waits in its box and takes no part
+/// in a departure. The question lists only the other unconfirmed values,
+/// and Keep applies them without it, so a valid value is never held back by
+/// the refused one.
+#[test]
+fn req_set_09_req_ui_07_a_refused_value_never_holds_back_a_valid_one() {
+    let mut rig = with_hand_tab("setup-conflict-with-valid");
+    enter(&mut rig, "Start X", "-5");
+    assert_eq!(stock(&rig).2, -7.0, "refused");
+    type_in(&mut rig, "Diameter", "18");
+    let op = rig.shell.app.as_ref().unwrap().project().operations()[0].id;
+    rig.shell.select(Selection::Operation(op));
+    frames(&mut rig, 3);
+    assert!(rig.shows("Unconfirmed changes"), "Diameter is asked about");
+    let listed: Vec<String> = crate::pending_edits::entries(&rig.ctx)
+        .into_iter()
+        .map(|e| e.label)
+        .collect();
+    assert_eq!(listed, ["Diameter"], "the refused Start X is not listed");
+    click_text(&mut rig, "Keep");
+    frames(&mut rig, 10);
+    assert_eq!(stock(&rig), (18.0, 14.0, -7.0), "Diameter is applied alone");
+    assert_eq!(
+        rig.shell.selected,
+        Some(Selection::Operation(op)),
+        "the departure goes ahead"
+    );
+}

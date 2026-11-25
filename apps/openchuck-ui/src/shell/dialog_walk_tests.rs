@@ -207,8 +207,18 @@ fn walk(case: &Case, leave: Leave, index: usize) -> Option<String> {
     }
     frames(&mut rig, 3);
     super::PICKER_INPUTS.with(|inputs| *inputs.borrow_mut() = None);
-    rig.shows(QUESTION)
-        .then(|| format!("{} {leave:?}: asks {QUESTION}", case.name))
+    if rig.shows(QUESTION) {
+        return Some(format!("{} {leave:?}: asks {QUESTION}", case.name));
+    }
+    // Cancel, Close, the close box and Esc close the dialog, so a way out
+    // that did nothing would not pass for one that asked nothing. Browse…
+    // and Check and preview keep it open by design.
+    let closes = matches!(
+        leave,
+        Leave::Button("Cancel" | "Close") | Leave::CloseBox | Leave::Esc
+    );
+    (closes && (case.shown)(&rig.shell))
+        .then(|| format!("{} {leave:?}: the dialog stays open", case.name))
 }
 
 /// Issue #871: none of the walks asks the question.

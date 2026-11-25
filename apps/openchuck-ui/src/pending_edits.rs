@@ -277,9 +277,12 @@ pub fn keeps(ctx: &egui::Context, id: Id) -> bool {
             s.fields
                 .get(&id.value())
                 .and_then(|f| f.pending.as_ref())
+                .filter(|e| !e.conflict)
                 .and_then(|e| e.preflight.as_ref())
                 .and_then(|p| p.1)
         };
+        // A value refused for a conflict stays in its box: Keep confirms
+        // the others of its group without it (issue #870).
         joint(at).is_some() && joint(at) == joint(id)
     })
 }
@@ -319,12 +322,18 @@ pub fn track(
     });
 }
 
+/// The unconfirmed values a departure asks about and Keep confirms. A value
+/// refused for a conflict with another part of its form ([`Entry::conflict`])
+/// is left out: it waits in its box with its reason, so it is neither asked
+/// about nor checked with the others, and never holds a valid value back
+/// (issue #870).
 pub fn entries(ctx: &egui::Context) -> Vec<Entry> {
     read(ctx, |s| {
         let mut entries: Vec<Entry> = s
             .fields
             .values()
             .filter_map(|f| f.pending.clone())
+            .filter(|e| !e.conflict)
             .collect();
         entries.sort_by(|a, b| a.label.cmp(&b.label).then(a.id.value().cmp(&b.id.value())));
         entries
@@ -426,7 +435,14 @@ pub fn request_local(ctx: &egui::Context) -> Option<Ticket> {
     // shown with its reason and not applied, never blocks an action of that
     // form, such as the Apply that would make it valid (issue #870, the
     // owner's answer A).
-    if entries(ctx).iter().all(|e| e.conflict) {
+    // As before, nothing pending at all asks nothing either.
+    let conflicts_only = read(ctx, |s| {
+        s.fields
+            .values()
+            .filter_map(|f| f.pending.as_ref())
+            .all(|e| e.conflict)
+    });
+    if conflicts_only {
         return None;
     }
     Some(read(ctx, |s| {
