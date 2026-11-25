@@ -1687,9 +1687,16 @@ fn rows(
                 .map(|()| s.clone())
                 .map_err(|e| setup_form::refusal(&s, row.label, &e))
         };
-        // A value refused for the tabs or held regions is checked again
-        // against the setup as it is now.
-        if let Some(typed) = state.in_conflict(&key).map(str::to_owned) {
+        // A value refused for the tabs or held regions, or allowed since and
+        // still waiting for its Enter, is checked again against the setup
+        // as it is now: refused again if it no longer fits.
+        let waiting = state.in_conflict(&key).map(str::to_owned).or_else(|| {
+            state
+                .is_forgiven(&key)
+                .then(|| state.typed(&key).map(str::to_owned))
+                .flatten()
+        });
+        if let Some(typed) = waiting {
             match whole(&typed) {
                 Ok(_) => state.forgive(&key),
                 Err(reason) => state.refuse_conflict(&key, &typed, reason),

@@ -240,3 +240,75 @@ fn req_set_09_req_ui_07_a_refused_value_never_holds_back_a_valid_one() {
         "the departure goes ahead"
     );
 }
+
+/// Issue #870 (from the second review of pull request #891): a refused
+/// value that the tabs come to allow waits for its own Enter. When Keep
+/// applies another value of the setup that makes it allowed, Keep does not
+/// apply it too, unasked and as a second step.
+#[test]
+fn req_set_09_req_ui_08_an_allowed_value_still_waits_for_its_own_enter() {
+    let mut rig = with_hand_tab("setup-conflict-waits");
+    // Length 1 from X -7 ends at -6: tab 1 (X -6.5 to -5.5) is left out.
+    enter(&mut rig, "Length", "1");
+    assert_eq!(stock(&rig).1, 14.0, "Length 1 is refused");
+    // Start X -6.5 is allowed with the stored length, and with it Length 1
+    // would hold the tab (X -6.5 to -5.5).
+    type_in(&mut rig, "Start X", "-6.5");
+    let op = rig.shell.app.as_ref().unwrap().project().operations()[0].id;
+    rig.shell.select(Selection::Operation(op));
+    frames(&mut rig, 3);
+    assert!(rig.shows("Unconfirmed changes"));
+    click_text(&mut rig, "Keep");
+    frames(&mut rig, 10);
+    assert_eq!(
+        stock(&rig),
+        (20.0, 14.0, -6.5),
+        "Start X is kept; Length stays as stored until its own Enter"
+    );
+    let app = rig.shell.app.as_mut().unwrap();
+    assert!(app.undo().unwrap());
+    assert_eq!(
+        app.project().setups()[0].stock.as_ref().map(|_| ()),
+        Some(())
+    );
+    rig.shell.overview_dirty = true;
+    frames(&mut rig, 2);
+    assert_eq!(stock(&rig), (20.0, 14.0, -7.0), "one Undo undoes the Keep");
+}
+
+/// Issue #870 (from the second review of pull request #891): a value the
+/// tabs allowed is checked again when the setup changes once more, and is
+/// refused again if it no longer fits, rather than saying it is ready.
+#[test]
+fn req_set_09_req_nfr_07_an_allowed_value_is_checked_again_after_a_later_change() {
+    let mut rig = with_hand_tab("setup-conflict-recheck");
+    enter(&mut rig, "Length", "1");
+    enter(&mut rig, "Start X", "-6.5");
+    assert_eq!(stock(&rig), (20.0, 14.0, -6.5));
+    assert!(
+        rig.texts()
+            .iter()
+            .any(|(t, _)| t.contains("Press Enter to apply")),
+        "Length 1 is now allowed: {:?}",
+        rig.texts()
+    );
+    // From X -7.5, Length 1 ends at -6.5 and leaves tab 1 out again.
+    enter(&mut rig, "Start X", "-7.5");
+    assert_eq!(
+        stock(&rig).2,
+        -7.5,
+        "Start X -7.5 holds the tab with Length 14"
+    );
+    frames(&mut rig, 2);
+    let texts: Vec<String> = rig.texts().into_iter().map(|(t, _)| t).collect();
+    assert!(
+        !texts.iter().any(|t| t.contains("Press Enter to apply")),
+        "no longer ready: {texts:?}"
+    );
+    assert!(
+        texts
+            .iter()
+            .any(|t| t.starts_with("Workholding (setup 'Setup 1'): tab 1 (X")),
+        "refused again, naming tab 1: {texts:?}"
+    );
+}

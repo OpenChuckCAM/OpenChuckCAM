@@ -706,7 +706,9 @@ pub fn text_row(ui: &mut egui::Ui, state: &mut FieldState, row: &TextRow<'_>) ->
             });
         crate::pending_edits::track(ui, &response, row.label, pending);
         crate::pending_edits::set_preflight(ui.ctx(), response.id, row.preflight.clone());
-        if state.conflicts.contains(row.key) {
+        // A value refused for a conflict, or allowed since and waiting for
+        // its own Enter, takes no part in a departure (issue #870).
+        if state.conflicts.contains(row.key) || state.forgiven.contains(row.key) {
             crate::pending_edits::mark_conflict(ui.ctx(), response.id);
         }
     });

@@ -14,8 +14,9 @@ pub struct Entry {
     pub checked: Result<String, String>,
     pub preflight: Option<Preflight>,
     /// Refused because it conflicts with another part of its form (a setup
-    /// value and the tabs): it does not hold back an action of that form,
-    /// which may be the one that resolves it (issue #870).
+    /// value and the tabs), or allowed since and waiting for its own Enter:
+    /// it does not hold back an action of that form, which may be the one
+    /// that resolves it, and no departure confirms it (issue #870).
     pub conflict: bool,
 }
 
