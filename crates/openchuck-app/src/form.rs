@@ -486,6 +486,73 @@ pub(crate) fn check_parameter(
     Ok(())
 }
 
+/// The words the inspector shows for the stored word `value` of the choice
+/// `name`, or `None` when there is none (issue 613).
+#[must_use]
+pub fn choice_label(name: &str, value: &str) -> Option<&'static str> {
+    Some(match (name, value) {
+        ("shape", "flat") => "Flat along stock",
+        ("shape", "round") => "Round",
+        ("shape", "end") => "Unheld end",
+        ("shape", "box") => "Box sides",
+        ("extent", "whole_stock") => "Whole stock",
+        ("extent", "part") => "Part only",
+        ("extent", "part_plus_tabs") => "Part plus tabs",
+        ("layer_distribution", "full") => "Full stepdown, shorter final pass",
+        ("layer_distribution", "equal") => "Equal stepdowns",
+        ("pass_shape", "helix") => "Spiral",
+        ("pass_shape", "rings") => "Rings",
+        ("link_height", "retract") => "Retract to the clearance",
+        ("link_height", "low") => "Stay low where clear",
+        ("ring_step", "sharp") => "Sharp",
+        ("ring_step", "blended") => "Blended",
+        ("retract", "clearance") => "Safe cylinder",
+        ("retract", "safe_z") => "Safe Z",
+        ("entry", "plunge") => "Plunge",
+        ("entry", "lead") => "Tangent arc",
+        ("entry", "ramp") => "Straight ramp",
+        ("entry", "helix") => "Descending helix",
+        ("direction", "zigzag") => "Zig-zag",
+        ("direction", "climb") => "Climb",
+        ("direction", "conventional") => "Conventional",
+        ("direction", "meander") => "Meander",
+        ("direction", "forward") => "Forward",
+        ("direction", "reverse") => "Reverse",
+        ("direction", "usual for the form") => "Usual for the form",
+        ("direction", "along the length of the part") => "Along the length of the part",
+        ("direction", "around the part") => "Around the part",
+        ("extend", "no") => "Neither end",
+        ("extend", "both ends") => "Both ends",
+        ("extend", "start end") => "Start end",
+        ("extend", "far end") => "Far end",
+        ("mode", "engrave") => "Engrave",
+        ("mode", "carve") => "Carve",
+        ("start", "first") => "As stored",
+        ("start", "reversed") => "Reversed",
+        ("start", "low_x") => "Lowest X",
+        ("start", "high_x") => "Highest X",
+        ("start", "angle") => "Nearest the start angle",
+        ("rotation", "positive") => "Positive",
+        ("rotation", "negative") => "Negative",
+        ("pass_order", "by_region") => "By region",
+        ("pass_order", "after_main") => "After main passes",
+        ("peck_mode", "full_retract") => "Full retract",
+        ("peck_mode", "chip_break") => "Chip break",
+        ("depth_reference", "full_diameter") => "Full diameter",
+        ("depth_reference", "tip") => "Tool tip",
+        ("form", "continuous") => "Continuous",
+        ("form", "indexed") => "Indexed",
+        ("pattern", "spiral") => "Spiral",
+        ("pattern", "axial") => "Axial",
+        ("pattern", "automatic") => "Automatic",
+        ("pattern", "along_guide") => "Along the guide",
+        ("pattern", "outline") => "Follow the outline",
+        ("tip_end", "auto") => "Automatic",
+        ("tip_end", "reversed") => "Reversed",
+        _ => return None,
+    })
+}
+
 #[cfg(test)]
 mod section_tests {
     use super::FormSection;
@@ -520,5 +587,88 @@ mod section_tests {
         );
         let keys: Vec<&str> = FormSection::ALL.iter().map(|s| s.key()).collect();
         assert_eq!(keys, ["tool", "pattern", "axis", "links", "advanced"]);
+    }
+}
+
+#[cfg(test)]
+mod choice_label_tests {
+    #![allow(clippy::unwrap_used)]
+
+    use openchuck_path::{ParameterKind, Registry};
+
+    use super::choice_label;
+
+    /// Every option of every choice of every built-in strategy, as
+    /// `(strategy, setting, option)`.
+    fn every_choice() -> Vec<(String, String, String)> {
+        let registry = Registry::builtin();
+        let mut found = Vec::new();
+        for strategy in registry.iter() {
+            for spec in strategy.schema().parameters {
+                if let ParameterKind::Choice { options, .. } = &spec.kind {
+                    for option in options {
+                        found.push((
+                            strategy.name().to_owned(),
+                            spec.name.clone(),
+                            option.clone(),
+                        ));
+                    }
+                }
+            }
+        }
+        found
+    }
+
+    /// The inspector never shows a stored word: each option of each choice has
+    /// a label written in plain words, so a new option cannot be added
+    /// without one (issue 613).
+    #[test]
+    fn req_ui_12_every_choice_of_every_strategy_has_a_label() {
+        let missing: Vec<String> = every_choice()
+            .into_iter()
+            .filter(|(_, setting, option)| choice_label(setting, option).is_none())
+            .map(|(strategy, setting, option)| format!("{strategy}: {setting} = {option}"))
+            .collect();
+        assert!(missing.is_empty(), "no label for:\n{}", missing.join("\n"));
+    }
+
+    /// A label is words: it starts with a capital, has no underscore, and two
+    /// options of one setting never share one.
+    #[test]
+    fn req_ui_12_choice_labels_are_plain_words_and_differ() {
+        let mut seen = std::collections::BTreeMap::<(String, String), String>::new();
+        for (strategy, setting, option) in every_choice() {
+            let Some(label) = choice_label(&setting, &option) else {
+                continue;
+            };
+            assert!(
+                !label.contains('_'),
+                "{strategy}: {setting} = {option}: {label}"
+            );
+            assert!(
+                label.chars().next().is_some_and(char::is_uppercase),
+                "{strategy}: {setting} = {option}: {label}"
+            );
+            let key = (strategy.clone(), setting.clone());
+            let clash = seen.insert(
+                (strategy.clone(), format!("{setting}\u{0}{label}")),
+                option.clone(),
+            );
+            assert!(
+                clash.is_none() || clash.as_deref() == Some(option.as_str()),
+                "{key:?} {label}"
+            );
+        }
+    }
+
+    /// The pass order of rest machining and the other strategies with extra
+    /// passes reads in words (issue 613); the stored words are unchanged.
+    #[test]
+    fn req_op_14_the_pass_order_choice_reads_in_words() {
+        assert_eq!(choice_label("pass_order", "by_region"), Some("By region"));
+        assert_eq!(
+            choice_label("pass_order", "after_main"),
+            Some("After main passes")
+        );
     }
 }

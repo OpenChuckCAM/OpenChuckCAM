@@ -506,6 +506,26 @@ impl Application {
             })
     }
 
+    /// The default tabs of `setup` end by end: those to add, and for each end
+    /// without one why (issue 676). Refused when neither end can have one.
+    /// The setup is not changed. Reads and places the part, so it runs as a
+    /// job.
+    pub fn start_default_tabs_report(
+        &self,
+        setup: openchuck_project::id::SetupId,
+    ) -> JobHandle<workholding::DefaultTabsReport> {
+        let document = self.document.clone();
+        self.jobs
+            .submit("default tabs", self.events_tx.clone(), move |context| {
+                workholding::default_tabs_report_of(
+                    &document.location,
+                    &document.project,
+                    setup,
+                    context,
+                )
+            })
+    }
+
     /// What the workholding section needs from the placed part of `setup`:
     /// its extent and the default tab of each zone for the stored held regions
     /// (interface specification 11.7; decision record 0114, OI-334 c, d and
@@ -1869,7 +1889,7 @@ impl Application {
                 "There is no G-code to write. Generate the operations first.".to_owned(),
             ));
         }
-        if *run.project != self.document.project {
+        if !self.run_has_project_output(run) {
             return Err(AppError::OutOfDate);
         }
         let (named, sources) = self.program_sources(run, &Self::run_programs(run)?)?;
@@ -1944,7 +1964,7 @@ impl Application {
                 "There is no G-code to preview. Generate the operations first.".to_owned(),
             ));
         }
-        if *run.project != self.document.project {
+        if !self.run_has_project_output(run) {
             return Err(AppError::OutOfDate);
         }
         let (named, sources) = self.program_sources(run, programs)?;
@@ -1956,13 +1976,22 @@ impl Application {
         )
     }
 
+    /// Whether `run` was made from the project as it is now, apart from
+    /// what only the view uses: a toolpath hidden or shown with its eye
+    /// changes no G-code (decision record 0169 item 6; GC-07), so it does not
+    /// make the run's files out of date (issue #607). The export dialog asks
+    /// the same question (`Project::same_output`).
+    fn run_has_project_output(&self, run: &Regeneration) -> bool {
+        run.project.same_output(&self.document.project)
+    }
+
     /// Revalidates the reviewed plan and writes in order, stopping at the
     /// first failure. `replace` confirms the plan's existing paths only.
     /// Results are retained in Messages; only full success completes Export.
     /// No atomic batch or machining verification is implied.
     pub fn write_output(&self, plan: &OutputPlan, replace: bool) -> OutputReport {
         let checks = self.export_checks(Some(&plan.run), Some(&plan.run), None);
-        let report = if *plan.run.project != self.document.project {
+        let report = if !self.run_has_project_output(&plan.run) {
             OutputReport::refused(
                 plan.paths(),
                 plan.paths().first().cloned().unwrap_or_default(),
