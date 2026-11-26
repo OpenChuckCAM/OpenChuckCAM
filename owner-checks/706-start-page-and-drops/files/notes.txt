@@ -1,0 +1,2 @@
+Owner check 706: a text file, neither a model nor a project.
+Dropping it should do nothing; Messages says why.

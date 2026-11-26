@@ -20,6 +20,7 @@ This branch (`owner-checks/packs`) is **not merged**. It was cut from `main` at 
 | #681 forget a deleted project's recovery line (PR #893, merged) | [681-forget-recovery/CHECK.md](681-forget-recovery/CHECK.md) | Application only, any OS | 5 min | Forget this project removes the line, and it stays gone after a restart |
 | #767 tab zone lines follow the grip before Apply (PR #893, merged) | [767-zone-lines/CHECK.md](767-zone-lines/CHECK.md) | Application only, Windows | 3 min | Head zone "no room for a tab" and Kept clear to X 21.078 mm before Apply |
 | #705 undo history list (PR #904) | [705-undo-history/CHECK.md](705-undo-history/CHECK.md) | Application only, Windows (build of PR #904 until it merges) | 10 min | Title bar, Ctrl H list, jump to a step, saved mark, keyboard; Keep as one row after #891 |
+| #706 start page with recent projects; dropped files and folders (PR #942) | [706-start-page-and-drops/CHECK.md](706-start-page-and-drops/CHECK.md) | Application only, Windows, macOS or Linux X11 (build of PR #942 until it merges) | 10 min | Recent row opens through Open; each kind of drop (model, folder, two files, text file) and its drag line; real drag and drop not checkable under Xvfb |
 | #789 show or hide each kind of toolpath move (PR #898) | [789-path-move-kinds/CHECK.md](789-path-move-kinds/CHECK.md) | Application only (build of PR #898 until it merges) | 20 min | Legend tick boxes, chip, Show and View menus, Simulate legend, restart, smoothness on a 92,000-move path |
 | #791 face flow on a face that closes round (cylinder, blisk outside face) | [791-face-flow-closed-face/CHECK.md](791-face-flow-closed-face/CHECK.md) | Application only | 15 min | No refusal; 52 rings on the cylinder; then the owner's own #791 project, with numbers to report |
 | PR #910: G and F5 generate every stale operation; Shift G and Shift F5 the selected one (no GitHub issue) | [pr-910-generate-keys/CHECK.md](pr-910-generate-keys/CHECK.md) | Application only, Windows (build of PR #910 until it merges) | 10 min | Each key's result in the Jobs tab; the Project menu and Help > Keyboard shortcuts |
@@ -29,7 +30,7 @@ This branch (`owner-checks/packs`) is **not merged**. It was cut from `main` at 
 
 **Not packed:** #577, #578 and #580 (keyboard focus, tooltips on focus, tool windows taking the keyboard; [decision 0677](../docs/decisions/0677-keyboard-focus-tooltips-and-tool-windows.md)). The owner closed them on 23 Nov 2026.
 
-**Issues labelled `awaiting-fix-feedback`** (25 Nov 2026): #801, #791, #632, #870, #871, #766, #767, #607, #874, #681 and #774. #705 and #789 move to that label when their pull requests (#904, #898) merge, as will #706 when its pull request does. #693 (OI-992) and OI-2152 are open items for the owner's machine checks, not fix feedback.
+**Issues labelled `awaiting-fix-feedback`** (25 Nov 2026): #801, #791, #632, #870, #871, #766, #767, #607, #874, #681 and #774. #705, #789 and #706 move to that label when their pull requests (#904, #898, #942) merge. #693 (OI-992) and OI-2152 are open items for the owner's machine checks, not fix feedback.
 
 ## Folder layout
 
