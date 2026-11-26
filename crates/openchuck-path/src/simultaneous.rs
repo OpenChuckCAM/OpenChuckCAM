@@ -155,6 +155,12 @@ const RAISES: u32 = 12;
 /// How many times the limit of an allowed region is bisected.
 const EDGE_STEPS: u32 = 12;
 
+/// How many times one move may be split because its proof failed, over all
+/// its halvings: a move that still cannot be proven after that is left out
+/// and marked, so a region the check cannot prove costs a bounded number
+/// of queries instead of doubling at every level.
+const GOUGE_SPLITS: u32 = 32;
+
 /// The most a move's part turns in one proof (decision record
 /// SIMUL-EDGE-1, Q3), radians (2 degrees): a part turning less sweeps a
 /// smaller region, which the search bounds more closely.
@@ -573,6 +579,9 @@ struct Refined {
     breaks: Vec<crate::assemble::ShankBreak>,
     /// Where a move was left out because it would gouge the surface.
     gouges: Vec<Gouge>,
+    /// How many more times the move being refined may be split because its
+    /// proof failed ([`GOUGE_SPLITS`]).
+    gouge_splits: u32,
 }
 
 fn run(
@@ -2600,6 +2609,9 @@ impl Plan<'_> {
         depth: u32,
         out: &mut Refined,
     ) -> Result<()> {
+        if depth == 0 {
+            out.gouge_splits = GOUGE_SPLITS;
+        }
         self.refine_from(track, axis, a, b, depth, None, out)
     }
 
@@ -2740,7 +2752,8 @@ impl Plan<'_> {
         // allowed. One that fails is halved, then raised at its middle;
         // after that it is left out and the place marked.
         if let Some((cut, deepest)) = self.gouges(a, b) {
-            if depth < MAX_DEPTH + RAISES {
+            if depth < MAX_DEPTH + RAISES && out.gouge_splits > 0 {
+                out.gouge_splits -= 1;
                 let split = match middle {
                     Some(m) if depth < MAX_DEPTH => Some(m),
                     Some(m) => self.raised(a, b, &m),
