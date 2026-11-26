@@ -6,7 +6,7 @@
   - S3 option A: a dropped project folder opens through Open with the usual guards. With several files, the first usable one is used and the rest are listed as not imported. An unsupported file says so. While something is dragged over the window, the window says what the drop will do.
   - S4 option A: ship. The guide says that dropping on a Wayland desktop needs the X11 session (XWayland), and a sev3 ticket follows egui and winit.
 
-  The owner also directed (25 Nov 2026) that layouts are designed for a 1920 by 1080 window, with 1366 by 768 best effort, until the minimum display requirement (UI-16) is changed by a separate lane. To be built in the lane's third pull request, after #891 (the New project and Open dialogs) merges.
+  The owner also directed (25 Nov 2026) that layouts are designed for a 1920 by 1080 window, with 1366 by 768 best effort, until the minimum display requirement (UI-16) is changed by a separate lane. Built in the lane's third pull request, after #891 (the New project and Open dialogs) merged; the record came with it from draft #902, which that pull request replaces.
 - **Date:** 26 Nov 2026.
 - **Requirements:** UI-23 (P2: a start page with recent projects, and import by dropping a file on the window), IMP-01 and IMP-02 (STL and STEP import), UI-14 (keyboard), UI-15 (recent projects are a per-user setting, never in the project), NFR-07 (a clear message, never a crash), NFR-09 (nothing leaves the computer).
 - **Builds on:**
@@ -79,4 +79,47 @@ What `main` (`361613e`) does:
 
 ## Verification
 
-Not built yet. This record is the design the owner answered. The Verification section is written in the pull request that builds it.
+Built on `main` at `17dcdde` (with #891 and #897), on Linux, in the lane's third pull request.
+
+What was built, and where:
+- `openchuck-app` `dropped.rs` (new, pure): what a dropped item is (`Dropped::of`: a model by the import's own extension test, a project folder by its `project.toml`, or a `project.toml` itself), the plan for several items (`plan`: the first usable one, the rest named), the drag line (`hover_text`), the Messages line (`message`) and the project name taken from a model (`project_name`).
+- `openchuck-ui`:
+  - the start card (`shell/frame.rs` `empty_state`, `drop_zone`, `recent_row`);
+  - the drop handling (`shell.rs` `dropped`, in place of the first-file-only import);
+  - the drag line (`drag_frame`, on a layer above the window);
+  - the model kept for the New project dialog it opened (`start_import`, cleared whenever no New project dialog is open, so Cancel or any other way out abandons it);
+  - the Messages line, which outlives only the project open the drop itself made.
+
+Two choices made while building, within the decision:
+- **The Messages wording of item 3.** Every message is made in the form `<Topic>: <text>`, and that form lowercases the text's first word (decision 0536 section 3, `lead_in::in_form`), so the line "OpenChuckCAM imports STL and STEP files and opens project folders; 'notes.txt' is neither." cannot be shown as written. It reads "Dropped file: 'notes.txt' is neither a model nor a project. OpenChuckCAM imports STL and STEP files and opens project folders." The drag line (item 4) keeps the record's words, and "Not imported: b.stl, c.step. Drop or import one file at a time." is word for word.
+- **The four steps** stay at the bottom inside the card, as on `main` ("as today", item 1) and as in the drawing.
+
+Tests, named by requirement, written from this record before the code:
+- `openchuck-app` `dropped::tests`:
+  - `req_ui_23_req_imp_01_req_imp_02_each_dropped_item_is_told_by_what_it_is`
+  - `req_ui_23_the_first_usable_item_is_used_and_the_rest_named`
+  - `req_ui_23_one_usable_item_has_no_message`
+  - `req_ui_23_req_nfr_07_an_unusable_drop_says_what_is_taken`
+  - `req_ui_23_the_drag_line_says_what_the_drop_will_do`
+  - `req_ui_23_a_new_project_is_named_after_the_dropped_model`
+- `openchuck-ui` `shell::start_page_tests`. The drops go through egui's `dropped_files` and `hovered_files` input, with the public test cube and generated folders.
+  - The card: `req_ui_23_req_ui_15_the_start_card_lists_the_recent_projects_newest_first`, `req_ui_23_with_nothing_recent_the_list_is_left_out`, `req_ui_23_a_project_open_with_no_model_shows_start_with_a_model`, `req_ui_23_req_ui_16_the_start_card_fits_the_view_with_ten_recent_projects`.
+  - The rows: `req_ui_23_req_prj_08_a_recent_row_opens_through_the_open_dialog`, `req_ui_23_req_ui_14_each_recent_row_is_a_tab_stop_in_reading_order`, `req_nfr_18_a_recent_row_on_the_card_is_logged_without_its_name`, `req_ui_23_req_ui_15_clear_recent_list_on_the_card_empties_it`, `req_ui_23_a_gone_recent_folder_is_forgotten_from_the_card`.
+  - The drops: `req_ui_23_req_imp_01_a_model_dropped_with_no_project_starts_one_named_after_it`, `req_ui_23_cancelling_the_new_project_abandons_the_dropped_model`, `req_ui_23_req_imp_01_a_model_dropped_on_an_open_project_opens_the_import_window`, `req_ui_23_a_dropped_project_folder_or_its_project_file_opens_through_open`, `req_ui_23_req_nfr_07_several_dropped_items_use_the_first_usable_and_name_the_rest`, `req_ui_23_req_nfr_07_a_file_that_cannot_be_used_says_so_and_does_nothing`, `req_ui_23_while_files_are_dragged_over_the_window_it_says_what_the_drop_will_do`, `req_ui_23_a_drag_the_system_does_not_name_says_what_is_taken`, `req_ui_23_a_drops_message_outlives_only_the_project_the_drop_made`.
+  - The card's buttons: `req_ui_23_the_cards_buttons_start_open_and_import`.
+  - `shell::frame_tests::req_ui_10_the_empty_state_offers_a_project_and_dims_the_other_steps` now reads "Start a project" with no project open (item 1).
+
+Results on the branch (Linux, uninstrumented):
+- `cargo fmt --all --check` and `cargo clippy --workspace --all-targets`: clean.
+- `cargo nextest run -p openchuck-ui`: 793 passed, 1 skipped, in 8 min 58 s. Three start-page tests were added after that run (the Messages line kept through the project the drop made, a drag the system does not name, and the card's own buttons); the 19 start-page tests then passed together (1.5 s).
+- `cargo nextest run -p openchuck-app --lib`: 304 passed, 1 skipped.
+- `cargo xtask deps`, `licences`, `records` and `trace`: ok.
+
+Coverage of the new tests alone (`cargo llvm-cov nextest --profile coverage -p openchuck-app -p openchuck-ui`, the start-page, dropped-item and empty-state tests): `dropped.rs` 97.8% of lines. The lines no test reaches are the fallbacks for a path with no file name (`item_name`, `project_name`), the empty case of `quoted_list`, and the arm for an unusable item that `plan` never chooses. In the shell and the card, every new line runs except `dropped`'s early return when it is deferred behind an unconfirmed field, and a let-else in `drag_frame` that cannot fail (defensive paths, NFR-07).
+
+Not verified here:
+- Real drag and drop from the system's file manager on Windows, macOS, Linux X11 and Linux Wayland. winit delivers those events differently on each, and the tests feed egui's input directly. The owner check in the pull request covers it. On Wayland nothing is expected (OI-9961, #901).
+- The look of the card in a real window. The test rig draws no 3D view, but the card is plain egui and is drawn in the tests at 1920×1080 and 1366×768.
+- The tutorial's step 1 figures 1 and 2 (`01-new-project.png`, `02-project-created.png`) show the card and still show the old one. They were not retaken here. The guide's screenshots are true captures from a release build (decision 0400), and they are retaken from one.
+
+Open items: OI-9961 (#901) stays open. OI-9966 is closed.
