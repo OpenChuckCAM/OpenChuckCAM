@@ -7,8 +7,10 @@
 //! more than one turn of a spiral ramp at its start radius and the tool
 //! radius, and a line's no more than the tool radius (Q8), and every
 //! back-and-forth ramp's no more than the Largest depth per traverse (Q9),
-//! the note naming the bound that held it; and a pass is plunged only where
-//! no ramp fits, each such pass named with its reason and its depth.
+//! the note naming the bound that held it; a whole ring whose one turn would
+//! take more is ramped back and forth over itself (Q9 part 3, the owner's
+//! answer A); and a pass is plunged only where no ramp fits, each such pass
+//! named with its reason and its depth.
 //! Synthetic fixtures only.
 #![allow(
     clippy::unwrap_used,
@@ -485,8 +487,6 @@ fn req_op_11_req_nfr_07_the_steeper_ramp_reaches_the_maximum_before_it_refuses()
     v.insert(names::RAMP_ANGLE_MAX.into(), n(45.0));
     let path = make(&f, &ring, &v).unwrap();
     let (before, moves) = first_entry(&path);
-    let turned = (moves.last().unwrap().a.0 - before.a.0).abs();
-    assert!(turned <= 3600.0 + 1e-6, "{turned}");
     let note = path
         .notices
         .iter()
@@ -494,6 +494,24 @@ fn req_op_11_req_nfr_07_the_steeper_ramp_reaches_the_maximum_before_it_refuses()
         .unwrap_or_else(|| panic!("{:?}", path.notices));
     // The shallowest angle that fits, not the maximum.
     assert!(note.text.contains("up to 21."), "{}", note.text);
+    // One turn round this ring at that angle descends far more than the
+    // ball's 0.5 mm radius, so the ring is then held to the bound (Q9 part
+    // 3, the owner's answer A): back and forth over itself at the angle the
+    // search found. The ring itself rises 0.9 mm in its first 10 degrees,
+    // a step no leg can soften, so there the ramp follows the pass's own
+    // drop (decision 0543 D4, OI-2240) and the note says so; it never drops
+    // more than that step.
+    let measured = measure(&f, before, &moves, by_angle);
+    assert!(measured.depth <= 0.9 + 1e-6, "{}", measured.depth);
+    assert!(reversals(&moves) > 0);
+    let load = load_note(&path);
+    assert!(
+        load.contains("back and forth in up to")
+            && load.contains(
+                "more than the tool radius (0.500 mm), as it follows its pass's own steep drop"
+            ),
+        "{load}"
+    );
     // Where even the maximum needs more than 10 turns, the refusal says so,
     // and does not ask to turn on Steeper ramp near the axis, which is on.
     v.insert(names::RAMP_ANGLE_MAX.into(), n(20.0));
@@ -875,21 +893,166 @@ fn req_gc_07_ramps_held_by_the_largest_depth_per_traverse_are_the_same_at_one_tw
     assert_eq!(one, at(8));
 }
 
+/// One whole ring at X 20, the tip `radius` from the rotary axis, 5
+/// degrees a point.
+fn ring(radius: f64) -> Points {
+    Points(
+        (0..=72)
+            .map(|k| (20.0, radius, 5.0 * f64::from(k)))
+            .collect(),
+    )
+}
+
+/// The turns of A that reverse in `poses`.
+fn reversals(poses: &[ToolPose]) -> usize {
+    poses
+        .windows(3)
+        .filter(|w| (w[1].a.0 - w[0].a.0) * (w[2].a.0 - w[1].a.0) < 0.0)
+        .count()
+}
+
+/// The cutting moves of `path`'s first pass, from its first cut point.
+fn cutting(path: &GeneratedPath) -> Vec<ToolPose> {
+    path.group
+        .segments
+        .iter()
+        .skip_while(|s| s.kind != MoveKind::Cutting)
+        .take_while(|s| s.kind == MoveKind::Cutting)
+        .map(|s| s.end)
+        .collect()
+}
+
 #[test]
-fn req_op_11_a_ramp_round_a_whole_ring_ignores_the_largest_depth_per_traverse() {
-    // Decision 0695, Q9: a whole ring ramps round itself,
-    // a turn's depth per traverse (2 pi 6 tan 3 = 1.976 mm here), and is
-    // measured before anything holds it, so the setting does not reach it.
+fn req_op_11_a_whole_ring_deeper_per_turn_than_the_bound_is_ramped_back_and_forth_over_itself() {
+    // Decision 0695, Q9 part 3, the owner's answer A (V1): a whole ring
+    // whose one turn would take more than the bound is ramped back and
+    // forth over its own ring at the same Ramp angle, under the rule and
+    // the bound of lines and spirals. The ring 12 mm from the axis with a
+    // 2 mm flat end (radius 1 mm): one turn round it descends
+    // 2 pi 12 tan 3 = 3.95 mm, and the bound is the tool radius, 1 mm. The
+    // descent from 17 mm is 5 mm, so the ramp is at least 5 / tan 3 =
+    // 95.4 mm long, more than the ring's 75.4 mm: it goes back and forth.
     let f = fixture(&tool(ToolShape::FlatEnd, 2.0));
-    let ring = Points((0..=72).map(|k| (20.0, 6.0, 5.0 * f64::from(k))).collect());
-    let default = make(&f, &ring, &values()).unwrap();
-    let mut v = values();
-    v.insert(names::RAMP_DEPTH_PER_TRAVERSE.into(), n(0.2));
-    let path = make(&f, &ring, &v).unwrap();
-    assert_eq!(path.group.segments, default.group.segments);
+    let path = make(&f, &ring(12.0), &values()).unwrap();
+    let (before, moves) = first_entry(&path);
+    let tan = ANGLE.to_radians().tan();
+    let measured = measure(&f, before, &moves, by_angle);
+    assert!((measured.rise - 5.0).abs() < 1e-6, "{}", measured.rise);
+    assert!(measured.steepest <= tan + 1e-9, "{}", measured.steepest);
+    assert!(measured.steepest >= 0.99 * tan, "{}", measured.steepest);
+    assert!(
+        measured.length >= 5.0 / tan - 0.01,
+        "{} for a rise of 5 mm",
+        measured.length
+    );
+    assert!(measured.depth <= 1.0 + 1e-6, "{}", measured.depth);
+    assert!(measured.depth > 0.5, "{}", measured.depth);
+    // Every pose over the ring itself (X 20, A 0 to 360), raised along the
+    // tool axis.
+    for m in std::iter::once(&before).chain(&moves) {
+        let at = f.rotary.to_axis(m.tip, m.a);
+        assert!((at.along - 20.0).abs() < 1e-9, "{at:?}");
+        assert!(at.across.abs() < 1e-9, "{at:?}");
+        assert!(at.height >= 12.0 - 1e-9, "{at:?}");
+        assert!((-1e-9..=360.0 + 1e-9).contains(&m.a.0), "{:?}", m.a);
+    }
+    // A reverses during the entry, and only there: the ring itself is cut
+    // one way round.
+    assert!(reversals(&moves) > 0, "{moves:?}");
+    let cut = cutting(&path);
+    assert!(cut.len() > 10, "{}", cut.len());
+    assert_eq!(reversals(&cut), 0);
+}
+
+#[test]
+fn req_op_11_a_whole_ring_within_the_bound_still_ramps_round_itself() {
+    // The ring 6 mm from the axis with a 6 mm ball (radius 3 mm): one turn
+    // descends 2 pi 6 tan 3 = 1.976 mm, within the radius, so the ring
+    // ramps round itself as before, A one way, never reversing.
+    let f = fixture(&ball(6.0));
+    let path = make(&f, &ring(6.0), &values()).unwrap();
+    let (before, moves) = first_entry(&path);
+    assert_eq!(reversals(&moves), 0);
+    let turned = (moves.last().unwrap().a.0 - before.a.0).abs();
+    // 11 mm of descent at 1.976 mm a turn: about 5.6 turns.
+    assert!(turned > 5.0 * 360.0 && turned <= 3600.0, "{turned}");
     let note = load_note(&path);
     assert!(
-        note.contains("turning up to") && note.contains("1.976 mm") && !note.contains("setting"),
+        note.contains("turning up to")
+            && note.contains("1.976 mm")
+            && !note.contains("back and forth"),
         "{note}"
     );
+}
+
+#[test]
+fn req_op_11_the_largest_depth_per_traverse_setting_holds_a_whole_ring() {
+    // Decision 0695, Q9 part 3, the owner's answer A: the setting holds a
+    // whole ring too. The ring above, within the tool radius at the
+    // default, is deeper per turn than a setting of 0.5 mm, so it is
+    // ramped back and forth over itself, each traverse at most 0.5 mm.
+    let f = fixture(&ball(6.0));
+    let tan = ANGLE.to_radians().tan();
+    let mut v = values();
+    v.insert(names::RAMP_DEPTH_PER_TRAVERSE.into(), n(0.5));
+    let path = make(&f, &ring(6.0), &v).unwrap();
+    let (before, moves) = first_entry(&path);
+    let measured = measure(&f, before, &moves, by_angle);
+    assert!((measured.rise - 11.0).abs() < 1e-6, "{}", measured.rise);
+    assert!(measured.steepest <= tan + 1e-9, "{}", measured.steepest);
+    assert!(measured.length >= 11.0 / tan - 0.01, "{}", measured.length);
+    assert!(measured.depth <= 0.5 + 1e-6, "{}", measured.depth);
+    assert!(measured.depth > 0.4, "{}", measured.depth);
+    assert!(reversals(&moves) > 0);
+    for m in std::iter::once(&before).chain(&moves) {
+        let at = f.rotary.to_axis(m.tip, m.a);
+        assert!((at.along - 20.0).abs() < 1e-9 && at.height >= 6.0 - 1e-9);
+    }
+}
+
+#[test]
+fn req_op_11_the_note_names_the_bound_that_holds_a_whole_ring_ramped_back_and_forth() {
+    // The tool radius holds the ring 12 mm from the axis with the 2 mm
+    // flat end; the setting holds the ring 6 mm from the axis with the
+    // 6 mm ball.
+    let note = load_note(
+        &make(
+            &fixture(&tool(ToolShape::FlatEnd, 2.0)),
+            &ring(12.0),
+            &values(),
+        )
+        .unwrap(),
+    );
+    assert!(
+        note.contains("back and forth in up to")
+            && note.contains("the deepest depth per traverse is 1.000 mm, at pass 1")
+            && note.contains("within the tool radius (1.000 mm)")
+            && !note.contains("turning up to"),
+        "{note}"
+    );
+    let mut v = values();
+    v.insert(names::RAMP_DEPTH_PER_TRAVERSE.into(), n(0.5));
+    let note = load_note(&make(&fixture(&ball(6.0)), &ring(6.0), &v).unwrap());
+    assert!(
+        note.contains("the deepest depth per traverse is 0.500 mm, at pass 1")
+            && note.contains("within the Largest depth per traverse setting (0.500 mm)"),
+        "{note}"
+    );
+}
+
+#[test]
+fn req_gc_07_whole_rings_held_back_and_forth_are_the_same_at_one_two_and_many_threads() {
+    let f = fixture(&tool(ToolShape::FlatEnd, 2.0));
+    let held = ring(12.0);
+    let v = values();
+    let at = |threads: usize| {
+        rayon::ThreadPoolBuilder::new()
+            .num_threads(threads)
+            .build()
+            .unwrap()
+            .install(|| make(&f, &held, &v).unwrap().group.segments)
+    };
+    let one = at(1);
+    assert_eq!(one, at(2));
+    assert_eq!(one, at(8));
 }

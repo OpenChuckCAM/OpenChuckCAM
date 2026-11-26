@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.70.0
+
+- **Family release (0.70.0; PATH-QUALITY, PQ-2b; issue #786; decision 0695, Q9 part 3, accepted):** `openchuck-path` changes ramp output (a whole ring whose one turn would descend more than the largest depth per traverse is ramped back and forth over itself). No change in this crate.
+
 ## 0.69.0
 
 - **Family release (0.69.0; PATH-QUALITY, PQ-4; issue #826, OI-2198; decision 0695, Q6, accepted):** `openchuck-path` changes output only for helical finishing as a spiral with adaptive spacing on (it measures the helix only outside the held regions' bands and the face turns); no API change; no change to this crate.

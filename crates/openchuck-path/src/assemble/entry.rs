@@ -70,6 +70,11 @@ enum Shape {
     /// A pass that starts as a spiral, its tip this far from the rotary
     /// axis at its first point.
     Spiral(f64),
+    /// A whole ring whose one turn round itself would take more than the
+    /// bound (decision 0695, Q9 part 3, the owner's answer A), at the
+    /// tangent its ramp round the ring was planned at: the Ramp angle, or
+    /// the steeper one near the axis.
+    Ring(f64),
 }
 
 /// What holds a back-and-forth ramp's depth per traverse (decision
@@ -114,8 +119,10 @@ impl DepthBound {
 ///
 /// A bound that is not a positive length (a NaN or a cap of 0) bounds
 /// nothing (NFR-07). Where two are equal the earlier in that list is
-/// named. A ramp round a whole ring is not held by it: it takes one turn's
-/// depth per traverse, measured before anything holds it (Q9 point 3).
+/// named. It holds a whole ring too (Q9 part 3, the owner's answer A): a
+/// ring whose one turn round itself would take more is ramped back and
+/// forth over itself instead ([`Entry::ring_plan`]). A descent on the
+/// rotary axis is not held by it (an open question for the owner, OI-2239).
 fn largest_depth_per_traverse(
     tool_radius: f64,
     setting: f64,
@@ -146,6 +153,11 @@ enum RingEntry {
     /// No ramp fits in 10 turns even at the Maximum ramp angle: plunged,
     /// as Plunge where no ramp fits asks.
     Plunge,
+    /// A ring whose one turn round itself would take more than the largest
+    /// depth per traverse: ramped back and forth over its own points up to
+    /// `end`, at the tangent `tan` the ramp round it was planned at
+    /// (decision 0695, Q9 part 3, the owner's answer A).
+    BackAndForth { end: usize, tan: f64 },
 }
 
 pub(super) struct Entry {
@@ -264,6 +276,9 @@ impl Entry {
         };
         match self.ring_plan(b, input, stock, common, pass, points, rapids)? {
             Some(RingEntry::Ramp(plan)) => return self.ring_ramp(b, input, common, pass, &plan),
+            Some(RingEntry::BackAndForth { end, tan }) => {
+                return self.follow(b, input, stock, common, pass, points, end, Shape::Ring(tan));
+            }
             Some(RingEntry::Plunge) => {
                 return self.fallback_plunge(
                     b,
@@ -469,8 +484,9 @@ impl Entry {
     /// A ramp that follows the pass's own toolpath (decision 0543): over a
     /// line, a partial ring or a spiral, back and forth (decision
     /// 0695, Q3: no ramp goes round the part); a pass that starts
-    /// as a whole ring, or on the rotary axis, is ramped round the ring or
-    /// descended on the axis before it reaches here ([`Self::ring_plan`]),
+    /// as a whole ring, or on the rotary axis, is ramped round the ring (or
+    /// back and forth over it, held to the bound) or descended on the axis
+    /// before it reaches here ([`Self::ring_plan`]),
     /// and comes here only when it starts above the stock, with nothing to
     /// descend into.
     #[allow(clippy::too_many_arguments)]
@@ -594,7 +610,10 @@ impl Entry {
     /// its legs are bounded so the depth per traverse is no more than one
     /// turn of a spiral ramp at the pass's start radius and the tool radius,
     /// and its length is held to 10 turns at that radius, steepened near
-    /// the axis as for a ring (decision 0695, Q3 and Q4).
+    /// the axis as for a ring (decision 0695, Q3 and Q4). A whole ring
+    /// held to the bound goes back and forth over itself at the angle its
+    /// ramp round it was planned at, steepened or not (Q9 part 3, the
+    /// owner's answer A).
     #[allow(clippy::too_many_arguments)]
     fn follow(
         &self,
@@ -668,7 +687,7 @@ impl Entry {
                 };
                 (longest, (bound, depth))
             }
-            Shape::Line | Shape::Arc => {
+            Shape::Line | Shape::Arc | Shape::Ring(_) => {
                 let (depth, bound) =
                     largest_depth_per_traverse(radius, self.depth_setting, None, None);
                 (0.5 * depth / tan, (bound, depth))
@@ -689,6 +708,7 @@ impl Entry {
         let what = match shape {
             Shape::Line => "line",
             Shape::Arc | Shape::Spiral(_) => "stretch",
+            Shape::Ring(_) => "ring",
         };
         if total < minimum || path.len() < 2 {
             if self.single_point_plunge {
@@ -780,7 +800,16 @@ impl Entry {
                 let (longest, bound) = longest_at(self.ramp_tan);
                 (self.ramp_tan, top_at(self.ramp_tan), longest, bound)
             }
+            // A whole ring held to the bound: the angle its ramp round it
+            // was planned at, named in the note below when steeper.
+            Shape::Ring(tan) => {
+                let (longest, bound) = longest_at(tan);
+                (tan, top_at(tan), longest, bound)
+            }
         };
+        if matches!(shape, Shape::Ring(_)) && tan > self.ramp_tan * (1.0 + 1e-12) {
+            b.steepened_ramps.push((pass, tan.atan().to_degrees()));
+        }
         let super::path_ramp::Ramp {
             moves,
             floors,
@@ -1007,7 +1036,10 @@ impl Entry {
     /// ramp angle and Plunge where no ramp fits is on (decision
     /// 0695, Q4); `None` otherwise. A spiral off the axis is
     /// ramped over its own path ([`Self::ramp`]), never round the part
-    /// (decision 0695, Q3).
+    /// (decision 0695, Q3). A ring whose ramp round itself would cut more
+    /// than the largest depth per traverse in a turn is ramped back and
+    /// forth over itself instead, at the angle planned for it (Q9 part 3,
+    /// the owner's answer A); a descent on the axis is not (OI-2239).
     #[allow(clippy::too_many_arguments)]
     fn ring_plan(
         &self,
@@ -1087,6 +1119,23 @@ impl Entry {
             )
         });
         let plan = match planned {
+            // One turn round the ring deeper than the bound: back and forth
+            // over the ring (Q9 part 3, the owner's answer A), under the one
+            // bound function, which `follow` applies to the legs. The ring
+            // is measured as its ramp round it would cut it,
+            // `min(2 pi r tan, rise)`, the figure the note gives for it.
+            Ok(plan)
+                if plan.depth_per_traverse()
+                    > largest_depth_per_traverse(
+                        self.tool_radius,
+                        self.depth_setting,
+                        None,
+                        None,
+                    )
+                    .0 + EPS =>
+            {
+                return Ok(Some(RingEntry::BackAndForth { end, tan }));
+            }
             Ok(plan) => self.steepened(plan, tan),
             Err(ring_ramp::Refusal::NothingToDescend) => return Ok(None),
             Err(ring_ramp::Refusal::TooManyTurns { .. }) if at_max && self.single_point_plunge => {
@@ -1376,7 +1425,7 @@ impl Entry {
             .ring_plan(b, input, stock, common, pass, points, rapids)?
             .and_then(|entry| match entry {
                 RingEntry::Ramp(plan) => plan.start(),
-                RingEntry::Plunge => None,
+                RingEntry::Plunge | RingEntry::BackAndForth { .. } => None,
             })
             .map(|(pos, a)| {
                 let tip = b.rotary.to_model(pos, a);
@@ -1416,29 +1465,16 @@ impl Entry {
         // The load figures for the note (decision 0695, Q3
         // point 4): a ring ramp descends one turn's depth per traverse; a
         // descent on the axis, the rise over its turns at the tool's edge.
-        let (Some((first, a_first)), Some((last, a_last))) =
+        let (Some((_, a_first)), Some((_, a_last))) =
             (plan.moves.first().copied(), plan.moves.last().copied())
         else {
             return Ok(());
         };
-        let rise = (first.height - last.height).max(0.0);
         let turns = (a_last.0 - a_first.0).abs() / 360.0;
-        let travel: f64 = plan
-            .moves
-            .windows(2)
-            .map(|w| match w {
-                [(q, b0), (p, a)] => step_length(*q, *b0, *p, *a),
-                _ => 0.0,
-            })
-            .sum();
         let tan = plan
             .steepened
             .map_or(self.ramp_tan, |d| d.to_radians().tan());
-        let depth = if plan.on_axis.is_some() || travel <= EPS {
-            rise / turns.max(1.0)
-        } else {
-            (rise * 360.0 / (a_last.0 - a_first.0).abs().max(EPS)).min(rise)
-        };
+        let depth = plan.depth_per_traverse();
         b.ramp_loads.push(super::RampLoad {
             pass,
             angle: tan.atan().to_degrees(),
@@ -1809,7 +1845,7 @@ fn travel_of(path: &[(AxisPosition, Degrees)]) -> f64 {
 }
 
 /// The travel of one step (see [`travel_of`]).
-fn step_length(q: AxisPosition, b: Degrees, p: AxisPosition, a: Degrees) -> f64 {
+pub(super) fn step_length(q: AxisPosition, b: Degrees, p: AxisPosition, a: Degrees) -> f64 {
     let radius = 0.5 * (p.across.hypot(p.height) + q.across.hypot(q.height));
     (p.along - q.along).hypot(p.across - q.across) + (a.0 - b.0).abs().to_radians() * radius
 }

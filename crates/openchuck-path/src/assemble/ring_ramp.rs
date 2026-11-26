@@ -54,6 +54,32 @@ impl RingRamp {
     pub fn start(&self) -> Option<(AxisPosition, Degrees)> {
         self.moves.first().copied()
     }
+
+    /// The depth per traverse this ramp cuts, mm (decision 0695, Q3 point
+    /// 4): round a ring, one turn's depth (the rise over the turns, at most
+    /// the rise); on the axis, the rise over its turns, at least one.
+    pub fn depth_per_traverse(&self) -> f64 {
+        let (Some((first, a_first)), Some((last, a_last))) =
+            (self.moves.first().copied(), self.moves.last().copied())
+        else {
+            return 0.0;
+        };
+        let rise = (first.height - last.height).max(0.0);
+        let turned = (a_last.0 - a_first.0).abs();
+        let travel: f64 = self
+            .moves
+            .windows(2)
+            .map(|w| match w {
+                [(q, b0), (p, a)] => super::entry::step_length(*q, *b0, *p, *a),
+                _ => 0.0,
+            })
+            .sum();
+        if self.on_axis.is_some() || travel <= EPS {
+            rise / (turned / 360.0).max(1.0)
+        } else {
+            (rise * 360.0 / turned.max(EPS)).min(rise)
+        }
+    }
 }
 
 /// Why a ring cannot be ramped round.

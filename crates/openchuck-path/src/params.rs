@@ -633,11 +633,12 @@ pub fn common_parameters() -> Vec<ParameterSpec> {
         number(
             RAMP_DEPTH_PER_TRAVERSE,
             "Largest depth per traverse",
-            "The deepest a back-and-forth ramp (over a line, a partial ring or a spiral) goes in \
-             one pass over the same place: its legs are kept short enough, at the same Ramp \
-             angle, and it takes more of them instead. 0 uses the tool's cutting radius, and a \
-             larger value is held to it. A ramp round a whole ring takes one turn's depth per \
-             traverse; the note gives it.",
+            "The deepest a ramp goes in one pass over the same place. A back-and-forth ramp \
+             (over a line, a partial ring or a spiral) keeps its legs short enough, at the same \
+             Ramp angle, and takes more of them instead. A whole ring whose one turn round \
+             itself would go deeper is ramped back and forth over itself in the same way. 0 \
+             uses the tool's cutting radius, and a larger value is held to it. A descent on the \
+             rotary axis is not held to it.",
             Unit::Millimetres,
             0.0,
             false,
