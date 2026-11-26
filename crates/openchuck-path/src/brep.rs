@@ -1296,7 +1296,22 @@ impl ExactFace {
                 }
             }
         }
-        sampled(t, |p| self.surface_distance(p).unwrap_or(0.0)) * SAMPLED_SAFETY
+        // A B-spline face: the closest point to the triangle's centre found
+        // over the face, then each sample's from there (the samples are a
+        // fraction of a millimetre apart, so the search starts beside its
+        // answer).
+        let centre = Point3::new(
+            (t[0].x + t[1].x + t[2].x) / 3.0,
+            (t[0].y + t[1].y + t[2].y) / 3.0,
+            (t[0].z + t[1].z + t[2].z) / 3.0,
+        );
+        let Some(seed) = self.closest_within(centre, f64::MAX).map(|c| c.uv) else {
+            return sampled(t, |p| self.surface_distance(p).unwrap_or(0.0)) * SAMPLED_SAFETY;
+        };
+        sampled(t, |p| {
+            self.closest_from(p, seed, f64::MAX)
+                .map_or(0.0, |c| c.distance)
+        }) * SAMPLED_SAFETY
     }
 
     /// The distance from `p` to the face's surface, its trims left out: a
@@ -2405,8 +2420,9 @@ impl BrepSurface {
             .enumerate()
             .map(|(i, f)| (f.number(), i))
             .collect();
-        self.triangle_errors = (0..self.mesh.triangles.len())
-            .map(|i| {
+        // Each triangle alone, in input order (NFR-06).
+        let indices: Vec<usize> = (0..self.mesh.triangles.len()).collect();
+        self.triangle_errors = crate::parallel::map_in_order(&indices, |&i| {
                 let face = self
                     .face_of_triangle
                     .get(i)
@@ -2416,8 +2432,7 @@ impl BrepSurface {
                     (Some(f), Some(t)) => f.triangle_error(&t),
                     _ => self.deflection,
                 }
-            })
-            .collect();
+            });
         self.largest_error = self.triangle_errors.iter().copied().fold(0.0, f64::max);
         self
     }
