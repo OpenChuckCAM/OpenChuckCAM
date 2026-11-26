@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //! Showing and hiding each kind of toolpath move in the view (issue #789;
-//! decision record PROJUX-A-2, the owner's answers P1 B, P2 A and P3 A):
+//! decision record 0691, the owner's answers P1 B, P2 A and P3 A):
 //! the path legend's tick boxes on Operations, the Show menu (V) and View >
 //! Toolpath moves set one choice; the playback panel draws the lines for it;
 //! the user's settings keep it; a chip says what is hidden while anything
@@ -55,7 +55,7 @@ fn req_sim_01_a_kind_hidden_in_the_view_is_hidden_from_the_lines_and_named_in_th
     assert_eq!(rig.shell.run.last().map(|r| r.gcode.clone()), gcode);
 }
 
-/// The owner's amendment of 26 Nov 2026: the chip is a plain label that only
+/// The owner's amendment of 25 Nov 2026: the chip is a plain label that only
 /// names what is hidden, with no "Show all" and no action; the way back is
 /// "Show all moves" in the menus.
 #[test]

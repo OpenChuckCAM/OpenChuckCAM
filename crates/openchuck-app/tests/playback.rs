@@ -516,7 +516,7 @@ fn req_sim_01_the_display_tells_rapids_links_entries_and_cuts_apart_by_operation
     let _ = std::fs::remove_dir_all(dir);
 }
 
-/// Issue #789 (decision record PROJUX-A-2, the owner's answers P1 B and P3
+/// Issue #789 (decision record 0691, the owner's answers P1 B and P3
 /// A): each of the path's six kinds of move can be hidden in the view. A
 /// hidden kind draws no line; the other kinds draw exactly what they drew
 /// with everything shown; the playback window and the faint trace follow

@@ -1,6 +1,6 @@
-# PROJUX-A-2: Each kind of toolpath move can be shown or hidden in the view, from the path legend, the Show menu and the View menu (SIM-01, UI-14, UI-15; issue #789; lane PROJECT-UX-A)
+# 0691: Each kind of toolpath move can be shown or hidden in the view, from the path legend, the Show menu and the View menu (SIM-01, UI-14, UI-15; issue #789; lane PROJECT-UX-A)
 
-- **Status:** Accepted by the project owner on 26 Nov 2026, relayed by the coordinator (decision 0049). Chip text amended by the owner on 26 Nov 2026, relayed by the coordinator: a plain label without Show all (Decision item 3). Proposed by lane PROJECT-UX-A on 25 Nov 2026 and built in the lane's second pull request (#898) as the owner answered the lane's questions on 25 Nov 2026, relayed by the coordinator:
+- **Status:** Accepted by the project owner on 25 Nov 2026, relayed by the coordinator (decision 0049). Chip text amended by the owner on 25 Nov 2026, relayed by the coordinator: a plain label without Show all (Decision item 3). Proposed by lane PROJECT-UX-A on 25 Nov 2026 and built in the lane's second pull request (#898) as the owner answered the lane's questions on 25 Nov 2026, relayed by the coordinator:
   - R1 option A: trace to SIM-01, UI-14 and UI-15, with no change to the requirements.
   - P1 option B: six kinds.
   - P2 option A: the legend's rows become tick boxes, with the same choices in View and the Show menu, and a chip.
@@ -11,9 +11,9 @@
 - **Date:** 25 Nov 2026.
 - **Requirements:** SIM-01 (toolpaths in the view, moves told apart, per-operation visibility), UI-14 (every control by keyboard; commands in the menus), UI-15 (per-user settings on the computer, never in the project), NFR-03 (the view stays smooth). No requirement names hiding by kind; the owner chose to trace it to these rather than add one (answer R1 A).
 - **Builds on:** [decision 0169](0169-playback-window-and-path-visibility.md) (paths hidden per operation in the view only), [decision 0238](0238-simulate-display-and-operation-navigation.md) (Simulate's Show choices, per user), [decision 0512](0512-playback-layers-on-simulate-only.md) (the toolpath lines on every step, the playback layers on Simulate), [decision 0167](0167-path-detail-follows-the-zoom.md) (the level of detail and the point budget), [decision 0677](0677-keyboard-focus-tooltips-and-tool-windows.md) (focus and tooltips).
-- **Open items:** adds OI-9962 (kinds the path does not mark: retracts, run-outs past the stock, turns of A at a fixed position; the owner's answer P1 B sends them to a sev3 ticket, issue #899) and OI-9964 (the owner's acceptance of this record, closed on 26 Nov 2026).
+- **Open items:** adds OI-2214 (kinds the path does not mark: retracts, run-outs past the stock, turns of A at a fixed position; the owner's answer P1 B sends them to a sev3 ticket, issue #899) and OI-2213 (the owner's acceptance of this record, closed by the acceptance on 25 Nov 2026).
 
-Numbering: provisional. The coordinator assigns the record number and the OI numbers at release, in merge order. No project schema number: the choice is a per-user setting (`path_moves` in the user's `settings.toml`), never in the project. No library-family API change: `openchuck-app` and `openchuck-ui` change, and neither is in the library family, so there is no version bump. The library family's `MoveKind` is unchanged.
+Numbering: the coordinator assigned record 0691, OI-2213 and OI-2214 at release (main 17dcdde), in merge order. No project schema number: the choice is a per-user setting (`path_moves` in the user's `settings.toml`), never in the project. No library-family API change: `openchuck-app` and `openchuck-ui` change, and neither is in the library family, so there is no version bump. The library family's `MoveKind` is unchanged.
 
 ## Context
 
@@ -29,25 +29,25 @@ What `main` (`361613e`) did:
 - **Three things the issue names are not marked in the path.** Retracts are rapids or links. Run-outs past the stock and turns of A at a fixed position are not marked at all.
 - **The lines are already chosen off the UI thread.** A job picks the drawn lines from the kept runs for the visible operations, at the finest level of detail within the point budget (decision 0167), and runs again when the visible operations change.
 
-![The path legend with a tick box per kind, and the Hidden chip beside Show](PROJUX-A-2-legend-tick-boxes.svg)
+![The path legend with a tick box per kind, and the Hidden chip beside Show](0691-legend-tick-boxes.svg)
 
-![Simulate at 1920 by 1080 with the toolpaths shown: the legend of moves at the top left, the colour scale at the bottom left](PROJUX-A-2-simulate-legend.svg)
+![Simulate at 1920 by 1080 with the toolpaths shown: the legend of moves at the top left, the colour scale at the bottom left](0691-simulate-legend.svg)
 
 ## Decision
 
 1. **Six kinds, the path's own (the owner's answer P1 B).** The kinds are Cut, Link and Rapid, and Entry and exit with Plunge, Lead-in and ramp, and Lead-out under it. The names come from one function (`pathview::move_name`) used by the legend, the menus and the chip.
    - The display now cuts the path into runs of one kind, so each kind can be left out. The colour is still by class: the three kinds of entry and exit keep the one lilac (specification 7.4).
-   - Retracts, run-outs past the stock and turns of A at a fixed position are not marked in the path. Finding them from the geometry is OI-9962 (sev3, not built).
+   - Retracts, run-outs past the stock and turns of A at a fixed position are not marked in the path. Finding them from the geometry is OI-2214 (sev3, not built).
 2. **One choice, three controls (the owner's answer P2 A; UI-14).**
    - **The path legend on Operations.** Each row of moves is a tick box with the row's own swatch and colour, and a Tab stop of its own: Space or Enter while it has the keyboard, or a click anywhere on the row, turns it on or off. Its tooltip says that only the view changes.
    - **Entry and exit is the box of its three kinds.** It is ticked when all three are shown, shows a bar when some are, and is empty when none are. A press hides all three when any is shown, and shows all three when none is. The tick, bar and empty box tell the states apart without colour.
    - **The Show menu (V).** It has a "Toolpath moves" group with the same tick boxes, a box for Entry and exit that can be partly ticked, and "Show all moves" while any kind is hidden.
    - **View > Toolpath moves.** The same group again, so every choice is a menu command.
-3. **A hidden kind is never forgotten (as the owner amended it on 26 Nov 2026).** While any kind is hidden, a chip beside the Show button in the view's toolbar strip says which, on every step: "Hidden: Rapid, Lead-out". Entry and exit hidden whole reads as one name.
+3. **A hidden kind is never forgotten (as the owner amended it on 25 Nov 2026).** While any kind is hidden, a chip beside the Show button in the view's toolbar strip says which, on every step: "Hidden: Rapid, Lead-out". Entry and exit hidden whole reads as one name.
    - The chip is a plain label, not a control. It has no button styling, no tooltip and no Tab stop, and a click does nothing. Its outline and warning colour set it apart, and its words say what is hidden, so it is not shown by colour alone. A screen reader reads it as text (OI-2110).
    - Because it is not a control and has no tooltip, decision 0677 item 3 (a tooltip on information makes it a Tab stop) does not apply to it.
    - The way back is "Show all moves" in the Show menu (V) and in View > Toolpath moves, shown while any kind is hidden, or the legend's tick boxes.
-   - The owner first chose a chip ending "· Show all" that showed every kind when pressed. On 26 Nov 2026 the owner removed "Show all" to keep the chip short, and chose a plain label over a button whose words no longer said what a press does.
+   - The owner first chose a chip ending "· Show all" that showed every kind when pressed. On 25 Nov 2026 the owner removed "Show all" to keep the chip short, and chose a plain label over a button whose words no longer said what a press does.
    - On Simulate the chip comes before Simulate's inline Show tick boxes, which move into the Show menu when the strip has no room for both (OI-529's rule, with the chip counted).
 4. **Simulate (the owner's answer P2b B, with its condition).**
    - Simulate shows the path legend at the top left, only while Toolpaths is ticked in its Show choices. With the toolpaths off there is no legend, since there are no lines for it to name.
@@ -119,3 +119,10 @@ Coverage was checked locally on the new tests of `openchuck-app` and `openchuck-
 Not verified here:
 - A look at the real window, on Operations and Simulate, at 1920×1080 and 1366×768. The owner check in the pull request covers it.
 - The frame time with kinds hidden on a large path (NFR-03). The kinds only narrow what the existing off-thread job chooses, within the same point budget; no frame-time benchmark was run.
+
+At release (26 Nov 2026), after merging `main` at `17dcdde` (with #897) and the owner's chip amendment:
+- `cargo fmt --all --check` and `cargo clippy --workspace --all-targets`: clean.
+- `cargo nextest run -p openchuck-ui`: 789 passed, 1 skipped.
+- `openchuck-app` playback, settings, pathview and operation tests: 236 passed.
+- `cargo xtask deps`, `licences`, `records` and `trace`: ok.
+- After the renumbering, which changed comments and documents only, clippy is clean and the path-moves, legend and settings tests pass again (31 tests).

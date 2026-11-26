@@ -212,7 +212,7 @@ pub struct UserSettings {
     /// written before templates existed.
     pub file_names: FileNameTemplates,
     /// Which kinds of toolpath move the view draws (issue #789; decision
-    /// record PROJUX-A-2, the owner's answer P3 A), remembered across
+    /// record 0691, the owner's answer P3 A), remembered across
     /// projects. A file written before the field existed shows every kind.
     pub path_moves: crate::pathview::ShownMoves,
 }

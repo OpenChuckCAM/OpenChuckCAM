@@ -215,7 +215,7 @@ fn segments<T: Copy + PartialEq>(ui: &mut egui::Ui, choices: &[(T, &str, &str)],
 }
 
 /// The tick boxes of the kinds of toolpath move (issue #789; decision record
-/// PROJUX-A-2, the owner's answers P1 B and P2 A): Cut, Link, Rapid, then
+/// 0691, the owner's answers P1 B and P2 A): Cut, Link, Rapid, then
 /// Entry and exit with its three kinds under it, and "Show all moves" while
 /// any is hidden. Shared by the Show menu (V) and View > Toolpath moves, and
 /// the same choice as the path legend's tick boxes.
@@ -252,7 +252,7 @@ pub fn move_ticks(ui: &mut egui::Ui, moves: &mut ShownMoves) {
 }
 
 /// The chip beside "Show" while some kinds of move are hidden (issue #789;
-/// decision record PROJUX-A-2 as the owner amended it on 26 Nov 2026), so a
+/// decision record 0691 as the owner amended it on 25 Nov 2026), so a
 /// hidden kind is never forgotten: "Hidden: Rapid, Lead-out". It is a plain
 /// label, not a control: no button styling, no tooltip, no Tab stop, and a
 /// click does nothing. Its outline and warning colour mark it apart, and its

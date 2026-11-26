@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 330" role="img" aria-label="The path legend with a tick box for each kind of move, and the Hidden chip beside Show">
   <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
-  <!-- Decision PROJUX-A-2 (issue #789). A drawing, not a capture. -->
+  <!-- Decision 0691 (issue #789). A drawing, not a capture. -->
   <rect width="760" height="330" fill="#15171a"/>
   <rect x="0" y="0" width="760" height="40" fill="#1e2228"/>
   <g font-family="sans-serif" font-size="12">

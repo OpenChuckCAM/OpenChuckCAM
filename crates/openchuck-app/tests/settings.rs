@@ -29,7 +29,7 @@ fn req_ui_15_req_prj_08_checkpoint_interval_is_personal_and_survives_restart() {
     std::fs::remove_dir_all(config).unwrap();
 }
 
-/// Issue #789 (decision record PROJUX-A-2, the owner's answer P3 A): the
+/// Issue #789 (decision record 0691, the owner's answer P3 A): the
 /// kinds of toolpath move shown are the user's, kept on the computer across
 /// projects and restarts; a file from before shows every kind, and so does
 /// one that leaves a kind out.
