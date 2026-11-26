@@ -11,14 +11,72 @@ use serde::{Deserialize, Serialize};
 
 use crate::OrderKey;
 use crate::error::ProjectError;
-use crate::file::{FileKind, parse, to_text, write_if_changed};
+use crate::file::{FileKind, Migration, parse, to_text, write_if_changed};
 use crate::id::ToolId;
 use crate::model::ToolSnapshot;
 
-/// The schema of tool files and tool set files this build writes and reads.
+/// The newest tool library schema this build reads, for tool files and tool
+/// set files. The library has its own schema number, raised when a field is
+/// added (issue #864; decision record MOPUP-1-B, the owner's answer A). A
+/// file declares the lowest schema that can hold it, so an older build reads
+/// every file it can, and refuses the rest by their number.
 ///
-/// - 1: slice 4 (decision record 0014).
-pub const LIBRARY_SCHEMA: i64 = 1;
+/// - 1: slice 4 (decision record 0014); `centre_cutting` (decision 0033),
+///   which every release reads.
+/// - 2: a tool's `stick_out` (decision 0673).
+pub const LIBRARY_SCHEMA: i64 = 2;
+
+/// The schema a tool set file declares: no tool set field is newer than
+/// schema 1.
+const TOOL_SET_SCHEMA: i64 = 1;
+
+/// The steps from each older tool library schema to the next, oldest first.
+/// Schema 2 only adds an optional field, so the step changes nothing.
+const LIBRARY_MIGRATIONS: [Migration; 1] = [|_, _| Ok(())];
+
+/// The lowest tool library schema that holds `tool`.
+fn tool_file_schema(tool: &LibraryTool) -> i64 {
+    if tool.tool.stick_out.is_some() { 2 } else { 1 }
+}
+
+/// Checks and reads one tool library file's text, saying when it was written
+/// by a newer version: a schema this build does not read, or a field it
+/// does not know (issue #864).
+fn read_library_file<T: serde::de::DeserializeOwned>(
+    path: &Path,
+    text: &str,
+) -> Result<T, ProjectError> {
+    parse(
+        path,
+        text,
+        FileKind::Tool,
+        &LIBRARY_MIGRATIONS,
+        LIBRARY_SCHEMA,
+    )
+    .map_err(|e| match e {
+        ProjectError::SchemaTooNew {
+            path,
+            found,
+            supported,
+        } => ProjectError::LibrarySchemaTooNew {
+            path,
+            found,
+            supported,
+        },
+        ProjectError::BadFile { path, reason } => match unknown_field(&reason) {
+            Some(field) => ProjectError::WrittenByNewer { path, field },
+            None => ProjectError::BadFile { path, reason },
+        },
+        other => other,
+    })
+}
+
+/// The field a parser message names as unknown: "unknown field `x`, ...".
+fn unknown_field(reason: &str) -> Option<String> {
+    let rest = reason.strip_prefix("unknown field `")?;
+    let end = rest.find('`')?;
+    Some(rest[..end].to_owned())
+}
 
 /// The folder inside a library that holds machine tool sets (TL-11).
 pub const TOOL_SETS_FOLDER: &str = "tool-sets";
@@ -90,7 +148,7 @@ impl LibraryTool {
 
 /// Reads one tool file's text. `path` names the file in messages.
 pub fn parse_tool_file(path: &Path, text: &str) -> Result<LibraryTool, ProjectError> {
-    let f: ToolFile = parse(path, text, FileKind::Tool, &[], LIBRARY_SCHEMA)?;
+    let f: ToolFile = read_library_file(path, text)?;
     let tool = LibraryTool {
         id: f.id,
         name: f.name,
@@ -105,7 +163,7 @@ pub fn parse_tool_file(path: &Path, text: &str) -> Result<LibraryTool, ProjectEr
 pub fn render_tool_file(tool: &LibraryTool) -> Result<String, ProjectError> {
     tool.validate()?;
     to_text(&ToolFile {
-        schema: LIBRARY_SCHEMA,
+        schema: tool_file_schema(tool),
         id: tool.id,
         name: tool.name.clone(),
         tool: tool.tool.clone(),
@@ -224,7 +282,7 @@ impl ToolSet {
 
 /// Reads one tool set file's text. `path` names the file in messages.
 pub fn parse_tool_set(path: &Path, text: &str) -> Result<ToolSet, ProjectError> {
-    let f: ToolSetFile = parse(path, text, FileKind::Tool, &[], LIBRARY_SCHEMA)?;
+    let f: ToolSetFile = read_library_file(path, text)?;
     let set = ToolSet {
         machine: f.machine,
         entries: f
@@ -248,7 +306,7 @@ pub fn parse_tool_set(path: &Path, text: &str) -> Result<ToolSet, ProjectError> 
 pub fn render_tool_set(set: &ToolSet) -> Result<String, ProjectError> {
     set.validate()?;
     to_text(&ToolSetFile {
-        schema: LIBRARY_SCHEMA,
+        schema: TOOL_SET_SCHEMA,
         machine: set.machine.clone(),
         tools: set
             .entries
