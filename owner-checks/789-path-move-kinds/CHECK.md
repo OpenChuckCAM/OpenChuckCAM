@@ -7,7 +7,7 @@
 
 ## What changed, and what to check
 
-Pull request #898 (lane PROJECT-UX-A, record PROJUX-A-2; draft, head `4664c82`). Each kind of toolpath move can now be shown or hidden. The kinds are **Cut**, **Link**, **Rapid**, and **Entry and exit**, which has **Plunge**, **Lead-in and ramp** and **Lead-out** under it. The choice is the same in three places, and it is kept for you across projects and restarts.
+Pull request #898 (lane PROJECT-UX-A, record PROJUX-A-2; release head `366c969`). Each kind of toolpath move can now be shown or hidden. The kinds are **Cut**, **Link**, **Rapid**, and **Entry and exit**, which has **Plunge**, **Lead-in and ramp** and **Lead-out** under it. The choice is the same in three places, and it is kept for you across projects and restarts.
 
 | Check | Expected result |
 | --- | --- |
@@ -56,7 +56,7 @@ openchuck-cli resave $P
 
 ## Steps
 
-Use a build of PR #898: the branch `claude/lane-project-ux-a-path-kinds`, at `4664c82` or later, or a nightly after it merges. The screenshots below are from `4664c82`. Use a 1920 × 1080 window for steps 1 to 9.
+Use a build of PR #898: the branch `claude/lane-project-ux-a-path-kinds`, at `366c969` or later (its release push), or a nightly after it merges. The screenshots below are from `4664c82` and `366c969` (see "As captured here"). Use a 1920 × 1080 window for steps 1 to 9.
 
 1. Copy [`project/`](project/) somewhere and open it with **File > Open project**. Click **3 Operations**, then **Generate stale (3)**, and wait for **Ready** (about a minute).
 2. The legend at the top left lists **Cut, Link, Rapid, Entry and exit** (with **Plunge, Lead-in and ramp, Lead-out**), each ticked (screenshot 2). Before this change the rows were labels only (screenshot 1).
@@ -97,15 +97,15 @@ Result: PASS / FAIL
 ## As captured here
 
 > [!NOTE]
-> **The chip changed after these captures.** The owner decided on 26 Nov 2026 that the chip is a plain label. Screenshots 3, 7, 8 and 9 still show the earlier "· Show all" text from `4664c82`. They will be re-captured from #898's release push, whose build has the chip as a label. Until then, read the chip's text in them without "· Show all".
+> **The chip is a plain label** (the owner's decision of 26 Nov 2026). Screenshots 3, 6, 7, 8 and 9 were re-captured from #898's release head `366c969`, where it is: they show "Hidden: Rapid, Lead-out" and "Hidden: Cut" with no "· Show all". On that build a click on the chip changed nothing, and **Show all moves** in the Show menu showed every kind again and the chip went.
 
-True captures from release builds on Xvfb with Mesa lavapipe. Screenshot 1 is `main` at `361613e` (0.63.0, before the change). Screenshots 2 to 11 are PR #898 at `4664c82`. Screenshots 1 to 9 are at 1920 × 1080 and 10 and 11 at 1366 × 768. Each "after" was taken by doing the step above, in order, in one session; screenshot 9 is after a real restart with the same settings folder. Smoothness was not judged here: software rendering says nothing about a real GPU. The `generate` output is in [`run/regenerate.txt`](run/regenerate.txt).
+True captures from release builds on Xvfb with Mesa lavapipe. Screenshot 1 is `main` at `361613e` (0.63.0, before the change). Screenshots 2, 4, 5, 10 and 11 are PR #898 at `4664c82` (the parts they show did not change); 3, 6, 7, 8 and 9 are PR #898 at its release head `366c969`, re-captured in one session in step order. Screenshots 1 to 9 are at 1920 × 1080 and 10 and 11 at 1366 × 768. Each "after" was taken by doing the step above, in order, in one session; screenshot 9 is after a real restart with the same settings folder. Smoothness was not judged here: software rendering says nothing about a real GPU. The `generate` output is in [`run/regenerate.txt`](run/regenerate.txt).
 
 1. Before (0.63.0): the legend's rows are labels only.
    ![Before: legend without tick boxes](screens/01-before-main-0.63.0.png)
 2. After: the legend with every kind ticked.
    ![Legend with tick boxes, all shown](screens/02-after-legend-all-shown.png)
-3. Rapid and Lead-out hidden: the chip, and Entry and exit partly ticked.
+3. Rapid and Lead-out hidden: the chip "Hidden: Rapid, Lead-out" (a plain label), and Entry and exit partly ticked.
    ![Rapid and Lead-out hidden, with the chip](screens/03-after-rapid-and-lead-out-hidden.png)
 4. Show (V): the Toolpath moves group.
    ![Show menu with Toolpath moves](screens/04-after-show-menu.png)
@@ -113,11 +113,11 @@ True captures from release builds on Xvfb with Mesa lavapipe. Screenshot 1 is `m
    ![View menu, Toolpath moves](screens/05-after-view-toolpath-moves.png)
 6. Simulate with Toolpaths ticked: the legend of moves at the top left.
    ![Simulate legend](screens/06-after-simulate-legend.png)
-7. Simulate with Toolpaths unticked: no legend, the chip stays.
+7. Simulate with Toolpaths unticked: no legend; the chip stays, as a label.
    ![Simulate, toolpaths off, chip stays](screens/07-after-simulate-toolpaths-off-chip-stays.png)
 8. Cut hidden.
    ![Cut hidden](screens/08-after-cut-hidden.png)
-9. After a restart: Cut still hidden.
+9. After a restart: Cut still hidden; the chip reads "Hidden: Cut".
    ![After restart, Cut still hidden](screens/09-after-restart-cut-still-hidden.png)
 10. 1366 × 768, Simulate: the legend collapsed to its button.
     ![1366x768 legend button](screens/10-after-simulate-1366x768-legend-collapsed.png)
