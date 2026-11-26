@@ -1,5 +1,29 @@
 # Changelog
 
+## 0.69.0
+
+- **Family release (0.69.0; PATH-QUALITY, PQ-4; issue #826, OI-2198; decision 0695, Q6, accepted):** `openchuck-path` changes output only for helical finishing as a spiral with adaptive spacing on (it measures the helix only outside the held regions' bands and the face turns); no API change; no change to this crate.
+
+## 0.68.0
+
+- **Family release (0.68.0; PATH-QUALITY, PQ-2; issue #786; decision 0695, accepted):** `openchuck-path` breaks its API (`Strategy::ramps_round_the_part` is removed, and `params::EntryParameters` gains the public field `ramp_depth_per_traverse`) and changes ramp output; no change to this crate.
+
+## 0.67.0
+
+- **Family release (0.67.0; SEV1-929, #948 follow-up; decision 0692 amendment 2, accepted):** `openchuck-path` changes output (on a controller that counts A in its F word, a fed turn of A with the tool tip fixed is timed for A's counted travel where an end's A is not on three decimals). No change in this crate.
+
+## 0.66.0
+
+- **Family release (0.66.0; SEV1-929 follow-up; issue #943; decision 0692 amendment 1, accepted):** `openchuck-path` changes output (a fed turn of A with the tool tip fixed is timed for the line the post may write for it, and every fed move whose change of X and Y is below the written band, none included, is timed for the lower of the linear and Z limits). No change in this crate.
+
+## 0.65.0
+
+- **Family release (0.65.0; MOPUP-1, PR M3; issues #887 and #895):** `openchuck-path` breaks its API (`swarf::Limits` gains the public field `least_lift_along_axis`) and changes the swarf face note's reach past the rulings for a tapered tool; restricted Facing refuses a host keep-out with a span the grip does not give. No change in this crate.
+
+## 0.64.0
+
+- **Family release (0.64.0; SEV1-929; issue #929; decision 0692, accepted):** `openchuck-path` changes output (a fed move whose small X or Y change can be lost when the post writes A to three decimals is timed for the lower of the linear and Z limits, and the line's written allowance grows by the shift writing A gives its end points, so the F word stays within the limit gate 1 applies). No change in this crate.
+
 ## Unreleased (DEPS-UPDATES)
 
 - **Changed (template engine):** post templates render with `minijinja` 3.1.0 (was 3.0.3). No public API change. Built-in output does not change. A template a user wrote may see the engine's changes: rendering uses slightly more fuel (filters and operators now count; the budget is unchanged and the built-in posts use about a tenth of it), an error while writing `{{ ... }}` points at the whole expression, and several filters behave differently for unusual input (`max` and `groupby` keep the first of equal items; `none` and undefined values in `first`, `last`, `length` and `join`; `2 ** -1` is 0.5; `format` prints floats as Python's `str()`; `sort` by several attributes ignores case). A template that uses `max` or `groupby` on items that compare equal (including equal ignoring letter case) can render a different item than before, so a post a user wrote should have its output checked again after this update.
