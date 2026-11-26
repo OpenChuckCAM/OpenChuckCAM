@@ -40,7 +40,7 @@ On a STEP part, these roles take face sets, except **Guide edge**, which takes a
 7. Click **Save as new set**. The set appears in the project panel, and the Inspector shows the set itself.
 
 <figure>
-<a href="images/blisk_selection_sets/02-face-set.png"><img src="images/blisk_selection_sets/02-face-set.png" width="1920" height="1080" alt="The set Hub floor is listed under Selection sets with 1 faces and drawn in green on the part. The Inspector shows Hub floor, On models/blisk.step, No operation uses it, Change this set on the part with Shift-click adds and Ctrl-click takes away, Pick again, and the colours."></a>
+<a href="images/blisk_selection_sets/02-face-set.png"><img src="images/blisk_selection_sets/02-face-set.png" width="1920" height="1080" alt="The set Hub floor is listed under Selection sets with 1 face and drawn in green on the part. The Inspector shows Hub floor, On models/blisk.step, No operation uses it, Change this set on the part with Shift-click adds and Ctrl-click takes away, Pick again, and the colours."></a>
 <figcaption><b>Figure 2.</b> A saved set is drawn in its own colour. Shift-click adds faces to it and Ctrl-click takes them away; each change makes every operation that uses it out of date.</figcaption>
 </figure>
 
@@ -70,7 +70,7 @@ In the same way, make two more face sets with **Faces** and **Select one (Q)**:
 | `Rim` | the plain round part of the disc at the left | face 1, the outer cylinder: the rim of the disc and the tips of the blades |
 
 <figure>
-<a href="images/blisk_selection_sets/04-four-sets.png"><img src="images/blisk_selection_sets/04-four-sets.png" width="1920" height="1080" alt="Four sets under Selection sets: Hub floor 1 faces, Floor guide 1 edges, Blade wall 1 faces and Rim 1 faces. The Rim set is chosen and drawn in green over the rim of the disc and along the tips of all the blades."></a>
+<a href="images/blisk_selection_sets/04-four-sets.png"><img src="images/blisk_selection_sets/04-four-sets.png" width="1920" height="1080" alt="Four sets under Selection sets: Hub floor 1 face, Floor guide 1 edge, Blade wall 1 face and Rim 1 face. The Rim set is chosen and drawn in green over the rim of the disc and along the tips of all the blades."></a>
 <figcaption><b>Figure 4.</b> One face can reach further than it looks: <b>Rim</b> is one cylinder that runs over the disc and the tips of every blade.</figcaption>
 </figure>
 
@@ -100,7 +100,7 @@ A check set keeps the tool the operation's stock to leave away from its faces. H
 
 The Results say:
 
-- "face 20 is cut from its guide, edge 65 (49.1 mm long), towards the opposite side in 17 passes up to 0.953 mm apart along the face". The guide is the edge of the edge set.
+- "face 20 is cut from its guide, edge 65 (49.1 mm long), towards the opposite side in 17 passes up to 0.953 mm apart along the face; 12 of them cut ...". The guide is the edge of the edge set.
 - "face-flow finishing cannot reach 1 area of the selected faces, which stay uncut: X 37.990 to 77.990 near A 282 (208.6 mm2), a neighbouring face is in the way of the tool".
 - "Floor finish: 5196 mm³ removed in 2133 moves".
 
@@ -167,7 +167,7 @@ A face set leaves a wall or a floor out
 : An operation cuts only the faces in **Cut on**, but its tool still reaches the faces next to them. With nothing in **Avoid**, the swarf above warns "swarf on face 19 cuts 0.023 mm into face 20, which meets it along the ends of its rulings ... put face 20 in an avoid set on Cut short, which lifts the tool clear of it, or set a negative Tip extension". Put the face it names in an avoid or check set, as in step 5. For face-flow finishing, a face beside the floor that is in the way shows as the unreached area; cut that face with another operation, such as swarf for a wall.
 
 A selection reaches a held region
-: In this project nothing is held. If you click **Workholding** under **Setup 1**, tick **Held at the start**, keep the **Grip length** of 10 mm and click **Apply**, the setup says "The chuck grips 9.000 mm of the part here (X 27.990 to 36.990 mm), so that length is never machined. Shorten the grip if it should be cut.", and Messages repeat it: "The grip at the start of the stock covers 9.000 mm of the part (X 27.990 to 36.990), which is never machined; shorten the grip if that length should be cut." The **Rim** set reaches into that length. An operation on it does not cut there, and its Results say "Nothing within one tool radius of the held region at the start of the stock is cut: no part of the tool reaches over the gripped length of the stock." A set does not override a [held region](../glossary.md#held-region). Shorten the grip or move the part if that length must be cut.
+: In this project nothing is held. If you click **Workholding** under **Setup 1**, tick **Held at the start**, keep the **Grip length** of 10 mm and click **Apply**, the setup says "The chuck grips 9.000 mm of the part here (X 27.990 to 36.990 mm), so that length is never machined. Shorten the grip if it should be cut.", and Messages repeat it: "The grip at the start of the stock covers 9.000 mm of the part (X 27.990 to 36.990), which is never machined; shorten the grip if that length should be cut." The **Rim** set reaches into that length. An operation on it does not cut there, and its Results have a note: "No part of the tool comes within 0.500 mm of the held region at the start of the stock, so the surface beside it is not cut there, and corners beside it may keep more. The setup's Workholding section shows where the tools keep clear." A set does not override a [held region](../glossary.md#held-region). Shorten the grip or move the part if that length must be cut.
 
 A set of the wrong kind
 : Lists such as **Cut on** of swarf and **Avoid** offer every set, edge sets too. An edge set where faces are needed is refused before anything is made. In **Cut on** of swarf: "Only edge following follows chosen edges, and face-flow finishing takes them as its guide. Take the edge set 'Floor guide' out of the operation, or use one of those." In **Avoid**: "Avoid takes faces, not edges, on a STEP part. Take the edge set 'Floor guide' out of Avoid, and select faces instead." Click the **×** on the set to take it out.

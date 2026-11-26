@@ -36,6 +36,14 @@ use crate::AppError;
 
 /// The refusal of `operation` by the check `topic`, for `what` (decision
 /// record 0644).
+/// Why an operation with no tool cannot be generated. The project panel's
+/// tool chip says the same (issue #790).
+pub const NO_TOOL: &str = "it has no tool";
+
+/// Why an operation whose tool is not in the project's tool list cannot be
+/// generated. The project panel's tool chip says the same (issue #790).
+pub const TOOL_MISSING: &str = "its tool is missing";
+
 fn missing(operation: &Operation, topic: &str, what: &str) -> AppError {
     AppError::refused(topic, &operation.name, what)
 }
@@ -234,6 +242,19 @@ pub fn parameter_values(
         values.insert(
             extend::parameter::EXTEND_DISTANCE.to_owned(),
             ParameterValue::Number(extend::default_distance(snapshot.tool.diameter.0)),
+        );
+    }
+    // Pencil clean-up does not cut a stretch shorter than the tool's
+    // diameter where the operation sets no shortest cut (decision record
+    // 0684 item 3): a shorter one is a peck, not a cut along the
+    // corner.
+    if operation.strategy == pencil::NAME
+        && !values.contains_key(pencil::pencil_parameter::MIN_LENGTH)
+        && let Some(snapshot) = snapshot
+    {
+        values.insert(
+            pencil::pencil_parameter::MIN_LENGTH.to_owned(),
+            ParameterValue::Number(snapshot.tool.diameter.0),
         );
     }
     // A required value that neither the operation nor the cutting data gives:
@@ -640,18 +661,12 @@ fn generate_unnamed(
     })?;
     let tool_id = operation
         .tool
-        .ok_or_else(|| missing(operation, crate::lead_in::topic::TOOL, "it has no tool"))?;
+        .ok_or_else(|| missing(operation, crate::lead_in::topic::TOOL, NO_TOOL))?;
     let snapshot = project
         .tools()
         .iter()
         .find(|t| t.id == tool_id)
-        .ok_or_else(|| {
-            missing(
-                operation,
-                crate::lead_in::topic::TOOL,
-                "its tool is missing",
-            )
-        })?;
+        .ok_or_else(|| missing(operation, crate::lead_in::topic::TOOL, TOOL_MISSING))?;
     let part_id = setup.part.ok_or_else(|| {
         missing(
             operation,
@@ -1043,9 +1058,16 @@ fn generate_unnamed(
     // decision 0056); on a mesh part's chosen edges it follows only them (OP-08,
     // OI-204; decision record 0066).
     let brep_edges = match (&placed.brep, &brep_choice) {
-        (Some(brep), Some(choice)) if operation.strategy == edge_following::NAME => Some(
-            brep_curves(operation, brep, &choice.edges, &parameters, edges)?,
-        ),
+        (Some(brep), Some(choice)) if operation.strategy == edge_following::NAME => {
+            Some(brep_curves(
+                operation,
+                brep,
+                &choice.edges,
+                &parameters,
+                edges,
+                2.0 * profile.cutting_radius(),
+            )?)
+        }
         _ => None,
     };
     let registry_strategy = strategy;
@@ -1078,7 +1100,10 @@ fn generate_unnamed(
         (None, Some(segments)) => {
             with_edges = EdgeFollowing::with_source(
                 ChosenSegments::new(segments)?
-                    .with_min_length(parameters.number(edge_following::parameter::MIN_LENGTH)?)
+                    .with_min_length(parameters.length_or_tool(
+                        edge_following::parameter::MIN_LENGTH,
+                        2.0 * profile.cutting_radius(),
+                    )?)
                     .shared(),
             );
             &with_edges
@@ -1288,8 +1313,10 @@ fn generate_unnamed(
         // In the one form, the owner's words after the lead-in (decision
         // record 0644 item 3).
         notes.push(
-            openchuck_path::Notice::information("Facing covered the end faces it was asked to.")
-                .about(crate::lead_in::topic::FACING),
+            openchuck_path::Notice::information(crate::facing::completion_note(
+                &proof.description()?,
+            ))
+            .about(crate::lead_in::topic::FACING),
         );
         if proof.description()?.extent != openchuck_path::facing::extents::FacingExtent::WholeStock
         {
@@ -1320,7 +1347,8 @@ fn generate_unnamed(
 /// operation's Exact STEP surface contact is on (`on`) and applies to the
 /// tool, or the part's tessellation, made at the import's deflection, and
 /// why. `None` for the strategies that read the exact faces or edges
-/// themselves: radial drilling, swarf and edge following.
+/// themselves: radial drilling, swarf, edge following and face-flow
+/// finishing.
 fn contact_note(
     strategy: &dyn Strategy,
     name: &str,
@@ -1541,16 +1569,42 @@ const SWARF_NEEDS_FACES: &str = "swarf needs a face set: select the ruled walls 
 const FACE_FLOW_NEEDS_FACES: &str = "Face-flow finishing needs a face set: select the faces to \
      cut, save them as a set and put it in Cut on; an edge set there is the guide";
 
+/// Why an operation of `strategy` with no face set in Cut on is refused, for
+/// the strategies that cut only the faces the user chose: swarf (decision
+/// 0111 item 1) and face-flow finishing (OP-28); `None` for the others.
+fn needs_chosen_faces(strategy: &str) -> Option<&'static str> {
+    match strategy {
+        swarf::NAME => Some(SWARF_NEEDS_FACES),
+        face_flow::NAME => Some(FACE_FLOW_NEEDS_FACES),
+        _ => None,
+    }
+}
+
+/// The Geometry section's line on what an empty Cut on means for an
+/// operation of `strategy` (OP-02; issue #614): the whole part, or, for a
+/// strategy that cuts only the faces the user chose, that it is not
+/// generated.
+#[must_use]
+pub fn empty_cut_on_hint(strategy: &str) -> &'static str {
+    match strategy {
+        swarf::NAME => {
+            "Swarf cuts only the faces you choose: with no face set in Cut on, the operation is \
+             not generated."
+        }
+        face_flow::NAME => {
+            "Face-flow finishing cuts only the faces you choose: with no face set in Cut on, the \
+             operation is not generated."
+        }
+        _ => "With nothing in Cut on, the operation cuts the whole part.",
+    }
+}
+
 /// Why `operation` cannot run yet when its strategy is swarf (decision 0111
 /// item 1) or face-flow finishing (OP-28) on a STEP part and none of its
 /// selection sets is a face set, for the parameter form. Whether the faces
 /// suit swarf is judged when it is generated ([`swarf_compatibility`]).
 pub(crate) fn needs_faces(project: &Project, operation: &Operation) -> Option<String> {
-    let reason = match operation.strategy.as_str() {
-        swarf::NAME => SWARF_NEEDS_FACES,
-        face_flow::NAME => FACE_FLOW_NEEDS_FACES,
-        _ => return None,
-    };
+    let reason = needs_chosen_faces(&operation.strategy)?;
     if !on_step_part(project, operation) {
         return None;
     }
@@ -1657,7 +1711,9 @@ fn check_travel_along(
 
 /// The default of parameter `name` of `operation` where the application's
 /// differs from the strategy's schema: edge following on a STEP part takes
-/// the B-rep crease angle (decision 0056).
+/// the B-rep crease angle (decision 0056); the distance past the stock
+/// follows the tool (decision 0212); pencil clean-up's shortest cut is the
+/// tool's diameter (decision record 0684 item 3).
 pub(crate) fn default_override(
     project: &Project,
     operation: &Operation,
@@ -1667,6 +1723,11 @@ pub(crate) fn default_override(
         let tool = operation.tool?;
         let snapshot = project.tools().iter().find(|t| t.id == tool)?;
         return Some(extend::default_distance(snapshot.tool.diameter.0));
+    }
+    if operation.strategy == pencil::NAME && name == pencil::pencil_parameter::MIN_LENGTH {
+        let tool = operation.tool?;
+        let snapshot = project.tools().iter().find(|t| t.id == tool)?;
+        return Some(snapshot.tool.diameter.0);
     }
     (operation.strategy == edge_following::NAME
         && name == edge_following::parameter::CREASE_ANGLE
@@ -1996,13 +2057,12 @@ fn brep_selection(
     choice.edges.sort_unstable();
     choice.edges.dedup();
     // Swarf cuts only the walls the user chose, never every face of the part
-    // (the owner's change to decision 0061 item 1, decision 0111 item 1).
-    if operation.strategy == swarf::NAME && choice.faces.is_empty() {
-        return Err(fail(SWARF_NEEDS_FACES.to_owned()));
-    }
-    // Face-flow finishing cuts only the faces the user chose (OP-28).
-    if operation.strategy == face_flow::NAME && choice.faces.is_empty() {
-        return Err(fail(FACE_FLOW_NEEDS_FACES.to_owned()));
+    // (the owner's change to decision 0061 item 1, decision 0111 item 1);
+    // face-flow finishing only the faces the user chose (OP-28).
+    if let Some(reason) = needs_chosen_faces(&operation.strategy)
+        && choice.faces.is_empty()
+    {
+        return Err(fail(reason.to_owned()));
     }
     // A wall that is cut cannot also be kept clear of (decision 0176).
     for (ids, role) in [(&operation.avoid, "avoid"), (&operation.check, "check")] {
@@ -2086,7 +2146,8 @@ fn limit_faces(
 /// The edges edge following follows on a STEP part: the chosen edges, or
 /// every real edge, at the operation's crease angle (the B-rep default of
 /// [`openchuck_path::brep_edges::DEFAULT_CREASE_DEGREES`] when the operation
-/// does not set one) and its shortest chain (decision 0056); at a crease
+/// does not set one) and its shortest chain (decision 0056; a length or the
+/// tool's diameter `tool_diameter`, issue #854); at a crease
 /// angle of zero when `options` keeps tangent edges (decision 0057).
 fn brep_curves(
     operation: &Operation,
@@ -2094,6 +2155,7 @@ fn brep_curves(
     edges: &[EdgeId],
     parameters: &openchuck_path::params::Parameters,
     options: EdgeOptions,
+    tool_diameter: f64,
 ) -> Result<Arc<dyn CurveSource>, AppError> {
     use openchuck_path::edge_following::parameter::{CREASE_ANGLE, MIN_LENGTH};
     let source = if edges.is_empty() {
@@ -2110,7 +2172,7 @@ fn brep_curves(
     };
     Ok(source
         .with_crease(crease)
-        .with_min_length(parameters.number(MIN_LENGTH)?)
+        .with_min_length(parameters.length_or_tool(MIN_LENGTH, tool_diameter)?)
         .shared())
 }
 
@@ -2146,7 +2208,7 @@ fn keep_out_of(
 
 /// The largest radius of `tool`, its cutting profile or its shank: how far
 /// its middle keeps from a held region (decision 0161).
-fn tool_reach(
+pub(crate) fn tool_reach(
     profile: &openchuck_types::tool::profile::RevolvedProfile,
     tool: &openchuck_types::tool::Tool,
 ) -> f64 {
@@ -4009,10 +4071,11 @@ mod tests {
     }
 
     #[test]
-    fn req_op_27_req_ui_07_exact_contact_is_shown_next_to_tolerance_on_a_step_part_only() {
-        // Decision 0526: one row in Pattern and tolerance, after Tolerance,
-        // on a STEP part; a mesh part has no such row. No problem is shown
-        // for a ball end.
+    fn req_op_27_req_ui_07_exact_contact_is_shown_in_advanced_on_a_step_part_only() {
+        // Decision 0526: one row, after Tolerance in the schema's order, on a
+        // STEP part; a mesh part has no such row. No problem is shown for a
+        // ball end. Decision record 0684 item 4 (the owner's answer
+        // of 23 Nov 2026): the row is in Advanced, for every strategy.
         let registry = Registry::builtin();
         let step = bar_fixture(openchuck_path::axial::NAME, "bar.step");
         let form = crate::form::parameter_form(&step.project, &registry, step.operation).unwrap();
@@ -4021,12 +4084,56 @@ mod tests {
         assert_eq!(names.get(at + 1), Some(&exact_contact(true).0), "{names:?}");
         let field = &form.fields[at + 1];
         assert_eq!(field.label, "Exact STEP surface contact");
-        assert_eq!(field.section, crate::form::FormSection::PatternAndTolerance);
+        assert_eq!(field.section, crate::form::FormSection::Advanced);
         assert_eq!(field.value, Some(Value::Flag(false)));
         assert_eq!(field.problem, None);
         let mesh = bar_fixture(openchuck_path::axial::NAME, "bar.stl");
         let form = crate::form::parameter_form(&mesh.project, &registry, mesh.operation).unwrap();
         assert!(form.fields.iter().all(|f| f.name != exact_contact(true).0));
+    }
+
+    #[test]
+    fn req_op_09_req_ui_07_the_shortest_cut_starts_at_the_tools_diameter() {
+        // Decision record 0684 item 3: pencil's Shortest cut is,
+        // where the operation sets none, the tool's diameter, in the form
+        // (as its default, in Advanced) and when the path is made; a value
+        // the operation sets is kept.
+        let registry = Registry::builtin();
+        let f = shaft_fixture();
+        let form = crate::form::parameter_form(&f.project, &registry, f.operation).unwrap();
+        let field = form
+            .fields
+            .iter()
+            .find(|field| field.name == pencil::pencil_parameter::MIN_LENGTH)
+            .unwrap();
+        assert_eq!(field.label, "Shortest cut");
+        assert_eq!(field.section, crate::form::FormSection::Advanced);
+        assert_eq!(field.value, Some(Value::Number(BALL)));
+        assert_eq!(field.source, crate::form::Source::Default);
+        let op = f.project.operation(f.operation).unwrap();
+        let resolved = parameter_values(&f.project, op, &registry).unwrap();
+        assert_eq!(
+            resolved.values.get(pencil::pencil_parameter::MIN_LENGTH),
+            Some(&openchuck_path::ParameterValue::Number(BALL))
+        );
+        let mut set = op.clone();
+        set.parameters.insert(
+            pencil::pencil_parameter::MIN_LENGTH.to_owned(),
+            Value::Number(0.5),
+        );
+        let resolved = parameter_values(&f.project, &set, &registry).unwrap();
+        assert_eq!(
+            resolved.values.get(pencil::pencil_parameter::MIN_LENGTH),
+            Some(&openchuck_path::ParameterValue::Number(0.5))
+        );
+        // Edge following's shortest chain, of the same key, keeps its own
+        // default.
+        let mut edge = op.clone();
+        edge.strategy = edge_following::NAME.to_owned();
+        assert_eq!(
+            default_override(&f.project, &edge, edge_following::parameter::MIN_LENGTH),
+            None
+        );
     }
 
     /// The shouldered shaft of the testkit (one sharp inside corner at X 12,
@@ -4850,6 +4957,32 @@ mod tests {
             notes.contains("face 0 is cut from its guide, edge 2"),
             "{notes}"
         );
+    }
+
+    /// Issue #614: the Geometry section's line on an empty Cut on matches
+    /// what generation does: the whole part for every strategy that cuts
+    /// one, and "not generated" for those refused with no face set.
+    #[test]
+    fn req_op_02_req_op_28_the_empty_cut_on_line_matches_the_refusal() {
+        let registry = Registry::builtin();
+        for name in registry.iter().map(|s| s.name()) {
+            let hint = empty_cut_on_hint(name);
+            if needs_chosen_faces(name).is_some() {
+                assert!(
+                    hint.contains("cuts only the faces you choose")
+                        && hint.contains("not generated")
+                        && !hint.contains("whole part"),
+                    "{name}: {hint}"
+                );
+            } else {
+                assert_eq!(
+                    hint, "With nothing in Cut on, the operation cuts the whole part.",
+                    "{name}"
+                );
+            }
+        }
+        assert!(empty_cut_on_hint(swarf::NAME).starts_with("Swarf "));
+        assert!(empty_cut_on_hint(face_flow::NAME).starts_with("Face-flow finishing "));
     }
 
     #[test]

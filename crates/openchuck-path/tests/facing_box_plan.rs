@@ -390,9 +390,11 @@ fn req_op_24_shared_description_preserves_legacy_nominal_planes_and_full_round_s
         desc.geometry,
         FacingGeometry::Round {
             diameter: 5.,
-            x_extent: (8., 52.)
+            x_extent: (8., 52.),
+            ..
         }
     ));
+    assert!(desc.geometry.unfaced().is_empty());
     values.insert("shape".into(), ParameterValue::Text("end".into()));
     assert!(
         describe(&setup, &Facing.resolve_parameters(&values).unwrap())

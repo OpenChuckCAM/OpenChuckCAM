@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased (MOPUP-1, PR B1; issue #846; not breaking)
+
+- **Faster (#846 item 4):** the deepest-cut tally of a rapid's batch is made only for the stock rows the rapid cuts, so a rapid in the clear allocates and scans nothing. Results are unchanged, and the same on any thread count.
+
+## 0.61.0 (PENCIL-REST; issue #632; decision 0684, accepted; not breaking)
+
+- **Tests only:** pencil clean-up with a flat end in the sharp corner of the closed-form shouldered shaft, after an axial tapered-ball finish, against the simulated stock (one pass right round, off and on, clear of the wall, the corner cleaned, no overcut added), and the shortest cut's refusal. No change to this crate's code.
+
 ## 0.57.0
 
 - **Breaking, changed output (0.57.0; SIM-FINISH, issue #801; decision 0661, accepted, option C):** `RapidCut` gains the public fields `depth` (the most material the rapid removed from any one column of the stock, mm: how deep it went in) and `cell` (the stock's finer cell, mm), and the method `deeper_than_cell`. A rapid no deeper than one cell is within what the simulation resolves; deeper, it is a fault. Every rapid that removes material is still listed in `GroupResult::rapid_cuts`. A struct literal of `RapidCut` must give the two new fields.

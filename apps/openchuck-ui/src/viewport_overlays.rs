@@ -10,7 +10,8 @@
 
 use crate::focus::Tip as _;
 use eframe::egui::{self, Color32, Pos2, Rect, Stroke, pos2, vec2};
-use openchuck_app::pathview::DeviationBand;
+use openchuck_app::pathview::{DeviationBand, ShownMoves, move_name};
+use openchuck_app::playback::MoveKind;
 use openchuck_app::scene::{SceneRole, SceneView};
 use openchuck_viewport::{Camera, StandardView};
 
@@ -80,8 +81,14 @@ pub enum LegendEntry {
     Link,
     /// Rapid moves.
     Rapid,
-    /// Entry and exit moves.
+    /// Entry and exit moves: the tick box of the three below.
     Entry,
+    /// Plunges, under Entry and exit (issue #789).
+    Plunge,
+    /// Lead-ins and ramps, under Entry and exit (issue #789).
+    LeadIn,
+    /// Lead-outs, under Entry and exit (issue #789).
+    LeadOut,
     /// The working selection.
     Selected,
     /// Avoid surfaces.
@@ -101,13 +108,153 @@ impl LegendEntry {
             Self::Cut => "Cut",
             Self::Link => "Link",
             Self::Rapid => "Rapid",
-            Self::Entry => "Entry",
+            Self::Entry => openchuck_app::pathview::ENTRY_NAME,
+            Self::Plunge => move_name(MoveKind::Plunge),
+            Self::LeadIn => move_name(MoveKind::LeadIn),
+            Self::LeadOut => move_name(MoveKind::LeadOut),
             Self::Selected => "Selected",
             Self::Avoid => "Avoid",
             Self::CutterSweep => "Cutter sweep",
             Self::HeldRegion => "Held region",
             Self::Tab => "Tab",
         }
+    }
+}
+
+impl LegendEntry {
+    /// The kinds of toolpath move the entry's tick box shows or hides (issue
+    /// #789; decision record 0693), or `None` for an entry with no
+    /// tick box.
+    pub fn moves(self) -> Option<&'static [MoveKind]> {
+        match self {
+            Self::Cut => Some(&[MoveKind::Cutting]),
+            Self::Link => Some(&[MoveKind::Linking]),
+            Self::Rapid => Some(&[MoveKind::Rapid]),
+            Self::Entry => Some(&ShownMoves::ENTRY),
+            Self::Plunge => Some(&[MoveKind::Plunge]),
+            Self::LeadIn => Some(&[MoveKind::LeadIn]),
+            Self::LeadOut => Some(&[MoveKind::LeadOut]),
+            _ => None,
+        }
+    }
+
+    /// Whether the row sits under Entry and exit.
+    fn indented(self) -> bool {
+        matches!(self, Self::Plunge | Self::LeadIn | Self::LeadOut)
+    }
+}
+
+/// How a legend tick box reads: every kind it covers shown, some, or none.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Tick {
+    /// Every kind shown.
+    On,
+    /// Some shown, some hidden (Entry and exit only).
+    Partly,
+    /// Every kind hidden.
+    Off,
+}
+
+/// The tick of `kinds` in `moves`.
+pub fn tick(moves: ShownMoves, kinds: &[MoveKind]) -> Tick {
+    let shown = kinds.iter().filter(|k| moves.shows(**k)).count();
+    match shown {
+        0 => Tick::Off,
+        n if n == kinds.len() => Tick::On,
+        _ => Tick::Partly,
+    }
+}
+
+/// What a press on a legend tick box does: a ticked or partly ticked box
+/// hides its kinds, an empty one shows them.
+pub fn toggle(moves: &mut ShownMoves, kinds: &[MoveKind]) {
+    let show = tick(*moves, kinds) == Tick::Off;
+    for kind in kinds {
+        moves.set(*kind, show);
+    }
+}
+
+/// The id of a legend tick box, so it is a Tab stop of its own and its focus
+/// ring can be drawn (UI-14).
+pub(crate) fn tick_id(entry: LegendEntry) -> egui::Id {
+    egui::Id::unique(("path legend tick", entry.name()))
+}
+
+/// Where legend row `i` of the box `r` draws its tick box, if it has one,
+/// and its swatch: a row of moves has a tick box before its swatch, and the
+/// three kinds under Entry and exit are indented (issue #789).
+fn row_parts(r: Rect, i: usize, entry: LegendEntry) -> (Option<Rect>, Rect) {
+    let y = r.top() + 6.0 + ROW * i as f32;
+    if entry.moves().is_none() {
+        return (
+            None,
+            Rect::from_min_size(pos2(r.left() + 8.0, y + 3.0), vec2(18.0, 10.0)),
+        );
+    }
+    let indent = if entry.indented() { TICK_INDENT } else { 0.0 };
+    let t = Rect::from_min_size(pos2(r.left() + 8.0 + indent, y + 3.0), vec2(TICK, TICK));
+    let swatch = Rect::from_min_size(pos2(t.right() + 6.0, y + 4.0), vec2(18.0, 10.0));
+    (Some(t), swatch)
+}
+
+/// The rest of a legend tick box's tooltip, after the row's name.
+pub const MOVES_TIP: &str = "moves: shown or hidden in the view only. The G-code, the simulation \
+     and the checks do not change.";
+
+/// The size of a legend tick box, and the indent of the rows under Entry
+/// and exit.
+const TICK: f32 = 12.0;
+const TICK_INDENT: f32 = 14.0;
+
+/// The room a legend row of moves needs before its label: the margin, the
+/// indent, the tick box, the swatch and their gaps.
+fn move_row_lead(entry: LegendEntry) -> f32 {
+    8.0 + if entry.indented() { TICK_INDENT } else { 0.0 } + TICK + 6.0 + 18.0 + 8.0
+}
+
+/// A legend tick box: filled with a tick when every kind it covers is shown,
+/// a bar when some are, empty when none, so the state is not by colour
+/// alone; with the focus ring while it has the keyboard.
+fn paint_tick(painter: &egui::Painter, r: Rect, state: Tick, focused: bool) {
+    let accent = Color32::from_rgb(0x3d, 0x8b, 0xff);
+    match state {
+        Tick::On => {
+            painter.rect_filled(r, 2.0, accent);
+            painter.add(egui::Shape::line(
+                vec![
+                    r.left_center() + vec2(2.5, 0.0),
+                    pos2(r.center().x - 1.0, r.bottom() - 3.0),
+                    r.right_top() + vec2(-2.5, 3.0),
+                ],
+                Stroke::new(1.6, Color32::WHITE),
+            ));
+        }
+        Tick::Partly => {
+            painter.rect_filled(r, 2.0, accent);
+            painter.line_segment(
+                [
+                    r.left_center() + vec2(3.0, 0.0),
+                    r.right_center() - vec2(3.0, 0.0),
+                ],
+                Stroke::new(1.8, Color32::WHITE),
+            );
+        }
+        Tick::Off => {
+            painter.rect_stroke(
+                r,
+                2.0,
+                Stroke::new(1.0, roles::OVERLAY_TEXT),
+                egui::StrokeKind::Inside,
+            );
+        }
+    }
+    if focused {
+        painter.rect_stroke(
+            r.expand(2.0),
+            3.0,
+            Stroke::new(2.0, crate::theme::DARK.accent),
+            egui::StrokeKind::Outside,
+        );
     }
 }
 
@@ -132,6 +279,9 @@ pub fn path_legend(view: &SceneView) -> Vec<LegendEntry> {
         LegendEntry::Link,
         LegendEntry::Rapid,
         LegendEntry::Entry,
+        LegendEntry::Plunge,
+        LegendEntry::LeadIn,
+        LegendEntry::LeadOut,
         LegendEntry::Selected,
         LegendEntry::Avoid,
     ];
@@ -143,11 +293,57 @@ pub fn path_legend(view: &SceneView) -> Vec<LegendEntry> {
     out
 }
 
-/// The path legend's rows: its entries, and the shown set when there is one.
+/// The rows of moves alone: the path legend on Simulate (issue #789; the
+/// owner's answer P2b B), where the selection roles do not apply and the
+/// held regions, tabs, the shown set and the unreachable areas are listed in
+/// the colour scale's box.
+pub const MOVE_ENTRIES: [LegendEntry; 7] = [
+    LegendEntry::Cut,
+    LegendEntry::Link,
+    LegendEntry::Rapid,
+    LegendEntry::Entry,
+    LegendEntry::Plunge,
+    LegendEntry::LeadIn,
+    LegendEntry::LeadOut,
+];
+
+/// Whether the path legend is shown on this step: always on Operations; on
+/// Simulate only while Toolpaths is ticked in its Show choices (the owner's
+/// answer P2b B), since with the toolpaths off there are no lines to name.
+pub fn has_path_legend(viewport: &Viewport) -> bool {
+    match viewport.step() {
+        ViewStep::Operations => true,
+        ViewStep::Simulate => viewport.simulate_show().toolpath,
+        _ => false,
+    }
+}
+
+/// The path legend's entries on the view's step: on Operations
+/// [`path_legend`]; on Simulate the rows of moves only.
+pub fn legend_entries(viewport: &Viewport) -> Vec<LegendEntry> {
+    if viewport.step() == ViewStep::Simulate {
+        MOVE_ENTRIES.to_vec()
+    } else {
+        path_legend(viewport.view())
+    }
+}
+
+/// Whether the legend box also lists the shown set and the unreachable
+/// areas: on Operations; on Simulate those are in the colour scale's box.
+fn legend_lists_areas(viewport: &Viewport) -> bool {
+    viewport.step() != ViewStep::Simulate
+}
+
+/// The path legend's rows: its entries, and the shown set and unreachable
+/// areas when the legend lists them.
 fn legend_rows(viewport: &Viewport) -> f32 {
-    path_legend(viewport.view()).len() as f32
-        + f32::from(u8::from(viewport.legend_set.is_some()))
-        + viewport.unreached_legend().len() as f32
+    let areas = if legend_lists_areas(viewport) {
+        f32::from(u8::from(viewport.legend_set.is_some()))
+            + viewport.unreached_legend().len() as f32
+    } else {
+        0.0
+    };
+    legend_entries(viewport).len() as f32 + areas
 }
 
 /// A legend swatch for the surfaces the tool could not reach: the part's
@@ -406,6 +602,30 @@ fn area_rows_width(ui: &egui::Ui, viewport: &Viewport, rect: Rect) -> f32 {
     (8.0 + 18.0 + 8.0 + label + 8.0 + 1.0).min(rect.width() - 2.0 * MARGIN)
 }
 
+/// How wide the legend's rows of moves need the box: the longest of them,
+/// with its tick box, swatch and margins (issue #789).
+fn move_rows_width(ui: &egui::Ui) -> f32 {
+    let font = egui::FontId::proportional(12.0);
+    [
+        LegendEntry::Cut,
+        LegendEntry::Link,
+        LegendEntry::Rapid,
+        LegendEntry::Entry,
+        LegendEntry::Plunge,
+        LegendEntry::LeadIn,
+        LegendEntry::LeadOut,
+    ]
+    .into_iter()
+    .map(|e| {
+        let label = ui
+            .fonts_mut(|f| f.layout_no_wrap(e.name().to_owned(), font.clone(), roles::OVERLAY_TEXT))
+            .size()
+            .x;
+        move_row_lead(e) + label + 8.0 + 1.0
+    })
+    .fold(0.0_f32, f32::max)
+}
+
 /// The legend's box and the view cube's, for tests of where they stand.
 #[cfg(test)]
 pub(crate) fn legend_and_cube(
@@ -443,8 +663,9 @@ pub(crate) fn boxes(ui: &egui::Ui, viewport: &Viewport, rect: Rect) -> Boxes {
             vec2(212.0, 96.0),
         ));
     }
-    if step == ViewStep::Operations {
-        // Under the selection tools box while it shows.
+    if has_path_legend(viewport) {
+        // Under the selection tools box while it shows (Operations); on
+        // Simulate at the top left, while the toolpaths are shown.
         let top = if viewport.is_picking() {
             ui.ctx()
                 .memory(|m| m.area_rect(egui::Id::unique("selection tools")))
@@ -456,6 +677,7 @@ pub(crate) fn boxes(ui: &egui::Ui, viewport: &Viewport, rect: Rect) -> Boxes {
         // As wide as its longest area row, but short of the view cube at the
         // top right, with a gap; a longer row ends in "…" (`fitted_label`).
         let legend_width = area_rows_width(ui, viewport, rect)
+            .max(move_rows_width(ui))
             .min(right - CUBE - 8.0 - left)
             .max(124.0);
         if legend_collapsed(rect.height()) {
@@ -493,7 +715,35 @@ pub(crate) fn boxes(ui: &egui::Ui, viewport: &Viewport, rect: Rect) -> Boxes {
             vec2(area_rows_width(ui, viewport, rect).max(236.0), height),
         ));
     }
+    if step == ViewStep::Simulate {
+        share_left_side(&mut b, viewport.legend_open);
+    }
     b
+}
+
+/// On Simulate the path legend (top left) and the colour scale (bottom left)
+/// share the left side of the view. Where they would meet, in a short view
+/// or under a tall scale, the legend collapses to its button; opened, it
+/// takes the scale's place until it is closed, so no two boxes overlap (7.2;
+/// issue #789).
+fn share_left_side(b: &mut Boxes, legend_open: bool) {
+    let (Some(legend), Some(scale)) = (b.legend, b.scale) else {
+        return;
+    };
+    if !legend.intersects(scale) {
+        return;
+    }
+    let button = Rect::from_min_size(legend.min, vec2(84.0, 26.0));
+    b.legend_button = Some(button);
+    if legend_open {
+        b.legend = Some(Rect::from_min_size(
+            pos2(legend.left(), button.bottom() + 4.0),
+            legend.size(),
+        ));
+        b.scale = None;
+    } else {
+        b.legend = None;
+    }
 }
 
 /// Takes the overlays' clicks: a face of the view cube gives that standard
@@ -501,6 +751,7 @@ pub(crate) fn boxes(ui: &egui::Ui, viewport: &Viewport, rect: Rect) -> Boxes {
 /// pointer is over a box, so the view does not pick through it.
 pub fn interact(ui: &egui::Ui, viewport: &mut Viewport, rect: Rect) -> bool {
     let b = boxes(ui, viewport, rect);
+    legend_ticks(ui, viewport, b.legend);
     let Some(pointer) = ui.input(|i| i.pointer.hover_pos()) else {
         return false;
     };
@@ -518,6 +769,38 @@ pub fn interact(ui: &egui::Ui, viewport: &mut Viewport, rect: Rect) -> bool {
         }
     }
     over
+}
+
+/// The path legend's tick boxes (issue #789; decision record 0693, the
+/// owner's answer P2 A): each row of moves is a control of its own, which a
+/// click, or Space or Enter while it has the keyboard, turns on or off. The
+/// whole row takes the click; Tab reaches each row in turn (UI-14).
+fn legend_ticks(ui: &egui::Ui, viewport: &mut Viewport, legend: Option<Rect>) {
+    let Some(r) = legend else {
+        return;
+    };
+    let mut moves = viewport.shown_moves();
+    for (i, entry) in legend_entries(viewport).into_iter().enumerate() {
+        let Some(kinds) = entry.moves() else {
+            continue;
+        };
+        let y = r.top() + 6.0 + ROW * i as f32;
+        let row = Rect::from_min_max(pos2(r.left() + 4.0, y), pos2(r.right() - 4.0, y + ROW));
+        let response = ui.interact(row, tick_id(entry), egui::Sense::click());
+        let response = response.tip(format!("{} {MOVES_TIP}", entry.name()));
+        response.widget_info(|| {
+            egui::WidgetInfo::selected(
+                egui::Role::CheckBox,
+                true,
+                tick(moves, kinds) == Tick::On,
+                entry.name(),
+            )
+        });
+        if response.clicked() {
+            toggle(&mut moves, kinds);
+        }
+    }
+    viewport.set_shown_moves(moves);
 }
 
 /// Draws a legend row's label right of its swatch, on one line ending
@@ -752,9 +1035,14 @@ pub fn paint(ui: &egui::Ui, viewport: &Viewport, rect: Rect) {
     }
     if let Some(r) = b.legend {
         frame(&painter, r);
-        for (i, entry) in path_legend(viewport.view()).into_iter().enumerate() {
-            let y = r.top() + 6.0 + ROW * i as f32;
-            let swatch = Rect::from_min_size(pos2(r.left() + 8.0, y + 3.0), vec2(18.0, 10.0));
+        let moves = viewport.shown_moves();
+        let entries = legend_entries(viewport);
+        for (i, entry) in entries.iter().copied().enumerate() {
+            let (tick_box, swatch) = row_parts(r, i, entry);
+            if let (Some(t), Some(kinds)) = (tick_box, entry.moves()) {
+                let focused = ui.ctx().memory(|m| m.has_focus(tick_id(entry)));
+                paint_tick(&painter, t, tick(moves, kinds), focused);
+            }
             swatch_for(&painter, swatch, entry, false);
             painter.text(
                 pos2(swatch.right() + 8.0, swatch.center().y),
@@ -764,14 +1052,23 @@ pub fn paint(ui: &egui::Ui, viewport: &Viewport, rect: Rect) {
                 roles::OVERLAY_TEXT,
             );
         }
-        if let Some((name, rgb)) = &viewport.legend_set {
-            let y = r.top() + 6.0 + ROW * path_legend(viewport.view()).len() as f32;
+        if let Some((name, rgb)) = viewport
+            .legend_set
+            .as_ref()
+            .filter(|_| legend_lists_areas(viewport))
+        {
+            let y = r.top() + 6.0 + ROW * entries.len() as f32;
             let swatch = Rect::from_min_size(pos2(r.left() + 8.0, y + 3.0), vec2(18.0, 10.0));
             set_swatch(&painter, swatch, *rgb);
             fitted_label(&painter, swatch, name, &font, r.right() - 8.0);
         }
-        let first = path_legend(viewport.view()).len() + usize::from(viewport.legend_set.is_some());
-        for (i, name) in viewport.unreached_legend().iter().enumerate() {
+        let first = entries.len() + usize::from(viewport.legend_set.is_some());
+        let unreached = if legend_lists_areas(viewport) {
+            viewport.unreached_legend()
+        } else {
+            Vec::new()
+        };
+        for (i, name) in unreached.iter().enumerate() {
             let y = r.top() + 6.0 + ROW * (first + i) as f32;
             let swatch = Rect::from_min_size(pos2(r.left() + 8.0, y + 3.0), vec2(18.0, 10.0));
             hatch_swatch(&painter, swatch);
@@ -1106,7 +1403,9 @@ pub fn swatch_for(painter: &egui::Painter, r: Rect, entry: LegendEntry, kept: bo
         LegendEntry::Cut => line(roles::CUT, roles::PATH_WIDTH, false),
         LegendEntry::Link => line(roles::LINK, roles::LINE_WIDTH, false),
         LegendEntry::Rapid => line(roles::RAPID, roles::PATH_WIDTH, true),
-        LegendEntry::Entry => line(roles::ENTRY, roles::PATH_WIDTH, false),
+        LegendEntry::Entry | LegendEntry::Plunge | LegendEntry::LeadIn | LegendEntry::LeadOut => {
+            line(roles::ENTRY, roles::PATH_WIDTH, false);
+        }
         LegendEntry::CutterSweep => line(roles::SWEEP, roles::LINE_WIDTH, false),
         LegendEntry::Selected => {
             painter.rect_filled(r, 0.0, to_color32(roles::SELECTED).gamma_multiply(0.4));
@@ -1173,6 +1472,316 @@ pub fn arrowhead(painter: &egui::Painter, from: Pos2, tip: Pos2, colour: Color32
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Draws the overlays of an Operations view of 1000 by 700 with `events`,
+    /// as the view does: the clicks first, then the paint.
+    fn legend_frame(
+        ctx: &egui::Context,
+        viewport: &mut Viewport,
+        events: Vec<egui::Event>,
+    ) -> Vec<egui::epaint::ClippedShape> {
+        let screen = Rect::from_min_size(pos2(0.0, 0.0), vec2(1000.0, 700.0));
+        let input = egui::RawInput {
+            screen_rect: Some(screen),
+            events,
+            ..Default::default()
+        };
+        let mut output = ctx.run_ui(input, |ui| {
+            interact(ui, viewport, screen);
+            paint(ui, viewport, screen);
+        });
+        output.textures_delta.clear();
+        output.shapes
+    }
+
+    fn operations_view() -> Viewport {
+        let mut viewport = Viewport::new(true);
+        viewport.set_step(Some(ViewStep::Operations));
+        viewport
+    }
+
+    /// The middle of legend row `entry`.
+    fn row_centre(viewport: &Viewport, entry: LegendEntry) -> Pos2 {
+        let screen = Rect::from_min_size(pos2(0.0, 0.0), vec2(1000.0, 700.0));
+        let mut legend = None;
+        let input = egui::RawInput {
+            screen_rect: Some(screen),
+            ..Default::default()
+        };
+        let mut output = egui::Context::default().run_ui(input, |ui| {
+            legend = legend_and_cube(ui, viewport, screen).0;
+        });
+        // No renderer here takes the font texture.
+        output.textures_delta.clear();
+        let r = legend.unwrap();
+        let i = path_legend(viewport.view())
+            .iter()
+            .position(|e| *e == entry)
+            .unwrap();
+        pos2(r.center().x, r.top() + 6.0 + ROW * (i as f32 + 0.5))
+    }
+
+    /// Issue #789 (decision record 0693, the owner's answers P1 B and P2
+    /// A): each row of moves in the path legend is a tick box. A click on
+    /// the row turns its kind off and on; Entry and exit sets its three kinds
+    /// together and reads partly ticked when only some are shown.
+    #[test]
+    fn req_sim_01_a_click_on_a_legend_row_hides_and_shows_its_kind() {
+        let ctx = egui::Context::default();
+        let mut viewport = operations_view();
+        legend_frame(&ctx, &mut viewport, Vec::new());
+        let click = |viewport: &mut Viewport, at: Pos2| {
+            let button = |pressed| egui::Event::PointerButton {
+                pos: at,
+                button: egui::PointerButton::Primary,
+                pressed,
+                modifiers: egui::Modifiers::NONE,
+            };
+            legend_frame(
+                &ctx,
+                viewport,
+                vec![egui::Event::PointerMoved(at), button(true)],
+            );
+            legend_frame(&ctx, viewport, vec![button(false)]);
+            legend_frame(&ctx, viewport, Vec::new());
+        };
+        let rapid = row_centre(&viewport, LegendEntry::Rapid);
+        click(&mut viewport, rapid);
+        assert_eq!(viewport.shown_moves().hidden(), [MoveKind::Rapid]);
+        click(&mut viewport, rapid);
+        assert!(viewport.shown_moves().all_shown());
+        // One kind under Entry and exit: the parent reads partly ticked.
+        let lead_out = row_centre(&viewport, LegendEntry::LeadOut);
+        click(&mut viewport, lead_out);
+        assert_eq!(viewport.shown_moves().hidden(), [MoveKind::LeadOut]);
+        assert_eq!(
+            tick(viewport.shown_moves(), &ShownMoves::ENTRY),
+            Tick::Partly
+        );
+        // A press on a partly ticked parent hides all three; again, shows them.
+        let entry = row_centre(&viewport, LegendEntry::Entry);
+        click(&mut viewport, entry);
+        assert_eq!(viewport.shown_moves().hidden(), ShownMoves::ENTRY);
+        click(&mut viewport, entry);
+        assert!(viewport.shown_moves().all_shown());
+    }
+
+    /// UI-14: each legend tick box is a Tab stop; Space while it has the
+    /// keyboard turns it, and its focus ring is drawn.
+    #[test]
+    fn req_ui_14_a_legend_tick_box_works_from_the_keyboard() {
+        let ctx = egui::Context::default();
+        let mut viewport = operations_view();
+        legend_frame(&ctx, &mut viewport, Vec::new());
+        ctx.memory_mut(|m| m.request_focus(tick_id(LegendEntry::Link)));
+        let shapes = legend_frame(&ctx, &mut viewport, Vec::new());
+        let ring = shapes.iter().any(|s| match &s.shape {
+            egui::Shape::Rect(r) => r.stroke.color == crate::theme::DARK.accent,
+            _ => false,
+        });
+        assert!(ring, "the focused tick box shows its focus ring");
+        let space = vec![egui::Event::Key {
+            key: egui::Key::Space,
+            physical_key: None,
+            pressed: true,
+            repeat: false,
+            modifiers: egui::Modifiers::NONE,
+        }];
+        legend_frame(&ctx, &mut viewport, space);
+        assert_eq!(viewport.shown_moves().hidden(), [MoveKind::Linking]);
+    }
+
+    /// The owner's answer P2b B (issue #789): Simulate shows the path legend
+    /// at the top left, with the rows of moves only, while Toolpaths is
+    /// ticked; with the toolpaths off there is no legend. Its tick boxes set
+    /// the same choice as on Operations.
+    #[test]
+    fn req_sim_01_simulate_shows_the_move_legend_only_with_the_toolpaths_on() {
+        let ctx = egui::Context::default();
+        let mut viewport = Viewport::new(true);
+        viewport.set_step(Some(ViewStep::Simulate));
+        let screen = Rect::from_min_size(pos2(0.0, 0.0), vec2(1000.0, 700.0));
+        let legend = |viewport: &Viewport| {
+            let mut legend = None;
+            let input = egui::RawInput {
+                screen_rect: Some(screen),
+                ..Default::default()
+            };
+            let mut output = egui::Context::default().run_ui(input, |ui| {
+                legend = legend_and_cube(ui, viewport, screen).0;
+            });
+            output.textures_delta.clear();
+            legend
+        };
+        // Cut part only, the default: no toolpaths, no legend.
+        assert!(!viewport.simulate_show().toolpath);
+        assert!(!has_path_legend(&viewport));
+        assert_eq!(legend(&viewport), None);
+        let mut show = viewport.simulate_show();
+        show.toolpath = true;
+        viewport.set_simulate_show(show);
+        assert!(has_path_legend(&viewport));
+        let r = legend(&viewport).expect("the legend shows with the toolpaths");
+        assert!(
+            r.left() < screen.center().x && r.top() < screen.center().y,
+            "top left"
+        );
+        let names: Vec<&str> = legend_entries(&viewport).iter().map(|e| e.name()).collect();
+        assert_eq!(
+            names,
+            [
+                "Cut",
+                "Link",
+                "Rapid",
+                "Entry and exit",
+                "Plunge",
+                "Lead-in and ramp",
+                "Lead-out"
+            ]
+        );
+        // Its tick boxes work as on Operations.
+        legend_frame_in(&ctx, &mut viewport, screen, Vec::new());
+        ctx.memory_mut(|m| m.request_focus(tick_id(LegendEntry::Cut)));
+        legend_frame_in(&ctx, &mut viewport, screen, Vec::new());
+        let space = vec![egui::Event::Key {
+            key: egui::Key::Space,
+            physical_key: None,
+            pressed: true,
+            repeat: false,
+            modifiers: egui::Modifiers::NONE,
+        }];
+        legend_frame_in(&ctx, &mut viewport, screen, space);
+        assert_eq!(viewport.shown_moves().hidden(), [MoveKind::Cutting]);
+    }
+
+    /// Specification 7.2: the boxes never overlap. On Simulate with the path
+    /// legend, for views from the 1920 by 1080 window's down to the 1366 by
+    /// 768 window's (the owner's direction of 25 Nov 2026: 1920 by 1080 is
+    /// the target, 1366 by 768 best effort), and below, where the legend
+    /// collapses to its button.
+    #[test]
+    fn req_ui_16_the_simulate_legend_never_overlaps_another_box() {
+        let mut viewport = Viewport::new(true);
+        viewport.set_step(Some(ViewStep::Simulate));
+        let mut show = viewport.simulate_show();
+        show.toolpath = true;
+        viewport.set_simulate_show(show);
+        // The colour scale's box shows too, with its bands and its "part
+        // changed" note, on the same side.
+        viewport.set_bands(Some((
+            openchuck_app::project::id::ModelId::new(),
+            openchuck_app::pathview::DeviationBands {
+                tolerance: 0.05,
+                bands: Vec::new(),
+                values: std::sync::Arc::from(Vec::new()),
+                pieces: None,
+            },
+        )));
+        viewport.set_part_changed(true);
+        for open in [false, true] {
+            viewport.legend_open = open;
+            for (w, h) in [
+                (1300.0, 760.0),
+                (1100.0, 600.0),
+                (760.0, 480.0),
+                (700.0, 420.0),
+                (600.0, 330.0),
+            ] {
+                let rect = Rect::from_min_size(pos2(0.0, 40.0), vec2(w, h));
+                let input = egui::RawInput {
+                    screen_rect: Some(Rect::from_min_size(pos2(0.0, 0.0), vec2(w, h + 40.0))),
+                    ..Default::default()
+                };
+                let mut all = Vec::new();
+                let mut output = egui::Context::default().run_ui(input, |ui| {
+                    all = boxes(ui, &viewport, rect).all();
+                });
+                output.textures_delta.clear();
+                for (i, a) in all.iter().enumerate() {
+                    assert!(rect.contains_rect(*a), "{w}x{h}: {a:?} leaves the view");
+                    for b in &all[i + 1..] {
+                        assert!(!a.intersects(*b), "{w}x{h}: {a:?} overlaps {b:?}");
+                    }
+                }
+            }
+        }
+    }
+
+    /// Where the legend and a tall colour scale would meet on Simulate, the
+    /// legend is a button; opened, it shows in the scale's place.
+    #[test]
+    fn req_ui_16_a_legend_that_would_meet_the_scale_collapses_to_its_button() {
+        let legend = Rect::from_min_size(pos2(12.0, 52.0), vec2(160.0, 138.0));
+        let scale = Rect::from_min_size(pos2(12.0, 150.0), vec2(236.0, 200.0));
+        let shown = |open| {
+            let mut b = Boxes {
+                legend: Some(legend),
+                scale: Some(scale),
+                ..Boxes::default()
+            };
+            share_left_side(&mut b, open);
+            b
+        };
+        let closed = shown(false);
+        assert_eq!(closed.legend, None);
+        assert_eq!(closed.scale, Some(scale));
+        let button = closed.legend_button.unwrap();
+        assert!(!button.intersects(scale));
+        let open = shown(true);
+        assert_eq!(
+            open.scale, None,
+            "the opened legend takes the scale's place"
+        );
+        assert!(!open.legend.unwrap().intersects(button));
+        // Apart, nothing changes.
+        let mut apart = Boxes {
+            legend: Some(legend),
+            scale: Some(scale.translate(vec2(0.0, 200.0))),
+            ..Boxes::default()
+        };
+        share_left_side(&mut apart, false);
+        assert_eq!(apart.legend, Some(legend));
+        assert_eq!(apart.legend_button, None);
+    }
+
+    fn legend_frame_in(
+        ctx: &egui::Context,
+        viewport: &mut Viewport,
+        screen: Rect,
+        events: Vec<egui::Event>,
+    ) {
+        let input = egui::RawInput {
+            screen_rect: Some(screen),
+            events,
+            ..Default::default()
+        };
+        let mut output = ctx.run_ui(input, |ui| {
+            interact(ui, viewport, screen);
+            paint(ui, viewport, screen);
+        });
+        output.textures_delta.clear();
+    }
+
+    /// Entry and exit reads ticked, partly ticked or empty by its three
+    /// kinds; a press on an empty box shows its kinds, on a ticked or partly
+    /// ticked one hides them.
+    #[test]
+    fn req_sim_01_entry_and_exit_reads_and_sets_its_three_kinds() {
+        assert_eq!(tick(ShownMoves::ALL, &ShownMoves::ENTRY), Tick::On);
+        let mut none = ShownMoves::ALL;
+        for k in ShownMoves::ENTRY {
+            none.set(k, false);
+        }
+        assert_eq!(tick(none, &ShownMoves::ENTRY), Tick::Off);
+        let mut moves = none;
+        toggle(&mut moves, &ShownMoves::ENTRY);
+        assert_eq!(moves, ShownMoves::ALL, "an empty box shows its kinds");
+        toggle(&mut moves, &[MoveKind::Cutting]);
+        assert!(
+            !moves.shows(MoveKind::Cutting),
+            "a ticked box hides its kind"
+        );
+    }
 
     #[test]
     fn req_ui_05_a_long_set_name_stays_inside_its_legend_row() {
@@ -1358,7 +1967,17 @@ mod tests {
         let names: Vec<&str> = path_legend(&view).iter().map(|e| e.name()).collect();
         assert_eq!(
             names,
-            ["Cut", "Link", "Rapid", "Entry", "Selected", "Avoid"]
+            [
+                "Cut",
+                "Link",
+                "Rapid",
+                "Entry and exit",
+                "Plunge",
+                "Lead-in and ramp",
+                "Lead-out",
+                "Selected",
+                "Avoid"
+            ]
         );
         // Below 480 pixels high it collapses to a button (7.2).
         assert!(legend_collapsed(479.0));
@@ -1388,7 +2007,10 @@ mod tests {
                 "Cut",
                 "Link",
                 "Rapid",
-                "Entry",
+                "Entry and exit",
+                "Plunge",
+                "Lead-in and ramp",
+                "Lead-out",
                 "Selected",
                 "Avoid",
                 "Cutter sweep"

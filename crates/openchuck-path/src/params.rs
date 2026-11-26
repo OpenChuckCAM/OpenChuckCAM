@@ -104,6 +104,40 @@ pub enum ParameterKind {
         /// Default row data, normally an empty array.
         default: String,
     },
+    /// A length in millimetres, or the operation's tool's diameter, read at
+    /// generation so it follows a change of tool (issue #854). Stored as a
+    /// number or as the word [`TOOL_DIAMETER`]. `min` is inclusive.
+    LengthOrTool {
+        /// Lowest value, if any.
+        min: Option<f64>,
+        /// Highest value, if any (inclusive).
+        max: Option<f64>,
+        /// The default.
+        default: LengthOrTool,
+    },
+}
+
+/// The word a [`ParameterKind::LengthOrTool`] value is stored as when it is
+/// the tool's diameter.
+pub const TOOL_DIAMETER: &str = "tool_diameter";
+
+/// A [`ParameterKind::LengthOrTool`] value.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum LengthOrTool {
+    /// The operation's tool's diameter, at generation.
+    ToolDiameter,
+    /// A length in millimetres.
+    Millimetres(f64),
+}
+
+impl LengthOrTool {
+    /// The value as an operation stores it.
+    pub fn stored(self) -> ParameterValue {
+        match self {
+            Self::ToolDiameter => ParameterValue::Text(TOOL_DIAMETER.to_owned()),
+            Self::Millimetres(v) => ParameterValue::Number(v),
+        }
+    }
 }
 
 /// One parameter of a strategy.
@@ -248,6 +282,51 @@ fn resolve_one(spec: &ParameterSpec, value: Option<&ParameterValue>) -> Result<P
             crate::facing::selection::decode_rows(&v)?;
             Ok(ParameterValue::Text(v))
         }
+        ParameterKind::LengthOrTool { min, max, default } => {
+            let v = match value {
+                // A default is checked as a value is (a number in range).
+                None => match default {
+                    LengthOrTool::ToolDiameter => {
+                        return Ok(ParameterValue::Text(TOOL_DIAMETER.to_owned()));
+                    }
+                    LengthOrTool::Millimetres(v) => *v,
+                },
+                Some(ParameterValue::Text(t)) if t == TOOL_DIAMETER => {
+                    return Ok(ParameterValue::Text(TOOL_DIAMETER.to_owned()));
+                }
+                Some(ParameterValue::Number(v)) => *v,
+                #[allow(clippy::cast_precision_loss)]
+                Some(ParameterValue::Integer(i)) => *i as f64,
+                Some(_) => {
+                    return Err(wrong(&format!(
+                        "a length in mm or \"{TOOL_DIAMETER}\" (the tool's diameter)"
+                    )));
+                }
+            };
+            if !v.is_finite() {
+                return Err(PathError::parameter(
+                    name,
+                    "the value is not a finite number",
+                ));
+            }
+            if let Some(lo) = *min
+                && v < lo
+            {
+                return Err(PathError::parameter(
+                    name,
+                    format!("{v} mm must be at least {lo} mm"),
+                ));
+            }
+            if let Some(hi) = *max
+                && v > hi
+            {
+                return Err(PathError::parameter(
+                    name,
+                    format!("{v} mm must be at most {hi} mm"),
+                ));
+            }
+            Ok(ParameterValue::Number(v))
+        }
         ParameterKind::Choice { options, default } => {
             let v = match value {
                 None => default.clone(),
@@ -309,6 +388,30 @@ impl Parameters {
         match self.0.get(name) {
             Some(ParameterValue::Number(v)) => Ok(*v),
             _ => Err(PathError::parameter(name, "expected a number")),
+        }
+    }
+
+    /// The length called `name`, in millimetres: its number, or
+    /// `tool_diameter` where it is the tool's diameter
+    /// ([`ParameterKind::LengthOrTool`]). A diameter that is not a finite
+    /// number at least zero is refused by name.
+    pub fn length_or_tool(&self, name: &str, tool_diameter: f64) -> Result<f64> {
+        match self.0.get(name) {
+            Some(ParameterValue::Number(v)) => Ok(*v),
+            Some(ParameterValue::Text(t)) if t == TOOL_DIAMETER => {
+                if tool_diameter.is_finite() && tool_diameter >= 0.0 {
+                    Ok(tool_diameter)
+                } else {
+                    Err(PathError::parameter(
+                        name,
+                        "the tool has no diameter to take this value from",
+                    ))
+                }
+            }
+            _ => Err(PathError::parameter(
+                name,
+                format!("expected a length in mm or \"{TOOL_DIAMETER}\""),
+            )),
         }
     }
 
@@ -376,6 +479,10 @@ pub mod names {
     pub const PLUNGE_FACE_NUBS: &str = "plunge_face_nubs";
     /// The widest nub plunged; zero means the tool's cutting diameter.
     pub const FACE_NUB_DIAMETER: &str = "face_nub_diameter";
+    /// The largest depth per traverse of a back-and-forth ramp; zero means
+    /// the tool's cutting radius, and more is held to it (decision
+    /// 0695, Q9).
+    pub const RAMP_DEPTH_PER_TRAVERSE: &str = "ramp_depth_per_traverse";
     /// Descent angle for ramp and helix entry.
     pub const RAMP_ANGLE: &str = "ramp_angle";
     /// The helix entry's circle, as a fraction of the tool diameter.
@@ -481,10 +588,14 @@ pub fn common_parameters() -> Vec<ParameterSpec> {
         ParameterSpec {
             name: ENTRY.to_owned(),
             label: "Entry".to_owned(),
-            description: "How the tool enters the cut: a straight plunge, a tangent arc (lead), \
-                          a straight ramp, or a descending helix. On a \
-                          ring or a spiral the lead arcs turn with the part, in the plane of the \
-                          cut at the ring's X."
+            description: "How the tool enters the cut. Plunge goes straight down: it takes the \
+                          whole descent in one move on the tool's end, so its depth per traverse \
+                          is the whole descent. Lead comes in from the side on a tangent arc, at \
+                          the pass's depth. Ramp goes down at the Ramp angle back and forth over \
+                          the pass's own path, each traverse no deeper than the Largest depth per \
+                          traverse; round a whole ring it goes down round the ring. Helix goes \
+                          down round a circle at the Ramp angle. On a ring or a spiral the lead \
+                          arcs turn with the part, in the plane of the cut at the ring's X."
                 .to_owned(),
             kind: ParameterKind::Choice {
                 options: EntryStyle::ALL
@@ -497,20 +608,20 @@ pub fn common_parameters() -> Vec<ParameterSpec> {
         ParameterSpec { name: RAMP_BACK_AND_FORTH.to_owned(), label: "Back-and-forth ramp (ramp entry only)".to_owned(), description: "No longer has an effect: every ramp now follows the pass's own toolpath, going back and forth over a line where it needs to. Kept so saved operations still open.".to_owned(), kind: ParameterKind::Flag { default: false } },
         ParameterSpec {
             name: ALLOW_SINGLE_POINT_PLUNGE.to_owned(),
-            label: "Allow single-point plunge".to_owned(),
-            description: "A pass that is a single point has no path for a ramp to follow. With this on, the tool plunges straight down to that point instead of refusing the operation. The tool must be able to plunge (centre cutting).".to_owned(),
+            label: "Plunge where no ramp fits".to_owned(),
+            description: "Some passes have no room for a ramp: a single point, a pass that starts with a stretch shorter than the shortest ramp (ten times the tolerance, never more than the tool radius), or a ring or spiral near the rotary axis whose ramp would take more than 10 turns even at the Maximum ramp angle. With this on, the tool plunges straight into such a pass instead of refusing the operation. A plunge takes the whole descent in one move on the tool's end, so its depth per traverse is that whole descent; a note names each such pass with its depth. A pass with room for a ramp is always ramped. The tool must be able to plunge (centre cutting).".to_owned(),
             kind: ParameterKind::Flag { default: false },
         },
         ParameterSpec {
             name: RAMP_STEEPER_NEAR_AXIS.to_owned(),
             label: "Steeper ramp near the axis".to_owned(),
-            description: "Near the rotary axis a ramp round a ring needs many turns. With this on, a ring or spiral ramp that would need more than 10 turns at the Ramp angle uses a steeper angle, just enough to fit in 10 turns, never steeper than the Maximum ramp angle. Lines are not affected. Check that the tool can enter at the steeper angle.".to_owned(),
+            description: "Near the rotary axis a ramp round a ring, or back and forth over a spiral, needs many turns' length. With this on, a ring or spiral ramp that would need more than 10 turns at the Ramp angle uses a steeper angle, just enough to fit in 10 turns, never steeper than the Maximum ramp angle. A steeper angle takes more depth per millimetre of travel, and round a ring more depth per traverse: a heavier ramp in place of a plunge or a refusal. Lines are not affected. Check that the tool can enter at the steeper angle.".to_owned(),
             kind: ParameterKind::Flag { default: false },
         },
         ParameterSpec {
             name: RAMP_ANGLE_MAX.to_owned(),
             label: "Maximum ramp angle".to_owned(),
-            description: "The steepest angle the steeper ramp near the axis may use. A value below the Ramp angle uses the Ramp angle.".to_owned(),
+            description: "The steepest angle the steeper ramp near the axis may use, and so the most depth per millimetre of travel it may take there. A value below the Ramp angle uses the Ramp angle.".to_owned(),
             kind: ParameterKind::Number {
                 unit: Unit::Degrees,
                 min: Some(0.0),
@@ -519,6 +630,19 @@ pub fn common_parameters() -> Vec<ParameterSpec> {
                 default: Some(DEFAULT_RAMP_ANGLE_MAX),
             },
         },
+        number(
+            RAMP_DEPTH_PER_TRAVERSE,
+            "Largest depth per traverse",
+            "The deepest a back-and-forth ramp (over a line, a partial ring or a spiral) goes in \
+             one pass over the same place: its legs are kept short enough, at the same Ramp \
+             angle, and it takes more of them instead. 0 uses the tool's cutting radius, and a \
+             larger value is held to it. A ramp round a whole ring takes one turn's depth per \
+             traverse; the note gives it.",
+            Unit::Millimetres,
+            0.0,
+            false,
+            Some(0.0),
+        ),
         ParameterSpec {
             name: PLUNGE_FACE_NUBS.to_owned(),
             label: "Plunge to remove face nubs".to_owned(),
@@ -538,7 +662,7 @@ pub fn common_parameters() -> Vec<ParameterSpec> {
         ParameterSpec {
             name: RAMP_ANGLE.to_owned(),
             label: "Ramp angle".to_owned(),
-            description: "Angle of descent to the horizontal for ramp and helix entry.".to_owned(),
+            description: "The slope of a ramp or helix entry to the horizontal, along the path the tool's tip really takes. It sets the depth taken per millimetre of travel: a steeper angle goes down sooner and gives a shorter ramp, while each traverse of a back-and-forth ramp stays no deeper than the Largest depth per traverse. Ramp and Helix use the same angle.".to_owned(),
             kind: ParameterKind::Number {
                 unit: Unit::Degrees,
                 min: Some(0.0),
@@ -641,6 +765,10 @@ pub struct EntryParameters {
     pub plunge_face_nubs: bool,
     /// The widest nub plunged; zero means the tool's cutting diameter.
     pub face_nub_diameter: Millimetres,
+    /// The largest depth per traverse of a back-and-forth ramp; zero means
+    /// the tool's cutting radius, and more is held to it (decision
+    /// 0695, Q9).
+    pub ramp_depth_per_traverse: Millimetres,
     /// The helix circle as a fraction of the tool diameter.
     pub helix_diameter: f64,
     /// Radius of the lead arcs, or zero for the tool radius.
@@ -657,6 +785,7 @@ impl EntryParameters {
         ramp_angle_max: Degrees(DEFAULT_RAMP_ANGLE_MAX),
         plunge_face_nubs: false,
         face_nub_diameter: Millimetres(0.0),
+        ramp_depth_per_traverse: Millimetres(0.0),
         helix_diameter: DEFAULT_HELIX_DIAMETER,
         lead_radius: Millimetres(0.0),
     };
@@ -687,6 +816,7 @@ impl EntryParameters {
             ramp_angle_max: Degrees(p.number(RAMP_ANGLE_MAX)?),
             plunge_face_nubs: p.flag(PLUNGE_FACE_NUBS)?,
             face_nub_diameter: Millimetres(p.number(FACE_NUB_DIAMETER)?),
+            ramp_depth_per_traverse: Millimetres(p.number(RAMP_DEPTH_PER_TRAVERSE)?),
             helix_diameter: p.number(HELIX_DIAMETER)?,
             lead_radius: Millimetres(p.number(LEAD_RADIUS)?),
         })
@@ -738,5 +868,102 @@ impl CommonParameters {
             },
             approach_distance: Millimetres(p.number(APPROACH_DISTANCE)?),
         })
+    }
+}
+
+#[cfg(test)]
+// The values are passed through unchanged, so they compare exactly.
+#[allow(clippy::float_cmp)]
+mod length_or_tool_tests {
+    //! The length-or-Tool-diameter kind (issue #854; the owner's decision of
+    //! 23 Nov 2026, relayed): a number in millimetres or the word
+    //! `tool_diameter`, the operation's tool's diameter at generation.
+
+    use super::*;
+
+    fn schema(default: LengthOrTool) -> ParameterSchema {
+        ParameterSchema {
+            parameters: vec![ParameterSpec {
+                name: "min_length".to_owned(),
+                label: "Shortest cut".to_owned(),
+                description: String::new(),
+                kind: ParameterKind::LengthOrTool {
+                    min: Some(0.0),
+                    max: None,
+                    default,
+                },
+            }],
+        }
+    }
+
+    fn values(v: Option<ParameterValue>) -> BTreeMap<String, ParameterValue> {
+        v.into_iter()
+            .map(|v| ("min_length".to_owned(), v))
+            .collect()
+    }
+
+    #[test]
+    fn req_op_16_a_length_or_tool_value_resolves_to_a_number_or_the_tools_diameter() {
+        let s = schema(LengthOrTool::Millimetres(0.0));
+        let read = |v: Option<ParameterValue>| {
+            s.resolve(&values(v))
+                .and_then(|p| p.length_or_tool("min_length", 3.175))
+        };
+        // A number is itself; a whole number too.
+        assert_eq!(read(Some(ParameterValue::Number(2.5))).unwrap(), 2.5);
+        assert_eq!(read(Some(ParameterValue::Integer(4))).unwrap(), 4.0);
+        // The word is the tool's diameter, whatever it is at generation.
+        let word = Some(ParameterValue::Text(TOOL_DIAMETER.to_owned()));
+        assert_eq!(read(word.clone()).unwrap(), 3.175);
+        let p = s.resolve(&values(word)).unwrap();
+        assert_eq!(p.length_or_tool("min_length", 6.0).unwrap(), 6.0);
+        // A missing value takes the default, a number or the word.
+        assert_eq!(read(None).unwrap(), 0.0);
+        let by_tool = schema(LengthOrTool::ToolDiameter);
+        let p = by_tool.resolve(&BTreeMap::new()).unwrap();
+        assert_eq!(p.length_or_tool("min_length", 2.0).unwrap(), 2.0);
+        assert_eq!(
+            p.get("min_length"),
+            Some(&ParameterValue::Text(TOOL_DIAMETER.to_owned()))
+        );
+    }
+
+    #[test]
+    fn req_nfr_07_a_length_or_tool_default_out_of_range_is_refused_by_name() {
+        // CodeRabbit on #854: a default is checked as a value is.
+        let s = schema(LengthOrTool::Millimetres(-1.0));
+        let e = s.resolve(&BTreeMap::new()).expect_err("refused");
+        assert!(e.to_string().contains("min_length"), "{e}");
+        assert!(
+            schema(LengthOrTool::ToolDiameter)
+                .resolve(&BTreeMap::new())
+                .is_ok()
+        );
+    }
+
+    #[test]
+    fn req_nfr_07_a_bad_length_or_tool_value_is_refused_by_name() {
+        let s = schema(LengthOrTool::Millimetres(0.0));
+        for bad in [
+            ParameterValue::Number(-1.0),
+            ParameterValue::Number(f64::NAN),
+            ParameterValue::Text("diameter".to_owned()),
+            ParameterValue::Flag(true),
+        ] {
+            let e = s
+                .resolve(&values(Some(bad.clone())))
+                .err()
+                .unwrap_or_else(|| panic!("{bad:?} accepted"));
+            assert!(e.to_string().contains("min_length"), "{bad:?}: {e}");
+        }
+        // A tool with no usable diameter is refused, not used.
+        let p = s
+            .resolve(&values(Some(ParameterValue::Text(
+                TOOL_DIAMETER.to_owned(),
+            ))))
+            .unwrap();
+        assert!(p.length_or_tool("min_length", f64::NAN).is_err());
+        // Read as a plain number it is refused by name too.
+        assert!(p.number("min_length").is_err());
     }
 }

@@ -585,3 +585,26 @@ fn req_gc_05_the_dialog_lists_the_template_fields() {
         assert!(seen.iter().any(|t| t == field.description()), "{name}");
     }
 }
+
+/// Hiding a toolpath after the run changes nothing the G-code is made from
+/// (decision record 0169 item 6, GC-07): Write G-code still writes the run's
+/// files (issue #607).
+#[test]
+fn req_gc_15_req_sim_01_write_after_hiding_a_path_writes_the_files() {
+    let mut rig = Rig::new("hidden-path-export");
+    let op = rig.app.project().operations()[0].id;
+    rig.app
+        .execute(openchuck_app::Command::SetPathsShown {
+            operations: vec![op],
+            shown: false,
+        })
+        .unwrap();
+    rig.settle();
+    rig.click("Write G-code");
+    let texts: Vec<_> = rig.texts.iter().map(|(t, _)| t.clone()).collect();
+    let result = rig.panel.result.as_ref();
+    assert!(
+        result.is_some_and(openchuck_app::OutputReport::is_complete),
+        "{result:?} {texts:?}"
+    );
+}

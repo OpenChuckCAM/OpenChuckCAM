@@ -59,6 +59,7 @@ enum Read {
     Attached(u64, Candidate),
     Unopened(Key, Candidate),
     Located(Box<Locate>, Result<Candidate, String>),
+    Forgotten(Box<Locate>, Result<(), String>),
     Restored(Result<jobs::Recovered, String>),
 }
 #[derive(Clone, Copy)]
@@ -564,6 +565,18 @@ impl State {
                     self.locate = Some(*locate);
                 }
             },
+            Read::Forgotten(mut locate, result) => match result {
+                Ok(()) => {
+                    let old = locate.candidate;
+                    self.elsewhere
+                        .retain(|c| c.folder != old.folder || c.project_id != old.project_id);
+                    self.changed = true;
+                }
+                Err(e) => {
+                    locate.problem = Some(e);
+                    self.locate = Some(*locate);
+                }
+            },
             Read::Restored(result) => {
                 self.choice = None;
                 let current = self.review.as_ref().is_some_and(|r| self.current(r.key));
@@ -784,6 +797,7 @@ impl State {
         };
         let mut chosen = None;
         let mut cancel = false;
+        let mut forget = false;
         egui::Modal::new(Id::unique("locate moved recovery project")).show(ctx, |ui| {
             ui.set_max_width(680.0);
             ui.heading("Locate moved project");
@@ -807,9 +821,28 @@ impl State {
                     cancel = true;
                 }
             });
+            // A project deleted on purpose (issue #681): this computer stops
+            // looking for it. The recovery data was in the project's folder.
+            ui.separator();
+            ui.label(
+                "If the project was deleted, forget it: this computer stops looking for it and \
+                 this message goes. Nothing else is deleted.",
+            );
+            if ui.button("Forget this project").clicked() {
+                forget = true;
+            }
         });
         if cancel {
             self.locate = None;
+            return;
+        }
+        if forget && let (Some(config), Some(locate)) = (self.config.clone(), self.locate.take()) {
+            let (tx, rx) = mpsc::channel();
+            std::thread::spawn(move || {
+                let result = jobs::forget(&config, &locate.candidate);
+                let _ = tx.send(Read::Forgotten(Box::new(locate), result));
+            });
+            self.readers.push(rx);
             return;
         }
         if let Some(folder) = chosen

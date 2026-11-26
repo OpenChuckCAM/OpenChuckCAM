@@ -150,6 +150,15 @@ impl CoverageRectangle {
         }
     }
 
+    /// The same rectangle with its first coordinate (X on a side plane)
+    /// limited to `span`, as Facing faces it beside a held region.
+    pub(crate) fn with_u(self, span: (f64, f64)) -> Self {
+        Self {
+            min: [span.0, self.min[1]],
+            max: [span.1, self.max[1]],
+        }
+    }
+
     /// Lower coordinates in the plane's two displayed directions.
     pub fn min(self) -> [f64; 2] {
         self.min

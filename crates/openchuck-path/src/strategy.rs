@@ -161,8 +161,10 @@ pub struct StrategyInput<'a> {
     pub facing: Option<&'a crate::facing::plan::FacingSetup<'a>>,
     /// Model X intervals, as (low, high), that the tool's tip never enters
     /// while it cuts: each held region of the setup widened on both sides by
-    /// the tool's largest radius, so no part of the tool reaches over the
-    /// gripped length (SET-09; decision record 0161). The tool is always
+    /// the tool's largest radius and [`HELD_CLEARANCE`], so no part of the
+    /// tool comes within that distance of the gripped length (SET-09;
+    /// decision record 0161). The held-region note this crate gives names
+    /// [`HELD_CLEARANCE`], so a caller widens by it as well (issue #774). The tool is always
     /// across the rotary axis, so its body spans its tip's X plus and minus
     /// that radius. Passes are cut short where they would enter one, and a
     /// path whose entry, exit or link at feed still would is refused. Empty
@@ -324,19 +326,6 @@ pub trait Strategy: Send + Sync + std::fmt::Debug {
     /// has not cut. Off by default; finishing keeps its feeds (OI-2134).
     fn limits_descent_feed(&self, _parameters: &Parameters) -> bool {
         false
-    }
-
-    /// Whether a ramp entry may turn A round the part before a pass that
-    /// starts as a ring or a spiral (decision record 0543 D2), on the
-    /// stretch round the rotary axis at the pass's start that the pass
-    /// itself does not cut. True by default: a ring or spiral cuts all round
-    /// the part there. A strategy whose passes turn A without cutting all
-    /// round, such as swarf along a blade, returns false: its ramps then go
-    /// back and forth over the pass's own path, A reversing during the entry
-    /// only, so every ramp position is a pose of the pass raised along the
-    /// tool axis (decision record 0645; issue #778).
-    fn ramps_round_the_part(&self) -> bool {
-        true
     }
 
     /// Whether the strategy works on the material earlier operations left
@@ -590,7 +579,6 @@ fn generate_with(
             &common,
             &entry,
             descent,
-            strategy.ramps_round_the_part(),
             // The faces next to the face set, which swarf alone is given:
             // its entries and exits are checked against them as well
             // (decision record 0682; issue #572).
@@ -821,12 +809,15 @@ fn keep_clear(
         ));
     }
     if cut_short {
-        // What is left uncut beside the grip is a warning (decision record
-        // 0536 step 2), and so is a hole not drilled.
+        // What is left uncut beside the grip is information: the tool keeps
+        // HELD_CLEARANCE from the grip by design (the owner's answer to
+        // #774, amending decision record 0536 step 2's row P65). A hole not
+        // drilled stays a warning.
         notes.push(
-            Notice::warning(format!(
-                "Nothing within one tool radius of {names} is cut: no part of the tool reaches \
-             over the gripped length of the stock."
+            Notice::information(format!(
+                "No part of the tool comes within {HELD_CLEARANCE:.3} mm of {names}, so the \
+                 surface beside it is not cut there, and corners beside it may keep more. The \
+                 setup's Workholding section shows where the tools keep clear."
             ))
             .about(topic::HELD_REGION),
         );
@@ -1009,10 +1000,11 @@ mod tests {
     }
 
     /// The Exact STEP surface contact tooltip says what the setting does,
-    /// what it costs and that a mesh part is not affected, and nothing more
-    /// (issue #634, the owner's answer of 8 Nov 2026).
+    /// what it costs, with the measured examples, and that a mesh part is
+    /// not affected (issue #634; the owner's answer of 23 Nov 2026 asked for
+    /// the cost to be stated, decision record 0684 item 4).
     #[test]
-    fn req_ui_12_the_exact_contact_tooltip_is_short() {
+    fn req_ui_12_the_exact_contact_tooltip_states_the_trade_off() {
         let registry = Registry::builtin();
         let tooltip = |strategy: &str| {
             registry
@@ -1027,14 +1019,20 @@ mod tests {
         };
         assert_eq!(
             tooltip("helical_finishing"),
-            "On a STEP part, drop a ball-end tool on the part's exact surfaces instead of its \
-             tessellation. More accurate and can be slower. No effect on a mesh part."
+            "On a STEP part, drop a ball-end tool on the part's exact surfaces instead of the \
+             triangles made from them. The tool then sits closer to the true surface: on a test \
+             part, the deepest cut into it fell from about 0.04 to under 0.005 mm. Generation can \
+             be slower: up to about 1.8 times on the parts measured. No effect on a mesh part."
         );
+        assert_eq!(tooltip("pencil_finishing"), tooltip("axial_finishing"));
         assert_eq!(
             tooltip("axial_finishing"),
             "On a STEP part, drop the tool (a ball, tapered ball or flat end) on the part's exact \
-             surfaces instead of its tessellation. More accurate and much slower. No effect on a \
-             mesh part."
+             surfaces instead of the triangles made from them. The tool then sits closer to the \
+             true surface: on a test part, the deepest cut into it fell from about 0.03 to under \
+             0.01 mm. Generation is much slower: on the parts measured, about 7 times for axial \
+             finishing and 16 to 31 times for pencil clean-up. It does not change which corners \
+             or areas are cut. No effect on a mesh part."
         );
     }
 
@@ -1126,16 +1124,18 @@ mod tests {
                 vec![0.0, 10.0]
             ]
         );
-        // What is left uncut beside the grip is a warning (decision record
-        // 0536 step 2; UI-12).
+        // What is left uncut beside the grip is information: the tool keeps
+        // its 0.5 mm from the grip by design (the owner's answer to #774,
+        // amending decision record 0536 step 2's row P65).
         assert_eq!(
             notes,
             vec![
                 Notice::information("first"),
-                Notice::warning(
-                    "Nothing within one tool radius of the held region at the start of the \
-                     stock is cut: no part of the tool reaches over the gripped length of the \
-                     stock."
+                Notice::information(
+                    "No part of the tool comes within 0.500 mm of the held region at the start \
+                     of the stock, so the surface beside it is not cut there, and corners beside \
+                     it may keep more. The setup's Workholding section shows where the tools \
+                     keep clear."
                 )
                 .about(topic::HELD_REGION)
             ]
@@ -1245,9 +1245,10 @@ mod tests {
         )
         .unwrap();
         assert!(
-            notes[0].is_warning()
+            !notes[0].is_warning()
                 && notes[0].text.starts_with(
-                    "Nothing within one tool radius of the held regions at both ends of the stock"
+                    "No part of the tool comes within 0.500 mm of the held regions at both ends \
+                     of the stock"
                 ),
             "{:?}",
             notes[0]

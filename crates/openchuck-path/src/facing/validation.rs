@@ -7,6 +7,11 @@ mod legacy;
 mod overlap;
 pub(super) use legacy::verify as legacy;
 
+/// How much less than the tool's radius the Round completion check counts
+/// as cut along X, for interpolation error (and so how far short of the
+/// tool's edge Round is finished beside a held region).
+pub(super) const ROUND_RESERVE: f64 = 0.001;
+
 use super::description::{FacingGeometry, describe};
 use super::motion::{verify_protected_clearance, verify_rapid_clearance, verify_shank_clearance};
 use super::plan::FacingSetup;
@@ -56,6 +61,29 @@ fn refuse(reason: &str) -> PathError {
     PathError::refused(crate::topic::FACING_CHECK, reason)
 }
 
+pub(super) use legacy::flat_bound;
+
+/// [`describe`], with legacy Flat's unfaced spans beside a held region read
+/// from the cut in `group` (decision 0685).
+pub(super) fn describe_path(
+    setup: &FacingSetup<'_>,
+    parameters: &Parameters,
+    group: &ToolpathGroup,
+    context: &JobContext<'_>,
+) -> Result<super::description::FacingDescription> {
+    let mut description = describe(setup, parameters)?;
+    if let FacingGeometry::Flat { faces } = &mut description.geometry {
+        let tolerance = parameters.number(names::TOLERANCE)?;
+        let bound = legacy::flat_bound(setup, parameters)?;
+        for face in faces.iter_mut().filter(|f| !f.unfaced.is_empty()) {
+            let sweeps = legacy::flat_sweeps(face, group, tolerance, context)?;
+            let segments = legacy::segments(face, &sweeps)?;
+            super::held::measure_flat(face, &segments, bound);
+        }
+    }
+    Ok(description)
+}
+
 pub(super) fn input<'a>(
     input: &StrategyInput<'a>,
     context: &JobContext<'_>,
@@ -95,17 +123,11 @@ pub(super) fn validate_setup(setup: &FacingSetup<'_>, context: &JobContext<'_>) 
 }
 
 /// The refusal for a Box face left unfinished, saying where along X (the
-/// raster's second coordinate, as `box_sides` transposes it). A strip beside
-/// a held region is the grip and the tool's clearance from it, which Facing
-/// keeps off and never crops silently (decision 0252); it says so and what to
-/// change (issue #500, NFR-07).
-fn box_gap(
-    setup: &FacingSetup<'_>,
-    extent: super::extents::FacingExtent,
-    gap: super::coverage::RasterGap,
-) -> PathError {
+/// raster's second coordinate, as `box_sides` transposes it; NFR-07).
+/// Beside a held region Facing faces only what the tool reaches and says
+/// what it leaves (decision 0685), so a gap here is a real one.
+fn box_gap(gap: super::coverage::RasterGap) -> PathError {
     use super::coverage::{RasterGap, UNFINISHED_STRIP};
-    use super::extents::FacingExtent;
     let ([from, to], what) = match gap {
         RasterGap::Strip(v) => (v, UNFINISHED_STRIP),
         RasterGap::End(v) => (
@@ -113,39 +135,9 @@ fn box_gap(
             "the requested face is not completely covered by final-depth sweeps",
         ),
     };
-    let radius = 0.5 * setup.tool.diameter.0;
-    let held = setup
-        .held
-        .iter()
-        .zip(["start", "far end"])
-        .find_map(|(interval, end)| {
-            interval
-                .filter(|(lo, hi)| from <= hi + radius && to >= lo - radius)
-                .map(|interval| (interval, end))
-        });
-    let Some(((lo, hi), end)) = held else {
-        return PathError::refused(
-            crate::topic::FACING_COMPLETION,
-            format!("{what}, from X {from:.3} to {to:.3}"),
-        );
-    };
-    let advice = match extent {
-        FacingExtent::WholeStock => {
-            "Use the Part only extent so the faces stop at the part, with the part clear of the \
-             grip by the tool's radius"
-        }
-        FacingExtent::Part | FacingExtent::PartPlusTabs => {
-            "Shorten the held length, or move the part along X away from the grip, so the part \
-             clears it by the tool's radius"
-        }
-    };
     PathError::refused(
         crate::topic::FACING_COMPLETION,
-        format!(
-            "the Box faces cannot be finished from X {from:.3} to {to:.3}: that is the held \
-             {end} (X {lo:.3} to {hi:.3}) and the tool's radius ({radius:.3} mm) beside it, \
-             which Facing keeps clear of. {advice}"
-        ),
+        format!("{what}, from X {from:.3} to {to:.3}"),
     )
 }
 
@@ -212,6 +204,7 @@ pub(super) fn box_sides(
                 "Box tolerance/stepdown is below the supported arithmetic resolution",
             ));
         }
+        let faced = face.faced();
         let coordinates_roundoff = 512.
             * f64::EPSILON
             * face
@@ -226,7 +219,7 @@ pub(super) fn box_sides(
                 .get(level)
                 .ok_or_else(|| refuse("invalid Box layer index"))?;
             flat_raster_gap(
-                face.coverage.transposed(),
+                faced.transposed(),
                 face.target.plane.transposed(),
                 target,
                 sweeps,
@@ -234,7 +227,7 @@ pub(super) fn box_sides(
                 settings.tolerance,
                 context,
             )?
-            .map_or(Ok(()), |gap| Err(box_gap(setup, settings.extent, gap)))
+            .map_or(Ok(()), |gap| Err(box_gap(gap)))
         };
         let mut from = group.start;
         for segment in &group.segments {
@@ -341,16 +334,15 @@ fn verify_box_removal_domain(
                     {
                         return false;
                     }
+                    let faced = face.faced();
                     let inside = |p| {
                         face.target.plane.coordinates(p).is_ok_and(|q| {
-                            q.into_iter()
-                                .take(2)
-                                .zip(face.coverage.min())
-                                .zip(face.coverage.max())
-                                .all(|((value, low), high)| {
+                            q.into_iter().take(2).zip(faced.min()).zip(faced.max()).all(
+                                |((value, low), high)| {
                                     value >= low - tolerance * 0.125
                                         && value <= high + tolerance * 0.125
-                                })
+                                },
+                            )
                         })
                     };
                     inside(from.tip) && inside(to.tip)

@@ -232,7 +232,7 @@ impl Shell {
             return;
         };
         self.header(ui, ItemRef::SelectionSet(id), &s.name, true);
-        ui.label(format!("{} {}", s.count, s.kind));
+        ui.label(s.counted());
         if let Some(path) = &s.model_path {
             ui.label(RichText::new(format!("On {path}")).color(DARK.muted));
         }
@@ -405,16 +405,14 @@ impl Shell {
                             ));
                         }
                         SetupPart::PartPosition => {
-                            if let Some(e) = rows(
+                            edited.extend(rows(
                                 ui,
                                 &mut self.form,
                                 &setup,
                                 copy.as_ref(),
                                 &setup_form::part_position_rows(&setup),
                                 &[],
-                            ) {
-                                edited.push(e);
-                            }
+                            ));
                             // The part as this setup places it, once the
                             // checks have read it (decision record 0201).
                             let extent = setup
@@ -475,30 +473,41 @@ impl Shell {
                 self.settings_touched();
             }
         }
+        // Every value committed in this frame is in the last setup, each
+        // edit made from the one before: it is stored as one undoable step,
+        // so values Keep confirms together are one step (the owner's answer
+        // A to Q8 of issue #870).
+        let keys: Vec<String> = edited.iter().filter_map(|(_, k)| k.clone()).collect();
         let mut commands: Vec<_> = edited
+            .pop()
+            .map(|(setup, _)| (Command::Replace(Item::Setup(setup)), keys))
             .into_iter()
-            .map(|(setup, key)| (Command::Replace(Item::Setup(setup)), key))
             .collect();
-        commands.extend(command.map(|command| (command, self.pending_field.take())));
+        commands.extend(
+            command.map(|command| (command, self.pending_field.take().into_iter().collect())),
+        );
         if manage_machines {
             self.open_machine_library();
         }
         let mut changed = false;
-        for (command, key) in commands {
+        for (command, keys) in commands {
             let Some(app) = &mut self.app else { return };
             match app.execute(command) {
                 Ok(()) => {
-                    if let Some(key) = key {
-                        self.form.result(&key, Ok(()));
+                    for key in &keys {
+                        self.form.result(key, Ok(()));
                     }
                     changed = true;
                 }
-                Err(e) => match key {
-                    Some(key) => self
-                        .form
-                        .result(&key, Err(form_panel::refusal(&e.to_string()))),
-                    None => self.dialog = Some(Dialog::Error(Failure::new("Change setting", e))),
-                },
+                Err(e) if keys.is_empty() => {
+                    self.dialog = Some(Dialog::Error(Failure::new("Change setting", e)));
+                }
+                Err(e) => {
+                    for key in &keys {
+                        self.form
+                            .result(key, Err(form_panel::refusal(&e.to_string())));
+                    }
+                }
             }
         }
         if changed {
@@ -1344,8 +1353,7 @@ fn set_options(
         SelectionRole::Boundary if shown.boundary => {
             let id = sets.first()?;
             let mut boundary = options.boundary;
-            ui.horizontal_wrapped(|ui| {
-                ui.add_space(indent);
+            indented_wrapped(ui, indent, |ui| {
                 let pass = ui
                     .checkbox(&mut boundary.limits_pass, "Limits the pass")
                     .tip(
@@ -1374,8 +1382,7 @@ fn set_options(
                 }
                 .on_break;
                 let set = name(id);
-                ui.horizontal_wrapped(|ui| {
-                    ui.add_space(indent);
+                indented_wrapped(ui, indent, |ui| {
                     ui.label(RichText::new(&set).color(DARK.muted));
                     for (choice, label, tip) in ON_BREAK {
                         let tip = cut_short_tip(choice, role, shown).unwrap_or(tip);
@@ -1394,8 +1401,7 @@ fn set_options(
                 } else if current == OnBreak::Warn && !shown.boundary {
                     // These strategies use the shared sampled measurement
                     // (OI-970). Explain its limitation even without a hit.
-                    ui.horizontal_wrapped(|ui| {
-                        ui.add_space(indent);
+                    indented_wrapped(ui, indent, |ui| {
                         marks::mark_beside(ui, ItemState::Warning, "Warning");
                         ui.label(
                             RichText::new(
@@ -1413,10 +1419,19 @@ fn set_options(
     edit
 }
 
+/// A row that starts `indent` in, at the value column, and whose wrapped
+/// lines start there too, never left of it (issue #609; decision 0440).
+fn indented_wrapped<R>(ui: &mut egui::Ui, indent: f32, add: impl FnOnce(&mut egui::Ui) -> R) -> R {
+    ui.horizontal(|ui| {
+        ui.add_space(indent);
+        ui.horizontal_wrapped(add).inner
+    })
+    .inner
+}
+
 /// The warning under a set whose options leave it limiting nothing.
 fn limits_nothing(ui: &mut egui::Ui, indent: f32, set: &str) {
-    ui.horizontal_wrapped(|ui| {
-        ui.add_space(indent);
+    indented_wrapped(ui, indent, |ui| {
         marks::mark_beside(ui, ItemState::Warning, "Warning");
         ui.label(RichText::new(format!("The set '{set}' limits nothing.")).color(DARK.warning));
     });
@@ -1506,8 +1521,10 @@ fn geometry(
         return (None, None);
     }
     ui.label(
-        RichText::new("With nothing in Cut on, the operation cuts the whole part.")
-            .color(DARK.muted),
+        RichText::new(openchuck_app::operation::empty_cut_on_hint(
+            &operation.strategy,
+        ))
+        .color(DARK.muted),
     );
     for role in SelectionRole::ALL {
         let sets = members(operation, role);
@@ -1541,7 +1558,7 @@ fn geometry(
                     let problem = summary.and_then(|s| s.problem.clone());
                     let text = match (&problem, summary) {
                         (Some(_), Some(s)) => {
-                            format!("{name} \u{b7} {} {} not found \u{d7}", s.count, s.kind)
+                            format!("{name} \u{b7} {} not found \u{d7}", s.counted())
                         }
                         _ => format!("{name} \u{d7}"),
                     };
@@ -1594,11 +1611,14 @@ fn geometry(
         // A set the strategy cannot use here, under the role that holds it
         // (decision record 0209 item 10).
         for refusal in notes.refusals.iter().filter(|r| r.role == role) {
-            ui.horizontal_wrapped(|ui| {
-                ui.add_space(crate::field_row::label_column(ui) + ui.spacing().item_spacing.x);
-                marks::mark_beside(ui, ItemState::Warning, "Warning");
-                ui.label(RichText::new(&refusal.text).color(DARK.warning));
-            });
+            indented_wrapped(
+                ui,
+                crate::field_row::label_column(ui) + ui.spacing().item_spacing.x,
+                |ui| {
+                    marks::mark_beside(ui, ItemState::Warning, "Warning");
+                    ui.label(RichText::new(&refusal.text).color(DARK.warning));
+                },
+            );
         }
         // The selection warning under the role that holds the set (11.7).
         for id in &sets {
@@ -1607,20 +1627,23 @@ fn geometry(
             };
             let quoted = format!("'{}'", s.name);
             for note in reach.iter().filter(|n| n.contains(&quoted)) {
-                ui.horizontal_wrapped(|ui| {
-                    ui.add_space(crate::field_row::label_column(ui) + ui.spacing().item_spacing.x);
-                    marks::mark_beside(ui, ItemState::Warning, "Warning");
-                    ui.label(RichText::new(note).color(DARK.warning));
-                    if ui.link("Show in view").clicked() {
-                        action = Some(ReachAction::Show(
-                            *id,
-                            crate::workholding_panel::reached_item(note),
-                        ));
-                    }
-                    if ui.link("Edit workholding").clicked() {
-                        action = Some(ReachAction::EditWorkholding);
-                    }
-                });
+                indented_wrapped(
+                    ui,
+                    crate::field_row::label_column(ui) + ui.spacing().item_spacing.x,
+                    |ui| {
+                        marks::mark_beside(ui, ItemState::Warning, "Warning");
+                        ui.label(RichText::new(note).color(DARK.warning));
+                        if ui.link("Show in view").clicked() {
+                            action = Some(ReachAction::Show(
+                                *id,
+                                crate::workholding_panel::reached_item(note),
+                            ));
+                        }
+                        if ui.link("Edit workholding").clicked() {
+                            action = Some(ReachAction::EditWorkholding);
+                        }
+                    },
+                );
             }
         }
     }
@@ -1651,9 +1674,13 @@ pub(super) fn setup_field_section(field: openchuck_app::setup_form::SetupField) 
     }
 }
 
-/// Draws setup rows. Returns the edited setup and the key of the row it came
-/// from, when a value was committed and passed its checks; a refused value
-/// stays in its field with the reason (section 8).
+/// Draws setup rows. Returns each setup a committed value made, in order,
+/// each from the one before, with the key of the row it came from: a value
+/// is committed only when the setup with it passes the checks storing it
+/// makes, tabs and held regions included. A refused value stays in its field
+/// with the reason (section 8); one refused because the tabs or held regions
+/// would no longer fit is checked again each frame, and once they allow it
+/// the field says Enter applies it (issue #870, the owner's answer A).
 fn rows(
     ui: &mut egui::Ui,
     state: &mut field_row::FieldState,
@@ -1661,17 +1688,50 @@ fn rows(
     machine: Option<&openchuck_app::setup::MachineProfile>,
     rows: &[SetupRow],
     known_materials: &[String],
-) -> Option<(Setup, Option<String>)> {
-    let mut edited = None;
+) -> Vec<(Setup, Option<String>)> {
+    let mut edited: Vec<(Setup, Option<String>)> = Vec::new();
     for row in rows {
         let key = setup_key(row);
+        let current = edited.last().map_or(setup, |(s, _)| s).clone();
+        let whole = |text: &str| {
+            let s = setup_form::apply(&current, machine, row.field, text)?;
+            openchuck_app::project::check_setup_values(&s)
+                .map(|()| s.clone())
+                .map_err(|e| setup_form::refusal(&s, row.label, &e))
+        };
+        // A value refused for the tabs or held regions, or allowed since and
+        // still waiting for its Enter, is checked again against the setup
+        // as it is now: refused again if it no longer fits.
+        let waiting = state.in_conflict(&key).map(str::to_owned).or_else(|| {
+            state
+                .is_forgiven(&key)
+                .then(|| state.typed(&key).map(str::to_owned))
+                .flatten()
+        });
+        if let Some(typed) = waiting {
+            match whole(&typed) {
+                Ok(_) => state.forgive(&key),
+                Err(reason) => state.refuse_conflict(&key, &typed, reason),
+            }
+        }
+        let ready = state.is_forgiven(&key).then_some(());
         let validate = |text: &str| setup_form::apply(setup, machine, row.field, text).map(|_| ());
         let field = row.field;
+        let label = row.label;
         let machine_copy = machine.cloned();
-        let preflight = crate::pending_edits::preflight(
+        // The setup as it would be stored is checked once every pending
+        // field is in it, with the same checks the change makes, tabs and
+        // held regions included: Keep refuses before it applies any value
+        // (decision record 0233 item 4; issue #870), and applies the values
+        // kept together as one step (the owner's answer A to Q8).
+        let preflight = crate::pending_edits::preflight_whole(
             egui::Id::unique(("setup fields", setup.id)),
             setup.clone(),
             move |setup, text| setup_form::apply(setup, machine_copy.as_ref(), field, text),
+            move |setup| {
+                openchuck_app::project::check_setup_values(setup)
+                    .map_err(|e| setup_form::refusal(setup, label, &e))
+            },
         );
         let outcome = field_row::text_row(
             ui,
@@ -1688,7 +1748,7 @@ fn rows(
                 reset: false,
                 enabled: true,
                 focus: false,
-                warned: None,
+                warned: ready.map(|()| READY),
                 needs: None,
                 scroll_to: false,
                 number: !row.unit.is_empty(),
@@ -1706,14 +1766,29 @@ fn rows(
             } else {
                 typed
             };
-            match setup_form::apply(setup, machine, row.field, &typed) {
-                Ok(s) => edited = Some((s, Some(key))),
+            // Keep has already checked the setup with all the values it
+            // confirms together; an in-between setup is not checked, so a
+            // pair valid only together is kept (Q8).
+            let kept = matches!(
+                crate::pending_edits::mode(ui.ctx()),
+                crate::pending_edits::Mode::Keep(_)
+            );
+            match setup_form::apply(&current, machine, row.field, &typed) {
+                Ok(s) if kept => edited.push((s, Some(key))),
+                Ok(_) => match whole(&typed) {
+                    Ok(s) => edited.push((s, Some(key))),
+                    Err(reason) => state.refuse_conflict(&key, &typed, reason),
+                },
                 Err(reason) => state.refuse(&key, &typed, format!("{reason} Not applied.")),
             }
         }
     }
     edited
 }
+
+/// What a value refused for the tabs or held regions says once they allow
+/// it (issue #870).
+const READY: &str = "The tabs and held regions now allow this value. Press Enter to apply it.";
 
 /// The Tool section's Material preset row (issue 197; decision record
 /// 0230): the list of the setup's material and the tool's other materials, a
