@@ -512,13 +512,17 @@ impl SurfaceSource for MeshSurface {
             .bvh()
             .leaves(|node: &BvhNode| {
                 let (lo, hi) = (node.mins(), node.maxs());
-                crate::gap::overlaps(
-                    &near,
-                    &Aabb {
-                        min: Point3::new(lo.x, lo.y, lo.z),
-                        max: Point3::new(hi.x, hi.y, hi.z),
-                    },
-                )
+                let b = Aabb {
+                    min: Point3::new(lo.x, lo.y, lo.z),
+                    max: Point3::new(hi.x, hi.y, hi.z),
+                };
+                crate::gap::overlaps(&near, &b) && body.near(&b, query.limit)
+            })
+            .filter(|i| {
+                self.triangle(*i).is_some_and(|t| {
+                    body.near(&crate::gap::triangle_bounds(&t), query.limit)
+                        && body.far_from(&t) <= query.limit
+                })
             })
             .collect();
         found.sort_unstable();

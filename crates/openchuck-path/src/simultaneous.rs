@@ -2722,11 +2722,13 @@ impl Plan<'_> {
     /// turning by `θ` (radians) while the tip moves `Δ` square to the
     /// rotary axis, the curve's second derivative is at most
     /// `θ² |w⊥| + 2 θ |Δ⊥|`, so it lies within an eighth of that of its
-    /// chord. The chords of all the tool's points lie in the hull of its
-    /// first and last poses, which the source bounds proven
-    /// ([`GapQuery::turned`]); the chord's distance is taken off the
-    /// allowance. A piece where that leaves less than half the allowance is
-    /// split in two, up to [`TURN_SPLITS`] times.
+    /// chord. The point on each chord lies within `|w| (1 - cos(θ / 2))`
+    /// (the arc height of the turn) of the tool's pose at the same
+    /// fraction when it turns rigidly in the plane of its two axes, which
+    /// is the motion the source bounds proven ([`GapQuery::turned`]); both
+    /// distances are taken off the allowance. A piece where that leaves
+    /// less than half the allowance is split in two, up to [`TURN_SPLITS`]
+    /// times.
     fn gouges(&self, a: &Node, b: &Node) -> Option<(f64, Point3)> {
         let rotary = &self.input.rotary;
         let (pa, pb) = (
@@ -2749,6 +2751,8 @@ impl Plan<'_> {
             across.hypot(p.height.abs().max((p.height + top).abs()))
         };
         let reach = far(pa).max(far(pb));
+        // The farthest any tool point is from its tip.
+        let size = top.abs().hypot(radius);
         let limit = self.tolerance.max(self.allowed.abs());
         let mut pieces = vec![(0.0_f64, 1.0_f64, 0_u32)];
         while let Some((f0, f1, level)) = pieces.pop() {
@@ -2756,7 +2760,8 @@ impl Plan<'_> {
             let (d0, d1) = (Degrees(a0 + f0 * (a1 - a0)), Degrees(a0 + f1 * (a1 - a0)));
             let turn = (d1.0 - d0.0).abs().to_radians();
             let moved = (p1.across - p0.across).hypot(p1.height - p0.height);
-            let arc = 0.125 * turn * (turn * reach + 2.0 * moved);
+            let arc = 0.125 * turn * (turn * reach + 2.0 * moved)
+                + size * (1.0 - (0.5 * turn).cos());
             if arc > 0.5 * self.allowed.max(0.0) {
                 if level < TURN_SPLITS {
                     let fm = 0.5 * (f0 + f1);
