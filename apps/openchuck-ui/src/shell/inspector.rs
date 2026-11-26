@@ -1475,37 +1475,18 @@ fn set_line(ui: &mut egui::Ui, line: &SetLine<'_>) -> bool {
     let mut remove = false;
     ui.horizontal(|ui| {
         ui.add_space(indent);
-        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-            let mut cross =
-                egui::Button::new(RichText::new("\u{d7}").color(if line.problem.is_some() {
-                    DARK.error
-                } else {
-                    DARK.text
-                }))
-                .small();
-            if line.problem.is_some() {
-                cross = cross.stroke(Stroke::new(1.0, DARK.error));
-            }
-            let response = ui.add(cross);
-            let name = line.name.to_owned();
-            response.widget_info(|| {
-                egui::WidgetInfo::labeled(
-                    egui::Role::Button,
-                    true,
-                    format!("Take {name} out of this role"),
-                )
-            });
-            let tip = line.problem.as_ref().map_or_else(
-                || "Take it out of this role".to_owned(),
-                |p| {
-                    format!(
-                        "{}\nClick to take it out of this role.",
-                        form_panel::refusal(p).replace(" Not applied.", "")
-                    )
-                },
-            );
-            remove = field_row::tip(response, &tip).clicked();
-            ui.with_layout(egui::Layout::left_to_right(egui::Align::Center), |ui| {
+        // The name first, then ×, so Tab follows the line from left to
+        // right (decision 0696 item 7; reading order, decision 0677). ×'s
+        // place at the right end is kept, so a long name is cut short
+        // before it.
+        let gap = ui.spacing().item_spacing.x;
+        let cross_size = egui::vec2(ui.spacing().interact_size.y, ui.spacing().interact_size.y);
+        let name_width = (ui.available_width() - cross_size.x - 2.0 * gap).max(0.0);
+        ui.allocate_ui_with_layout(
+            egui::vec2(name_width, cross_size.y),
+            egui::Layout::left_to_right(egui::Align::Center),
+            |ui| {
+                ui.set_width(name_width);
                 let (dot, _) = ui.allocate_exact_size(egui::vec2(10.0, 10.0), egui::Sense::hover());
                 let colour = if line.ignored {
                     DARK.muted
@@ -1548,8 +1529,37 @@ fn set_line(ui: &mut egui::Ui, line: &SetLine<'_>) -> bool {
                     crate::focus::focus_ring(ui, &response);
                     response.tip(tip);
                 }
-            });
+            },
+        );
+        let mut cross =
+            egui::Button::new(RichText::new("\u{d7}").color(if line.problem.is_some() {
+                DARK.error
+            } else {
+                DARK.text
+            }))
+            .small();
+        if line.problem.is_some() {
+            cross = cross.stroke(Stroke::new(1.0, DARK.error));
+        }
+        let response = ui.add_sized(cross_size, cross);
+        let name = line.name.to_owned();
+        response.widget_info(|| {
+            egui::WidgetInfo::labeled(
+                egui::Role::Button,
+                true,
+                format!("Take {name} out of this role"),
+            )
         });
+        let tip = line.problem.as_ref().map_or_else(
+            || "Take it out of this role".to_owned(),
+            |p| {
+                format!(
+                    "{}\nClick to take it out of this role.",
+                    form_panel::refusal(p).replace(" Not applied.", "")
+                )
+            },
+        );
+        remove = field_row::tip(response, &tip).clicked();
     });
     remove
 }

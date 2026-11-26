@@ -624,3 +624,30 @@ fn req_ui_07_req_set_09_a_sets_line_carries_its_reach_warning_choice_and_remove(
     let app = rig.shell.app.as_ref().unwrap();
     assert!(app.project().operations()[0].selections.is_empty());
 }
+
+/// Decision 0696 item 7: a set's line is in Tab order from left to right,
+/// so the name of a set on Ignore, a Tab stop, comes before × on its line
+/// (reading order, decision 0677).
+#[test]
+fn req_ui_14_a_sets_name_comes_before_its_remove_button_in_tab_order() {
+    let (mut rig, _) = drawn_rig(several_sets, width::INSPECTOR.0, "geometry-tab-order");
+    let name = "Fence, ignored: this set limits nothing";
+    let cross = "Take Fence out of this role";
+    let mut order = Vec::new();
+    for _ in 0..200 {
+        rig.press(egui::Key::Tab, egui::Modifiers::NONE);
+        for e in &rig.events {
+            if let egui::output::OutputEvent::FocusGained(info) = e
+                && let Some(label) = info.label.as_deref()
+                && (label == name || label == cross)
+                && !order.iter().any(|l: &String| l == label)
+            {
+                order.push(label.to_owned());
+            }
+        }
+        if order.len() == 2 {
+            break;
+        }
+    }
+    assert_eq!(order, [name, cross]);
+}

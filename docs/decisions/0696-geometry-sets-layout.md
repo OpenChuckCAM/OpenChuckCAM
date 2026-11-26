@@ -79,6 +79,7 @@ Linux container, 4 cores, uninstrumented `cargo nextest`, on branch `claude/lane
   - `openchuck-ui` `shell::frame_tests::req_op_21_req_ui_11_a_set_on_ignore_adds_no_warning_and_no_amber_mark` (item 8). It fails with the notice made a warning again.
   - `openchuck-cli` `req_op_21_cli_says_a_set_on_ignore_as_a_note` (item 8, `note:` on the command line, on a copy of the public baluster project). It fails with the notice made a warning again. 22 s, the longest new test.
   - Added after the first coverage run showed those paths untested, so not seen to fail first: `inspector_layout_tests::req_ui_07_req_set_09_a_sets_line_carries_its_reach_warning_choice_and_remove` (items 2 to 4: the reach warning once under its set, a choice click, ×).
+  - From the review of the release head (CodeRabbit, on `inspector.rs`): `inspector_layout_tests::req_ui_14_a_sets_name_comes_before_its_remove_button_in_tab_order` (item 7: a set's line in Tab order from left to right, its name before ×). It failed first, with × added before the name; the fix lays out the name first in a width that leaves room for × at the right end.
   - Rewritten to the owner's answers, as the consequences list:
     - `frame_tests::req_op_02_req_ui_07_the_geometry_section_shows_each_sets_options`;
     - `openchuck-app` `operation::tests::req_op_02_req_op_07_swarf_on_a_step_part_honours_boundary_avoid_and_check_face_sets`;
