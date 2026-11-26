@@ -2,7 +2,7 @@
 
 ## 0.55.1 (hotfix of 0.55.0)
 
-- No change in this crate. Released at 0.55.1 with the rest of the library family (lockstep versions), for the fix in `openchuck-path` (issue #929).
+- No change in this crate. Released at 0.55.1 with the rest of the library family (lockstep versions), for the fixes in `openchuck-path` (issues #929 and #943).
 
 ## 0.54.0
 
