@@ -76,9 +76,9 @@ Linux container, 4 cores, uninstrumented `cargo nextest`, on branch `claude/lane
   - `openchuck-ui` `shell::inspector_layout_tests`:
     - `req_ui_07_req_ui_16_each_set_is_named_once_on_its_own_line_with_its_choice_under_it` (items 1 to 3, 5 and 6; four sets at 280, 340 and 520 px);
     - `req_ui_07_req_op_21_a_set_on_ignore_is_struck_through_and_says_so_in_words` (items 4 and 7: the strike-through, the tooltip on hover and on keyboard focus, the accessible name read from the focus event);
-    - `req_ui_07_req_set_09_a_sets_line_carries_its_reach_warning_choice_and_remove` (items 2 to 4: the reach warning once under its set, a choice click, ×), written after the first coverage run showed those paths untested.
   - `openchuck-ui` `shell::frame_tests::req_op_21_req_ui_11_a_set_on_ignore_adds_no_warning_and_no_amber_mark` (item 8). It fails with the notice made a warning again.
   - `openchuck-cli` `req_op_21_cli_says_a_set_on_ignore_as_a_note` (item 8, `note:` on the command line, on a copy of the public baluster project). It fails with the notice made a warning again. 22 s, the longest new test.
+  - Added after the first coverage run showed those paths untested, so not seen to fail first: `inspector_layout_tests::req_ui_07_req_set_09_a_sets_line_carries_its_reach_warning_choice_and_remove` (items 2 to 4: the reach warning once under its set, a choice click, ×).
   - Rewritten to the owner's answers, as the consequences list:
     - `frame_tests::req_op_02_req_ui_07_the_geometry_section_shows_each_sets_options`;
     - `openchuck-app` `operation::tests::req_op_02_req_op_07_swarf_on_a_step_part_honours_boundary_avoid_and_check_face_sets`;
