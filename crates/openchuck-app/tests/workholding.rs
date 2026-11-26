@@ -683,6 +683,58 @@ fn req_op_21_default_tabs_follow_the_owners_answers() {
     std::fs::remove_dir_all(&b.dir).unwrap();
 }
 
+/// Issue #676: the defaults for the ends that have one are added, and each end
+/// that has none is named with the reason; only when neither end has one is
+/// the job refused, naming both ends.
+#[test]
+fn req_op_21_default_tabs_are_added_for_the_ends_that_have_one() {
+    use openchuck_types::workholding::TabEnd;
+    let mut w = workholding();
+    w.tabs.clear();
+    let b = build_with_mesh("defaults-point", w, 1, BALL, (31, 36), false);
+    // The part now comes to a point at its tail (X 30).
+    let pointed = Cone {
+        start_radius: 10.0,
+        end_radius: 0.0,
+        length: 30.0,
+    };
+    write_stl(&pointed.mesh(31, 36), &b.dir.join("models/part.stl"));
+    let report = b.app.start_default_tabs_report(b.setup).wait().unwrap();
+    assert_eq!(report.created.len(), 1, "{report:?}");
+    assert_eq!(report.created[0].0, TabEnd::Head);
+    assert_eq!(report.created[0].1.x_start.0, -8.0);
+    assert_eq!(report.skipped.len(), 1, "{report:?}");
+    assert_eq!(report.skipped[0].0, TabEnd::Tail);
+    assert!(
+        report.skipped[0]
+            .1
+            .contains("the part comes to a point at X 30.000 mm"),
+        "{report:?}"
+    );
+    // The all-or-nothing job is as it was: refused at the first end with none.
+    let error = b.app.start_default_tabs(b.setup).wait().unwrap_err();
+    assert!(error.to_string().contains("comes to a point"), "{error}");
+    // With the head's held region reaching the part as well, neither end has a
+    // default: refused, and both ends are named.
+    let mut app = b.app;
+    let mut setup = app.project().setup(b.setup).unwrap().clone();
+    setup.workholding.start = Some(HeldRegion {
+        length: Millimetres(12.0),
+        diameter: None,
+    });
+    app.execute(Command::Replace(Item::Setup(setup))).unwrap();
+    let error = app
+        .start_default_tabs_report(b.setup)
+        .wait()
+        .unwrap_err()
+        .to_string();
+    assert!(
+        error.contains("head") && error.contains("tail") && error.contains("by hand"),
+        "{error}"
+    );
+    std::fs::remove_dir_all(&b.dir).unwrap();
+}
+
 /// The part-extent job gives the workholding section the placed part's
 /// extent and each zone's default tab for the stored held regions, whatever
 /// tabs are stored, so the "Default" chip still shows after they are added

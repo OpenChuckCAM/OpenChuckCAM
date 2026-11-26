@@ -557,12 +557,11 @@ impl DexelStock {
             .map(|(i, row)| {
                 let x = x0 + (i as f64 + 0.5) * cx;
                 let mut removed = 0.0;
-                // Each column's own removal, for the deepest.
-                let mut by_column = if deepest {
-                    vec![0.0_f64; row.len()]
-                } else {
-                    Vec::new()
-                };
+                // Each column's own removal, for the deepest: made on the
+                // row's first change, so a row the batch does not cut costs
+                // nothing (issue #846 item 4).
+                let mut by_column: Vec<f64> = Vec::new();
+                let width = row.len();
                 let mut scratch: Vec<[f64; 2]> = Vec::new();
                 for (n, p) in prepared.iter().enumerate() {
                     // A relaxed load every few poses: cheap beside the cut.
@@ -603,8 +602,13 @@ impl DexelStock {
                         if scratch.as_slice() != col.as_slice() {
                             let here = before - column_length(&scratch);
                             removed += here;
-                            if let Some(slot) = by_column.get_mut(j) {
-                                *slot += here;
+                            if deepest {
+                                if by_column.is_empty() {
+                                    by_column = vec![0.0_f64; width];
+                                }
+                                if let Some(slot) = by_column.get_mut(j) {
+                                    *slot += here;
+                                }
                             }
                             col.clone_from(&scratch);
                         }

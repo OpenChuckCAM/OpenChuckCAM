@@ -359,6 +359,36 @@ pub fn zone_lines(stored: &Workholding, stock: &Stock, part: &PartExtent) -> Opt
     Some([line(Zone::Head, head), line(Zone::Tail, tail)])
 }
 
+/// What each held region's "Kept clear" row says under its value (issue
+/// #774, the owner's approved wording): every tool keeps 0.5 mm from the grip
+/// (decision 0161), and an inside corner beside it can keep more.
+pub const KEPT_CLEAR_NOTE: &str =
+    "No tool comes within 0.500 mm of the grip. Corners beside the grip may keep more material.";
+
+/// The "Kept clear" value of the held region at the start and at the end:
+/// "to X −9.500 mm" and "from X 10.500 mm", where the tools' tips stay clear
+/// of the grip (issue #774). It takes the widest tool of the setup (its
+/// cutting profile or its shank, [`crate::workholding::SetupTool::reach`])
+/// and the 0.5 mm every tool keeps, as the operations do. `None` for an end
+/// held by nothing, with no tool yet, or when the stock's extent is not
+/// known. Read from the draft, so it follows the grip as it is typed.
+pub fn kept_clear(
+    workholding: &Workholding,
+    stock: &Stock,
+    tools: &[crate::workholding::SetupTool],
+) -> [Option<String>; 2] {
+    let reach = tools.iter().map(|t| t.reach).fold(f64::NAN, f64::max);
+    let Some(bounds) = stock.bounds(None).filter(|_| reach.is_finite()) else {
+        return [None, None];
+    };
+    let keep = reach + crate::operation::HELD_CLEARANCE;
+    let (start, end) = workholding.held_intervals((bounds.min.x, bounds.max.x));
+    [
+        start.map(|(_, hi)| format!("to X {} mm", x(hi + keep))),
+        end.map(|(lo, _)| format!("from X {} mm", x(lo - keep))),
+    ]
+}
+
 /// The zone `tab` lies wholly in, for its collapsed row ("Head"); `None` when
 /// it lies in neither or the stock's extent is not known.
 pub fn tab_zone(tab: &Tab, stored: &Workholding, stock: &Stock, part: &PartExtent) -> Option<Zone> {

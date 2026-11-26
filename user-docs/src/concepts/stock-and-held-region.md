@@ -83,6 +83,8 @@ The chuck grips a length at one end of the stock. That length must never be cut,
 
 If you also support the far end, for example with a [tailstock](../glossary.md#tailstock), tick **Held at the end** in the same way.
 
+No tool comes within 0.500 mm of a held region: every tool keeps its own radius (or its shank's, if that is wider) and 0.500 mm from the grip, so the surface right beside the grip is not cut, and an inside corner beside it may keep more. Each held region's **Kept clear** row says where the tools' tips stay clear to, for the widest tool of the setup's operations, for example "to X −1.500 mm". An operation cut short there says so in a note.
+
 > [!WARNING]
 > A held region is a length along the axis, not a solid body. OpenChuckCAM does not model the chuck, its jaws or a tailstock, and does not check them against the tool or the holder. Check these clearances yourself, on the machine, before you run a program.
 

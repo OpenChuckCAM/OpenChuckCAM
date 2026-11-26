@@ -36,6 +36,14 @@ use crate::AppError;
 
 /// The refusal of `operation` by the check `topic`, for `what` (decision
 /// record 0644).
+/// Why an operation with no tool cannot be generated. The project panel's
+/// tool chip says the same (issue #790).
+pub const NO_TOOL: &str = "it has no tool";
+
+/// Why an operation whose tool is not in the project's tool list cannot be
+/// generated. The project panel's tool chip says the same (issue #790).
+pub const TOOL_MISSING: &str = "its tool is missing";
+
 fn missing(operation: &Operation, topic: &str, what: &str) -> AppError {
     AppError::refused(topic, &operation.name, what)
 }
@@ -653,18 +661,12 @@ fn generate_unnamed(
     })?;
     let tool_id = operation
         .tool
-        .ok_or_else(|| missing(operation, crate::lead_in::topic::TOOL, "it has no tool"))?;
+        .ok_or_else(|| missing(operation, crate::lead_in::topic::TOOL, NO_TOOL))?;
     let snapshot = project
         .tools()
         .iter()
         .find(|t| t.id == tool_id)
-        .ok_or_else(|| {
-            missing(
-                operation,
-                crate::lead_in::topic::TOOL,
-                "its tool is missing",
-            )
-        })?;
+        .ok_or_else(|| missing(operation, crate::lead_in::topic::TOOL, TOOL_MISSING))?;
     let part_id = setup.part.ok_or_else(|| {
         missing(
             operation,
@@ -2206,7 +2208,7 @@ fn keep_out_of(
 
 /// The largest radius of `tool`, its cutting profile or its shank: how far
 /// its middle keeps from a held region (decision 0161).
-fn tool_reach(
+pub(crate) fn tool_reach(
     profile: &openchuck_types::tool::profile::RevolvedProfile,
     tool: &openchuck_types::tool::Tool,
 ) -> f64 {

@@ -1,5 +1,37 @@
 # Changelog
 
+## Unreleased (MOPUP-1, PR B1; issues #859 and #860; not breaking)
+
+- **Fixed (#859 item 1):** a B-spline whose knots write zero as `-0.0` is split into its Bezier pieces like the same B-spline written with `0.0`, so `enclose` bounds the face instead of refusing it, and the exact queries' piece bounds apply to it.
+- **Fixed (#859 item 2):** `enclose` refuses a B-spline face or edge whose weight is so small that a pole's coordinate times it is subnormal or zero (the pole would be lost), naming the face. It used to accept it, with a bound that could miss part of the face. The weights are never adjusted.
+- **Fixed (#860 item 1):** a flat face whose exact edges ran out of room and then met an edge with no exact curve is bounded by its parameter box when that fits, instead of being refused.
+- **Fixed (#860 item 2):** a rational Bezier curve is its last control point exactly at its end, however unequal the weights; very unequal weights no longer make a valid B-spline edge or face fail as "not finite".
+- **Changed (#860 item 3):** `enclose` counts a B-spline face's pieces from its knots before it builds them, and refuses a face whose pieces cannot fit in the work limit without building them first (a degree-24 face of 81 by 81 spans is refused at once instead of after about 29 seconds and about 4 million points). Refining stops while the pieces still fit; the stated spline excess is that of the pieces kept.
+
+## 0.66.0 (SEV1-929, follow-up; issue #943; decision 0692 amendment 1, accepted; not breaking, output change)
+
+- **Fixed, changed output (issue #943):** a fed move that turns A with the tool tip fixed (no change of X, Y or Z) is timed for the line the post may write for it, as well as for A's own limit: the post works XYZ out at A written to three decimals, so the two ends can be written with a change of X or Y of up to 0.002 mm plus the shift writing A gives them, which gate 1 holds to the linear limit. Only turns of a few thousandths of a degree take longer. Every fed move whose change of X and Y is below 0.001 mm plus that shift, none included, is timed for the lower of the linear and Z limits, whatever A does; this changes nothing where Z is no faster than the linear axes (the Makera Z1 and every built-in profile). No public API change.
+
+## 0.65.0 (MOPUP-1, PR M3; issues #887 and #895; breaking)
+
+- **Breaking (decision 0048; the workspace's minor bump to 0.65.0 is this change's own):** `swarf::Limits` gains the public field `least_lift_along_axis: f64`, the least the tool's end is lifted along the tool axis at any pose (each pose's lift up its ruling times the cosine of the angle between the ruling and the axis; zero when no pose is lifted). A struct literal must add it (or use `..Limits::default()`).
+- **Fixed, changed text (#887):** a swarf face's note gives the tool's reach past the end of the rulings where it is lifted least as `end_reach` less that lift along the tool axis, not less the lift up the ruling. On a tapered flank the two differ by the cosine of the flank half angle. A straight tool's note is unchanged. No path or G-code change.
+- **Fixed (#895 item 2):** restricted Facing beside a held region refuses when the host's `keep_out` holds a span the grip does not give, as well as when it lacks one the grip gives, in any order (decision 0685). The application gives exactly the grip's spans, so its output is unchanged.
+
+## 0.64.0 (SEV1-929; issue #929; decision 0692, accepted; not breaking, output change)
+
+- **Fixed, changed output (issue #929; decision record 0692):** a fed move is timed for the shift that writing A to three decimals gives its end points (the post works X, Y and Z out at the written A, issue #780; up to `r` times 0.0005 degree at each end). The band below which a change of X or Y may be written either way is 0.001 mm plus that shift, so such a move is timed for the lower of the linear and Z limits, and the line's written allowance grows by the same shift. Before, a move that changed Y by just over 0.001 mm could be written with no Y change and its F word came out a fraction over Z's limit, which gate 1 refused (`F650.9 is above the limit 650` on a Makera Z1 job). No public API change.
+
+## Unreleased (UI-BUGS, PR 2; issue #774; not breaking, no version change)
+
+- **Changed text and level (#774; the owner's answer of 24 Nov 2026):** the note an operation gets when a held region cuts its path short (topic Held region) is information, not a warning, and says what the tool keeps: "No part of the tool comes within 0.500 mm of {the held region at the start of the stock}, so the surface beside it is not cut there, and corners beside it may keep more. The setup's Workholding section shows where the tools keep clear." It said "Nothing within one tool radius of … is cut", which understated the zone by `HELD_CLEARANCE`. The note on holes not drilled beside a held region stays a warning. No public API change.
+- **Documentation:** `StrategyInput::keep_out` says what its one producer already does: each held region is widened by the tool's largest radius and `HELD_CLEARANCE`, the distance the held-region note names. No behaviour changes.
+
+## Unreleased (WORDING-DOCS; issues #612 and #613)
+
+- **Changed text:** the pass-order note of rest machining and the helical and simultaneous strategies says a saving as "about 11.4 s less" (or "about N s more", or "about the same time") and not as "about -11.4 s"; an unreached area whose two X ends agree to three decimals is listed as "X 10.000", not "X 10.000 to 10.000" (simultaneous finishing and rest machining). No API change and no version change: the helper is crate-private.
+- **Changed text:** the descriptions of the drill's peck mode and blind hole depth name the choices as the inspector shows them (Full retract, Chip break, Full diameter, Tool tip). No API change.
+
 ## 0.63.0 (FACEFLOW; issues #791, #631, #614, #615 and #854; decisions 0675, 0676 and 0686, accepted)
 
 - **Breaking (decision 0048; the workspace's minor bump to 0.63.0 is this change's own):** `assemble::UnreachedReason` gains `TooShort { length }`, an area left uncut because the only cut there, from one lift to the next, is shorter than the operation's Shortest cut. An exhaustive `match` on `UnreachedReason` needs an arm for it.

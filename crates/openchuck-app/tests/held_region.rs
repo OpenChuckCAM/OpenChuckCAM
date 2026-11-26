@@ -747,11 +747,17 @@ fn req_set_09_req_op_04_the_baluster_finish_names_no_shoulder_at_the_held_end() 
         !warnings.iter().any(|w| w.contains("does not turn at")),
         "{warnings:#?}"
     );
+    // Beside the grip is information, not a warning (the owner's answer to
+    // #774).
+    let said = "no part of the tool comes within 0.500 mm of the held region";
     assert!(
-        warnings
-            .iter()
-            .any(|w| w.contains("Nothing within one tool radius of the held region")),
+        !warnings.iter().any(|w| w.to_lowercase().contains(said)),
         "{warnings:#?}"
+    );
+    assert!(
+        run.notes.iter().any(|n| n.contains(said)),
+        "{:#?}",
+        run.notes
     );
     std::fs::remove_dir_all(&dir).unwrap();
 }

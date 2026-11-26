@@ -238,7 +238,7 @@ fn req_ui_16_the_export_dialog_lays_out_inside_the_window() {
         &mut rig,
         "export dialog",
         "Post and export",
-        &["Cancel", "Write G-code"],
+        &["Close", "Write G-code"],
         |rig| {
             if !rig.shell.export.is_open() {
                 let app = rig.shell.app.as_ref().unwrap();

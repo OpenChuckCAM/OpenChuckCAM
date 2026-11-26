@@ -271,20 +271,22 @@ fn req_op_24_req_op_16_final_validation_runs_after_keepout_assembly_and_diagnost
         );
         assert!(path.notices.iter().any(|n| n.text.contains("held region")));
         if route < 2 {
-            // What is left uncut beside the grip is a warning too (decision
-            // record 0536 step 2).
+            // What is left uncut beside the grip is information, not a
+            // warning (the owner's answer to #774, amending decision record
+            // 0536 step 2's row P65).
             assert_eq!(
                 path.warnings(),
-                vec![
-                    &Notice::warning("Existing strategy warning").with_setting("tolerance"),
-                    &Notice::warning(
-                        "Nothing within one tool radius of the held region at the end of the \
-                         stock is cut: no part of the tool reaches over the gripped length of \
-                         the stock."
-                    )
-                    .about(openchuck_path::topic::HELD_REGION)
-                ]
+                vec![&Notice::warning("Existing strategy warning").with_setting("tolerance")]
             );
+            assert!(path.notices.contains(
+                &Notice::information(
+                    "No part of the tool comes within 0.500 mm of the held region at the end of \
+                     the stock, so the surface beside it is not cut there, and corners beside it \
+                     may keep more. The setup's Workholding section shows where the tools keep \
+                     clear."
+                )
+                .about(openchuck_path::topic::HELD_REGION)
+            ));
             assert!(
                 path.notices
                     .iter()

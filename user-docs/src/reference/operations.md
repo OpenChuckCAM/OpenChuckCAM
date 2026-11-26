@@ -30,6 +30,10 @@ A strategy that needs a STEP model is shown greyed out when the setup's part is 
 
 The **Material preset** fills the spindle speed, feed per tooth, plunge feed, stepover and stepdown from the tool's cutting data for one stock material. It starts at the setup's stock material. Changing one of those values drops the preset. Check the values against your tool, material and machine.
 
+## The operations list
+
+The project panel lists the operations in machining order. Each row shows the tool's number, such as **T1**. Rest the pointer on the number, or move to the row with <kbd>Tab</kbd>, to see the tool's name and what it is, for example "4 mm ball" and "T1 · Ball end mill · Ø4 · 2 flutes". An operation with no tool shows **No tool** in red, and its tooltip says how to fix it: choose a tool in the operation's **Tool** section.
+
 ## The operation inspector
 
 Select an operation to show its settings in the Inspector, from the top:
@@ -45,7 +49,7 @@ Select an operation to show its settings in the Inspector, from the top:
 
 Each setting's label has a tooltip that says what it does. An empty field shows the value that applies and where it comes from: "default", "from the tool's cutting data", or "required". The ↺ button returns a field to that value. A value outside the setting's range is refused with a message such as "Ramp angle: above 0, at most 89. Not applied." A setting that the last path warned about is marked; change it to remove the warning.
 
-Choices are shown as the program stores them, for example `clearance` and `safe_z` for **Retract**. A few have names: **Shape**, **Coverage extent**, **Layer distribution**, **Passes**, **Steps between rings** and **Links between passes**.
+Each choice is shown as a row of buttons with a name for each, for example **Safe cylinder** and **Safe Z** for **Retract**. The names are the ones used on this page. Project files store a short word for each choice; you never need to type it.
 
 ## Settings every operation has
 
@@ -56,9 +60,9 @@ Choices are shown as the program stores them, for example `clearance` and `safe_
 | Stock to leave | 0 mm | Material left on the surfaces for a later operation. A new rotary roughing operation starts at a tenth of the tool's diameter, rounded to 0.05 mm and kept between 0.1 and 1 mm. |
 | Cutting feed | from the tool's cutting data, else required | The [feed](../glossary.md#feed) at the cutter's contact point while cutting, in mm/min. |
 | Plunge feed | from the tool's cutting data, else required | The feed of the tool tip moving into the material. Rotary roughing and flat or round facing also go down into the stock inside a pass no faster than this. |
-| Retract | `clearance` | Where moves between passes go: up to the safe cylinder (`clearance`), or to the safe Z (`safe_z`). |
+| Retract | Safe cylinder | Where moves between passes go: up to the **Safe cylinder**, or to the **Safe Z**. |
 | Approach distance | 1 mm | A rapid approach stops this far above the stock; the rest is a plunge at the plunge feed. |
-| Entry | `plunge` | How the tool enters the cut: a straight `plunge`, a tangent arc (`lead`), a `ramp` that follows the pass's own path down to its first cut point, or a descending `helix`. With `lead`, a matching arc also leaves the cut at the end of the pass. On a ring or a spiral the arcs turn with the part, in the plane of the cut at the ring's X: the tool comes down onto the cut and rises from it while the part turns, so the arcs never run along the part. A pass that is a single point is entered by a plunge instead, and a note names it. |
+| Entry | Plunge | How the tool enters the cut: a straight **Plunge**, a **Tangent arc**, a **Straight ramp** that follows the pass's own path down to its first cut point, or a **Descending helix**. With **Tangent arc**, a matching arc also leaves the cut at the end of the pass. On a ring or a spiral the arcs turn with the part, in the plane of the cut at the ring's X: the tool comes down onto the cut and rises from it while the part turns, so the arcs never run along the part. A pass that is a single point is entered by a plunge instead, and a note names it. |
 | Allow single-point plunge | off | A pass that is a single point (a roughing layer that only touches the part's tip, for example) has no path for a ramp to follow. With this on, the tool plunges straight down to that point instead of refusing the operation. The tool must be able to plunge (centre cutting). Only for ramp entry. |
 | Steeper ramp near the axis | off | Near the rotary axis a ramp round a ring needs many turns. With this on, a ring or spiral ramp that would need more than 10 turns at the Ramp angle uses a steeper angle, just enough to fit in 10 turns, never steeper than the Maximum ramp angle. Lines are not affected. Only for ramp entry. |
 | Maximum ramp angle | 15° | The steepest angle the steeper ramp near the axis may use, at most 45°. |
@@ -111,7 +115,7 @@ The Geometry section also warns when a set cannot be used by this strategy on th
 ## Settings some strategies share
 
 Extend past the stock
-: `no`, `both ends`, `start end` or `far end`. Carries the passes past the chosen ends of the stock, so the tool leaves no thin skin at the stock's edge. The start end is the low X end. An end held by the chuck cannot be extended past. Rotary roughing, facing, and helical, axial and indexed finishing. On helical finishing the passes carry on past the part in their own motion: the spiral at its pitch, or rings at the ring spacing joined by the operation's **Steps between rings**, so the stock past the part's end is cut all round. That takes as many extra turns at each end as the pitch fits into the distance from the part's end to the extended end, which can be many turns at a fine pitch; the operation's note gives the turns and the length of path added.
+: **Neither end**, **Both ends**, **Start end** or **Far end**. Carries the passes past the chosen ends of the stock, so the tool leaves no thin skin at the stock's edge. The start end is the low X end. An end held by the chuck cannot be extended past. Rotary roughing, facing, and helical, axial and indexed finishing. On helical finishing the passes carry on past the part in their own motion: the spiral at its pitch, or rings at the ring spacing joined by the operation's **Steps between rings**, so the stock past the part's end is cut all round. That takes as many extra turns at each end as the pitch fits into the distance from the part's end to the extended end, which can be many turns at a fine pitch; the operation's note gives the turns and the length of path added.
 
 : Past the part's end the passes run on at the height of the pass's last point; they do not go down to the rotary axis. Where the part's end is narrower than the tool can follow, such as a point or a dome, a core of stock that wide stays past the end. On the tutorial's baluster, with 4 mm of stock past its pointed finial and a 3.175 mm ball, the core is about 5.3 mm across. **Face free ends** (on by default) takes that end down to the axis, with a **Part cut free** warning to acknowledge, because the stock past the end can come free and be thrown; a Facing operation with the **Unheld end** shape also removes the stock past the end. Even then a blunt nub can stay at a point, about as wide as the core and about 1 mm long. The simulation measures the material left on the part's surface, so its figures do not count stock past the part's end: look at the cut stock in the view.
 
@@ -134,7 +138,7 @@ Links between passes
 : **Retract to the clearance**, or **Stay low where clear**, the default for new operations: links stay the approach distance above the stock where the whole link is clear of the stock, the held regions and the part. The stock is checked at points along each link, so a very thin piece of stock between them could be missed. A link that cannot stay low retracts, and a note says how many did. Facing (end and box shapes), helical, axial, indexed and simultaneous finishing, and rest machining.
 
 Pass order
-: `by_region`, the default for new operations, cuts the turns at end faces and the passes on hidden surfaces next to the passes of their region; `after_main` cuts them after all the main passes. The passes are the same either way. Helical and simultaneous finishing, and rest machining.
+: **By region**, the default for new operations, cuts the turns at end faces and the passes on hidden surfaces next to the passes of their region; **After main passes** cuts them after all the main passes. The passes are the same either way. Helical and simultaneous finishing, and rest machining.
 
 Face free ends
 : On by default. At each end face of the part with nothing beyond it, the tool steps down beside the face by the **Stepdown**, so the face keeps only the stock to leave. Helical and axial finishing, and rest machining. See [A free end deeper than the flutes](#a-free-end-deeper-than-the-flutes).
@@ -148,8 +152,8 @@ Removes most of the material from the stock in layers, from the outside in. The 
 
 | Setting | Default | What it does |
 | --- | --- | --- |
-| Form | `continuous` | `continuous` layers turn A as the tool cuts; `indexed` layers hold A at fixed positions (3+1). |
-| Cut direction | `usual for the form` | `along the length of the part` runs passes along X; `around the part` wraps them round the part. The usual is around for continuous, along for indexed. |
+| Form | Continuous | **Continuous** layers turn A as the tool cuts; **Indexed** layers hold A at fixed positions (3+1). |
+| Cut direction | Usual for the form | **Along the length of the part** runs passes along X; **Around the part** wraps them round the part. The usual is around for continuous, along for indexed. |
 | Stepdown | from the tool's cutting data, else required | The depth of each layer. Layers are made equal. It cannot be more than the tool's flute length. |
 | Index angle | 30° | Indexed form: the angle between positions of A. |
 | Start angle | 0° | A at the first index position, or at the start of the helix. |
@@ -190,7 +194,7 @@ Follows the surface in a spiral round the part as the tool moves along it: a gen
 
 | Setting | Default | What it does |
 | --- | --- | --- |
-| Rotation | `positive` | Which way A turns as X increases. |
+| Rotation | Positive | Which way A turns as X increases. |
 | Start angle | 0° | A at the lowest X of the part. |
 | Largest angle step | 5° | The most A may turn between two points; points are added where the surface needs them. |
 | Scallop height / Allowed excess | 0 / 0.01 mm | See [the shared settings](#settings-some-strategies-share). |
@@ -204,7 +208,7 @@ Passes along the length of the part, turning it a small step between passes. Use
 
 | Setting | Default | What it does |
 | --- | --- | --- |
-| Direction | `zigzag` | `zigzag` alternates the direction of each pass; `climb` cuts every pass the same way. |
+| Direction | Zig-zag | **Zig-zag** alternates the direction of each pass; **Climb** cuts every pass the same way. |
 | Start angle | 0° | A of the first pass. |
 | Scallop height / Allowed excess | 0 / 0.01 mm | See [the shared settings](#settings-some-strategies-share). |
 | Largest step along X | 1 mm | The most X may advance between two points of a pass. |
@@ -220,7 +224,7 @@ Turns the part to each chosen angle, holds it still, and follows the surface alo
 | Angles | empty | The A positions to cut at, in degrees, separated by commas, in cutting order (up to 720). Empty uses **Count**. |
 | Count | 4 | How many equally spaced positions to cut at, from 1 to 720. |
 | Start angle | 0° | A of the first equally spaced position. |
-| Direction | `zigzag` | As for axial finishing. |
+| Direction | Zig-zag | As for axial finishing. |
 | Largest step along X | 1 mm | As for axial finishing. |
 
 Also: **Exact STEP surface contact** (on), **Links between passes**, **Extend past the stock**, **Finishing layers** and **Adaptive spacing**. It has no Scallop height and no Face free ends.
@@ -231,8 +235,8 @@ Turns the part while the tool moves, so the tool meets the surface from differen
 
 | Setting | Default | What it does |
 | --- | --- | --- |
-| Pattern | `spiral` | `spiral`: one helix round the axis, the stepover apart per turn. `axial`: passes along the axis, the stepover apart at the part's largest radius. |
-| Rotation | `positive` | Which way A turns as X increases along a spiral. |
+| Pattern | Spiral | **Spiral**: one helix round the axis, the stepover apart per turn. **Axial**: passes along the axis, the stepover apart at the part's largest radius. |
+| Rotation | Positive | Which way A turns as X increases along a spiral. |
 | Start angle | 0° | A at the start of the path. |
 | Largest angle step | 5° | The most the path turns round the axis between two points. |
 | Lead angle | 0° | From −30° to 30°. Leans the tool from the normal towards the direction of travel round the axis, for example to keep the centre of a ball, where it barely cuts, off the surface. Axial passes need 0. |
@@ -249,7 +253,7 @@ Uses the stock left by earlier operations in the same setup to find and cut what
 | Setting | Default | What it does |
 | --- | --- | --- |
 | Smallest material to clean | 0.15 mm | Material thinner than this above the part is taken as clean. Keep it above one and a half simulation cells. |
-| Rotation, Start angle | `positive`, 0° | As for helical finishing. |
+| Rotation, Start angle | Positive, 0° | As for helical finishing. |
 | Largest angle step | 2° | The most A may turn between two points. |
 | Passes | Spiral | **Spiral** or **Rings**. Either way only the places with material left are cut. |
 
@@ -297,7 +301,7 @@ After all that, a cut from one lift to the next that is shorter than **Shortest 
 | Setting | Default | What it does |
 | --- | --- | --- |
 | Scallop height | 0 mm | The highest ridge left between passes for a ball-end or bull-nose tool; passes are put closer than the stepover where it needs it. 0 leaves the stepover alone. With other tool shapes it is ignored, and a note says so. |
-| Cutting direction | `meander` | `meander` alternates the direction of the passes; `climb` and `conventional` cut every pass the same way relative to the uncut material. |
+| Cutting direction | Meander | **Meander** alternates the direction of the passes; **Climb** and **Conventional** cut every pass the same way relative to the uncut material. |
 | Lead angle | 0° | From −30° to 30°. How far the tool leans from the normal towards the travel round the axis. Passes along the axis cannot lean. |
 | Maximum tilt | 5° | From 0° to 30°. How far the tool may leave its leaned direction to smooth the turning of the part. |
 | Pattern | Automatic for a new operation | **Automatic**, **Along the guide** or **Follow the outline**; see above. An operation saved before this setting keeps Along the guide. |
@@ -313,12 +317,12 @@ Moves the tool along the part's edges to cut lines, for engraving or carving. It
 
 | Setting | Default | What it does |
 | --- | --- | --- |
-| Mode | `engrave` | `engrave` cuts one line along each chain of edges; `carve` cuts a band of the **Carve width**. |
+| Mode | Engrave | **Engrave** cuts one line along each chain of edges; **Carve** cuts a band of the **Carve width**. |
 | Depth | 0.2 mm | How far below the surface the tool tip goes, along the tool axis. |
 | Line width | 0 mm | Above 0, the depth is the one at which the tool cuts this width (for a V-bit). |
 | Depth per pass | 0 mm | The depth of each level; 0 cuts the whole depth at once. |
 | Carve width | 0 mm | Carve only: the width of the band, centred on the chain. |
-| Start | `first` | Where each chain starts: as stored (`first`), `reversed`, at the lowest or highest X (`low_x`, `high_x`), or nearest the **Start angle** (`angle`). |
+| Start | As stored | Where each chain starts: **As stored**, **Reversed**, at the **Lowest X** or **Highest X**, or **Nearest the start angle** (the **Start angle** setting). |
 | Start angle | 0° | From −360° to 360°, measured from +Y towards +Z. |
 | Crease angle | 30° | The smallest turn between two faces that makes a mesh edge one to follow. |
 | Shortest chain | 0 mm | Chains shorter than this are not cut. A length in mm, or tick **Tool diameter** to use the operation's tool's diameter, which follows a change of tool. |
@@ -333,9 +337,9 @@ Some faces make the tool cut into the surface by more than the tolerance. A warn
 | Setting | Default | What it does |
 | --- | --- | --- |
 | Keep off the end faces | on | Stops each pass short of the faces that meet the ends of the face, such as a wall it stands against, by the least length that keeps the tool off them. That part of the face is left uncut, and the note says how much. Off, the pass runs to the ends, and any cut into those faces is warned of. Only the faces that share an edge with the face are checked. |
-| Direction | `forward` | Which way along the face the tool moves. |
+| Direction | Forward | Which way along the face the tool moves. |
 | Tip extension | 0 mm | How far the tool tip reaches beyond the end of the ruling it sits at. A negative value pulls the tool up the face, leaving a strip that wide uncut. |
-| Tip end | `auto` | Which end of the rulings the tip sits at: `auto` chooses the end with less tilt, then the one nearer the axis; `reversed` takes the other. |
+| Tip end | Automatic | Which end of the rulings the tip sits at: **Automatic** chooses the end with less tilt, then the one nearer the axis; **Reversed** takes the other. |
 | Most material left | 0 (meaning 0.1 mm) | The most material the flank may leave anywhere on the face. More than the tolerance is reported; more than this refuses the face. |
 
 **Keep off the end faces** checks the faces next to the face against the tool's cutting part only: the shank, the holder and the rest of the part are not checked. The swarf warnings each point at the setting to change. The three below are about a cut into a face next to the face, and are warnings to acknowledge:
@@ -357,12 +361,12 @@ Drills holes into the side of the part, turning the part so each hole faces the 
 | Setting | Default | What it does |
 | --- | --- | --- |
 | Peck depth | 0 mm | The deepest one peck goes; 0 drills each hole in one move. |
-| Peck mode | `full_retract` | Between pecks the tool goes back to the retract height (`full_retract`), or backs out a short way (`chip_break`). |
-| Chip-break retract | 0.5 mm | How far the tool backs out in `chip_break` mode. |
+| Peck mode | Full retract | Between pecks the tool goes back to the retract height (**Full retract**), or backs out a short way (**Chip break**). |
+| Chip-break retract | 0.5 mm | How far the tool backs out in **Chip break** mode. |
 | Retract height | 2 mm | How far above the top of the hole the tool retracts to and starts feeding from. |
-| Re-entry clearance | 0.5 mm | In `full_retract` mode, a rapid back into the hole stops this far above the last peck. |
+| Re-entry clearance | 0.5 mm | In **Full retract** mode, a rapid back into the hole stops this far above the last peck. |
 | Through allowance | 0.5 mm | How far past the end of a through hole the tool's full diameter goes. |
-| Blind hole depth | `full_diameter` | A blind hole is drilled until the full diameter (`full_diameter`), or the tip (`tip`), reaches its depth. |
+| Blind hole depth | Full diameter | A blind hole is drilled until the **Full diameter**, or the **Tool tip**, reaches its depth. |
 | Diameter tolerance | 0.1 mm | A hole is drilled only if its diameter is within this of the tool's. |
 | Axis tolerance | 0.5° | A hole tilted more than this from the plane across the axis cannot be drilled on four axes and is left out. |
 
