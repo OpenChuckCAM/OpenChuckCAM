@@ -10,6 +10,8 @@ use eframe::egui;
 use openchuck_viewport::{DisplayMode, Projection, StandardView};
 
 use crate::viewport::{SimulateShow, ViewStep, Viewport, Visibility};
+use openchuck_app::pathview::{ENTRY_NAME, ShownMoves, move_name};
+use openchuck_app::playback::MoveKind;
 
 /// The strip's height (7.1).
 pub const HEIGHT: f32 = 44.0;
@@ -131,10 +133,15 @@ pub fn show(ui: &mut egui::Ui, viewport: &mut Viewport, strip: egui::Rect) {
             }
             // Simulate's "Show" choices stay in the strip while they fit after the other
             // controls, else they move into the "Show" menu, so none is cut off (OI-529).
+            let chip = hidden_moves_width(ui, viewport.shown_moves());
             let inline_show = step == ViewStep::Simulate
                 && ui.available_width()
-                    >= text_width(ui, "Show \u{23f7}") + button_extra(ui) + simulate_show_width(ui);
+                    >= text_width(ui, "Show \u{23f7}")
+                        + button_extra(ui)
+                        + chip
+                        + simulate_show_width(ui);
             show_or_hide(ui, viewport);
+            hidden_moves_chip(ui, viewport);
             if step == ViewStep::Model && viewport.has_findings() {
                 let mut show = viewport.visibility();
                 if ui
@@ -207,16 +214,99 @@ fn segments<T: Copy + PartialEq>(ui: &mut egui::Ui, choices: &[(T, &str, &str)],
     });
 }
 
+/// The tick boxes of the kinds of toolpath move (issue #789; decision record
+/// 0693, the owner's answers P1 B and P2 A): Cut, Link, Rapid, then
+/// Entry and exit with its three kinds under it, and "Show all moves" while
+/// any is hidden. Shared by the Show menu (V) and View > Toolpath moves, and
+/// the same choice as the path legend's tick boxes.
+pub fn move_ticks(ui: &mut egui::Ui, moves: &mut ShownMoves) {
+    for kind in [MoveKind::Cutting, MoveKind::Linking, MoveKind::Rapid] {
+        let mut shown = moves.shows(kind);
+        if ui.checkbox(&mut shown, move_name(kind)).changed() {
+            moves.set(kind, shown);
+        }
+    }
+    let entry = ShownMoves::ENTRY
+        .iter()
+        .filter(|k| moves.shows(**k))
+        .count();
+    let mut all = entry == ShownMoves::ENTRY.len();
+    let parent = egui::Checkbox::new(&mut all, ENTRY_NAME)
+        .indeterminate(entry > 0 && entry < ShownMoves::ENTRY.len());
+    // The press follows the legend's rule (`viewport_overlays::toggle`): a
+    // ticked or partly ticked box hides its three kinds, an empty one shows
+    // them, so the menus and the legend agree.
+    if ui.add(parent).changed() {
+        crate::viewport_overlays::toggle(moves, &ShownMoves::ENTRY);
+    }
+    ui.indent("entry and exit moves", |ui| {
+        for kind in ShownMoves::ENTRY {
+            let mut shown = moves.shows(kind);
+            if ui.checkbox(&mut shown, move_name(kind)).changed() {
+                moves.set(kind, shown);
+            }
+        }
+    });
+    if !moves.all_shown() && ui.button("Show all moves").clicked() {
+        *moves = ShownMoves::ALL;
+    }
+}
+
+/// The chip beside "Show" while some kinds of move are hidden (issue #789;
+/// decision record 0693 as the owner amended it on 25 Nov 2026), so a
+/// hidden kind is never forgotten: "Hidden: Rapid, Lead-out". It is a plain
+/// label, not a control: no button styling, no tooltip, no Tab stop, and a
+/// click does nothing. Its outline and warning colour mark it apart, and its
+/// words say what is hidden, so it is not shown by colour alone. The way
+/// back is "Show all moves" in the Show menu (V) and in View > Toolpath
+/// moves, or the path legend's tick boxes.
+fn hidden_moves_chip(ui: &mut egui::Ui, viewport: &Viewport) {
+    let Some(text) = hidden_moves_text(viewport.shown_moves()) else {
+        return;
+    };
+    let colour = crate::theme::DARK.warning;
+    let galley = ui.painter().layout_no_wrap(
+        text.clone(),
+        egui::TextStyle::Body.resolve(ui.style()),
+        colour,
+    );
+    let size = galley.size() + egui::vec2(16.0, 6.0);
+    let (rect, response) = ui.allocate_exact_size(size, egui::Sense::hover());
+    ui.painter().rect_stroke(
+        rect,
+        rect.height() / 2.0,
+        egui::Stroke::new(1.0, colour),
+        egui::StrokeKind::Inside,
+    );
+    ui.painter()
+        .galley(rect.center() - galley.size() / 2.0, galley, colour);
+    // Read as text by a screen reader (OI-2110), never as a button.
+    response.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Label, true, &text));
+}
+
+/// The words of the hidden-moves chip, or `None` when every kind is shown.
+pub fn hidden_moves_text(moves: ShownMoves) -> Option<String> {
+    moves.hidden_text()
+}
+
+/// The room the hidden-moves chip takes in the strip, with its gap.
+fn hidden_moves_width(ui: &egui::Ui, moves: ShownMoves) -> f32 {
+    hidden_moves_text(moves).map_or(0.0, |t| {
+        text_width(ui, &t) + 16.0 + ui.spacing().item_spacing.x
+    })
+}
+
 /// The "Show or hide" button and its list (V).
 fn show_or_hide(ui: &mut egui::Ui, viewport: &mut Viewport) {
     let button = ui.button("Show \u{23f7}").tip(
-        "Show or hide: part, stock, axes, held regions and tabs, selections, toolpaths, unreachable \
-         areas (V)",
+        "Show or hide: part, stock, axes, held regions and tabs, selections, toolpaths and each \
+         kind of toolpath move, unreachable areas (V)",
     );
     if button.clicked() {
         viewport.show_menu_open = !viewport.show_menu_open;
     }
     let mut show = viewport.visibility();
+    let mut moves = viewport.shown_moves();
     let simulate = viewport.step() == ViewStep::Simulate;
     let mut open = viewport.show_menu_open;
     egui::Popup::from_response(&button)
@@ -237,6 +327,9 @@ fn show_or_hide(ui: &mut egui::Ui, viewport: &mut Viewport) {
                 ui.add_enabled(!locked, egui::Checkbox::new(field(&mut show), name))
                     .on_disabled_hover_text(LAST_TICK);
             }
+            ui.separator();
+            ui.label("Toolpath moves");
+            ui.indent("toolpath moves", |ui| move_ticks(ui, &mut moves));
             if simulate {
                 ui.separator();
                 ui.label("Cut part display");
@@ -251,6 +344,7 @@ fn show_or_hide(ui: &mut egui::Ui, viewport: &mut Viewport) {
         });
     viewport.show_menu_open = open;
     viewport.set_visibility(show);
+    viewport.set_shown_moves(moves);
 }
 
 #[cfg(test)]
