@@ -130,6 +130,7 @@ impl Strategy for IndexedFinishing {
                 crate::finishing::parameter::FINISH_ALLOWANCE,
                 crate::finishing::parameter::FINISHING_LAYERS,
                 crate::finishing::parameter::STEPDOWN,
+                crate::finishing::parameter::FINISH_TO_A_POINT,
                 axial_parameter::SCALLOP,
                 adaptive::parameter::ADAPTIVE_SPACING,
                 adaptive::parameter::MIN_SPACING,
@@ -328,6 +329,31 @@ fn passes(
     // Finishing layers above them, when on; each layer keeps the pass's A
     // (decision record 0345).
     let (mut passes, layered) = crate::finishing::layers(input, passes, parameters)?;
+    // Finish to a point (decision record 0695, Q2): past each end that comes
+    // to a point, the passes carry on along X following the part down, then
+    // whole turns take the tool to the rotary axis.
+    if parameters
+        .flag(crate::finishing::parameter::FINISH_TO_A_POINT)
+        .unwrap_or(false)
+    {
+        let found = crate::faces::turns_to_the_ends(
+            input,
+            &along.grown,
+            along.range(),
+            tolerance,
+            context,
+        )?;
+        let first = angles.first().copied().unwrap_or(0.0);
+        for end in &crate::finishing::point_ends(input, &along.grown, &found.free, parameters) {
+            passes.extend(along.to_a_point(
+                &angles,
+                end,
+                parameters,
+                (first, crate::axial::TURN_STEP),
+                context,
+            )?);
+        }
+    }
     along.mark_low_links(&mut passes);
     Ok(Made {
         passes,

@@ -191,6 +191,7 @@ impl Strategy for HelicalFinishing {
             .chain(ring_step_specs())
             .chain(crate::extend::specs(false))
             .chain(crate::finishing::specs(true, true))
+            .chain(std::iter::once(crate::finishing::point_spec()))
             .chain(adaptive::specs())
             .chain(std::iter::once(crate::order::spec()))
             .chain(std::iter::once(crate::axial::link_height_spec()))
@@ -595,6 +596,21 @@ fn passes(
             (start, sign, step),
         )?;
         passes.extend(free.passes);
+        // Finish to a point (decision record 0695, Q2): past each end that
+        // comes to a point, the spiral carries on at its pitch following the
+        // part down, then whole turns take the tool to the rotary axis. Cut
+        // after the free ends' turns, which take the stock beside the end.
+        let pointed = crate::finishing::point_ends(input, &grown, &found.free, parameters);
+        for end in &pointed {
+            passes.extend(to_a_point(
+                &fit,
+                end,
+                (x0, x1),
+                (pitch, step),
+                parameters,
+                context,
+            )?);
+        }
         let notes = ring_note
             .into_iter()
             .chain(extend_note)
@@ -615,6 +631,60 @@ fn passes(
         crate::axial::mark_low_links_if_asked(parameters, &mut passes);
         Ok((passes, notes, warnings))
     }
+}
+
+/// Finish to a point past `end` (decision record 0695, Q2): the helix of
+/// `fit` (the part from `x0` to `x1` at `pitch`) carried on from the part's
+/// end to the end's last drop, no more than `step` degrees between seeds,
+/// then whole turns down to the rotary axis there.
+fn to_a_point(
+    fit: &Fit<'_>,
+    end: &crate::finishing::PointEnd,
+    (x0, x1): (f64, f64),
+    (pitch, step): (f64, f64),
+    parameters: &Parameters,
+    context: &JobContext<'_>,
+) -> Result<Vec<Pass>> {
+    let input = fit.input;
+    let from = if end.far { x1 } else { end.edge };
+    let length = if end.far {
+        end.edge - x1
+    } else {
+        x0 - end.edge
+    };
+    let mut out = Vec::new();
+    if length > 0.0 {
+        let total_angle = 360.0 * length / pitch;
+        let n = (total_angle / step).ceil().max(2.0);
+        let piece = Fit {
+            x0: from,
+            length,
+            start: fit.start + fit.sign * 360.0 * (from - x0) / pitch,
+            total_angle,
+            max_dt: 1.0 / n,
+            ..*fit
+        };
+        out.extend(fit_region(
+            &piece,
+            n as usize,
+            "finishing to a point",
+            context,
+        )?);
+    }
+    context.check_cancelled()?;
+    let top = crate::finishing::top_at_edge(input, fit.drop_profile, fit.leave, end);
+    let stepdown = parameters
+        .number(crate::finishing::parameter::STEPDOWN)
+        .unwrap_or(0.0);
+    let at = fit.start + fit.sign * 360.0 * (end.edge - x0) / pitch;
+    out.extend(crate::finishing::turns_to_the_axis(
+        input,
+        end,
+        top,
+        stepdown,
+        (at, fit.sign, step),
+    ));
+    Ok(out)
 }
 
 /// The **Passes** setting (decision records 0390 and 0420): the same name,

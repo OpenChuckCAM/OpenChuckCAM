@@ -19,7 +19,7 @@ use std::collections::BTreeMap;
 
 use openchuck_types::geometry::{Point3, UnitVec3, Vec3};
 use openchuck_types::tool::profile::RevolvedProfile;
-use openchuck_types::units::Degrees;
+use openchuck_types::units::{Degrees, Millimetres};
 
 use crate::error::{PathError, Result};
 use crate::faces::FreeEnd;
@@ -41,6 +41,25 @@ pub mod parameter {
     /// What the final pass alone takes, mm along the tool axis, with
     /// Finishing layers on: the layers stop this far above the target.
     pub const FINISH_ALLOWANCE: &str = "finish_allowance";
+    /// Carry the finish on past a part's end that comes to a point, down to
+    /// the rotary axis: on or off (decision record 0695, Q2).
+    pub const FINISH_TO_A_POINT: &str = "finish_to_a_point";
+}
+
+/// The Finish to a point setting (decision record 0695, Q2 (a) A): off in the
+/// schema, so an operation saved without it keeps its program; a new
+/// operation gets it on (decision record 0545 D3's pattern).
+pub(crate) fn point_spec() -> ParameterSpec {
+    ParameterSpec {
+        name: parameter::FINISH_TO_A_POINT.to_owned(),
+        label: "Finish to a point".to_owned(),
+        description: "Where the part ends in a point inside the stock, carry the finish on past \
+                      the end, the tool following the part down until its centre is on the \
+                      rotary axis, so the point is cut instead of left as a nub. This cuts the \
+                      part free of the stock past the point."
+            .to_owned(),
+        kind: ParameterKind::Flag { default: false },
+    }
 }
 
 /// The Finish allowance when the operation sets none, mm (decision record
@@ -642,4 +661,149 @@ pub(crate) fn across_axis_warning(
         ))
         .about(topic::FACES_ACROSS_THE_AXIS)
     })
+}
+
+/// A free end of the part that comes to a point, past which Finish to a
+/// point carries the finish on (decision record 0695, Q2 (a) A).
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub(crate) struct PointEnd {
+    /// The X of the end itself.
+    pub(crate) face: f64,
+    /// The last X of the tool's axis where the drop still finds the part:
+    /// the finish follows the part down to here.
+    pub(crate) edge: f64,
+    /// Whether the end looks along +X (the part's far end).
+    pub(crate) far: bool,
+}
+
+/// Whether the stock carries on past the end face at `face`: only such an
+/// end has anything past it to cut (decision record 0344).
+fn stock_past(input: &StrategyInput<'_>, face: f64, far: bool) -> bool {
+    let tolerance = 1e-3;
+    match input.stock.x_extent() {
+        Some((_, hi)) if far => hi > face + tolerance,
+        Some((lo, _)) => lo < face - tolerance,
+        None => true,
+    }
+}
+
+/// The free ends `ends` that come to a point, with Finish to a point on
+/// (decision record 0695, Q2): an end the stock carries on past, where the
+/// tool (`grown` by the stock to leave) at the end's last drop touches the
+/// part nearer the rotary axis than its own cutting radius at every angle,
+/// so the part there is narrower than the tool. A wider end is an end face,
+/// which Face free ends turns at (decision record 0344).
+pub(crate) fn point_ends(
+    input: &StrategyInput<'_>,
+    grown: &RevolvedProfile,
+    ends: &[FreeEnd],
+    parameters: &Parameters,
+) -> Vec<PointEnd> {
+    if !parameters
+        .flag(parameter::FINISH_TO_A_POINT)
+        .unwrap_or(false)
+    {
+        return Vec::new();
+    }
+    let radius = grown.cutting_radius();
+    ends.iter()
+        .filter(|e| stock_past(input, e.face, e.far))
+        .filter(|e| {
+            (0..AROUND).all(|k| {
+                let a = Degrees(360.0 * k as f64 / AROUND as f64);
+                let line = input
+                    .rotary
+                    .tool_line(Millimetres(e.edge), a, Millimetres(0.0));
+                input
+                    .surface
+                    .drop_on_part(grown, &line)
+                    .is_some_and(|c| c.contact.y.hypot(c.contact.z) < radius)
+            })
+        })
+        .map(|e| PointEnd {
+            face: e.face,
+            edge: e.edge,
+            far: e.far,
+        })
+        .collect()
+}
+
+/// Whole turns of A at `x`, the tool's tip stepping down by `stepdown` from
+/// `from` (mm along the tool axis from the rotary axis), the last with the
+/// tool's end at its cutting radius on the axis, as the drop onto a point on
+/// the axis puts it: a ball's centre on the axis (decision record 0695, Q2
+/// (b) A). Starting at A `start`, turning by `sign`, no more than `step`
+/// degrees between points; each turn its own pass, as Face free ends cuts
+/// them (decision record 0344). With no Stepdown, one turn.
+pub(crate) fn turns_to_the_axis(
+    input: &StrategyInput<'_>,
+    end: &PointEnd,
+    from: f64,
+    stepdown: f64,
+    (start, sign, step): (f64, f64, f64),
+) -> Vec<Pass> {
+    let side = input.tool.cutting_radius();
+    let last = -input.tool.height_at(side).unwrap_or(0.0);
+    let toward = if end.far { -1.0 } else { 1.0 };
+    let points = ((360.0 / step).ceil() as usize).max(4);
+    let mut heights = Vec::new();
+    if stepdown.is_finite() && stepdown > 0.0 {
+        let mut h = from - stepdown;
+        while h > last + 1e-9 {
+            heights.push(h);
+            h -= stepdown;
+        }
+    }
+    heights.push(last);
+    heights
+        .into_iter()
+        .map(|h| Pass {
+            helical_pass_start: false,
+            low_link: false,
+            points: (0..=points)
+                .map(|i| {
+                    let a = Degrees(start + sign * 360.0 * i as f64 / points as f64);
+                    let place = |along: f64| {
+                        input.rotary.to_model(
+                            AxisPosition {
+                                along,
+                                across: 0.0,
+                                height: h,
+                            },
+                            a,
+                        )
+                    };
+                    CutPoint {
+                        tip: place(end.edge),
+                        a,
+                        contact: place(end.edge + toward * side),
+                    }
+                })
+                .collect(),
+            stock: None,
+            rapids: Vec::new(),
+            plunge_fed: Vec::new(),
+        })
+        .collect()
+}
+
+/// The tool's tip at `end`'s last drop, mm along the tool axis from the
+/// rotary axis: the highest round the axis, for the tool `grown` by `leave`.
+pub(crate) fn top_at_edge(
+    input: &StrategyInput<'_>,
+    grown: &RevolvedProfile,
+    leave: f64,
+    end: &PointEnd,
+) -> f64 {
+    let top = (0..AROUND)
+        .filter_map(|k| {
+            let a = Degrees(360.0 * k as f64 / AROUND as f64);
+            let line = input
+                .rotary
+                .tool_line(Millimetres(end.edge), a, Millimetres(0.0));
+            input.surface.drop_tool(grown, &line)
+        })
+        .map(|c| c.offset + leave)
+        .fold(f64::NEG_INFINITY, f64::max);
+    if top.is_finite() { top } else { 0.0 }
 }

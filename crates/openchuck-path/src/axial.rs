@@ -213,6 +213,7 @@ impl Strategy for AxialFinishing {
                 .into_iter()
                 .chain(crate::extend::specs(false))
                 .chain(crate::finishing::specs(true, true))
+                .chain(std::iter::once(crate::finishing::point_spec()))
                 .chain(adaptive::specs())
                 .collect(),
             )
@@ -330,7 +331,7 @@ fn pass_count(radius: f64, stepover: f64, scallop: Option<(f64, f64)>) -> Result
 pub(crate) struct AlongX<'a> {
     input: &'a StrategyInput<'a>,
     region: Option<&'a RegionConstraint<'a>>,
-    grown: RevolvedProfile,
+    pub(crate) grown: RevolvedProfile,
     zones: Vec<ZoneFit<'a>>,
     leave: f64,
     x0: f64,
@@ -497,6 +498,54 @@ impl<'a> AlongX<'a> {
             Some(e) => e.run_out(passes, self.input, &self.grown, self.leave, (lo, hi)),
             None => passes,
         }))
+    }
+
+    /// Finish to a point past `end` (decision record 0695, Q2): each pass
+    /// at the angles `angles` carried on along X from the target's end to the
+    /// end's last drop, following the part down, then whole turns down to
+    /// the rotary axis there, starting at A `start`, no more than `step`
+    /// degrees between their points.
+    pub(crate) fn to_a_point(
+        &self,
+        angles: &[f64],
+        end: &crate::finishing::PointEnd,
+        parameters: &Parameters,
+        (start, step): (f64, f64),
+        context: &JobContext<'_>,
+    ) -> Result<Vec<Pass>> {
+        // Indexed finishing's passes already run on past the ends by
+        // `beyond` (decision record 0343).
+        let from = if end.far {
+            self.x1 + self.beyond
+        } else {
+            self.x0 - self.beyond
+        };
+        let length = if end.far {
+            end.edge - from
+        } else {
+            from - end.edge
+        };
+        let mut out = Vec::new();
+        if length > 0.0 {
+            let h = (self.x1 - self.x0) / self.seeds as f64;
+            let seeds = ((length / h).ceil() as usize).max(2);
+            for &a in angles {
+                context.check_cancelled()?;
+                out.extend(self.fit_span((Degrees(a), 0.0), (from, end.edge), seeds, context)?);
+            }
+        }
+        let top = crate::finishing::top_at_edge(self.input, &self.grown, self.leave, end);
+        let stepdown = parameters
+            .number(crate::finishing::parameter::STEPDOWN)
+            .unwrap_or(0.0);
+        out.extend(crate::finishing::turns_to_the_axis(
+            self.input,
+            end,
+            top,
+            stepdown,
+            (start, 1.0, step),
+        ));
+        Ok(out)
     }
 
     /// `passes` marked as linkable low when the operation asks (decision
@@ -695,7 +744,7 @@ fn join(out: &mut Vec<Pass>, pass: Pass) {
 }
 
 /// The largest A step, degrees, between the seeds of a turn at an end face.
-const TURN_STEP: f64 = 5.0;
+pub(crate) const TURN_STEP: f64 = 5.0;
 
 /// The passes of axial finishing, with its notes and warnings: the end
 /// faces past the ends of the target it turned at, those a held region kept
@@ -788,6 +837,13 @@ fn passes(
         (start, 1.0, TURN_STEP),
     )?;
     passes.extend(free.passes);
+    // Finish to a point (decision record 0695, Q2): past each end that comes
+    // to a point, the passes carry on along X following the part down, then
+    // whole turns take the tool to the rotary axis. Cut after the free ends'
+    // turns, which take the stock beside the end.
+    for end in &crate::finishing::point_ends(input, &along.grown, &found.free, parameters) {
+        passes.extend(along.to_a_point(&angles, end, parameters, (start, TURN_STEP), context)?);
+    }
     along.mark_low_links(&mut passes);
     let mut warnings = free.warnings;
     let mut spaced_note = None;
