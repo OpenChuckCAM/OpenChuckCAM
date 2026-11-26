@@ -545,9 +545,8 @@ impl MeshSurface {
                 crate::gap::overlaps(&near, &b) && body.near(&b, reach)
             })
             .filter(|i| {
-                self.triangle(*i).is_some_and(|t| {
-                    body.near(&crate::gap::triangle_bounds(&t), reach) && body.far_from(&t) <= reach
-                })
+                self.triangle(*i)
+                    .is_some_and(|t| body.far_from(&t) <= reach)
             })
             .collect();
         found.sort_unstable();

@@ -629,9 +629,10 @@ impl<'a> Body<'a> {
     }
 
     /// Whether surface in the box `b` may lie within `limit` of the tool at
-    /// some pose: false only where a proven bound puts all of it farther.
-    /// The box is tested by the capsule, then by the plane facing it from
-    /// the spine (its least value over the box is at a corner).
+    /// some pose: false only where the capsule holding the tool, over the
+    /// whole move, is proven farther than `limit` from the box. Cheap, for
+    /// the boxes of a search structure; a triangle that passes is bounded
+    /// more closely when it is queued.
     pub(crate) fn near(&self, b: &Aabb, limit: f64) -> bool {
         let (low, high, wide) = self.reach;
         let centre = midpoint(b.min, b.max);
@@ -641,25 +642,11 @@ impl<'a> Body<'a> {
         let off = (q - n * q.dot(n)).length() + reach;
         let moved = 0.5 * (self.sweep.length() + self.angle.abs() * off);
         let at = self.frame(centre, 0.5);
-        if to_segment(at, self.tip + self.axis * low, self.tip + self.axis * high)
+        to_segment(at, self.tip + self.axis * low, self.tip + self.axis * high)
             - reach
             - wide
             - moved
-            > limit
-        {
-            return false;
-        }
-        let corners = [
-            b.min,
-            Point3::new(b.max.x, b.min.y, b.min.z),
-            Point3::new(b.min.x, b.max.y, b.min.z),
-            Point3::new(b.max.x, b.max.y, b.min.z),
-            Point3::new(b.min.x, b.min.y, b.max.z),
-            Point3::new(b.max.x, b.min.y, b.max.z),
-            Point3::new(b.min.x, b.max.y, b.max.z),
-            b.max,
-        ];
-        self.facing(&corners, centre, 0.0, 1.0) <= limit
+            <= limit
     }
 
     /// A box holding every pose of the tool, grown by `margin`.
