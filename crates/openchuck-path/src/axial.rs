@@ -841,11 +841,17 @@ fn passes(
     // to a point, the passes carry on along X following the part down, then
     // whole turns take the tool to the rotary axis. Cut after the free ends'
     // turns, which take the stock beside the end.
-    for end in &crate::finishing::point_ends(input, &along.grown, &found.free, parameters) {
+    let pointed = crate::finishing::point_ends(input, &along.grown, &found.free, parameters);
+    for end in &pointed {
         passes.extend(along.to_a_point(&angles, end, parameters, (start, TURN_STEP), context)?);
     }
     along.mark_low_links(&mut passes);
     let mut warnings = free.warnings;
+    warnings.extend(crate::finishing::point_warnings(
+        input,
+        &pointed,
+        &free.faced,
+    ));
     let mut spaced_note = None;
     if let Some((settings, outcome)) = &spaced {
         spaced_note = Some(outcome.note(settings));

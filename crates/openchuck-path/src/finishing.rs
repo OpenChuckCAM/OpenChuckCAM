@@ -174,6 +174,9 @@ pub(crate) struct FreeEnds {
     pub(crate) passes: Vec<Pass>,
     pub(crate) notes: Vec<Notice>,
     pub(crate) warnings: Vec<Notice>,
+    /// The X of each end face faced down to the rotary axis, whose warnings
+    /// say what that cuts free.
+    pub(crate) faced: Vec<f64>,
 }
 
 /// The turns at the part's free ends `ends` (decision record 0344): with
@@ -404,6 +407,7 @@ pub(crate) fn free_ends(
             );
         }
         rings.push((end.x, face, end.far, from.min(to), from.max(to)));
+        out.faced.push(face);
         // Stock past the ring that no held region past it grips: a cheap test
         // of whether there is any, not of whether it is joined to the rest
         // (OI-1393).
@@ -806,4 +810,73 @@ pub(crate) fn top_at_edge(
         .map(|c| c.offset + leave)
         .fold(f64::NEG_INFINITY, f64::max);
     if top.is_finite() { top } else { 0.0 }
+}
+
+/// What finishing to the points `ends` cuts free (decision record 0695, Q2
+/// (b) A, with decision record 0344's warnings): the tool goes down to the
+/// rotary axis past each point, so the stock past it is cut free unless a
+/// held region past it grips it, and the part is cut free unless a held
+/// region on its own side holds it. An end already in `faced` (Face free
+/// ends faced it down to the axis) has those warnings already.
+pub(crate) fn point_warnings(
+    input: &StrategyInput<'_>,
+    ends: &[PointEnd],
+    faced: &[f64],
+) -> Vec<Notice> {
+    let radius = input.tool.cutting_radius();
+    let width = 2.0 * radius;
+    let mut out = Vec::new();
+    for end in ends {
+        if faced.iter().any(|&f| (f - end.face).abs() <= 1e-6) {
+            continue;
+        }
+        let (from, to) = (end.edge - radius, end.edge + radius);
+        let face = end.face;
+        let gripped =
+            input
+                .keep_out
+                .iter()
+                .any(|&(a, b)| if end.far { a > end.edge } else { b < end.edge });
+        if !gripped {
+            out.push(Notice {
+                level: Level::Warning,
+                topic: Some(topic::PART_CUT_FREE.to_owned()),
+                segment: None,
+                text: format!(
+                    "the point at X {face:.3} is finished down to the rotary axis: the tool cuts \
+                     a ring {width:.3} mm wide from X {from:.3} to {to:.3} down to the axis, and \
+                     the stock past the point is not held by anything in this setup, so it can \
+                     be cut free there and thrown while the rotary axis turns. Before running \
+                     this program, check the stock and the workholding on the machine"
+                ),
+                setting: Some(parameter::FINISH_TO_A_POINT.to_owned()),
+                acknowledgement: None,
+            });
+        }
+        let held =
+            input
+                .keep_out
+                .iter()
+                .any(|&(a, b)| if end.far { b < end.edge } else { a > end.edge });
+        if !held {
+            out.push(Notice {
+                level: Level::Warning,
+                topic: Some(topic::PART_CUT_FREE.to_owned()),
+                segment: None,
+                text: format!(
+                    "the point at X {face:.3} is finished down to the rotary axis: the tool cuts \
+                     a ring {width:.3} mm wide from X {from:.3} to {to:.3} down to the axis, and \
+                     nothing in this setup holds the part on the other side of the ring (no held \
+                     region at its other end, and no tab joining it to one), so the part can be \
+                     cut free there and thrown while the rotary axis turns. Before running this \
+                     program, check the stock and the workholding on the machine"
+                ),
+                setting: Some(parameter::FINISH_TO_A_POINT.to_owned()),
+                // As decision record 0538 has it for a free end: a possible
+                // collision, to acknowledge.
+                acknowledgement: Some(Acknowledgement::PossibleCollision),
+            });
+        }
+    }
+    out
 }

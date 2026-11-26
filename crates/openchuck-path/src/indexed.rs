@@ -214,7 +214,7 @@ impl Strategy for IndexedFinishing {
 /// The passes made, with their notes.
 fn output(made: Made) -> Result<StrategyOutput> {
     let (x0, x1) = made.range;
-    let mut warnings = Vec::new();
+    let mut warnings = made.pointed;
     let mut spaced = None;
     if let Some((settings, outcome)) = &made.spaced {
         spaced = Some(outcome.note(settings));
@@ -245,6 +245,8 @@ struct Made {
     range: (f64, f64),
     layered: Option<Notice>,
     spaced: Option<(adaptive::Settings, adaptive::Outcome)>,
+    /// What finishing to a point cuts free (decision record 0695, Q2).
+    pointed: Vec<Notice>,
 }
 
 /// The note an indexed operation carries when its passes cut past the ends
@@ -332,6 +334,7 @@ fn passes(
     // Finish to a point (decision record 0695, Q2): past each end that comes
     // to a point, the passes carry on along X following the part down, then
     // whole turns take the tool to the rotary axis.
+    let mut pointed = Vec::new();
     if parameters
         .flag(crate::finishing::parameter::FINISH_TO_A_POINT)
         .unwrap_or(false)
@@ -344,7 +347,9 @@ fn passes(
             context,
         )?;
         let first = angles.first().copied().unwrap_or(0.0);
-        for end in &crate::finishing::point_ends(input, &along.grown, &found.free, parameters) {
+        let ends = crate::finishing::point_ends(input, &along.grown, &found.free, parameters);
+        pointed = crate::finishing::point_warnings(input, &ends, &[]);
+        for end in &ends {
             passes.extend(along.to_a_point(
                 &angles,
                 end,
@@ -360,6 +365,7 @@ fn passes(
         range: along.range(),
         layered,
         spaced,
+        pointed,
     })
 }
 

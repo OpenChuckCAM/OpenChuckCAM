@@ -596,6 +596,7 @@ fn passes(
             (start, sign, step),
         )?;
         passes.extend(free.passes);
+        let faced = free.faced;
         // Finish to a point (decision record 0695, Q2): past each end that
         // comes to a point, the spiral carries on at its pitch following the
         // part down, then whole turns take the tool to the rotary axis. Cut
@@ -621,6 +622,7 @@ fn passes(
             .chain(free.notes)
             .collect();
         let mut warnings = free.warnings;
+        warnings.extend(crate::finishing::point_warnings(input, &pointed, &faced));
         warnings.extend(spaced_warning);
         warnings.extend(faces::held_warning(&found.held));
         warnings.extend(crate::finishing::across_axis_warning(

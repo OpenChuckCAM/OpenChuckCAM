@@ -217,3 +217,137 @@ fn req_op_04_finish_to_a_point_off_leaves_the_point_as_before() {
         assert!(lowest > least, "{}: {lowest}", s.name());
     }
 }
+
+/// The warnings an operation gives on its Finish to a point setting.
+fn point_warnings(p: &GeneratedPath) -> Vec<&openchuck_path::Notice> {
+    p.notices
+        .iter()
+        .filter(|n| n.setting.as_deref() == Some(FINISH_TO_A_POINT))
+        .collect()
+}
+
+/// Going down to the axis past the point cuts the part free of the stock
+/// past it: with nothing held in the setup, both of decision record 0344's
+/// warnings are given, on the Finish to a point setting, the part's own one
+/// to acknowledge as a possible collision (decision 0695, Q2 (b) A; NFR-12).
+/// Where Face free ends already faced the end down to the axis, its warnings
+/// say so and none is added.
+#[test]
+fn req_nfr_12_finishing_to_a_point_warns_that_the_part_is_cut_free() {
+    use openchuck_path::notice::{Acknowledgement, topic};
+    let f = pointed();
+    for s in [
+        &HelicalFinishing as &dyn Strategy,
+        &AxialFinishing,
+        &IndexedFinishing,
+    ] {
+        let mut v = values(s, true);
+        if s.schema().get(FACE_FREE_ENDS).is_some() {
+            v.insert(FACE_FREE_ENDS.to_owned(), ParameterValue::Flag(false));
+        }
+        let p = path(s, &f, &v);
+        let w = point_warnings(&p);
+        assert_eq!(w.len(), 2, "{}: {w:?}", s.name());
+        assert!(
+            w.iter()
+                .all(|n| n.topic.as_deref() == Some(topic::PART_CUT_FREE)
+                    && n.text.contains("X 20.000")),
+            "{}: {w:?}",
+            s.name()
+        );
+        assert_eq!(
+            w.iter()
+                .filter(|n| n.acknowledgement == Some(Acknowledgement::PossibleCollision))
+                .count(),
+            1,
+            "{}",
+            s.name()
+        );
+    }
+    for s in [&HelicalFinishing as &dyn Strategy, &AxialFinishing] {
+        let p = path(s, &f, &values(s, true));
+        assert!(point_warnings(&p).is_empty(), "{}", s.name());
+        assert!(
+            p.notices.iter().any(|n| n.setting.as_deref() == Some(FACE_FREE_ENDS)
+                && n.topic.as_deref() == Some(topic::PART_CUT_FREE)),
+            "{}",
+            s.name()
+        );
+    }
+}
+
+/// A held region past the point grips the stock there: only the part's own
+/// warning is given.
+#[test]
+fn req_set_09_req_nfr_12_a_held_region_past_the_point_grips_the_stock() {
+    let f = pointed();
+    let held = [(30.0, 40.0)];
+    let mut input = f.input();
+    input.keep_out = &held;
+    let s = &HelicalFinishing;
+    let mut v = values(s, true);
+    v.insert(FACE_FREE_ENDS.to_owned(), ParameterValue::Flag(false));
+    let p = run(|ctx| generate(s, &input, &v, ctx)).unwrap();
+    let w = point_warnings(&p);
+    assert_eq!(w.len(), 1, "{w:?}");
+    assert!(w[0].text.contains("holds the part"), "{w:?}");
+}
+
+/// A point inside a held region's band is the held region's, not a free
+/// end: nothing is carried on past it (SET-09).
+#[test]
+fn req_set_09_a_point_inside_a_held_band_is_not_finished_to() {
+    let f = pointed();
+    let held = [(19.0, 40.0)];
+    let mut input = f.input();
+    input.keep_out = &held;
+    for s in [
+        &HelicalFinishing as &dyn Strategy,
+        &AxialFinishing,
+        &IndexedFinishing,
+    ] {
+        let p = run(|ctx| generate(s, &input, &values(s, true), ctx)).unwrap();
+        assert!(point_warnings(&p).is_empty(), "{}", s.name());
+        assert!(
+            centres(&p).iter().all(|&(_, r)| r > 0.05),
+            "{}: a move reaches the axis",
+            s.name()
+        );
+    }
+}
+
+/// An end narrower than the tool but not on the axis (a cone cut off at
+/// radius 1 at X 20) is finished to the axis too: whole turns take the
+/// ball's centre down to it beside the end, without cutting into the end
+/// (decision 0695, Q2 (b) A).
+#[test]
+fn req_op_04_req_op_12_an_end_off_the_axis_narrower_than_the_tool_goes_to_the_axis() {
+    let mesh = revolve(&[(0.0, 6.0), (14.0, 6.0), (POINT, 1.0)], 360);
+    let mut f = Fixture::new(MeshSurface::new(&mesh).unwrap(), 8.0, &ball(D));
+    f.stock = AnalyticStock::Cylinder {
+        radius: 8.0,
+        x_start: -1.0,
+        x_end: 40.0,
+    };
+    for s in [
+        &HelicalFinishing as &dyn Strategy,
+        &AxialFinishing,
+        &IndexedFinishing,
+    ] {
+        let p = path(s, &f, &values(s, true));
+        let c = centres(&p);
+        assert!(
+            c.iter()
+                .any(|&(x, r)| (x - (POINT + R)).abs() < 0.05 && r < 0.02),
+            "{}: never on the axis past the end",
+            s.name()
+        );
+        for (x, r) in c {
+            // The end face at X 20, radius 1: the ball keeps R from its
+            // disc.
+            if r <= 1.0 {
+                assert!(x - POINT > R - 0.02, "{}: X {x:.3} r {r:.3}", s.name());
+            }
+        }
+    }
+}
