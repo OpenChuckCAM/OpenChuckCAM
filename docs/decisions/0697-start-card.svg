@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 540" role="img" aria-label="The start card with no project open, in a 1920 by 1080 window at half scale: New project, Open project, the drop zone and the recent projects">
   <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
-  <!-- Decision PROJUX-A-1 (issue #706). A drawing at half scale of a 1920 by 1080 window, not a capture. Project names and folders are made up. -->
+  <!-- Decision 0697 (issue #706). A drawing at half scale of a 1920 by 1080 window, not a capture. Project names and folders are made up. -->
   <rect width="960" height="540" fill="#121417"/>
   <rect x="0" y="0" width="960" height="14" fill="#1e2228"/>
   <text x="8" y="10.5" fill="#c9d1d9" font-size="8" font-family="sans-serif">File   Edit   View   Project   Tools   Help</text>

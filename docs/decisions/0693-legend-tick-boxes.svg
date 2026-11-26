@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 330" role="img" aria-label="The path legend with a tick box for each kind of move, and the Hidden chip beside Show">
+  <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
+  <!-- Decision 0693 (issue #789). A drawing, not a capture. -->
+  <rect width="760" height="330" fill="#15171a"/>
+  <rect x="0" y="0" width="760" height="40" fill="#1e2228"/>
+  <g font-family="sans-serif" font-size="12">
+    <text x="14" y="25" fill="#c9d1d9">Shaded  Wire  Edges  |  Persp  Ortho  |  Front  Top  Iso  |  Fit</text>
+    <rect x="360" y="9" width="62" height="22" rx="3" fill="#2a3038" stroke="#4a525c"/>
+    <text x="370" y="25" fill="#e6e9ee">Show ⏷</text>
+    <rect x="430" y="9" width="160" height="22" rx="11" fill="none" stroke="#f2b84b"/>
+    <text x="510" y="25" fill="#f2b84b" text-anchor="middle">Hidden: Rapid, Lead-out</text>
+  </g>
+  <path d="M330 280 C 410 150, 500 150, 590 280" stroke="#ffb454" stroke-width="2.4" fill="none"/>
+  <path d="M350 280 C 425 170, 485 170, 570 280" stroke="#ffb454" stroke-width="2.4" fill="none"/>
+  <path d="M590 280 L 605 300 L 350 300 L 350 280" stroke="#6fd3a8" stroke-width="1.4" fill="none"/>
+  <path d="M570 280 L 582 262" stroke="#e8b6ff" stroke-width="2.4" fill="none"/>
+  <rect x="12" y="52" width="196" height="196" rx="4" fill="#1f2329" fill-opacity="0.95" stroke="#353c45"/>
+  <g font-family="sans-serif" font-size="12" fill="#e6e9ee">
+    <rect x="20" y="61" width="12" height="12" rx="2" fill="#3d8bff"/><path d="M22.5 67 l3 3.5 l4.5 -6" stroke="#fff" stroke-width="1.6" fill="none"/>
+    <line x1="38" y1="67" x2="56" y2="67" stroke="#ffb454" stroke-width="2.4"/><text x="64" y="71">Cut</text>
+    <rect x="20" y="79" width="12" height="12" rx="2" fill="#3d8bff"/><path d="M22.5 85 l3 3.5 l4.5 -6" stroke="#fff" stroke-width="1.6" fill="none"/>
+    <line x1="38" y1="85" x2="56" y2="85" stroke="#6fd3a8" stroke-width="1.4"/><text x="64" y="89">Link</text>
+    <rect x="20" y="97" width="12" height="12" rx="2" fill="none" stroke="#e6e9ee"/>
+    <line x1="38" y1="103" x2="56" y2="103" stroke="#9aa6b5" stroke-width="2" stroke-dasharray="2 3"/><text x="64" y="107">Rapid</text>
+    <rect x="20" y="115" width="12" height="12" rx="2" fill="#3d8bff"/><path d="M23 121 h6" stroke="#fff" stroke-width="1.8"/>
+    <line x1="38" y1="121" x2="56" y2="121" stroke="#e8b6ff" stroke-width="2.4"/><text x="64" y="125">Entry and exit</text>
+    <rect x="34" y="133" width="12" height="12" rx="2" fill="#3d8bff"/><path d="M36.5 139 l3 3.5 l4.5 -6" stroke="#fff" stroke-width="1.6" fill="none"/>
+    <line x1="52" y1="139" x2="70" y2="139" stroke="#e8b6ff" stroke-width="2.4"/><text x="78" y="143">Plunge</text>
+    <rect x="34" y="151" width="12" height="12" rx="2" fill="#3d8bff"/><path d="M36.5 157 l3 3.5 l4.5 -6" stroke="#fff" stroke-width="1.6" fill="none"/>
+    <line x1="52" y1="157" x2="70" y2="157" stroke="#e8b6ff" stroke-width="2.4"/><text x="78" y="161">Lead-in and ramp</text>
+    <rect x="34" y="169" width="12" height="12" rx="2" fill="none" stroke="#e6e9ee"/>
+    <rect x="32" y="167" width="16" height="16" rx="3" fill="none" stroke="#6fa3ff" stroke-width="2"/>
+    <line x1="52" y1="175" x2="70" y2="175" stroke="#e8b6ff" stroke-width="2.4"/><text x="78" y="179">Lead-out</text>
+    <rect x="20" y="190" width="18" height="10" fill="#3d8bff" fill-opacity="0.4"/><text x="46" y="199">Selected</text>
+    <rect x="20" y="208" width="18" height="10" fill="none" stroke="#ff7b72"/><text x="46" y="217">Avoid</text>
+  </g>
+  <g font-family="sans-serif" font-size="11.5" fill="#9aa6b5">
+    <text x="230" y="64">Operations step. Each row of moves is a tick box and a Tab stop (Lead-out has the keyboard).</text>
+    <text x="230" y="82">Entry and exit is partly ticked: two of its three kinds are shown.</text>
+    <text x="230" y="100">The same choices are under Show (V) and View &gt; Toolpath moves, on every step.</text>
+    <text x="230" y="118">Display only: the G-code, the simulation, the checks and playback do not change.</text>
+  </g>
+</svg>

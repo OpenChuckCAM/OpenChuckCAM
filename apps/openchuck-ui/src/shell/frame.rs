@@ -860,6 +860,13 @@ impl Shell {
                         }
                     }
                 });
+                // The kinds of toolpath move, as the Show menu (V) and the
+                // path legend's tick boxes (issue #789; UI-14).
+                ui.menu_button("Toolpath moves", |ui| {
+                    let mut moves = self.viewport.shown_moves();
+                    crate::viewport_toolbar::move_ticks(ui, &mut moves);
+                    self.viewport.set_shown_moves(moves);
+                });
                 let unavailable = directions_unavailable(
                     self.setup_panes().is_some(),
                     self.viewport.project_has_models(),
@@ -1491,7 +1498,7 @@ impl Shell {
     /// (specification section 11.1). Recent projects and dropping a file are
     /// UI-23 (P2).
     /// The start card (specification 11.1; UI-23, decision record
-    /// PROJUX-A-1 item 1): the way to start, a drop zone, the recent
+    /// 0697 item 1): the way to start, a drop zone, the recent
     /// projects and the four steps. It is centred, at most 560 points wide
     /// and as tall as its content; with a short view the recent list
     /// scrolls inside it, so the buttons and the drop zone stay in view.
@@ -1604,7 +1611,7 @@ impl Shell {
     }
 }
 
-/// The start card's widest (decision record PROJUX-A-1 item 1).
+/// The start card's widest (decision record 0697 item 1).
 const START_CARD_WIDTH: f32 = 560.0;
 
 /// The start card's drop zone: a dashed box saying what a drop does. It is

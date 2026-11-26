@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //! What a file or folder dropped on the window is, and what dropping it
-//! does (UI-23, IMP-01, IMP-02; issue #706, decision record PROJUX-A-1).
+//! does (UI-23, IMP-01, IMP-02; issue #706, decision record 0697).
 //!
 //! A dropped STL or STEP file is imported, or starts a new project with it
 //! when no project is open. A project folder, or its `project.toml`, opens

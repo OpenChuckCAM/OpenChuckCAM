@@ -1,4 +1,4 @@
-# PROJUX-A-1: A start page with the recent projects, and a file or folder dropped on the window starts, opens or imports what it is (UI-23, IMP-01, IMP-02, UI-14, UI-15; issue #706; lane PROJECT-UX-A)
+# 0697: A start page with the recent projects, and a file or folder dropped on the window starts, opens or imports what it is (UI-23, IMP-01, IMP-02, UI-14, UI-15; issue #706; lane PROJECT-UX-A)
 
 - **Status:** Accepted by the project owner on 26 Nov 2026, relayed by the coordinator (decision 0049), after reading the record in draft pull request #902. Proposed by lane PROJECT-UX-A on 26 Nov 2026. It records the project owner's answers of 25 Nov 2026 to the lane's questions, relayed by the coordinator (decision 0049):
   - S1 option A: the start card of specification 11.1 grows the drop zone and up to 10 recent projects. The recent list shows with or without a project open.
@@ -15,9 +15,9 @@
   - [decision 0460](0460-recovery-offered-only-for-the-opened-project.md) (recovery offered for the project being opened);
   - [decision 0246](0246-new-project-buttons-resolve-their-own-fields.md) and #891 (the New project and Open dialogs resolve their own fields);
   - [decision 0677](0677-keyboard-focus-tooltips-and-tool-windows.md) (focus, reading order, tooltips on focus).
-- **Open items:** adds OI-9961 (dropping on a Wayland desktop; sev3 ticket #901) and OI-9966 (the owner's acceptance of this record, closed on 26 Nov 2026).
+- **Open items:** adds OI-2243 (dropping on a Wayland desktop; sev3 ticket #901) and OI-2244 (the owner's acceptance of this record, closed on 26 Nov 2026).
 
-Numbering: provisional. The coordinator assigns the record number and the OI numbers at release, in merge order. No project schema number: the recent list is a per-user setting that already exists. No library-family API change: only `openchuck-ui` is expected to change (and `openchuck-app` only if a helper is needed), so there is no version bump.
+Numbering: assigned by the coordinator at release (26 Nov 2026), in merge order, and checked free on `main` `b2f1550` and every unmerged branch: record 0697 (was PROJUX-A-1), OI-2243 (was OI-9961) and OI-2244 (was OI-9966). No project schema number: the recent list is a per-user setting that already exists. No library-family change (`openchuck-app` and `openchuck-ui` are not in the family), so there is no version bump.
 
 ## Context
 
@@ -33,9 +33,9 @@ What `main` (`361613e`) does:
   - Nothing shows while a file is dragged over the window.
 - **Wayland.** egui 0.37 takes dropped and hovered files from winit 0.30.13. In winit 0.30.13 the file drop and hover events (`DroppedFile`, `HoveredFile`) come only from the X11, Windows and macOS backends; its Wayland backend has no drag-and-drop code. On a Linux desktop running Wayland, the program gets no file drop unless it runs under X11 (XWayland).
 
-![The start card with the drop zone and the recent projects](PROJUX-A-1-start-card.svg)
+![The start card with the drop zone and the recent projects](0697-start-card.svg)
 
-![The window while a file is dragged over it](PROJUX-A-1-drag-over.svg)
+![The window while a file is dragged over it](0697-drag-over.svg)
 
 ## Decision
 
@@ -63,7 +63,7 @@ What `main` (`361613e`) does:
    - and the first of several, with "(1 of 3; the rest are not imported)".
 
    It is drawn only while the system reports a hovered file (X11, Windows, macOS).
-5. **Wayland (the owner's answer S4 A).** Nothing in the program changes for Wayland. The user guide says that on a Linux desktop running Wayland, dropping a file needs the program to run under X11 (XWayland), and that the buttons and the recent list work everywhere. OI-9961 is followed by the sev3 ticket #901 (milestone 2027.1) for Wayland support in egui and winit.
+5. **Wayland (the owner's answer S4 A).** Nothing in the program changes for Wayland. The user guide says that on a Linux desktop running Wayland, dropping a file needs the program to run under X11 (XWayland), and that the buttons and the recent list work everywhere. OI-2243 is followed by the sev3 ticket #901 (milestone 2027.1) for Wayland support in egui and winit.
 6. **Display only, per user.** The recent list is the existing per-user setting (UI-15). Nothing new is stored, in the project or in the settings. Nothing is sent anywhere (NFR-09).
 
 ## Consequences
@@ -107,6 +107,7 @@ Tests, named by requirement, written from this record before the code:
   - The rows: `req_ui_23_req_prj_08_a_recent_row_opens_through_the_open_dialog`, `req_ui_23_req_ui_14_each_recent_row_is_a_tab_stop_in_reading_order`, `req_nfr_18_a_recent_row_on_the_card_is_logged_without_its_name`, `req_ui_23_req_ui_15_clear_recent_list_on_the_card_empties_it`, `req_ui_23_a_gone_recent_folder_is_forgotten_from_the_card`.
   - The drops: `req_ui_23_req_imp_01_a_model_dropped_with_no_project_starts_one_named_after_it`, `req_ui_23_cancelling_the_new_project_abandons_the_dropped_model`, `req_ui_23_req_imp_01_a_model_dropped_on_an_open_project_opens_the_import_window`, `req_ui_23_a_dropped_project_folder_or_its_project_file_opens_through_open`, `req_ui_23_req_nfr_07_several_dropped_items_use_the_first_usable_and_name_the_rest`, `req_ui_23_req_nfr_07_a_file_that_cannot_be_used_says_so_and_does_nothing`, `req_ui_23_while_files_are_dragged_over_the_window_it_says_what_the_drop_will_do`, `req_ui_23_a_drag_the_system_does_not_name_says_what_is_taken`, `req_ui_23_a_drops_message_outlives_only_the_project_the_drop_made`.
   - The card's buttons: `req_ui_23_the_cards_buttons_start_open_and_import`.
+  - `req_ui_23_cancel_abandons_the_dropped_model_in_the_same_frame`, added at release for CodeRabbit's finding below.
   - `shell::frame_tests::req_ui_10_the_empty_state_offers_a_project_and_dims_the_other_steps` now reads "Start a project" with no project open (item 1).
 
 Results on the branch (Linux, uninstrumented):
@@ -118,8 +119,10 @@ Results on the branch (Linux, uninstrumented):
 Coverage of the new tests alone (`cargo llvm-cov nextest --profile coverage -p openchuck-app -p openchuck-ui`, the start-page, dropped-item and empty-state tests): `dropped.rs` 97.8% of lines. The lines no test reaches are the fallbacks for a path with no file name (`item_name`, `project_name`), the empty case of `quoted_list`, and the arm for an unusable item that `plan` never chooses. In the shell and the card, every new line runs except `dropped`'s early return when it is deferred behind an unconfirmed field, and a let-else in `drag_frame` that cannot fail (defensive paths, NFR-07).
 
 Not verified here:
-- Real drag and drop from the system's file manager on Windows, macOS, Linux X11 and Linux Wayland. winit delivers those events differently on each, and the tests feed egui's input directly. The owner check in the pull request covers it. On Wayland nothing is expected (OI-9961, #901).
+- Real drag and drop from the system's file manager on Windows, macOS, Linux X11 and Linux Wayland. winit delivers those events differently on each, and the tests feed egui's input directly. The owner check in the pull request covers it. On Wayland nothing is expected (OI-2243, #901).
 - The look of the card in a real window. The test rig draws no 3D view, but the card is plain egui and is drawn in the tests at 1920×1080 and 1366×768.
 - The tutorial's step 1 figures 1 and 2 (`01-new-project.png`, `02-project-created.png`) show the card and still show the old one. They were not retaken here. The guide's screenshots are true captures from a release build (decision 0400), and they are retaken from one.
 
-Open items: OI-9961 (#901) stays open. OI-9966 is closed.
+At release (26 Nov 2026), after merging `main` at `b2f1550` (workspace 0.70.0) and renumbering: CodeRabbit's first review (on `041cf6b`) found one Minor: Cancel in the New project dialog left the dropped model waiting until the next frame's check. The route it described, Ctrl N in that next frame, cannot happen: shortcuts are ignored in the frame after a dialog closes, while egui still reports the dialog's layer. But the model outliving its dialog by a frame breaks the rule that it lives only while that dialog is open, so Cancel now clears it at once. Test: `req_ui_23_cancel_abandons_the_dropped_model_in_the_same_frame`, which failed before the fix. After the merge, the renumbering and the fix: `cargo fmt --all --check` and `cargo clippy --workspace --all-targets` clean; `cargo nextest run -p openchuck-ui` 815 passed, 1 skipped (8 min 57 s); `cargo nextest run -p openchuck-app --lib` 304 passed, 1 skipped; `cargo xtask deps`, `licences`, `records` and `trace` ok.
+
+Open items: OI-2243 (#901) stays open. OI-2244 is closed.

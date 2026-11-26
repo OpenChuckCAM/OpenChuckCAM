@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //! The start card with the recent projects, and files or folders dropped
 //! on the window (issue #706; UI-23, IMP-01, IMP-02, UI-14, UI-15;
-//! decision record PROJUX-A-1, the owner's answers S1 to S3 A). Generated
+//! decision record 0697, the owner's answers S1 to S3 A). Generated
 //! folders and the public test cube only.
 #![allow(clippy::unwrap_used, clippy::panic)]
 
@@ -495,5 +495,23 @@ fn req_ui_23_the_cards_buttons_start_open_and_import() {
     rig.frame(Vec::new());
     click(&mut rig, "Import model…");
     assert!(rig.shell.import.is_some());
+    std::fs::remove_dir_all(root).ok();
+}
+
+#[test]
+fn req_ui_23_cancel_abandons_the_dropped_model_in_the_same_frame() {
+    // The dropped model lives only while its New project dialog is open
+    // (decision 0697 item 2): Cancel abandons it at once, not one frame
+    // later, so nothing that runs between the two can find it waiting
+    // (CodeRabbit on #942).
+    let root = temp("start-drop-cancel-now");
+    let file = cube_file(&root, "demo-shaft.stl");
+    let mut rig = Rig::new(Shell::with_settings(false, None, None), Vec::new());
+    drop_files(&mut rig, &[file]);
+    assert!(rig.shell.start_import.is_some());
+    // `click` ends with the frame in which the release presses Cancel.
+    click(&mut rig, "Cancel");
+    assert!(rig.shell.dialog.is_none());
+    assert!(rig.shell.start_import.is_none() && rig.shell.new_name.is_none());
     std::fs::remove_dir_all(root).ok();
 }

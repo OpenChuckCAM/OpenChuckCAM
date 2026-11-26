@@ -137,17 +137,25 @@ pub(crate) fn crop(setup: &FacingSetup<'_>, requested: (f64, f64), counted: f64)
 /// Facing derives from the grip (decision 0161): Facing states where it
 /// stops, and can only do so when it shares the host's limit (NFR-07).
 pub(crate) fn check_host(setup: &FacingSetup<'_>, host: &[(f64, f64)]) -> Result<()> {
-    for (lo, hi) in keep_out(setup)?.into_iter().flatten() {
+    let derived: Vec<(f64, f64)> = keep_out(setup)?.into_iter().flatten().collect();
+    let same = |(lo, hi): (f64, f64), (a, b): (f64, f64)| {
         let tolerance = 1e-9 * lo.abs().max(hi.abs()).max(1.);
-        if !host
-            .iter()
-            .any(|(a, b)| (a - lo).abs() <= tolerance && (b - hi).abs() <= tolerance)
-        {
-            return Err(refuse(format!(
-                "the held region Facing keeps the tool's centre out of (X {lo:.3} to {hi:.3}) is not \
-                 the one this set-up gives, so Facing cannot say where it stops beside it"
-            )));
-        }
+        (a - lo).abs() <= tolerance && (b - hi).abs() <= tolerance
+    };
+    // Each way round, in any order (issue #895 item 2): a span the grip gives
+    // that the host lacks, or one the host holds that the grip does not give.
+    let unmatched = derived
+        .iter()
+        .find(|&&span| !host.iter().any(|&h| same(span, h)))
+        .or_else(|| {
+            host.iter()
+                .find(|&&h| !derived.iter().any(|&span| same(span, h)))
+        });
+    if let Some((lo, hi)) = unmatched {
+        return Err(refuse(format!(
+            "the held region Facing keeps the tool's centre out of (X {lo:.3} to {hi:.3}) is not \
+             the one this set-up gives, so Facing cannot say where it stops beside it"
+        )));
     }
     Ok(())
 }

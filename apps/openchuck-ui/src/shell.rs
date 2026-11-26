@@ -211,7 +211,7 @@ pub struct Shell {
     recent_clicked: Option<std::path::PathBuf>,
     /// A model dropped with no project open: the New project dialog it
     /// opened is named after it, and OK opens the import window on it
-    /// (UI-23; decision record PROJUX-A-1 item 2). It lives only while that
+    /// (UI-23; decision record 0697 item 2). It lives only while that
     /// dialog is open.
     start_import: Option<PathBuf>,
     /// The name the next New project dialog starts with, for that model.
@@ -465,6 +465,9 @@ impl Shell {
     /// Gives the playback panel and the view the user's Simulate choices
     /// (decision records 0168 and 0169).
     fn apply_simulate_settings(&mut self) {
+        // The kinds of move shown apply on every step (issue #789).
+        self.viewport.set_shown_moves(self.settings.path_moves);
+        self.play.set_shown_moves(self.settings.path_moves);
         let simulate = self.settings.simulate;
         self.viewport.set_cut_part_solid(simulate.cut_part_solid);
         self.play.set_turn_part_with_a(simulate.turn_part_with_a);
@@ -485,6 +488,14 @@ impl Shell {
     /// Keeps the Simulate choices the user made in the settings, so they are
     /// remembered between runs (issues 203, 204, 205).
     fn keep_simulate_settings(&mut self) {
+        // The kinds of move the view's controls set: drawn by the playback
+        // panel, kept for the user (issue #789; the owner's answer P3 A).
+        let moves = self.viewport.shown_moves();
+        self.play.set_shown_moves(moves);
+        if moves != self.settings.path_moves {
+            self.settings.path_moves = moves;
+            self.settings_touched();
+        }
         let show = self.viewport.simulate_show();
         let now = openchuck_app::settings::SimulateSettings {
             cut_part_solid: self.viewport.cut_part_solid(),
@@ -2202,7 +2213,7 @@ impl Shell {
     }
 
     /// Files or folders dropped on the window (UI-23; decision record
-    /// PROJUX-A-1 items 2 and 3): the first usable one is used, and
+    /// 0697 items 2 and 3): the first usable one is used, and
     /// Messages names the rest, or says why nothing could be used.
     fn dropped(&mut self, paths: Vec<PathBuf>, ctx: &egui::Context) {
         let (deferred, deferred_ctx) = (paths.clone(), ctx.clone());
@@ -2229,7 +2240,7 @@ impl Shell {
     }
 
     /// While files are dragged over the window, it is tinted and says in
-    /// the middle what dropping them would do (decision record PROJUX-A-1
+    /// the middle what dropping them would do (decision record 0697
     /// item 4). Systems that report no hovered files (Wayland) show nothing.
     fn drag_frame(&mut self, ctx: &egui::Context) {
         let hovered: Vec<Option<PathBuf>> =
@@ -2681,8 +2692,11 @@ impl Shell {
         }
         if close {
             if folder_form {
-                // Cancel explicitly abandons this dialog's input.
+                // Cancel explicitly abandons this dialog's input, and the
+                // model dropped to start it (decision 0697 item 2).
                 crate::pending_edits::clear(ctx);
+                self.start_import = None;
+                self.new_name = None;
             }
             let deferred_ctx = ctx.clone();
             if !crate::pending_edits::entries(ctx).is_empty() {
@@ -3298,6 +3312,9 @@ mod smoke_tests;
 mod machine_library_tests;
 #[cfg(test)]
 mod tool_library_tests;
+
+#[cfg(test)]
+mod path_moves_tests;
 
 #[cfg(test)]
 mod tool_chip_tests;
