@@ -860,6 +860,13 @@ impl Shell {
                         }
                     }
                 });
+                // The kinds of toolpath move, as the Show menu (V) and the
+                // path legend's tick boxes (issue #789; UI-14).
+                ui.menu_button("Toolpath moves", |ui| {
+                    let mut moves = self.viewport.shown_moves();
+                    crate::viewport_toolbar::move_ticks(ui, &mut moves);
+                    self.viewport.set_shown_moves(moves);
+                });
                 let unavailable = directions_unavailable(
                     self.setup_panes().is_some(),
                     self.viewport.project_has_models(),
