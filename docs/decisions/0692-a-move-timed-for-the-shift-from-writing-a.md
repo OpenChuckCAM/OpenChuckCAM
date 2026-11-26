@@ -7,6 +7,7 @@
 - **Amends:** [decision 0050](0050-walls-merge-micro-moves.md) (accepted) item 6 and [decision 0076](0076-feed-word-limit-and-rounding.md) (accepted) item 2, which keeps item 6's rule for choosing the line limit: the written unit of 0.001 mm below which a change of X or Y "may be written either way" is widened by the shift described below, and the written-position allowance of the line grows by the same shift. Builds on [decision 0034](0034-slice-12-baseline-finishing.md) (the written allowance, as built), [decision 0647](0647-the-z1-turns-a-at-most-1800-deg-per-min.md) (A timed as written) and issue #780 (lane RUNOUT-TIP: the post works XYZ out at the A it writes).
 - **Open items:** adds OI-2215 (the owner's acceptance of this record, closed on 26 Nov 2026) and OI-2216 (the per-axis terms of a move's time carry no written allowance). Amendment 1 (issue #943) adds OI-2219 (the owner's acceptance of the amendment, closed on 26 Nov 2026; proposed as OI-9938).
 - **Amendment 1:** Accepted by the project owner on 26 Nov 2026, relayed by the coordinator (decision 0049), with the order that the 0.55.1 hotfix carries it. Proposed by lane SEV1-929 on 26 Nov 2026 (issue #943). It amends [decision 0076](0076-feed-word-limit-and-rounding.md) (accepted) item 2 and [decision 0050](0050-walls-merge-micro-moves.md) (accepted) item 6 further: see *Amendment 1* below. The decision above, as accepted, is unchanged by it.
+- **Amendment 2:** Accepted by the project owner on 26 Nov 2026, relayed by the coordinator (decision 0049), with the order that the 0.55.1 hotfix carries it. Proposed by lane SEV1-929 on 26 Nov 2026 (issue #948; option A′ of the lane's review of the whole family of cases). Adds OI-2220 (the owner's acceptance, closed on 26 Nov 2026) and OI-2221 (posts that write fewer than three decimals).
 
 Numbering: the coordinator assigned decision 0692 and OI-2215 and OI-2216 at release (26 Nov 2026), in merge order; the lane proposed it as SEV1-929-1 with OI-9936 and OI-9937. No project schema number: nothing stored changes. No spike.
 
@@ -65,6 +66,40 @@ Since issue #780 (lane RUNOUT-TIP, on `main` since 11 Nov 2026 and in 0.55.0), t
 - `req_op_13_req_gc_08_a_move_at_one_a_with_no_y_change_stays_within_the_limit_as_written` (item 2): linear 1000, Z 2000; along 5 mm, across 0.000358 mm, height 20 to 21 mm, A 0.0004 degree at both ends; written with a change of Y of 0.001 mm. Watched failing before the change (`F1995.296 against 1000`), passing after. `req_op_13_req_gc_08_a_turning_move_with_no_y_change_stays_within_the_limit_as_written` (pull request #939) still passes.
 - Golden files: none changes. With item 1, the golden, reference, blisk, cone, carving and first-cut tests (53) pass unchanged. With items 1 and 2, the whole `openchuck-path` suite (1008 tests, the carving goldens included) passes unchanged. Item 2 changes nothing where Z is no faster than the linear axes, which holds for every profile the goldens use. Run on Linux x86_64 at the lane's branch on `main` `3476427`; the app, gcode and post tests with both items are reported on the pull request.
 
+## Amendment 2: a fed turn of A with the tip fixed on a controller that counts A (accepted 26 Nov 2026, relayed; issue #948)
+
+**Context.** CodeRabbit's review of pull request #945 found the last uncovered case. On a controller that counts A's travel round the part in its F word (the Makera Z1, `rotary_in_feed = "makera"`), a fed turn of A with the tool tip fixed was held to A's own limit (decision 0076 item 2) and, after amendment 1, to the written line; it was not timed for A's counted travel. If writing A gives the block a change of X, Y or Z, the Z1 counts A's travel with it, `max(L, dA * (2 pi r + 30) / 360)`, and gate 1 holds that F word to the linear limit. At 100 mm from the axis, A from 0.0004 to 0.0106 degree gave about `F3222` against 1000, and gate 1 refused the file. A's own limit keeps it within only while `2 pi r + 30` is at most about 240 mm (r up to 33 mm on the Z1).
+
+**The family, reviewed.** The lane reviewed every way the post's A rounding can make the written block differ from what assembly timed, for fed moves (a rapid has no F word that gate 1 checks). Gate 1's limit follows the written block: the linear limit if X or Y changes, Z's if only Z, A's if only A.
+
+| Written change | Timed for it after decision 0692 and amendment 1 | After amendment 2 |
+| --- | --- | --- |
+| X or Y | the line plus `0.002 + s` over a limit no higher than the linear limit | unchanged |
+| Z only | the band rule gives a limit no higher than Z's | unchanged |
+| A only | `(dA + 0.001)` over A's limit (decision 0647) | unchanged |
+| X, Y or Z on a fixed-tip turn, on a counting controller | the written line only: **not** A's counted travel (this amendment's case) | the written line **and** A's counted travel |
+| nothing | no F word is checked | unchanged |
+
+**Decision.**
+
+1. **On a controller that counts A in its F word, a fed turn of A with no exact change of X, Y or Z is timed for A's counted travel as well, where writing A moves an end** (amends decision 0076 item 2's "A move with no XYZ motion is held to A's own limit, as before", for such turns): where either end's A is not on a written unit (three decimals), the post works that end's XYZ out at a different angle and can write a change of X, Y or Z, so the turn's line term is the larger of the written line (`0.002 + s`) and `(dA + 0.001) * (2 pi max(r + 0.001, 1) + 30) / 360`, over the lower of the linear and Z limits. A turn whose two ends are both on a written unit is written with no change of XYZ (the post's A is the exact A), so it keeps A's own limit, as decision 0076 item 2 says.
+2. Nothing else changes: rapids, one IR for every post, no clamp in the post, gate 1 unchanged.
+
+**Consequences.** Only fed A turns about a fixed tip at an angle not on a written unit, on a counting controller, take longer: at 100 mm from the axis on the Z1 they are held to about 600 mm/min of counted travel. Turns between angles on a written unit, such as the 90-degree index turns of the `first_cut` reference job's roughing, are unchanged. Golden files: none changes (see *Verification*). Library family: `openchuck-path` changes output, with no public API change; the workspace moves to 0.67.0, as the coordinator assigned in merge order (decision 0048).
+
+**Options not chosen.**
+
+- **A: count A's travel on every fed A-only turn.** It also covers turns between angles on a written unit, which are written with no change of XYZ, and so reverses decision 0076 item 2 where nothing needs it. Measured: it slows the `first_cut` reference job's 90-degree roughing turns from `F865.3` to `F599.9` on the Z1 (`F1799.6` to `F1247.6` on LinuxCNC; one IR), adds about 38 s to its roughing (3779 s to 3817 s), and fails decision 0076's own test.
+- **B′: the post writes no change of XYZ on a block whose exact tip is fixed.** A writing rule in the post that undoes issue #780 for those blocks and brings back a tip error of up to `r` times 0.0005 degree there.
+- **Leave it.** Gate 1 refuses such a file (the safe direction), but the user cannot work round it.
+
+**Also found: posts with fewer decimals** (OI-2221). Every written allowance in path assembly assumes positions and A written to three decimals. The two built-in posts write three; a post the user writes with fewer could round further than the allowances, and gate 1 would then refuse the file. Not changed here.
+
+**Verification (amendment 2).**
+
+- `crates/openchuck-path/src/assemble.rs`, `req_op_13_req_gc_08_a_turn_with_the_tip_fixed_counts_a_as_the_z1_does`: along 5 mm, across 0, height 100 mm, A 0.0004 to 0.0106 degree, linear 1000, Z 600, A 3600 deg/min, Makera counting; written as the post writes it, the block changes Y, and the Z1's F word is within the lower limit. Watched failing before the change (`F3222.445 against 1000`), passing after. Decision 0076's `req_op_13_a_controller_that_counts_a_in_the_feed_word_keeps_it_within_the_limit` (an A-only turn between angles on a written unit keeps A's own limit) still passes; option A failed it.
+- Golden files: none changes. With the change, the golden, reference, blisk, cone, carving, first-cut, sphere, groove and lobed tests (59) pass unchanged; `openchuck-path` unit tests 142 of 142. Linux x86_64, at the lane's branch on `main` `787d809`.
+
 ## Verification
 
 Generated G-code remains the user's to verify before it is run on a machine (NFR-12). Nothing here is a safety claim.
@@ -78,3 +113,7 @@ Generated G-code remains the user's to verify before it is run on a machine (NFR
   - Path goldens `testdata/golden/carving/{axial_held,axial_whole,helical_region}.txt`: only the duration of 43 moves about 0.002 mm long, 0.3 to 5 % longer, where `s` is a large share of the move.
   - `cargo xtask golden` (the golden audit: conventions, gate 1 against the Z1's limits, geometry against the analytic parts, the contact feed of 480 mm/min, LinuxCNC and Z1 agreement) passes on the re-blessed files.
 - **Not verified:** any run on a machine; other controllers' handling of the changed F words (they are lower, never higher); the built-in Z1 profile on the reporter's project. Generated G-code remains the user's to verify (NFR-12).
+- **The 0.55.1 hotfix and the air cut** (the owner's question of 26 Nov 2026: may the 0.55.0 air-cut test carry over to 0.55.1?). Compared between `app-v0.55.0` (`57b8ac1`) and the final 0.55.1 head on `release/0.55.x` (decision 0692 and amendments 1 and 2), Linux x86_64:
+  - `first_cut`, both posts, every operation: byte-identical. The golden files `testdata/golden/first_cut/first_cut_{makera-z1.nc,linuxcnc.ngc}` are unchanged between the two commits, and the tests `first_cut::…the_committed_project_writes_the_golden_programs_at_{1_thread,2_threads,n_threads}` regenerate the committed project with both posts and compare the whole text with them (only the generator comment is masked); they pass at both commits.
+  - The other golden programs that change (blisk axial, helical 2 and helical 5; reference cone axial, cone axial with leads and cone indexed; both posts each): only F words change (197, 431, 583, 32, 32 and 28 blocks); the text without F words is identical in every file, and no block's effective F word is higher than 0.55.0's (0.04 to 0.39 % lower). The path goldens `carving/*.txt` change only the duration of 43 short moves, all longer. The golden audit (gate 1 against the Z1's limits, geometry, the contact feed) passes on all of them.
+  - The owner carried the 0.55.0 air cut over to 0.55.1 on this evidence (26 Nov 2026, relayed by the coordinator). Not verified: a run on a machine; the owner's own copy of the air-cut project (the committed `first_cut` project was compared).

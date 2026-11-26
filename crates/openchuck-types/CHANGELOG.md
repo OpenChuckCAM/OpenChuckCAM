@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.67.0
+
+- **Family release (0.67.0; SEV1-929, #948 follow-up; decision 0692 amendment 2, accepted):** `openchuck-path` changes output (on a controller that counts A in its F word, a fed turn of A with the tool tip fixed is timed for A's counted travel where an end's A is not on three decimals). No change in this crate.
+
 ## 0.66.0
 
 - **Family release (0.66.0; SEV1-929 follow-up; issue #943; decision 0692 amendment 1, accepted):** `openchuck-path` changes output (a fed turn of A with the tool tip fixed is timed for the line the post may write for it, and every fed move whose change of X and Y is below the written band, none included, is timed for the lower of the linear and Z limits). No change in this crate.
