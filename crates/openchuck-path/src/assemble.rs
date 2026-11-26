@@ -282,7 +282,7 @@ impl Builder<'_> {
         // The post writes A to three decimals and works XYZ out at that A,
         // which can move each end point by up to its distance from the
         // rotary axis times half a unit of A (issue #929; decision record
-        // SEV1-929-1). Fed moves are timed for that too.
+        // 0692). Fed moves are timed for that too.
         let a_shift = if kind.is_fed() {
             written_a_shift(from.across.hypot(from.height), to.across.hypot(to.height))
         } else {
@@ -309,7 +309,7 @@ impl Builder<'_> {
         // A move that changes X or Y by less than a written unit, widened by
         // the shift from writing A, may be written with or without that
         // change, so it is checked against either limit: it is timed for
-        // the lower (decision records 0050 and SEV1-929-1).
+        // the lower (decision records 0050 and 0692).
         let written_band = WRITTEN_UNIT + a_shift;
         let line_limit = if dx >= written_band || dy >= written_band {
             linear
@@ -427,7 +427,7 @@ const WRITTEN_A_HALF_UNIT_RADIANS: f64 = 0.0005 * std::f64::consts::PI / 180.0;
 /// of a move between them: the post writes A to three decimals and works XYZ
 /// out at that A (issue #780), which moves each end point by up to its
 /// distance from the rotary axis times half a unit of A (issue #929;
-/// decision record SEV1-929-1). `from_radius` and `to_radius` are the ends'
+/// decision record 0692). `from_radius` and `to_radius` are the ends'
 /// distances from the rotary axis.
 fn written_a_shift(from_radius: f64, to_radius: f64) -> f64 {
     (from_radius + to_radius + 2.0 * WRITTEN_RADIUS_ALLOWANCE) * WRITTEN_A_HALF_UNIT_RADIANS

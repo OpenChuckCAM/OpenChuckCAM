@@ -1,13 +1,13 @@
-# SEV1-929-1: A fed move is timed for the shift that writing A to three decimals gives its end points (OP-13, GC-04, GC-08, GC-09, GC-10, GC-07, NFR-06, NFR-12; issue #929; lane SEV1-929)
+# 0692: A fed move is timed for the shift that writing A to three decimals gives its end points (OP-13, GC-04, GC-08, GC-09, GC-10, GC-07, NFR-06, NFR-12; issue #929; lane SEV1-929)
 
-- **Status:** Accepted by the project owner on 26 Nov 2026, relayed by the coordinator (decision 0049); reviewed by the owner as the local copy before the PR was opened (lane commit `141ced3`). Proposed by lane SEV1-929 on 25 Nov 2026, started by the coordinator on the project owner's order (issue #929 is SEV1: it blocks the G-code of a real 4-axis job on the Makera Z1). OI-9936 (the acceptance) is closed.
+- **Status:** Accepted by the project owner on 26 Nov 2026, relayed by the coordinator (decision 0049); reviewed by the owner as the local copy before the PR was opened (lane commit `141ced3`). Proposed by lane SEV1-929 on 25 Nov 2026, started by the coordinator on the project owner's order (issue #929 is SEV1: it blocks the G-code of a real 4-axis job on the Makera Z1). OI-2215 (the acceptance) is closed.
 - **Date:** 25 Nov 2026.
 - **Issue:** #929 ("checks failed (above speed limit)"): export of the reporter's project with the Makera Z1 post is blocked by gate 1, `01-wood-openchuck.nc failed its checks (line 339907: F650.9 is above the limit 650)`.
 - **Requirements:** OP-13 (the feed is correct at the contact and the machine's limits are respected), GC-04 (the feed mode lives in the post), GC-08 (gate 1, the static checks), GC-09 (the post keeps each move's time), GC-10 (one IR for every post), GC-07 and NFR-06 (determinism), NFR-12 (generated G-code is the user's to verify).
 - **Amends:** [decision 0050](0050-walls-merge-micro-moves.md) (accepted) item 6 and [decision 0076](0076-feed-word-limit-and-rounding.md) (accepted) item 2, which keeps item 6's rule for choosing the line limit: the written unit of 0.001 mm below which a change of X or Y "may be written either way" is widened by the shift described below, and the written-position allowance of the line grows by the same shift. Builds on [decision 0034](0034-slice-12-baseline-finishing.md) (the written allowance, as built), [decision 0647](0647-the-z1-turns-a-at-most-1800-deg-per-min.md) (A timed as written) and issue #780 (lane RUNOUT-TIP: the post works XYZ out at the A it writes).
-- **Open items:** adds OI-9936 (the owner's acceptance of this record, closed on 26 Nov 2026) and OI-9937 (the per-axis terms of a move's time carry no written allowance). Provisional numbers.
+- **Open items:** adds OI-2215 (the owner's acceptance of this record, closed on 26 Nov 2026) and OI-2216 (the per-axis terms of a move's time carry no written allowance).
 
-Numbering: provisional. The record carries the lane's name, and the open items take OI-9936 and OI-9937 (free on `main` and on every unmerged branch on 25 Nov 2026); the coordinator assigns the real numbers at release, in merge order. No project schema number: nothing stored changes. No spike.
+Numbering: the coordinator assigned decision 0692 and OI-2215 and OI-2216 at release (26 Nov 2026), in merge order; the lane proposed it as SEV1-929-1 with OI-9936 and OI-9937. No project schema number: nothing stored changes. No spike.
 
 ## Context
 
@@ -29,7 +29,7 @@ Since issue #780 (lane RUNOUT-TIP, on `main` since 11 Nov 2026 and in 0.55.0), t
 
 ## Options not chosen
 
-- **(a) Give the per-axis terms the written allowance as well** (`dx` and `dy` over the linear limit and `dz` over Z's limit timed for the change as written). It would also have fixed the reporter's two moves: the written `dz` of 0.042 timed against 600 gives exactly 600. It leaves the cause in place: a move timed for the linear limit whose X and Y are written unchanged is still held to Z's limit, and only the per-axis term saves it, which holds only while the line limit's term does not set the time. It also lengthens every steep fed move whose Z term sets its time (by `0.001 / dz`), which changes F words in programs that pass today. The per-axis terms concern the controller's own per-axis caps, which gate 1 does not check; whether they should carry the allowance is recorded as OI-9937.
+- **(a) Give the per-axis terms the written allowance as well** (`dx` and `dy` over the linear limit and `dz` over Z's limit timed for the change as written). It would also have fixed the reporter's two moves: the written `dz` of 0.042 timed against 600 gives exactly 600. It leaves the cause in place: a move timed for the linear limit whose X and Y are written unchanged is still held to Z's limit, and only the per-axis term saves it, which holds only while the line limit's term does not set the time. It also lengthens every steep fed move whose Z term sets its time (by `0.001 / dz`), which changes F words in programs that pass today. The per-axis terms concern the controller's own per-axis caps, which gate 1 does not check; whether they should carry the allowance is recorded as OI-2216.
 - **Clamp the F word in the post.** Rejected in decision 0076 (alternative 1): the post would no longer keep the IR's time (GC-09), and gate 2 compares that time.
 - **Loosen gate 1** (a tolerance on the F word). The written word would then be over the machine's limit as the controller reads it.
 - **Undo the post's A rounding (issue #780).** It would bring back the radius-dependent tip error that #780 fixed.
@@ -39,7 +39,7 @@ Since issue #780 (lane RUNOUT-TIP, on `main` since 11 Nov 2026 and in 0.55.0), t
 - A fed move that changes X or Y by between 0.001 and `0.001 + s` mm is now timed for the lower of the linear and Z limits: on the Z1 (linear 1200, Z 600) it takes up to twice as long where the line limit sets its time. Such moves are rare: they change X or Y by a micron or so.
 - A fed move whose time the line limit sets is timed `s` longer: at most 0.00079 mm at 45 mm from the axis, so its F word drops by at most `s` over the move's length.
 - Golden files: see *Verification*.
-- **Library family:** `openchuck-path` changes the time of some fed moves (output), with no public API change; its `CHANGELOG.md` records the fix. The workspace version is the coordinator's to assign at release, in merge order (decision 0048).
+- **Library family:** `openchuck-path` changes the time of some fed moves (output), with no public API change; its `CHANGELOG.md` records the fix. The workspace moves to 0.64.0 at release, as the coordinator assigned in merge order (an output change of a library crate bumps the workspace minor, decision 0048).
 - **Hotfix:** the same rule is in 0.55.0 (the post's A rounding came with #780 on 11 Nov 2026, before the 0.55.0 release commit `57b8ac1` of 22 Nov 2026). The lane prepares the backport as 0.55.1 on `release/0.55.x`; tagging and publishing are the owner's.
 
 ## Verification
