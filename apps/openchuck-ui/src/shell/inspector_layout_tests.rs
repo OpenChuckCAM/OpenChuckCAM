@@ -517,3 +517,110 @@ fn req_ui_07_req_op_21_a_set_on_ignore_is_struck_through_and_says_so_in_words() 
     }
     assert!(rig.shows(tip), "the tooltip shows on keyboard focus");
 }
+
+/// Decision UI-BUGS-C items 2 to 4: a set's warning that it reaches a held
+/// region or a tab (11.7) is said once, under that set's own line, with its links;
+/// Warn only under a set chooses it for that set; × at the end of a set's
+/// line takes the set out of its role.
+#[test]
+fn req_ui_07_req_set_09_a_sets_line_carries_its_reach_warning_choice_and_remove() {
+    use openchuck_app::project::{Item, OnBreak, SelectionTarget};
+    use openchuck_app::selection::SelectionRole;
+    use openchuck_app::setup::{Millimetres, Tab, TabLayout, TabShape};
+    let select = |rig: &mut Rig| {
+        let app = rig.shell.app.as_mut().unwrap();
+        let op = app.project().operations()[0].id;
+        let model = app.project().models()[0].id;
+        // A tab the length of the stock and wider than the cube: every
+        // corner of the set that lies in the stock is inside it.
+        let mut setup = app.project().setups()[0].clone();
+        setup.workholding.tabs = vec![Tab {
+            auto: None,
+            x_start: Millimetres(-7.0),
+            length: Millimetres(14.0),
+            shape: TabShape::Cylinder {
+                diameter: Millimetres(20.0),
+            },
+            layout: TabLayout::OnAxis,
+        }];
+        app.execute(Command::Replace(Item::Setup(setup))).unwrap();
+        let whole = app
+            .save_selection(
+                "Whole",
+                model,
+                SelectionTarget::Triangles((0..12).collect()),
+            )
+            .unwrap();
+        let bead = app
+            .save_selection("Bead", model, SelectionTarget::Triangles([1].into()))
+            .unwrap();
+        app.set_operation_selection(op, SelectionRole::Machine, whole, true)
+            .unwrap();
+        app.set_operation_selection(op, SelectionRole::Avoid, bead, true)
+            .unwrap();
+        rig.settle();
+        rig.size = egui::vec2(1920.0, 1600.0);
+        operation(rig);
+    };
+    let (mut rig, d) = drawn_rig(select, width::INSPECTOR.0, "geometry-line-actions");
+    let at = |d: &Drawn, text: &str| -> Vec<egui::Rect> {
+        d.texts
+            .iter()
+            .filter(|(t, _)| t == text)
+            .map(|(_, r)| *r)
+            .collect()
+    };
+    // The reach warning, once, under Whole's line and above Contain within.
+    let whole = at(&d, "Whole")[0];
+    let contain = at(&d, "Contain within")[0];
+    let warnings: Vec<egui::Rect> = d
+        .texts
+        .iter()
+        .filter(|(t, _)| t.contains("'Whole'"))
+        .map(|(_, r)| *r)
+        .collect();
+    assert_eq!(warnings.len(), 1, "{:?}", d.texts);
+    assert!(warnings[0].top() > whole.top() && warnings[0].top() < contain.top());
+    let links = at(&d, "Show in view");
+    assert_eq!(links.len(), 1, "{:?}", d.texts);
+    assert_eq!(at(&d, "Edit workholding").len(), 1);
+    // Warn only under Bead chooses it for Bead.
+    let bead = at(&d, "Bead")[0];
+    let warn = d
+        .texts
+        .iter()
+        .filter(|(t, r)| t == "Warn only" && r.top() > bead.top())
+        .map(|(_, r)| *r)
+        .next()
+        .expect("Warn only under Bead");
+    rig.click(warn.center());
+    rig.settle();
+    let app = rig.shell.app.as_ref().unwrap();
+    let operation = app.project().operations()[0].clone();
+    let id = operation.avoid[0];
+    assert_eq!(
+        operation.restriction_options.avoid(id).on_break,
+        OnBreak::Warn
+    );
+    // × at the end of Whole's line takes it out of Cut on.
+    for _ in 0..4 {
+        rig.frame(Vec::new());
+    }
+    let left = rig.size.x - rig.shell.settings.inspector.size;
+    let whole = rig
+        .text_rects()
+        .into_iter()
+        .find(|(t, r)| t == "Whole" && r.left() >= left)
+        .unwrap()
+        .1;
+    let cross = rig
+        .text_rects()
+        .into_iter()
+        .find(|(t, r)| t == "\u{d7}" && (r.center().y - whole.center().y).abs() < 4.0)
+        .expect("× on Whole's line")
+        .1;
+    rig.click(cross.center());
+    rig.settle();
+    let app = rig.shell.app.as_ref().unwrap();
+    assert!(app.project().operations()[0].selections.is_empty());
+}
