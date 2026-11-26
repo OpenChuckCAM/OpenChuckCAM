@@ -351,6 +351,19 @@ fn req_op_04_req_op_12_an_end_off_the_axis_narrower_than_the_tool_goes_to_the_ax
                 assert!(x - POINT > R - 0.02, "{}: X {x:.3} r {r:.3}", s.name());
             }
         }
+        // With a Stepdown of 0.25 mm the tool goes down beside the end in
+        // whole turns 0.25 mm apart: about 1 mm from where the drop leaves
+        // it to the axis takes several.
+        let mut v = values(s, true);
+        v.insert("stepdown".to_owned(), ParameterValue::Number(0.25));
+        let mut levels: Vec<i64> = centres(&path(s, &f, &v))
+            .into_iter()
+            .filter(|&(x, r)| (x - (POINT + R)).abs() < 0.02 && r < 1.0)
+            .map(|(_, r)| (r * 100.0).round() as i64)
+            .collect();
+        levels.sort_unstable();
+        levels.dedup();
+        assert!(levels.len() >= 4, "{}: {levels:?}", s.name());
     }
 }
 
@@ -416,4 +429,89 @@ fn req_nfr_06_req_gc_07_finish_to_a_point_is_the_same_at_one_two_and_many_thread
             assert_eq!(one, at(threads), "{}: {threads} threads", s.name());
         }
     }
+}
+
+/// The same part turned end for end: the point at X 0, at the low end, the
+/// stock carried on past it.
+fn pointed_at_the_start() -> Fixture {
+    let n = 60;
+    let mut profile: Vec<(f64, f64)> = (0..n)
+        .map(|i| {
+            let t = std::f64::consts::FRAC_PI_2 * f64::from(n - i) / f64::from(n);
+            (6.0 - 6.0 * t.sin(), (6.0 * t.cos()).max(1e-3))
+        })
+        .collect();
+    profile.extend([(6.0, 6.0), (20.0, 6.0)]);
+    let mesh = revolve(&profile, 180);
+    let mut f = Fixture::new(MeshSurface::new(&mesh).unwrap(), 8.0, &ball(D));
+    f.stock = AnalyticStock::Cylinder {
+        radius: 8.0,
+        x_start: -20.0,
+        x_end: 21.0,
+    };
+    f
+}
+
+/// A point at the part's start is finished to as one at its end is: the
+/// ball's centre reaches the axis at the point's X − R and no cutting move
+/// runs further along X, with adaptive spacing off and on.
+#[test]
+fn req_op_04_a_point_at_the_start_of_the_part_is_finished_to() {
+    let f = pointed_at_the_start();
+    for s in [
+        &HelicalFinishing as &dyn Strategy,
+        &AxialFinishing,
+        &IndexedFinishing,
+    ] {
+        for adaptive in [false, true] {
+            let mut v = values(s, true);
+            v.insert(
+                "adaptive_spacing".to_owned(),
+                ParameterValue::Flag(adaptive),
+            );
+            if s.schema().get("count").is_some() {
+                v.insert("count".to_owned(), ParameterValue::Integer(8));
+            }
+            let c = centres(&path(s, &f, &v));
+            assert!(
+                c.iter().any(|&(x, r)| (x + R).abs() < 0.05 && r < 0.02),
+                "{} adaptive {adaptive}: never on the axis at X {:.3}",
+                s.name(),
+                -R
+            );
+            assert!(c.iter().all(|&(x, _)| x >= -R - 0.02), "{}", s.name());
+        }
+    }
+}
+
+/// Helical finishing in rings finishes to the point in rings: rings no
+/// more than the pitch apart up to the end's last drop, then the turn on
+/// the axis; with adaptive spacing on, passes are added past the point and
+/// the material there is confirmed.
+#[test]
+fn req_op_04_helical_finishing_in_rings_finishes_to_a_point() {
+    use openchuck_path::helical::parameter::{PASS_SHAPE, RINGS};
+    let f = pointed();
+    let s = &HelicalFinishing;
+    let mut v = values(s, true);
+    v.insert(
+        PASS_SHAPE.to_owned(),
+        ParameterValue::Text(RINGS.to_owned()),
+    );
+    let off = path(s, &f, &v);
+    let c = centres(&off);
+    assert!(
+        c.iter()
+            .any(|&(x, r)| (x - (POINT + R)).abs() < 0.05 && r < 0.02)
+    );
+    assert!(c.iter().all(|&(x, _)| x <= POINT + R + 0.02));
+    v.insert("adaptive_spacing".to_owned(), ParameterValue::Flag(true));
+    let on = path(s, &f, &v);
+    let past = |p: &GeneratedPath| centres(p).iter().filter(|&&(x, _)| x > POINT).count();
+    assert!(past(&on) > past(&off));
+    assert!(
+        !on.notices
+            .iter()
+            .any(|n| n.text.contains("could not confirm"))
+    );
 }

@@ -531,13 +531,13 @@ Updated in place: OI-318 and OI-337 (the blisk now generates and cuts its blade 
 - **Built differently from the record's wording:**
   - **The run-out.** The run-out of Extend past the stock is unchanged. The record said decisions 0212 part B item 3 and 0546 item 3 are amended for this setting. As built, the setting adds its own stretch past the point, which follows the drop, and it does not turn the run-out into a descent. A run-out that followed the drop to the axis would cut through all the stock past the point at the axis. That would be a full-width slot, not a finish, and it would be cut free anyway.
   - **Query accounting.** The queries spent past the end are read as the difference in the figure adaptive spacing already reports, as the record says. No separate counter was added.
-- **How:** tests first, in `crates/openchuck-path/tests/finish_to_a_point.rs` (new, 12 tests):
+- **How:** tests first, in `crates/openchuck-path/tests/finish_to_a_point.rs` (new, 14 tests):
   - Written before the code and seen failing first:
     - the schema test;
     - the reach-the-axis tests for the three strategies (for example, helical's nearest centre past the point stood at 1.587 mm from the axis);
     - the adaptive test, which failed for axial finishing until its measure covered the point.
   - The "off is as before" test was written first as a guard, and passed before and after.
-  - The gouge, warning, held-region, off-axis-end and GC-07 tests were written with the code, not before it, and were not seen failing.
+  - The gouge, warning, held-region, off-axis-end, GC-07, point-at-the-start and rings tests were written with the code or after it, and were not seen failing. The last two were added after the coverage check found the rings branch and the start end not reached.
   - In `openchuck-app`, these were also written after the code:
     - `operation::req_op_04_finish_to_a_point_is_on_for_a_new_operation_and_off_for_a_saved_one`;
     - `adaptive_example::req_op_04_req_nfr_12_the_tutorial_piece_is_finished_to_a_point`, which was seen failing with the setting off (0.734, 0.432, 0.240, 0.113 and 0.037 mm left at 0.25 to 1.25 mm past the point, matching the record's table);
@@ -559,5 +559,6 @@ Updated in place: OI-318 and OI-337 (the blisk now generates and cuts its blade 
   - `cargo test --release -p openchuck-path` and `-p openchuck-app` pass.
   - fmt, clippy, and `cargo xtask records`, `trace`, `deps`, `licences` and `changelog check-pr` pass.
   - No golden or shipped example changes, because their operations were saved without the setting.
+- **Coverage** (`openchuck-path`, the 12 tests run instrumented, before the last two were added): every added line in `faces.rs` is run, 175 of 177 in `finishing.rs`, 79 of 83 in `axial.rs`, 32 of 33 in `indexed.rs` and 104 of 142 in `helical.rs`. The helical lines not run were the rings branch and its adaptive spacing; the axial ones were a point at the start of the part; the Stepdown loop in `finishing.rs` was not run either. The two tests added then, and the Stepdown check added to the off-axis test, reach them. Left: the branch for a stock of no known length, as decision 0344's free ends have it.
 - **Not verified:** nothing was cut or air-cut.
 - **Open items:** OI-2236 closes.
