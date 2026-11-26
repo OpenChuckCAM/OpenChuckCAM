@@ -124,6 +124,13 @@ pub struct GapQuery {
     /// gap is above a limit. When not set, the interval is narrowed to
     /// [`GAP_ACCURACY`].
     pub accept: Option<f64>,
+    /// When set, the faces that stand in front of material thinner than
+    /// this (mm) are left out: a face backed, along its inward normal, by
+    /// an opposing face nearer than this. For a caller that has found the
+    /// tool beside a thin wall and asks whether it cuts anything else
+    /// (decision record SIMUL-EDGE-1, Terms: *Thin wall*). A source that
+    /// cannot tell answers as if it were not set.
+    pub skip_walls_thinner_than: Option<f64>,
 }
 
 impl GapQuery {
@@ -134,6 +141,7 @@ impl GapQuery {
             rotation: None,
             limit,
             accept: None,
+            skip_walls_thinner_than: None,
         }
     }
 
@@ -144,6 +152,7 @@ impl GapQuery {
             rotation: None,
             limit,
             accept: None,
+            skip_walls_thinner_than: None,
         }
     }
 
@@ -153,6 +162,16 @@ impl GapQuery {
     pub fn rotating(self, rotation: Rotation) -> Self {
         Self {
             rotation: Some(rotation),
+            ..self
+        }
+    }
+
+    /// This query, leaving out the faces in front of material thinner than
+    /// `wall` (see [`skip_walls_thinner_than`](Self::skip_walls_thinner_than)).
+    #[must_use]
+    pub fn skip_walls_thinner_than(self, wall: f64) -> Self {
+        Self {
+            skip_walls_thinner_than: Some(wall),
             ..self
         }
     }

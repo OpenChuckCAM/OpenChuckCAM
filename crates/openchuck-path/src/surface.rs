@@ -286,6 +286,9 @@ pub struct MeshSurface {
     /// Two distances within this are equal up to rounding: see
     /// [`PROJECT_TIE`].
     tie: f64,
+    /// The material behind each triangle, measured when first asked
+    /// ([`MeshSurface::wall_at`]).
+    walls: std::sync::OnceLock<Vec<f64>>,
 }
 
 /// The fraction of the mesh's size within which two distances from a point
@@ -346,6 +349,7 @@ impl MeshSurface {
             normals,
             bounds: Aabb { min, max },
             tie,
+            walls: std::sync::OnceLock::new(),
         })
     }
 
@@ -514,6 +518,58 @@ impl SurfaceSource for MeshSurface {
 }
 
 impl MeshSurface {
+    /// How thick the material is behind a point `p` of a face with outward
+    /// normal `n`: the distance along `-n` to the first face met, when that
+    /// face opposes it (its outward normal more than 60 degrees against the
+    /// ray: the back of a wall); infinite when the first face met is a side
+    /// (the material turns a convex edge) or none is met.
+    pub(crate) fn wall_at(&self, p: Point3, n: UnitVec3) -> f64 {
+        let d = -n.get();
+        let step = self.tie + 1e-9;
+        let origin = p + d * step;
+        let ray = Ray::new(to_vector(origin), Vector::new(d.x, d.y, d.z));
+        let hit = self.bvh.bvh().cast_ray(&ray, f64::MAX, |i, best| {
+            let tri = self.triangle(i)?;
+            ray_triangle(origin, d, &tri).filter(|t| *t <= best)
+        });
+        match hit {
+            Some((i, t)) => match self.normals.get(i as usize).copied().flatten() {
+                Some(m) if m.get().dot(d) > 0.5 => t + step,
+                _ => f64::INFINITY,
+            },
+            None => f64::INFINITY,
+        }
+    }
+
+    /// The thinnest material behind each triangle, sampled at its centre
+    /// and halfway from there to each corner ([`Self::wall_at`]), measured
+    /// once, in parallel, each alone and in order (NFR-06). A sample is no
+    /// bound: it serves only to name a thin wall (decision record
+    /// SIMUL-EDGE-1, Terms: *Thin wall*), never to keep a move.
+    fn walls(&self) -> &[f64] {
+        self.walls.get_or_init(|| {
+            let ids: Vec<u32> = (0..self.mesh.triangles.len())
+                .map(|i| u32::try_from(i).unwrap_or(u32::MAX))
+                .collect();
+            crate::parallel::map_in_order(&ids, |&i| {
+                let (Some(t), Some(Some(n))) =
+                    (self.triangle(i), self.normals.get(i as usize).copied())
+                else {
+                    return f64::INFINITY;
+                };
+                let c = Point3::new(
+                    (t[0].x + t[1].x + t[2].x) / 3.0,
+                    (t[0].y + t[1].y + t[2].y) / 3.0,
+                    (t[0].z + t[1].z + t[2].z) / 3.0,
+                );
+                std::iter::once(c)
+                    .chain(t.iter().map(|p| c + (*p - c) * 0.5))
+                    .map(|p| self.wall_at(p, n))
+                    .fold(f64::INFINITY, f64::min)
+            })
+        })
+    }
+
     /// The tool gap over this mesh standing for a surface each triangle
     /// lies within `error` of (by its index), `largest` the most of them:
     /// each triangle's bounds and values are taken that much lower, so the
@@ -550,6 +606,10 @@ impl MeshSurface {
             })
             .collect();
         found.sort_unstable();
+        if let Some(wall) = query.skip_walls_thinner_than {
+            let walls = self.walls();
+            found.retain(|&i| walls.get(i as usize).is_none_or(|w| *w >= wall));
+        }
         let triangles = found
             .into_iter()
             .filter_map(|i| self.triangle(i).map(|t| (i, t)));

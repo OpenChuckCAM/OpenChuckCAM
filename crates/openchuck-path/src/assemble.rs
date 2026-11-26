@@ -123,6 +123,22 @@ pub enum UnreachedReason {
         /// The operation's tolerance, in millimetres.
         tolerance: f64,
     },
+    /// The tool reaches it, but the part there is a wall thinner than the
+    /// move check's layer: the tool beside it lies within the layer of its
+    /// far side, so no move there can be proven not to cut it, and the
+    /// moves are left out (simultaneous finishing; decision record
+    /// SIMUL-EDGE-1, Terms: *Thin wall*, the owner's instruction). A wall
+    /// this thin is unlikely to survive milling.
+    ThinWall {
+        /// About how thick the wall is, in millimetres: the thinnest found.
+        thickness: f64,
+        /// The move check's layer, in millimetres: 1.25 times the
+        /// operation's tolerance.
+        layer: f64,
+        /// The exact face the wall's far side is on, by its number, on a
+        /// part with exact faces; `None` on a mesh.
+        face: Option<u32>,
+    },
 }
 
 /// A place where a strategy broke a pass because the tool's shank, wider

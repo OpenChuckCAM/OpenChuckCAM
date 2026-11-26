@@ -136,6 +136,8 @@ mod simultaneous_hidden;
 mod simultaneous_off_axis;
 #[path = "simultaneous_rings.rs"]
 mod simultaneous_rings;
+#[path = "simultaneous_walls.rs"]
+mod simultaneous_walls;
 #[path = "solids.rs"]
 mod solids;
 #[path = "spiral_rings.rs"]

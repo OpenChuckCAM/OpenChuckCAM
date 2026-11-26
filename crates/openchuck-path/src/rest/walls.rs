@@ -517,6 +517,7 @@ fn group(
         UnreachedReason::TooShort { .. } => 4,
         // Simultaneous finishing's only.
         UnreachedReason::WouldGouge { .. } => 5,
+        UnreachedReason::ThinWall { .. } => 6,
     };
     found.sort_by(|a, b| {
         rank(&a.1)

@@ -35,6 +35,9 @@ pub mod topic {
     /// Areas of the part the tool cannot reach stay uncut, or are not
     /// checked.
     pub const UNREACHED_AREAS: &str = "Unreached areas";
+    /// Areas left uncut beside a wall thinner than the move check can prove
+    /// a tool clear of (decision record SIMUL-EDGE-1, Terms: *Thin wall*).
+    pub const THIN_WALLS: &str = "Thin walls";
     /// The stock stands above the tool's flutes.
     pub const FLUTE_LENGTH: &str = "Flute length";
     /// The tool holder is not checked against the part.

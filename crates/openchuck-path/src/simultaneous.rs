@@ -587,6 +587,9 @@ struct Gouge {
     depth: f64,
     /// The tool's diameter, for the area left.
     width: f64,
+    /// When the move failed only beside a wall thinner than the layer: the
+    /// wall's thickness there and its exact face, if it has one.
+    thin: Option<(f64, Option<u32>)>,
 }
 
 /// The points a move is refined into, and the most material it leaves.
@@ -1085,6 +1088,7 @@ fn run(
         2.0 * input.tool.cutting_radius(),
         max_lean,
     ))
+    .chain(thin_wall_warning(&gouged, tolerance))
     .chain(shank_warning(&shank_breaks))
     .chain(under_warning(findings.under))
     .chain(faces::held_warning(&held))
@@ -1221,7 +1225,21 @@ fn gouge_areas(mut gouges: Vec<Gouge>, tolerance: f64) -> Vec<crate::assemble::U
         let (x0, x1) = span(&g);
         let (lo, hi) = if g.a.0 <= g.a.1 { g.a } else { (g.a.1, g.a.0) };
         let area = g.points[0].distance(g.points[1]).max(g.width) * g.width;
+        let reason = match g.thin {
+            Some((thickness, face)) => UnreachedReason::ThinWall {
+                thickness,
+                layer: LAYER * tolerance,
+                face,
+            },
+            None => UnreachedReason::WouldGouge {
+                depth: g.depth,
+                tolerance,
+            },
+        };
         let joined = areas.iter_mut().rev().find(|u| {
+            if std::mem::discriminant(&u.reason) != std::mem::discriminant(&reason) {
+                return false;
+            }
             let close_x = x0 <= u.x.1 + BREAK_NEAR && u.x.0 <= x1 + BREAK_NEAR;
             // A ranges compared a whole number of turns apart.
             let shift = TURN * ((0.5 * (u.a.0 + u.a.1) - 0.5 * (lo + hi)) / TURN).round();
@@ -1234,8 +1252,22 @@ fn gouge_areas(mut gouges: Vec<Gouge>, tolerance: f64) -> Vec<crate::assemble::U
                 u.x = (u.x.0.min(x0), u.x.1.max(x1));
                 u.a = (u.a.0.min(lo + shift), u.a.1.max(hi + shift));
                 u.area += area;
-                if let UnreachedReason::WouldGouge { depth, .. } = &mut u.reason {
-                    *depth = depth.max(g.depth);
+                match (&mut u.reason, reason) {
+                    (UnreachedReason::WouldGouge { depth, .. }, _) => *depth = depth.max(g.depth),
+                    (
+                        UnreachedReason::ThinWall {
+                            thickness, face, ..
+                        },
+                        UnreachedReason::ThinWall {
+                            thickness: t,
+                            face: f,
+                            ..
+                        },
+                    ) => {
+                        *thickness = thickness.min(t);
+                        *face = face.or(f);
+                    }
+                    _ => {}
                 }
                 for p in g.points {
                     if u.points.len() < MAX_UNREACHED_POINTS {
@@ -1247,10 +1279,7 @@ fn gouge_areas(mut gouges: Vec<Gouge>, tolerance: f64) -> Vec<crate::assemble::U
                 x: (x0, x1),
                 a: (lo, hi),
                 area,
-                reason: UnreachedReason::WouldGouge {
-                    depth: g.depth,
-                    tolerance,
-                },
+                reason,
                 points: g.points.to_vec(),
             }),
         }
@@ -1266,6 +1295,12 @@ fn gouge_warning(
     diameter: f64,
     max_lean: f64,
 ) -> Option<Notice> {
+    let areas: Vec<_> = areas
+        .iter()
+        .filter(|u| matches!(u.reason, crate::assemble::UnreachedReason::WouldGouge { .. }))
+        .cloned()
+        .collect();
+    let areas = &areas[..];
     if areas.is_empty() {
         return None;
     }
@@ -1284,6 +1319,59 @@ fn gouge_warning(
              tolerance: {}; finish them with another strategy or a smaller tool, then check them \
              in the simulation before running the program",
             unreached_list(areas, diameter, max_lean)
+        ),
+        setting: None,
+        acknowledgement: None,
+    })
+}
+
+/// The warning for areas left uncut beside a wall thinner than the move
+/// check's layer (decision record SIMUL-EDGE-1, Terms: *Thin wall*, the
+/// owner's instruction and the wording confirmed for him).
+fn thin_wall_warning(areas: &[crate::assemble::Unreached], tolerance: f64) -> Option<Notice> {
+    use crate::assemble::UnreachedReason;
+    const LISTED: usize = 5;
+    let walls: Vec<_> = areas
+        .iter()
+        .filter_map(|u| match u.reason {
+            UnreachedReason::ThinWall {
+                thickness, face, ..
+            } => Some((u, thickness, face)),
+            _ => None,
+        })
+        .collect();
+    if walls.is_empty() {
+        return None;
+    }
+    let count = if walls.len() == 1 {
+        "1 area".to_owned()
+    } else {
+        format!("{} areas", walls.len())
+    };
+    let mut list: Vec<String> = walls
+        .iter()
+        .take(LISTED)
+        .map(|(u, t, face)| {
+            let on = face.map_or(String::new(), |n| format!(" on face {n}"));
+            format!(
+                "{}{on} ({:.1} mm2), a wall about {t:.3} mm thick",
+                crate::words::x_span(u.x.0, u.x.1),
+                u.area
+            )
+        })
+        .collect();
+    let more = walls.len().saturating_sub(LISTED);
+    if more > 0 {
+        list.push(format!("and {more} smaller"));
+    }
+    Some(Notice {
+        level: Level::Warning,
+        topic: Some(topic::THIN_WALLS.to_owned()),
+        segment: None,
+        text: format!(
+            "simultaneous finishing leaves {count} of the part uncut where a wall is thinner              than {} mm (a quarter more than the tolerance of {tolerance} mm): {}. A wall this              thin is unlikely to survive milling, and the tool cannot be proven clear of its far              side, so those moves are left out: check the model there (it may be a modelling              error or a detail too fine to cut), and check these areas in the simulation before              running the program",
+            LAYER * tolerance,
+            list.join("; ")
         ),
         setting: None,
         acknowledgement: None,
@@ -1398,6 +1486,13 @@ pub(crate) fn unreached_list(
                 UnreachedReason::TooShort { length } => {
                     format!("a cut of {length:.1} mm, shorter than the Shortest cut")
                 }
+                UnreachedReason::ThinWall {
+                    thickness, layer, ..
+                } => format!(
+                    "left uncut: the wall here is about {thickness:.3} mm thick, thinner than \
+                     {layer} mm, so the tool cannot be proven clear of its far side; a wall this \
+                     thin is unlikely to survive milling"
+                ),
                 UnreachedReason::WouldGouge { depth, tolerance } => format!(
                     "left uncut: following the surface here would gouge the finished surface, \
                      cutting about {depth:.3} mm into it, more than the tolerance of \
@@ -2737,7 +2832,7 @@ impl Plan<'_> {
                         // SIMUL-EDGE-1, Q4): the move is left out and the
                         // place marked, never refused.
                         out.gouges
-                            .push(self.gouge(a, b, error, mid.contact.contact));
+                            .push(self.gouge(a, b, error, mid.contact.contact, None));
                         out.points.push(None);
                         out.points.push(Some(*b));
                         return Ok(());
@@ -2774,7 +2869,7 @@ impl Plan<'_> {
         // only when the whole tool over the whole move cuts no deeper than
         // allowed. One that fails is halved, then raised at its middle;
         // after that it is left out and the place marked.
-        if let Some((cut, deepest)) = self.gouges(a, b) {
+        if let Some((cut, deepest, thin)) = self.gouges(a, b) {
             if depth < MAX_DEPTH + RAISES && out.gouge_splits > 0 {
                 out.gouge_splits -= 1;
                 let split = match middle {
@@ -2787,7 +2882,7 @@ impl Plan<'_> {
                     return self.refine_from(track, axis, &m, b, depth + 1, None, out);
                 }
             }
-            out.gouges.push(self.gouge(a, b, cut, deepest));
+            out.gouges.push(self.gouge(a, b, cut, deepest, thin));
             out.points.push(None);
         }
         out.points.push(Some(*b));
@@ -2805,7 +2900,8 @@ impl Plan<'_> {
     /// That is the motion the query bounds ([`GapQuery::rotating`]), with
     /// the shift as it is seen at the first pose, so the proof is for the
     /// move itself and the whole allowance is the check's.
-    fn gouges(&self, a: &Node, b: &Node) -> Option<(f64, Point3)> {
+    #[allow(clippy::type_complexity)]
+    fn gouges(&self, a: &Node, b: &Node) -> Option<(f64, Point3, Option<(f64, Option<u32>)>)> {
         let rotary = &self.input.rotary;
         let (a0, a1) = (a.a, Degrees(crate::rotary::nearest_turn(b.a, a.a).0));
         let pb = rotary.to_axis(b.contact.tip, b.a);
@@ -2870,18 +2966,65 @@ impl Plan<'_> {
                 pieces.push((f0, fm, level + 1));
                 continue;
             }
-            return Some((-g.upper, g.at));
+            let thin = self.thin_wall(&line, &query, &g);
+            return Some((-g.upper, g.at, thin));
         }
         None
     }
 
+    /// Whether a move part the check failed (`g`, from `query` on `line`)
+    /// failed only beside a wall thinner than the layer (decision record
+    /// SIMUL-EDGE-1, Terms: *Thin wall*): the deepest point found is on a
+    /// face whose material, measured into it along its normal, is thinner
+    /// than the depth read, so the tool is past the wall's far side; and
+    /// asked again with the faces of such walls left out, the part cuts
+    /// nothing deeper than allowed (a real gouge wins). The wall's
+    /// thickness and its exact face; `None` for a gouge. It decides only
+    /// what the move is called: either way the move is left out.
+    fn thin_wall(
+        &self,
+        line: &ToolLine,
+        query: &GapQuery,
+        g: &crate::gap::ToolGap,
+    ) -> Option<(f64, Option<u32>)> {
+        let surface = self.input.surface;
+        let layer = LAYER * self.allowed;
+        let at = surface.project(g.at)?;
+        let inward = UnitVec3::new(-at.normal.get()).ok()?;
+        // Started a hair inside, so the ray does not meet the face it
+        // starts on.
+        const START: f64 = 1e-6;
+        let wall = START
+            + surface
+                .cast_ray(g.at + inward.get() * START, inward, layer)?
+                .distance;
+        if !(wall < -g.upper && wall < layer) {
+            return None;
+        }
+        let rest = surface.tool_gap(
+            self.drop_profile,
+            line,
+            &query.skip_walls_thinner_than(layer),
+        );
+        rest.is_none_or(|r| proven(&r, self.allowed))
+            .then(|| (wall, at.position.map(|p| p.face)))
+    }
+
     /// The place of a move left out because it would gouge the surface.
-    fn gouge(&self, a: &Node, b: &Node, depth: f64, deepest: Point3) -> Gouge {
+    fn gouge(
+        &self,
+        a: &Node,
+        b: &Node,
+        depth: f64,
+        deepest: Point3,
+        thin: Option<(f64, Option<u32>)>,
+    ) -> Gouge {
         Gouge {
             points: [a.contact.contact, b.contact.contact, deepest],
             a: (a.a.0, crate::rotary::nearest_turn(b.a, a.a).0),
             depth,
             width: 2.0 * self.input.tool.cutting_radius(),
+            thin,
         }
     }
 
