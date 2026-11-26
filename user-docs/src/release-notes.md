@@ -6,16 +6,19 @@ Every section ends with the same reminder: generated G-code must be verified by 
 
 ## 0.55.1
 
-A fix release for 0.55.0. It fixes how two kinds of move are timed; everything else is as in 0.55.0.
+A fix release for 0.55.0. It fixes how three kinds of move are timed; everything else is as in 0.55.0.
 
 ### Fixed
 
 - **A 4-axis program refused for a feed a fraction over the Z limit.** Writing the G-code of some 4-axis finishing operations on the Makera Z1 could fail its checks with a message such as "F650.9 is above the limit 650", and no change of feed or limit helped. The cause was a move whose small sideways change is lost when the position is written to three decimals: it was timed for the X and Y limit, but the written block moves only Z and A, so the checks hold it to the Z limit. Such moves are now timed for the Z limit, so the program is written. A few moves of this kind are slower than in 0.55.0, by up to half where the Z limit is half the X and Y limit; they are rare, because their sideways change is about a thousandth of a millimetre (#929).
 - **A program refused for a tiny turn of the rotary axis.** A cutting move that only turns the rotary axis by a few thousandths of a degree, with the tool standing still, could be written with a small sideways step and a feed far above the machine's limit, so the program failed its checks. Such moves are now timed for that step (#943).
+- **A program refused for a small turn of the rotary axis on the Makera Z1.** On the Makera Z1, which counts the rotary axis's travel in its feed, a cutting move that only turns the rotary axis, with the tool standing still at an angle between two written steps, could be written with a small sideways step, and its feed then counted the turn round the part against the X and Y limit, so the program failed its checks. Such turns are now timed for that (#948).
 
 ### Known limitations and known issues
 
 Those of [0.55.0](#0550) still apply, apart from the fixes above, and so do its list of Makera Z1 values that are confirmed and not confirmed.
+
+The Makera Z1 air cut of 0.55.0 was not repeated for this release: the project owner carried it over, because the air-cut reference job's programs from 0.55.1 are identical to those from 0.55.0 for both posts. In the other test programs that changed, only feeds changed, and none is higher than in 0.55.0.
 
 Generated G-code must be verified by you before it is run on a machine. OpenChuckCAM does not guarantee that a program is safe or correct for any machine, tool or setup.
 

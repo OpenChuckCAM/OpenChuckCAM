@@ -1,9 +1,10 @@
 # Changelog
 
-## 0.55.1 (hotfix of 0.55.0; issues #929 and #943; not breaking)
+## 0.55.1 (hotfix of 0.55.0; issues #929, #943 and #948; not breaking)
 
 - **Fixed, changed output (issue #929; decision 0692 on `main`, accepted, backported):** a fed move is timed for the shift that writing A to three decimals gives its end points (the post works X, Y and Z out at the written A; up to `r` times 0.0005 degree at each end). The band below which a change of X or Y may be written either way is 0.001 mm plus that shift, so such a move is timed for the lower of the linear and Z limits, and the line's written allowance grows by the same shift; a fed move that turns A with no exact change of X or Y is timed for the same lower limit, as its ends are turned by different amounts when A is written. Before, a move that changed Y by just over 0.001 mm could be written with no Y change and its F word came out a fraction over Z's limit, which gate 1 refused (`F650.9 is above the limit 650` on a Makera Z1 job). No public API change.
 - **Fixed, changed output (issue #943; decision 0692 amendment 1, accepted by the owner 26 Nov 2026, relayed; backported from `main`):** a fed move that turns A with the tool tip fixed is timed for the line the post may write for it, as well as for A's own limit; and every fed move whose change of X and Y is below 0.001 mm plus the shift writing A gives its ends, none included, is timed for the lower of the linear and Z limits, whatever A does (no change where Z is no faster than the linear axes, the Makera Z1 and every built-in profile). Before, a tiny turn of A could be written with a small change of Y and an F word far above the linear limit, which gate 1 refused. No public API change.
+- **Fixed, changed output (issue #948; decision 0692 amendment 2, accepted by the owner 26 Nov 2026, relayed; backported from `main`):** on a controller that counts A's travel in its F word (the Makera Z1), a fed turn of A with the tool tip fixed is timed for that counted travel too, where an end's A is not on three decimals: writing A then gives the block a small change of X, Y or Z, and the controller counts A's travel with it, which gate 1 holds to the linear limit. A turn between angles on three decimals keeps A's own limit, as before. No public API change.
 
 ## Unreleased (ALIMIT, issue #793; decision 0647, accepted)
 
