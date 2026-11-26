@@ -9,7 +9,9 @@
 use std::collections::BTreeMap;
 
 use openchuck_path::params::names;
-use openchuck_path::{GeneratedPath, MeshSurface, ParameterValue, SimultaneousFinishing, UnreachedReason};
+use openchuck_path::{
+    GeneratedPath, MeshSurface, ParameterValue, SimultaneousFinishing, UnreachedReason,
+};
 use openchuck_types::geometry::Point3;
 use openchuck_types::mesh::TriangleMesh;
 
@@ -56,7 +58,11 @@ fn tube(outer: f64, wall: f64, length: f64, around: u32) -> TriangleMesh {
 
 fn finish(wall: f64) -> GeneratedPath {
     let outer = 8.0;
-    let f = Fixture::new(MeshSurface::new(&tube(outer, wall, 6.0, 96)).unwrap(), outer + 1.0, &ball(3.0));
+    let f = Fixture::new(
+        MeshSurface::new(&tube(outer, wall, 6.0, 96)).unwrap(),
+        outer + 1.0,
+        &ball(3.0),
+    );
     let v: BTreeMap<String, ParameterValue> = [
         (names::STEPOVER, 1.5),
         (names::TOLERANCE, TOLERANCE),
@@ -86,9 +92,21 @@ fn req_op_12_a_wall_thinner_than_the_layer_is_reported_as_a_thin_wall_not_a_goug
         .filter(|t| t.contains("where a wall is thinner than 0.0125 mm"))
         .collect();
     assert_eq!(thin.len(), 1, "{texts:#?}");
-    assert!(thin[0].contains("a quarter more than the tolerance of 0.01 mm"), "{}", thin[0]);
-    assert!(thin[0].contains("a wall about 0.004 mm thick"), "{}", thin[0]);
-    assert!(thin[0].contains("unlikely to survive milling"), "{}", thin[0]);
+    assert!(
+        thin[0].contains("a quarter more than the tolerance of 0.01 mm"),
+        "{}",
+        thin[0]
+    );
+    assert!(
+        thin[0].contains("a wall about 0.004 mm thick"),
+        "{}",
+        thin[0]
+    );
+    assert!(
+        thin[0].contains("unlikely to survive milling"),
+        "{}",
+        thin[0]
+    );
     assert!(
         !texts.iter().any(|t| t.contains("would gouge")),
         "{texts:#?}"
@@ -96,7 +114,11 @@ fn req_op_12_a_wall_thinner_than_the_layer_is_reported_as_a_thin_wall_not_a_goug
     assert!(!path.unreached.is_empty());
     for u in &path.unreached {
         match u.reason {
-            UnreachedReason::ThinWall { thickness, layer, face } => {
+            UnreachedReason::ThinWall {
+                thickness,
+                layer,
+                face,
+            } => {
                 assert!((thickness - 0.004).abs() < 1e-4, "{thickness}");
                 assert!((layer - 1.25 * TOLERANCE).abs() < 1e-12, "{layer}");
                 assert_eq!(face, None, "a mesh has no faces to name");
@@ -111,7 +133,9 @@ fn req_op_12_a_wall_thicker_than_the_layer_gets_neither_warning() {
     let path = finish(1.0);
     let texts = texts(&path);
     assert!(
-        !texts.iter().any(|t| t.contains("thinner than") || t.contains("would gouge")),
+        !texts
+            .iter()
+            .any(|t| t.contains("thinner than") || t.contains("would gouge")),
         "{texts:#?}"
     );
     assert!(path.unreached.is_empty(), "{:?}", path.unreached);

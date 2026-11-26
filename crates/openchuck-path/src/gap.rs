@@ -69,6 +69,14 @@ const MIN_PIECE: f64 = 1e-9;
 /// A part of a move shorter than this (as a fraction) is not split again.
 const MIN_SPAN: f64 = 1e-9;
 
+/// The angles, in radians, a separating plane leans from a side of the
+/// prism towards the layer's floor ([`Body::below_layer`]).
+const LEANS: [f64; 8] = [0.0, 0.05, 0.15, 0.3, 0.5, 0.75, 1.05, 1.35];
+
+/// The sizes the multipliers are also tried at over a part of a move
+/// ([`scaled`]).
+const MULTIPLIER_SCALES: [f64; 7] = [1e4, 1e3, 1e2, 30.0, 10.0, 3.0, 1.0];
+
 /// Bisection steps for each side's multiplier in the dual's search for its
 /// best multipliers ([`Body::multipliers`]): any multipliers give a proven
 /// bound, the search only makes it tighter.
@@ -956,6 +964,61 @@ impl<'a> Body<'a> {
         -self.dual_over(-face.m, -face.d, s0, s1)
     }
 
+    /// Whether the tool lies wholly beyond one side of the face's prism at
+    /// every pose from `s0` to `s1`, so no tool point has its foot on the
+    /// face: proven by the least of the side's outward distance over the
+    /// tool and the motion. Where the tool only touches a side the dual's
+    /// multipliers grow without end; this settles the empty prisms among
+    /// them at once.
+    fn beside(&self, face: &Face, s0: f64, s1: f64) -> bool {
+        face.sides
+            .iter()
+            .any(|(n, b)| n.length() > 0.0 && self.dual_over(*n, *b, s0, s1) > 0.0)
+    }
+
+    /// Whether no tool point with its foot on the face lies above the
+    /// layer, `limit` below it, at any pose from `s0` to `s1`: a plane
+    /// leaning from one side of the prism towards the layer's floor
+    /// (outward normal `n cos t - m sin t`) with the whole tool beyond it
+    /// and the prism above the floor behind it. A tool resting on the plane
+    /// of a side, below the layer (a face beside the one the tool touches),
+    /// is separated so only by a leaning plane: the side alone touches it.
+    fn below_layer(&self, face: &Face, limit: f64, s0: f64, s1: f64) -> bool {
+        let floor = face.corners.map(|p| p + face.m * (-limit));
+        // Across the face's normal: away from each side, and from the piece
+        // towards the tool's spine (the tool may lie beyond a corner, or
+        // beyond the side of a neighbouring face).
+        let centre = centroid(&face.corners);
+        let (a, b) = self.spine;
+        let ab = b - a;
+        let k = if ab.length() > 0.0 {
+            ((centre - a).dot(ab) / ab.dot(ab)).clamp(0.0, 1.0)
+        } else {
+            0.0
+        };
+        let to = (a + ab * k) - centre;
+        let across = UnitVec3::new(to - face.m * to.dot(face.m)).map(UnitVec3::get);
+        let directions: Vec<Vec3> = face
+            .sides
+            .iter()
+            .map(|(n, _)| *n)
+            .chain(across)
+            .filter(|n| n.length() > 0.0)
+            .collect();
+        directions.iter().any(|n| {
+            LEANS.iter().any(|t| {
+                let w = *n * t.cos() - face.m * t.sin();
+                // The prism above the floor lies behind the plane at its
+                // floor corners, as w leans away from the face's normal.
+                let c = floor
+                    .iter()
+                    .map(|p| w.dot(*p - Point3::ORIGIN))
+                    .fold(f64::NEG_INFINITY, f64::max);
+                self.dual_over(w, c, s0, s1) > 0.0
+            })
+        })
+    }
+
     /// The lowest tool point at the fraction `f` with its foot on the face
     /// and no deeper than `limit` below it, as found from the multipliers
     /// `lam`: its height above the face's plane and its foot. The dual's
@@ -1446,7 +1509,7 @@ impl Search<'_, '_> {
             return;
         }
         let face = Face::new(corners, m);
-        if self.body.top_over(&face, s0, s1) < -self.limit {
+        if self.body.top_over(&face, s0, s1) < -self.limit || self.body.beside(&face, s0, s1) {
             return;
         }
         let lower = self.body.dual_over(face.m, face.d, s0, s1).max(-self.limit) - e;
@@ -1482,19 +1545,38 @@ impl Search<'_, '_> {
         if piece.hint.is_finite() && piece.hint > s0 && piece.hint < s1 {
             poses.push(piece.hint);
         }
+        if self.body.beside(&face, s0, s1) {
+            poses.clear();
+            lower = f64::INFINITY;
+        }
         for f in poses {
             // Nothing counts when the whole tool over the face is deeper
             // than the layer.
-            let mu = self.body.multipliers(&face, f, true);
-            let (v, c) = face.dual_top(&mu);
-            if -self.body.dual_over(-v, -c, s0, s1) < -self.limit {
+            let top_with = |mu: [f64; 3]| {
+                scaled(&mu)
+                    .map(|mu| {
+                        let (v, c) = face.dual_top(&mu);
+                        -self.body.dual_over(-v, -c, s0, s1)
+                    })
+                    .fold(f64::INFINITY, f64::min)
+            };
+            let mut top = top_with(self.body.multipliers(&face, f, true));
+            if top >= -self.limit && self.body.below_layer(&face, self.limit, s0, s1) {
+                top = f64::NEG_INFINITY;
+            }
+            if top < -self.limit {
                 lower = f64::INFINITY;
                 near = None;
                 break;
             }
             let lam = self.body.multipliers(&face, f, false);
-            let (w, c) = face.dual(&lam);
-            lower = lower.max(self.body.dual_over(w, c, s0, s1).max(-self.limit) - e);
+            let bound = scaled(&lam)
+                .map(|lam| {
+                    let (w, c) = face.dual(&lam);
+                    self.body.dual_over(w, c, s0, s1)
+                })
+                .fold(f64::NEG_INFINITY, f64::max);
+            lower = lower.max(bound.max(-self.limit) - e);
             if let Some((h, at)) = self.body.found(&face, &lam, f, self.limit)
                 && near.is_none_or(|(b, _, _)| h < b)
             {
@@ -1514,6 +1596,22 @@ impl Search<'_, '_> {
             ..piece
         }
     }
+}
+
+/// The multipliers best for one pose, then the same direction scaled down
+/// to sizes from [`MULTIPLIER_SCALES`]: every choice of multipliers gives a
+/// proven bound, and over a part of a move the slack for the motion grows
+/// with their size, so where the best for one pose is large (the tool
+/// touching a side of the prism, where they grow without end) a smaller
+/// choice can bound the whole part better.
+fn scaled(lam: &[f64; 3]) -> impl Iterator<Item = [f64; 3]> + '_ {
+    let size = lam.iter().map(|l| l.abs()).fold(0.0, f64::max);
+    std::iter::once(*lam).chain(
+        MULTIPLIER_SCALES
+            .iter()
+            .filter(move |k| **k < size)
+            .map(move |k| lam.map(|l| l * (k / size))),
+    )
 }
 
 fn centroid(t: &[Point3; 3]) -> Point3 {

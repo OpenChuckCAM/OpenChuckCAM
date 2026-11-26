@@ -1297,7 +1297,12 @@ fn gouge_warning(
 ) -> Option<Notice> {
     let areas: Vec<_> = areas
         .iter()
-        .filter(|u| matches!(u.reason, crate::assemble::UnreachedReason::WouldGouge { .. }))
+        .filter(|u| {
+            matches!(
+                u.reason,
+                crate::assemble::UnreachedReason::WouldGouge { .. }
+            )
+        })
         .cloned()
         .collect();
     let areas = &areas[..];
