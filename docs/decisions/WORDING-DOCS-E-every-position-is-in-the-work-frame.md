@@ -72,7 +72,7 @@ A message that quotes a setup field uses the field's frame, which under B is the
 ## Questions for the owner (one at a time)
 
 1. **Which option: A, B or C?** **Answered, 26 Nov 2026 (relayed by the coordinator, decision 0049): B** (messages and the setup fields in work-zero X; the project file and the G-code unchanged; **Zero at X** and **Rotary reference X** are the only values still given from the other origin, labelled so; decision 0201 is kept). The record as a whole is not accepted yet.
-2. After Q1 (if B): when the user changes **Zero at X**, should the typed numbers of the stock, the held regions and the tabs change (the part stays where it is, as in decision 0201) or should the stock and workholding move with the zero? The recommendation is that they stay.
+2. When the user changes **Zero at X**, should the typed numbers of the stock, the held regions and the tabs change (the part stays where it is, as in decision 0201) or should the stock and workholding move with the zero? **Answered, 26 Nov 2026 (relayed by the coordinator, decision 0049): they stay where they are physically** (decision 0201); the typed numbers shift by the change in **Zero at X**; the **Zero at X** field's tooltip says so. Display and tooltip only, no project change.
 3. After Q1: the label wording of the exceptions ("model X", "machine X", "from the rotary reference point"), and whether the machine's numbers in a travel message are shown beside the work-frame position or only the work-frame position is shown.
 4. After Q1: whether the examples' Results text and screenshots are re-captured in one change after the code, or page by page.
 
