@@ -1143,7 +1143,7 @@ pub(crate) struct ResolvedRegion {
     /// record 0229 item 1).
     watched: Vec<(String, Protection, Box<dyn SurfaceSource>)>,
     /// A notice, information, for each set that limits nothing (set to
-    /// Ignore; decision UI-BUGS-C item 8).
+    /// Ignore; decision 0696 item 8).
     pub(crate) warnings: Vec<Notice>,
     /// The selected triangles that have a stock to leave of their own,
     /// grouped by amount; where sets overlap the largest amount applies

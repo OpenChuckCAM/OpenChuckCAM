@@ -1331,7 +1331,7 @@ fn cut_short_tip(
 /// sets: the boundary's two limits (decision record 0176 item 3), with a
 /// warning when both are off; for avoid and check, Warn only's sampling
 /// note, once for the role when any of its sets is on Warn only (decision
-/// UI-BUGS-C item 5). Each avoid or check set's own choice is under its
+/// 0696 item 5). Each avoid or check set's own choice is under its
 /// name ([`set_choice`]).
 fn role_options(
     ui: &mut egui::Ui,
@@ -1420,7 +1420,7 @@ fn on_break(
 
 /// An avoid or check set's choice, Cut short, Warn only or Ignore, just
 /// under its name in the value column (decision records 0176 item 3 and
-/// 0229; decision UI-BUGS-C item 3).
+/// 0229; decision 0696 item 3).
 fn set_choice(
     ui: &mut egui::Ui,
     role: SelectionRole,
@@ -1447,7 +1447,7 @@ fn set_choice(
 }
 
 /// What a set's line in the Geometry section says of it (decision
-/// UI-BUGS-C items 2, 4 and 7).
+/// 0696 items 2, 4 and 7).
 struct SetLine<'a> {
     name: &'a str,
     /// The colour the view draws the set in (decision 0216).
@@ -1460,7 +1460,7 @@ struct SetLine<'a> {
     ignored: bool,
 }
 
-/// The tooltip and accessible state of a set on Ignore (decision UI-BUGS-C
+/// The tooltip and accessible state of a set on Ignore (decision 0696
 /// items 4 and 7).
 const IGNORED: &str = "Ignored: this set limits nothing";
 
@@ -1468,7 +1468,7 @@ const IGNORED: &str = "Ignored: this set limits nothing";
 /// name, and × at the right end to take it out of the role. A set with a
 /// problem keeps its red border and reason; a set on Ignore is greyed and
 /// struck through, says so in its tooltip and its accessible name, and has
-/// no warning line (decision UI-BUGS-C items 2, 4 and 7). True when × is
+/// no warning line (decision 0696 items 2, 4 and 7). True when × is
 /// pressed.
 fn set_line(ui: &mut egui::Ui, line: &SetLine<'_>) -> bool {
     let indent = crate::field_row::label_column(ui) + ui.spacing().item_spacing.x;
@@ -1663,7 +1663,7 @@ fn geometry(
                 kinds,
             } = row;
             // The role's line: its name in the label column and its list
-            // (decision UI-BUGS-C item 1).
+            // (decision 0696 item 1).
             ui.horizontal(|ui| {
                 let (rect, _) = ui.allocate_exact_size(
                     egui::vec2(
@@ -1698,7 +1698,7 @@ fn geometry(
                 }
             });
             // Each set on its own line under the role, its choice under its
-            // name, then its own notes (decision UI-BUGS-C items 2 to 4).
+            // name, then its own notes (decision 0696 items 2 to 4).
             let choices = matches!(role, SelectionRole::Avoid | SelectionRole::Check)
                 && with_options.avoid_and_check;
             for id in &row_sets {

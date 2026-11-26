@@ -488,7 +488,7 @@ fn req_op_02_a_check_surface_is_not_touched_and_a_boundary_limits_the_cut() {
 /// choices of decision 0229 item 1: Cut short is today's path, Warn only
 /// keeps the whole path and warns naming the set, and Ignore keeps the
 /// whole path and says the set limits nothing, as information (decision
-/// UI-BUGS-C item 8): no warning, a note once in the run.
+/// 0696 item 8): no warning, a note once in the run.
 #[test]
 fn req_op_02_avoid_and_check_sets_of_other_strategies_take_their_choices() {
     use openchuck_app::project::OnBreak;

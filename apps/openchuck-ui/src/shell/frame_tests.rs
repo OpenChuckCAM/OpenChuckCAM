@@ -786,7 +786,7 @@ fn req_op_02_req_ui_07_the_geometry_section_shows_each_sets_options() {
         .unwrap();
     // Helical finishing: the avoid set's choice, no boundary options; the
     // rib on Ignore is struck through, with no warning line under it
-    // (decision UI-BUGS-C item 4).
+    // (decision 0696 item 4).
     app.set_on_break(op.id, SelectionRole::Avoid, rib, OnBreak::Ignore)
         .unwrap();
     rig.settle();
@@ -834,7 +834,7 @@ fn req_op_02_req_ui_07_the_geometry_section_shows_each_sets_options() {
     assert!(!rig.shows("The set 'Rib' limits nothing."));
 }
 
-/// Decision UI-BUGS-C item 8 (D3 A): an avoid set on Ignore gives the
+/// Decision 0696 item 8 (D3 A): an avoid set on Ignore gives the
 /// operation no amber mark and adds no warning to Messages, the counts or
 /// the project badge.
 #[test]

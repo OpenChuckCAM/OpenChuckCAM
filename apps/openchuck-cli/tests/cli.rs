@@ -1799,7 +1799,7 @@ fn walk(dir: &std::path::Path) -> Vec<std::path::PathBuf> {
 }
 
 /// An avoid set on Ignore limits nothing, and `regenerate` says so once as
-/// a `note:` line, not a `warning:` (decision UI-BUGS-C item 8, the owner's
+/// a `note:` line, not a `warning:` (decision 0696 item 8, the owner's
 /// D3 answer A; OP-21).
 #[test]
 fn req_op_21_cli_says_a_set_on_ignore_as_a_note() {

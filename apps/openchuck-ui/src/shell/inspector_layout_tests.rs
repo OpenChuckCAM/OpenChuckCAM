@@ -298,7 +298,7 @@ fn req_ui_07_req_ui_16_the_avoid_choice_row_wraps_inside_the_value_column() {
 }
 
 /// The sets of issue #759: in Avoid, Rib and Bead on Warn only; in Check,
-/// Lip on Cut short and Fence on Ignore (decision UI-BUGS-C).
+/// Lip on Cut short and Fence on Ignore (decision 0696).
 fn several_sets(rig: &mut Rig) {
     use openchuck_app::project::{OnBreak, SelectionTarget};
     use openchuck_app::selection::SelectionRole;
@@ -330,7 +330,7 @@ fn several_sets(rig: &mut Rig) {
     operation(rig);
 }
 
-/// Issue #759 (decision UI-BUGS-C items 1 to 3, 5 and 6): with several sets
+/// Issue #759 (decision 0696 items 1 to 3, 5 and 6): with several sets
 /// in each role, each set is named once, on its own line in the value
 /// column with × at its right end, its choice just under its name; the
 /// role's line holds its name and "Add a set…"; Warn only's note is said
@@ -473,7 +473,7 @@ fn struck(rig: &Rig, text: &str, left: f32) -> Option<bool> {
     rig.shapes.iter().find_map(|s| walk(&s.shape, text, left))
 }
 
-/// Decision UI-BUGS-C items 4 and 7: a set on Ignore is greyed and struck
+/// Decision 0696 items 4 and 7: a set on Ignore is greyed and struck
 /// through, with no warning line; its tooltip, on hover and on keyboard
 /// focus, says "Ignored: this set limits nothing", and it gives its state
 /// in its accessible name. A set on another choice is not struck through.
@@ -518,7 +518,7 @@ fn req_ui_07_req_op_21_a_set_on_ignore_is_struck_through_and_says_so_in_words() 
     assert!(rig.shows(tip), "the tooltip shows on keyboard focus");
 }
 
-/// Decision UI-BUGS-C items 2 to 4: a set's warning that it reaches a held
+/// Decision 0696 items 2 to 4: a set's warning that it reaches a held
 /// region or a tab (11.7) is said once, under that set's own line, with its links;
 /// Warn only under a set chooses it for that set; × at the end of a set's
 /// line takes the set out of its role.

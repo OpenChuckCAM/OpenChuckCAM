@@ -1196,7 +1196,7 @@ fn generate_unnamed(
     }
     // A boundary set the operation's options leave limiting nothing is a
     // warning (decision 0176); an avoid or check set on Ignore is
-    // information (decision UI-BUGS-C item 8). Each is said once, by its
+    // information (decision 0696 item 8). Each is said once, by its
     // level, and not repeated (decision 0536 section 5).
     let (mut warnings, set_notes): (Vec<_>, Vec<_>) = brep_limits
         .as_ref()
@@ -1896,7 +1896,7 @@ pub(crate) fn limits_nothing(set: &str, why: &str, fix: &str) -> Notice {
 }
 
 /// The note for an avoid or check set on Ignore (decision 0176's words;
-/// decision UI-BUGS-C item 8): information, not a warning, because Ignore
+/// decision 0696 item 8): information, not a warning, because Ignore
 /// is the user's own choice and the inspector shows it on the set's line.
 /// The path is made as if the set were not there.
 pub(crate) fn ignored(role: &str, set: &str) -> Notice {
@@ -3304,7 +3304,7 @@ mod tests {
         );
         // An avoid or check set that only warns keeps the whole cut and
         // warns naming the set; one set to Ignore limits nothing, and says
-        // so as information, not a warning (decision UI-BUGS-C item 8).
+        // so as information, not a warning (decision 0696 item 8).
         for (role, on_break, said) in [
             (
                 Role::Avoid,
