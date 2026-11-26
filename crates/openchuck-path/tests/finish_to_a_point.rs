@@ -670,3 +670,63 @@ fn req_nfr_07_a_tiny_stepdown_does_not_hang_the_turns_to_the_axis() {
     let p = path(s, &f, &v);
     assert!(p.group.segments.len() < 2_000_000);
 }
+
+/// A selected region that leaves out the pointed end: nothing is finished
+/// to the point, and no turn goes down to the axis there (OP-02; CodeRabbit
+/// on #956).
+#[test]
+fn req_op_02_a_point_outside_the_selected_region_is_not_finished_to() {
+    use openchuck_path::RegionConstraint;
+    use openchuck_testkit::parts::{Cylinder, RadialPart};
+    let f = pointed();
+    // The cylinder alone, X 0 to 14: the hemisphere and its point are not
+    // selected.
+    let selected = MeshSurface::new(
+        &Cylinder {
+            radius: 6.0,
+            length: 14.0,
+        }
+        .mesh(29, 180),
+    )
+    .unwrap();
+    let region = RegionConstraint {
+        region: Some(&selected),
+        ..RegionConstraint::default()
+    };
+    for s in [
+        &HelicalFinishing as &dyn Strategy,
+        &AxialFinishing,
+        &IndexedFinishing,
+    ] {
+        let p =
+            run(|ctx| support::generate_in_region(s, &f.input(), &region, &values(s, true), ctx))
+                .unwrap();
+        assert!(
+            centres(&p).iter().all(|&(x, r)| x <= POINT || r > 0.05),
+            "{}: a turn goes down to the axis at the unselected point",
+            s.name()
+        );
+        assert!(point_warnings(&p).is_empty(), "{}", s.name());
+    }
+}
+
+/// A tiny largest angle step does not flood the turns down to the axis:
+/// each has at most 3600 points, a tenth of a degree apart, whatever the
+/// step (NFR-07; CodeRabbit on #956). At 0.01 degrees the turn would have
+/// 36,000.
+#[test]
+fn req_nfr_07_a_tiny_angle_step_does_not_flood_the_turns_to_the_axis() {
+    let f = pointed();
+    let s = &HelicalFinishing;
+    let mut v = values(s, true);
+    v.insert("stepover".to_owned(), ParameterValue::Number(6.0));
+    v.insert("max_angle_step".to_owned(), ParameterValue::Number(0.01));
+    v.insert(FACE_FREE_ENDS.to_owned(), ParameterValue::Flag(false));
+    let p = path(s, &f, &v);
+    // The final turn: the ball's centre on the axis at the point's X + R.
+    let on_axis = centres(&p)
+        .iter()
+        .filter(|&&(x, r)| (x - (POINT + R)).abs() < 0.05 && r < 0.02)
+        .count();
+    assert!(on_axis > 0 && on_axis <= 3601, "{on_axis}");
+}

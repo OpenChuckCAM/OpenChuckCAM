@@ -609,7 +609,7 @@ Updated in place: OI-318 and OI-337 (the blisk now generates and cuts its blade 
 - **Built differently from the record's wording:**
   - **The run-out.** The run-out of Extend past the stock is unchanged. The record said decisions 0212 part B item 3 and 0546 item 3 are amended for this setting. As built, the setting adds its own stretch past the point, which follows the drop, and it does not turn the run-out into a descent. A run-out that followed the drop to the axis would cut through all the stock past the point at the axis. That would be a full-width slot, not a finish, and it would be cut free anyway.
   - **Query accounting.** The queries spent past the end are read as the difference in the figure adaptive spacing already reports, as the record says. No separate counter was added.
-- **How:** tests first, in `crates/openchuck-path/tests/finish_to_a_point.rs` (new, 19 tests):
+- **How:** tests first, in `crates/openchuck-path/tests/finish_to_a_point.rs` (new, 21 tests):
   - Written before the code and seen failing first:
     - the schema test;
     - the reach-the-axis tests for the three strategies (for example, helical's nearest centre past the point stood at 1.587 mm from the axis);
@@ -644,6 +644,10 @@ Updated in place: OI-318 and OI-337 (the blisk now generates and cuts its blade 
   - **Finishing layers.** With Finishing layers on, helical finishing's run past the point is cut in the same layers: `req_op_04_the_run_past_a_point_is_cut_in_finishing_layers`. Axial and indexed finishing were already layered.
   - **Rings with a point at the start.** Rings past a point at the start are measured round their whole turn; the rings no longer take the helix's shifted start angle: `req_op_04_rings_past_a_point_at_the_start_are_measured`.
   - **A Minor, also fixed:** a Stepdown too small to resolve no longer loops without end; the turns down to the axis are at most 1000 (`req_nfr_07_a_tiny_stepdown_does_not_hang_the_turns_to_the_axis`; not run before the fix, as it would hang).
+  - **CodeRabbit's second review** (of the release head `2abbf77e`) raised two more Majors. Both were confirmed, and the coordinator allowed one fix push for them; each test failed first:
+    - **The selected region.** A point end is kept only where the selected region allows the tool all round at the end's last drop, so no turn goes down to the axis at an unselected point: `req_op_02_a_point_outside_the_selected_region_is_not_finished_to`.
+    - **Points per turn.** Each turn down to the axis has at most 3600 points, a tenth of a degree apart, and the turns check for cancellation. At a 0.01 degree step the final turn had 36,001 points before the fix: `req_nfr_07_a_tiny_angle_step_does_not_flood_the_turns_to_the_axis`.
+    - **Not changed:** its follow-up on the Stepdown cap. The cap widens the spacing only where more than 1000 turns would be needed, that is, below about 0.002 mm over a descent of at most the tool radius. That is answered on its thread.
   - **A Minor not fixed here**, for the lane's ticket: an app test of a saved helical, axial or indexed operation without the setting. The schema default (off) is tested in `openchuck-path`.
 - **Not verified:** nothing was cut or air-cut.
 - **Open items:** OI-2236 closes.

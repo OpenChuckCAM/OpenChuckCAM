@@ -18,6 +18,7 @@ use crate::notice::{Acknowledgement, Level, Notice, topic};
 use std::collections::BTreeMap;
 
 use openchuck_types::geometry::{Point3, UnitVec3, Vec3};
+use openchuck_types::job::JobContext;
 use openchuck_types::tool::profile::RevolvedProfile;
 use openchuck_types::units::{Degrees, Millimetres};
 
@@ -670,6 +671,9 @@ pub(crate) fn across_axis_warning(
 /// The most whole turns that take the tool down to the axis past a point.
 const MOST_TURNS: usize = 1000;
 
+/// The most points in one of those turns: a tenth of a degree apart.
+const MOST_POINTS: usize = 3600;
+
 /// A free end of the part that comes to a point, past which Finish to a
 /// point carries the finish on (decision record 0695, Q2 (a) A).
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -702,11 +706,16 @@ fn stock_past(input: &StrategyInput<'_>, face: f64, far: bool) -> bool {
 /// which Face free ends turns at (decision record 0344). An end under a part
 /// of the surface with its own stock to leave (`zones`) is left out: going
 /// down to the axis there would cut its allowance away (CodeRabbit on #956).
+/// With a selected `region`, an end is kept only where the region allows the
+/// tool at its last drop all round (OP-02; CodeRabbit on #956).
 pub(crate) fn point_ends(
     input: &StrategyInput<'_>,
     grown: &RevolvedProfile,
     ends: &[FreeEnd],
-    zones: &[crate::strategy::LeaveZone<'_>],
+    (region, zones): (
+        Option<&crate::region::RegionConstraint<'_>>,
+        &[crate::strategy::LeaveZone<'_>],
+    ),
     parameters: &Parameters,
 ) -> Vec<PointEnd> {
     if !parameters
@@ -718,6 +727,21 @@ pub(crate) fn point_ends(
     let radius = grown.cutting_radius();
     ends.iter()
         .filter(|e| stock_past(input, e.face, e.far))
+        .filter(|e| {
+            let Some(region) = region.filter(|r| !r.is_empty()) else {
+                return true;
+            };
+            (0..AROUND).all(|k| {
+                let a = Degrees(360.0 * k as f64 / AROUND as f64);
+                let line = input
+                    .rotary
+                    .tool_line(Millimetres(e.edge), a, Millimetres(0.0));
+                input
+                    .surface
+                    .drop_on_part(grown, &line)
+                    .is_some_and(|c| region.allows(c.contact, c.tip, grown, &line))
+            })
+        })
         .filter(|e| {
             // No zone's surface under the tool at the end's last drop.
             !zones.iter().any(|z| {
@@ -763,11 +787,21 @@ pub(crate) fn turns_to_the_axis(
     from: f64,
     stepdown: f64,
     (start, sign, step): (f64, f64, f64),
-) -> Vec<Pass> {
+    context: &JobContext<'_>,
+) -> Result<Vec<Pass>> {
     let side = input.tool.cutting_radius();
     let last = -input.tool.height_at(side).unwrap_or(0.0);
     let toward = if end.far { -1.0 } else { 1.0 };
-    let points = ((360.0 / step).ceil() as usize).max(4);
+    // At most `MOST_POINTS` points a turn, whatever the largest angle step
+    // (CodeRabbit on #956).
+    let points = (360.0 / step).ceil();
+    let points = if points.is_finite() && points >= 4.0 {
+        (points as usize).min(MOST_POINTS)
+    } else if points.is_finite() {
+        4
+    } else {
+        MOST_POINTS
+    };
     let mut heights = Vec::new();
     if stepdown.is_finite() && stepdown > 0.0 && from > last {
         // Whole Stepdowns above the last turn, at most `MOST_TURNS` of them:
@@ -786,9 +820,11 @@ pub(crate) fn turns_to_the_axis(
         );
     }
     heights.push(last);
-    heights
-        .into_iter()
-        .map(|h| Pass {
+    // Checked for cancellation before each turn (CodeRabbit on #956).
+    let mut out = Vec::with_capacity(heights.len());
+    for h in heights {
+        context.check_cancelled()?;
+        out.push(Pass {
             helical_pass_start: false,
             low_link: false,
             points: (0..=points)
@@ -814,8 +850,9 @@ pub(crate) fn turns_to_the_axis(
             stock: None,
             rapids: Vec::new(),
             plunge_fed: Vec::new(),
-        })
-        .collect()
+        });
+    }
+    Ok(out)
 }
 
 /// The tool's tip at `end`'s last drop, mm along the tool axis from the

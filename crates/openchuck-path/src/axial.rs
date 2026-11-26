@@ -536,12 +536,20 @@ impl<'a> AlongX<'a> {
         end: &crate::finishing::PointEnd,
         parameters: &Parameters,
         (start, step): (f64, f64),
-    ) -> Vec<Pass> {
+        context: &JobContext<'_>,
+    ) -> Result<Vec<Pass>> {
         let top = crate::finishing::top_at_edge(self.input, &self.grown, self.leave, end);
         let stepdown = parameters
             .number(crate::finishing::parameter::STEPDOWN)
             .unwrap_or(0.0);
-        crate::finishing::turns_to_the_axis(self.input, end, top, stepdown, (start, 1.0, step))
+        crate::finishing::turns_to_the_axis(
+            self.input,
+            end,
+            top,
+            stepdown,
+            (start, 1.0, step),
+            context,
+        )
     }
 
     /// The X span the passes cover with the stretches past the ends `ends`.
@@ -803,7 +811,13 @@ fn passes(
         None
     };
     let pointed = early.as_ref().map_or_else(Vec::new, |found| {
-        crate::finishing::point_ends(input, &along.grown, &found.free, zones, parameters)
+        crate::finishing::point_ends(
+            input,
+            &along.grown,
+            &found.free,
+            (region, zones),
+            parameters,
+        )
     });
     let (mut passes, spaced) = match adaptive {
         None => {
@@ -882,7 +896,7 @@ fn passes(
     };
     // Then whole turns take the tool to the rotary axis past each point.
     for end in &pointed {
-        passes.extend(along.point_turns(end, parameters, (start, TURN_STEP)));
+        passes.extend(along.point_turns(end, parameters, (start, TURN_STEP), context)?);
     }
     along.mark_low_links(&mut passes);
     let mut warnings = free.warnings;

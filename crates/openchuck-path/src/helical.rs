@@ -465,7 +465,8 @@ fn passes(
         // following the part down to the end's last drop. Fitted on its own,
         // so the passes over the part are as before; adaptive spacing
         // measures over it with the rest (Q2 (c) B).
-        let pointed = crate::finishing::point_ends(input, &grown, &found.free, zones, parameters);
+        let pointed =
+            crate::finishing::point_ends(input, &grown, &found.free, (region, zones), parameters);
         let mut pieces = Vec::with_capacity(pointed.len());
         for end in &pointed {
             pieces.push(point_piece(
@@ -698,7 +699,8 @@ fn passes(
                 top,
                 stepdown,
                 (at, sign, step),
-            ));
+                context,
+            )?);
         }
         let notes = ring_note
             .into_iter()

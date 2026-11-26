@@ -323,7 +323,13 @@ fn passes(
             tolerance,
             context,
         )?;
-        crate::finishing::point_ends(input, &along.grown, &found.free, zones, parameters)
+        crate::finishing::point_ends(
+            input,
+            &along.grown,
+            &found.free,
+            (region, zones),
+            parameters,
+        )
     } else {
         Vec::new()
     };
@@ -364,7 +370,12 @@ fn passes(
     // Then whole turns take the tool to the rotary axis past each point.
     let first = angles.first().copied().unwrap_or(0.0);
     for end in &ends {
-        passes.extend(along.point_turns(end, parameters, (first, crate::axial::TURN_STEP)));
+        passes.extend(along.point_turns(
+            end,
+            parameters,
+            (first, crate::axial::TURN_STEP),
+            context,
+        )?);
     }
     let pointed = crate::finishing::point_warnings(input, &ends, &[]);
     along.mark_low_links(&mut passes);
