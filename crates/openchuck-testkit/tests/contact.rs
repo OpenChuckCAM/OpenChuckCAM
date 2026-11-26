@@ -974,6 +974,7 @@ fn req_op_12_face_gap_of_a_ball_above_and_into_a_plane() {
                 Point3::new(0.3, -0.2, h),
                 Vec3::new(0.0, 0.0, 1.0),
                 1.0,
+                1e-4,
                 &face_settings(),
             )
             .unwrap();
@@ -995,6 +996,7 @@ fn req_op_12_face_gap_of_a_tilted_flat_end_is_its_corner_below_the_plane() {
                 Point3::new(0.0, 0.0, h),
                 Vec3::new(a.sin(), 0.0, a.cos()),
                 1.0,
+                1e-4,
                 &face_settings(),
             )
             .unwrap();
@@ -1011,11 +1013,50 @@ fn req_op_12_face_gap_counts_a_face_from_behind_only_within_the_layer() {
     let t = ConvexTool::new(&ball2()).unwrap();
     let up = Vec3::new(0.0, 0.0, 1.0);
     let s = face_settings();
-    let none = g.face_gap(&t, Point3::ORIGIN, up, 1.0, &s).unwrap();
+    let none = g.face_gap(&t, Point3::ORIGIN, up, 1.0, 1e-4, &s).unwrap();
     assert!(none.lower >= s.margin - TOL - 1e-9, "{none:?}");
     // The tool's top is 12 mm above its tip, so its highest point over the
     // face is 14 mm above the face's plane on the material side.
-    let deep = g.face_gap(&t, Point3::ORIGIN, up, 3.0, &s).unwrap();
+    let deep = g.face_gap(&t, Point3::ORIGIN, up, 3.0, 1e-4, &s).unwrap();
     holds_face(&deep, -3.0);
-    assert!(g.face_gap(&t, Point3::ORIGIN, up, f64::NAN, &s).is_err());
+    assert!(g.face_gap(&t, Point3::ORIGIN, up, f64::NAN, 1e-4, &s).is_err());
+}
+
+/// A block's square edge along Y at the origin: its top, z = 0 for x <= 0,
+/// facing +Z, and its end, x = 0 for z <= 0, facing +X.
+fn square_edge() -> TriangleMesh {
+    TriangleMesh {
+        vertices: vec![
+            Point3::new(-5.0, -5.0, 0.0),
+            Point3::new(0.0, -5.0, 0.0),
+            Point3::new(0.0, 5.0, 0.0),
+            Point3::new(-5.0, 5.0, 0.0),
+            Point3::new(0.0, -5.0, -5.0),
+            Point3::new(0.0, 5.0, -5.0),
+        ],
+        triangles: vec![[0, 1, 2], [0, 2, 3], [1, 4, 5], [1, 5, 2]],
+    }
+}
+
+#[test]
+fn req_op_12_face_gap_beside_a_square_edge_is_the_depth_into_the_material() {
+    // The owner's answer of 26 Nov 2026 (decision record SIMUL-EDGE-1,
+    // Terms): a face counts a tool point only where it is also at least the
+    // given depth below a convex neighbour's plane. A ball resting on the
+    // top 0.011 mm from the edge touches the surface: along the end's normal
+    // its contact is 0.011 mm below the end, a cut it is not, and it reads
+    // none. Plunged 1 mm at the edge it cuts both faces and reads the layer.
+    let g = Geometry::of_mesh(&square_edge()).unwrap();
+    let t = ConvexTool::new(&ball2()).unwrap();
+    let up = Vec3::new(0.0, 0.0, 1.0);
+    let s = face_settings();
+    let (layer, inside) = (0.0125, 0.01);
+    let resting = g
+        .face_gap(&t, Point3::new(-0.011, 0.0, 0.0), up, layer, inside, &s)
+        .unwrap();
+    holds_face(&resting, 0.0);
+    let plunged = g
+        .face_gap(&t, Point3::new(0.0, 0.0, -1.0), up, layer, inside, &s)
+        .unwrap();
+    holds_face(&plunged, -layer);
 }

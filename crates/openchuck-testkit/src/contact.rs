@@ -1812,11 +1812,15 @@ impl Posed<'_> {
 }
 
 /// A triangle (or a piece of one) with the outward normal `m` of the
-/// triangle it came from: the corners keep the triangle's winding.
-#[derive(Debug, Clone, Copy)]
+/// triangle it came from: the corners keep the triangle's winding. `clips`
+/// are the half-spaces `n . y <= b` a tool point must also lie in to count:
+/// at least the given depth below the plane of each face meeting the
+/// triangle at a convex edge or corner (the depth into the material).
+#[derive(Debug, Clone)]
 struct Shard {
     p: [Point3; 3],
     m: Vec3,
+    clips: std::rc::Rc<Vec<(Vec3, f64)>>,
 }
 
 impl Shard {
@@ -1842,9 +1846,11 @@ impl Shard {
             Self {
                 p: [p, mid, r],
                 m: self.m,
+                clips: self.clips.clone(),
             },
             Self {
                 p: [mid, q, r],
+                clips: self.clips.clone(),
                 m: self.m,
             },
         ]
@@ -1861,10 +1867,43 @@ impl Shard {
     ///   touches the tool and faces down, so its height is at least that
     ///   plane's over the shard (least at a corner), taken at the tool
     ///   point nearest the centre's column.
-    fn bound(&self, posed: &Posed<'_>, layer: f64) -> (f64, Option<(f64, Point3)>) {
+    ///
+    /// With clips, the tool above the face is counted without them (its
+    /// clearance) and below it only with them: the shard's gap is the
+    /// unclipped one where that is not below the face, else the clipped
+    /// one, or zero.
+    fn bound(&self, posed: &Posed<'_>, layer: f64, cap: f64) -> (f64, Option<(f64, Point3)>) {
+        if self.clips.is_empty() {
+            return self.bound_of(posed, layer, cap);
+        }
+        let open = Self {
+            clips: std::rc::Rc::new(Vec::new()),
+            ..self.clone()
+        };
+        let (lower, found) = open.bound_of(posed, layer, cap);
+        if lower >= 0.0 {
+            return (lower, found);
+        }
+        let (inner, inner_found) = self.bound_of(posed, layer, cap);
+        let value = match (found, inner_found) {
+            (Some((h, x)), _) if h >= 0.0 => Some((h, x)),
+            (_, Some((h, x))) if h < 0.0 => Some((h, x)),
+            (Some((_, x)), _) => Some((0.0, x)),
+            (None, f) => f.map(|(h, x)| (h.min(0.0), x)),
+        };
+        (inner.min(0.0).max(lower), value)
+    }
+
+    fn bound_of(&self, posed: &Posed<'_>, layer: f64, cap: f64) -> (f64, Option<(f64, Point3)>) {
         let m = self.m;
         let d = m.dot(self.p[0].to_vec());
         let empty = (f64::INFINITY, None);
+        // Nothing counts when the whole tool lies beyond a clip.
+        for (n, b) in self.clips.iter() {
+            if -posed.most(-*n) > b + SLACK {
+                return empty;
+            }
+        }
         for i in 0..3 {
             let (a, b) = (self.p[i], self.p[(i + 1) % 3]);
             let n = (b - a).cross(m);
@@ -1881,15 +1920,25 @@ impl Shard {
             return empty;
         }
         let centre = self.centre();
+        // The heights counted on the column through x: within the tool,
+        // no deeper than the layer, and inside every clip.
+        let clips = self.clips.clone();
         let counted = |x: Point3| {
-            posed.column(x, m).and_then(|(lo, hi)| {
-                if lo >= -layer {
-                    Some((lo, lo))
-                } else if hi >= -layer {
-                    Some((-layer, lo))
-                } else {
-                    None
+            let (mut from, mut to) = (-layer, f64::INFINITY);
+            for (n, b) in clips.iter() {
+                let along = n.dot(m);
+                let room = b - n.dot(x.to_vec());
+                if along > 1e-12 {
+                    to = to.min(room / along);
+                } else if along < -1e-12 {
+                    from = from.max(room / along);
+                } else if room < 0.0 {
+                    return None;
                 }
+            }
+            posed.column(x, m).and_then(|(lo, hi)| {
+                let h = lo.max(from);
+                (h <= hi.min(to)).then_some((h, lo))
             })
         };
         let found_centre = counted(centre);
@@ -1914,6 +1963,38 @@ impl Shard {
             }
         }
         let mut by_plane = f64::NEG_INFINITY;
+        if !self.clips.is_empty() {
+            // The counted points of the tool lie in the polytope of the
+            // shard's prism, the layer's floor, the clips and a cap at the
+            // best height found so far (anything higher cannot lower it),
+            // and inside each probe's tangent plane: the least height over
+            // its corners bounds them.
+            let mut region: Vec<(Vec3, f64)> = (0..3)
+                .filter_map(|i| {
+                    let (a, b) = (self.p[i], self.p[(i + 1) % 3]);
+                    let n = (b - a).cross(m);
+                    let len = n.length();
+                    (len > 0.0).then(|| {
+                        let n = n * (1.0 / len);
+                        (n, n.dot(a.to_vec()))
+                    })
+                })
+                .collect();
+            region.push((-m, layer - d));
+            region.push((m, d + cap.min(posed.most(m) - d)));
+            region.extend(self.clips.iter().copied());
+            for probe in probes {
+                let plane = posed.at(probe);
+                let mut with = region.clone();
+                with.push((plane.n, plane.k));
+                let least = corners_least(&with, m).map_or(f64::INFINITY, |v| v - d);
+                by_plane = by_plane.max(least);
+            }
+            return (
+                by_plane.max(-layer).min(cap.max(-layer)) - SLACK,
+                found,
+            );
+        }
         for probe in probes {
             let plane = posed.at(probe);
             let facing = plane.n.dot(m);
@@ -2065,18 +2146,95 @@ impl Ord for ShardEntry {
     }
 }
 
+/// The least of `m . y` over the corners of the polytope `n . y <= b` for
+/// every `(n, b)` of `planes`, found by intersecting each three of the
+/// planes; `None` when no corner lies inside them all (the polytope is
+/// empty, as it is bounded).
+fn corners_least(planes: &[(Vec3, f64)], m: Vec3) -> Option<f64> {
+    let scale = planes.iter().map(|p| p.1.abs()).fold(1.0, f64::max);
+    let mut least: Option<f64> = None;
+    for i in 0..planes.len() {
+        for j in i + 1..planes.len() {
+            for k in j + 1..planes.len() {
+                let (a, b, c) = (planes[i], planes[j], planes[k]);
+                let det = a.0.dot(b.0.cross(c.0));
+                if det.abs() < 1e-12 {
+                    continue;
+                }
+                let y = (b.0.cross(c.0) * a.1 + c.0.cross(a.0) * b.1 + a.0.cross(b.0) * c.1)
+                    * (1.0 / det);
+                if planes.iter().all(|(n, e)| n.dot(y) <= e + 1e-9 * scale) {
+                    let v = m.dot(y);
+                    least = Some(least.map_or(v, |l| l.min(v)));
+                }
+            }
+        }
+    }
+    least
+}
+
+/// The planes `(n, d)` of the triangles meeting triangle `i` of `triangles`
+/// at a convex edge or corner: those with a corner at one of its corners,
+/// not in its plane, each with every corner on or below the other's plane.
+/// Found pair by pair, by distance.
+fn convex_planes(triangles: &[[Point3; 3]], i: usize) -> Vec<(Vec3, f64)> {
+    let plane = |t: &[Point3; 3]| {
+        let n = (t[1] - t[0]).cross(t[2] - t[0]);
+        let len = n.length();
+        (len > 0.0).then(|| {
+            let n = n * (1.0 / len);
+            (n, n.dot(t[0].to_vec()))
+        })
+    };
+    let Some(t) = triangles.get(i) else {
+        return Vec::new();
+    };
+    let Some((n, d)) = plane(t) else {
+        return Vec::new();
+    };
+    let size = triangles
+        .iter()
+        .flatten()
+        .map(|p| p.x.abs().max(p.y.abs()).max(p.z.abs()))
+        .fold(1.0, f64::max);
+    let near = 1e-9 * size;
+    let mut out = Vec::new();
+    for (j, q) in triangles.iter().enumerate() {
+        if j == i || !t.iter().any(|a| q.iter().any(|b| a.distance(*b) <= 0.0)) {
+            continue;
+        }
+        let Some((nq, dq)) = plane(q) else {
+            continue;
+        };
+        if nq.dot(n) > 1.0 - 1e-12 {
+            continue;
+        }
+        let under = |pts: &[Point3; 3], n: Vec3, d: f64| pts.iter().all(|p| n.dot(p.to_vec()) - d <= near);
+        if under(q, n, d) && under(t, nq, dq) {
+            out.push((nq, dq));
+        }
+    }
+    out
+}
+
 impl Geometry {
     /// The bounded least height of `tool` (tip at `tip`, axis along `axis`)
     /// above the faces of a mesh geometry, each face measured along its own
     /// outward normal (from the triangle's winding) and over itself only,
     /// counting no tool point deeper than `layer` below a face: negative by
     /// the depth the tool cuts below a face. Faces of a B-rep are refused.
+    ///
+    /// A face counts a tool point only where it also lies at least `inside`
+    /// below the plane of each face meeting it at a convex edge or corner
+    /// (the depth into the material: a point that near a neighbour's plane
+    /// is that near the surface).
     pub fn face_gap(
         &self,
         tool: &ConvexTool,
         tip: Point3,
         axis: Vec3,
         layer: f64,
+        inside: f64,
         settings: &Settings,
     ) -> Result<Bounded, ContactError> {
         let Settings {
@@ -2109,7 +2267,7 @@ impl Geometry {
                             upper: &mut f64,
                             at: &mut Option<Point3>,
                             floor: &mut f64| {
-            let (lower, found) = shard.bound(&posed, layer);
+            let (lower, found) = shard.bound(&posed, layer, *upper);
             if let Some((h, x)) = found
                 && h < *upper
             {
@@ -2123,13 +2281,18 @@ impl Geometry {
                 heap.push(ShardEntry { lower, seq, shard });
             }
         };
-        for p in &self.triangles {
+        for (i, p) in self.triangles.iter().enumerate() {
             let n = (p[1] - p[0]).cross(p[2] - p[0]);
             let len = n.length();
             if len > 0.0 {
+                let clips = convex_planes(&self.triangles, i)
+                    .into_iter()
+                    .map(|(n, d)| (n, d - inside))
+                    .collect();
                 let shard = Shard {
                     p: *p,
                     m: n * (1.0 / len),
+                    clips: std::rc::Rc::new(clips),
                 };
                 consider(shard, &mut heap, &mut upper, &mut at, &mut floor);
             }

@@ -212,7 +212,10 @@ fn req_op_12_tool_gap_of_a_ball_over_a_sharp_edge() {
     // counts the ball over itself only: its lowest point there is over the
     // edge, sqrt(1 - 1/2) below the plane, so the ball cuts the ridge that
     // deep along the far face's normal (Q2 answered C), deeper than its
-    // nearest distance into the near face.
+    // nearest distance into the near face. A point counts only where it is
+    // also at least the query's acceptance (here the search's accuracy)
+    // below the near face's plane, its convex neighbour (option A): so the
+    // deepest counted column is that far in from the edge.
     let surface = mesh(&ridge(5.0));
     let r = 1.0;
     let centre = Point3::new(0.5, 0.0, 0.5);
@@ -222,12 +225,76 @@ fn req_op_12_tool_gap_of_a_ball_over_a_sharp_edge() {
         &line(centre + Vec3::new(0.0, 0.0, -r), UP),
         Vec3::ZERO,
     );
-    holds(&g, -(r * r - 0.5).sqrt());
+    let inward = 0.5_f64.sqrt() + GAP_ACCURACY;
+    holds(&g, -(r * r - inward * inward).sqrt());
     assert!(
         g.at.x.abs() < 1e-2,
         "the deepest point is on the edge: {:?}",
         g.at
     );
+}
+
+/// A block's square edge along Y at the origin: its top, z = 0 for x <= 0,
+/// facing +Z, and its end, x = 0 for z <= 0, facing +X.
+fn square_edge() -> TriangleMesh {
+    TriangleMesh {
+        vertices: vec![
+            Point3::new(-5.0, -5.0, 0.0),
+            Point3::new(0.0, -5.0, 0.0),
+            Point3::new(0.0, 5.0, 0.0),
+            Point3::new(-5.0, 5.0, 0.0),
+            Point3::new(0.0, -5.0, -5.0),
+            Point3::new(0.0, 5.0, -5.0),
+        ],
+        triangles: vec![[0, 1, 2], [0, 2, 3], [1, 4, 5], [1, 5, 2]],
+    }
+}
+
+/// The move check's question at a tolerance of 0.01 mm: the layer a quarter
+/// deeper, a gap of -0.01 accepted.
+fn checked() -> GapQuery {
+    GapQuery::pose(0.0125).accept_above(-0.01)
+}
+
+#[test]
+fn req_op_12_tool_gap_of_a_ball_resting_beside_a_square_edge_reads_no_cut() {
+    // The owner's answer of 26 Nov 2026 (decision record SIMUL-EDGE-1,
+    // Terms, option A: the depth into the material). A ball resting on the
+    // top 0.011 mm from a square edge touches the surface; along the end's
+    // normal its contact is 0.011 mm below the end's plane, which measure C
+    // alone read as a cut deeper than the tolerance. The end counts a tool
+    // point only where it is also at least the acceptance below the top's
+    // plane, so the ball reads no cut, proven, and its gap is 0.
+    let surface = mesh(&square_edge());
+    let tool = ball(1.0);
+    let resting = line(Point3::new(-0.011, 0.0, 0.0), UP);
+    let g = surface.tool_gap(&tool, &resting, &checked()).unwrap();
+    assert!(g.lower >= -0.01, "{g:?}");
+    holds(&gap_within(&surface, &tool, &resting, Vec3::ZERO, 0.0125), 0.0);
+}
+
+#[test]
+fn req_op_12_tool_gap_of_a_ball_plunged_at_a_square_edge_is_a_cut() {
+    // Plunged 1 mm at the edge, the ball is deep in the material below both
+    // faces: the check finds the cut, on a mesh and on a STEP part's exact
+    // faces (the shouldered shaft's end at X = 0 meets its cylinder of
+    // radius 8 at a square edge).
+    let surface = mesh(&square_edge());
+    let tool = ball(1.0);
+    let g = surface
+        .tool_gap(&tool, &line(Point3::new(0.0, 0.0, -1.0), UP), &checked())
+        .unwrap();
+    assert!(g.lower < -0.01 && g.upper < -0.01, "{g:?}");
+    let shaft = BrepSurface::new(&openchuck_testkit::brep::shouldered_shaft(4)).unwrap();
+    let g = shaft
+        .tool_gap(&tool, &line(Point3::new(0.0, 0.0, 7.0), UP), &checked())
+        .unwrap();
+    assert!(g.lower < -0.01 && g.upper < -0.01, "{g:?}");
+    // Resting on the cylinder 0.011 mm in from the end it reads no cut.
+    let g = shaft
+        .tool_gap(&tool, &line(Point3::new(0.011, 0.0, 8.0), UP), &checked())
+        .unwrap();
+    assert!(g.lower >= -0.01, "{g:?}");
 }
 
 #[test]
@@ -238,7 +305,9 @@ fn req_op_12_tool_gap_swept_past_a_sharp_edge_is_the_deepest_pose() {
     // face from its edge, h above it), its centre is at u = (x + 0.9)/sqrt 2
     // and h = 1.8/sqrt 2 - u, and its lowest point over the face (u <= 0) is
     // h - sqrt(r^2 - u^2), least at u = r/sqrt 2: 1.8/sqrt 2 - r sqrt 2.
-    // Only the swept query sees that.
+    // Only the swept query sees that. Counted no nearer the edge than the
+    // query's acceptance (the search's accuracy), measured along the face
+    // (option A), it is that much less deep.
     let surface = mesh(&ridge(5.0));
     let r = 1.0;
     let tool = ball(r);
@@ -250,7 +319,7 @@ fn req_op_12_tool_gap_swept_past_a_sharp_edge_is_the_deepest_pose() {
     holds(&at_start, exact_end);
     holds(&at_end, exact_end);
     let swept = gap(&surface, &tool, &line(start, UP), sweep);
-    holds(&swept, (1.8 - 2.0 * r) / 2.0_f64.sqrt());
+    holds(&swept, (1.8 - 2.0 * r) / 2.0_f64.sqrt() + GAP_ACCURACY);
 }
 
 #[test]
@@ -713,7 +782,7 @@ proptest! {
         let tip = Point3::new(tip.0, tip.1, tip.2);
         let settings = Settings { margin: 5.0, tolerance: 5e-4, budget: 20_000 };
         let ours = surface.tool_gap(&profile, &line(tip, axis), &GapQuery::pose(4.0));
-        let theirs = interval(geometry.face_gap(&tool, tip, unit, 4.0, &settings));
+        let theirs = interval(geometry.face_gap(&tool, tip, unit, 4.0, GAP_ACCURACY, &settings));
         if let Some(g) = ours {
             prop_assert!(g.lower <= theirs.upper + 1e-6, "{g:?} against {theirs:?}");
             prop_assert!(theirs.lower <= g.upper + 1e-6, "{g:?} against {theirs:?}");
@@ -724,7 +793,7 @@ proptest! {
         if let Some(g) = surface.tool_gap(&profile, &line(tip, axis), &GapQuery::swept(v, 4.0)) {
             for k in 0..=16 {
                 let s = f64::from(k) / 16.0;
-                let at = interval(geometry.face_gap(&tool, tip + v * s, unit, 4.0, &settings));
+                let at = interval(geometry.face_gap(&tool, tip + v * s, unit, 4.0, GAP_ACCURACY, &settings));
                 prop_assert!(g.lower <= at.upper + 1e-6, "{g:?} above {at:?} at {s}");
             }
         }
@@ -741,7 +810,7 @@ proptest! {
                 let a = s * turn.1;
                 let at_tip = centre + turn_vector(tip + v * s - centre, x, a);
                 let at_axis = turn_vector(unit, x, a);
-                let at = interval(geometry.face_gap(&tool, at_tip, at_axis, 4.0, &settings));
+                let at = interval(geometry.face_gap(&tool, at_tip, at_axis, 4.0, GAP_ACCURACY, &settings));
                 prop_assert!(g.lower <= at.upper + 1e-6, "{g:?} above {at:?} at {s}");
             }
         }

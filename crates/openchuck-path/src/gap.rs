@@ -774,7 +774,16 @@ impl<'a> Body<'a> {
     /// The face `face` seen in the tool's frame at the fraction `f`.
     fn face_at(&self, face: &Face, f: f64) -> Face {
         let corners = face.corners.map(|p| self.frame(p, f));
-        Face::new(corners, self.direction(face.m, f))
+        let clips = face
+            .clips
+            .iter()
+            .map(|(n, b)| {
+                let on = self.frame(Point3::ORIGIN + *n * *b, f);
+                let n = self.direction(*n, f);
+                (n, n.dot(on - Point3::ORIGIN))
+            })
+            .collect();
+        Face::new(corners, self.direction(face.m, f)).with_clips(clips)
     }
 
     /// The best multipliers for the dual bound of the lowest point of the
@@ -789,22 +798,26 @@ impl<'a> Body<'a> {
     /// column at a corner, where the tool's normal there gives the two. The
     /// candidate whose dual bound is highest is taken: every candidate's
     /// multipliers give a proven bound, the right one the exact least.
-    fn multipliers(&self, face: &Face, f: f64, highest: bool) -> [f64; 3] {
+    fn multipliers(&self, face: &Face, f: f64, highest: bool) -> Vec<f64> {
         let mut at = self.face_at(face, f);
         if highest {
             at = at.turned_over();
         }
-        let value = |lam: &[f64; 3]| {
+        let count = at.count();
+        let value = |lam: &[f64]| {
             let (w, c) = at.dual(lam);
             self.lowest_first(w) - c
         };
-        let beyond = |y: Point3, i: usize| at.sides[i].0.dot(y - Point3::ORIGIN) - at.sides[i].1;
+        let beyond = |y: Point3, i: usize| {
+            let (n, b) = at.constraint(i);
+            n.dot(y - Point3::ORIGIN) - b
+        };
         let low = self.support_point(-at.m);
-        if (0..3).all(|i| beyond(low, i) <= 0.0) {
-            return [0.0; 3];
+        if (0..count).all(|i| beyond(low, i) <= 0.0) {
+            return vec![0.0; count];
         }
-        let mut best = ([0.0; 3], value(&[0.0; 3]));
-        let consider = |lam: [f64; 3], best: &mut ([f64; 3], f64)| {
+        let mut best = (vec![0.0; count], value(&vec![0.0; count]));
+        let consider = |lam: Vec<f64>, best: &mut (Vec<f64>, f64)| {
             if lam.iter().all(|l| l.is_finite() && *l >= 0.0) {
                 let v = value(&lam);
                 if v > best.1 {
@@ -815,8 +828,11 @@ impl<'a> Body<'a> {
         // Against one side: the slope of the dual in its multiplier is how
         // far the dual's lowest point lies beyond the side, and it falls as
         // the multiplier grows (the dual is concave).
-        for i in 0..3 {
-            let n = at.sides[i].0;
+        for i in 0..count {
+            let n = at.constraint(i).0;
+            if n.length() <= 0.0 {
+                continue;
+            }
             let slope = |l: f64| beyond(self.support_point(-(at.m + n * l)), i);
             if slope(0.0) <= 0.0 {
                 continue;
@@ -837,7 +853,7 @@ impl<'a> Body<'a> {
             // The dual is flat across the kink where the lowest point
             // jumps; either end of the last bracket may be the better.
             for l in [lo, hi] {
-                let mut lam = [0.0; 3];
+                let mut lam = vec![0.0; count];
                 lam[i] = l;
                 consider(lam, &mut best);
             }
@@ -862,7 +878,7 @@ impl<'a> Body<'a> {
             if let Some((_, y)) = self.column_first(&at, x) {
                 let normal = self.at_first(y).1;
                 if let Some(l) = corner_multipliers(-normal, at.m, at.sides[i].0, at.sides[j].0) {
-                    let mut lam = [0.0; 3];
+                    let mut lam = vec![0.0; count];
                     lam[i] = l.0;
                     lam[j] = l.1;
                     consider(lam, &mut best);
@@ -971,8 +987,7 @@ impl<'a> Body<'a> {
     /// multipliers grow without end; this settles the empty prisms among
     /// them at once.
     fn beside(&self, face: &Face, s0: f64, s1: f64) -> bool {
-        face.sides
-            .iter()
+        face.constraints()
             .any(|(n, b)| n.length() > 0.0 && self.dual_over(*n, *b, s0, s1) > 0.0)
     }
 
@@ -1024,12 +1039,12 @@ impl<'a> Body<'a> {
     /// `lam`: its height above the face's plane and its foot. The dual's
     /// lowest point is the constrained one when the multipliers are best;
     /// otherwise the column through the face's centre is measured.
-    fn found(&self, face: &Face, lam: &[f64; 3], f: f64, limit: f64) -> Option<(f64, Point3)> {
+    fn found(&self, face: &Face, lam: &[f64], f: f64, limit: f64) -> Option<(f64, Point3)> {
         let (w, _) = face.dual(lam);
         let y = self.unframe(self.support_point(-self.direction(w, f)), f);
         let height = face.m.dot(y - Point3::ORIGIN) - face.d;
         let foot = y + face.m * (-height);
-        if height >= -limit && face.holds(foot) {
+        if height >= -limit && face.holds(foot) && face.clear(y) {
             return Some((height, foot));
         }
         // The foot is off the face (the multipliers are not quite the best,
@@ -1087,13 +1102,24 @@ impl<'a> Body<'a> {
                 out = mid;
             }
         }
-        let height = if inn >= -limit {
-            inn
-        } else if sd(-limit) <= 0.0 {
-            -limit
-        } else {
+        // The heights the face counts along the column: no deeper than the
+        // layer, and on the inner side of every clip.
+        let (mut lo, mut hi) = (-limit, f64::INFINITY);
+        for (n, b) in &face.clips {
+            let k = n.dot(face.m);
+            let r = b - n.dot(x - Point3::ORIGIN);
+            if k > 1e-12 {
+                hi = hi.min(r / k);
+            } else if k < -1e-12 {
+                lo = lo.max(r / k);
+            } else if r < 0.0 {
+                return None;
+            }
+        }
+        let height = inn.max(lo);
+        if height > hi || sd(height) > 0.0 {
             return None;
-        };
+        }
         Some((height, x))
     }
 
@@ -1115,12 +1141,23 @@ impl<'a> Body<'a> {
 /// the least of `(m + Σ λ n) . y` over the whole tool less `Σ λ b`
 /// (Lagrangian duality): every multiplier gives a proven bound, the best
 /// ones the exact least.
-#[derive(Debug, Clone, Copy)]
+///
+/// **Convex neighbours** (the owner's answer of 26 Nov 2026, option A: the
+/// depth into the material). A face also counts a tool point only where it
+/// lies at least the query's acceptance below the plane of each face that
+/// meets it at a convex edge or corner (its `clips`, each `n . y <= b`). A
+/// point within that of a neighbour's plane is, the material being below
+/// both planes there, within that of the surface: no cut deeper than the
+/// acceptance. Without the rule a tool resting on one face beside a sharp
+/// edge would read, along the other face's normal, as cut as far below it
+/// as it is past the edge. The clips are more sides for the same dual.
+#[derive(Debug, Clone)]
 struct Face {
     corners: [Point3; 3],
     m: Vec3,
     d: f64,
     sides: [(Vec3, f64); 3],
+    clips: Vec<(Vec3, f64)>,
 }
 
 impl Face {
@@ -1135,18 +1172,53 @@ impl Face {
             m,
             d: m.dot(corners[0] - Point3::ORIGIN),
             sides: [side(0), side(1), side(2)],
+            clips: Vec::new(),
+        }
+    }
+
+    /// This face with the planes of its convex neighbours as more sides.
+    fn with_clips(self, clips: Vec<(Vec3, f64)>) -> Self {
+        Self { clips, ..self }
+    }
+
+    /// Every side of the face's region: the triangle's three, then its
+    /// clips.
+    fn constraints(&self) -> impl Iterator<Item = &(Vec3, f64)> {
+        self.sides.iter().chain(self.clips.iter())
+    }
+
+    /// How many sides the region has, so how many multipliers.
+    fn count(&self) -> usize {
+        3 + self.clips.len()
+    }
+
+    /// The side `i` of the region.
+    fn constraint(&self, i: usize) -> (Vec3, f64) {
+        if i < 3 {
+            self.sides[i]
+        } else {
+            self.clips.get(i - 3).copied().unwrap_or((Vec3::ZERO, 0.0))
         }
     }
 
     /// The dual direction and constant for the multipliers `lam`.
-    fn dual(&self, lam: &[f64; 3]) -> (Vec3, f64) {
+    fn dual(&self, lam: &[f64]) -> (Vec3, f64) {
         let mut w = self.m;
         let mut c = self.d;
-        for (l, (n, b)) in lam.iter().zip(self.sides) {
-            w = w + n * *l;
+        for (l, (n, b)) in lam.iter().zip(self.constraints()) {
+            w = w + *n * *l;
             c += l * b;
         }
         (w, c)
+    }
+
+    /// Whether the point `y` is on the inner side of every clip, a hair
+    /// outside counting as on it.
+    fn clear(&self, y: Point3) -> bool {
+        let scale = 1e-9 * (1.0 + (y - Point3::ORIGIN).length());
+        self.clips
+            .iter()
+            .all(|(n, b)| n.dot(y - Point3::ORIGIN) <= b + scale)
     }
 
     /// The face turned over: the highest point over it is the lowest over
@@ -1155,7 +1227,7 @@ impl Face {
         Self {
             m: -self.m,
             d: -self.d,
-            ..*self
+            ..self.clone()
         }
     }
 
@@ -1164,11 +1236,11 @@ impl Face {
     /// the tool is at most the most of `(m - Σ μ n) . y` over the whole
     /// tool plus `Σ μ b`, so the height is at most that less `d`: the most
     /// of `v . y` less `c`.
-    fn dual_top(&self, mu: &[f64; 3]) -> (Vec3, f64) {
+    fn dual_top(&self, mu: &[f64]) -> (Vec3, f64) {
         let mut v = self.m;
         let mut c = self.d;
-        for (l, (n, b)) in mu.iter().zip(self.sides) {
-            v = v - n * *l;
+        for (l, (n, b)) in mu.iter().zip(self.constraints()) {
+            v = v - *n * *l;
             c -= l * b;
         }
         (v, c)
@@ -1375,8 +1447,14 @@ pub(crate) fn search(
     limit: f64,
     accept: Option<f64>,
     error: &dyn Fn(u32) -> f64,
+    neighbours: &dyn Fn(u32) -> Vec<(Vec3, f64)>,
 ) -> Option<ToolGap> {
     let accept = accept.filter(|a| a.is_finite()).unwrap_or(f64::INFINITY);
+    let inside = if accept.is_finite() {
+        (-accept).max(GAP_ACCURACY)
+    } else {
+        GAP_ACCURACY
+    };
     let mut state = Search {
         body,
         queue: BinaryHeap::new(),
@@ -1384,6 +1462,9 @@ pub(crate) fn search(
         best: None,
         limit,
         error,
+        neighbours,
+        inside,
+        clips: std::collections::HashMap::new(),
     };
     for (i, t) in triangles {
         if !t.iter().all(|p| p.is_finite()) {
@@ -1487,9 +1568,32 @@ struct Search<'a, 'b> {
     /// bound and value over the triangle, so the answer holds the exact
     /// surface's gap.
     error: &'a dyn Fn(u32) -> f64,
+    /// The planes of each triangle's convex neighbours (see [`Face`]).
+    neighbours: &'a dyn Fn(u32) -> Vec<(Vec3, f64)>,
+    /// How far below a convex neighbour's plane a point must be for a face
+    /// to count it: the query's acceptance, at least [`GAP_ACCURACY`].
+    inside: f64,
+    /// Each triangle's clips, the neighbours' planes moved in by `inside`.
+    clips: std::collections::HashMap<u32, Vec<(Vec3, f64)>>,
 }
 
 impl Search<'_, '_> {
+    /// The face of `corners` on triangle `triangle`, with its clips.
+    fn face(&mut self, corners: [Point3; 3], m: Vec3, triangle: u32) -> Face {
+        let (neighbours, inside) = (self.neighbours, self.inside);
+        let clips = self
+            .clips
+            .entry(triangle)
+            .or_insert_with(|| {
+                neighbours(triangle)
+                    .into_iter()
+                    .map(|(n, d)| (n, d - inside))
+                    .collect()
+            })
+            .clone();
+        Face::new(corners, m).with_clips(clips)
+    }
+
     /// Bounds a piece and queues it, unless it cannot count. A tool point
     /// the face counts is as far from the face as its height, so a piece
     /// the tool is proven farther than `limit` from (by the capsule holding
@@ -1508,6 +1612,8 @@ impl Search<'_, '_> {
         if far - e > self.limit {
             return;
         }
+        // The open region: a tool beyond a clip may still be above the face
+        // (see [`Search::measure`]).
         let face = Face::new(corners, m);
         if self.body.top_over(&face, s0, s1) < -self.limit || self.body.beside(&face, s0, s1) {
             return;
@@ -1531,13 +1637,17 @@ impl Search<'_, '_> {
     /// bound over the whole part, the best of which is kept, and the lowest
     /// tool point on the face there a real value.
     fn measure(&mut self, piece: Piece) -> Piece {
-        let face = Face::new(piece.corners, piece.normal);
+        // The face's region without its clips, which counts the tool above
+        // the face (its clearance) and bounds what the clipped region
+        // counts, and with them, which counts the tool below it (see
+        // [`Face`]): over the piece the gap is the open region's where that
+        // is not below the face, else the clipped region's, or zero.
+        let clipped = self.face(piece.corners, piece.normal, piece.triangle);
+        let open = Face::new(piece.corners, piece.normal);
         let (s0, s1) = piece.span;
         let fm = 0.5 * (s0 + s1);
         let e = (self.error)(piece.triangle);
-        let mut lower = piece.lower;
         let mut hint = piece.hint;
-        let mut near: Option<(f64, Point3, f64)> = None;
         let mut poses = vec![s0, fm, s1];
         if !self.body.turns() && self.body.sweep.length() <= 0.0 {
             poses.truncate(1);
@@ -1545,45 +1655,92 @@ impl Search<'_, '_> {
         if piece.hint.is_finite() && piece.hint > s0 && piece.hint < s1 {
             poses.push(piece.hint);
         }
-        if self.body.beside(&face, s0, s1) {
-            poses.clear();
-            lower = f64::INFINITY;
+        let empty = Piece {
+            lower: f64::INFINITY,
+            measured: true,
+            ..piece
+        };
+        if self.body.beside(&open, s0, s1) {
+            return empty;
         }
-        for f in poses {
+        let has_clips = !clipped.clips.is_empty();
+        let clipped_beside = has_clips && self.body.beside(&clipped, s0, s1);
+        let (mut open_lower, mut clipped_lower) = (f64::NEG_INFINITY, f64::NEG_INFINITY);
+        if clipped_beside {
+            clipped_lower = f64::INFINITY;
+        }
+        let mut near: Option<(f64, Point3, f64)> = None;
+        let mut near_clipped: Option<(f64, Point3)> = None;
+        for &f in &poses {
             // Nothing counts when the whole tool over the face is deeper
             // than the layer.
-            let top_with = |mu: [f64; 3]| {
+            let top_with = |mu: Vec<f64>| {
                 scaled(&mu)
                     .map(|mu| {
-                        let (v, c) = face.dual_top(&mu);
+                        let (v, c) = open.dual_top(&mu);
                         -self.body.dual_over(-v, -c, s0, s1)
                     })
                     .fold(f64::INFINITY, f64::min)
             };
-            let mut top = top_with(self.body.multipliers(&face, f, true));
-            if top >= -self.limit && self.body.below_layer(&face, self.limit, s0, s1) {
+            let mut top = top_with(self.body.multipliers(&open, f, true));
+            if top >= -self.limit && self.body.below_layer(&open, self.limit, s0, s1) {
                 top = f64::NEG_INFINITY;
             }
             if top < -self.limit {
-                lower = f64::INFINITY;
-                near = None;
-                break;
+                return empty;
             }
-            let lam = self.body.multipliers(&face, f, false);
-            let bound = scaled(&lam)
-                .map(|lam| {
-                    let (w, c) = face.dual(&lam);
-                    self.body.dual_over(w, c, s0, s1)
-                })
-                .fold(f64::NEG_INFINITY, f64::max);
-            lower = lower.max(bound.max(-self.limit) - e);
-            if let Some((h, at)) = self.body.found(&face, &lam, f, self.limit)
+            let bound_of = |face: &Face, lam: &[f64]| {
+                scaled(lam)
+                    .map(|lam| {
+                        let (w, c) = face.dual(&lam);
+                        self.body.dual_over(w, c, s0, s1)
+                    })
+                    .fold(f64::NEG_INFINITY, f64::max)
+            };
+            let lam = self.body.multipliers(&open, f, false);
+            open_lower = open_lower.max(bound_of(&open, &lam));
+            if let Some((h, at)) = self.body.found(&open, &lam, f, self.limit)
                 && near.is_none_or(|(b, _, _)| h < b)
             {
                 near = Some((h, at, f));
             }
         }
-        if let Some((h, at, f)) = near {
+        // Below the face only the clipped region counts.
+        if has_clips && open_lower < 0.0 && !clipped_beside {
+            for &f in &poses {
+                let lam = self.body.multipliers(&clipped, f, false);
+                let bound = scaled(&lam)
+                    .map(|lam| {
+                        let (w, c) = clipped.dual(&lam);
+                        self.body.dual_over(w, c, s0, s1)
+                    })
+                    .fold(f64::NEG_INFINITY, f64::max);
+                clipped_lower = clipped_lower.max(bound);
+                if let Some((h, at)) = self.body.found(&clipped, &lam, f, self.limit)
+                    && near_clipped.is_none_or(|(b, _)| h < b)
+                {
+                    near_clipped = Some((h, at));
+                }
+            }
+        }
+        let bound = if !has_clips || open_lower >= 0.0 {
+            open_lower
+        } else {
+            clipped_lower.min(0.0)
+        };
+        let lower = piece.lower.max(bound.max(-self.limit) - e);
+        // A real value: the open region's lowest point where it is not
+        // below the face; else the clipped region's, at most zero (the
+        // piece's gap is at most the open region's, held at zero).
+        let value = match near {
+            Some((h, at, f)) if !has_clips || h >= 0.0 => Some((h, at, f)),
+            Some((_, at, f)) => Some(match near_clipped {
+                Some((hc, atc)) if hc < 0.0 => (hc, atc, f),
+                _ => (0.0, at, f),
+            }),
+            None => near_clipped.map(|(h, at)| (h.min(0.0), at, fm)),
+        };
+        if let Some((h, at, f)) = value {
             hint = f;
             if self.best.is_none_or(|(b, _, _)| h - e < b) {
                 self.best = Some((h - e, at, e));
@@ -1604,13 +1761,13 @@ impl Search<'_, '_> {
 /// with their size, so where the best for one pose is large (the tool
 /// touching a side of the prism, where they grow without end) a smaller
 /// choice can bound the whole part better.
-fn scaled(lam: &[f64; 3]) -> impl Iterator<Item = [f64; 3]> + '_ {
+fn scaled(lam: &[f64]) -> impl Iterator<Item = Vec<f64>> + '_ {
     let size = lam.iter().map(|l| l.abs()).fold(0.0, f64::max);
-    std::iter::once(*lam).chain(
+    std::iter::once(lam.to_vec()).chain(
         MULTIPLIER_SCALES
             .iter()
             .filter(move |k| **k < size)
-            .map(move |k| lam.map(|l| l * (k / size))),
+            .map(move |k| lam.iter().map(|l| l * (k / size)).collect()),
     )
 }
 
@@ -1678,7 +1835,77 @@ pub(crate) fn on_mesh(
         (overlaps(&near, &b) && body.near(&b, reach) && body.far_from(&t) <= reach)
             .then_some((index, t))
     });
-    search(&body, triangles, query.limit, query.accept, error)
+    let neighbours = convex_neighbours(mesh);
+    search(&body, triangles, query.limit, query.accept, error, &|i| {
+        neighbours.get(i as usize).cloned().unwrap_or_default()
+    })
+}
+
+/// The planes `(n, d)` (`n . y = d`, `n` the outward unit normal) of the
+/// faces that meet each triangle of `mesh` at a convex edge or corner (see
+/// [`Face`]): those sharing a corner with it, not in its plane, each lying
+/// on or below the other's plane. Corners are shared where their
+/// coordinates are the same. In each triangle's list the neighbours are in
+/// index order (NFR-06). A mesh with cracks there finds fewer, and so
+/// counts more: never less.
+pub(crate) fn convex_neighbours(mesh: &TriangleMesh) -> Vec<Vec<(Vec3, f64)>> {
+    let key = |p: Point3| [(p.x + 0.0).to_bits(), (p.y + 0.0).to_bits(), (p.z + 0.0).to_bits()];
+    let mut ids: std::collections::HashMap<[u64; 3], usize> = std::collections::HashMap::new();
+    let tris: Vec<Option<([usize; 3], [Point3; 3], Vec3, f64)>> = (0..mesh.triangles.len())
+        .map(|i| {
+            let t = mesh.triangle(i)?;
+            let n = UnitVec3::new((t[1] - t[0]).cross(t[2] - t[0])).ok()?.get();
+            let v = t.map(|p| {
+                let next = ids.len();
+                *ids.entry(key(p)).or_insert(next)
+            });
+            Some((v, t, n, n.dot(t[0] - Point3::ORIGIN)))
+        })
+        .collect();
+    let mut at: std::collections::HashMap<usize, Vec<usize>> = std::collections::HashMap::new();
+    for (i, t) in tris.iter().enumerate() {
+        if let Some((v, ..)) = t {
+            for k in v {
+                at.entry(*k).or_default().push(i);
+            }
+        }
+    }
+    let scale = mesh
+        .vertices
+        .iter()
+        .map(|p| p.x.abs().max(p.y.abs()).max(p.z.abs()))
+        .fold(1.0, f64::max);
+    let eps = 1e-9 * scale;
+    tris.iter()
+        .enumerate()
+        .map(|(i, t)| {
+            let Some((v, pts, n, d)) = t else {
+                return Vec::new();
+            };
+            let mut others: Vec<usize> = v
+                .iter()
+                .filter_map(|k| at.get(k))
+                .flatten()
+                .copied()
+                .filter(|j| *j != i)
+                .collect();
+            others.sort_unstable();
+            others.dedup();
+            others
+                .into_iter()
+                .filter_map(|j| {
+                    let (_, q, m, e) = tris.get(j)?.as_ref()?;
+                    if m.dot(*n) > 1.0 - 1e-12 {
+                        return None;
+                    }
+                    let below = |pts: &[Point3; 3], n: Vec3, d: f64| {
+                        pts.iter().all(|p| n.dot(*p - Point3::ORIGIN) - d <= eps)
+                    };
+                    (below(q, *n, *d) && below(pts, *m, *e)).then_some((*m, *e))
+                })
+                .collect()
+        })
+        .collect()
 }
 
 /// The box of a triangle.

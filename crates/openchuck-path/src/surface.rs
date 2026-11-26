@@ -289,6 +289,9 @@ pub struct MeshSurface {
     /// The material behind each triangle, measured when first asked
     /// ([`MeshSurface::wall_at`]).
     walls: std::sync::OnceLock<Vec<f64>>,
+    /// The planes of each triangle's convex neighbours, found when first
+    /// asked ([`crate::gap::convex_neighbours`]).
+    neighbours: std::sync::OnceLock<Vec<Vec<(Vec3, f64)>>>,
 }
 
 /// The fraction of the mesh's size within which two distances from a point
@@ -350,6 +353,7 @@ impl MeshSurface {
             bounds: Aabb { min, max },
             tie,
             walls: std::sync::OnceLock::new(),
+            neighbours: std::sync::OnceLock::new(),
         })
     }
 
@@ -613,7 +617,12 @@ impl MeshSurface {
         let triangles = found
             .into_iter()
             .filter_map(|i| self.triangle(i).map(|t| (i, t)));
-        crate::gap::search(&body, triangles, query.limit, query.accept, error)
+        let neighbours = self
+            .neighbours
+            .get_or_init(|| crate::gap::convex_neighbours(&self.mesh));
+        crate::gap::search(&body, triangles, query.limit, query.accept, error, &|i| {
+            neighbours.get(i as usize).cloned().unwrap_or_default()
+        })
     }
 }
 
