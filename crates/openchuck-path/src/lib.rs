@@ -134,7 +134,7 @@ pub use edge_following::EdgeFollowing;
 pub use error::{PathError, Result};
 pub use facing::Facing;
 pub use field::HeightStock;
-pub use gap::{GAP_ACCURACY, GapQuery, ToolGap};
+pub use gap::{GAP_ACCURACY, GapQuery, Rotation, ToolGap};
 pub use helical::HelicalFinishing;
 pub use holes::{Hole, HoleEnd, find_holes};
 pub use indexed::IndexedFinishing;

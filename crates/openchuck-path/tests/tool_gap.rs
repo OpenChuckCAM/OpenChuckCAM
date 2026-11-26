@@ -17,8 +17,8 @@
 use std::sync::Arc;
 
 use openchuck_path::{
-    BrepSurface, CompositeSurface, GAP_ACCURACY, GapQuery, MeshSurface, Solid, SurfaceSource,
-    ToolGap, ToolLine,
+    BrepSurface, CompositeSurface, GAP_ACCURACY, GapQuery, MeshSurface, Rotation, Solid,
+    SurfaceSource, ToolGap, ToolLine,
 };
 use openchuck_testkit::contact::{ConvexTool, Geometry, Settings};
 use openchuck_types::geometry::{Point3, UnitVec3, Vec3};
@@ -512,8 +512,15 @@ fn req_gc_07_req_nfr_06_tool_gap_is_the_same_on_every_thread() {
     }
 }
 
+/// The vector `v` turned by `a` radians about the unit vector `n`.
+fn turn_vector(v: Vec3, n: Vec3, a: f64) -> Vec3 {
+    let along = n * v.dot(n);
+    let (s, c) = a.sin_cos();
+    along + (v - along) * c + n.cross(v) * s
+}
+
 #[test]
-fn req_op_12_tool_gap_turned_to_its_own_axis_is_the_sweep() {
+fn req_op_12_tool_gap_turned_by_nothing_is_the_sweep() {
     let surface = mesh(&ridge(5.0));
     let tool = bull(1.5, 0.5);
     let axis = UnitVec3::new(Vec3::new(0.2, -0.1, 1.0)).unwrap();
@@ -523,7 +530,12 @@ fn req_op_12_tool_gap_turned_to_its_own_axis_is_the_sweep() {
     };
     let sweep = Vec3::new(2.0, -0.5, 0.1);
     let plain = surface.tool_gap(&tool, &l, &GapQuery::swept(sweep, 5.0));
-    let turned = surface.tool_gap(&tool, &l, &GapQuery::swept(sweep, 5.0).turned(axis));
+    let none = Rotation {
+        point: Point3::new(3.0, -2.0, 1.0),
+        axis: UnitVec3::new(Vec3::new(1.0, 0.0, 0.0)).unwrap(),
+        angle: 0.0,
+    };
+    let turned = surface.tool_gap(&tool, &l, &GapQuery::swept(sweep, 5.0).rotating(none));
     assert_eq!(plain, turned);
 }
 
@@ -548,7 +560,17 @@ fn req_op_12_tool_gap_of_a_tool_turning_over_a_plane_is_its_lowest_end() {
     let (s, c) = t.sin_cos();
     for (tool, lowest) in [(flat(r), -r * s), (ball(r), -r * (1.0 - c))] {
         for h in [1.2, 0.6] {
-            let query = GapQuery::pose(5.0).turned(UnitVec3::new(to).unwrap());
+            // Turned about the line through the tip along Y, by twice 25
+            // degrees, from leaning one way to the other.
+            let tip = Point3::new(0.1, 0.2, h);
+            let rotation = Rotation {
+                point: tip,
+                axis: UnitVec3::new(Vec3::new(0.0, 1.0, 0.0)).unwrap(),
+                angle: 2.0 * t,
+            };
+            let ends = turn_vector(from, Vec3::new(0.0, 1.0, 0.0), 2.0 * t);
+            assert!((ends - to).length() < 1e-12);
+            let query = GapQuery::pose(5.0).rotating(rotation);
             let g = surface
                 .tool_gap(&tool, &line(Point3::new(0.1, 0.2, h), from), &query)
                 .expect("a surface within the limit");
@@ -635,14 +657,20 @@ proptest! {
                 prop_assert!(g.lower <= at.upper + 1e-6, "{g:?} above {at:?} at {s}");
             }
         }
-        // Turning as it moves: the bound holds at every pose between.
-        let end = UnitVec3::new(Vec3::new(turn.0, turn.1, 1.0)).unwrap();
-        let query = GapQuery::swept(v, 4.0).turned(end);
+        // Turning about a line along X as it moves (a rotary axis): the
+        // bound holds at every pose between, each the first pose shifted
+        // and then turned.
+        let x = Vec3::new(1.0, 0.0, 0.0);
+        let centre = Point3::new(0.0, 3.0 * turn.0, -4.0 + turn.0);
+        let rotation = Rotation { point: centre, axis: UnitVec3::new(x).unwrap(), angle: turn.1 };
+        let query = GapQuery::swept(v, 4.0).rotating(rotation);
         if let Some(g) = surface.tool_gap(&profile, &line(tip, axis), &query) {
             for k in 0..=16 {
                 let s = f64::from(k) / 16.0;
-                let between = UnitVec3::new(unit * (1.0 - s) + end.get() * s).unwrap();
-                let at = geometry.clearance(&tool, tip + v * s, between.get(), &settings).unwrap();
+                let a = s * turn.1;
+                let at_tip = centre + turn_vector(tip + v * s - centre, x, a);
+                let at_axis = turn_vector(unit, x, a);
+                let at = geometry.clearance(&tool, at_tip, at_axis, &settings).unwrap();
                 prop_assert!(g.lower <= at.upper + 1e-6, "{g:?} above {at:?} at {s}");
             }
         }

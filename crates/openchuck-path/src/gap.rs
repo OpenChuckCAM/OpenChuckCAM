@@ -60,6 +60,28 @@ const MIN_PIECE: f64 = 1e-9;
 /// validity.
 const SWEEP_STEPS: u32 = 40;
 
+/// The width either side of a turning tool's hinted pose that its search
+/// covers, as a share of the span, and the steps it takes there: the pose
+/// found only sets `upper` and the bound's direction, never its validity.
+const HINT_WIDTH: f64 = 0.125;
+const HINT_STEPS: u32 = 14;
+
+/// Turns of the search for a piece's closest pair to the tool
+/// ([`Body::closest`]): it only chooses the direction of a bound.
+const CLOSEST_STEPS: u32 = 6;
+
+/// A turn about a fixed line, for [`GapQuery::rotating`].
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Rotation {
+    /// A point of the line.
+    pub point: Point3,
+    /// The line's direction.
+    pub axis: UnitVec3,
+    /// The angle turned through over the whole move, radians, right-handed
+    /// about `axis`.
+    pub angle: f64,
+}
+
 /// What a tool gap query asks (decision record SIMUL-EDGE-1, Q2): see
 /// [`SurfaceSource::tool_gap`](crate::SurfaceSource::tool_gap).
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -67,15 +89,14 @@ pub struct GapQuery {
     /// The straight move of the tool's tip, from the pose its line gives;
     /// zero for one pose.
     pub sweep: Vec3,
-    /// The tool's axis at the end of the sweep, when the tool also turns
-    /// along it; `None` for a tool that keeps its line's axis. A turning
-    /// tool moves rigidly: at the fraction `s` of the move its tip is that
-    /// far along the sweep and its axis is the normalised blend
-    /// `(1 - s) a0 + s a1` of the two axes, so it turns in their plane.
-    /// The answer is for those poses. A move along which the tool turns
-    /// another way (on a rotary axis, each point on an arc about that axis)
-    /// lies within a small distance of them, which the caller allows for.
-    pub end_axis: Option<UnitVec3>,
+    /// A turn of the tool about a fixed line along the move, when it
+    /// turns: at the fraction `f` of the move the tool is its first pose
+    /// shifted by `f` times the sweep, then turned about the line by `f`
+    /// times the angle. On a machine that moves X, Y, Z and A together in
+    /// proportion this is the move exactly, seen from the part: the line is
+    /// the rotary axis and the sweep is the machine's straight move as it
+    /// is seen at the first pose. `None` for a tool that does not turn.
+    pub rotation: Option<Rotation>,
     /// How far from the tool the surface is looked for, mm: a gap larger
     /// than this gives no answer, and the search stops once it finds the
     /// surface deeper than this inside the tool.
@@ -93,7 +114,7 @@ impl GapQuery {
     pub fn pose(limit: f64) -> Self {
         Self {
             sweep: Vec3::ZERO,
-            end_axis: None,
+            rotation: None,
             limit,
             accept: None,
         }
@@ -103,18 +124,18 @@ impl GapQuery {
     pub fn swept(sweep: Vec3, limit: f64) -> Self {
         Self {
             sweep,
-            end_axis: None,
+            rotation: None,
             limit,
             accept: None,
         }
     }
 
-    /// This query, with the tool turning along the sweep to end with its
-    /// axis along `axis` (see [`end_axis`](Self::end_axis)).
+    /// This query, with the tool also turning about a fixed line along the
+    /// move (see [`rotation`](Self::rotation)).
     #[must_use]
-    pub fn turned(self, axis: UnitVec3) -> Self {
+    pub fn rotating(self, rotation: Rotation) -> Self {
         Self {
-            end_axis: Some(axis),
+            rotation: Some(rotation),
             ..self
         }
     }
@@ -277,6 +298,40 @@ impl Outline {
         (if inside { -best } else { best }, normal)
     }
 
+    /// The lowest height `z0` from which the capsule of radius `wide` about
+    /// the axis up to the top holds the whole outline: no higher than any
+    /// point's `z + sqrt(wide^2 - r^2)` (below `z0` a point must be within
+    /// `wide` of the segment's end). Along a straight piece that is concave,
+    /// so its ends bound it; a convex arc is held whole when its circle,
+    /// radius `c` about `(rc, zc)`, is, which is from
+    /// `zc + sqrt((wide - c)^2 - rc^2)` down; otherwise the capsule starts at
+    /// the tip. A ball end's capsule starts at its centre, so it is the
+    /// ball itself there.
+    fn capsule_base(&self, low: f64, high: f64, wide: f64) -> f64 {
+        let room = |r: f64| (wide * wide - r * r).max(0.0).sqrt();
+        let mut base = high;
+        for p in &self.pieces {
+            match *p {
+                ProfilePiece::Arc {
+                    centre, radius, ..
+                } => {
+                    let free = wide - radius;
+                    base = base.min(if free >= pr(centre) {
+                        pz(centre) + (free * free - pr(centre) * pr(centre)).max(0.0).sqrt()
+                    } else {
+                        low
+                    });
+                }
+                _ => {
+                    for q in [p.start(), p.end()] {
+                        base = base.min(pz(q) + room(pr(q)));
+                    }
+                }
+            }
+        }
+        base.clamp(low, high)
+    }
+
     /// The support of the outline (mirrored about the axis) in the
     /// half-plane direction `(a, b)` with `a >= 0`: the largest
     /// `a * r + b * z` over the outline.
@@ -357,269 +412,187 @@ fn nearest_on_piece(p: &ProfilePiece, r: f64, z: f64) -> ((f64, f64), (f64, f64)
     }
 }
 
-/// The tool at its first pose, the straight move of its tip, and its axis
-/// at the end of the move.
+/// The tool at its first pose and its move: a straight shift `sweep`, and a
+/// turn about a fixed line (see [`GapQuery::rotation`]).
+///
+/// The search works in the tool's frame, the frame of its first pose. There
+/// the tool stands still and each surface point moves: at the fraction `f`
+/// a point `p` is at `R(-f θ) p - f Δ`, `R` the turn about the line and `Δ`
+/// the sweep. Along a direction `u` fixed in that frame, the point's
+/// distance from the plane touching the tool is a constant plus a cosine in
+/// `f θ` less `f (u . Δ)`, whose least over an interval is found exactly
+/// ([`least`]).
 #[derive(Debug, Clone)]
 pub(crate) struct Body<'a> {
     outline: &'a Outline,
     tip: Point3,
     axis: Vec3,
     sweep: Vec3,
-    /// The axis at the end of the sweep; the same as `axis` unless the tool
-    /// turns.
-    end_axis: Vec3,
-    /// The largest distance of a tool point from the tip.
-    size: f64,
-    /// The unit normal the axis turns about, from `axis` towards
-    /// `end_axis`; any unit vector when the tool does not turn.
-    pivot: Vec3,
-    /// The angle the axis turns through over the move, radians.
-    turn: f64,
-    /// How far a pose between the two ends may lie outside their hull (see
-    /// [`Span`]). Zero without a turn.
-    outside: f64,
-    /// A segment and a radius whose capsule holds every pose: a cheap bound
-    /// for surface far from the tool.
-    core: (Point3, Point3, f64),
-    /// The outline's lowest and highest points along its axis and its
-    /// widest radius.
+    /// A point of the line turned about, and its unit direction.
+    pivot: (Point3, Vec3),
+    /// The turn over the whole move, radians; zero without one.
+    angle: f64,
+    /// The capsule holding the tool: the height its segment starts at (see
+    /// [`Outline::capsule_base`]), the outline's highest point and widest
+    /// radius.
     reach: (f64, f64, f64),
-    /// The middle pose's axis from the height of the outline's widest
-    /// radius above its lowest point (a ball's centre) to its top: the
-    /// bound by the plane square to the direction from it is cheap and
-    /// near exact for a round end.
+    /// The axis from the height of the outline's widest radius above its
+    /// lowest point (a ball's centre) to its top: the bound by the plane
+    /// square to the direction from it is cheap and near exact for a round
+    /// end.
     spine: (Point3, Point3),
 }
 
 impl<'a> Body<'a> {
     pub(crate) fn new(outline: &'a Outline, line: &ToolLine, query: &GapQuery) -> Self {
         let axis = line.axis.get();
-        let end_axis = query.end_axis.map_or(axis, UnitVec3::get);
-        let turn = axis.dot(end_axis).clamp(-1.0, 1.0).acos();
-        let size = outline.top.abs().hypot(outline.radius);
         let sweep = if query.sweep.is_finite() {
             query.sweep
         } else {
             Vec3::ZERO
         };
-        // Every pose lies within `outside` of the hull of the first and
-        // last, and each pose lies within the outline's widest radius of
-        // its own axis between the outline's lowest and highest points; so
-        // the hull lies within that radius of the hull of the four ends of
-        // those axis pieces, which lies within the farthest of them from
-        // the middle pose's.
+        let (pivot, angle) = match query.rotation {
+            Some(r) if r.angle.is_finite() && r.point.is_finite() && r.angle != 0.0 => {
+                ((r.point, r.axis.get()), r.angle)
+            }
+            _ => ((line.origin, axis), 0.0),
+        };
         let (low, high) = (-outline.support(0.0, -1.0), outline.support(0.0, 1.0));
         let wide = outline.support(1.0, 0.0);
-        let middle = UnitVec3::new(axis + end_axis).map_or(axis, UnitVec3::get);
-        let centre = line.origin + sweep * 0.5;
-        let (c0, c1) = (centre + middle * low, centre + middle * high);
-        let spread = [
-            line.origin + axis * low,
-            line.origin + axis * high,
-            line.origin + sweep + end_axis * low,
-            line.origin + sweep + end_axis * high,
-        ]
-        .iter()
-        .map(|p| to_segment(*p, c0, c1))
-        .fold(0.0, f64::max);
-        let outside = size * (1.0 - (0.5 * turn).cos());
-        let pivot = UnitVec3::new(axis.cross(end_axis)).map_or(across(axis), UnitVec3::get);
         Self {
             outline,
             tip: line.origin,
             axis,
             sweep,
-            end_axis,
-            size,
             pivot,
-            turn,
-            outside,
-            core: (c0, c1, spread + wide + outside),
-            reach: (low, high, wide),
-            spine: (centre + middle * (low + wide).min(high), c1),
+            angle,
+            reach: (outline.capsule_base(low, high, wide), high, wide),
+            spine: (
+                line.origin + axis * (low + wide).min(high),
+                line.origin + axis * high,
+            ),
         }
     }
 
-    /// A proven least signed distance over the triangle `t` from the tool
-    /// at every pose, by the capsule holding them: the distance from its
-    /// segment to the triangle's centre, less the triangle's reach from its
-    /// centre and the capsule's radius.
-    /// A proven least signed distance over the triangle `t` from the tool
-    /// at every pose, by the capsule holding them: the exact distance from
-    /// its segment to the triangle, less its radius.
-    pub(crate) fn far_from(&self, t: &[Point3; 3]) -> f64 {
-        let (c0, c1, r) = self.core;
-        segment_to_triangle(c0, c1, t) - r
+    /// Whether the tool turns along the move.
+    fn turns(&self) -> bool {
+        self.angle != 0.0
     }
 
-    /// The same bound by the capsule holding the poses of `span` only,
-    /// which narrows as the span does.
-    fn far_over(&self, t: &[Point3; 3], span: &Span) -> f64 {
+    /// The point `p` turned about the line by `a` radians.
+    fn turned(&self, p: Point3, a: f64) -> Point3 {
+        if a == 0.0 {
+            return p;
+        }
+        let (c, n) = self.pivot;
+        c + turn_vector(p - c, n, a)
+    }
+
+    /// Where the surface point `x` is in the tool's frame at the fraction
+    /// `f` of the move.
+    fn frame(&self, x: Point3, f: f64) -> Point3 {
+        self.turned(x, -f * self.angle) + self.sweep * (-f)
+    }
+
+    /// How far a point `p` of the surface moves in the tool's frame over
+    /// the fractions `s0` to `s1`, at most, from where it is at their
+    /// middle: the shift's part plus the arc of its turn.
+    fn moved(&self, p: Point3, s0: f64, s1: f64) -> f64 {
+        let (c, n) = self.pivot;
+        let q = p - c;
+        let off = (q - n * q.dot(n)).length();
+        0.5 * (s1 - s0) * (self.sweep.length() + self.angle.abs() * off)
+    }
+
+    /// The proven least signed distance from the tool over the points `t`
+    /// (or their hull) over the fractions `s0` to `s1`, by the plane square
+    /// to `u` (in the tool's frame) touching the tool: for each point, the
+    /// exact least of its distance from that plane as it moves, the least
+    /// over the hull being at a corner at every fraction.
+    fn lower(&self, t: &[Point3], u: Vec3, s0: f64, s1: f64) -> f64 {
+        let along = self.axis.dot(u);
+        let h = u.dot(self.tip - Point3::ORIGIN)
+            + self.outline.support((u - self.axis * along).length(), along);
+        let k = u.dot(self.sweep);
+        let (c, n) = self.pivot;
+        let un = n * u.dot(n);
+        let up = u - un;
+        let uq = n.cross(up);
+        let base = u.dot(c - Point3::ORIGIN);
+        t.iter()
+            .map(|p| {
+                let q = *p - c;
+                least(
+                    base + un.dot(q),
+                    up.dot(q),
+                    uq.dot(q),
+                    self.angle,
+                    k,
+                    (s0, s1),
+                )
+            })
+            .fold(f64::INFINITY, f64::min)
+            - h
+    }
+
+    /// A proven least signed distance over the triangle `t` over the
+    /// fractions `s0` to `s1`, by the capsule holding the tool: the exact
+    /// distance from its segment to the triangle where it is at the middle
+    /// fraction, less its radius and less how far the triangle moves.
+    fn far_over(&self, t: &[Point3; 3], s0: f64, s1: f64) -> f64 {
         let (low, high, wide) = self.reach;
-        let middle = UnitVec3::new(span.axis + span.end_axis).map_or(span.axis, UnitVec3::get);
-        let centre = span.tip + span.sweep * 0.5;
-        let (c0, c1) = (centre + middle * low, centre + middle * high);
-        let end = span.tip + span.sweep;
-        let spread = [
-            span.tip + span.axis * low,
-            span.tip + span.axis * high,
-            end + span.end_axis * low,
-            end + span.end_axis * high,
-        ]
-        .iter()
-        .map(|p| to_segment(*p, c0, c1))
-        .fold(0.0, f64::max);
-        segment_to_triangle(c0, c1, t) - spread - wide - span.outside
+        let fm = 0.5 * (s0 + s1);
+        let moved = t
+            .iter()
+            .map(|p| self.moved(*p, s0, s1))
+            .fold(0.0, f64::max);
+        let at = t.map(|p| self.frame(p, fm));
+        segment_to_triangle(self.tip + self.axis * low, self.tip + self.axis * high, &at)
+            - wide
+            - moved
     }
 
-    fn far(&self, centre: Point3, reach: f64) -> f64 {
-        let (c0, c1, r) = self.core;
-        to_segment(centre, c0, c1) - reach - r
+    /// The same bound over the whole move.
+    pub(crate) fn far_from(&self, t: &[Point3; 3]) -> f64 {
+        self.far_over(t, 0.0, 1.0)
     }
 
-    /// A proven least signed distance over the triangle `t`, centred at
-    /// `centre`, by the plane square to the direction from the spine.
-    fn facing(&self, t: &[Point3], centre: Point3, span: &Span) -> f64 {
-        let (s0, s1) = self.spine;
-        let d = s1 - s0;
+    /// A proven least signed distance over the points `t`, centred at
+    /// `centre`, over the fractions `s0` to `s1`, by the plane square to
+    /// the direction from the spine to the centre at the middle fraction.
+    fn facing(&self, t: &[Point3], centre: Point3, s0: f64, s1: f64) -> f64 {
+        let (a, b) = self.spine;
+        let centre = self.frame(centre, 0.5 * (s0 + s1));
+        let d = b - a;
         let length = d.dot(d);
         let f = if length > 0.0 {
-            ((centre - s0).dot(d) / length).clamp(0.0, 1.0)
+            ((centre - a).dot(d) / length).clamp(0.0, 1.0)
         } else {
             0.0
         };
-        UnitVec3::new(centre - (s0 + d * f)).map_or(f64::NEG_INFINITY, |u| self.lower(t, u.get(), span))
-    }
-
-    /// Whether the tool turns along the sweep.
-    fn turns(&self) -> bool {
-        self.turn > 0.0
-    }
-
-    /// The part of the move from `s0` to `s1` (fractions, 0 to 1).
-    fn span(&self, s0: f64, s1: f64) -> Span {
-        let (t0, t1) = (self.tip + self.sweep * s0, self.tip + self.sweep * s1);
-        let (a0, a1) = (self.axis_at(s0), self.axis_at(s1));
-        let outside = if self.turns() {
-            // Within the part the axis is the normalised blend of its ends
-            // at a fraction that differs from the tip's by at most
-            // |c1 - c0| / (4 min(c0, c1)), the c being the lengths of the
-            // unnormalised blends at the ends; the tip is that much of the
-            // part's sweep from where the hull argument puts it.
-            let blend = |s: f64| (self.axis * (1.0 - s) + self.end_axis * s).length();
-            let (c0, c1) = (blend(s0), blend(s1));
-            let turn = a0.dot(a1).clamp(-1.0, 1.0).acos();
-            let skew = if c0.min(c1) > 0.0 {
-                (c1 - c0).abs() / (4.0 * c0.min(c1))
-            } else {
-                1.0
-            };
-            self.size * (1.0 - (0.5 * turn).cos()) + (t1 - t0).length() * skew
-        } else {
-            0.0
-        };
-        Span {
-            s0,
-            s1,
-            tip: t0,
-            sweep: t1 - t0,
-            axis: a0,
-            end_axis: a1,
-            outside,
-        }
-    }
-
-    /// The angle from the first axis to the axis at the fraction `s`, about
-    /// [`pivot`](Self::pivot), radians.
-    fn angle_at(&self, s: f64) -> f64 {
-        let a = self.axis_at(s);
-        self.pivot.dot(self.axis.cross(a)).atan2(self.axis.dot(a))
-    }
-
-    /// The proven least signed distance over the points `t` (or their
-    /// hull) from the tool at every pose of `span`, by the plane square to
-    /// `u` at the pose `at` (a fraction) turned with the tool.
-    ///
-    /// The pose at `s` is the pose at `at` turned about `pivot` by
-    /// `δ = angle(s) - angle(at)` and moved with the tip. Turned with it,
-    /// the plane still touches the tool, so a point `p` is at least
-    /// `R(δ) u . (p - tip(s)) - h(u)` from it, `h` being the tool's support
-    /// along `u` at `at`, measured from the tip. With
-    /// `tip(s) = tip(s0) + λ Δ` (`λ` from 0 to 1 over the span), that is at
-    /// least the least of `R(δ) u . (p - tip(s0))` over the span's `δ`
-    /// less the most of `R(δ) u . Δ` (if positive): each is a constant
-    /// plus a cosine in `δ`, whose least and most over an interval are
-    /// exact. Unlike the hull's bound this one holds the tool's turn
-    /// itself, so it stays tight on the tool's flank.
-    fn turning_lower(&self, t: &[Point3], u: Vec3, at: f64, span: &Span) -> f64 {
-        if !self.turns() {
-            return f64::NEG_INFINITY;
-        }
-        let a = self.axis_at(at);
-        let along = a.dot(u);
-        let h = self.outline.support((u - a * along).length(), along);
-        let base = self.angle_at(at);
-        let (d0, d1) = (self.angle_at(span.s0) - base, self.angle_at(span.s1) - base);
-        let (d0, d1) = (d0.min(d1), d0.max(d1));
-        let n = self.pivot;
-        let un = u.dot(n);
-        let up = u - n * un;
-        let uq = n.cross(up);
-        // The least and most of `n.u n.q + cos δ up.q + sin δ uq.q`.
-        let range = |q: Vec3| {
-            let (x, y) = (up.dot(q), uq.dot(q));
-            let rho = x.hypot(y);
-            let phi = y.atan2(x);
-            let at = |d: f64| x * d.cos() + y * d.sin();
-            let hits = |target: f64| {
-                let k = ((d0 - target) / std::f64::consts::TAU).ceil();
-                target + k * std::f64::consts::TAU <= d1
-            };
-            let ends = (at(d0), at(d1));
-            let least = if hits(phi + std::f64::consts::PI) {
-                -rho
-            } else {
-                ends.0.min(ends.1)
-            };
-            let most = if hits(phi) { rho } else { ends.0.max(ends.1) };
-            let fixed = un * n.dot(q);
-            (fixed + least, fixed + most)
-        };
-        let reach = t
-            .iter()
-            .map(|p| range(*p - span.tip).0)
-            .fold(f64::INFINITY, f64::min);
-        reach - range(span.sweep).1.max(0.0) - h
-    }
-
-    /// The angle the axis turns through over a part of the move, radians.
-    fn turn_of(&self, span: &Span) -> f64 {
-        if self.turns() {
-            span.axis.dot(span.end_axis).clamp(-1.0, 1.0).acos()
-        } else {
-            0.0
-        }
-    }
-
-    /// The tool's axis at the pose `s` along the sweep (0 to 1).
-    fn axis_at(&self, s: f64) -> Vec3 {
-        if !self.turns() {
-            return self.axis;
-        }
-        let a = self.axis * (1.0 - s) + self.end_axis * s;
-        UnitVec3::new(a).map_or(self.axis, UnitVec3::get)
+        UnitVec3::new(centre - (a + d * f))
+            .map_or(f64::NEG_INFINITY, |u| self.lower(t, u.get(), s0, s1))
     }
 
     /// Whether surface in the box `b` may lie within `limit` of the tool at
-    /// some pose: false only where the capsule holding every pose is
-    /// farther than `limit` from the box's whole extent, so surface the
-    /// test leaves out can only have a gap beyond `limit`.
-    ///
+    /// some pose: false only where a proven bound puts all of it farther.
     /// The box is tested by the capsule, then by the plane facing it from
     /// the spine (its least value over the box is at a corner).
     pub(crate) fn near(&self, b: &Aabb, limit: f64) -> bool {
+        let (low, high, wide) = self.reach;
         let centre = midpoint(b.min, b.max);
-        if self.far(centre, 0.5 * b.min.distance(b.max)) > limit {
+        let reach = 0.5 * b.min.distance(b.max);
+        let (c, n) = self.pivot;
+        let q = centre - c;
+        let off = (q - n * q.dot(n)).length() + reach;
+        let moved = 0.5 * (self.sweep.length() + self.angle.abs() * off);
+        let at = self.frame(centre, 0.5);
+        if to_segment(at, self.tip + self.axis * low, self.tip + self.axis * high)
+            - reach
+            - wide
+            - moved
+            > limit
+        {
             return false;
         }
         let corners = [
@@ -632,70 +605,97 @@ impl<'a> Body<'a> {
             Point3::new(b.min.x, b.max.y, b.max.z),
             b.max,
         ];
-        self.facing(&corners, centre, &self.span(0.0, 1.0)) <= limit
+        self.facing(&corners, centre, 0.0, 1.0) <= limit
     }
 
     /// A box holding every pose of the tool, grown by `margin`.
     pub(crate) fn bounds(&self, margin: f64) -> Aabb {
-        let ends = [
-            self.tip,
-            self.tip + self.axis * self.outline.top,
-            self.tip + self.sweep,
-            self.tip + self.sweep + self.end_axis * self.outline.top,
-        ];
-        let grow = self.outline.radius + self.outside + margin.max(0.0);
+        let top = self.tip + self.axis * self.outline.top;
+        let ends = [self.tip, top, self.tip + self.sweep, top + self.sweep];
+        let grow = self.outline.radius + margin.max(0.0);
         let mut min = ends[0];
         let mut max = ends[0];
         for p in ends {
             min = Point3::new(min.x.min(p.x), min.y.min(p.y), min.z.min(p.z));
             max = Point3::new(max.x.max(p.x), max.y.max(p.y), max.z.max(p.z));
         }
+        let (min, max) = (
+            Point3::new(min.x - grow, min.y - grow, min.z - grow),
+            Point3::new(max.x + grow, max.y + grow, max.z + grow),
+        );
+        // A turn moves each point by at most its distance from the line
+        // times the angle.
+        let (c, _) = self.pivot;
+        let far = [
+            min,
+            Point3::new(max.x, min.y, min.z),
+            Point3::new(min.x, max.y, min.z),
+            Point3::new(max.x, max.y, min.z),
+            Point3::new(min.x, min.y, max.z),
+            Point3::new(max.x, min.y, max.z),
+            Point3::new(min.x, max.y, max.z),
+            max,
+        ]
+        .iter()
+        .map(|p| p.distance(c))
+        .fold(0.0, f64::max);
+        let more = self.angle.abs() * far;
         Aabb {
-            min: Point3::new(min.x - grow, min.y - grow, min.z - grow),
-            max: Point3::new(max.x + grow, max.y + grow, max.z + grow),
+            min: Point3::new(min.x - more, min.y - more, min.z - more),
+            max: Point3::new(max.x + more, max.y + more, max.z + more),
         }
     }
 
-    /// The signed distance of `x` from the tool at the pose `s` along the
-    /// sweep (0 to 1), and the outward unit normal of the tool there.
-    fn at_pose(&self, x: Point3, s: f64) -> (f64, Vec3) {
-        let axis = self.axis_at(s);
-        let d = x - (self.tip + self.sweep * s);
-        let z = d.dot(axis);
-        let radial = d - axis * z;
+    /// The signed distance of `x` from the tool at the fraction `f` of the
+    /// move, and the outward unit normal of the tool there, in the tool's
+    /// frame.
+    fn at_pose(&self, x: Point3, f: f64) -> (f64, Vec3) {
+        self.at_first(self.frame(x, f))
+    }
+
+    /// The signed distance of the point `y` of the tool's frame from the
+    /// tool at its first pose, and the outward unit normal there.
+    fn at_first(&self, y: Point3) -> (f64, Vec3) {
+        let d = y - self.tip;
+        let z = d.dot(self.axis);
+        let radial = d - self.axis * z;
         let r = radial.length();
         let w = if r > 1e-12 {
             radial * (1.0 / r)
         } else {
-            across(axis)
+            across(self.axis)
         };
         let (dist, (nr, nz)) = self.outline.signed(r, z);
-        (dist, w * nr + axis * nz)
+        (dist, w * nr + self.axis * nz)
     }
 
-    /// The least signed distance of `x` from the tool over the sweep, as
-    /// found (an upper bound of the true least), the normal there, and how
-    /// far above the true least it may be: 0 for one pose; for a sweep, the
-    /// sweep's length times the width of the search's last interval, since
-    /// the distance is convex along the sweep (so the least lies in that
-    /// interval) and changes no faster than the sweep's length per unit.
-    /// For a turning tool the distance is not convex along the sweep, so
-    /// no slack bounds it: infinity. Only the poses of `span` are searched;
-    /// the last value is the fraction of the pose found.
-    fn upper(&self, x: Point3, span: &Span) -> (f64, Vec3, f64, f64) {
+    /// The least signed distance of `x` from the tool over the fractions
+    /// `s0` to `s1`, as found (an upper bound of the true least), the
+    /// normal there, how far above the true least it may be, and the
+    /// fraction found. Without a turn the distance is convex along the
+    /// move, so a golden-section search brackets the least, and the slack is
+    /// the move's length times the last bracket; with one it is not, so the
+    /// search starts from `hint` (where a larger piece holding this one
+    /// found its pose, when known), searches near it, and gives no slack.
+    fn upper(&self, x: Point3, s0: f64, s1: f64, hint: f64) -> (f64, Vec3, f64, f64) {
         let length = self.sweep.length();
         if length <= 0.0 && !self.turns() {
             let (d, n) = self.at_pose(x, 0.0);
             return (d, n, 0.0, 0.0);
         }
-        // The distance is convex along the sweep: golden-section search.
         let g = 0.5 * (5.0_f64.sqrt() - 1.0);
-        let (mut a, mut b) = (span.s0, span.s1);
+        let (mut a, mut b, steps) = if self.turns() && hint.is_finite() {
+            let h = hint.clamp(s0, s1);
+            let w = HINT_WIDTH * (s1 - s0);
+            ((h - w).max(s0), (h + w).min(s1), HINT_STEPS)
+        } else {
+            (s0, s1, SWEEP_STEPS)
+        };
         let mut c = b - g * (b - a);
         let mut d = a + g * (b - a);
         let mut fc = self.at_pose(x, c);
         let mut fd = self.at_pose(x, d);
-        for _ in 0..SWEEP_STEPS {
+        for _ in 0..steps {
             if fc.0 <= fd.0 {
                 b = d;
                 d = c;
@@ -711,7 +711,7 @@ impl<'a> Body<'a> {
             }
         }
         let mut best = if fc.0 <= fd.0 { (fc, c) } else { (fd, d) };
-        for s in [span.s0, span.s1] {
+        for s in [s0, s1] {
             let end = self.at_pose(x, s);
             if end.0 < best.0.0 {
                 best = (end, s);
@@ -725,30 +725,86 @@ impl<'a> Body<'a> {
         (best.0.0, best.0.1, slack, best.1)
     }
 
-    /// The proven least signed distance over the points `t` (or their
-    /// hull) from the tool at every pose of `span`, by the plane square to
-    /// `u`: the hull of the span's first and last poses reaches along `u`
-    /// no further than the larger of their supports (for a tool that does
-    /// not turn, the first pose's support plus the sweep's part along
-    /// `u`), and each pose lies within the span's `outside` of that hull.
-    fn lower(&self, t: &[Point3], u: Vec3, span: &Span) -> f64 {
-        let support = |axis: Vec3| {
-            let a = axis.dot(u);
-            self.outline.support((u - axis * a).length(), a)
-        };
-        let first = support(span.axis);
-        let last = if self.turns() {
-            support(span.end_axis)
-        } else {
-            first
-        };
-        let h = u.dot(span.tip - Point3::ORIGIN) + first.max(last + u.dot(span.sweep));
-        t.iter()
-            .map(|p| u.dot(*p - Point3::ORIGIN))
-            .fold(f64::INFINITY, f64::min)
-            - h
-            - span.outside
+    /// Where the point `y` of the tool's frame at the fraction `f` is on the
+    /// surface: the inverse of [`frame`](Self::frame).
+    fn unframe(&self, y: Point3, f: f64) -> Point3 {
+        self.turned(y + self.sweep * f, f * self.angle)
     }
+
+    /// The closest pair of the tool and the triangle `t` at the fraction
+    /// `f`, approached by turns: the tool's nearest boundary point to a
+    /// point of the triangle, then the triangle's closest point to that,
+    /// from `start` ([`CLOSEST_STEPS`] times; for two convex sets each turn
+    /// comes nearer). The last point of the triangle (on the surface), its
+    /// signed distance from the tool and the tool's normal there: the
+    /// direction of the plane that separates the two best.
+    fn closest(&self, t: &[Point3; 3], f: f64, start: Point3) -> (Point3, f64, Vec3) {
+        let tri = t.map(|p| self.frame(p, f));
+        let mut y = self.frame(start, f);
+        let (mut d, mut n) = self.at_first(y);
+        for _ in 0..CLOSEST_STEPS {
+            let next = crate::surface::closest_on_triangle(y + n * (-d), &tri);
+            let (nd, nn) = self.at_first(next);
+            if nd >= d {
+                break;
+            }
+            (y, d, n) = (next, nd, nn);
+        }
+        (self.unframe(y, f), d, n)
+    }
+
+    /// A surface direction `m` (fixed to the surface) as seen in the tool's
+    /// frame at the fraction `f`.
+    fn direction(&self, m: Vec3, f: f64) -> Vec3 {
+        if self.turns() {
+            turn_vector(m, self.pivot.1, -f * self.angle)
+        } else {
+            m
+        }
+    }
+
+    /// The turn over the fractions `s0` to `s1`, radians.
+    fn turn_over(&self, s0: f64, s1: f64) -> f64 {
+        self.angle.abs() * (s1 - s0)
+    }
+}
+
+/// The vector `v` turned by `a` radians about the unit vector `n`
+/// (Rodrigues).
+fn turn_vector(v: Vec3, n: Vec3, a: f64) -> Vec3 {
+    let along = n * v.dot(n);
+    let (s, c) = a.sin_cos();
+    along + (v - along) * c + n.cross(v) * s
+}
+
+/// The exact least of `g(f) = k0 + x cos(f θ) + y sin(f θ) - f k` over `f`
+/// from `span.0` to `span.1`: at an end, or where `g' = 0`, that is where
+/// `sin(f θ - φ) = -k / (θ ρ)` with `x = ρ cos φ`, `y = ρ sin φ`.
+fn least(k0: f64, x: f64, y: f64, theta: f64, k: f64, span: (f64, f64)) -> f64 {
+    let g = |f: f64| {
+        let (s, c) = (f * theta).sin_cos();
+        k0 + x * c + y * s - f * k
+    };
+    let mut best = g(span.0).min(g(span.1));
+    let rho = x.hypot(y);
+    if theta != 0.0 && rho > 0.0 {
+        let r = -k / (theta * rho);
+        if r.abs() <= 1.0 {
+            let phi = y.atan2(x);
+            let beta = r.asin();
+            let (a0, a1) = (span.0 * theta, span.1 * theta);
+            let (lo, hi) = (a0.min(a1), a0.max(a1));
+            let tau = std::f64::consts::TAU;
+            for start in [phi + beta, phi + std::f64::consts::PI - beta] {
+                let mut a = start + tau * ((lo - start) / tau).ceil();
+                while a <= hi {
+                    best = best.min(g(a / theta));
+                    a += tau;
+                }
+            }
+        }
+    }
+    best
 }
 
 /// The distance from `p` to the segment from `a` to `b`.
@@ -833,34 +889,15 @@ fn across(axis: Vec3) -> Vec3 {
     UnitVec3::new(pick - axis * pick.dot(axis)).map_or(Vec3::new(0.0, 0.0, 1.0), UnitVec3::get)
 }
 
-/// A part of the move, from the fraction `s0` to `s1`: its first pose (tip
-/// and axis), its sweep and its last axis, and how far a pose within it may
-/// lie outside the hull of those two poses.
-///
-/// A tool point `w` (from the tip) at the fraction `s` is at the tip's
-/// place plus `w` turned with the axis. Turned with the in-plane blend of
-/// its places at the two ends instead, it moves straight between them, so
-/// the blend lies in the hull; the blend is shorter than the turned point
-/// by at most `|w| (1 - cos(turn / 2))` (the arc height of the turn), and
-/// the tip parts agree when the fractions do. Within a part they differ
-/// slightly (see [`Body::span`]), which `outside` adds.
-#[derive(Debug, Clone, Copy)]
-struct Span {
-    s0: f64,
-    s1: f64,
-    tip: Point3,
-    sweep: Vec3,
-    axis: Vec3,
-    end_axis: Vec3,
-    outside: f64,
-}
-
 /// One piece of a triangle, over one part of the move, in the search queue.
 #[derive(Debug, Clone, Copy)]
 struct Piece {
     lower: f64,
     /// The part of the move, as fractions.
     span: (f64, f64),
+    /// The pose (a fraction) where the piece, or the piece it was split
+    /// from, was measured closest; NaN before any.
+    hint: f64,
     /// Whether the piece's centre has been measured and its bound narrowed
     /// by it; a piece is queued first with its plane's bound only.
     measured: bool,
@@ -915,7 +952,7 @@ pub(crate) fn search(
     };
     for (i, t) in triangles {
         if t.iter().all(|p| p.is_finite()) {
-            state.push(t, i, (0.0, 1.0));
+            state.push(t, i, (0.0, 1.0), f64::NAN);
         }
     }
     let mut pieces = 0_usize;
@@ -941,29 +978,26 @@ pub(crate) fn search(
             continue;
         }
         let (a, b, c, len) = longest_side(&piece.corners);
-        // A turning tool's hull bound holds space no pose sweeps, up to
-        // about the piece's distance from the tip times the part's turn
-        // away; the bound that turns with the tool does not, so the part of
-        // the move is halved only once the piece is small beside that
-        // wedge and the wedge could explain what the piece's bound lacks.
-        // Otherwise the piece is halved.
+        // Over a part of the move the piece turns in the tool's frame, so
+        // one plane can bound it only as well as about the tool's radius
+        // and the piece's size times that turn allow: where that could
+        // explain half of what the piece's bound lacks, the part of the
+        // move is halved; otherwise the piece is.
         let (s0, s1) = piece.span;
-        let part = body.span(s0, s1);
-        let lever = (centroid(&piece.corners).distance(part.tip) + len).min(body.size);
-        let wedge = lever * body.turn_of(&part);
-        let split_move = wedge > 4.0 * len && wedge >= found - piece.lower;
+        let slack = body.turn_over(s0, s1) * (body.outline.radius + len);
+        let split_move = 2.0 * slack >= found - piece.lower;
         if (len < MIN_PIECE && !split_move) || pieces >= MAX_PIECES {
             break piece.lower.min(found);
         }
         pieces += 2;
         if split_move {
             let sm = 0.5 * (s0 + s1);
-            state.push(piece.corners, piece.triangle, (s0, sm));
-            state.push(piece.corners, piece.triangle, (sm, s1));
+            state.push(piece.corners, piece.triangle, (s0, sm), piece.hint);
+            state.push(piece.corners, piece.triangle, (sm, s1), piece.hint);
         } else {
             let mid = midpoint(a, b);
-            state.push([a, mid, c], piece.triangle, piece.span);
-            state.push([mid, b, c], piece.triangle, piece.span);
+            state.push([a, mid, c], piece.triangle, piece.span, piece.hint);
+            state.push([mid, b, c], piece.triangle, piece.span, piece.hint);
         }
     };
     let (upper, at) = state.best?;
@@ -973,6 +1007,7 @@ pub(crate) fn search(
         at,
     })
 }
+
 
 /// The state of one search: the queue of pieces and the best value found.
 struct Search<'a, 'b> {
@@ -988,25 +1023,26 @@ impl Search<'_, '_> {
     /// least the gap between the tool and that plane, from either side,
     /// which is exact at once where the tool rests on the triangle's face.
     /// Neither costs a distance to the tool.
-    fn push(&mut self, corners: [Point3; 3], triangle: u32, span: (f64, f64)) {
+    fn push(&mut self, corners: [Point3; 3], triangle: u32, span: (f64, f64), hint: f64) {
         let (a, b, c) = (corners[0], corners[1], corners[2]);
-        let part = self.body.span(span.0, span.1);
+        let (s0, s1) = span;
         let centre = centroid(&corners);
         let far = self
             .body
-            .far_over(&corners, &part)
-            .max(self.body.facing(&corners, centre, &part));
+            .far_over(&corners, s0, s1)
+            .max(self.body.facing(&corners, centre, s0, s1));
         let lower = UnitVec3::new((b - a).cross(c - a)).map_or(far, |m| {
-            let m = m.get();
+            let m = self.body.direction(m.get(), 0.5 * (s0 + s1));
             self.body
-                .lower(&corners, m, &part)
-                .max(self.body.lower(&corners, -m, &part))
+                .lower(&corners, m, s0, s1)
+                .max(self.body.lower(&corners, -m, s0, s1))
                 .max(far)
         });
         self.order += 1;
         self.queue.push(Piece {
             lower,
             span,
+            hint,
             measured: false,
             triangle,
             order: self.order,
@@ -1021,8 +1057,8 @@ impl Search<'_, '_> {
     /// faster than the point moves) and less the search's own slack.
     fn measure(&mut self, piece: Piece) -> Piece {
         let centre = centroid(&piece.corners);
-        let part = self.body.span(piece.span.0, piece.span.1);
-        let (value, normal, slack, at) = self.body.upper(centre, &part);
+        let (s0, s1) = piece.span;
+        let (value, normal, slack, at) = self.body.upper(centre, s0, s1, piece.hint);
         if self.best.is_none_or(|(b, _)| value < b) {
             self.best = Some((value, centre));
         }
@@ -1031,14 +1067,21 @@ impl Search<'_, '_> {
             .iter()
             .map(|p| p.distance(centre))
             .fold(0.0, f64::max);
+        // The closest pair at the pose found gives the plane that best
+        // separates the piece from the tool there, and a nearer point.
+        let (near, gap, across) = self.body.closest(&piece.corners, at, centre);
+        if gap < value && self.best.is_none_or(|(b, _)| gap < b) {
+            self.best = Some((gap, near));
+        }
         let lower = piece
             .lower
-            .max(self.body.lower(&piece.corners, normal, &part))
-            .max(self.body.turning_lower(&piece.corners, normal, at, &part))
+            .max(self.body.lower(&piece.corners, normal, s0, s1))
+            .max(self.body.lower(&piece.corners, across, s0, s1))
             .max(value - slack - reach);
         Piece {
             lower,
             measured: true,
+            hint: at,
             ..piece
         }
     }

@@ -155,10 +155,14 @@ const RAISES: u32 = 12;
 /// How many times the limit of an allowed region is bisected.
 const EDGE_STEPS: u32 = 12;
 
-/// How many times a piece of a move is split in two because the part turns
-/// too far over it for the proof (decision record SIMUL-EDGE-1, Q3): at most
-/// 256 pieces. A move that needs more is not proven, and is halved.
-const TURN_SPLITS: u32 = 8;
+/// The most a move's part turns in one proof (decision record
+/// SIMUL-EDGE-1, Q3), radians (2 degrees): a part turning less sweeps a
+/// smaller region, which the search bounds more closely.
+const MOVE_TURN: f64 = 2.0 * std::f64::consts::PI / 180.0;
+
+/// How many times a part of a move whose proof is not decided is halved
+/// before the move is taken as failing.
+const MOVE_SPLITS: u32 = 8;
 
 /// Most drive samples one run may make (NFR-07).
 const MAX_SAMPLES: f64 = 5.0e6;
@@ -1120,6 +1124,47 @@ const BREAK_NEAR: f64 = 1.0;
 /// many degrees of each other (the halvings round one edge find it several
 /// times), largest first. Each move's area is its length times the tool's
 /// width; its points are the contacts at its ends and the deepest point
+
+/// The turn about the rotary axis, seen from the part, that takes the tool
+/// from angle `a0` to `a1` with the machine at the fixed position `at`: the
+/// axis line from two of its points, and the signed angle that carries the
+/// tool's place at `a0` to its place at `a1`. `None` without a turn.
+fn axis_turn(
+    rotary: &crate::rotary::RotaryMapping,
+    a0: Degrees,
+    a1: Degrees,
+    at: AxisPosition,
+) -> Option<crate::gap::Rotation> {
+    let turn = (a1.0 - a0.0).to_radians();
+    if turn == 0.0 {
+        return None;
+    }
+    let on = |along: f64| {
+        rotary.to_model(
+            AxisPosition {
+                along,
+                across: 0.0,
+                height: 0.0,
+            },
+            a0,
+        )
+    };
+    let point = on(0.0);
+    let axis = UnitVec3::new(on(1.0) - point).ok()?;
+    // The sense of A against the right-handed turn about the axis: the
+    // one of the two that carries the machine point's place at `a0` to its
+    // place at `a1`.
+    let (from, to) = (rotary.to_model(at, a0), rotary.to_model(at, a1));
+    let probe = |angle: f64| {
+        let q = from - point;
+        let along = axis.get() * q.dot(axis.get());
+        let (s, c) = angle.sin_cos();
+        (point + along + (q - along) * c + axis.get().cross(q) * s).distance(to)
+    };
+    let angle = if probe(turn) <= probe(-turn) { turn } else { -turn };
+    Some(crate::gap::Rotation { point, axis, angle })
+}
+
 /// found.
 fn gouge_areas(mut gouges: Vec<Gouge>, tolerance: f64) -> Vec<crate::assemble::Unreached> {
     use crate::assemble::{MAX_UNREACHED_POINTS, Unreached, UnreachedReason};
@@ -2716,78 +2761,81 @@ impl Plan<'_> {
     /// (decision record SIMUL-EDGE-1, Q3).
     ///
     /// The machine moves X, Y, Z and A together in straight proportion, so
-    /// in the part's frame every point of the tool moves on a curve
-    /// `R(A(f)) w(f)`, with `w` the point's place fixed to the machine
-    /// (straight in `f`) and `R` the part's turn. Over a piece of the move
-    /// turning by `θ` (radians) while the tip moves `Δ` square to the
-    /// rotary axis, the curve's second derivative is at most
-    /// `θ² |w⊥| + 2 θ |Δ⊥|`, so it lies within an eighth of that of its
-    /// chord. The point on each chord lies within `|w| (1 - cos(θ / 2))`
-    /// (the arc height of the turn) of the tool's pose at the same
-    /// fraction when it turns rigidly in the plane of its two axes, which
-    /// is the motion the source bounds proven ([`GapQuery::turned`]); both
-    /// distances are taken off the allowance. A piece where that leaves
-    /// less than half the allowance is split in two, up to [`TURN_SPLITS`]
-    /// times.
+    /// seen from the part the tool shifts straight in the machine's frame
+    /// while that frame turns about the rotary axis by the change in A.
+    /// That is the motion the query bounds ([`GapQuery::rotating`]), with
+    /// the shift as it is seen at the first pose, so the proof is for the
+    /// move itself and the whole allowance is the check's.
     fn gouges(&self, a: &Node, b: &Node) -> Option<(f64, Point3)> {
         let rotary = &self.input.rotary;
-        let (pa, pb) = (
-            rotary.to_axis(a.contact.tip, a.a),
-            rotary.to_axis(b.contact.tip, b.a),
-        );
-        let (a0, a1) = (a.a.0, crate::rotary::nearest_turn(b.a, a.a).0);
-        let at = |f: f64| AxisPosition {
-            along: pa.along + f * (pb.along - pa.along),
-            across: pa.across + f * (pb.across - pa.across),
-            height: pa.height + f * (pb.height - pa.height),
-        };
-        let top = self.drop_profile.top();
-        let radius = self.drop_profile.cutting_radius();
-        // The farthest any tool point is from the rotary axis over the
-        // move: the tool stands along the machine's height, so at an end
-        // its farthest point is at its top or tip, `radius` across.
-        let far = |p: AxisPosition| {
-            let across = p.across.abs() + radius;
-            across.hypot(p.height.abs().max((p.height + top).abs()))
-        };
-        let reach = far(pa).max(far(pb));
-        // The farthest any tool point is from its tip.
-        let size = top.abs().hypot(radius);
-        let limit = self.tolerance.max(self.allowed.abs());
-        let mut pieces = vec![(0.0_f64, 1.0_f64, 0_u32)];
-        while let Some((f0, f1, level)) = pieces.pop() {
-            let (p0, p1) = (at(f0), at(f1));
-            let (d0, d1) = (Degrees(a0 + f0 * (a1 - a0)), Degrees(a0 + f1 * (a1 - a0)));
-            let turn = (d1.0 - d0.0).abs().to_radians();
-            let moved = (p1.across - p0.across).hypot(p1.height - p0.height);
-            let arc = 0.125 * turn * (turn * reach + 2.0 * moved)
-                + size * (1.0 - (0.5 * turn).cos());
-            if arc > 0.5 * self.allowed.max(0.0) {
-                if level < TURN_SPLITS {
-                    let fm = 0.5 * (f0 + f1);
-                    pieces.push((fm, f1, level + 1));
-                    pieces.push((f0, fm, level + 1));
-                    continue;
-                }
-                return Some((arc, rotary.to_model(p0, d0)));
-            }
-            let floor = -(self.allowed - arc);
-            let t0 = rotary.to_model(p0, d0);
-            let line = ToolLine {
-                origin: t0,
-                axis: rotary.tool_axis(d0),
+        let (a0, a1) = (a.a, Degrees(crate::rotary::nearest_turn(b.a, a.a).0));
+        let pb = rotary.to_axis(b.contact.tip, b.a);
+        let t0 = a.contact.tip;
+        let sweep = rotary.to_model(pb, a0) - t0;
+        let axis = rotary.tool_axis(a0);
+        let rotation = axis_turn(rotary, a0, a1, pb);
+        let angle = rotation.map_or(0.0, |r| r.angle);
+        // The part of the move from `f0` to `f1`: its first pose and the
+        // same motion from there (turns about one line commute).
+        let part = |f0: f64, f1: f64| {
+            let turn = |v: Vec3, by: f64| {
+                rotation.map_or(v, |r| {
+                    let n = r.axis.get();
+                    let along = n * v.dot(n);
+                    let (s, c) = by.sin_cos();
+                    along + (v - along) * c + n.cross(v) * s
+                })
             };
-            let query = GapQuery::swept(rotary.to_model(p1, d1) - t0, limit)
-                .turned(rotary.tool_axis(d1))
-                .accept_above(floor);
-            if let Some(g) = self
+            let start = t0 + sweep * f0;
+            let origin = rotation.map_or(start, |r| r.point + turn(start - r.point, f0 * angle));
+            let line = ToolLine {
+                origin,
+                axis: UnitVec3::new(turn(axis.get(), f0 * angle)).unwrap_or(axis),
+            };
+            let mut query = GapQuery::swept(
+                turn(sweep * (f1 - f0), f0 * angle),
+                self.tolerance.max(self.allowed.abs()),
+            )
+            .accept_above(-self.allowed);
+            if let Some(r) = rotation {
+                query = query.rotating(crate::gap::Rotation {
+                    angle: (f1 - f0) * angle,
+                    ..r
+                });
+            }
+            (line, query)
+        };
+        // Parts turning at most MOVE_TURN each, then halved where an answer
+        // is not decided (the bound short of the allowance while no pose
+        // found cuts that deep), up to MOVE_SPLITS more times.
+        let first = (angle.abs() / MOVE_TURN).ceil().max(1.0);
+        let count = first.min(f64::from(1_u32 << MOVE_SPLITS)) as u32;
+        let mut pieces: Vec<(f64, f64, u32)> = (0..count)
+            .rev()
+            .map(|i| {
+                let n = f64::from(count);
+                (f64::from(i) / n, f64::from(i + 1) / n, 0)
+            })
+            .collect();
+        while let Some((f0, f1, level)) = pieces.pop() {
+            let (line, query) = part(f0, f1);
+            let Some(g) = self
                 .input
                 .surface
                 .tool_gap(self.drop_profile, &line, &query)
-                && g.lower < floor
-            {
-                return Some(((-g.upper).max(arc), g.at));
+            else {
+                continue;
+            };
+            if g.lower >= -self.allowed {
+                continue;
             }
+            if g.upper >= -self.allowed && level < MOVE_SPLITS {
+                let fm = 0.5 * (f0 + f1);
+                pieces.push((fm, f1, level + 1));
+                pieces.push((f0, fm, level + 1));
+                continue;
+            }
+            return Some((-g.upper, g.at));
         }
         None
     }
