@@ -832,11 +832,10 @@ pub(crate) fn point_warnings(
         }
         let (from, to) = (end.edge - radius, end.edge + radius);
         let face = end.face;
-        let gripped =
-            input
-                .keep_out
-                .iter()
-                .any(|&(a, b)| if end.far { a > end.edge } else { b < end.edge });
+        let gripped = input
+            .keep_out
+            .iter()
+            .any(|&(a, b)| if end.far { a > end.edge } else { b < end.edge });
         if !gripped {
             out.push(Notice {
                 level: Level::Warning,
@@ -853,11 +852,10 @@ pub(crate) fn point_warnings(
                 acknowledgement: None,
             });
         }
-        let held =
-            input
-                .keep_out
-                .iter()
-                .any(|&(a, b)| if end.far { b < end.edge } else { a > end.edge });
+        let held = input
+            .keep_out
+            .iter()
+            .any(|&(a, b)| if end.far { b < end.edge } else { a > end.edge });
         if !held {
             out.push(Notice {
                 level: Level::Warning,

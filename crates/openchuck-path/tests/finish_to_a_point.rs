@@ -35,7 +35,7 @@ fn pointed() -> Fixture {
         let r = (6.0 * t.cos()).max(1e-3);
         profile.push((14.0 + 6.0 * t.sin(), r));
     }
-    let mesh = revolve(&profile, 360);
+    let mesh = revolve(&profile, 180);
     let mut f = Fixture::new(MeshSurface::new(&mesh).unwrap(), 8.0, &ball(D));
     // The stock carries on well past the point, as a blank held at the
     // other end does.
@@ -268,8 +268,10 @@ fn req_nfr_12_finishing_to_a_point_warns_that_the_part_is_cut_free() {
         let p = path(s, &f, &values(s, true));
         assert!(point_warnings(&p).is_empty(), "{}", s.name());
         assert!(
-            p.notices.iter().any(|n| n.setting.as_deref() == Some(FACE_FREE_ENDS)
-                && n.topic.as_deref() == Some(topic::PART_CUT_FREE)),
+            p.notices
+                .iter()
+                .any(|n| n.setting.as_deref() == Some(FACE_FREE_ENDS)
+                    && n.topic.as_deref() == Some(topic::PART_CUT_FREE)),
             "{}",
             s.name()
         );
@@ -348,6 +350,70 @@ fn req_op_04_req_op_12_an_end_off_the_axis_narrower_than_the_tool_goes_to_the_ax
             if r <= 1.0 {
                 assert!(x - POINT > R - 0.02, "{}: X {x:.3} r {r:.3}", s.name());
             }
+        }
+    }
+}
+
+/// Adaptive spacing measures the material left between the passes past
+/// the point as it does over the part, and adds passes there where the
+/// curve needs them, with the same Allowed excess and Smallest spacing
+/// (decision 0695, Q2 (c) B): with it on, more cutting moves run past the
+/// point than with it off, and the material there is confirmed (no
+/// partial-path warning). Indexed finishing at 8 positions: at 4, the
+/// tool's reach between positions is too short near the point to confirm
+/// it, and the partial-path warning names the places, as anywhere else.
+#[test]
+fn req_op_04_adaptive_spacing_measures_and_adds_passes_past_the_point() {
+    let f = pointed();
+    for s in [
+        &HelicalFinishing as &dyn Strategy,
+        &AxialFinishing,
+        &IndexedFinishing,
+    ] {
+        let mut off = values(s, true);
+        if s.schema().get("count").is_some() {
+            off.insert("count".to_owned(), ParameterValue::Integer(8));
+        }
+        let mut on = off.clone();
+        on.insert("adaptive_spacing".to_owned(), ParameterValue::Flag(true));
+        let past = |p: &GeneratedPath| centres(p).iter().filter(|&&(x, _)| x > POINT).count();
+        let (off, on) = (path(s, &f, &off), path(s, &f, &on));
+        assert!(past(&on) > past(&off), "{}", s.name());
+        assert!(
+            !on.notices
+                .iter()
+                .any(|n| n.text.contains("could not confirm")),
+            "{}",
+            s.name()
+        );
+    }
+}
+
+/// The same project gives the same path whatever the thread count (GC-07,
+/// NFR-06), with Finish to a point and adaptive spacing over the point.
+#[test]
+fn req_nfr_06_req_gc_07_finish_to_a_point_is_the_same_at_one_two_and_many_threads() {
+    let f = pointed();
+    for s in [
+        &HelicalFinishing as &dyn Strategy,
+        &AxialFinishing,
+        &IndexedFinishing,
+    ] {
+        let mut v = values(s, true);
+        v.insert("adaptive_spacing".to_owned(), ParameterValue::Flag(true));
+        if s.schema().get("count").is_some() {
+            v.insert("count".to_owned(), ParameterValue::Integer(8));
+        }
+        let at = |threads: usize| {
+            rayon::ThreadPoolBuilder::new()
+                .num_threads(threads)
+                .build()
+                .unwrap()
+                .install(|| path(s, &f, &v).group)
+        };
+        let one = at(1);
+        for threads in [2, 8] {
+            assert_eq!(one, at(threads), "{}: {threads} threads", s.name());
         }
     }
 }

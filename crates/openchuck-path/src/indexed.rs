@@ -310,32 +310,9 @@ fn passes(
     along.beyond = along.grown_radius() - 0.1 * tolerance;
     along.check_passes(angles.len())?;
     let adaptive = adaptive::Settings::read(parameters, axial_parameter::SCALLOP)?;
-    let (passes, spaced) = match adaptive {
-        None => (
-            along.passes_at(&angles, "indexed finishing", context)?,
-            None,
-        ),
-        Some(settings) => {
-            let groups = along.passes_by_angle(&angles, "indexed finishing", context)?;
-            let (passes, outcome) = adaptive_passes(
-                input,
-                (region, zones, parameters),
-                &along,
-                (&angles, groups),
-                settings,
-                context,
-            )?;
-            (passes, Some((settings, outcome)))
-        }
-    };
-    // Finishing layers above them, when on; each layer keeps the pass's A
-    // (decision record 0345).
-    let (mut passes, layered) = crate::finishing::layers(input, passes, parameters)?;
-    // Finish to a point (decision record 0695, Q2): past each end that comes
-    // to a point, the passes carry on along X following the part down, then
-    // whole turns take the tool to the rotary axis.
-    let mut pointed = Vec::new();
-    if parameters
+    // Finish to a point (decision record 0695, Q2): the ends that come to a
+    // point, past which the passes carry on.
+    let ends = if parameters
         .flag(crate::finishing::parameter::FINISH_TO_A_POINT)
         .unwrap_or(false)
     {
@@ -346,19 +323,50 @@ fn passes(
             tolerance,
             context,
         )?;
-        let first = angles.first().copied().unwrap_or(0.0);
-        let ends = crate::finishing::point_ends(input, &along.grown, &found.free, parameters);
-        pointed = crate::finishing::point_warnings(input, &ends, &[]);
-        for end in &ends {
-            passes.extend(along.to_a_point(
-                &angles,
-                end,
-                parameters,
-                (first, crate::axial::TURN_STEP),
-                context,
-            )?);
+        crate::finishing::point_ends(input, &along.grown, &found.free, parameters)
+    } else {
+        Vec::new()
+    };
+    let (passes, spaced) = match adaptive {
+        None => {
+            let mut passes = along.passes_at(&angles, "indexed finishing", context)?;
+            for end in &ends {
+                for &a in &angles {
+                    context.check_cancelled()?;
+                    passes.extend(along.point_stretch(a, end, context)?);
+                }
+            }
+            (passes, None)
         }
+        Some(settings) => {
+            let mut groups = along.passes_by_angle(&angles, "indexed finishing", context)?;
+            // Each pass carried on past the points, so adaptive spacing
+            // measures there too (Q2 (c) B).
+            for (group, &a) in groups.iter_mut().zip(&angles) {
+                for end in &ends {
+                    group.extend(along.point_stretch(a, end, context)?);
+                }
+            }
+            let (passes, outcome) = adaptive_passes(
+                input,
+                (region, zones, parameters),
+                (&along, &ends),
+                (&angles, groups),
+                settings,
+                context,
+            )?;
+            (passes, Some((settings, outcome)))
+        }
+    };
+    // Finishing layers above them, when on; each layer keeps the pass's A
+    // (decision record 0345).
+    let (mut passes, layered) = crate::finishing::layers(input, passes, parameters)?;
+    // Then whole turns take the tool to the rotary axis past each point.
+    let first = angles.first().copied().unwrap_or(0.0);
+    for end in &ends {
+        passes.extend(along.point_turns(end, parameters, (first, crate::axial::TURN_STEP)));
     }
+    let pointed = crate::finishing::point_warnings(input, &ends, &[]);
     along.mark_low_links(&mut passes);
     Ok(Made {
         passes,
@@ -513,7 +521,7 @@ fn side(rotary: &RotaryMapping, from: f64, toward: f64, r: f64) -> f64 {
 fn adaptive_passes(
     input: &StrategyInput<'_>,
     (region, zones, parameters): (Option<&RegionConstraint<'_>>, &[LeaveZone<'_>], &Parameters),
-    along: &AlongX<'_>,
+    (along, pointed): (&AlongX<'_>, &[crate::finishing::PointEnd]),
     (angles, groups): (&[f64], Vec<Vec<Pass>>),
     settings: adaptive::Settings,
     context: &JobContext<'_>,
@@ -596,7 +604,7 @@ fn adaptive_passes(
         .flatten()
         .map(|p| p.points.len() as u64 + adaptive::LINK_POINTS)
         .sum();
-    let (x0, x1) = along.range();
+    let (x0, x1) = along.span_to(pointed);
     let intervals: Vec<Interval> = (0..n)
         .filter(|&k| matches!((sorted.get(k), sorted.get(k + 1)), (Some(p), Some(q)) if q > p))
         .map(|k| Interval {

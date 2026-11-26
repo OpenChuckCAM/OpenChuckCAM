@@ -500,21 +500,16 @@ impl<'a> AlongX<'a> {
         }))
     }
 
-    /// Finish to a point past `end` (decision record 0695, Q2): each pass
-    /// at the angles `angles` carried on along X from the target's end to the
-    /// end's last drop, following the part down, then whole turns down to
-    /// the rotary axis there, starting at A `start`, no more than `step`
-    /// degrees between their points.
-    pub(crate) fn to_a_point(
+    /// Finish to a point past `end` (decision record 0695, Q2): the pass at
+    /// A `a` carried on along X from the target's end (past indexed
+    /// finishing's `beyond`, decision record 0343) to the end's last drop,
+    /// following the part down. Empty where there is nothing to add.
+    pub(crate) fn point_stretch(
         &self,
-        angles: &[f64],
+        a: f64,
         end: &crate::finishing::PointEnd,
-        parameters: &Parameters,
-        (start, step): (f64, f64),
         context: &JobContext<'_>,
     ) -> Result<Vec<Pass>> {
-        // Indexed finishing's passes already run on past the ends by
-        // `beyond` (decision record 0343).
         let from = if end.far {
             self.x1 + self.beyond
         } else {
@@ -525,27 +520,39 @@ impl<'a> AlongX<'a> {
         } else {
             from - end.edge
         };
-        let mut out = Vec::new();
-        if length > 0.0 {
-            let h = (self.x1 - self.x0) / self.seeds as f64;
-            let seeds = ((length / h).ceil() as usize).max(2);
-            for &a in angles {
-                context.check_cancelled()?;
-                out.extend(self.fit_span((Degrees(a), 0.0), (from, end.edge), seeds, context)?);
-            }
+        if length <= 0.0 {
+            return Ok(Vec::new());
         }
+        let h = (self.x1 - self.x0) / self.seeds as f64;
+        let seeds = ((length / h).ceil() as usize).max(2);
+        self.fit_span((Degrees(a), 0.0), (from, end.edge), seeds, context)
+    }
+
+    /// The whole turns down to the rotary axis at `end`'s last drop that
+    /// finish to a point (decision record 0695, Q2 (b) A), starting at A
+    /// `start`, no more than `step` degrees between their points.
+    pub(crate) fn point_turns(
+        &self,
+        end: &crate::finishing::PointEnd,
+        parameters: &Parameters,
+        (start, step): (f64, f64),
+    ) -> Vec<Pass> {
         let top = crate::finishing::top_at_edge(self.input, &self.grown, self.leave, end);
         let stepdown = parameters
             .number(crate::finishing::parameter::STEPDOWN)
             .unwrap_or(0.0);
-        out.extend(crate::finishing::turns_to_the_axis(
-            self.input,
-            end,
-            top,
-            stepdown,
-            (start, 1.0, step),
-        ));
-        Ok(out)
+        crate::finishing::turns_to_the_axis(self.input, end, top, stepdown, (start, 1.0, step))
+    }
+
+    /// The X span the passes cover with the stretches past the ends `ends`.
+    pub(crate) fn span_to(&self, ends: &[crate::finishing::PointEnd]) -> (f64, f64) {
+        ends.iter().fold((self.x0, self.x1), |(lo, hi), e| {
+            if e.far {
+                (lo, hi.max(e.edge))
+            } else {
+                (lo.min(e.edge), hi)
+            }
+        })
     }
 
     /// `passes` marked as linkable low when the operation asks (decision
@@ -774,15 +781,48 @@ fn passes(
     along.check_passes(count)?;
     let step = 360.0 / count as f64;
     let angles: Vec<f64> = (0..count).map(|i| start + step * i as f64).collect();
+    let tolerance = parameters.number(names::TOLERANCE)?;
+    let search = |along: &AlongX<'_>| {
+        faces::turns_to_the_ends(
+            input,
+            &along.grown,
+            (along.x0, along.x1),
+            tolerance,
+            context,
+        )
+    };
+    // Finish to a point (decision record 0695, Q2): the ends that come to a
+    // point, past which the passes carry on, found before the passes when
+    // it is on. Otherwise the faces are searched after the passes, as before.
+    let early = if parameters
+        .flag(crate::finishing::parameter::FINISH_TO_A_POINT)
+        .unwrap_or(false)
+    {
+        Some(search(&along)?)
+    } else {
+        None
+    };
+    let pointed = early.as_ref().map_or_else(Vec::new, |found| {
+        crate::finishing::point_ends(input, &along.grown, &found.free, parameters)
+    });
     let (mut passes, spaced) = match adaptive {
-        None => (along.passes_at(&angles, "axial finishing", context)?, None),
+        None => {
+            let mut passes = along.passes_at(&angles, "axial finishing", context)?;
+            for end in &pointed {
+                for &a in &angles {
+                    context.check_cancelled()?;
+                    passes.extend(along.point_stretch(a, end, context)?);
+                }
+            }
+            (passes, None)
+        }
         Some(settings) => {
             let zigzag = along.zigzag;
             along.zigzag = false;
             let (passes, outcome) = adaptive_passes(
                 input,
                 (region, zones, parameters),
-                &along,
+                (&along, &pointed),
                 &angles,
                 (settings, zigzag),
                 context,
@@ -796,14 +836,10 @@ fn passes(
     // A at each such face, as the helix strategies make (decision records
     // 0297 and 0343). The faces inside the target's length are left to the
     // passes, as before.
-    let tolerance = parameters.number(names::TOLERANCE)?;
-    let found = faces::turns_to_the_ends(
-        input,
-        &along.grown,
-        (along.x0, along.x1),
-        tolerance,
-        context,
-    )?;
+    let found = match early {
+        Some(found) => found,
+        None => search(&along)?,
+    };
     let beyond = |x: f64| x < along.x0 || x > along.x1;
     let turns: Vec<f64> = found
         .turns
@@ -836,14 +872,17 @@ fn passes(
         parameters,
         (start, 1.0, TURN_STEP),
     )?;
-    passes.extend(free.passes);
-    // Finish to a point (decision record 0695, Q2): past each end that comes
-    // to a point, the passes carry on along X following the part down, then
-    // whole turns take the tool to the rotary axis. Cut after the free ends'
-    // turns, which take the stock beside the end.
-    let pointed = crate::finishing::point_ends(input, &along.grown, &found.free, parameters);
+    // With a point finished, the free ends' turns are cut first, so they
+    // take the stock beside the end before the passes go down past it.
+    let mut passes = if pointed.is_empty() {
+        passes.extend(free.passes);
+        passes
+    } else {
+        free.passes.into_iter().chain(passes).collect()
+    };
+    // Then whole turns take the tool to the rotary axis past each point.
     for end in &pointed {
-        passes.extend(along.to_a_point(&angles, end, parameters, (start, TURN_STEP), context)?);
+        passes.extend(along.point_turns(end, parameters, (start, TURN_STEP)));
     }
     along.mark_low_links(&mut passes);
     let mut warnings = free.warnings;
@@ -931,12 +970,19 @@ impl Family for Axial<'_> {
 fn adaptive_passes(
     input: &StrategyInput<'_>,
     (region, zones, parameters): (Option<&RegionConstraint<'_>>, &[LeaveZone<'_>], &Parameters),
-    along: &AlongX<'_>,
+    (along, pointed): (&AlongX<'_>, &[crate::finishing::PointEnd]),
     angles: &[f64],
     (settings, zigzag): (adaptive::Settings, bool),
     context: &JobContext<'_>,
 ) -> Result<(Vec<Pass>, adaptive::Outcome)> {
-    let groups = along.passes_by_angle(angles, "axial finishing", context)?;
+    let mut groups = along.passes_by_angle(angles, "axial finishing", context)?;
+    // Each pass carried on past the points it finishes to, so adaptive
+    // spacing measures there too (decision record 0695, Q2 (c) B).
+    for (group, &a) in groups.iter_mut().zip(angles) {
+        for end in pointed {
+            group.extend(along.point_stretch(a, end, context)?);
+        }
+    }
     // The measure and the added passes drop through counters, so their
     // geometry queries are limited (decision record 0239 item 8).
     let counters: Vec<Counting<'_>> = std::iter::once(input.surface)
@@ -991,7 +1037,7 @@ fn adaptive_passes(
         .flat_map(|t| &t.passes)
         .map(|p| p.points.len() as u64 + adaptive::LINK_POINTS)
         .sum();
-    let (x0, x1) = along.range();
+    let (x0, x1) = along.span_to(pointed);
     let intervals: Vec<Interval> = (0..n)
         .map(|i| Interval {
             lo: i,
