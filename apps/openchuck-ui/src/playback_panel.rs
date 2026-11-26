@@ -368,7 +368,10 @@ pub struct PlaybackPanel {
     /// groups and kinds of move shown, and whether it is on screen.
     trace_job: Option<(Drawn, JobHandle<PathLines>)>,
     trace: Option<(Drawn, Arc<PathLines>)>,
-    trace_shown: bool,
+    /// What the trace layer on screen was made for, or `None` when it is
+    /// empty. Kept apart from the job and its result, so a job that ends on
+    /// the frame the window is lifted never leaves its predecessor on screen.
+    trace_shown: Option<Drawn>,
     /// What the trace costs: (points drawn, points of the path).
     trace_cost: Option<(usize, usize)>,
     /// The window's ends as the number fields hold them, counted from 1.
@@ -430,7 +433,7 @@ impl Default for PlaybackPanel {
             drawn_window: None,
             trace_job: None,
             trace: None,
-            trace_shown: false,
+            trace_shown: None,
             trace_cost: None,
             window_from: 1,
             window_to: 1,
@@ -961,7 +964,6 @@ impl PlaybackPanel {
                         Ok(lines) => {
                             self.trace_cost = Some((lines.points, lines.full_points));
                             self.trace = Some((for_visible, Arc::new(lines)));
-                            self.trace_shown = false;
                         }
                         Err(e) if e.is_cancelled() => {}
                         Err(e) => self.error = Some(e.to_string()),
@@ -973,10 +975,10 @@ impl PlaybackPanel {
         let drawn = (self.visible.clone(), self.moves);
         let current = self.trace.as_ref().filter(|(made, _)| *made == drawn);
         match (wanted, current) {
-            (true, Some((_, lines))) => {
-                if !self.trace_shown {
+            (true, Some((made, lines))) => {
+                if self.trace_shown.as_ref() != Some(made) {
                     viewport.set_layer(Layer::Trace, trace_scene(lines));
-                    self.trace_shown = true;
+                    self.trace_shown = Some(made.clone());
                 }
             }
             (true, None) => {
@@ -996,9 +998,8 @@ impl PlaybackPanel {
                 }
             }
             (false, _) => {
-                if self.trace_shown {
+                if self.trace_shown.take().is_some() {
                     viewport.set_layer(Layer::Trace, Scene::default());
-                    self.trace_shown = false;
                 }
             }
         }
@@ -3335,6 +3336,39 @@ mod tests {
 
     fn points(scene: &Scene) -> usize {
         scene.lines.iter().map(|l| l.segments.len()).sum()
+    }
+
+    /// CodeRabbit's finding on #898: a trace job that ends on the same frame
+    /// as the playback window is lifted must not leave the old trace on
+    /// screen. The kinds shown change (a new trace is asked for), the window
+    /// is lifted while that job runs, and the job ends before the next frame.
+    #[test]
+    fn req_sim_01_lifting_the_window_while_a_trace_is_made_leaves_no_trace() {
+        let (app, mut panel, mut viewport, dir) = prepared("panel-trace-race");
+        settle_panel(&app, &mut panel, &mut viewport);
+        let moves = panel.data.as_ref().unwrap().timeline.move_count();
+        panel.set_window(Some(MoveWindow {
+            first: moves / 3,
+            last: moves / 2,
+        }));
+        settle_panel(&app, &mut panel, &mut viewport);
+        assert_eq!(viewport.layer(Layer::Trace).unwrap().lines.len(), 1);
+        // Hide the rapids: the trace is made again, as a job.
+        let mut shown = ShownMoves::ALL;
+        shown.set(openchuck_app::playback::MoveKind::Rapid, false);
+        panel.set_shown_moves(shown);
+        panel.frame(&app, &mut viewport, 0.0);
+        assert!(panel.trace_job.is_some(), "a new trace is being made");
+        // The window is lifted, and the job ends before the next frame.
+        panel.reset_window();
+        std::thread::sleep(Duration::from_secs(2));
+        settle_panel(&app, &mut panel, &mut viewport);
+        assert_eq!(panel.window(), None);
+        assert!(
+            viewport.layer(Layer::Trace).unwrap().lines.is_empty(),
+            "no trace is left on screen without a window"
+        );
+        let _ = std::fs::remove_dir_all(dir);
     }
 
     #[test]

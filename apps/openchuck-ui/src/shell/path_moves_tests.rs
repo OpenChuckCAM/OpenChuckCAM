@@ -155,6 +155,16 @@ fn req_ui_14_req_sim_01_the_show_menu_tick_boxes_set_the_kinds() {
     assert_eq!(rig.shell.viewport.shown_moves().hidden(), hidden);
     click_text(&mut rig, "Plunge");
     assert!(rig.shell.viewport.shown_moves().shows(MoveKind::Plunge));
+    // Partly ticked now (Plunge shown, the other two hidden): a press on
+    // Entry and exit hides all three, as the legend's box does (CodeRabbit's
+    // finding on #898: the menu and the legend must agree).
+    click_text(&mut rig, "Entry and exit");
+    for kind in ShownMoves::ENTRY {
+        assert!(
+            !rig.shell.viewport.shown_moves().shows(kind),
+            "{kind:?} hidden by a partly ticked parent"
+        );
+    }
     // "Show all moves" while any is hidden.
     click_text(&mut rig, "Show all moves");
     assert_eq!(rig.shell.viewport.shown_moves(), ShownMoves::ALL);

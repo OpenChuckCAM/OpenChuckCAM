@@ -126,3 +126,10 @@ At release (26 Nov 2026), after merging `main` at `17dcdde` (with #897) and the 
 - `openchuck-app` playback, settings, pathview and operation tests: 236 passed.
 - `cargo xtask deps`, `licences`, `records` and `trace`: ok.
 - After the renumbering, which changed comments and documents only, clippy is clean and the path-moves, legend and settings tests pass again (31 tests).
+
+CodeRabbit's first review (on `4664c82`) found two Minor issues, both real and both fixed in the release push, each with a test that failed before the fix:
+- **A trace left on screen.** A trace job that ended on the frame the playback window was lifted reset the "trace shown" flag before the clear, so the old faint trace stayed with no window open. Changing the kinds shown starts a new trace job, which made this race easier to reach. The panel now keeps what the trace layer on screen was made for, apart from the job and its result. Test: `playback_panel::tests::req_sim_01_lifting_the_window_while_a_trace_is_made_leaves_no_trace`.
+- **The menus' Entry and exit box.** Pressed while partly ticked, it showed all three kinds, where the legend's box hides them. The menus now use the legend's rule (`viewport_overlays::toggle`). Test: the partly ticked case added to `shell::path_moves_tests::req_ui_14_req_sim_01_the_show_menu_tick_boxes_set_the_kinds`.
+
+After the two fixes: `cargo fmt --all --check` and `cargo clippy --workspace --all-targets` clean; `cargo nextest run -p openchuck-ui` 790 passed, 1 skipped (9 min 15 s); `cargo xtask records` and `trace` ok.
+

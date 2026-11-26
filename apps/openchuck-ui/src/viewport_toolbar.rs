@@ -233,10 +233,11 @@ pub fn move_ticks(ui: &mut egui::Ui, moves: &mut ShownMoves) {
     let mut all = entry == ShownMoves::ENTRY.len();
     let parent = egui::Checkbox::new(&mut all, ENTRY_NAME)
         .indeterminate(entry > 0 && entry < ShownMoves::ENTRY.len());
+    // The press follows the legend's rule (`viewport_overlays::toggle`): a
+    // ticked or partly ticked box hides its three kinds, an empty one shows
+    // them, so the menus and the legend agree.
     if ui.add(parent).changed() {
-        for kind in ShownMoves::ENTRY {
-            moves.set(kind, all);
-        }
+        crate::viewport_overlays::toggle(moves, &ShownMoves::ENTRY);
     }
     ui.indent("entry and exit moves", |ui| {
         for kind in ShownMoves::ENTRY {
