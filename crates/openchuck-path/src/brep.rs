@@ -770,6 +770,47 @@ pub struct ExactFace {
 
 const TOL: f64 = 1e-12;
 
+/// The factor a sampled tessellation error is multiplied by (OI-9974: a
+/// cone's, a torus's or a B-spline face's triangles are measured, not
+/// bounded): the largest error lies between the samples, and on a smooth
+/// face it is less than twice the largest sampled one when the samples are
+/// as close as [`SAMPLE_STEPS`] puts them.
+pub(crate) const SAMPLED_SAFETY: f64 = 2.0;
+
+/// Steps along each side of a triangle between the points its error is
+/// sampled at.
+const SAMPLE_STEPS: u32 = 6;
+
+/// The distance from `p` to the triangle `t`, which may be degenerate (a
+/// cylinder's triangle seen along its axis): the nearest of its sides, or
+/// zero inside it.
+fn distance_to_triangle(p: Point3, t: &[Point3; 3]) -> f64 {
+    let side = |a: Point3, b: Point3| {
+        let d = b - a;
+        let len = d.dot(d);
+        let s = if len > 0.0 {
+            ((p - a).dot(d) / len).clamp(0.0, 1.0)
+        } else {
+            0.0
+        };
+        p.distance(a + d * s)
+    };
+    let edges = side(t[0], t[1]).min(side(t[1], t[2])).min(side(t[2], t[0]));
+    let n = (t[1] - t[0]).cross(t[2] - t[0]);
+    let area = n.length();
+    if area <= 1e-15 {
+        return edges;
+    }
+    let n = n * (1.0 / area);
+    let h = (p - t[0]).dot(n);
+    let q = p + n * (-h);
+    let inside = (0..3).all(|i| {
+        let (a, b) = (t[i], t[(i + 1) % 3]);
+        (b - a).cross(q - a).dot(n) >= 0.0
+    });
+    if inside { h.abs() } else { edges }
+}
+
 /// The closest-point search on a B-spline face answers within this distance,
 /// mm, of the nearest point of the face's cells (lane STEPALL-X1).
 pub const SEARCH_TOLERANCE: f64 = 1e-6;
@@ -1147,6 +1188,60 @@ impl ExactFace {
             min: Point3::new(h.min.x - m.x, h.min.y - m.y, h.min.z - m.z),
             max: Point3::new(h.max.x + m.x, h.max.y + m.y, h.max.z + m.z),
         })
+    }
+
+    /// The largest distance of a point of the triangle `t`, whose corners
+    /// lie on this face, from the face's surface (OI-9974, as the owner
+    /// answered it on 26 Nov 2026). Exact for a plane (the corners'
+    /// distances), a sphere and a cylinder (the radius against the
+    /// triangle's nearest and farthest points from the centre or the axis:
+    /// the distance from them is convex, so the farthest is at a corner).
+    /// For a cone, a torus or a B-spline face it is measured at points
+    /// across the triangle and multiplied by [`SAMPLED_SAFETY`]: a
+    /// measurement, not a proof.
+    pub(crate) fn triangle_error(&self, t: &[Point3; 3]) -> f64 {
+        if let Geometry::Quad(a) = &self.geometry {
+            let ax = &a.ax;
+            let spread = |centre: Point3, tri: &[Point3; 3], r: f64| {
+                let near = distance_to_triangle(centre, tri);
+                let far = tri.iter().map(|p| p.distance(centre)).fold(0.0, f64::max);
+                (r - near).abs().max((far - r).abs())
+            };
+            match a.quad {
+                Quad::Plane => {
+                    return t
+                        .iter()
+                        .map(|p| (*p - ax.o).dot(ax.z).abs())
+                        .fold(0.0, f64::max);
+                }
+                Quad::Sphere { r } => return spread(ax.o, t, r),
+                Quad::Cylinder { r } => {
+                    let flat = t.map(|p| {
+                        let d = p - ax.o;
+                        p + ax.z * (-d.dot(ax.z))
+                    });
+                    return spread(ax.o, &flat, r);
+                }
+                Quad::Cone { .. } | Quad::Torus { .. } => {}
+            }
+        }
+        let mut most = 0.0_f64;
+        let n = SAMPLE_STEPS;
+        for i in 0..=n {
+            for j in 0..=(n - i) {
+                let (a, b) = (f64::from(i) / f64::from(n), f64::from(j) / f64::from(n));
+                let c = 1.0 - a - b;
+                let p = Point3::new(
+                    a * t[0].x + b * t[1].x + c * t[2].x,
+                    a * t[0].y + b * t[1].y + c * t[2].y,
+                    a * t[0].z + b * t[1].z + c * t[2].z,
+                );
+                if let Some(c) = self.closest_within(p, f64::MAX) {
+                    most = most.max(c.distance);
+                }
+            }
+        }
+        most * SAMPLED_SAFETY
     }
 
     /// The face number given by the importer (`BrepFace::id`).
@@ -2122,8 +2217,12 @@ pub struct BrepSurface {
     /// Whether ball drops use the exact faces (decision 0277).
     exact_drops: bool,
     /// The tessellation's stated largest deviation from the faces, mm (the
-    /// import's linear deflection): [`SurfaceSource::tool_gap_accuracy`].
+    /// import's linear deflection).
     deflection: f64,
+    /// Each tessellation triangle's measured error against its face
+    /// ([`ExactFace::triangle_error`]), and the largest of them.
+    triangle_errors: Vec<f64>,
+    largest_error: f64,
 }
 
 impl BrepSurface {
@@ -2183,7 +2282,7 @@ impl BrepSurface {
         } else {
             0.0
         };
-        self
+        self.with_errors()
     }
 
     fn assemble(
@@ -2222,7 +2321,34 @@ impl BrepSurface {
             holes,
             exact_drops: false,
             deflection: 0.0,
+            triangle_errors: Vec::new(),
+            largest_error: 0.0,
         })
+    }
+
+    /// This source with each triangle's error against its face measured.
+    fn with_errors(mut self) -> Self {
+        let by_number: std::collections::BTreeMap<u32, usize> = self
+            .faces
+            .iter()
+            .enumerate()
+            .map(|(i, f)| (f.number(), i))
+            .collect();
+        self.triangle_errors = (0..self.mesh.triangles.len())
+            .map(|i| {
+                let face = self
+                    .face_of_triangle
+                    .get(i)
+                    .and_then(|id| by_number.get(&id.0))
+                    .and_then(|&k| self.faces.get(k));
+                match (face, self.mesh.triangle(i)) {
+                    (Some(f), Some(t)) => f.triangle_error(&t),
+                    _ => self.deflection,
+                }
+            })
+            .collect();
+        self.largest_error = self.triangle_errors.iter().copied().fold(0.0, f64::max);
+        self
     }
 
     /// This source with drops onto the exact faces (`true`) or onto the
@@ -2754,11 +2880,18 @@ impl SurfaceSource for BrepSurface {
         line: &ToolLine,
         query: &crate::gap::GapQuery,
     ) -> Option<crate::gap::ToolGap> {
-        self.fallback.as_ref()?.tool_gap(profile, line, query)
+        let errors = &self.triangle_errors;
+        self.fallback.as_ref()?.tool_gap_with(
+            profile,
+            line,
+            query,
+            &|i| errors.get(i as usize).copied().unwrap_or(self.deflection),
+            self.largest_error,
+        )
     }
 
     fn tool_gap_accuracy(&self) -> f64 {
-        self.deflection
+        self.largest_error
     }
 
     fn drop_accuracy(&self) -> f64 {

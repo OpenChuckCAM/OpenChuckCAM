@@ -69,10 +69,14 @@ const MIN_PIECE: f64 = 1e-9;
 /// A part of a move shorter than this (as a fraction) is not split again.
 const MIN_SPAN: f64 = 1e-9;
 
-/// Rounds over the sides, and golden-section steps for each multiplier, of
+/// The most rounds over the sides, and golden-section steps for each multiplier, of
 /// the dual's search for its best multipliers ([`Body::multipliers`]): any
 /// multipliers give a proven bound, the search only makes it tighter.
-const MULTIPLIER_ROUNDS: u32 = 2;
+const MULTIPLIER_ROUNDS: u32 = 24;
+
+/// A round of the multipliers' search that raises the bound by no more than
+/// this (mm) ends it.
+const MULTIPLIER_GAIN: f64 = 1e-9;
 const MULTIPLIER_STEPS: u32 = 40;
 
 /// Golden-section and bisection steps of the search along a face's normal
@@ -781,13 +785,14 @@ impl<'a> Body<'a> {
         };
         let mut lam = [0.0; 3];
         let low = self.support_point(if highest { at.m } else { -at.m });
-        let beyond: Vec<usize> = (0..3)
-            .filter(|&i| at.sides[i].0.dot(low - Point3::ORIGIN) > at.sides[i].1)
-            .collect();
-        if beyond.is_empty() {
+        if (0..3).all(|i| at.sides[i].0.dot(low - Point3::ORIGIN) <= at.sides[i].1) {
             return lam;
         }
+        // At a corner of the face the best point may press against a side
+        // the free lowest point is not beyond: every side is searched.
+        let beyond = [0, 1, 2];
         let golden = 0.5 * (5.0_f64.sqrt() - 1.0);
+        let mut last = value(&lam);
         for _ in 0..MULTIPLIER_ROUNDS {
             for &i in &beyond {
                 // Concave in the multiplier: golden-section search on its
@@ -823,6 +828,13 @@ impl<'a> Body<'a> {
                     lam = trial;
                 }
             }
+            // One side alone is best in one round; two sides at a corner
+            // need rounds until the bound stops rising.
+            let now = value(&lam);
+            if now - last <= MULTIPLIER_GAIN {
+                break;
+            }
+            last = now;
         }
         lam
     }
@@ -1206,6 +1218,7 @@ pub(crate) fn search(
     triangles: impl IntoIterator<Item = (u32, [Point3; 3])>,
     limit: f64,
     accept: Option<f64>,
+    error: &dyn Fn(u32) -> f64,
 ) -> Option<ToolGap> {
     let accept = accept.filter(|a| a.is_finite()).unwrap_or(f64::INFINITY);
     let mut state = Search {
@@ -1214,6 +1227,7 @@ pub(crate) fn search(
         order: 0,
         best: None,
         limit,
+        error,
     };
     for (i, t) in triangles {
         if !t.iter().all(|p| p.is_finite()) {
@@ -1269,10 +1283,12 @@ pub(crate) fn search(
             state.push([mid, b, c], piece.normal, piece.triangle, piece.span, piece.hint);
         }
     };
-    let (upper, at) = state.best?;
+    // The best was kept less its triangle's error, as the bounds are; the
+    // exact face's value is at most the triangle's plus that error.
+    let (found, at, e) = state.best?;
     (lower <= limit).then_some(ToolGap {
-        lower: lower.min(upper),
-        upper,
+        lower: lower.min(found),
+        upper: found + 2.0 * e,
         at,
     })
 }
@@ -1282,8 +1298,15 @@ struct Search<'a, 'b> {
     body: &'a Body<'b>,
     queue: BinaryHeap<Piece>,
     order: u64,
-    best: Option<(f64, Point3)>,
+    /// The best value found less its triangle's error, its point and that
+    /// error.
+    best: Option<(f64, Point3, f64)>,
     limit: f64,
+    /// Each triangle's largest distance from the exact surface it stands
+    /// for (zero for a mesh, which is its own surface): taken off every
+    /// bound and value over the triangle, so the answer holds the exact
+    /// surface's gap.
+    error: &'a dyn Fn(u32) -> f64,
 }
 
 impl Search<'_, '_> {
@@ -1296,12 +1319,13 @@ impl Search<'_, '_> {
     /// lowest the tool reaches below the face's plane anywhere.
     fn push(&mut self, corners: [Point3; 3], m: Vec3, triangle: u32, span: (f64, f64), hint: f64) {
         let (s0, s1) = span;
+        let e = (self.error)(triangle);
         let centre = centroid(&corners);
         let far = self
             .body
             .far_over(&corners, s0, s1)
             .max(self.body.facing(&corners, centre, s0, s1));
-        if far > self.limit {
+        if far - e > self.limit {
             return;
         }
         let face = Face::new(corners, m);
@@ -1311,7 +1335,8 @@ impl Search<'_, '_> {
         let lower = self
             .body
             .dual_over(face.m, face.d, s0, s1)
-            .max(-self.limit);
+            .max(-self.limit)
+            - e;
         self.order += 1;
         self.queue.push(Piece {
             lower,
@@ -1333,6 +1358,7 @@ impl Search<'_, '_> {
         let face = Face::new(piece.corners, piece.normal);
         let (s0, s1) = piece.span;
         let fm = 0.5 * (s0 + s1);
+        let e = (self.error)(piece.triangle);
         let mut lower = piece.lower;
         let mut hint = piece.hint;
         let mut near: Option<(f64, Point3, f64)> = None;
@@ -1355,7 +1381,7 @@ impl Search<'_, '_> {
             }
             let lam = self.body.multipliers(&face, f, false);
             let (w, c) = face.dual(&lam);
-            lower = lower.max(self.body.dual_over(w, c, s0, s1).max(-self.limit));
+            lower = lower.max(self.body.dual_over(w, c, s0, s1).max(-self.limit) - e);
             if let Some((h, at)) = self.body.found(&face, &lam, f, self.limit)
                 && near.is_none_or(|(b, _, _)| h < b)
             {
@@ -1364,8 +1390,8 @@ impl Search<'_, '_> {
         }
         if let Some((h, at, f)) = near {
             hint = f;
-            if self.best.is_none_or(|(b, _)| h < b) {
-                self.best = Some((h, at));
+            if self.best.is_none_or(|(b, _, _)| h - e < b) {
+                self.best = Some((h - e, at, e));
             }
         }
         Piece {
@@ -1424,21 +1450,24 @@ pub(crate) fn on_mesh(
     profile: &RevolvedProfile,
     line: &ToolLine,
     query: &GapQuery,
+    error: &dyn Fn(u32) -> f64,
+    largest: f64,
 ) -> Option<ToolGap> {
     if !line.origin.is_finite() || !query.limit.is_finite() {
         return None;
     }
     let outline = Outline::new(profile);
     let body = Body::new(&outline, line, query);
-    let near = body.bounds(query.limit);
+    let near = body.bounds(query.limit + largest);
     let triangles = (0..mesh.triangles.len()).filter_map(|i| {
         let t = mesh.triangle(i)?;
         let index = u32::try_from(i).ok()?;
         let b = triangle_bounds(&t);
-        (overlaps(&near, &b) && body.near(&b, query.limit) && body.far_from(&t) <= query.limit)
+        let reach = query.limit + largest;
+        (overlaps(&near, &b) && body.near(&b, reach) && body.far_from(&t) <= reach)
             .then_some((index, t))
     });
-    search(&body, triangles, query.limit, query.accept)
+    search(&body, triangles, query.limit, query.accept, error)
 }
 
 /// The box of a triangle.

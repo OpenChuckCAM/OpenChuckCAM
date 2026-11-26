@@ -772,7 +772,10 @@ fn run(
         leave,
         tolerance,
         chord: CHORD_FACTOR * tolerance,
-        allowed: tolerance - input.surface.tool_gap_accuracy(),
+        // The gap query takes each triangle's own error against the exact
+        // surface off its answer (OI-9974), so the whole tolerance is the
+        // check's.
+        allowed: tolerance,
         outside: radius + 1.0,
         sense,
         zones: &zones,

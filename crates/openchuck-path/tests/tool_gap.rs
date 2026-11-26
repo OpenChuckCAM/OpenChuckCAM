@@ -497,23 +497,37 @@ fn req_op_12_tool_gap_of_a_part_with_a_tab_sees_the_tab() {
 
 #[test]
 fn req_op_12_tool_gap_of_an_exact_part_states_its_tessellation() {
+    // The fixture's cylinder, radius 10, is 96 facets round: each facet's
+    // error against the cylinder is its sagitta, r (1 - cos(pi / 96)),
+    // measured exactly when the source is built (OI-9974), not the import's
+    // stated deflection.
     let model = openchuck_testkit::brep::banded_cylinder(10.0, 20.0, &[]);
     let surface = BrepSurface::new(&model).unwrap();
-    assert_eq!(surface.tool_gap_accuracy(), model.tessellation.linear);
-    // A ball above the cylinder's top line: the gap on the tessellation is
-    // the height above the radius, within the stated deviation.
+    let sagitta = 10.0 * (1.0 - (std::f64::consts::PI / 96.0).cos());
+    assert!(
+        (surface.tool_gap_accuracy() - sagitta).abs() < 1e-9,
+        "{} against {sagitta}",
+        surface.tool_gap_accuracy()
+    );
+    assert!(sagitta < model.tessellation.linear);
+    // A ball above the cylinder's top line: its gap to the exact cylinder
+    // is the tip's height above the radius, and the answer holds it, each
+    // facet's error taken off its bound.
     let g = gap(
         &surface,
         &ball(1.0),
         &line(Point3::new(10.0, 0.0, 10.5), UP),
         Vec3::ZERO,
     );
-    let d = surface.tool_gap_accuracy();
-    assert!(g.lower <= 0.5 + d + 1e-9 && g.upper >= 0.5 - 1e-9, "{g:?}");
-    // A selection of the model's faces states the same accuracy.
+    assert!(
+        g.lower <= 0.5 + 1e-9 && g.upper >= 0.5 - 1e-9,
+        "{g:?} does not hold 0.5"
+    );
+    assert!(g.upper - g.lower <= GAP_ACCURACY + 2.0 * sagitta + 1e-9, "{g:?}");
+    // A selection of the model's faces measures the same.
     let ids: Vec<_> = model.faces.iter().map(|f| f.id).collect();
     let chosen = BrepSurface::with_faces(&model, &ids[..1]).unwrap();
-    assert_eq!(chosen.tool_gap_accuracy(), model.tessellation.linear);
+    assert!((chosen.tool_gap_accuracy() - sagitta).abs() < 1e-9);
 }
 
 #[test]
@@ -718,4 +732,5 @@ proptest! {
         }
     }
 }
+
 

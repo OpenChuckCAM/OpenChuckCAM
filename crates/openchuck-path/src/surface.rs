@@ -230,15 +230,20 @@ pub trait SurfaceSource: Send + Sync + std::fmt::Debug {
         line: &ToolLine,
         query: &GapQuery,
     ) -> Option<ToolGap> {
-        crate::gap::on_mesh(self.tessellation(), profile, line, query)
+        crate::gap::on_mesh(self.tessellation(), profile, line, query, &|_| 0.0, 0.0)
     }
 
-    /// How far, in millimetres, the surface [`tool_gap`](Self::tool_gap)
-    /// answers on may lie from the part's own surface: 0 for a mesh, which
-    /// is its own surface; the tessellation's stated deviation for an exact
-    /// (B-rep) source; the largest chord error of the tessellated solids for
-    /// a part joined to held regions or tabs. A caller takes it off its
-    /// tolerance (decision record SIMUL-EDGE-1, Q2).
+    /// The largest distance, in millimetres, of a triangle
+    /// [`tool_gap`](Self::tool_gap) answers on from the part's own surface:
+    /// 0 for a mesh, which is its own surface; for an exact (B-rep) source,
+    /// the largest of its triangles' errors against their faces, measured
+    /// when the source is built (exact on planes, spheres and cylinders,
+    /// sampled with a safety factor on other faces; OI-9974); the largest
+    /// chord error of the tessellated solids for a part joined to held
+    /// regions or tabs. `tool_gap` already takes each triangle's own error
+    /// off its answer (decision record SIMUL-EDGE-1, Q2 and OI-9974), so a
+    /// caller does not take this off its tolerance; it says how far the
+    /// answer may be from the triangles' own.
     fn tool_gap_accuracy(&self) -> f64 {
         0.0
     }
@@ -504,12 +509,30 @@ impl SurfaceSource for MeshSurface {
         line: &ToolLine,
         query: &GapQuery,
     ) -> Option<ToolGap> {
+        self.tool_gap_with(profile, line, query, &|_| 0.0, 0.0)
+    }
+}
+
+impl MeshSurface {
+    /// The tool gap over this mesh standing for a surface each triangle
+    /// lies within `error` of (by its index), `largest` the most of them:
+    /// each triangle's bounds and values are taken that much lower, so the
+    /// answer holds the surface's gap ([`SurfaceSource::tool_gap`]).
+    pub(crate) fn tool_gap_with(
+        &self,
+        profile: &RevolvedProfile,
+        line: &ToolLine,
+        query: &GapQuery,
+        error: &dyn Fn(u32) -> f64,
+        largest: f64,
+    ) -> Option<ToolGap> {
         if !line.origin.is_finite() || !query.limit.is_finite() {
             return None;
         }
         let outline = crate::gap::Outline::new(profile);
         let body = crate::gap::Body::new(&outline, line, query);
-        let near = body.bounds(query.limit);
+        let reach = query.limit + largest;
+        let near = body.bounds(reach);
         let mut found: Vec<u32> = self
             .bvh
             .bvh()
@@ -519,12 +542,11 @@ impl SurfaceSource for MeshSurface {
                     min: Point3::new(lo.x, lo.y, lo.z),
                     max: Point3::new(hi.x, hi.y, hi.z),
                 };
-                crate::gap::overlaps(&near, &b) && body.near(&b, query.limit)
+                crate::gap::overlaps(&near, &b) && body.near(&b, reach)
             })
             .filter(|i| {
                 self.triangle(*i).is_some_and(|t| {
-                    body.near(&crate::gap::triangle_bounds(&t), query.limit)
-                        && body.far_from(&t) <= query.limit
+                    body.near(&crate::gap::triangle_bounds(&t), reach) && body.far_from(&t) <= reach
                 })
             })
             .collect();
@@ -532,7 +554,7 @@ impl SurfaceSource for MeshSurface {
         let triangles = found
             .into_iter()
             .filter_map(|i| self.triangle(i).map(|t| (i, t)));
-        crate::gap::search(&body, triangles, query.limit, query.accept)
+        crate::gap::search(&body, triangles, query.limit, query.accept, error)
     }
 }
 
