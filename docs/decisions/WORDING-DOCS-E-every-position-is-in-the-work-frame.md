@@ -42,7 +42,6 @@ What the code does today (the inventory has every site):
 - The inventory's strongest finding is that two frames meet in the same sentence: the travel message gives "at X v" in the setup frame and "machine X v" in the machine frame, and a G-code check quotes the work frame for the same position. A rule stated for messages only (A) leaves the fields and the messages disagreeing, which is the case a user meets first (they type a tab and read a warning about it).
 - C removes the need to convert but changes what a stored value means and reverses an accepted record; the mismatch it removes is the one B removes at the edge, without changing a stored value or the G-code.
 - B's risk is a site that prints a raw setup-frame number. The guard answers it: every position goes through one formatter (a function in `openchuck-types` taking the setup frame and returning the work-frame text, with the frame word the exceptions need), and the message check in `xtask` (decision 0536's ratchet) fails on a position-looking `X {` format string that does not use it. The completeness test for exceptions is a list in the code of the exception labels.
-- Complexity, stated as information only: B touches about 66 print sites and the Setup step's fields, and adds the work zero to the input of `openchuck-path`; C touches every stored position.
 
 ## Proposed rule and exceptions
 
@@ -62,6 +61,7 @@ A message that quotes a setup field uses the field's frame, which under B is the
 
 - **Messages only (A or the message half of B):** the position formatter and its guard in `openchuck-types` (or `openchuck-path`), the work zero as an input of `openchuck-path` (a new field on the generation context it already takes), and the app's, the command line's and the interface's own strings.
 - **The setup fields (B):** `openchuck-app` and `openchuck-ui` (the setup form's conversion in and out, the Position row, the workholding panel, the setup sheet, the command line's `setup` options), the tooltips and the user guide pages and screenshots that quote positions.
+- **Scope, as information and not as a reason for or against an option:** B touches about 66 print sites and the Setup step's fields, and adds the work zero to the input of `openchuck-path`; C touches every stored position.
 - **Library impact:** a new input to `openchuck-path` and a new function in `openchuck-types` are API changes; adding a field to a struct that users build by literal is breaking, so the workspace minor version is bumped with a changelog entry (decision 0048; the coordinator assigns the number). The wording of messages is a changed output of `openchuck-path` (a crate changelog line each). `openchuck-gcode` and `openchuck-post` need no change: they are already in the work frame. The G-code does not change.
 - **Lanes (proposed, for the coordinator):**
   - the message formatter, the guard and the path crate's messages: a path-messages lane;
