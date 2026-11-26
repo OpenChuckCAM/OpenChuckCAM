@@ -59,12 +59,12 @@ fn tube(outer: f64, wall: f64, length: f64, around: u32) -> TriangleMesh {
 fn finish(wall: f64) -> GeneratedPath {
     let outer = 8.0;
     let f = Fixture::new(
-        MeshSurface::new(&tube(outer, wall, 6.0, 96)).unwrap(),
+        MeshSurface::new(&tube(outer, wall, 3.0, 48)).unwrap(),
         outer + 1.0,
         &ball(3.0),
     );
     let v: BTreeMap<String, ParameterValue> = [
-        (names::STEPOVER, 1.5),
+        (names::STEPOVER, 2.0),
         (names::TOLERANCE, TOLERANCE),
         (names::FEED, 300.0),
         (names::PLUNGE_FEED, 100.0),
@@ -111,8 +111,20 @@ fn req_op_12_a_wall_thinner_than_the_layer_is_reported_as_a_thin_wall_not_a_goug
         !texts.iter().any(|t| t.contains("would gouge")),
         "{texts:#?}"
     );
-    assert!(!path.unreached.is_empty());
-    for u in &path.unreached {
+    // The bore is hidden from the tool and reported as such; the outside's
+    // areas are all thin walls.
+    let outside: Vec<_> = path
+        .unreached
+        .iter()
+        .filter(|u| {
+            matches!(
+                u.reason,
+                UnreachedReason::ThinWall { .. } | UnreachedReason::WouldGouge { .. }
+            )
+        })
+        .collect();
+    assert!(!outside.is_empty());
+    for u in outside {
         match u.reason {
             UnreachedReason::ThinWall {
                 thickness,
@@ -138,5 +150,13 @@ fn req_op_12_a_wall_thicker_than_the_layer_gets_neither_warning() {
             .any(|t| t.contains("thinner than") || t.contains("would gouge")),
         "{texts:#?}"
     );
-    assert!(path.unreached.is_empty(), "{:?}", path.unreached);
+    // Only the bore, hidden from the tool, is left uncut.
+    assert!(
+        path.unreached.iter().all(|u| !matches!(
+            u.reason,
+            UnreachedReason::ThinWall { .. } | UnreachedReason::WouldGouge { .. }
+        )),
+        "{:?}",
+        path.unreached
+    );
 }

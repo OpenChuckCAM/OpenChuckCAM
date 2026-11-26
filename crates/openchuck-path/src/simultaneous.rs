@@ -1374,7 +1374,12 @@ fn thin_wall_warning(areas: &[crate::assemble::Unreached], tolerance: f64) -> Op
         topic: Some(topic::THIN_WALLS.to_owned()),
         segment: None,
         text: format!(
-            "simultaneous finishing leaves {count} of the part uncut where a wall is thinner              than {} mm (a quarter more than the tolerance of {tolerance} mm): {}. A wall this              thin is unlikely to survive milling, and the tool cannot be proven clear of its far              side, so those moves are left out: check the model there (it may be a modelling              error or a detail too fine to cut), and check these areas in the simulation before              running the program",
+            "simultaneous finishing leaves {count} of the part uncut where a wall is thinner \
+             than {} mm (a quarter more than the tolerance of {tolerance} mm): {}. A wall this \
+             thin is unlikely to survive milling, and the tool cannot be proven clear of its far \
+             side, so those moves are left out: check the model there (it may be a modelling \
+             error or a detail too fine to cut), and check these areas in the simulation before \
+             running the program",
             LAYER * tolerance,
             list.join("; ")
         ),
@@ -2875,7 +2880,8 @@ impl Plan<'_> {
         // allowed. One that fails is halved, then raised at its middle;
         // after that it is left out and the place marked.
         if let Some((cut, deepest, thin)) = self.gouges(a, b) {
-            if depth < MAX_DEPTH + RAISES && out.gouge_splits > 0 {
+            // A thin wall stays thin however the move is split.
+            if thin.is_none() && depth < MAX_DEPTH + RAISES && out.gouge_splits > 0 {
                 out.gouge_splits -= 1;
                 let split = match middle {
                     Some(m) if depth < MAX_DEPTH => Some(m),
