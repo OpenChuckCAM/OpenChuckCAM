@@ -69,15 +69,14 @@ const MIN_PIECE: f64 = 1e-9;
 /// A part of a move shorter than this (as a fraction) is not split again.
 const MIN_SPAN: f64 = 1e-9;
 
-/// The most rounds over the sides, and golden-section steps for each multiplier, of
-/// the dual's search for its best multipliers ([`Body::multipliers`]): any
-/// multipliers give a proven bound, the search only makes it tighter.
-const MULTIPLIER_ROUNDS: u32 = 24;
+/// Bisection steps for each side's multiplier in the dual's search for its
+/// best multipliers ([`Body::multipliers`]): any multipliers give a proven
+/// bound, the search only makes it tighter.
+const MULTIPLIER_STEPS: u32 = 60;
 
-/// A round of the multipliers' search that raises the bound by no more than
-/// this (mm) ends it.
-const MULTIPLIER_GAIN: f64 = 1e-9;
-const MULTIPLIER_STEPS: u32 = 40;
+/// The largest multiplier searched for: a side that needs more has the tool
+/// all but beyond it.
+const MAX_MULTIPLIER: f64 = 1e9;
 
 /// Golden-section and bisection steps of the search along a face's normal
 /// for the lowest tool point there ([`Body::column`]): it only finds a real
@@ -768,75 +767,129 @@ impl<'a> Body<'a> {
     }
 
     /// The best multipliers for the dual bound of the lowest point of the
-    /// tool at the fraction `f` over the face's prism (see [`Face`]): the
-    /// unconstrained lowest point when its foot is on the face, else a
-    /// search over the sides it lies beyond, each multiplier in turn. With
-    /// `highest`, the same for the highest point (see [`Face::dual_top`]).
+    /// tool at the fraction `f` over the face's prism (see [`Face`]); with
+    /// `highest`, of the highest point (the same problem on the face turned
+    /// over, see [`Face::dual_top`]).
+    ///
+    /// The lowest point over the prism is the tool's free lowest point when
+    /// its foot is on the face (no multipliers); otherwise it lies against
+    /// one side, where the one multiplier is the root of the dual's slope
+    /// (how far the dual's lowest point lies beyond the side), or on the
+    /// column at a corner, where the tool's normal there gives the two. The
+    /// candidate whose dual bound is highest is taken: every candidate's
+    /// multipliers give a proven bound, the right one the exact least.
     fn multipliers(&self, face: &Face, f: f64, highest: bool) -> [f64; 3] {
-        let at = self.face_at(face, f);
+        let mut at = self.face_at(face, f);
+        if highest {
+            at = at.turned_over();
+        }
         let value = |lam: &[f64; 3]| {
-            if highest {
-                let (v, c) = at.dual_top(lam);
-                self.lowest_first(-v) + c
-            } else {
-                let (w, c) = at.dual(lam);
-                self.lowest_first(w) - c
+            let (w, c) = at.dual(lam);
+            self.lowest_first(w) - c
+        };
+        let beyond = |y: Point3, i: usize| at.sides[i].0.dot(y - Point3::ORIGIN) - at.sides[i].1;
+        let low = self.support_point(-at.m);
+        if (0..3).all(|i| beyond(low, i) <= 0.0) {
+            return [0.0; 3];
+        }
+        let mut best = ([0.0; 3], value(&[0.0; 3]));
+        let mut consider = |lam: [f64; 3]| {
+            if lam.iter().all(|l| l.is_finite() && *l >= 0.0) {
+                let v = value(&lam);
+                if v > best.1 {
+                    best = (lam, v);
+                }
             }
         };
-        let mut lam = [0.0; 3];
-        let low = self.support_point(if highest { at.m } else { -at.m });
-        if (0..3).all(|i| at.sides[i].0.dot(low - Point3::ORIGIN) <= at.sides[i].1) {
-            return lam;
+        // Against one side: the slope of the dual in its multiplier is how
+        // far the dual's lowest point lies beyond the side, and it falls as
+        // the multiplier grows (the dual is concave).
+        for i in 0..3 {
+            let n = at.sides[i].0;
+            let slope = |l: f64| beyond(self.support_point(-(at.m + n * l)), i);
+            if slope(0.0) <= 0.0 {
+                continue;
+            }
+            let mut hi = 1e-3_f64;
+            while slope(hi) > 0.0 && hi < MAX_MULTIPLIER {
+                hi *= 4.0;
+            }
+            let mut lo = 0.0_f64;
+            for _ in 0..MULTIPLIER_STEPS {
+                let mid = 0.5 * (lo + hi);
+                if slope(mid) > 0.0 {
+                    lo = mid;
+                } else {
+                    hi = mid;
+                }
+            }
+            // The dual is flat across the kink where the lowest point
+            // jumps; either end of the last bracket may be the better.
+            for l in [lo, hi] {
+                let mut lam = [0.0; 3];
+                lam[i] = l;
+                consider(lam);
+            }
         }
-        // At a corner of the face the best point may press against a side
-        // the free lowest point is not beyond: every side is searched.
-        let beyond = [0, 1, 2];
+        // On the column at a corner: the tool's outward normal there,
+        // written as -(m + λi ni + λj nj) scaled, gives both multipliers.
+        for k in 0..3 {
+            let (i, j) = ((k + 2) % 3, k);
+            let x = at.corners[k];
+            if let Some((_, y)) = self.column_first(&at, x) {
+                let normal = self.at_first(y).1;
+                if let Some(l) = corner_multipliers(-normal, at.m, at.sides[i].0, at.sides[j].0) {
+                    let mut lam = [0.0; 3];
+                    lam[i] = l.0;
+                    lam[j] = l.1;
+                    consider(lam);
+                }
+            }
+        }
+        best.0
+    }
+
+    /// The lowest point of the tool at its first pose on the line through
+    /// the point `x` along the face's normal (both in the tool's frame), and
+    /// its height: as [`column`](Self::column) without the layer.
+    fn column_first(&self, at: &Face, x: Point3) -> Option<(f64, Point3)> {
+        let m = at.m;
+        let sd = |t: f64| self.at_first(x + m * t).0;
+        let reach = x.distance(self.tip) + self.outline.top.abs() + self.outline.radius + 1.0;
         let golden = 0.5 * (5.0_f64.sqrt() - 1.0);
-        let mut last = value(&lam);
-        for _ in 0..MULTIPLIER_ROUNDS {
-            for &i in &beyond {
-                // Concave in the multiplier: golden-section search on its
-                // angle, tan t from 0 to nearly a right angle.
-                let at_t = |t: f64, lam: &[f64; 3]| {
-                    let mut l = *lam;
-                    l[i] = t.tan();
-                    value(&l)
-                };
-                let (mut a, mut b) = (0.0_f64, std::f64::consts::FRAC_PI_2 - 1e-6);
-                let mut c = b - golden * (b - a);
-                let mut d = a + golden * (b - a);
-                let (mut fc, mut fd) = (at_t(c, &lam), at_t(d, &lam));
-                for _ in 0..MULTIPLIER_STEPS {
-                    if fc >= fd {
-                        b = d;
-                        d = c;
-                        fd = fc;
-                        c = b - golden * (b - a);
-                        fc = at_t(c, &lam);
-                    } else {
-                        a = c;
-                        c = d;
-                        fc = fd;
-                        d = a + golden * (b - a);
-                        fd = at_t(d, &lam);
-                    }
-                }
-                let best = if fc >= fd { c } else { d };
-                let mut trial = lam;
-                trial[i] = best.tan();
-                if value(&trial) > value(&lam) {
-                    lam = trial;
-                }
+        let (mut a, mut b) = (-reach, reach);
+        let mut c = b - golden * (b - a);
+        let mut d = a + golden * (b - a);
+        let (mut fc, mut fd) = (sd(c), sd(d));
+        for _ in 0..COLUMN_STEPS {
+            if fc <= fd {
+                b = d;
+                d = c;
+                fd = fc;
+                c = b - golden * (b - a);
+                fc = sd(c);
+            } else {
+                a = c;
+                c = d;
+                fc = fd;
+                d = a + golden * (b - a);
+                fd = sd(d);
             }
-            // One side alone is best in one round; two sides at a corner
-            // need rounds until the bound stops rising.
-            let now = value(&lam);
-            if now - last <= MULTIPLIER_GAIN {
-                break;
-            }
-            last = now;
         }
-        lam
+        let (inner, deepest) = if fc <= fd { (c, fc) } else { (d, fd) };
+        if deepest > 0.0 {
+            return None;
+        }
+        let (mut out, mut inn) = (-reach, inner);
+        for _ in 0..COLUMN_STEPS {
+            let mid = 0.5 * (out + inn);
+            if sd(mid) <= 0.0 {
+                inn = mid;
+            } else {
+                out = mid;
+            }
+        }
+        Some((inn, x + m * inn))
     }
 
     /// The constant and the three parts (`k0 + x cos(f θ) + y sin(f θ)`) of
@@ -1018,6 +1071,16 @@ impl Face {
         (w, c)
     }
 
+    /// The face turned over: the highest point over it is the lowest over
+    /// this, its normal and plane negated, its sides the same.
+    fn turned_over(&self) -> Self {
+        Self {
+            m: -self.m,
+            d: -self.d,
+            ..*self
+        }
+    }
+
     /// The direction and constant for the multipliers `mu` of the bound on
     /// the highest point: over the face's prism, the most of `m . y` over
     /// the tool is at most the most of `(m - Σ μ n) . y` over the whole
@@ -1041,6 +1104,20 @@ impl Face {
             .iter()
             .all(|(n, b)| n.dot(x - Point3::ORIGIN) <= b + scale)
     }
+}
+
+/// The multipliers `(λi, λj)` with `v` along `m + λi ni + λj nj` (`ni`,
+/// `nj` square to `m`): `v`'s parts along the three, from the 3 by 3 system,
+/// scaled to `m`'s; `None` where `v` does not face along `m`.
+fn corner_multipliers(v: Vec3, m: Vec3, ni: Vec3, nj: Vec3) -> Option<(f64, f64)> {
+    let det = m.dot(ni.cross(nj));
+    if det.abs() < 1e-12 {
+        return None;
+    }
+    let a = v.dot(ni.cross(nj)) / det;
+    let b = m.dot(v.cross(nj)) / det;
+    let c = m.dot(ni.cross(v)) / det;
+    (a > 1e-12).then(|| (b / a, c / a))
 }
 
 /// The vector `v` turned by `a` radians about the unit vector `n`
