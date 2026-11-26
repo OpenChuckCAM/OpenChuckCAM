@@ -781,6 +781,46 @@ pub(crate) const SAMPLED_SAFETY: f64 = 2.0;
 /// sampled at.
 const SAMPLE_STEPS: u32 = 6;
 
+/// The most of `|f|` at points spread over the triangle `t`
+/// ([`SAMPLE_STEPS`] along each side).
+fn sampled(t: &[Point3; 3], f: impl Fn(Point3) -> f64) -> f64 {
+    let n = SAMPLE_STEPS;
+    let mut most = 0.0_f64;
+    for i in 0..=n {
+        for j in 0..=(n - i) {
+            let (a, b) = (f64::from(i) / f64::from(n), f64::from(j) / f64::from(n));
+            let p = t[0] + (t[1] - t[0]) * a + (t[2] - t[0]) * b;
+            most = most.max(f(p).abs());
+        }
+    }
+    most
+}
+
+/// The least of the convex function `f` over `[a, b]`, by golden-section
+/// search to the last bit that matters.
+fn golden_least(f: impl Fn(f64) -> f64, mut a: f64, mut b: f64) -> f64 {
+    let g = 0.5 * (5.0_f64.sqrt() - 1.0);
+    let mut c = b - g * (b - a);
+    let mut d = a + g * (b - a);
+    let (mut fc, mut fd) = (f(c), f(d));
+    for _ in 0..60 {
+        if fc <= fd {
+            b = d;
+            d = c;
+            fd = fc;
+            c = b - g * (b - a);
+            fc = f(c);
+        } else {
+            a = c;
+            c = d;
+            fc = fd;
+            d = a + g * (b - a);
+            fd = f(d);
+        }
+    }
+    fc.min(fd).min(f(a)).min(f(b))
+}
+
 /// The distance from `p` to the triangle `t`, which may be degenerate (a
 /// cylinder's triangle seen along its axis): the nearest of its sides, or
 /// zero inside it.
@@ -1195,10 +1235,10 @@ impl ExactFace {
     /// answered it on 26 Nov 2026). Exact for a plane (the corners'
     /// distances), a sphere and a cylinder (the radius against the
     /// triangle's nearest and farthest points from the centre or the axis:
-    /// the distance from them is convex, so the farthest is at a corner).
-    /// For a cone, a torus or a B-spline face it is measured at points
-    /// across the triangle and multiplied by [`SAMPLED_SAFETY`]: a
-    /// measurement, not a proof.
+    /// the distance from them is convex, so the farthest is at a corner),
+    /// and a cone (see below). For a torus (its own closed-form distance)
+    /// and a B-spline face it is measured at points across the triangle and
+    /// multiplied by [`SAMPLED_SAFETY`]: a measurement, not a proof.
     pub(crate) fn triangle_error(&self, t: &[Point3; 3]) -> f64 {
         if let Geometry::Quad(a) = &self.geometry {
             let ax = &a.ax;
@@ -1222,26 +1262,57 @@ impl ExactFace {
                     });
                     return spread(ax.o, &flat, r);
                 }
-                Quad::Cone { .. } | Quad::Torus { .. } => {}
-            }
-        }
-        let mut most = 0.0_f64;
-        let n = SAMPLE_STEPS;
-        for i in 0..=n {
-            for j in 0..=(n - i) {
-                let (a, b) = (f64::from(i) / f64::from(n), f64::from(j) / f64::from(n));
-                let c = 1.0 - a - b;
-                let p = Point3::new(
-                    a * t[0].x + b * t[1].x + c * t[2].x,
-                    a * t[0].y + b * t[1].y + c * t[2].y,
-                    a * t[0].z + b * t[1].z + c * t[2].z,
-                );
-                if let Some(c) = self.closest_within(p, f64::MAX) {
-                    most = most.max(c.distance);
+                Quad::Cone { r, a: half } => {
+                    // The radial distance less the cone's radius at the
+                    // height, g = ρ - (r + h tan a), is convex (ρ is), so its
+                    // most over the triangle is at a corner and its least is
+                    // found by golden-section searches nested along the two
+                    // barycentric directions (a convex function's least
+                    // along a line is convex in the line's position). A
+                    // point's distance from the cone is |g| cos a.
+                    let tan = half.tan();
+                    let g = |p: Point3| {
+                        let d = p - ax.o;
+                        let h = d.dot(ax.z);
+                        (d - ax.z * h).length() - (r + h * tan)
+                    };
+                    let most = t.iter().map(|p| g(*p)).fold(f64::NEG_INFINITY, f64::max);
+                    let at = |s: f64, u: f64| {
+                        let (a, b) = (s * (1.0 - u), s * u);
+                        g(t[0] + (t[1] - t[0]) * a + (t[2] - t[0]) * b)
+                    };
+                    let inner = |s: f64| golden_least(|u| at(s, u), 0.0, 1.0);
+                    let least = golden_least(inner, 0.0, 1.0).min(most);
+                    return most.abs().max(least.abs()) * half.cos();
+                }
+                Quad::Torus { major, minor } => {
+                    return sampled(t, |p| {
+                        let d = p - ax.o;
+                        let h = d.dot(ax.z);
+                        ((d - ax.z * h).length() - major).hypot(h) - minor
+                    })
+                    .abs()
+                        * SAMPLED_SAFETY;
                 }
             }
         }
-        most * SAMPLED_SAFETY
+        sampled(t, |p| self.surface_distance(p).unwrap_or(0.0)) * SAMPLED_SAFETY
+    }
+
+    /// The distance from `p` to the face's surface, its trims left out: a
+    /// tessellation triangle may reach a hair past a trim, where the
+    /// distance to the trimmed face would be to its boundary, not its
+    /// surface.
+    fn surface_distance(&self, p: Point3) -> Option<f64> {
+        let cands = match &self.geometry {
+            Geometry::Quad(a) => self.quad_candidates(a, p),
+            Geometry::Nurbs(n, g) => self.nurbs_candidates(n, g, p),
+        };
+        cands
+            .iter()
+            .map(|c| c.0)
+            .filter(|d| d.is_finite())
+            .min_by(f64::total_cmp)
     }
 
     /// The face number given by the importer (`BrepFace::id`).
