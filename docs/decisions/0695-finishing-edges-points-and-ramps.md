@@ -497,3 +497,19 @@ Updated in place: OI-318 and OI-337 (the blisk now generates and cuts its blade 
     - a whole ring's depth per traverse is reported as the mean per turn;
     - two test precisions.
 - **Open items:** OI-2232 and OI-2238 close with this pull request. OI-2239 (whole rings and the axis) stays open for the owner.
+
+## Verification (PQ-4, pull request #928)
+
+- **What was built (Q6 A):** helical finishing as a spiral, with adaptive spacing on, now measures the gaps between its wraps only where the whole gap is outside the held regions' keep-out bands and more than the tool's reach from each face turn (decision 0297). It no longer spends its query budget inside the held region or across a step wall, where a flat end's height jumps from one wrap to the next and no spacing removes it. Rings, and every operation with adaptive spacing off, are unchanged. No API change.
+- **Built differently from the record:** Q6 A's third item, naming the frame ("setup X") in the message, was not built. No other message, the Results or the guide names a frame for X, and the places that misled are no longer reported. It is raised as OI-2237.
+- **How:** tests first.
+  - `adaptive_held_steps::req_op_04_req_set_09_adaptive_spacing_beside_a_held_step_confirms_a_flat_end` and `adaptive_held_steps::req_op_04_adaptive_spacing_at_step_walls_confirms_a_flat_end` use a synthetic stepped cylinder of r 10/8/6 with a 3.175 mm flat end. Both failed on `main` `aadf3cc8` with "at 36 places, the first near X 21.585", and both pass. Together they take 0.26 s.
+  - The unit test `helical::tests::req_op_04_req_set_09_the_helix_is_measured_only_outside_bands_and_face_turns`.
+- **Results (OI-2198's case, the stepped first-cut part with the flat end, `openchuck-cli regenerate` and `simulate`):**
+  - With adaptive spacing on: no partial path, and no passes added, in 8 s, against 44 s and 23 unconfirmed places before.
+  - With adaptive spacing off: the program is byte-identical.
+  - The simulations of the two programs are the same: Finish removes 363.4 mm³, the most material left is 0.5018 mm at X 115.990 beside the held region, and the deepest overcut is 0.0457 mm.
+  - No golden changes.
+- **Coverage:** 51 of the 52 changed lines in `helical.rs` are run. The one not run is the branch for a helix with nothing left to measure.
+- **Not verified:** nothing was cut or air-cut.
+- **Open items:** OI-2198 closes; OI-2237 is open.
