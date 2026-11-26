@@ -2993,6 +2993,47 @@ fn req_op_11_a_new_operation_allows_single_point_plunge_and_a_steeper_ramp_near_
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
+#[test]
+fn req_op_04_finish_to_a_point_is_on_for_a_new_operation_and_off_for_a_saved_one() {
+    // Decision 0695, Q2 (a) A, the owner's answer: a new helical, axial or
+    // indexed finishing operation is written with Finish to a point on, so
+    // a part that ends in a point is cut to the point; one saved without
+    // it reads the schema's default, off, and keeps its program (decision
+    // 0545 D3's pattern). Strategies without the setting get none.
+    use openchuck_path::finishing::parameter::FINISH_TO_A_POINT;
+    let (dir, mut app, op) = project("point-defaults");
+    let setup = app.project().operation(op).unwrap().setup;
+    let tool = app.project().operation(op).unwrap().tool;
+    let value = |app: &Application, id, name: &str| {
+        app.project()
+            .operation(id)
+            .unwrap()
+            .parameters
+            .get(name)
+            .cloned()
+    };
+    for strategy in ["helical_finishing", "axial_finishing", "indexed_finishing"] {
+        let added = app.add_operation(strategy, strategy, setup, tool).unwrap();
+        assert_eq!(
+            value(&app, added, FINISH_TO_A_POINT),
+            Some(ParameterValue::Flag(true)),
+            "{strategy}"
+        );
+    }
+    for strategy in [
+        "rotary_roughing",
+        "simultaneous_finishing",
+        "rest_machining",
+    ] {
+        let added = app.add_operation(strategy, strategy, setup, tool).unwrap();
+        assert_eq!(value(&app, added, FINISH_TO_A_POINT), None, "{strategy}");
+    }
+    // The operation the project was made with stands for one saved before:
+    // without the setting, so off.
+    assert_eq!(value(&app, op, FINISH_TO_A_POINT), None);
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
 /// Decision 0695, Q9 (the owner's answer B, with A's
 /// regrouping): the basic entry settings (Entry, Ramp angle and Plunge where
 /// no ramp fits, stored as before as `allow_single_point_plunge`) stay in

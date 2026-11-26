@@ -129,7 +129,7 @@ The Geometry section also warns when a set cannot be used by this strategy on th
 Extend past the stock
 : **Neither end**, **Both ends**, **Start end** or **Far end**. Carries the passes past the chosen ends of the stock, so the tool leaves no thin skin at the stock's edge. The start end is the low X end. An end held by the chuck cannot be extended past. Rotary roughing, facing, and helical, axial and indexed finishing. On helical finishing the passes carry on past the part in their own motion: the spiral at its pitch, or rings at the ring spacing joined by the operation's **Steps between rings**, so the stock past the part's end is cut all round. That takes as many extra turns at each end as the pitch fits into the distance from the part's end to the extended end, which can be many turns at a fine pitch; the operation's note gives the turns and the length of path added.
 
-: Past the part's end the passes run on at the height of the pass's last point; they do not go down to the rotary axis. Where the part's end is narrower than the tool can follow, such as a point or a dome, a core of stock that wide stays past the end. On the tutorial's baluster, with 4 mm of stock past its pointed finial and a 3.175 mm ball, the core is about 5.3 mm across. **Face free ends** (on by default) takes that end down to the axis, with a **Part cut free** warning to acknowledge, because the stock past the end can come free and be thrown; a Facing operation with the **Unheld end** shape also removes the stock past the end. Even then a blunt nub can stay at a point, about as wide as the core and about 1 mm long. The simulation measures the material left on the part's surface, so its figures do not count stock past the part's end: look at the cut stock in the view.
+: Past the part's end the passes run on at the height of the pass's last point; they do not go down to the rotary axis. Where the part's end is narrower than the tool can follow, such as a point or a dome, a core of stock that wide stays past the end. On the tutorial's baluster, with 4 mm of stock past its pointed finial and a 3.175 mm ball, the core is about 5.3 mm across. **Face free ends** (on by default) takes that end down to the axis, with a **Part cut free** warning to acknowledge, because the stock past the end can come free and be thrown; a Facing operation with the **Unheld end** shape also removes the stock past the end. Even then a blunt nub can stay at a point, about as wide as the core and about 1 mm long, unless **Finish to a point** is on. The simulation measures the material left on the part's surface, so its figures do not count stock past the part's end: look at the cut stock in the view.
 
 Steps between rings
 : With **Passes** set to **Rings**: **Sharp** steps along the part with A held still, a square corner at each end of the step; **Blended**, the default for new operations, moves to the next ring while A turns on by **Blend over** (default 45°, more than 0 and at most 180), so the tool eases across instead of turning into the uncut wall. Blended keeps the load nearer the stepover and makes each ring's path a little longer (about an eighth at 45°). An operation saved before this setting keeps sharp steps. Rotary roughing (continuous, around the part), round facing, helical finishing, rest machining, simultaneous finishing (spiral pattern), and face flow finishing on a face that closes round on itself. Beside a held region the rings start on a whole ring at the edge of the region the tool must keep out of.
@@ -151,6 +151,9 @@ Links between passes
 
 Pass order
 : **By region**, the default for new operations, cuts the turns at end faces and the passes on hidden surfaces next to the passes of their region; **After main passes** cuts them after all the main passes. The passes are the same either way. Helical and simultaneous finishing, and rest machining.
+
+Finish to a point
+: On for a new operation; off for one saved before it existed, which keeps its program. Helical, axial and indexed finishing. Where the part ends in a point inside the stock (narrower than the tool at its end, such as the tutorial's finial), the finish carries on past the end, following the part down, until the tool reaches the rotary axis: a ball's centre on the axis, one tool radius past the point. Where the end is narrower than the tool but not on the axis, whole turns at that place take the tool down by the **Stepdown** to the axis. This cuts the part free of the stock past the point, so a **Part cut free** warning says so, and the part's own one is to acknowledge unless a held region on the part's side holds it. Where **Face free ends** also acts at that end, its turns are cut first. A point beside a tab or inside a held region is not cut to. With **Adaptive spacing** on, the material left past the point is measured too, and passes are added there where they are needed. **Extend past the stock** is unchanged.
 
 Face free ends
 : On by default. At each end face of the part with nothing beyond it, the tool steps down beside the face by the **Stepdown**, so the face keeps only the stock to leave. Helical and axial finishing, and rest machining. See [A free end deeper than the flutes](#a-free-end-deeper-than-the-flutes).
@@ -212,7 +215,7 @@ Follows the surface in a spiral round the part as the tool moves along it: a gen
 | Scallop height / Allowed excess | 0 / 0.01 mm | See [the shared settings](#settings-some-strategies-share). |
 | Passes | Spiral | **Spiral** or **Rings** (one full turn at a time, at the start angle). |
 
-Also: **Exact STEP surface contact** (on), **Extend past the stock**, **Face free ends**, **Finishing layers**, **Adaptive spacing**, **Pass order** and **Links between passes**.
+Also: **Exact STEP surface contact** (on), **Extend past the stock**, **Face free ends**, **Finish to a point**, **Finishing layers**, **Adaptive spacing**, **Pass order** and **Links between passes**.
 
 ## Axial finishing
 
@@ -225,7 +228,7 @@ Passes along the length of the part, turning it a small step between passes. Use
 | Scallop height / Allowed excess | 0 / 0.01 mm | See [the shared settings](#settings-some-strategies-share). |
 | Largest step along X | 1 mm | The most X may advance between two points of a pass. |
 
-Also: **Exact STEP surface contact** (off), **Links between passes**, **Extend past the stock**, **Face free ends**, **Finishing layers** and **Adaptive spacing**.
+Also: **Exact STEP surface contact** (off), **Links between passes**, **Extend past the stock**, **Face free ends**, **Finish to a point**, **Finishing layers** and **Adaptive spacing**.
 
 ## Indexed finishing
 
@@ -239,7 +242,7 @@ Turns the part to each chosen angle, holds it still, and follows the surface alo
 | Direction | Zig-zag | As for axial finishing. |
 | Largest step along X | 1 mm | As for axial finishing. |
 
-Also: **Exact STEP surface contact** (on), **Links between passes**, **Extend past the stock**, **Finishing layers** and **Adaptive spacing**. It has no Scallop height and no Face free ends.
+Also: **Exact STEP surface contact** (on), **Links between passes**, **Extend past the stock**, **Finish to a point**, **Finishing layers** and **Adaptive spacing**. It has no Scallop height and no Face free ends.
 
 ## Simultaneous 4-axis finishing
 
