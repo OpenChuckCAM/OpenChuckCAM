@@ -969,7 +969,13 @@ fn req_op_12_face_gap_of_a_ball_above_and_into_a_plane() {
     let t = ConvexTool::new(&ball2()).unwrap();
     for h in [0.4, 0.0, -0.05, -0.3] {
         let b = g
-            .face_gap(&t, Point3::new(0.3, -0.2, h), Vec3::new(0.0, 0.0, 1.0), 1.0, &face_settings())
+            .face_gap(
+                &t,
+                Point3::new(0.3, -0.2, h),
+                Vec3::new(0.0, 0.0, 1.0),
+                1.0,
+                &face_settings(),
+            )
             .unwrap();
         holds_face(&b, h);
     }
@@ -984,7 +990,13 @@ fn req_op_12_face_gap_of_a_tilted_flat_end_is_its_corner_below_the_plane() {
     let a = 30.0_f64.to_radians();
     for h in [0.8, 0.2] {
         let b = g
-            .face_gap(&t, Point3::new(0.0, 0.0, h), Vec3::new(a.sin(), 0.0, a.cos()), 1.0, &face_settings())
+            .face_gap(
+                &t,
+                Point3::new(0.0, 0.0, h),
+                Vec3::new(a.sin(), 0.0, a.cos()),
+                1.0,
+                &face_settings(),
+            )
             .unwrap();
         holds_face(&b, h - a.sin());
     }

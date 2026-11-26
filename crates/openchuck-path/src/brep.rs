@@ -1330,6 +1330,21 @@ impl ExactFace {
             .min_by(f64::total_cmp)
     }
 
+    /// The closest point to `p` on the face's surface, ignoring its trim
+    /// (refinement places new points on a boundary edge on both faces'
+    /// surfaces; a polygonal trim would hold such a point off the curve).
+    pub(crate) fn on_surface(&self, p: Point3) -> Option<Point3> {
+        let cands = match &self.geometry {
+            Geometry::Quad(a) => self.quad_candidates(a, p),
+            Geometry::Nurbs(n, g) => self.nurbs_candidates(n, g, p),
+        };
+        cands
+            .iter()
+            .filter(|c| c.0.is_finite())
+            .min_by(|a, b| a.0.total_cmp(&b.0))
+            .and_then(|c| self.eval(c.1, c.2))
+    }
+
     /// The face number given by the importer (`BrepFace::id`).
     pub fn number(&self) -> u32 {
         self.number
@@ -2309,6 +2324,9 @@ pub struct BrepSurface {
     /// ([`ExactFace::triangle_error`]), and the largest of them.
     triangle_errors: Vec<f64>,
     largest_error: f64,
+    /// The tessellation refined for a target error, kept per target (the
+    /// bits of the target): built on the first gap query that needs it.
+    refined: std::sync::Mutex<Vec<(u64, std::sync::Arc<(crate::refine::Refined, MeshSurface)>)>>,
 }
 
 impl BrepSurface {
@@ -2409,7 +2427,34 @@ impl BrepSurface {
             deflection: 0.0,
             triangle_errors: Vec::new(),
             largest_error: 0.0,
+            refined: std::sync::Mutex::new(Vec::new()),
         })
+    }
+
+    /// The tessellation refined until each triangle is within `target` of
+    /// its face ([`crate::refine`]), built once per target and kept; `None`
+    /// when the refined mesh cannot be indexed.
+    fn refined_for(
+        &self,
+        target: f64,
+    ) -> Option<std::sync::Arc<(crate::refine::Refined, MeshSurface)>> {
+        let key = target.to_bits();
+        let mut kept = self.refined.lock().ok()?;
+        if let Some((_, r)) = kept.iter().find(|(k, _)| *k == key) {
+            return Some(std::sync::Arc::clone(r));
+        }
+        let r = crate::refine::refine(
+            &self.faces,
+            &self.mesh,
+            &self.face_of_triangle,
+            &self.triangle_errors,
+            target,
+            self.deflection,
+        );
+        let surface = MeshSurface::new(&r.mesh).ok()?;
+        let made = std::sync::Arc::new((r, surface));
+        kept.push((key, std::sync::Arc::clone(&made)));
+        Some(made)
     }
 
     /// This source with each triangle's error against its face measured.
@@ -2423,16 +2468,16 @@ impl BrepSurface {
         // Each triangle alone, in input order (NFR-06).
         let indices: Vec<usize> = (0..self.mesh.triangles.len()).collect();
         self.triangle_errors = crate::parallel::map_in_order(&indices, |&i| {
-                let face = self
-                    .face_of_triangle
-                    .get(i)
-                    .and_then(|id| by_number.get(&id.0))
-                    .and_then(|&k| self.faces.get(k));
-                match (face, self.mesh.triangle(i)) {
-                    (Some(f), Some(t)) => f.triangle_error(&t),
-                    _ => self.deflection,
-                }
-            });
+            let face = self
+                .face_of_triangle
+                .get(i)
+                .and_then(|id| by_number.get(&id.0))
+                .and_then(|&k| self.faces.get(k));
+            match (face, self.mesh.triangle(i)) {
+                (Some(f), Some(t)) => f.triangle_error(&t),
+                _ => self.deflection,
+            }
+        });
         self.largest_error = self.triangle_errors.iter().copied().fold(0.0, f64::max);
         self
     }
@@ -2966,6 +3011,22 @@ impl SurfaceSource for BrepSurface {
         line: &ToolLine,
         query: &crate::gap::GapQuery,
     ) -> Option<crate::gap::ToolGap> {
+        // A quarter of the limit (the caller's tolerance) is what each
+        // triangle may be from its face (OI-9974, the owner's answer of 26
+        // Nov 2026): a tessellation further than that is refined first.
+        let target = 0.25 * query.limit;
+        if target.is_finite() && target > 0.0 && self.largest_error > target {
+            if let Some(refined) = self.refined_for(target) {
+                let (r, surface) = &*refined;
+                return surface.tool_gap_with(
+                    profile,
+                    line,
+                    query,
+                    &|i| r.errors.get(i as usize).copied().unwrap_or(self.deflection),
+                    r.largest,
+                );
+            }
+        }
         let errors = &self.triangle_errors;
         self.fallback.as_ref()?.tool_gap_with(
             profile,

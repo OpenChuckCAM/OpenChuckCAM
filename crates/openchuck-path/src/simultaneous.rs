@@ -1173,7 +1173,11 @@ fn axis_turn(
         let (s, c) = angle.sin_cos();
         (point + along + (q - along) * c + axis.get().cross(q) * s).distance(to)
     };
-    let angle = if probe(turn) <= probe(-turn) { turn } else { -turn };
+    let angle = if probe(turn) <= probe(-turn) {
+        turn
+    } else {
+        -turn
+    };
     Some(crate::gap::Rotation { point, axis, angle })
 }
 

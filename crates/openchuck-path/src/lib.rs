@@ -101,6 +101,7 @@ pub mod parallel;
 pub mod params;
 pub mod pencil;
 pub mod program;
+mod refine;
 pub mod region;
 pub mod rest;
 pub mod rotary;

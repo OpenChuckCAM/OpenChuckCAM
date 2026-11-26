@@ -1,0 +1,464 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+//! A STEP part's tessellation refined until every triangle lies within a
+//! target of its exact face (OI-9974, as the project owner answered it on
+//! 26 Nov 2026: refine at load, then re-check against the exact faces only
+//! where still needed; decision record SIMUL-EDGE-1, Q2).
+//!
+//! The importer's tessellation can lie further from the faces than its
+//! stated deflection (decision 0003): on the public blisk, up to 0.043 mm
+//! from its cones at a stated 0.01 mm. The tool gap takes each triangle's
+//! error off its bounds, so a triangle whose error is near the tolerance
+//! leaves nothing to prove a cut with. Here every triangle whose measured
+//! error is over the target is split, its new points on the exact face, in
+//! rounds until each is within the target.
+//!
+//! **No cracks.** A crack between triangles would hide part of the face from
+//! the gap. Triangles are split by longest-edge bisection (Rivara's LEPP): a
+//! triangle and its neighbour across its longest edge are split together at
+//! that edge's midpoint, the neighbour first brought to share it as its own
+//! longest edge, so the mesh stays conforming. Vertices the faces' own
+//! tessellations repeat at their shared boundaries are merged first, so a
+//! boundary edge is split once for both faces, at a point on both faces'
+//! surfaces (found by projecting onto each in turn).
+//!
+//! **Determinism (NFR-06).** Triangles are split one at a time in index
+//! order; only the measuring of new triangles runs in parallel, each alone
+//! and in order ([`crate::parallel::map_in_order`]).
+
+use std::collections::{BTreeMap, HashMap};
+
+use openchuck_types::brep::FaceId;
+use openchuck_types::geometry::Point3;
+use openchuck_types::mesh::TriangleMesh;
+
+use crate::brep::ExactFace;
+
+/// The most rounds of splitting: each round at least halves the longest
+/// side of every triangle it splits, and an error shrinks with its side's
+/// square, so a triangle 2^12 times over its target is within it well
+/// before this.
+const MAX_ROUNDS: u32 = 24;
+
+/// A side shorter than this is not split again, mm: far below any error
+/// that matters, it keeps a face the measure cannot satisfy finite.
+const MIN_SIDE: f64 = 1e-5;
+
+/// The most triangles refinement makes: a guard on memory (NFR-07). A
+/// triangle left over its target keeps its measured error, which the gap
+/// takes off its bounds, so stopping early costs proof, never soundness.
+const MAX_TRIANGLES: usize = 4_000_000;
+
+/// The most rounds of projecting a boundary edge's midpoint onto its faces
+/// in turn.
+const BOUNDARY_STEPS: u32 = 50;
+
+/// The refined tessellation: its triangles, the face of each, each one's
+/// measured error against its face, and the largest of them.
+#[derive(Debug, Clone)]
+pub(crate) struct Refined {
+    pub(crate) mesh: TriangleMesh,
+    pub(crate) faces: Vec<FaceId>,
+    pub(crate) errors: Vec<f64>,
+    pub(crate) largest: f64,
+}
+
+/// The tessellation `mesh` (each triangle on the face `face_of[i]`, with its
+/// measured error `errors[i]`) refined until every triangle's error is at
+/// most `target`, as far as [`MAX_ROUNDS`], [`MAX_TRIANGLES`] and
+/// [`MIN_SIDE`] allow.
+/// `fallback` is the error of a triangle with no face.
+pub(crate) fn refine(
+    faces: &[ExactFace],
+    mesh: &TriangleMesh,
+    face_of: &[FaceId],
+    errors: &[f64],
+    target: f64,
+    fallback: f64,
+) -> Refined {
+    let index: BTreeMap<u32, usize> = faces
+        .iter()
+        .enumerate()
+        .map(|(i, f)| (f.number(), i))
+        .collect();
+    let mut work = Work::new(mesh, face_of, errors, &index);
+    for _ in 0..MAX_ROUNDS {
+        let todo: Vec<usize> = (0..work.tri.len())
+            .filter(|&t| work.err[t] > target)
+            .collect();
+        if todo.is_empty() {
+            break;
+        }
+        for t in todo {
+            if work.tri.len() >= MAX_TRIANGLES {
+                break;
+            }
+            // An earlier split this round may have made it a new triangle,
+            // measured next round.
+            if work.err[t] > target {
+                work.refine(t, faces);
+            }
+        }
+        work.measure(faces, fallback);
+    }
+    work.finish()
+}
+
+/// The mesh being refined.
+struct Work<'a> {
+    pos: Vec<Point3>,
+    tri: Vec<[u32; 3]>,
+    /// The index into the faces of each triangle's face, if it has one.
+    face: Vec<Option<usize>>,
+    /// Each triangle's error; NaN until a new triangle is measured.
+    err: Vec<f64>,
+    /// The triangles on each side, by its two vertices in order.
+    sides: HashMap<(u32, u32), Vec<usize>>,
+    index: &'a BTreeMap<u32, usize>,
+}
+
+impl<'a> Work<'a> {
+    fn new(
+        mesh: &TriangleMesh,
+        face_of: &[FaceId],
+        errors: &[f64],
+        index: &'a BTreeMap<u32, usize>,
+    ) -> Self {
+        // Merge the vertices the faces repeat at their boundaries.
+        let mut seen: HashMap<[u64; 3], u32> = HashMap::new();
+        let mut pos = Vec::new();
+        let mut remap = Vec::with_capacity(mesh.vertices.len());
+        for p in &mesh.vertices {
+            let key = [
+                (p.x + 0.0).to_bits(),
+                (p.y + 0.0).to_bits(),
+                (p.z + 0.0).to_bits(),
+            ];
+            let id = *seen.entry(key).or_insert_with(|| {
+                pos.push(*p);
+                u32::try_from(pos.len() - 1).unwrap_or(u32::MAX)
+            });
+            remap.push(id);
+        }
+        let mut work = Self {
+            pos,
+            tri: Vec::new(),
+            face: Vec::new(),
+            err: Vec::new(),
+            sides: HashMap::new(),
+            index,
+        };
+        for (i, t) in mesh.triangles.iter().enumerate() {
+            let Some(t) = t
+                .iter()
+                .map(|v| remap.get(*v as usize).copied())
+                .collect::<Option<Vec<u32>>>()
+            else {
+                continue;
+            };
+            let t = [t[0], t[1], t[2]];
+            if t[0] == t[1] || t[1] == t[2] || t[2] == t[0] {
+                continue;
+            }
+            let face = face_of.get(i).and_then(|f| index.get(&f.0)).copied();
+            let err = errors.get(i).copied().unwrap_or(f64::NAN);
+            work.add(t, face, err);
+        }
+        work
+    }
+
+    fn key(a: u32, b: u32) -> (u32, u32) {
+        (a.min(b), a.max(b))
+    }
+
+    /// Adds a triangle and its sides.
+    fn add(&mut self, t: [u32; 3], face: Option<usize>, err: f64) -> usize {
+        let id = self.tri.len();
+        self.tri.push(t);
+        self.face.push(face);
+        self.err.push(err);
+        for i in 0..3 {
+            self.sides
+                .entry(Self::key(t[i], t[(i + 1) % 3]))
+                .or_default()
+                .push(id);
+        }
+        id
+    }
+
+    /// Replaces triangle `id` with `t` (same face, unmeasured).
+    fn replace(&mut self, id: usize, t: [u32; 3]) {
+        let old = self.tri[id];
+        for i in 0..3 {
+            if let Some(list) = self.sides.get_mut(&Self::key(old[i], old[(i + 1) % 3])) {
+                list.retain(|&x| x != id);
+            }
+        }
+        self.tri[id] = t;
+        self.err[id] = f64::NAN;
+        for i in 0..3 {
+            self.sides
+                .entry(Self::key(t[i], t[(i + 1) % 3]))
+                .or_default()
+                .push(id);
+        }
+    }
+
+    /// The longest side of triangle `t`, as its two vertices in order, and
+    /// its length (ties to the earlier side).
+    fn longest(&self, t: usize) -> ((u32, u32), f64) {
+        let v = self.tri[t];
+        let mut best = ((v[0], v[1]), -1.0);
+        for i in 0..3 {
+            let (a, b) = (v[i], v[(i + 1) % 3]);
+            let len = self.pos[a as usize].distance(self.pos[b as usize]);
+            if len > best.1 {
+                best = ((a, b), len);
+            }
+        }
+        best
+    }
+
+    /// Splits `t0` at its longest side, first splitting the neighbours
+    /// across that side until they share it as their own longest (LEPP).
+    fn refine(&mut self, t0: usize, faces: &[ExactFace]) {
+        let mut stack = vec![t0];
+        let mut steps = 0_u32;
+        while let Some(&t) = stack.last() {
+            steps += 1;
+            if steps > 10_000 {
+                return;
+            }
+            let ((a, b), len) = self.longest(t);
+            if len < MIN_SIDE {
+                stack.pop();
+                continue;
+            }
+            let others: Vec<usize> = self
+                .sides
+                .get(&Self::key(a, b))
+                .map(|l| l.iter().copied().filter(|&x| x != t).collect())
+                .unwrap_or_default();
+            if let Some(&n) = others.iter().find(|&&n| {
+                let ((p, q), _) = self.longest(n);
+                Self::key(p, q) != Self::key(a, b)
+            }) {
+                stack.push(n);
+                continue;
+            }
+            self.split(a, b, faces);
+            stack.pop();
+        }
+    }
+
+    /// Splits every triangle on the side `a b` at its midpoint, placed on
+    /// the exact face of the lowest-numbered of their faces.
+    fn split(&mut self, a: u32, b: u32, faces: &[ExactFace]) {
+        let users: Vec<usize> = self
+            .sides
+            .get(&Self::key(a, b))
+            .cloned()
+            .unwrap_or_default();
+        let (pa, pb) = (self.pos[a as usize], self.pos[b as usize]);
+        let mid = Point3::new(
+            0.5 * (pa.x + pb.x),
+            0.5 * (pa.y + pb.y),
+            0.5 * (pa.z + pb.z),
+        );
+        // On the face of each triangle using the side: one face, its closest
+        // point; two or more (a boundary edge), the point on all of them by
+        // projecting onto each in turn (alternating projections converge to
+        // the faces' meeting curve where they cross; a midpoint on one face
+        // only would stay on the chord, off the other).
+        let mut on_faces: Vec<usize> = users.iter().filter_map(|&t| self.face[t]).collect();
+        on_faces.sort_by_key(|&k| faces[k].number());
+        on_faces.dedup();
+        let mut on = mid;
+        for _ in 0..if on_faces.len() > 1 {
+            BOUNDARY_STEPS
+        } else {
+            1
+        } {
+            let before = on;
+            for &k in &on_faces {
+                if let Some(p) = faces[k].on_surface(on) {
+                    if p.is_finite() && p.distance(mid) <= pa.distance(pb) {
+                        on = p;
+                    }
+                }
+            }
+            if on.distance(before) < 1e-12 {
+                break;
+            }
+        }
+        self.pos.push(on);
+        let m = u32::try_from(self.pos.len() - 1).unwrap_or(u32::MAX);
+        for t in users {
+            let v = self.tri[t];
+            // The triangle as [p, q, r] with p q the side, in its winding.
+            let Some(i) = (0..3).find(|&i| Self::key(v[i], v[(i + 1) % 3]) == Self::key(a, b))
+            else {
+                continue;
+            };
+            let (p, q, r) = (v[i], v[(i + 1) % 3], v[(i + 2) % 3]);
+            let face = self.face[t];
+            self.replace(t, [p, m, r]);
+            self.add([m, q, r], face, f64::NAN);
+        }
+    }
+
+    /// Measures every new triangle's error against its face, in parallel,
+    /// each alone and in index order.
+    fn measure(&mut self, faces: &[ExactFace], fallback: f64) {
+        let new: Vec<usize> = (0..self.tri.len())
+            .filter(|&t| self.err[t].is_nan())
+            .collect();
+        let errs = crate::parallel::map_in_order(&new, |&t| {
+            let v = self.tri[t];
+            let corners = v.map(|i| self.pos[i as usize]);
+            self.face[t].map_or(fallback, |k| faces[k].triangle_error(&corners))
+        });
+        for (t, e) in new.into_iter().zip(errs) {
+            self.err[t] = e;
+        }
+    }
+
+    fn finish(self) -> Refined {
+        let numbers: BTreeMap<usize, u32> = self.index.iter().map(|(n, k)| (*k, *n)).collect();
+        let faces = self
+            .face
+            .iter()
+            .map(|f| FaceId(f.and_then(|k| numbers.get(&k).copied()).unwrap_or(u32::MAX)))
+            .collect();
+        let largest = self
+            .err
+            .iter()
+            .copied()
+            .filter(|e| e.is_finite())
+            .fold(0.0, f64::max);
+        Refined {
+            mesh: TriangleMesh {
+                vertices: self.pos,
+                triangles: self.tri,
+            },
+            faces,
+            errors: self.err,
+            largest,
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn setup(
+        model: &openchuck_types::brep::BrepModel,
+    ) -> (Vec<ExactFace>, TriangleMesh, Vec<FaceId>, Vec<f64>) {
+        let faces: Vec<ExactFace> = model
+            .faces
+            .iter()
+            .map(|f| ExactFace::new(f).unwrap())
+            .collect();
+        let (mesh, face_of) = model.joined_tessellation();
+        let errors = (0..mesh.triangles.len())
+            .map(|i| {
+                let f = faces.iter().find(|f| f.number() == face_of[i].0).unwrap();
+                f.triangle_error(&mesh.triangle(i).unwrap())
+            })
+            .collect();
+        (faces, mesh, face_of, errors)
+    }
+
+    /// The sides used by one triangle only, with their total length.
+    fn open_sides(mesh: &TriangleMesh) -> (usize, f64) {
+        let mut count: HashMap<[u64; 6], usize> = HashMap::new();
+        let key = |a: Point3, b: Point3| {
+            let (p, q) = if (a.x, a.y, a.z) <= (b.x, b.y, b.z) {
+                (a, b)
+            } else {
+                (b, a)
+            };
+            [p.x, p.y, p.z, q.x, q.y, q.z].map(|v| (v + 0.0).to_bits())
+        };
+        let mut length = HashMap::new();
+        for t in &mesh.triangles {
+            for i in 0..3 {
+                let (a, b) = (
+                    mesh.vertices[t[i] as usize],
+                    mesh.vertices[t[(i + 1) % 3] as usize],
+                );
+                *count.entry(key(a, b)).or_insert(0) += 1;
+                length.insert(key(a, b), a.distance(b));
+            }
+        }
+        let open: Vec<_> = count
+            .iter()
+            .filter(|(_, n)| **n == 1)
+            .map(|(k, _)| *k)
+            .collect();
+        (open.len(), open.iter().map(|k| length[k]).sum())
+    }
+
+    #[test]
+    fn req_op_12_refined_triangles_are_within_the_target_and_the_mesh_has_no_new_cracks() {
+        // A shaft of cylinders, planes and a fillet (a torus), tessellated
+        // coarsely: every refined triangle is within a quarter of a 0.01 mm
+        // tolerance of its face, and the open boundary is the same length as
+        // before (a crack would add open sides), so the refined mesh covers
+        // the same surface.
+        let model = openchuck_testkit::brep::shouldered_shaft(4);
+        let (faces, mesh, face_of, errors) = setup(&model);
+        let target = 0.0025;
+        assert!(
+            errors.iter().any(|e| *e > target),
+            "the fixture needs refining"
+        );
+        let r = refine(&faces, &mesh, &face_of, &errors, target, 0.0);
+        assert!(r.largest <= target, "{} over {target}", r.largest);
+        assert!(r.mesh.triangles.len() > mesh.triangles.len());
+        // The faces' own tessellations repeat their shared corners, so the
+        // original's open sides are compared after merging (as refine does).
+        let merged = refine(&faces, &mesh, &face_of, &errors, f64::INFINITY, 0.0);
+        let (before, before_len) = open_sides(&merged.mesh);
+        let (after, after_len) = open_sides(&r.mesh);
+        assert!(after >= before);
+        assert!(
+            (after_len - before_len).abs() < 1e-6 * before_len.max(1.0),
+            "{before_len} -> {after_len}"
+        );
+        // Each triangle keeps the winding of the one it came from: its
+        // normal faces the same way as its face's normal at its centre.
+        for (i, t) in r.mesh.triangles.iter().enumerate() {
+            let c = t.map(|v| r.mesh.vertices[v as usize]);
+            let n = (c[1] - c[0]).cross(c[2] - c[0]);
+            let f = faces.iter().find(|f| f.number() == r.faces[i].0).unwrap();
+            let centre = Point3::new(
+                (c[0].x + c[1].x + c[2].x) / 3.0,
+                (c[0].y + c[1].y + c[2].y) / 3.0,
+                (c[0].z + c[1].z + c[2].z) / 3.0,
+            );
+            let near = f.closest_within(centre, f64::MAX).unwrap();
+            assert!(
+                n.dot(near.point.normal.get()) > 0.0,
+                "triangle {i} turned over"
+            );
+        }
+    }
+
+    #[test]
+    fn req_gc_07_req_nfr_06_refinement_is_the_same_every_time() {
+        let model = openchuck_testkit::brep::shouldered_shaft(4);
+        let (faces, mesh, face_of, errors) = setup(&model);
+        let a = refine(&faces, &mesh, &face_of, &errors, 0.0025, 0.0);
+        let b = rayon::ThreadPoolBuilder::new()
+            .num_threads(1)
+            .build()
+            .unwrap()
+            .install(|| refine(&faces, &mesh, &face_of, &errors, 0.0025, 0.0));
+        assert_eq!(a.mesh, b.mesh);
+        assert_eq!(
+            a.errors.iter().map(|e| e.to_bits()).collect::<Vec<_>>(),
+            b.errors.iter().map(|e| e.to_bits()).collect::<Vec<_>>()
+        );
+    }
+}

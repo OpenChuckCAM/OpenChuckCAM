@@ -332,10 +332,19 @@ fn req_op_12_tool_gap_does_not_count_a_wall_from_behind() {
     let below = u32::try_from(top.vertices.len()).unwrap();
     slab.vertices
         .extend(top.vertices.iter().map(|p| Point3::new(p.x, p.y, -2.0)));
-    slab.triangles
-        .extend(top.triangles.iter().map(|[a, b, c]| [a + below, c + below, b + below]));
+    slab.triangles.extend(
+        top.triangles
+            .iter()
+            .map(|[a, b, c]| [a + below, c + below, b + below]),
+    );
     let surface = mesh(&slab);
-    let g = gap_within(&surface, &ball(1.0), &line(Point3::ORIGIN, UP), Vec3::ZERO, 1.0);
+    let g = gap_within(
+        &surface,
+        &ball(1.0),
+        &line(Point3::ORIGIN, UP),
+        Vec3::ZERO,
+        1.0,
+    );
     holds(&g, 0.0);
 }
 
@@ -523,7 +532,10 @@ fn req_op_12_tool_gap_of_an_exact_part_states_its_tessellation() {
         g.lower <= 0.5 + 1e-9 && g.upper >= 0.5 - 1e-9,
         "{g:?} does not hold 0.5"
     );
-    assert!(g.upper - g.lower <= GAP_ACCURACY + 2.0 * sagitta + 1e-9, "{g:?}");
+    assert!(
+        g.upper - g.lower <= GAP_ACCURACY + 2.0 * sagitta + 1e-9,
+        "{g:?}"
+    );
     // A selection of the model's faces measures the same.
     let ids: Vec<_> = model.faces.iter().map(|f| f.id).collect();
     let chosen = BrepSurface::with_faces(&model, &ids[..1]).unwrap();
@@ -620,7 +632,10 @@ fn req_op_12_tool_gap_of_a_tool_turning_over_a_plane_is_its_lowest_end() {
                 g.lower <= exact + 1e-9 && exact <= g.upper + 1e-9,
                 "{g:?} does not hold {exact}"
             );
-            assert!(g.upper - g.lower <= GAP_ACCURACY + 1e-12, "{g:?} is too wide");
+            assert!(
+                g.upper - g.lower <= GAP_ACCURACY + 1e-12,
+                "{g:?} is too wide"
+            );
         }
     }
 }
@@ -732,5 +747,3 @@ proptest! {
         }
     }
 }
-
-

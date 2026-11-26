@@ -330,9 +330,7 @@ impl Outline {
         let mut base = high;
         for p in &self.pieces {
             match *p {
-                ProfilePiece::Arc {
-                    centre, radius, ..
-                } => {
+                ProfilePiece::Arc { centre, radius, .. } => {
                     let free = wide - radius;
                     base = base.min(if free >= pr(centre) {
                         pz(centre) + (free * free - pr(centre) * pr(centre)).max(0.0).sqrt()
@@ -566,7 +564,9 @@ impl<'a> Body<'a> {
     fn lower(&self, t: &[Point3], u: Vec3, s0: f64, s1: f64) -> f64 {
         let along = self.axis.dot(u);
         let h = u.dot(self.tip - Point3::ORIGIN)
-            + self.outline.support((u - self.axis * along).length(), along);
+            + self
+                .outline
+                .support((u - self.axis * along).length(), along);
         let k = u.dot(self.sweep);
         let (c, n) = self.pivot;
         let un = n * u.dot(n);
@@ -596,10 +596,7 @@ impl<'a> Body<'a> {
     fn far_over(&self, t: &[Point3; 3], s0: f64, s1: f64) -> f64 {
         let (low, high, wide) = self.reach;
         let fm = 0.5 * (s0 + s1);
-        let moved = t
-            .iter()
-            .map(|p| self.moved(*p, s0, s1))
-            .fold(0.0, f64::max);
+        let moved = t.iter().map(|p| self.moved(*p, s0, s1)).fold(0.0, f64::max);
         let at = t.map(|p| self.frame(p, fm));
         segment_to_triangle(self.tip + self.axis * low, self.tip + self.axis * high, &at)
             - wide
@@ -1181,7 +1178,8 @@ fn segment_to_triangle(a: Point3, b: Point3, t: &[Point3; 3]) -> f64 {
         let x = a + (b - a) * f;
         // Inside the triangle when the closest point of it is the point (a
         // hair outside counts as inside, the safe side).
-        if crate::surface::closest_on_triangle(x, t).distance(x) <= 1e-9 * (1.0 + x.distance(t[0])) {
+        if crate::surface::closest_on_triangle(x, t).distance(x) <= 1e-9 * (1.0 + x.distance(t[0]))
+        {
             return 0.0;
         }
     }
@@ -1351,12 +1349,36 @@ pub(crate) fn search(
         pieces += 2;
         if split_move {
             let sm = 0.5 * (s0 + s1);
-            state.push(piece.corners, piece.normal, piece.triangle, (s0, sm), piece.hint);
-            state.push(piece.corners, piece.normal, piece.triangle, (sm, s1), piece.hint);
+            state.push(
+                piece.corners,
+                piece.normal,
+                piece.triangle,
+                (s0, sm),
+                piece.hint,
+            );
+            state.push(
+                piece.corners,
+                piece.normal,
+                piece.triangle,
+                (sm, s1),
+                piece.hint,
+            );
         } else {
             let mid = midpoint(a, b);
-            state.push([a, mid, c], piece.normal, piece.triangle, piece.span, piece.hint);
-            state.push([mid, b, c], piece.normal, piece.triangle, piece.span, piece.hint);
+            state.push(
+                [a, mid, c],
+                piece.normal,
+                piece.triangle,
+                piece.span,
+                piece.hint,
+            );
+            state.push(
+                [mid, b, c],
+                piece.normal,
+                piece.triangle,
+                piece.span,
+                piece.hint,
+            );
         }
     };
     // The best was kept less its triangle's error, as the bounds are; the
@@ -1408,11 +1430,7 @@ impl Search<'_, '_> {
         if self.body.top_over(&face, s0, s1) < -self.limit {
             return;
         }
-        let lower = self
-            .body
-            .dual_over(face.m, face.d, s0, s1)
-            .max(-self.limit)
-            - e;
+        let lower = self.body.dual_over(face.m, face.d, s0, s1).max(-self.limit) - e;
         self.order += 1;
         self.queue.push(Piece {
             lower,
