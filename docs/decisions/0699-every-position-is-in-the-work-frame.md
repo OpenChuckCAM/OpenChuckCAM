@@ -1,10 +1,10 @@
 # 0699: Every position a message gives is in the work frame (UI-12, NFR-07, NFR-12, SET-05, GC-07; the owner's decision of 26 Nov 2026 on OI-2237; lane WORDING-DOCS)
 
-- **Status:** Proposed by lane WORDING-DOCS on 26 Nov 2026, with the owner's five answers recorded below (26 Nov 2026, relayed by the coordinator, decision 0049): the owner has answered the questions but has not said he accepts the text of this record, so it is not accepted and is guidance, not authority (decision 0049; only the project owner accepts a record). Number assigned by the coordinator.
+- **Status:** Accepted by the project owner on 26 Nov 2026, relayed by the coordinator (decision 0049), on the coordinator's summary of its content: question 1 option B, question 2 A, question 3 the labels and both positions on travel messages, question 4 A, question 5 no frame word, and the WORK-FRAME build lane. Proposed by lane WORDING-DOCS on 26 Nov 2026, with the owner's five answers recorded below (all 26 Nov 2026, relayed).
 - **Date:** 26 Nov 2026.
 - **Requirements:** UI-12 (results and messages), NFR-07 (clear messages), NFR-12 (the user verifies the G-code, and a position in a message that matches the G-code is one they can verify), SET-05 (work zero and part position), GC-07 (a run's output follows its project: the G-code must not change).
-- **Amends, if accepted:** nothing yet. Option B would add a rule to [decision 0536](0536-message-levels-operation-reference-and-setting-links.md) (one form for messages) and change what [decision 0201](0201-setup-offset-moves-the-part.md) item 5 says the Setup step shows; it keeps 0201's frames.
-- **Open items:** OI-2260 (the owner's acceptance of this record), OI-2261 (the build lane below). OI-2237 (raised in PQ-4, earlier called OI-9998) is the issue this answers; its question 5 is answered below, and it closes when the work is built.
+- **Amends:** nothing is edited by this record. Option B adds a rule to [decision 0536](0536-message-levels-operation-reference-and-setting-links.md) (one form for messages) and change what [decision 0201](0201-setup-offset-moves-the-part.md) item 5 says the Setup step shows; it keeps 0201's frames.
+- **Open items:** OI-2260 (the owner's acceptance of this record, closed by the acceptance on 26 Nov 2026), OI-2261 (the build lane below, open). OI-2237 (raised in PQ-4, earlier called OI-9998) is the issue this answers; its question 5 is answered below, and it closes when the work is built.
 - **Inventory:** [message-review/frames.md](../message-review/frames.md) lists every place a position is printed and its frame. A drawing is in [the diagram](0699-every-position-is-in-the-work-frame.svg).
 
 ## Context
@@ -78,9 +78,9 @@ A message that quotes a setup field uses the field's frame, which under B is the
 
 5. **OI-2237: should a message that gives X name its frame ("setup X")?** **Answered, 26 Nov 2026 (relayed by the coordinator, decision 0049): no frame word on a normal position.** "Setup X" is never written. Every unlabelled position is work-zero X, and only the exceptions of question 3 carry a label.
 
-## The build lane (proposed, for the coordinator)
+## The build lane (accepted, not started)
 
-The work implied by option B is a breaking library change, so it is a separate lane after this record is accepted. Proposed name: **WORK-FRAME**, in three pull requests in this order (each opened as a draft, one push after release):
+The work implied by option B is a breaking library change, so it is a separate lane after this record is accepted. Name: **WORK-FRAME**, in three pull requests in this order (each opened as a draft, one push after release):
 
 1. **WF-1, the position formatter and the path crate.**
    - Scope: the work zero becomes an input of `openchuck-path` (a new field on the generation context); one position formatter in `openchuck-types` taking the setup frame and giving the work-frame text with the labels of question 3 (the label list is a constant); every position in an `openchuck-path` message goes through it (about 26 sites) and `openchuck-types`' setup and workholding messages (5 sites); the `xtask` message check fails on a position-looking `X {` format string that does not use it (decision 0536's ratchet).
@@ -91,7 +91,7 @@ The work implied by option B is a breaking library change, so it is a separate l
    - Exit criteria: a position typed in a setup field and the message quoting it agree (a test per field family); changing **Zero at X** moves no stored value and no G-code byte; the travel message shows both positions; the unit and CLI tests of the changed rows pass; the user-docs and release notes say it (the guide pages only for the changed texts; the examples wait for WF-3).
 3. **WF-3, the user guide and the screenshots (docs only).** One change that re-captures all the example pages' quoted text and screenshots and the tutorial's numbers in work-zero X (question 4), after WF-1 and WF-2 have merged, on a machine with the STEP kernel build; `CAPTURED.toml` hashes true.
 
-- **Where it sits:** it needs only this record accepted and the numbers assigned; WF-1 first (it changes the library), WF-2 after WF-1 has merged, WF-3 last. It touches `openchuck-path`, so it must not run beside a lane that is changing path messages; the coordinator orders it in the work breakdown's "Parallel work" table (a row to add when the record is accepted: not added here, because the table is the coordinator's).
+- **Where it sits:** it needs only this record accepted and the numbers assigned; WF-1 first (it changes the library), WF-2 after WF-1 has merged, WF-3 last. It touches `openchuck-path`, so it must not run beside a lane that is changing path messages; its row is in the work breakdown's "Parallel work" table (status accepted, not started; the coordinator assigns WF-1's version number when it is released).
 
 ## Consequences
 
