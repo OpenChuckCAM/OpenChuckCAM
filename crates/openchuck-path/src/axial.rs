@@ -803,7 +803,7 @@ fn passes(
         None
     };
     let pointed = early.as_ref().map_or_else(Vec::new, |found| {
-        crate::finishing::point_ends(input, &along.grown, &found.free, parameters)
+        crate::finishing::point_ends(input, &along.grown, &found.free, zones, parameters)
     });
     let (mut passes, spaced) = match adaptive {
         None => {

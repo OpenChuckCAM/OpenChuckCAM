@@ -515,3 +515,158 @@ fn req_op_04_helical_finishing_in_rings_finishes_to_a_point() {
             .any(|n| n.text.contains("could not confirm"))
     );
 }
+
+/// The part with a point at each end: a hemisphere of radius 6 from X 0 to
+/// 6, the cylinder to X 14 and a hemisphere to the point at X 20.
+fn pointed_both_ends() -> Fixture {
+    let n = 60;
+    let mut profile: Vec<(f64, f64)> = (0..n)
+        .map(|i| {
+            let t = std::f64::consts::FRAC_PI_2 * f64::from(n - i) / f64::from(n);
+            (6.0 - 6.0 * t.sin(), (6.0 * t.cos()).max(1e-3))
+        })
+        .collect();
+    profile.push((6.0, 6.0));
+    profile.push((14.0, 6.0));
+    for i in 1..=n {
+        let t = std::f64::consts::FRAC_PI_2 * f64::from(i) / f64::from(n);
+        profile.push((14.0 + 6.0 * t.sin(), (6.0 * t.cos()).max(1e-3)));
+    }
+    let mesh = revolve(&profile, 180);
+    let mut f = Fixture::new(MeshSurface::new(&mesh).unwrap(), 8.0, &ball(D));
+    f.stock = AnalyticStock::Cylinder {
+        radius: 8.0,
+        x_start: -20.0,
+        x_end: 40.0,
+    };
+    f
+}
+
+/// With a point at each end, a held region past one point does not hold
+/// the part: the ring down to the axis at the other point lies between
+/// them, so both of the part's own warnings are given (decision record
+/// 0344's check, issue #477). CodeRabbit on #956.
+#[test]
+fn req_nfr_12_a_held_region_past_another_cut_does_not_hold_the_part() {
+    use openchuck_path::notice::Acknowledgement;
+    let f = pointed_both_ends();
+    let held = [(-20.0, -10.0), (30.0, 40.0)];
+    let mut input = f.input();
+    input.keep_out = &held;
+    let s = &HelicalFinishing;
+    let mut v = values(s, true);
+    v.insert(FACE_FREE_ENDS.to_owned(), ParameterValue::Flag(false));
+    let p = run(|ctx| generate(s, &input, &v, ctx)).unwrap();
+    let part = point_warnings(&p)
+        .into_iter()
+        .filter(|n| n.acknowledgement == Some(Acknowledgement::PossibleCollision))
+        .count();
+    assert_eq!(part, 2, "{:?}", point_warnings(&p));
+}
+
+/// A part of the surface with more stock to leave over the point keeps it:
+/// the point there is not finished to, so its allowance is not cut away
+/// (decision record 0034's zones). CodeRabbit on #956.
+#[test]
+fn req_op_04_a_point_under_a_zone_with_more_stock_to_leave_is_not_finished_to() {
+    use openchuck_path::LeaveZone;
+    let f = pointed();
+    for s in [
+        &HelicalFinishing as &dyn Strategy,
+        &AxialFinishing,
+        &IndexedFinishing,
+    ] {
+        let zones = [LeaveZone {
+            surface: &f.surface,
+            leave: 1.0,
+        }];
+        // Face free ends' own turns do not read the zones; they are not
+        // this setting's, so they are off here.
+        let mut v = values(s, true);
+        if s.schema().get(FACE_FREE_ENDS).is_some() {
+            v.insert(FACE_FREE_ENDS.to_owned(), ParameterValue::Flag(false));
+        }
+        let p =
+            run(|ctx| support::generate_in_zones(s, &f.input(), None, &zones, &v, ctx)).unwrap();
+        // Every ball centre over the pointed end keeps R and the zone's
+        // 1 mm from the part.
+        for (x, r) in centres(&p).into_iter().filter(|&(x, _)| x >= 14.0) {
+            let gap = (x - 14.0).hypot(r) - 6.0;
+            assert!(
+                gap > R + 1.0 - 0.05,
+                "{}: X {x:.3} r {r:.3}: the allowance is cut ({gap:.3})",
+                s.name()
+            );
+        }
+    }
+}
+
+/// With Finishing layers on, the run past the point is cut in the same
+/// layers as the rest of the finish, above its final pass (decision record
+/// 0345). CodeRabbit on #956.
+#[test]
+fn req_op_04_the_run_past_a_point_is_cut_in_finishing_layers() {
+    use openchuck_path::finishing::parameter::FINISHING_LAYERS;
+    let f = pointed();
+    let s = &HelicalFinishing;
+    let mut off = values(s, true);
+    off.insert(FACE_FREE_ENDS.to_owned(), ParameterValue::Flag(false));
+    let mut on = off.clone();
+    on.insert(FINISHING_LAYERS.to_owned(), ParameterValue::Flag(true));
+    // Moves past the point standing off the part by more than a layer's
+    // allowance: only layers stand there.
+    let layered = |p: &GeneratedPath| {
+        centres(p)
+            .iter()
+            .filter(|&&(x, r)| {
+                x > POINT + 0.1 && x < POINT + R - 0.1 && (x - 14.0).hypot(r) > 6.0 + R + 0.5
+            })
+            .count()
+    };
+    assert_eq!(layered(&path(s, &f, &off)), 0);
+    assert!(layered(&path(s, &f, &on)) > 0);
+}
+
+/// Helical finishing in rings with a point at the start of the part:
+/// adaptive spacing measures the rings past the point too, round their whole
+/// turn. CodeRabbit on #956.
+#[test]
+fn req_op_04_rings_past_a_point_at_the_start_are_measured() {
+    use openchuck_path::helical::parameter::{PASS_SHAPE, RINGS};
+    let f = pointed_at_the_start();
+    let s = &HelicalFinishing;
+    let mut v = values(s, true);
+    v.insert(
+        PASS_SHAPE.to_owned(),
+        ParameterValue::Text(RINGS.to_owned()),
+    );
+    let off = path(s, &f, &v);
+    v.insert("adaptive_spacing".to_owned(), ParameterValue::Flag(true));
+    let on = path(s, &f, &v);
+    let past = |p: &GeneratedPath| centres(p).iter().filter(|&&(x, _)| x < 0.0).count();
+    assert!(past(&on) > past(&off), "{} {}", past(&on), past(&off));
+    assert!(
+        !on.notices
+            .iter()
+            .any(|n| n.text.contains("could not confirm"))
+    );
+}
+
+/// A Stepdown far below what the heights can resolve still ends: the
+/// turns down to the axis are bounded in number (NFR-07). CodeRabbit on
+/// #956.
+#[test]
+fn req_nfr_07_a_tiny_stepdown_does_not_hang_the_turns_to_the_axis() {
+    let mesh = revolve(&[(0.0, 6.0), (14.0, 6.0), (POINT, 1.0)], 180);
+    let mut f = Fixture::new(MeshSurface::new(&mesh).unwrap(), 8.0, &ball(D));
+    f.stock = AnalyticStock::Cylinder {
+        radius: 8.0,
+        x_start: -1.0,
+        x_end: 40.0,
+    };
+    let s = &IndexedFinishing;
+    let mut v = values(s, true);
+    v.insert("stepdown".to_owned(), ParameterValue::Number(1e-20));
+    let p = path(s, &f, &v);
+    assert!(p.group.segments.len() < 2_000_000);
+}

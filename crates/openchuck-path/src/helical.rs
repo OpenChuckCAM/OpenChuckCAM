@@ -465,7 +465,7 @@ fn passes(
         // following the part down to the end's last drop. Fitted on its own,
         // so the passes over the part are as before; adaptive spacing
         // measures over it with the rest (Q2 (c) B).
-        let pointed = crate::finishing::point_ends(input, &grown, &found.free, parameters);
+        let pointed = crate::finishing::point_ends(input, &grown, &found.free, zones, parameters);
         let mut pieces = Vec::with_capacity(pointed.len());
         for end in &pointed {
             pieces.push(point_piece(
@@ -488,7 +488,14 @@ fn passes(
                 x0: lo,
                 x1: hi,
                 total: 360.0 * (hi - lo) / pitch,
-                start: start + sign * 360.0 * (lo - x0) / pitch,
+                // Rings each start at the start angle wherever they are, so
+                // only the helix's start moves with its X (CodeRabbit on
+                // #956).
+                start: if rings {
+                    start
+                } else {
+                    start + sign * 360.0 * (lo - x0) / pitch
+                },
                 ..h
             }
         });
@@ -672,10 +679,16 @@ fn passes(
         let stepdown = parameters
             .number(crate::finishing::parameter::STEPDOWN)
             .unwrap_or(0.0);
-        for piece in pieces {
-            passes.extend(piece.passes);
-        }
-        passes.extend(past);
+        // With Finishing layers on, the run past the point is cut in the
+        // same layers, which stand at the same depths above each pass
+        // (decision record 0345; CodeRabbit on #956).
+        let run_past: Vec<Pass> = pieces
+            .into_iter()
+            .flat_map(|p| p.passes)
+            .chain(past)
+            .collect();
+        let (run_past, _) = crate::finishing::layers(input, run_past, parameters)?;
+        passes.extend(run_past);
         for end in &pointed {
             let top = crate::finishing::top_at_edge(input, &grown, leave, end);
             let at = start + sign * 360.0 * (end.edge - x0) / pitch;

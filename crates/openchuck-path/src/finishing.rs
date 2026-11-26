@@ -667,6 +667,9 @@ pub(crate) fn across_axis_warning(
     })
 }
 
+/// The most whole turns that take the tool down to the axis past a point.
+const MOST_TURNS: usize = 1000;
+
 /// A free end of the part that comes to a point, past which Finish to a
 /// point carries the finish on (decision record 0695, Q2 (a) A).
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -696,11 +699,14 @@ fn stock_past(input: &StrategyInput<'_>, face: f64, far: bool) -> bool {
 /// tool (`grown` by the stock to leave) at the end's last drop touches the
 /// part nearer the rotary axis than its own cutting radius at every angle,
 /// so the part there is narrower than the tool. A wider end is an end face,
-/// which Face free ends turns at (decision record 0344).
+/// which Face free ends turns at (decision record 0344). An end under a part
+/// of the surface with its own stock to leave (`zones`) is left out: going
+/// down to the axis there would cut its allowance away (CodeRabbit on #956).
 pub(crate) fn point_ends(
     input: &StrategyInput<'_>,
     grown: &RevolvedProfile,
     ends: &[FreeEnd],
+    zones: &[crate::strategy::LeaveZone<'_>],
     parameters: &Parameters,
 ) -> Vec<PointEnd> {
     if !parameters
@@ -712,6 +718,18 @@ pub(crate) fn point_ends(
     let radius = grown.cutting_radius();
     ends.iter()
         .filter(|e| stock_past(input, e.face, e.far))
+        .filter(|e| {
+            // No zone's surface under the tool at the end's last drop.
+            !zones.iter().any(|z| {
+                (0..AROUND).any(|k| {
+                    let a = Degrees(360.0 * k as f64 / AROUND as f64);
+                    let line = input
+                        .rotary
+                        .tool_line(Millimetres(e.edge), a, Millimetres(0.0));
+                    z.surface.drop_tool(grown, &line).is_some()
+                })
+            })
+        })
         .filter(|e| {
             (0..AROUND).all(|k| {
                 let a = Degrees(360.0 * k as f64 / AROUND as f64);
@@ -751,12 +769,21 @@ pub(crate) fn turns_to_the_axis(
     let toward = if end.far { -1.0 } else { 1.0 };
     let points = ((360.0 / step).ceil() as usize).max(4);
     let mut heights = Vec::new();
-    if stepdown.is_finite() && stepdown > 0.0 {
-        let mut h = from - stepdown;
-        while h > last + 1e-9 {
-            heights.push(h);
-            h -= stepdown;
-        }
+    if stepdown.is_finite() && stepdown > 0.0 && from > last {
+        // Whole Stepdowns above the last turn, at most `MOST_TURNS` of them:
+        // a Stepdown too small for that is widened to fit (CodeRabbit on
+        // #956), so the loop always ends.
+        let steps = ((from - last) / stepdown).ceil();
+        let (count, step) = if steps.is_finite() && steps <= MOST_TURNS as f64 {
+            (steps as usize, stepdown)
+        } else {
+            (MOST_TURNS, (from - last) / MOST_TURNS as f64)
+        };
+        heights.extend(
+            (1..count)
+                .map(|k| from - k as f64 * step)
+                .filter(|&h| h > last + 1e-9),
+        );
     }
     heights.push(last);
     heights
@@ -852,10 +879,23 @@ pub(crate) fn point_warnings(
                 acknowledgement: None,
             });
         }
-        let held = input
-            .keep_out
+        // A held region holds the part only with no other ring down to the
+        // axis between them: another point's, or a face Face free ends
+        // faced (as `free_ends` checks; CodeRabbit on #956).
+        let rings: Vec<f64> = ends
             .iter()
-            .any(|&(a, b)| if end.far { b < end.edge } else { a > end.edge });
+            .filter(|o| !std::ptr::eq(*o, end))
+            .map(|o| o.edge)
+            .chain(faced.iter().copied())
+            .collect();
+        let between = |held: f64| rings.iter().any(|&r| (r - end.edge) * (held - r) > 0.0);
+        let held = input.keep_out.iter().any(|&(a, b)| {
+            if end.far {
+                b < end.edge && !between(b)
+            } else {
+                a > end.edge && !between(a)
+            }
+        });
         if !held {
             out.push(Notice {
                 level: Level::Warning,

@@ -323,7 +323,7 @@ fn passes(
             tolerance,
             context,
         )?;
-        crate::finishing::point_ends(input, &along.grown, &found.free, parameters)
+        crate::finishing::point_ends(input, &along.grown, &found.free, zones, parameters)
     } else {
         Vec::new()
     };

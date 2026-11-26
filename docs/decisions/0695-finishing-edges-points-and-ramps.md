@@ -609,7 +609,7 @@ Updated in place: OI-318 and OI-337 (the blisk now generates and cuts its blade 
 - **Built differently from the record's wording:**
   - **The run-out.** The run-out of Extend past the stock is unchanged. The record said decisions 0212 part B item 3 and 0546 item 3 are amended for this setting. As built, the setting adds its own stretch past the point, which follows the drop, and it does not turn the run-out into a descent. A run-out that followed the drop to the axis would cut through all the stock past the point at the axis. That would be a full-width slot, not a finish, and it would be cut free anyway.
   - **Query accounting.** The queries spent past the end are read as the difference in the figure adaptive spacing already reports, as the record says. No separate counter was added.
-- **How:** tests first, in `crates/openchuck-path/tests/finish_to_a_point.rs` (new, 14 tests):
+- **How:** tests first, in `crates/openchuck-path/tests/finish_to_a_point.rs` (new, 19 tests):
   - Written before the code and seen failing first:
     - the schema test;
     - the reach-the-axis tests for the three strategies (for example, helical's nearest centre past the point stood at 1.587 mm from the axis);
@@ -638,5 +638,12 @@ Updated in place: OI-318 and OI-337 (the blisk now generates and cuts its blade 
   - fmt, clippy, and `cargo xtask records`, `trace`, `deps`, `licences` and `changelog check-pr` pass.
   - No golden or shipped example changes, because their operations were saved without the setting.
 - **Coverage** (`openchuck-path`, the 12 tests run instrumented, before the last two were added): every added line in `faces.rs` is run, 175 of 177 in `finishing.rs`, 79 of 83 in `axial.rs`, 32 of 33 in `indexed.rs` and 104 of 142 in `helical.rs`. The helical lines not run were the rings branch and its adaptive spacing; the axial ones were a point at the start of the part; the Stepdown loop in `finishing.rs` was not run either. The two tests added then, and the Stepdown check added to the off-axis test, reach them. Left: the branch for a stock of no known length, as decision 0344's free ends have it.
+- **CodeRabbit on #956** (review of `7f9459a5`): four Major findings were confirmed and fixed in the release push, each with a test written first and seen failing.
+  - **Stock-to-leave zones.** A point under a part of the surface with its own stock to leave is not finished to, so its allowance is kept: `req_op_04_a_point_under_a_zone_with_more_stock_to_leave_is_not_finished_to`.
+  - **Two cut rings.** With a point at each end, a held region beyond the other ring no longer suppresses the part's own warning: `req_nfr_12_a_held_region_past_another_cut_does_not_hold_the_part`.
+  - **Finishing layers.** With Finishing layers on, helical finishing's run past the point is cut in the same layers: `req_op_04_the_run_past_a_point_is_cut_in_finishing_layers`. Axial and indexed finishing were already layered.
+  - **Rings with a point at the start.** Rings past a point at the start are measured round their whole turn; the rings no longer take the helix's shifted start angle: `req_op_04_rings_past_a_point_at_the_start_are_measured`.
+  - **A Minor, also fixed:** a Stepdown too small to resolve no longer loops without end; the turns down to the axis are at most 1000 (`req_nfr_07_a_tiny_stepdown_does_not_hang_the_turns_to_the_axis`; not run before the fix, as it would hang).
+  - **A Minor not fixed here**, for the lane's ticket: an app test of a saved helical, axial or indexed operation without the setting. The schema default (off) is tested in `openchuck-path`.
 - **Not verified:** nothing was cut or air-cut.
 - **Open items:** OI-2236 closes.
