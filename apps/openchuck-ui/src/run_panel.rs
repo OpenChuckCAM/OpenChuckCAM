@@ -434,8 +434,12 @@ impl ResultsView {
 
     fn make(panel: &RunPanel, app: &Application) -> Self {
         let run = panel.last.clone();
-        let lines = run
-            .as_ref()
+        // After a refused run, Results shows the refusal alone: the earlier
+        // run's summary, lines and count are left out, so they cannot be read
+        // as the refused run's (issue #766). The view keeps the earlier paths,
+        // marked out of date.
+        let shown = run.as_ref().filter(|_| !panel.failed);
+        let lines = shown
             .map(|run| result_lines(run, app.project()))
             .unwrap_or_default();
         let mut counts = LevelCounts::default();
@@ -443,7 +447,7 @@ impl ResultsView {
             counts.add(line.severity);
         }
         counts.errors += usize::from(panel.failed);
-        let summary = run.as_ref().map(|run| {
+        let summary = shown.map(|run| {
             format!(
                 "{}, {}, {:.1} s to generate",
                 openchuck_app::path::counted(run.toolpath.groups.len(), "operation", "operations"),
@@ -471,9 +475,9 @@ impl ResultsView {
         };
         let text =
             head.map(|head| results_text(&lines, &head, openchuck_buildinfo::current_text()));
-        let changed = run
-            .as_ref()
-            .is_some_and(|run| *run.project != *app.project());
+        // A path hidden or shown with its eye is not a change to the run's
+        // output (decision record 0169 item 6, issue #607).
+        let changed = shown.is_some_and(|run| !run.project.same_output(app.project()));
         Self {
             run,
             revision: app.revision(),
@@ -686,10 +690,15 @@ impl RunPanel {
     }
 
     /// The number on the Results tab: the warnings and errors of the latest
-    /// run, a group once, and one more for a failed run. Information is not
+    /// run, a group once, or one for a refused run. Information is not
     /// counted, and the tab's filters do not change it (owner, 1 Nov 2026).
     pub fn results_count(&self) -> usize {
-        self.counts.errors + self.counts.warnings + usize::from(self.failed)
+        // A refused run counts its refusal alone, not the retained run's
+        // warnings (issue #766); the retained run keeps its own count.
+        if self.failed {
+            return 1;
+        }
+        self.counts.errors + self.counts.warnings
     }
 
     /// Opens the add-operation dialog (11.4): the setup and tool of the
@@ -1051,7 +1060,9 @@ impl RunPanel {
                     ui.add(egui::Label::new(RichText::new(error).color(PROBLEM)).selectable(true));
                     ui.separator();
                 }
-                if self.last.is_some() {
+                if self.failed {
+                    // The refusal above is the whole result (issue #766).
+                } else if self.last.is_some() {
                     if view.changed {
                         ui.colored_label(
                             NOTE,
@@ -1773,7 +1784,9 @@ mod tests {
         }));
         assert_eq!(panel.results_count(), 2, "a group is one line");
         panel.record_failure("the engine stopped".to_owned());
-        assert_eq!(panel.results_count(), 3, "a failed run adds one");
+        // A refused run shows only its refusal (issue #766), so the count is
+        // that one line, not the earlier run's lines and one more.
+        assert_eq!(panel.results_count(), 1, "a failed run counts its refusal");
     }
 
     #[test]
@@ -1788,6 +1801,27 @@ mod tests {
         assert_eq!(panel.results_count(), 1);
         panel.record_run(Arc::new(Regeneration::default()));
         assert_eq!(panel.results_count(), 0, "a later run clears the failure");
+    }
+
+    /// Issue #766 (from the review of pull request #893): a refused
+    /// Generate counts its refusal alone, and the retained run keeps its own
+    /// count, so a retry that starts and is cancelled shows the retained
+    /// run's lines with their number again.
+    #[test]
+    fn req_ui_12_a_cancelled_retry_after_a_refusal_counts_the_retained_run() {
+        let mut panel = RunPanel::default();
+        panel.record_run(Arc::new(Regeneration {
+            warnings: vec![WARNING_A.to_owned(), WARNING_B.to_owned()],
+            ..Regeneration::default()
+        }));
+        assert_eq!(panel.results_count(), 2);
+        panel.record_failure("the engine stopped".to_owned());
+        assert_eq!(panel.results_count(), 1, "the refusal alone");
+        // A retry starts (`begin` clears the failure) and is cancelled:
+        // the retained run is shown again, with its count.
+        panel.failed = false;
+        panel.last_error = Some("Cancelled. Nothing was kept from that run.".to_owned());
+        assert_eq!(panel.results_count(), 2, "the retained run's warnings");
     }
 
     #[test]
@@ -1862,7 +1896,9 @@ mod tests {
         for _ in 0..5 {
             frames.frame(Vec::new());
         }
-        assert_eq!(result_lines_made() - before, 1, "once after a failed run");
+        // A failed run shows only its refusal (issue #766): the earlier run's
+        // notes are not grouped at all.
+        assert_eq!(result_lines_made() - before, 0, "none after a failed run");
         let before = result_lines_made();
         let name = frames
             .app
@@ -1929,10 +1965,17 @@ mod tests {
         assert!(frames.app.redo().unwrap());
         check(&mut frames, "redo");
         assert!(frames.shows("'Renamed'"));
+        let earlier = fresh(&frames);
         frames.panel.record_failure("the engine stopped".to_owned());
-        check(&mut frames, "failed");
+        frames.frame(Vec::new());
         assert!(frames.shows("the engine stopped"));
-        assert!(copy_all(&mut frames).contains("Problem: the engine stopped"));
+        // Only the refusal: the earlier run's lines are not shown or copied
+        // as if they were this run's (issue #766).
+        let copied = copy_all(&mut frames);
+        assert!(copied.contains("Problem: the engine stopped"));
+        for line in earlier {
+            assert!(!copied.contains(&line), "failed: {line} in {copied}");
+        }
         frames
             .panel
             .record_run(Arc::new(feed_run(operation, "Renamed", 3)));
@@ -2019,7 +2062,8 @@ mod tests {
             frames.shows("Results as plain text"),
             "the keyboard route too"
         );
-        // With an earlier run kept, its summary and the error are both there.
+        // With an earlier run kept, the error alone is copied: the earlier
+        // run's summary is not the refused run's (issue #766).
         let mut with_run = Frames::new("failed-after-run");
         with_run.panel.record_failure("then it failed".to_owned());
         with_run.frame(Vec::new());
@@ -2027,7 +2071,7 @@ mod tests {
         with_run.click(at);
         let text = with_run.copied.last().expect("copied");
         assert!(
-            text.contains("s to generate") && text.contains("then it failed"),
+            !text.contains("s to generate") && text.contains("then it failed"),
             "{text}"
         );
     }

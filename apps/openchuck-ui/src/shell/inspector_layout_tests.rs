@@ -241,3 +241,52 @@ fn req_ui_12_show_setting_opens_a_setup_or_a_tool_at_its_field() {
             .is_shown(openchuck_app::tool_edit::fields::FLUTE_LENGTH)
     );
 }
+
+/// A set in Avoid gets its Cut short / Warn only / Ignore row beside the
+/// label column; when the row wraps in a narrow pane, the wrapped part stays
+/// in the value column, never left of it (issue #609; decision 0440).
+#[test]
+fn req_ui_07_req_ui_16_the_avoid_choice_row_wraps_inside_the_value_column() {
+    use openchuck_app::selection::SelectionRole;
+    let d = drawn(
+        |rig| {
+            let app = rig.shell.app.as_mut().unwrap();
+            let op = app.project().operations()[0].id;
+            let model = app.project().models()[0].id;
+            let set = app
+                .save_selection(
+                    "Finial ball",
+                    model,
+                    openchuck_app::project::SelectionTarget::Triangles([0].into()),
+                )
+                .unwrap();
+            app.set_operation_selection(op, SelectionRole::Avoid, set, true)
+                .unwrap();
+            rig.settle();
+            operation(rig);
+        },
+        340.0,
+        "avoid-choice-wrap",
+    );
+    let at = |text: &str| {
+        d.texts
+            .iter()
+            .find(|(t, _)| t == text)
+            .unwrap_or_else(|| panic!("{text} is drawn: {:?}", d.texts))
+            .1
+    };
+    // The value column starts where the role's set buttons do: their text
+    // is inset by the button padding.
+    let column = at("Finial ball \u{d7}").left() - 2.0 * crate::theme::GRID;
+    assert!(
+        column > d.left + 40.0,
+        "{column} is right of the label column"
+    );
+    for choice in ["Finial ball", "Cut short", "Warn only", "Ignore"] {
+        assert!(
+            at(choice).left() >= column - 0.5,
+            "{choice} starts at {} left of the value column at {column}",
+            at(choice).left()
+        );
+    }
+}

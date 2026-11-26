@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 250" width="720" height="250" font-family="sans-serif" font-size="13">
+  <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
+  <title>Monthly Dependabot updates taken by a dependency lane</title>
+  <rect width="720" height="250" fill="#ffffff"/>
+  <defs>
+    <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="#333"/>
+    </marker>
+  </defs>
+  <g fill="#eef3fb" stroke="#36598f">
+    <rect x="10" y="20" width="190" height="96" rx="6"/>
+    <rect x="265" y="20" width="190" height="96" rx="6"/>
+    <rect x="520" y="20" width="190" height="96" rx="6"/>
+  </g>
+  <g fill="#1b2a41">
+    <text x="22" y="42" font-weight="bold">Dependabot, monthly</text>
+    <text x="22" y="62">cargo: / and /fuzz together</text>
+    <text x="22" y="80">groups: ui-graphics,</text>
+    <text x="22" y="98">minor and patch; majors alone</text>
+    <text x="277" y="42" font-weight="bold">Draft notices</text>
+    <text x="277" y="62">never merged as they are</text>
+    <text x="277" y="80">(rows not updated, so</text>
+    <text x="277" y="98">cargo xtask records fails)</text>
+    <text x="532" y="42" font-weight="bold">Dependency lane</text>
+    <text x="532" y="62">release notes, licences,</text>
+    <text x="532" y="80">new crates, tests, both</text>
+    <text x="532" y="98">lock files, register rows</text>
+  </g>
+  <g stroke="#333" stroke-width="1.6" fill="none" marker-end="url(#a)">
+    <path d="M200,68 L262,68"/>
+    <path d="M455,68 L517,68"/>
+    <path d="M615,116 L615,150"/>
+    <path d="M520,190 L330,190"/>
+  </g>
+  <g fill="#f3faef" stroke="#3d7a32">
+    <rect x="520" y="152" width="190" height="76" rx="6"/>
+    <rect x="140" y="152" width="190" height="76" rx="6"/>
+  </g>
+  <g fill="#1b2a41">
+    <text x="532" y="174" font-weight="bold">One reviewed pull request</text>
+    <text x="532" y="194">draft, one push, Refs to</text>
+    <text x="532" y="212">each Dependabot PR</text>
+    <text x="152" y="174" font-weight="bold">After it merges</text>
+    <text x="152" y="194">each Dependabot PR closed</text>
+    <text x="152" y="212">with a comment naming it</text>
+  </g>
+</svg>

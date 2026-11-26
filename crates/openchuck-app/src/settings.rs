@@ -211,6 +211,10 @@ pub struct UserSettings {
     /// before the field existed reads the defaults, which give the names
     /// written before templates existed.
     pub file_names: FileNameTemplates,
+    /// Which kinds of toolpath move the view draws (issue #789; decision
+    /// record 0693, the owner's answer P3 A), remembered across
+    /// projects. A file written before the field existed shows every kind.
+    pub path_moves: crate::pathview::ShownMoves,
 }
 
 impl Default for UserSettings {
@@ -230,6 +234,7 @@ impl Default for UserSettings {
             simulate: SimulateSettings::default(),
             tool_library: ToolLibraryView::default(),
             file_names: FileNameTemplates::default(),
+            path_moves: crate::pathview::ShownMoves::ALL,
         }
     }
 }

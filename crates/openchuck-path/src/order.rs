@@ -301,11 +301,20 @@ fn by_region(main: Vec<Pass>, groups: Vec<Vec<Pass>>, rates: Rates, feed: f64) -
     let (chosen, note) = if !moved || x1 >= x0 {
         (old, None)
     } else if longer <= allowed {
+        // The time is the order's change, so a saving is a negative number:
+        // it is said as a saving, never as a negative time.
+        let change = if longer.abs() < 0.05 {
+            "about the same time".to_owned()
+        } else if longer < 0.0 {
+            format!("about {:.1} s less", -longer)
+        } else {
+            format!("about {longer:.1} s more")
+        };
         let note = format!(
             "the turns at faces across the rotary axis and the passes on surfaces hidden from \
              the drive are cut beside the passes of their region (pass order by region): the \
              tool travels {x1:.1} mm along the part between passes instead of {x0:.1} mm, and \
-             the moves between passes take about {longer:+.1} s"
+             the moves between passes take {change}"
         );
         (
             placed,
@@ -553,6 +562,11 @@ mod tests {
         let note = moved.note.unwrap().text;
         assert!(
             note.contains("travels 0.0 mm along the part between passes instead of 10.0 mm"),
+            "{note}"
+        );
+        // A saving is said as a saving, never as a negative time.
+        assert!(
+            note.contains(" s less") && !note.contains("about -"),
             "{note}"
         );
         let far = vec![vec![pass(10.0, 10.0, 180.0, 180.0)]];
