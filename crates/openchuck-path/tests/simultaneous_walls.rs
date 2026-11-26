@@ -59,7 +59,7 @@ fn tube(outer: f64, wall: f64, length: f64, around: u32) -> TriangleMesh {
 fn finish(wall: f64) -> GeneratedPath {
     let outer = 8.0;
     let f = Fixture::new(
-        MeshSurface::new(&tube(outer, wall, 3.0, 48)).unwrap(),
+        MeshSurface::new(&tube(outer, wall, 2.0, 96)).unwrap(),
         outer + 1.0,
         &ball(3.0),
     );
