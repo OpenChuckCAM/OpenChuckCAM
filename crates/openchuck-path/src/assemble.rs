@@ -309,11 +309,13 @@ impl Builder<'_> {
         // A move that changes X or Y by less than a written unit, widened by
         // the shift from writing A, may be written with or without that
         // change, so it is checked against either limit: it is timed for
-        // the lower (decision records 0050 and 0692).
+        // the lower (decision records 0050 and 0692). A fed move that turns A
+        // may be written with a change of X or Y even where it has none: its
+        // two ends are turned by different amounts when A is written.
         let written_band = WRITTEN_UNIT + a_shift;
         let line_limit = if dx >= written_band || dy >= written_band {
             linear
-        } else if dx > EPS || dy > EPS {
+        } else if dx > EPS || dy > EPS || (a_shift > 0.0 && da > EPS) {
             linear.min(z)
         } else {
             z
@@ -1928,6 +1930,103 @@ mod tests {
         let counted = (wa1 - wa0).abs() * (std::f64::consts::TAU * radius + 30.0) / 360.0;
         let f = 60.0 * line.max(counted) / seconds;
         assert!(f <= limit, "F{f:.3} against {limit}");
+    }
+
+    /// A fed move with no exact change of X or Y can still be written with
+    /// one when A turns: the post works XYZ out at A written to three
+    /// decimals, and the two ends are turned by different amounts (CodeRabbit
+    /// on pull request #939; decision record 0692 item 2: a change of X or
+    /// Y below `0.001 + s`, none included, may be written either way). On a
+    /// machine whose Z is faster than its linear axes, such a move timed for
+    /// Z alone wrote a block that changes Y, which gate 1 holds to the
+    /// linear limit, with an F word over it.
+    #[test]
+    fn req_op_13_req_gc_08_a_turning_move_with_no_y_change_stays_within_the_limit_as_written() {
+        let machine = MachineProfile::example_x_rotary();
+        let rotary = RotaryMapping::of_profile(&machine);
+        let profile = Tool {
+            shape: ToolShape::BallEnd,
+            diameter: openchuck_types::units::Millimetres(3.0),
+            flute_length: openchuck_types::units::Millimetres(8.0),
+            overall_length: openchuck_types::units::Millimetres(40.0),
+            shank_diameter: openchuck_types::units::Millimetres(3.0),
+            flute_count: 2,
+            material: None,
+            centre_cutting: None,
+            stick_out: None,
+        }
+        .profile()
+        .unwrap();
+        let (linear, z) = (1000.0, 2000.0);
+        let mut feeds = machine.max_feeds;
+        (feeds.linear, feeds.z) = (FeedRate(linear), FeedRate(z));
+        let round = |v: f64| (v * 1000.0).round() / 1000.0;
+        let mut checked = 0;
+        // Both senses of the shift: one of them writes a change of Y.
+        for across in [0.000_355, -0.000_355] {
+            let start = AxisPosition {
+                along: 5.0,
+                across,
+                height: 20.0,
+            };
+            let end = AxisPosition {
+                height: 21.0,
+                ..start
+            };
+            let (a0, a1) = (0.000_4, 0.005_4);
+            let at = |p: AxisPosition, a: f64| CutPoint {
+                tip: rotary.to_model(p, Degrees(a)),
+                a: Degrees(a),
+                contact: rotary.to_model(p, Degrees(a)),
+            };
+            let (from, to) = (at(start, a0), at(end, a1));
+            let mut b = Builder {
+                rotary,
+                tool_radius: 1.5,
+                profile: &profile,
+                max_feeds: feeds,
+                collision: &AcceptAll,
+                pose: ToolPose {
+                    tip: from.tip,
+                    axis: rotary.tool_axis(from.a),
+                    a: from.a,
+                },
+                contact: from.tip,
+                segments: Vec::new(),
+                notes: Vec::new(),
+                raised_entries: 0,
+                steep_ramps: Vec::new(),
+                single_point_plunges: Vec::new(),
+                steepened_ramps: Vec::new(),
+                nubs: Vec::new(),
+                reversed_ramps: Vec::new(),
+                on_axis_ramps: Vec::new(),
+                straight_plunges: Vec::new(),
+            };
+            let pose = b.pose(to.tip, to.a);
+            // A contact feed far above the limits, so the axes set the time.
+            b.push(MoveKind::Cutting, pose, Some(to.tip), Some(FeedRate(1.0e6)))
+                .unwrap();
+            let seconds = b.segments[0].duration.0;
+            let written = |p: &CutPoint| {
+                let q = rotary.to_axis(p.tip, Degrees(round(p.a.0)));
+                [round(q.along), round(q.across), round(q.height)]
+            };
+            let (w0, w1) = (written(&from), written(&to));
+            let moved = |i: usize| (w1[i] - w0[i]).abs() > 1e-9;
+            if !(moved(0) || moved(1)) {
+                continue;
+            }
+            checked += 1;
+            // Written with a change of Y, so gate 1 holds the line to the
+            // linear limit (`FeedLimits::for_move`).
+            let line =
+                ((w1[0] - w0[0]).powi(2) + (w1[1] - w0[1]).powi(2) + (w1[2] - w0[2]).powi(2))
+                    .sqrt();
+            let f = 60.0 * line / seconds;
+            assert!(f <= linear, "across {across}: F{f:.3} against {linear}");
+        }
+        assert_eq!(checked, 1, "one sense writes a change of Y");
     }
 
     #[test]
