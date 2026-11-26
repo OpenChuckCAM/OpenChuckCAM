@@ -162,6 +162,18 @@ const EDGE_STEPS: u32 = 12;
 /// is well over the query's own accuracy at the smallest tolerance.
 const LAYER: f64 = 1.25;
 
+/// The move check's question for the tool swept along `sweep`: counted to
+/// the layer below each face, and answered once the move is proven no
+/// deeper than `allowed` (decision record SIMUL-EDGE-1, Q3 and Terms).
+fn move_query(sweep: Vec3, allowed: f64) -> GapQuery {
+    GapQuery::swept(sweep, LAYER * allowed).accept_above(-allowed)
+}
+
+/// Whether the answer proves the move cuts no deeper than `allowed`.
+fn proven(g: &crate::gap::ToolGap, allowed: f64) -> bool {
+    g.lower >= -allowed
+}
+
 /// How many times one move may be split because its proof failed, over all
 /// its halvings: a move that still cannot be proven after that is left out
 /// and marked, so a region the check cannot prove costs a bounded number
@@ -2819,11 +2831,7 @@ impl Plan<'_> {
                 origin,
                 axis: UnitVec3::new(turn(axis.get(), f0 * angle)).unwrap_or(axis),
             };
-            let mut query = GapQuery::swept(
-                turn(sweep * (f1 - f0), f0 * angle),
-                LAYER * self.allowed.abs().max(self.tolerance),
-            )
-            .accept_above(-self.allowed);
+            let mut query = move_query(turn(sweep * (f1 - f0), f0 * angle), self.allowed);
             if let Some(r) = rotation {
                 query = query.rotating(crate::gap::Rotation {
                     angle: (f1 - f0) * angle,
@@ -2853,7 +2861,7 @@ impl Plan<'_> {
             else {
                 continue;
             };
-            if g.lower >= -self.allowed {
+            if proven(&g, self.allowed) {
                 continue;
             }
             if g.upper >= -self.allowed && level < MOVE_SPLITS {
@@ -3239,11 +3247,76 @@ fn taut_vertices(x: &[f64], lo: &[f64], hi: &[f64], start: f64, end: f64) -> Vec
 mod tests {
     #![allow(clippy::unwrap_used, clippy::indexing_slicing)]
     use super::*;
+    use crate::surface::SurfaceSource;
+    use openchuck_types::mesh::TriangleMesh;
 
     fn eval(v: &[(f64, f64)], x: f64) -> f64 {
         let i = v.partition_point(|p| p.0 < x).clamp(1, v.len() - 1);
         let (a, b) = (v[i - 1], v[i]);
         a.1 + (x - a.0) / (b.0 - a.0) * (b.1 - a.1)
+    }
+
+    /// A ball of radius 1 on the tool line at `tip`, along +Z.
+    fn ball_at(tip: Point3) -> (RevolvedProfile, ToolLine) {
+        use openchuck_types::tool::{ProfilePoint, ProfileSegment, ToolProfile};
+        let profile = ToolProfile {
+            segments: vec![
+                ProfileSegment::Arc {
+                    to: ProfilePoint::new(1.0, 1.0),
+                    centre: ProfilePoint::new(0.0, 1.0),
+                },
+                ProfileSegment::Line {
+                    to: ProfilePoint::new(1.0, 8.0),
+                },
+            ],
+        }
+        .validate()
+        .unwrap();
+        let line = ToolLine {
+            origin: tip,
+            axis: UnitVec3::new(Vec3::new(0.0, 0.0, 1.0)).unwrap(),
+        };
+        (profile, line)
+    }
+
+    #[test]
+    fn req_op_12_the_move_check_finds_a_cut_deeper_than_its_layer() {
+        // A ball plunged 1 mm into the top of a plate, far deeper than the
+        // tolerance and the layer: the check must not prove it (decision
+        // record SIMUL-EDGE-1, Q3). A face reads a cut deeper than its layer
+        // as the layer, so the layer must lie deeper than the allowance.
+        let tolerance = 0.01;
+        let plate = TriangleMesh {
+            vertices: vec![
+                Point3::new(-5.0, -5.0, 0.0),
+                Point3::new(5.0, -5.0, 0.0),
+                Point3::new(5.0, 5.0, 0.0),
+                Point3::new(-5.0, 5.0, 0.0),
+            ],
+            triangles: vec![[0, 1, 2], [0, 2, 3]],
+        };
+        let mesh = crate::MeshSurface::new(&plate).unwrap();
+        let (profile, line) = ball_at(Point3::new(0.3, 0.2, -1.0));
+        for sweep in [Vec3::ZERO, Vec3::new(1.0, 0.0, 0.0)] {
+            let g = mesh
+                .tool_gap(&profile, &line, &move_query(sweep, tolerance))
+                .unwrap();
+            assert!(!proven(&g, tolerance), "mesh, sweep {sweep:?}: {g:?}");
+        }
+        // On an exact face: the top of a cylinder of radius 10, plunged 1 mm.
+        let model = openchuck_testkit::brep::banded_cylinder(10.0, 20.0, &[]);
+        let exact = crate::BrepSurface::new(&model).unwrap();
+        let (profile, line) = ball_at(Point3::new(10.0, 0.0, 9.0));
+        let g = exact
+            .tool_gap(&profile, &line, &move_query(Vec3::ZERO, tolerance))
+            .unwrap();
+        assert!(!proven(&g, tolerance), "exact face: {g:?}");
+        // A ball resting on the plate is proven.
+        let (profile, line) = ball_at(Point3::new(0.3, 0.2, 0.0));
+        let g = mesh
+            .tool_gap(&profile, &line, &move_query(Vec3::ZERO, tolerance))
+            .unwrap();
+        assert!(proven(&g, tolerance), "resting: {g:?}");
     }
 
     #[test]
