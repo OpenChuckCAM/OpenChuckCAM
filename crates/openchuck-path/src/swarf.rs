@@ -621,6 +621,13 @@ pub struct Limits {
     /// plus the tip extension. Negative when it stays short of it (decision
     /// record 0491 item 2).
     pub end_reach: f64,
+    /// The least the tool's end is lifted along the tool axis at any pose, in
+    /// millimetres: each pose's lift up its ruling times the cosine of the
+    /// angle between the ruling and the tool axis (the flank half angle when
+    /// there is no tilt; 1 for a straight tool). Zero when no pose is lifted.
+    /// [`Self::end_reach`] less this is how far the tool's end still reaches
+    /// past the end of the rulings where it is lifted least (issue #887).
+    pub least_lift_along_axis: f64,
     /// The length along the face left uncut because the tool would cut into
     /// an avoid surface there, in millimetres.
     pub avoid_uncut: f64,
@@ -695,10 +702,8 @@ pub struct WatchedBreak {
 }
 
 impl Limits {
-    /// The sentences of a face's note that say what each limit did;
-    /// `least_lift` is the least the tip is lifted at any pose (decision
-    /// record 0491), `None` for a face with no pose.
-    fn describe(&self, least_lift: Option<f64>) -> String {
+    /// The sentences of a face's note that say what each limit did.
+    fn describe(&self) -> String {
         let mut out = String::new();
         // Where the tool's end sits against the end of the rulings (decision
         // record 0491 item 2), shown to the precision of the notes.
@@ -719,7 +724,7 @@ impl Limits {
         // Information, said after the lift (issue #624; decision record
         // 0683): a real cut into a face next to this one is measured and
         // warned of on its own (decision record 0532 item 3).
-        let least_lift = least_lift.unwrap_or(0.0).max(0.0);
+        let least_lift = self.least_lift_along_axis.max(0.0);
         if self.end_reach >= 0.0005 && self.tip_lifted <= SAME_POINT {
             out.push_str(&format!(
                 " The tool's end reaches {:.3} mm beyond the end of the rulings at the tip (its \
@@ -1039,8 +1044,7 @@ impl FacePath {
             crate::counted(self.poses().count(), "pose", "poses"),
             self.gouge,
             self.describe_tilt(),
-            self.limits
-                .describe(self.poses().map(|p| p.lift).reduce(f64::min))
+            self.limits.describe()
         )
     }
 }
@@ -1236,6 +1240,15 @@ struct Placement {
     length: f64,
 }
 
+/// The ruling's direction towards the spindle (from the tip end, `sign` as
+/// for [`place`]), made exactly perpendicular to the normal (a near-ruled
+/// face is not exactly straight); none if it runs along its own normal.
+fn towards_spindle(ruling: &Ruling, sign: f64) -> Option<UnitVec3> {
+    let n = ruling.normal.get();
+    let chord = (ruling.hi - ruling.lo) * sign;
+    UnitVec3::new(chord - n * chord.dot(n)).ok()
+}
+
 fn place(
     ruling: &Ruling,
     sign: f64,
@@ -1244,11 +1257,8 @@ fn place(
     rotary: RotaryMapping,
 ) -> Result<Placement> {
     let n = ruling.normal.get();
-    let chord = (ruling.hi - ruling.lo) * sign;
-    // The ruling direction towards the spindle, made exactly perpendicular
-    // to the normal (a near-ruled face is not exactly straight).
-    let d = UnitVec3::new(chord - n * chord.dot(n))
-        .map_err(|_| {
+    let d = towards_spindle(ruling, sign)
+        .ok_or_else(|| {
             PathError::refused(
                 crate::topic::SWARF,
                 format!(
@@ -2499,6 +2509,27 @@ pub fn face_path(
         .flatten()
         .map(|p| p.lift)
         .fold(0.0, f64::max);
+    // The same lifts along the tool axis: the lifted ruling starts `lift`
+    // further up the same line than the unlifted one, and the tool's end sits
+    // against it as before, so it moves `lift` times the ruling's share of
+    // the axis (issue #887).
+    // A lifted pose whose ruling cannot be found again counts as not lifted,
+    // which can only make the note say the tool reaches further.
+    let least_lift_along_axis = out_runs
+        .iter()
+        .flatten()
+        .map(|p| {
+            if p.lift > 0.0 {
+                rule(p.t)
+                    .and_then(|r| towards_spindle(&r, sign))
+                    .map_or(0.0, |d| p.lift * d.get().dot(p.axis.get()))
+            } else {
+                0.0
+            }
+        })
+        .reduce(f64::min)
+        .unwrap_or(0.0)
+        .max(0.0);
     let mut lifted_clear_of: Vec<Protection> = Vec::new();
     for p in out_runs.iter().flatten().filter(|p| p.lift > 0.0) {
         if let Some(r) = rule(p.t) {
@@ -2586,6 +2617,7 @@ pub fn face_path(
             tip_up: up,
             too_short,
             end_reach: flank.z_start + settings.tip_extension,
+            least_lift_along_axis,
             avoid_uncut,
             check_uncut,
             neighbours_checked: region.neighbours.is_some(),

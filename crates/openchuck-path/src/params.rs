@@ -480,8 +480,8 @@ pub mod names {
     /// The widest nub plunged; zero means the tool's cutting diameter.
     pub const FACE_NUB_DIAMETER: &str = "face_nub_diameter";
     /// The largest depth per traverse of a back-and-forth ramp; zero means
-    /// the tool's cutting radius, and more is held to it (decision record
-    /// PATH-QUALITY-1, Q9).
+    /// the tool's cutting radius, and more is held to it (decision
+    /// 0695, Q9).
     pub const RAMP_DEPTH_PER_TRAVERSE: &str = "ramp_depth_per_traverse";
     /// Descent angle for ramp and helix entry.
     pub const RAMP_ANGLE: &str = "ramp_angle";
@@ -766,8 +766,8 @@ pub struct EntryParameters {
     /// The widest nub plunged; zero means the tool's cutting diameter.
     pub face_nub_diameter: Millimetres,
     /// The largest depth per traverse of a back-and-forth ramp; zero means
-    /// the tool's cutting radius, and more is held to it (decision record
-    /// PATH-QUALITY-1, Q9).
+    /// the tool's cutting radius, and more is held to it (decision
+    /// 0695, Q9).
     pub ramp_depth_per_traverse: Millimetres,
     /// The helix circle as a fraction of the tool diameter.
     pub helix_diameter: f64,

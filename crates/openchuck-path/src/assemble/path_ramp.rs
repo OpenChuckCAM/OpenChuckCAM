@@ -94,7 +94,7 @@ pub(super) enum Refusal {
 /// `2 · leg · tan`, so every ramp bounds its legs to keep that within the
 /// tool radius, and a pass that starts as a spiral also within one turn of
 /// a spiral ramp at its start radius, taking more legs instead (decision
-/// record PATH-QUALITY-1, Q3, the owner's tool-load requirement, and Q8;
+/// 0695, Q3, the owner's tool-load requirement, and Q8;
 /// `f64::INFINITY` for no bound).
 /// Where the two bounds meet, the longest wins: the depth per traverse is
 /// the owner's requirement, and a leg shorter than the tool radius is
@@ -512,7 +512,7 @@ mod tests {
         assert!((ramp.leg - 2.0).abs() < 1e-9, "{}", ramp.leg);
     }
 
-    /// Decision record PATH-QUALITY-1, Q3 (the owner's tool-load
+    /// Decision 0695, Q3 (the owner's tool-load
     /// requirement): a leg is never longer than the bound it is given, so
     /// the depth per traverse at its far end, `2 · leg · tan`, stays within
     /// it; the ramp takes more legs instead, and keeps its angle and its

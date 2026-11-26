@@ -145,7 +145,7 @@ impl FormSection {
             | "max_tilt" | "axis_tolerance" | "max_angle_step" | "tip_end" | "tip_extension" => {
                 Self::ToolAxisAndA
             }
-            // The basic entry settings (decision record PATH-QUALITY-1, Q9,
+            // The basic entry settings (decision 0695, Q9,
             // A's regrouping): Entry, Ramp angle and Plunge where no ramp
             // fits; the rest of the ramp, helix and lead settings are in
             // Advanced, below.
@@ -166,8 +166,8 @@ impl FormSection {
             "diameter_tolerance" | "crease_angle" | "min_length" | "min_remaining" | "min_cut"
             | "max_material_left" | "through_allowance" | "max_step" | "max_x_step"
             | "depth_reference" | "exact_contact" => Self::Advanced,
-            // The entry settings past the basic ones (decision record
-            // PATH-QUALITY-1, Q9).
+            // The entry settings past the basic ones (decision
+            // 0695, Q9).
             "ramp_steeper_near_axis"
             | "ramp_angle_max"
             | "plunge_face_nubs"

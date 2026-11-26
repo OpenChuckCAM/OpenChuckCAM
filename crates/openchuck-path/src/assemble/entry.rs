@@ -72,8 +72,8 @@ enum Shape {
     Spiral(f64),
 }
 
-/// What holds a back-and-forth ramp's depth per traverse (decision record
-/// PATH-QUALITY-1, Q9, and its agreement with lane TOOL-LOAD): the bound
+/// What holds a back-and-forth ramp's depth per traverse (decision
+/// 0695, Q9, and its agreement with lane TOOL-LOAD): the bound
 /// [`largest_depth_per_traverse`] took.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(super) enum DepthBound {
@@ -101,7 +101,7 @@ impl DepthBound {
 }
 
 /// A back-and-forth ramp's largest depth per traverse, in mm, and the bound
-/// that sets it (decision record PATH-QUALITY-1, Q8 and Q9, the owner's
+/// that sets it (decision 0695, Q8 and Q9, the owner's
 /// answers, and the agreement with lane TOOL-LOAD): the least of
 ///
 /// - the tool's cutting radius;
@@ -467,8 +467,8 @@ impl Entry {
     }
 
     /// A ramp that follows the pass's own toolpath (decision 0543): over a
-    /// line, a partial ring or a spiral, back and forth (decision record
-    /// PATH-QUALITY-1, Q3: no ramp goes round the part); a pass that starts
+    /// line, a partial ring or a spiral, back and forth (decision
+    /// 0695, Q3: no ramp goes round the part); a pass that starts
     /// as a whole ring, or on the rotary axis, is ramped round the ring or
     /// descended on the axis before it reaches here ([`Self::ring_plan`]),
     /// and comes here only when it starts above the stock, with nothing to
@@ -501,8 +501,8 @@ impl Entry {
             Start::Spiral { .. } if self.on_axis(b, Some(head)) => plunge(b, stock, common, head),
             // A pass that turns A while it moves along X: back and forth
             // over its own path up to its first rapid, A reversing during
-            // the entry only, never round the part (decision record
-            // PATH-QUALITY-1, Q3, amending 0543 D2 and 0645 item 1), its legs
+            // the entry only, never round the part (decision
+            // 0695, Q3, amending 0543 D2 and 0645 item 1), its legs
             // bounded by the depth per traverse of one turn of a spiral ramp
             // at its start radius.
             Start::Spiral { .. } => {
@@ -557,7 +557,7 @@ impl Entry {
     /// no ramp fits is on; then plunged, listed for the host's check
     /// of a tool that cannot cut straight down, and named in a note with its
     /// reason and its depth, the whole descent in one move (decision 0543
-    /// D7; decision record PATH-QUALITY-1, Q4, the owner's answer).
+    /// D7; decision 0695, Q4, the owner's answer).
     fn fallback_plunge(
         &self,
         b: &mut Builder<'_>,
@@ -590,7 +590,7 @@ impl Entry {
     /// its legs are bounded so the depth per traverse is no more than one
     /// turn of a spiral ramp at the pass's start radius and the tool radius,
     /// and its length is held to 10 turns at that radius, steepened near
-    /// the axis as for a ring (decision record PATH-QUALITY-1, Q3 and Q4).
+    /// the axis as for a ring (decision 0695, Q3 and Q4).
     #[allow(clippy::too_many_arguments)]
     fn follow(
         &self,
@@ -648,7 +648,7 @@ impl Entry {
         // of length L descends L tan(angle)), so the length sets only the
         // number of legs, which `MAX_LEGS` bounds; a shorter stretch is
         // within the path's own precision, a plunge in all but name, and is
-        // entered as a single point is (decision record PATH-QUALITY-1, Q4
+        // entered as a single point is (decision 0695, Q4
         // (i)). Over a stretch shorter than the tool radius the tool's centre
         // may go down into stock its edge has not cut, so the pass is listed
         // for the host's check of a tool that cannot cut straight down.
@@ -761,7 +761,7 @@ impl Entry {
             }
             // Every back-and-forth ramp keeps its depth per traverse,
             // `2 S tan` at a leg's far end, within the tool radius (decision
-            // record PATH-QUALITY-1, Q8, the owner's answer A) and the
+            // 0695, Q8, the owner's answer A) and the
             // Largest depth per traverse (Q9, B): lines and partial rings
             // too, taking more legs instead.
             Shape::Line | Shape::Arc => {
@@ -828,7 +828,7 @@ impl Entry {
         if steep {
             b.steep_ramps.push(pass);
         }
-        // The load figures for the note (decision record PATH-QUALITY-1, Q3
+        // The load figures for the note (decision 0695, Q3
         // point 4): the angle, the legs, and the depth per traverse, the
         // drop between one visit to a leg's far end and the next.
         let rise = moves.first().map_or(0.0, |(p, _)| p.height) - goal.height;
@@ -995,10 +995,10 @@ impl Entry {
     /// ramp and the pass starts as a closed ring (decision 0543 section 2),
     /// or the descent on the axis of a pass that starts there (section 4,
     /// point 2); a plunge where neither fits in 10 turns even at the Maximum
-    /// ramp angle and Plunge where no ramp fits is on (decision record
-    /// PATH-QUALITY-1, Q4); `None` otherwise. A spiral off the axis is
+    /// ramp angle and Plunge where no ramp fits is on (decision
+    /// 0695, Q4); `None` otherwise. A spiral off the axis is
     /// ramped over its own path ([`Self::ramp`]), never round the part
-    /// (PATH-QUALITY-1, Q3).
+    /// (decision 0695, Q3).
     #[allow(clippy::too_many_arguments)]
     fn ring_plan(
         &self,
@@ -1260,7 +1260,7 @@ impl Entry {
     /// 0543 section 4, point 3). The turns are those actually planned, not a
     /// proportion of the angle: a ring ramp adds a whole turn where the pass
     /// rises before its first point, so a few proportional tries can stop
-    /// short of a maximum that fits (decision record PATH-QUALITY-1, Q4
+    /// short of a maximum that fits (decision 0695, Q4
     /// (ii)). Gives the plan or refusal, the tangent of the angle used last,
     /// and whether the search reached the maximum: always so when it is on
     /// and still refuses, so no refusal asks to turn on a setting that is
@@ -1404,7 +1404,7 @@ impl Entry {
             b.on_axis_ramps.push((pass, turns));
             b.straight_plunges.push(pass);
         }
-        // The load figures for the note (decision record PATH-QUALITY-1, Q3
+        // The load figures for the note (decision 0695, Q3
         // point 4): a ring ramp descends one turn's depth per traverse; a
         // descent on the axis, the rise over its turns at the tool's edge.
         let (Some((first, a_first)), Some((last, a_last))) =
@@ -1747,8 +1747,8 @@ fn plunge(
 }
 
 /// [`plunge`], giving the depth it plunges into the stock: the whole descent
-/// below where the stock begins over the point, in one move (decision record
-/// PATH-QUALITY-1, Q4: the depth per traverse of a plunge).
+/// below where the stock begins over the point, in one move (decision
+/// 0695, Q4: the depth per traverse of a plunge).
 fn plunge_depth(
     b: &mut Builder<'_>,
     stock: View<'_>,
@@ -1882,7 +1882,7 @@ fn fix_setting(at_max: bool) -> &'static str {
 fn fix_words(at_max: bool) -> &'static str {
     if at_max {
         // Reached only with Plunge where no ramp fits off: on, such a pass
-        // is plunged (decision record PATH-QUALITY-1, Q4).
+        // is plunged (decision 0695, Q4).
         "Raise Maximum ramp angle, or turn on Plunge where no ramp fits, or set Entry to \
          Plunge or Helix."
     } else {
@@ -1897,7 +1897,7 @@ mod tests {
     use crate::BrepSurface;
     use openchuck_testkit::ruled::wall_plane;
 
-    /// Decision record PATH-QUALITY-1, Q9 (the owner's answer B) and the
+    /// Decision 0695, Q9 (the owner's answer B) and the
     /// agreement with lane TOOL-LOAD: a back-and-forth ramp's largest depth
     /// per traverse is the least of the tool radius, one turn of a spiral
     /// ramp at its start radius, the Largest depth per traverse setting (0

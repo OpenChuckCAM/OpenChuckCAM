@@ -71,6 +71,9 @@ See [Simulation and deviation colours](concepts/simulation.md).
 "Recovery: this project folder is a copy of ..."
 : The recovery copies in the folder belong to the project it was copied from, so they are not offered here. They are kept aside, in a folder inside the project folder.
 
+"Recovery: recovery data was kept for a project last in ..., but it is not there now. ..."
+: A warning at each start: the program kept recovery copies for a project that is no longer in that folder. If you moved the project, click **Locate folder** and enter its new folder. If you deleted it, click **Locate folder**, then **Forget this project**: the program stops looking for it and the warning goes. Nothing else is deleted.
+
 ## A command fails with a dialog
 
 The dialog's title names what failed, for example "Save failed" or "Import model failed", and its text says why. "Import model: there is no project open." means the model was dropped on the window with no project open: open or create a project first.

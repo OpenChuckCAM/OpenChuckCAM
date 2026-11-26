@@ -347,7 +347,7 @@ impl Application {
         // near the axis starts with both on, written into the operation, so a
         // Ramp entry plunges only the passes with no room to ramp, each said
         // in a note, instead of refusing them; one saved without them keeps
-        // them off and keeps its program (decision record PATH-QUALITY-1,
+        // them off and keeps its program (decision 0695,
         // Q4 (iii), the owner's answer, in decision 0545 D3's pattern).
         // Only where Entry offers Ramp (not drilling).
         let offers_ramp = |schema: &openchuck_path::ParameterSchema| {

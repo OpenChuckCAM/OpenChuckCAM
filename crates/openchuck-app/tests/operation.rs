@@ -2944,7 +2944,7 @@ fn req_ui_07_every_link_parameter_is_in_the_links_section() {
 
 #[test]
 fn req_op_11_a_new_operation_allows_single_point_plunge_and_a_steeper_ramp_near_the_axis() {
-    // Decision record PATH-QUALITY-1, Q4 (iii), the owner's answer: a new
+    // Decision 0695, Q4 (iii), the owner's answer: a new
     // operation whose Entry offers Ramp is written with Plunge where no ramp
     // fits (stored as `allow_single_point_plunge`) and Steeper ramp near the
     // axis on, so a Ramp entry plunges only the passes with no room to
@@ -2993,7 +2993,7 @@ fn req_op_11_a_new_operation_allows_single_point_plunge_and_a_steeper_ramp_near_
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
-/// Decision record PATH-QUALITY-1, Q9 (the owner's answer B, with A's
+/// Decision 0695, Q9 (the owner's answer B, with A's
 /// regrouping): the basic entry settings (Entry, Ramp angle and Plunge where
 /// no ramp fits, stored as before as `allow_single_point_plunge`) stay in
 /// the Entry, links and retract section; the rest of the ramp, helix and
@@ -3066,7 +3066,7 @@ fn req_op_11_req_ui_07_the_basic_entry_settings_stay_in_entry_and_the_rest_are_i
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
-/// Decision record PATH-QUALITY-1, Q9: an operation saved before Largest
+/// Decision 0695, Q9: an operation saved before Largest
 /// depth per traverse existed opens without it, reads the default (the tool
 /// radius) and keeps its program, the same as one that sets 0; a value
 /// below the radius changes the ramp (GC-07).

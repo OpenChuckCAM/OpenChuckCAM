@@ -223,7 +223,7 @@ fn req_op_11_ring_ramps_are_the_same_at_one_two_and_many_threads() {
 
 /// Checks one spiral entry: it goes back and forth over the pass's own
 /// path, so A never turns behind the pass's first point (round the part,
-/// as decision 0543 D2 had it before decision record PATH-QUALITY-1, Q3),
+/// as decision 0543 D2 had it before decision 0695, Q3),
 /// and it descends no more steeply than the angle on the tip's real path.
 ///
 /// Where `steep` (a note says a pass drops more steeply than the ramp angle
@@ -298,7 +298,7 @@ fn turning_ramps(f: &Fixture, path: &GeneratedPath) -> (usize, usize) {
 #[test]
 fn req_op_11_req_set_09_a_spiral_is_ramped_over_its_own_path_beside_a_held_region() {
     // Decision 0543 D2 (a) ramped a spiral round the axis at its start X;
-    // decision record PATH-QUALITY-1, Q3 (the owner's answer A) changed it:
+    // decision 0695, Q3 (the owner's answer A) changed it:
     // back and forth over the pass's own path, never round the part. It
     // generates beside the held region (refused before 0543).
     let f = cylinder();
@@ -542,7 +542,7 @@ fn req_op_11_req_op_15_a_ring_on_the_axis_descends_there_while_a_turns() {
         err.contains("starts on the rotary axis") && err.contains("more than the 10 allowed"),
         "{err}"
     );
-    // Decision record PATH-QUALITY-1, Q4: where even the Maximum ramp angle
+    // Decision 0695, Q4: where even the Maximum ramp angle
     // needs more than 10 turns, with Plunge where no ramp fits on, it is
     // plunged and said with its depth (16 mm of stock down to the axis).
     let mut most = v.clone();
@@ -648,7 +648,7 @@ fn req_op_11_req_nfr_07_steeper_ramp_near_the_axis_fits_ten_turns_up_to_the_maxi
         err.contains("Maximum ramp angle") && err.contains("more than the 10 allowed"),
         "{err}"
     );
-    // Decision record PATH-QUALITY-1, Q4: that refusal names Plunge where
+    // Decision 0695, Q4: that refusal names Plunge where
     // no ramp fits too, never the steeper ramp that is on; with it on, the
     // pass has no room to ramp and is plunged, said in a note with its
     // reason and depth.
@@ -1241,7 +1241,7 @@ fn req_op_11_req_nfr_07_a_pass_shorter_than_ten_tolerances_is_refused_by_name() 
     assert!(
         err.contains("Ramp entry: pass 1 starts with a stretch of 0.050 mm")
             && err.contains("shorter than the 0.100 mm (ten times the tolerance)")
-            // Decision record PATH-QUALITY-1, Q4 (i): Plunge where no ramp
+            // Decision 0695, Q4 (i): Plunge where no ramp
             // fits now covers such a stretch, so the refusal names it.
             && err.contains("Turn on Plunge where no ramp fits, or set Entry to Plunge or Helix"),
         "{err}"
@@ -1391,7 +1391,7 @@ fn req_ui_12_ramp_entry_refusals_carry_their_topic_and_setting() {
         } => {
             assert_eq!(topic, openchuck_path::topic::RAMP_ENTRY);
             assert!(text.starts_with("pass 1 starts with a stretch"), "{text}");
-            // Decision record PATH-QUALITY-1, Q4 (i): its first remedy is
+            // Decision 0695, Q4 (i): its first remedy is
             // now Plunge where no ramp fits, which covers such a stretch.
             assert_eq!(setting.as_deref(), Some(names::ALLOW_SINGLE_POINT_PLUNGE));
         }
@@ -1441,7 +1441,7 @@ fn req_op_11_req_op_07_a_swarf_like_pass_ramps_along_its_own_path_never_round_th
     // round the part (swarf) has its ramp go back and forth over the pass's
     // own path instead: every entry pose lies between the pass's own X and
     // A, A reverses during the entry only, and the descent is within the
-    // ramp angle. Decision record PATH-QUALITY-1, Q3 (the owner's answer
+    // ramp angle. Decision 0695, Q3 (the owner's answer
     // A) made this every strategy's ramp and removed the strategy's choice
     // (`Strategy::ramps_round_the_part`), so no strategy ramps round the
     // part any more.
@@ -1500,7 +1500,7 @@ fn req_op_11_req_op_07_a_swarf_like_pass_ramps_along_its_own_path_never_round_th
 fn req_op_11_req_nfr_07_a_pass_on_the_axis_in_the_stock_is_listed_as_a_plunge() {
     // #781 review (decision 0645; 0543 D7): a pass that starts on the
     // rotary axis inside the stock is listed for the host's check of a tool
-    // that cannot cut straight down. Decision record PATH-QUALITY-1, Q3
+    // that cannot cut straight down. Decision 0695, Q3
     // removed the strategy's choice not to ramp round the part, so every
     // strategy's pass on the axis now descends there while A turns (0543
     // point 2), at 10 degrees in 5.1 turns here.

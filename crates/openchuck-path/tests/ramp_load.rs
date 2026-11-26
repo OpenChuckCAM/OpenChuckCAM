@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //! A ramp follows its own pass and is designed for the tool's load (OP-11,
-//! OP-12, NFR-07, NFR-12; decision record PATH-QUALITY-1, Q3 and Q4, the
+//! OP-12, NFR-07, NFR-12; decision 0695, Q3 and Q4, the
 //! owner's answers with the tool-load requirement; issue #786). A pass that
 //! starts as a spiral is ramped back and forth over its own path, never
 //! round the part; its legs are bounded so the depth per traverse is no
@@ -274,7 +274,7 @@ fn by_angle(_: &AxisPosition, a: f64) -> (i64, i64) {
 fn req_op_11_req_op_12_a_spiral_is_ramped_back_and_forth_over_its_own_path_never_round_the_part() {
     // The tip 4 mm from the axis, a 6 mm ball: 13 mm of descent from 17 mm
     // at 3 degrees needs 13 / tan 3 = 248.05 mm of travel. Today's spiral
-    // ramp (decision 0543 D2, amended by PATH-QUALITY-1 Q3) turned A
+    // ramp (decision 0543 D2, amended by decision 0695 Q3) turned A
     // 248.05 / (2 pi 4) = 9.87 turns round the part at the start X, each
     // turn 2 pi 4 tan 3 = 1.317 mm below the one before.
     let f = fixture(&ball(6.0));
@@ -468,7 +468,7 @@ fn uneven_ring() -> Points {
 
 #[test]
 fn req_op_11_req_nfr_07_the_steeper_ramp_reaches_the_maximum_before_it_refuses() {
-    // Decision record PATH-QUALITY-1, Q4 (ii): the search scaled the angle
+    // Decision 0695, Q4 (ii): the search scaled the angle
     // by the turns, four times, assuming they fall in proportion to it, and
     // stopped short of the maximum, then asked to turn on the setting
     // already on (on the baluster, 4.09 degrees against 15). From a Ramp
@@ -503,7 +503,7 @@ fn req_op_11_req_nfr_07_the_steeper_ramp_reaches_the_maximum_before_it_refuses()
 
 #[test]
 fn req_op_11_req_nfr_07_a_stretch_shorter_than_the_shortest_ramp_is_plunged_when_allowed() {
-    // Decision record PATH-QUALITY-1, Q4 (i): a stretch shorter than ten
+    // Decision 0695, Q4 (i): a stretch shorter than ten
     // path tolerances (0.1 mm at the default) is a plunge in all but name
     // (0543 amendment 4), so Plunge where no ramp fits covers it; it was
     // refused even with the setting on.
@@ -604,7 +604,7 @@ fn plunged_and_named(f: &Fixture, path: &GeneratedPath) -> (usize, usize) {
 
 #[test]
 fn req_op_11_req_op_03_at_the_new_defaults_only_passes_with_no_room_to_ramp_are_plunged() {
-    // Decision record PATH-QUALITY-1, Q4: with Plunge where no ramp fits
+    // Decision 0695, Q4: with Plunge where no ramp fits
     // and Steeper ramp near the axis on (a new operation's defaults), a
     // roughing spiral's layers are ramped, and the only plunges are the
     // passes the notes name, each with its reason and depth.
@@ -677,7 +677,7 @@ fn by_x(at: &AxisPosition, _: f64) -> (i64, i64) {
 
 #[test]
 fn req_op_11_the_depth_per_traverse_of_a_line_s_ramp_is_at_most_the_tool_radius() {
-    // Decision record PATH-QUALITY-1, Q8 (the owner's answer A): the
+    // Decision 0695, Q8 (the owner's answer A): the
     // tool-radius bound reaches every back-and-forth ramp, lines and partial
     // rings too. A straight pass 12 mm from the axis, 50 mm long at A 0, and
     // a 2 mm flat end (radius 1 mm): legs over the whole pass would step
@@ -732,7 +732,7 @@ fn load_note(path: &GeneratedPath) -> String {
 
 #[test]
 fn req_op_11_the_largest_depth_per_traverse_setting_holds_a_line_and_a_spiral_ramp() {
-    // Decision record PATH-QUALITY-1, Q9 (the owner's answer B): Largest
+    // Decision 0695, Q9 (the owner's answer B): Largest
     // depth per traverse, below the tool radius, holds every back-and-forth
     // ramp to it, taking more legs at the same angle. A 2 mm flat end
     // (radius 1 mm). The line: legs at most 0.4 / (2 tan 3) = 3.82 mm.
@@ -873,7 +873,7 @@ fn req_gc_07_ramps_held_by_the_largest_depth_per_traverse_are_the_same_at_one_tw
 
 #[test]
 fn req_op_11_a_ramp_round_a_whole_ring_ignores_the_largest_depth_per_traverse() {
-    // Decision record PATH-QUALITY-1, Q9: a whole ring ramps round itself,
+    // Decision 0695, Q9: a whole ring ramps round itself,
     // a turn's depth per traverse (2 pi 6 tan 3 = 1.976 mm here), and is
     // measured before anything holds it, so the setting does not reach it.
     let f = fixture(&tool(ToolShape::FlatEnd, 2.0));
