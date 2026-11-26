@@ -155,6 +155,13 @@ const RAISES: u32 = 12;
 /// How many times the limit of an allowed region is bisected.
 const EDGE_STEPS: u32 = 12;
 
+/// The depth below a face down to which the move check counts the tool, as
+/// a multiple of the allowance (decision record SIMUL-EDGE-1, Terms:
+/// *Layer*). A cut deeper than the layer reads as the layer, so it must be
+/// deeper than the allowance for such a cut to fail the check; the margin
+/// is well over the query's own accuracy at the smallest tolerance.
+const LAYER: f64 = 1.25;
+
 /// How many times one move may be split because its proof failed, over all
 /// its halvings: a move that still cannot be proven after that is left out
 /// and marked, so a region the check cannot prove costs a bounded number
@@ -2814,7 +2821,7 @@ impl Plan<'_> {
             };
             let mut query = GapQuery::swept(
                 turn(sweep * (f1 - f0), f0 * angle),
-                self.tolerance.max(self.allowed.abs()),
+                LAYER * self.allowed.abs().max(self.tolerance),
             )
             .accept_above(-self.allowed);
             if let Some(r) = rotation {
