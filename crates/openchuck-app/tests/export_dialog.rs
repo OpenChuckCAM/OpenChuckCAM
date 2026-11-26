@@ -1896,3 +1896,22 @@ fn req_gc_16_a_tool_past_the_top_of_the_z_travel_asks_no_tick() {
     );
     std::fs::remove_dir_all(dir).unwrap();
 }
+
+/// Hiding a toolpath in the view after a run changes nothing the G-code is
+/// made from (decision record 0169 item 6; GC-07), so the run's G-code can
+/// still be written (issue #607).
+#[test]
+fn req_gc_15_req_sim_01_hiding_a_path_after_a_run_does_not_refuse_writing() {
+    let (dir, mut app) = project("Hidden", false);
+    let run = std::sync::Arc::new(post(&mut app, OutputGrouping::Operation));
+    let first = app.project().operations()[0].id;
+    app.execute(Command::SetPathsShown {
+        operations: vec![first],
+        shown: false,
+    })
+    .unwrap();
+    let out = folder("hidden-out");
+    let plan = app.prepare_output(&out, &run);
+    assert!(plan.is_ok(), "{:?}", plan.err());
+    std::fs::remove_dir_all(dir).unwrap();
+}

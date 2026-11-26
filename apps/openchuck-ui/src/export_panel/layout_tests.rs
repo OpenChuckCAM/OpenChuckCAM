@@ -151,7 +151,9 @@ fn button(snapshot: &Snapshot, name: &str) -> egui::Rect {
 }
 
 fn check(snapshot: &Snapshot, screen: egui::Vec2, case: &str) {
-    check_actions(snapshot, screen, case, ["Cancel", "Write G-code"]);
+    // The footer closes the dialog with Close: nothing is cancelled, the
+    // choices are kept for the next opening (issue #872).
+    check_actions(snapshot, screen, case, ["Close", "Write G-code"]);
 }
 
 fn check_actions(snapshot: &Snapshot, screen: egui::Vec2, case: &str, names: [&str; 2]) {
@@ -260,7 +262,7 @@ fn layout(files: bool) {
                 check(&top, screen, &case);
                 let bottom = draw(&mut panel, &app, &ctx, screen, size, true, &mut clock);
                 check(&bottom, screen, &case);
-                for action in ["Cancel", "Write G-code"] {
+                for action in ["Close", "Write G-code"] {
                     assert!(
                         (button(&top, action).top() - button(&bottom, action).top()).abs() < 0.5,
                         "{case}: {action} moved while scrolling"

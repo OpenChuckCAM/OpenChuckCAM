@@ -121,7 +121,7 @@ impl Entry {
     /// tolerance. A lead has no plane of the cut there, so such an end is
     /// led like a single-point pass: a plunge with a note, and no lead-out
     /// (decision 0543 point 2, the owner's answer, relayed).
-    fn on_axis(&self, b: &Builder<'_>, end: Option<&CutPoint>) -> bool {
+    pub(super) fn on_axis(&self, b: &Builder<'_>, end: Option<&CutPoint>) -> bool {
         end.is_some_and(|p| {
             let at = b.rotary.to_axis(p.tip, p.a);
             at.across.hypot(at.height) <= self.tolerance

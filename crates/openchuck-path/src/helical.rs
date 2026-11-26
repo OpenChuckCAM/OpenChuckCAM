@@ -1215,7 +1215,7 @@ fn adaptive_passes(
 }
 
 /// Where adaptive spacing measures between the wraps of the helix, in
-/// degrees turned from its start (OI-2198; decision record PATH-QUALITY-1,
+/// degrees turned from its start (OI-2198; decision 0695,
 /// Q6). The gap at `s` lies between the wrap there and the next, from X
 /// `x0 + pitch·s/360` one pitch on. It is measured only where that whole gap
 /// is where the tool may cut and where the passes alone must leave the
@@ -1285,7 +1285,7 @@ mod tests {
         }
     }
 
-    /// OI-2198 (decision record PATH-QUALITY-1, Q6): adaptive spacing
+    /// OI-2198 (decision 0695, Q6): adaptive spacing
     /// measures a helix's gaps only where the whole gap is outside the held
     /// regions' bands and clear of each face turn by the tool's reach.
     #[test]

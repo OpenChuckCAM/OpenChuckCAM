@@ -153,14 +153,13 @@ fn req_ui_07_req_ui_12_req_gc_15_export_writes_and_history_use_the_departure_gua
             },
         ]);
     }
+    // The tick box is one of the dialog's own controls: it takes the typed
+    // folder, as moving to another field does, so Write G-code writes where
+    // the box says, with no question (issue #871, the owner's answer A).
     click(&mut rig, openchuck_app::EXPORT_ACKNOWLEDGE_LABEL);
+    assert!(crate::pending_edits::entries(&rig.ctx).is_empty());
     click(&mut rig, "Write G-code");
-    assert!(rig.shows("Unconfirmed changes"));
-    assert!(!out.exists(), "pending typed destination cannot write");
-    click(&mut rig, "Cancel");
-    assert!(!out.exists());
-    click(&mut rig, "Write G-code");
-    click(&mut rig, "Keep");
+    assert!(!rig.shows("Unconfirmed changes"));
     for _ in 0..8 {
         rig.frame(Vec::new());
     }
@@ -187,7 +186,7 @@ fn req_ui_07_req_ui_12_req_gc_15_export_writes_and_history_use_the_departure_gua
             .all(|path| path.starts_with(&out) && path.is_file())
     );
     click(&mut rig, "Dismiss");
-    click(&mut rig, "Cancel"); // Close the export form, retaining history.
+    click(&mut rig, "Close"); // Close the export form, retaining history.
     assert!(
         !rig.shell.export.is_open(),
         "export closed: {:?}",
@@ -202,6 +201,8 @@ fn req_ui_07_req_ui_12_req_gc_15_export_writes_and_history_use_the_departure_gua
     type_unconfirmed(&mut rig, "Stepover", "1.6");
     let action = openchuck_app::overview::MessageAction::ReviewExport(0);
     rig.shell.message_action(action.clone());
+    rig.frame(Vec::new());
+    // The question is drawn in full from the next frame.
     rig.frame(Vec::new());
     assert!(rig.shows("Unconfirmed changes"));
     assert!(!rig.shows("Export result"));
@@ -245,6 +246,10 @@ fn req_ui_07_req_ui_12_req_gc_15_export_writes_and_history_use_the_departure_gua
     );
 }
 
+/// A field hidden while it holds typed text (here the post folder, when the
+/// post is changed without a press in the dialog, which would have taken the
+/// text first: issue #871) is named when the dialog closes; Keep finds it
+/// is not shown and keeps the draft, and Cancel, Esc or Discard resolve it.
 #[test]
 fn req_ui_07_req_ui_10_req_nfr_07_keep_of_a_hidden_field_preserves_drafts_and_allows_recovery() {
     for answer in ["Cancel", "Escape", "Discard"] {
@@ -277,21 +282,17 @@ fn req_ui_07_req_ui_10_req_nfr_07_keep_of_a_hidden_field_preserves_drafts_and_al
             .unwrap();
         rig.click(entry.center());
         rig.frame(vec![Event::Text("/unconfirmed/post".into())]);
-        assert!(
-            crate::pending_edits::entries(&rig.ctx)
-                .iter()
-                .any(|e| e.label == "Post folder"),
-            "{:?}",
-            crate::pending_edits::entries(&rig.ctx)
-        );
-        let builtin = openchuck_app::builtin_post_summaries()[0].name.clone();
-        choose_export_post(&mut rig, &builtin);
-        // A different choice hides the custom path without confirming it.
-        assert!(!rig.shows("/unconfirmed/post"));
-        type_unconfirmed(&mut rig, "Output folder", "/unconfirmed/output");
         let drafts = crate::pending_edits::entries(&rig.ctx);
-        assert_eq!(drafts.len(), 2);
-        click(&mut rig, "Cancel"); // export's close action
+        assert!(
+            drafts.iter().any(|e| e.label == "Post folder"),
+            "{drafts:?}"
+        );
+        rig.shell.export.choose_post(0);
+        for _ in 0..3 {
+            rig.frame(Vec::new());
+        }
+        assert!(!rig.shows("/unconfirmed/post"));
+        click(&mut rig, "Close");
         assert!(rig.shows("Unconfirmed changes"));
         click(&mut rig, "Keep");
         for _ in 0..8 {
@@ -318,11 +319,13 @@ fn req_ui_07_req_ui_10_req_nfr_07_keep_of_a_hidden_field_preserves_drafts_and_al
         assert!(!rig.shell.edit_guard.active());
         if answer != "Discard" {
             assert!(rig.shell.export.is_open());
-            assert_eq!(crate::pending_edits::entries(&rig.ctx).len(), 2);
+            assert_eq!(crate::pending_edits::entries(&rig.ctx).len(), 1);
             choose_export_post(&mut rig, "A post folder");
             assert!(rig.shows("/unconfirmed/post"));
-            click(&mut rig, "Cancel");
-            click(&mut rig, "Keep");
+            click(&mut rig, "Close");
+            if rig.shows("Unconfirmed changes") {
+                click(&mut rig, "Keep");
+            }
             for _ in 0..8 {
                 rig.frame(Vec::new());
             }
@@ -341,7 +344,6 @@ fn req_ui_07_req_ui_10_req_nfr_07_keep_of_a_hidden_field_preserves_drafts_and_al
         }
         choose_export_post(&mut rig, "A post folder");
         assert_eq!(rig.shows("/unconfirmed/post"), answer != "Discard");
-        assert_eq!(rig.shows("/unconfirmed/output"), answer != "Discard");
         assert!(crate::pending_edits::entries(&rig.ctx).is_empty());
     }
 }
@@ -718,10 +720,11 @@ fn req_ui_07_req_ui_08_req_tl_07_project_tool_close_keeps_through_a_command() {
         rig.frame(Vec::new());
     }
     type_unconfirmed(&mut rig, "Name", "Renamed project tool");
+    // Close is one of the window's own controls: it takes the typed name
+    // as moving to another field does, a project tool's field applying as
+    // one command, with no question (issue #871, the owner's answer A).
     click(&mut rig, "Close");
-    assert!(rig.shows("Unconfirmed changes"));
-    assert_eq!(rig.shell.app.as_ref().unwrap().project(), &before);
-    click(&mut rig, "Keep");
+    assert!(!rig.shows("Unconfirmed changes"));
     rig.settle();
     assert!(!rig.shell.tool_library.is_open());
     assert_eq!(
@@ -755,9 +758,11 @@ fn req_ui_07_req_tl_07_keep_a_library_field_does_not_silently_save_the_draft() {
         rig.frame(Vec::new());
     }
     type_unconfirmed(&mut rig, "Name", "Unpublished library draft");
+    // Close takes the typed name into the library draft, as moving to
+    // another field does, and the library asks only its own question about
+    // the draft (issue #871; decision 0233 item 7).
     click(&mut rig, "Close");
-    assert!(rig.shows("Unconfirmed changes"));
-    click(&mut rig, "Keep");
+    assert!(!rig.shows("Unconfirmed changes"));
     rig.settle();
     assert!(rig.shell.tool_library.is_open());
     assert!(
@@ -832,11 +837,13 @@ fn req_ui_07_req_nfr_07_keep_checks_tool_constraints_before_applying_any_field()
         rig.frame(Vec::new());
     }
     type_unconfirmed(&mut rig, "Diameter", "5");
-    // Leaving a box for a label retains its unconfirmed buffer. This makes
+    // A press outside the window leaves a box's buffer unconfirmed (a press
+    // on the window's own controls would take it: issue #871). This makes
     // two pending fields without bypassing the real widgets.
-    click(&mut rig, "TOOL");
+    click(&mut rig, "PROJECT");
     type_unconfirmed(&mut rig, "Flute length", "50");
-    click(&mut rig, "Close");
+    // Leaving for another step asks about both, and Keep checks both.
+    click(&mut rig, "Setup");
     assert!(rig.shows("Unconfirmed changes"));
     click(&mut rig, "Keep");
     for _ in 0..6 {
@@ -1148,13 +1155,10 @@ fn req_ui_07_req_tl_01_library_save_resolves_the_active_field_first() {
         rig.frame(Vec::new());
     }
     type_unconfirmed(&mut rig, "Name", "Confirmed and saved");
+    // Save takes the typed name first, as moving to another field does, and
+    // saves it, with no question (issue #871).
     click(&mut rig, "Save");
-    assert!(rig.shows("Unconfirmed changes"));
-    assert_eq!(
-        ToolLibrary::open(&folder).unwrap().get(tool).unwrap().name,
-        "Saved library tool"
-    );
-    click(&mut rig, "Keep");
+    assert!(!rig.shows("Unconfirmed changes"));
     for _ in 0..6 {
         rig.frame(Vec::new());
     }
@@ -1467,58 +1471,53 @@ fn req_ui_07_discard_uses_this_dialogs_original_after_an_earlier_edit_was_revert
     }
     rig.press(Key::A, Modifiers::COMMAND);
     rig.frame(vec![Event::Text("Another name".into())]);
+    // Esc puts back this dialog's original, the setup's name, not the text
+    // the earlier dialog started from; Rename then changes nothing, and
+    // asks nothing (issue #871).
+    rig.press(Key::Escape, Modifiers::NONE);
+    rig.frame(Vec::new());
+    assert!(rig.shows(&before.setups()[0].name), "{:?}", rig.texts());
     click(&mut rig, "Rename");
-    assert!(rig.shows("Unconfirmed changes"));
-    click(&mut rig, "Discard");
+    assert!(!rig.shows("Unconfirmed changes"));
     for _ in 0..4 {
         rig.frame(Vec::new());
     }
     assert_eq!(rig.shell.app.as_ref().unwrap().project(), &before);
 }
 
+/// Browse… is one of the dialog's own controls: it takes the typed folder,
+/// as moving to another field does, and the native picker starts from it,
+/// with no question (issue #871, the owner's answer A; it was asked before).
 #[test]
-fn req_ui_07_project_folder_browse_resolves_pending_text_before_the_native_dialog() {
-    for keep in [false, true] {
-        let mut rig = Rig::new(super::Shell::with_settings(false, None, None), Vec::new());
-        super::PICKER_INPUTS.with(|inputs| *inputs.borrow_mut() = Some(Vec::new()));
-        rig.shell.open_dialog(super::Dialog::Folder {
-            create: true,
-            folder: "/tmp".into(),
-            name: "Untitled".into(),
-        });
-        for _ in 0..4 {
-            rig.frame(Vec::new());
-        }
-        let at = rig
-            .visible_text_rects()
-            .into_iter()
-            .find(|(text, _)| text == "/tmp")
-            .unwrap()
-            .1
-            .center();
-        rig.click(at);
-        rig.press(Key::A, Modifiers::COMMAND);
-        rig.frame(vec![Event::Text("/tmp/another-parent".into())]);
-        click(&mut rig, "Browse…");
-        super::PICKER_INPUTS.with(|inputs| {
-            assert!(
-                inputs.borrow().as_ref().unwrap().is_empty(),
-                "the native picker must wait for confirmation"
-            )
-        });
-        assert!(rig.shows("Unconfirmed changes"));
-        click(&mut rig, if keep { "Keep" } else { "Discard" });
-        for _ in 0..5 {
-            rig.frame(Vec::new());
-        }
-        super::PICKER_INPUTS.with(|inputs| {
-            assert_eq!(
-                inputs.borrow().as_ref().unwrap(),
-                &[if keep { "/tmp/another-parent" } else { "/tmp" }]
-            )
-        });
-        super::PICKER_INPUTS.with(|inputs| *inputs.borrow_mut() = None);
+fn req_ui_07_project_folder_browse_takes_the_typed_text_into_the_native_dialog() {
+    let mut rig = Rig::new(super::Shell::with_settings(false, None, None), Vec::new());
+    super::PICKER_INPUTS.with(|inputs| *inputs.borrow_mut() = Some(Vec::new()));
+    rig.shell.open_dialog(super::Dialog::Folder {
+        create: true,
+        folder: "/tmp".into(),
+        name: "Untitled".into(),
+    });
+    for _ in 0..4 {
+        rig.frame(Vec::new());
     }
+    let at = rig
+        .visible_text_rects()
+        .into_iter()
+        .find(|(text, _)| text == "/tmp")
+        .unwrap()
+        .1
+        .center();
+    rig.click(at);
+    rig.press(Key::A, Modifiers::COMMAND);
+    rig.frame(vec![Event::Text("/tmp/another-parent".into())]);
+    click(&mut rig, "Browse…");
+    assert!(!rig.shows("Unconfirmed changes"));
+    for _ in 0..5 {
+        rig.frame(Vec::new());
+    }
+    super::PICKER_INPUTS
+        .with(|inputs| assert_eq!(inputs.borrow().as_ref().unwrap(), &["/tmp/another-parent"]));
+    super::PICKER_INPUTS.with(|inputs| *inputs.borrow_mut() = None);
 }
 
 #[test]
@@ -1602,59 +1601,33 @@ fn req_ui_07_model_report_waits_for_pending_placement_confirmation() {
     );
 }
 
+/// Add is the New operation dialog's accept: it takes the typed name and
+/// adds the operation named so, as one undoable step, with no question
+/// (issue #871, the owner's answer A; decision 0246 for every dialog).
 #[test]
-fn req_ui_07_req_ui_08_new_operation_add_resumes_only_after_field_resolution() {
-    for answer in ["Keep", "Discard", "Cancel"] {
-        let mut rig = Rig::cube(&format!("pending-local-add-{answer}"), None);
-        crate::theme::install_style(&rig.ctx, crate::theme::Theme::Dark);
-        rig.size = egui::vec2(1920.0, 1400.0);
-        let before = rig.shell.app.as_ref().unwrap().project().clone();
-        rig.shell.new_operation();
-        for _ in 0..6 {
-            rig.frame(Vec::new());
-        }
-        let name_label = rig
-            .visible_text_rects()
-            .into_iter()
-            .find(|(text, _)| text == "Name")
-            .unwrap()
-            .1;
-        let original_name = rig
-            .visible_text_rects()
-            .into_iter()
-            .filter(|(_, rect)| {
-                rect.left() > name_label.right()
-                    && (rect.center().y - name_label.center().y).abs() < 3.0
-            })
-            .min_by(|(_, a), (_, b)| a.left().total_cmp(&b.left()))
-            .unwrap()
-            .0;
-        type_unconfirmed(&mut rig, "Name", "New confirmed operation");
-        click(&mut rig, "Add");
-        assert!(rig.shows("Unconfirmed changes"));
-        assert_eq!(rig.shell.app.as_ref().unwrap().project(), &before);
-        click(&mut rig, answer);
-        for _ in 0..6 {
-            rig.frame(Vec::new());
-        }
-        let project = rig.shell.app.as_ref().unwrap().project();
-        if answer == "Cancel" {
-            assert_eq!(project, &before);
-            assert!(rig.ctx.egui_wants_keyboard_input());
-        } else {
-            assert_eq!(project.operations().len(), before.operations().len() + 1);
-            assert_eq!(
-                project.operations().last().unwrap().name,
-                if answer == "Keep" {
-                    "New confirmed operation"
-                } else {
-                    &original_name
-                }
-            );
-            rig.shell.undo();
-            assert_eq!(rig.shell.app.as_ref().unwrap().project(), &before);
-        }
+fn req_ui_07_req_ui_08_new_operation_add_takes_the_typed_name() {
+    let mut rig = Rig::cube("pending-local-add", None);
+    crate::theme::install_style(&rig.ctx, crate::theme::Theme::Dark);
+    rig.size = egui::vec2(1920.0, 1400.0);
+    let before = rig.shell.app.as_ref().unwrap().project().clone();
+    rig.shell.new_operation();
+    for _ in 0..6 {
+        rig.frame(Vec::new());
     }
+    type_unconfirmed(&mut rig, "Name", "New confirmed operation");
+    click(&mut rig, "Add");
+    assert!(!rig.shows("Unconfirmed changes"));
+    for _ in 0..6 {
+        rig.frame(Vec::new());
+    }
+    let project = rig.shell.app.as_ref().unwrap().project();
+    assert_eq!(project.operations().len(), before.operations().len() + 1);
+    assert_eq!(
+        project.operations().last().unwrap().name,
+        "New confirmed operation"
+    );
+    rig.shell.undo();
+    assert_eq!(rig.shell.app.as_ref().unwrap().project(), &before);
 }
 
 #[test]
@@ -1802,48 +1775,46 @@ fn req_ui_07_req_ui_08_inspector_header_name_obeys_keep_discard_cancel_and_valid
     }
 }
 
+/// "Remove unused tools…" is one of the library window's own controls: it
+/// takes the typed name into the library draft, as moving to another field
+/// does, and never saves the draft (decision 0233 item 7); it opens the
+/// cleanup with no Unconfirmed changes question (issue #871).
 #[test]
-fn req_ui_07_req_tl_01_req_tl_07_cleanup_guards_pending_library_fields_without_saving() {
+fn req_ui_07_req_tl_01_req_tl_07_cleanup_takes_pending_library_fields_without_saving() {
     use crate::tool_library_window::{Chosen, Purpose, ToolLibraryWindow};
     use openchuck_app::tool_library::{self, ToolType};
     use openchuck_app::tools::ToolLibrary;
-    for answer in ["Keep", "Discard", "Cancel"] {
-        let mut rig = Rig::cube(&format!("cleanup-pending-{answer}"), None);
-        let folder = rig.dirs[0].join("library");
-        let mut library = ToolLibrary::open(&folder).unwrap();
-        let mut draft = tool_library::new_draft(&library, ToolType::FlatEnd).unwrap();
-        tool_library::edit_name(&mut draft, "Library original").unwrap();
-        tool_library::save_draft(&mut library, &draft, &[]).unwrap();
-        let id = draft.id;
-        rig.shell.tool_library = ToolLibraryWindow::new(Some(folder.clone()));
-        rig.shell
-            .open_tool_library(Purpose::Browse, Some(Chosen::Library(id)));
-        for _ in 0..4 {
-            rig.frame(Vec::new());
-        }
-        let before = rig.shell.app.as_ref().unwrap().project().clone();
-        type_unconfirmed(&mut rig, "Name", "Pending library name");
-        click(&mut rig, "Remove unused tools…");
-        assert!(rig.shows("Unconfirmed changes"));
-        click(&mut rig, answer);
-        for _ in 0..4 {
-            rig.frame(Vec::new());
-        }
-        assert_eq!(
-            ToolLibrary::open(&folder).unwrap().get(id).unwrap().name,
-            "Library original"
-        );
-        assert_eq!(rig.shell.app.as_ref().unwrap().project(), &before);
-        assert_eq!(rig.shows("No unused project tools."), answer != "Cancel");
-        if answer == "Cancel" {
-            assert!(!crate::pending_edits::entries(&rig.ctx).is_empty());
-        } else {
-            click(&mut rig, "Close");
-            assert!(rig.shows(if answer == "Keep" {
-                "Pending library name"
-            } else {
-                "Library original"
-            }));
-        }
+    let mut rig = Rig::cube("cleanup-pending", None);
+    let folder = rig.dirs[0].join("library");
+    let mut library = ToolLibrary::open(&folder).unwrap();
+    let mut draft = tool_library::new_draft(&library, ToolType::FlatEnd).unwrap();
+    tool_library::edit_name(&mut draft, "Library original").unwrap();
+    tool_library::save_draft(&mut library, &draft, &[]).unwrap();
+    let id = draft.id;
+    rig.shell.tool_library = ToolLibraryWindow::new(Some(folder.clone()));
+    rig.shell
+        .open_tool_library(Purpose::Browse, Some(Chosen::Library(id)));
+    for _ in 0..4 {
+        rig.frame(Vec::new());
     }
+    let before = rig.shell.app.as_ref().unwrap().project().clone();
+    type_unconfirmed(&mut rig, "Name", "Pending library name");
+    click(&mut rig, "Remove unused tools…");
+    assert!(!rig.shows("Unconfirmed changes"));
+    for _ in 0..4 {
+        rig.frame(Vec::new());
+    }
+    assert_eq!(
+        ToolLibrary::open(&folder).unwrap().get(id).unwrap().name,
+        "Library original",
+        "the draft is not saved"
+    );
+    assert_eq!(rig.shell.app.as_ref().unwrap().project(), &before);
+    assert!(rig.shows("No unused project tools."));
+    assert!(crate::pending_edits::entries(&rig.ctx).is_empty());
+    click(&mut rig, "Close");
+    assert!(
+        rig.shows("Pending library name"),
+        "the draft holds the name"
+    );
 }

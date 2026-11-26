@@ -114,6 +114,8 @@ mod pathing;
 mod program;
 #[path = "ramp_follows.rs"]
 mod ramp_follows;
+#[path = "ramp_load.rs"]
+mod ramp_load;
 #[path = "region.rs"]
 mod region;
 #[path = "region_offsets.rs"]

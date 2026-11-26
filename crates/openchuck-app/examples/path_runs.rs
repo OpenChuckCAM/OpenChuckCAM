@@ -24,6 +24,7 @@ use std::time::Instant;
 use openchuck_app::pathview::{LEVEL_TOLERANCES, PathClass, ToolpathDisplay};
 use openchuck_app::playback::Timeline;
 use openchuck_app::{Application, Threads};
+use openchuck_types::ir::MoveKind;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut args = std::env::args().skip(1);
@@ -39,7 +40,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let moves: usize = run.toolpath.groups.iter().map(|g| g.segments.len()).sum();
     let timeline = Timeline::new(app.project(), Arc::clone(&run))?;
     let display = ToolpathDisplay::build(&timeline);
-    let all = |_: usize| true;
+    let all = |_: usize, _: MoveKind| true;
 
     println!("project:      {}", project.display());
     println!("regenerated:  {:.1} s", regenerated.as_secs_f64());

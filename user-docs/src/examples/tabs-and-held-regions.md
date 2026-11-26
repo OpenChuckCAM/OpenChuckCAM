@@ -34,7 +34,7 @@ The tutorial's project grips 8 mm of stock, and the grip reaches 7 mm into the p
 The grip is still 8 mm long, so it now holds X = 4.99 to 12.99, and the bar from X = 12.99 to the part at X = 17.99 is free. (The example project places the part 17.99 mm from the headstock face; 4.99 is 13 mm before the part.) The section shows the zones:
 
 <figure>
-<a href="images/tabs_held/01-zones.png"><img src="images/tabs_held/01-zones.png" width="1920" height="1080" alt="The Setup step with the stock 78 mm long: the side view shows the hatched held region at the left, a gap, and the baluster; the Inspector shows Held span X 4.990 to 12.990 mm, Head zone X 12.990 to 17.990 mm (5.000 mm), Tail zone X 78.990 to 82.990 mm (4.000 mm), and Retaining tabs (0) with the buttons Add tab, Add default tabs, Head tab and Tail tab."></a>
+<a href="images/tabs_held/01-zones.png"><img src="images/tabs_held/01-zones.png" width="1920" height="1080" alt="The Setup step with the stock 78 mm long: the side view shows the hatched held region at the left, a gap, and the baluster; the Inspector shows Held span X 4.990 to 12.990 mm, Kept clear to X 15.078 mm with the note No tool comes within 0.500 mm of the grip. Corners beside the grip may keep more material., Head zone X 12.990 to 17.990 mm (5.000 mm), Tail zone X 78.990 to 82.990 mm (4.000 mm), and Retaining tabs (0) with the buttons Add tab, Add default tabs, Head tab and Tail tab."></a>
 <figcaption><b>Figure 1.</b> A 5 mm head zone and a 4 mm tail zone. The amber line under <b>Retaining tabs (0)</b> says the part stays joined to the stock at the held end.</figcaption>
 </figure>
 
@@ -58,9 +58,11 @@ Nothing the view shows is used until you apply it: the toolpaths, the simulation
 
 4. Click **Continue to operations**, then **Generate**.
 
-With two 5 mm and 4 mm tabs, the Messages list has no warning about tabs. The project chip reads "Needs attention", and **2 Finish** carries a warning mark for a warning about the held region, not the tabs (Figure 3 shows it):
+With two 5 mm and 4 mm tabs, the Messages list has no warning about tabs, and both operations show a green dot (Figure 3 shows it). **2 Finish** has a note in its Results about the held region, which is information, not a warning:
 
-> Held region (operation 'Finish'): nothing within one tool radius of the held region at the start of the stock is cut: no part of the tool reaches over the gripped length of the stock.
+> Held region (operation 'Finish'): no part of the tool comes within 0.500 mm of the held region at the start of the stock, so the surface beside it is not cut there, and corners beside it may keep more. The setup's Workholding section shows where the tools keep clear.
+
+The held region's **Kept clear** row in the Workholding section says where that is: "to X 15.078 mm", the tool's radius and 0.500 mm past the end of the grip at X 12.990.
 
 ## 3. A tab shorter than the tool is wide
 
@@ -71,7 +73,7 @@ Make the tail tab shorter than the tool:
 The tab is no longer automatic (you typed its length), and **Length vs tools** turns amber: "2.000 mm, shorter than the tool T204 Z1 ball 3.175x22 (3.175 mm) of 2 Finish".
 
 <figure>
-<a href="images/tabs_held/03-length-vs-tools.png"><img src="images/tabs_held/03-length-vs-tools.png" width="1920" height="1080" alt="The Operations step with the paths generated, 2 Finish carrying a warning mark and the Messages list showing Warnings 3: a Held region warning for operation Finish, the Tool length warning for tool 104 and the line about workholding changes that are not applied; the Inspector shows Tab 2, Cylinder, X 78.9902344 to 80.9902344, Tail, no longer Automatic, Place automatically unticked, Length 2.000, and Length vs tools in amber: 2.000 mm, shorter than the tool T204 Z1 ball 3.175x22 (3.175 mm) of 2 Finish."></a>
+<a href="images/tabs_held/03-length-vs-tools.png"><img src="images/tabs_held/03-length-vs-tools.png" width="1920" height="1080" alt="The Operations step with the paths generated, both operations with a green dot and the Messages list showing Warnings 2: the Tool length warning for tool 104 and the line about workholding changes that are not applied; the Inspector shows Tab 2, Cylinder, X 78.9902344 to 80.9902344, Tail, no longer Automatic, Place automatically unticked, Length 2.000, and Length vs tools in amber: 2.000 mm, shorter than the tool T204 Z1 ball 3.175x22 (3.175 mm) of 2 Finish."></a>
 <figcaption><b>Figure 3.</b> The tab is 2 mm long and the tools are 3.175 mm across. <b>Length vs tools</b> warns before you apply.</figcaption>
 </figure>
 
@@ -80,7 +82,7 @@ The tab is no longer automatic (you typed its length), and **Length vs tools** t
 Apply stores the change and keeps the warning on the tab's row; it does not refuse a short tab. Generation then warns once for each operation whose path can reach the tab:
 
 <figure>
-<a href="images/tabs_held/04-tab-length-warnings.png"><img src="images/tabs_held/04-tab-length-warnings.png" width="1920" height="1080" alt="The Messages list with Warnings 6, starting with two Tab length warnings, for operation Rough with tool Z1 O-flute 3.175x25 and for operation Finish with tool Z1 ball 3.175x22, then the Held region warning for operation Finish and a Workholding line about tab 2; the row of Tab 2 in the Inspector shows two amber lines, Tab 2 is 2.000 mm long along X, shorter than the tool T104 of 1 Rough, and the same for T204 of 2 Finish."></a>
+<a href="images/tabs_held/04-tab-length-warnings.png"><img src="images/tabs_held/04-tab-length-warnings.png" width="1920" height="1080" alt="The Messages list with Warnings 5, starting with two Tab length warnings, for operation Rough with tool Z1 O-flute 3.175x25 and for operation Finish with tool Z1 ball 3.175x22, then the Tool length warning for tool 104; the row of Tab 2 in the Inspector shows two amber lines, Tab 2 is 2.000 mm long along X, shorter than the tool T104 of 1 Rough, and the same for T204 of 2 Finish."></a>
 <figcaption><b>Figure 4.</b> A short tab is a warning, not an error: the paths were made, and the two operations carry a warning triangle in the project panel.</figcaption>
 </figure>
 
@@ -115,12 +117,12 @@ An automatic tab needs its zone. Take the zone away:
 
 1. Set **Grip length** to `14` and press <kbd>Enter</kbd>.
 
-The held region now runs from X = 4.99 to 18.99, 1 mm into the part, so the grip warning comes back ("The chuck grips 1.000 mm of the part here"), and Tab 1 has nowhere to go. Its row turns amber:
+The held region now runs from X = 4.99 to 18.99, 1 mm into the part, so the grip warning comes back ("The chuck grips 1.000 mm of the part here"), and Tab 1 has nowhere to go. The zone line already reads "Head zone: no room for a tab", before you apply, and Tab 1's row turns amber:
 
 > No room at the head: the held region reaches the part. It keeps its last position: move the part or shorten the held region, or untick "Place automatically" and place it by hand.
 
 <figure>
-<a href="images/tabs_held/05-no-room.png"><img src="images/tabs_held/05-no-room.png" width="1920" height="1080" alt="The Inspector with Grip length 14.000 and Held span X 4.990 to 18.990 mm; the row of Tab 1, Head, Automatic, carries an amber triangle and the text No room at the head: the held region reaches the part. It keeps its last position: move the part or shorten the held region, or untick Place automatically and place it by hand."></a>
+<a href="images/tabs_held/05-no-room.png"><img src="images/tabs_held/05-no-room.png" width="1920" height="1080" alt="The Inspector with Grip length 14.000, the amber grip warning, Held span X 4.990 to 18.990 mm, Kept clear to X 21.078 mm and Head zone: no room for a tab; the row of Tab 1, Head, Automatic, carries an amber triangle and the text No room at the head: the held region reaches the part. It keeps its last position: move the part or shorten the held region, or untick Place automatically and place it by hand."></a>
 <figcaption><b>Figure 6.</b> The automatic head tab has no room once the grip reaches the part.</figcaption>
 </figure>
 

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //! Adaptive spacing on a stepped part beside a held region (OP-04, SET-09,
-//! NFR-12; OI-2198, issue #826; decision record PATH-QUALITY-1, Q6).
+//! NFR-12; OI-2198, issue #826; decision 0695, Q6).
 //!
 //! Helical finishing with a flat end on the stepped cylinder of decision
 //! 0680, its first step held: adaptive spacing measures only where the

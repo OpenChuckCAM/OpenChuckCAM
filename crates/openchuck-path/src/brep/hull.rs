@@ -514,7 +514,9 @@ pub(super) fn pieces(
     ctrl: &[Hom],
     cuts: &[f64],
 ) -> Vec<(f64, f64, Vec<Hom>)> {
-    let mut k = knots.to_vec();
+    // A signed zero is the same knot as zero (issue #859 item 1): the knots
+    // are counted by exact comparison below, and `-0.0 + 0.0` is `0.0`.
+    let mut k: Vec<f64> = knots.iter().map(|&x| x + 0.0).collect();
     let mut c = ctrl.to_vec();
     let (Some(&lo), Some(&hi)) = (k.get(p), k.get(c.len())) else {
         return Vec::new();
@@ -522,7 +524,7 @@ pub(super) fn pieces(
     let mut breaks: Vec<f64> = k
         .iter()
         .copied()
-        .chain(cuts.iter().copied())
+        .chain(cuts.iter().map(|&x| x + 0.0))
         .filter(|&x| x > lo && x < hi)
         .collect();
     breaks.sort_by(f64::total_cmp);

@@ -380,23 +380,27 @@ fn measure_a_million_line_program_in_the_dialog() {
 }
 
 #[test]
-fn req_gc_15_a_preview_refused_for_a_changed_project_is_made_again_when_it_is_back() {
+fn req_gc_15_req_gc_07_the_stock_simulation_switch_does_not_refuse_the_preview() {
     let (_clean, mut app, mut panel) = dialog("preview-skip", OutputGrouping::Setup);
     let (ctx, mut clock) = (viewer(), 0.0);
     frame(&ctx, &mut panel, &app, Vec::new(), &mut clock);
     assert!(panel.output_preview.as_ref().unwrap().3.is_ok());
-    // The stock simulation switch is not part of the output's key, so the
-    // list stays current while the preview's run no longer matches.
+    // The stock simulation switch changes no G-code, so the preview of the
+    // run stays, as the file list does (issue #607); before, it was refused
+    // until the switch went back.
     app.execute(openchuck_app::Command::SetSkipStockSimulation(true))
         .unwrap();
     frame(&ctx, &mut panel, &app, Vec::new(), &mut clock);
-    assert!(panel.output_preview.as_ref().unwrap().3.is_err());
+    assert!(
+        panel.output_preview.as_ref().unwrap().3.is_ok(),
+        "the switch does not refuse the preview"
+    );
     app.execute(openchuck_app::Command::SetSkipStockSimulation(false))
         .unwrap();
     frame(&ctx, &mut panel, &app, Vec::new(), &mut clock);
     assert!(
         panel.output_preview.as_ref().unwrap().3.is_ok(),
-        "the refusal is not kept once the project is as the run was"
+        "nor does switching it back"
     );
 }
 
