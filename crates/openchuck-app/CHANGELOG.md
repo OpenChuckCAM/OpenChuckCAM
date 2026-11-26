@@ -2,7 +2,8 @@
 
 ## Unreleased (PATH-QUALITY, PQ-2; issue #786; decision record PATH-QUALITY-1, accepted)
 
-- **Changed:** a new operation whose Entry offers Ramp is written with Allow single-point plunge and Steeper ramp near the axis on, so with Entry Ramp only the passes with no room for a ramp are plunged, each named in a note with its reason and depth, instead of refusing the operation. An operation saved without them keeps them off and keeps its program.
+- **Changed:** a new operation whose Entry offers Ramp is written with Plunge where no ramp fits (`allow_single_point_plunge`, formerly labelled Allow single-point plunge) and Steeper ramp near the axis on, so with Entry Ramp only the passes with no room for a ramp are plunged, each named in a note with its reason and depth, instead of refusing the operation. An operation saved without them keeps them off and keeps its program.
+- **Changed (decision record PATH-QUALITY-1, Q9):** `FormSection::of` keeps Entry, Ramp angle and Plunge where no ramp fits in `EntryLinksAndRetract` and puts Steeper ramp near the axis, Maximum ramp angle, Plunge to remove face nubs, Face nub diameter, the new Largest depth per traverse (`ramp_depth_per_traverse`), Helix diameter and Lead radius in `Advanced`; the form labels Largest depth per traverse "(inactive)" unless Entry is Ramp. No stored name changes, so saved projects open unchanged and keep their programs. No API change.
 
 ## Unreleased (WORDING-DOCS; issues #613 and #676)
 

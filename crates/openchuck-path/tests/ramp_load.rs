@@ -5,8 +5,11 @@
 //! starts as a spiral is ramped back and forth over its own path, never
 //! round the part; its legs are bounded so the depth per traverse is no
 //! more than one turn of a spiral ramp at its start radius and the tool
-//! radius, and a line's no more than the tool radius (Q8); and a pass is plunged only where no ramp fits, each such pass
-//! named with its reason and its depth. Synthetic fixtures only.
+//! radius, and a line's no more than the tool radius (Q8), and every
+//! back-and-forth ramp's no more than the Largest depth per traverse (Q9),
+//! the note naming the bound that held it; and a pass is plunged only where
+//! no ramp fits, each such pass named with its reason and its depth.
+//! Synthetic fixtures only.
 #![allow(
     clippy::unwrap_used,
     clippy::panic,
@@ -412,11 +415,11 @@ fn req_op_11_req_nfr_07_a_spiral_near_the_axis_is_steepened_then_plunged_only_wh
     let err = make(&f, &spiral, &v).unwrap_err();
     assert!(
         err.contains("even at the Maximum ramp angle of 10.00 degrees")
-            && err.contains("Allow single-point plunge")
+            && err.contains("Plunge where no ramp fits")
             && !err.contains("turn on Steeper ramp near the axis"),
         "{err}"
     );
-    // No ramp fits: with Allow single-point plunge on, plunged, and said
+    // No ramp fits: with Plunge where no ramp fits on, plunged, and said
     // with its reason and its depth, the whole descent below the stock's
     // 16 mm to the pass's 1 mm.
     v.insert(names::ALLOW_SINGLE_POINT_PLUNGE.into(), flag(true));
@@ -502,7 +505,7 @@ fn req_op_11_req_nfr_07_the_steeper_ramp_reaches_the_maximum_before_it_refuses()
 fn req_op_11_req_nfr_07_a_stretch_shorter_than_the_shortest_ramp_is_plunged_when_allowed() {
     // Decision record PATH-QUALITY-1, Q4 (i): a stretch shorter than ten
     // path tolerances (0.1 mm at the default) is a plunge in all but name
-    // (0543 amendment 4), so Allow single-point plunge covers it; it was
+    // (0543 amendment 4), so Plunge where no ramp fits covers it; it was
     // refused even with the setting on.
     let f = fixture(&ball(6.0));
     let short = Points(vec![(20.0, 10.0, 0.0), (20.05, 10.0, 0.0)]);
@@ -510,7 +513,7 @@ fn req_op_11_req_nfr_07_a_stretch_shorter_than_the_shortest_ramp_is_plunged_when
     let err = make(&f, &short, &v).unwrap_err();
     assert!(
         err.contains("pass 1 starts with a stretch of 0.050 mm")
-            && err.contains("Turn on Allow single-point plunge"),
+            && err.contains("Turn on Plunge where no ramp fits"),
         "{err}"
     );
     v.insert(names::ALLOW_SINGLE_POINT_PLUNGE.into(), flag(true));
@@ -601,7 +604,7 @@ fn plunged_and_named(f: &Fixture, path: &GeneratedPath) -> (usize, usize) {
 
 #[test]
 fn req_op_11_req_op_03_at_the_new_defaults_only_passes_with_no_room_to_ramp_are_plunged() {
-    // Decision record PATH-QUALITY-1, Q4: with Allow single-point plunge
+    // Decision record PATH-QUALITY-1, Q4: with Plunge where no ramp fits
     // and Steeper ramp near the axis on (a new operation's defaults), a
     // roughing spiral's layers are ramped, and the only plunges are the
     // passes the notes name, each with its reason and depth.
@@ -707,4 +710,182 @@ fn req_op_11_the_depth_per_traverse_of_a_line_s_ramp_is_at_most_the_tool_radius(
         assert!((10.0 - 1e-9..=60.0 + 1e-9).contains(&at.along), "{at:?}");
         assert!(m.a.0.abs() < 1e-9, "{:?}", m.a);
     }
+}
+
+/// A straight pass 12 mm from the axis, 50 mm long at A 0.
+fn long_line() -> Points {
+    Points(
+        (0..=100)
+            .map(|k| (10.0 + 0.5 * f64::from(k), 12.0, 0.0))
+            .collect(),
+    )
+}
+
+/// The note giving what the ramps ask of the tool.
+fn load_note(path: &GeneratedPath) -> String {
+    path.notices
+        .iter()
+        .find(|n| n.text.contains("depth per traverse is"))
+        .map(|n| n.text.clone())
+        .unwrap_or_else(|| panic!("{:?}", path.notices))
+}
+
+#[test]
+fn req_op_11_the_largest_depth_per_traverse_setting_holds_a_line_and_a_spiral_ramp() {
+    // Decision record PATH-QUALITY-1, Q9 (the owner's answer B): Largest
+    // depth per traverse, below the tool radius, holds every back-and-forth
+    // ramp to it, taking more legs at the same angle. A 2 mm flat end
+    // (radius 1 mm). The line: legs at most 0.4 / (2 tan 3) = 3.82 mm.
+    let f = fixture(&tool(ToolShape::FlatEnd, 2.0));
+    let tan = ANGLE.to_radians().tan();
+    let mut v = values();
+    v.insert(names::RAMP_DEPTH_PER_TRAVERSE.into(), n(0.4));
+    let path = make(&f, &long_line(), &v).unwrap();
+    let (before, moves) = first_entry(&path);
+    let measured = measure(&f, before, &moves, by_x);
+    assert!(measured.steepest <= tan + 1e-9, "{}", measured.steepest);
+    assert!(measured.steepest >= 0.99 * tan, "{}", measured.steepest);
+    assert!(
+        measured.length >= measured.rise / tan - 0.01,
+        "{} for {}",
+        measured.length,
+        measured.rise
+    );
+    assert!(measured.depth <= 0.4 + 1e-6, "{}", measured.depth);
+    assert!(measured.depth > 0.3, "{}", measured.depth);
+    let note = load_note(&path);
+    assert!(
+        note.contains("the deepest depth per traverse is 0.400 mm, at pass 1")
+            && note.contains("the Largest depth per traverse setting"),
+        "{note}"
+    );
+    // The spiral 12 mm from the axis: one turn descends 3.95 mm, the radius
+    // is 1 mm, and the setting 0.5 mm holds it.
+    let spiral = Spiral {
+        radius: 12.0,
+        x0: 10.0,
+        pitch: 2.0,
+        turns: 1.0,
+    };
+    v.insert(names::RAMP_DEPTH_PER_TRAVERSE.into(), n(0.5));
+    let path = make(&f, &spiral, &v).unwrap();
+    let (before, moves) = first_entry(&path);
+    let measured = measure(&f, before, &moves, by_angle);
+    assert!(measured.steepest <= tan + 1e-9, "{}", measured.steepest);
+    assert!(measured.length >= 5.0 / tan - 0.01, "{}", measured.length);
+    assert!(measured.depth <= 0.5 + 1e-6, "{}", measured.depth);
+    assert!(measured.depth > 0.4, "{}", measured.depth);
+    let note = load_note(&path);
+    assert!(
+        note.contains("the Largest depth per traverse setting"),
+        "{note}"
+    );
+}
+
+#[test]
+fn req_op_11_the_note_names_the_bound_that_holds_a_back_and_forth_ramp() {
+    // At the default the tool radius holds the line (1 mm) and one turn
+    // round the part the spiral 4 mm from the axis with a 6 mm ball (one
+    // turn 2 pi 4 tan 3 = 1.317 mm, below the 3 mm radius).
+    let f = fixture(&tool(ToolShape::FlatEnd, 2.0));
+    let note = load_note(&make(&f, &long_line(), &values()).unwrap());
+    assert!(
+        note.contains("the deepest depth per traverse is 1.000 mm, at pass 1")
+            && note.contains("the tool radius"),
+        "{note}"
+    );
+    let spiral = Spiral {
+        radius: 4.0,
+        x0: 10.0,
+        pitch: 2.0,
+        turns: 2.0,
+    };
+    let note = load_note(&make(&fixture(&ball(6.0)), &spiral, &values()).unwrap());
+    assert!(
+        note.contains("1.317 mm") && note.contains("one turn round the part"),
+        "{note}"
+    );
+}
+
+#[test]
+fn req_op_11_a_largest_depth_per_traverse_above_the_tool_radius_is_held_to_the_radius() {
+    // A value above the radius is held to it: the same program as the
+    // default, and the note names the tool radius.
+    let f = fixture(&tool(ToolShape::FlatEnd, 2.0));
+    let default = make(&f, &long_line(), &values()).unwrap();
+    let mut v = values();
+    v.insert(names::RAMP_DEPTH_PER_TRAVERSE.into(), n(5.0));
+    let path = make(&f, &long_line(), &v).unwrap();
+    assert_eq!(path.group.segments, default.group.segments);
+    let note = load_note(&path);
+    assert!(
+        note.contains("1.000 mm") && note.contains("the tool radius"),
+        "{note}"
+    );
+}
+
+#[test]
+fn req_op_11_req_gc_07_at_the_default_the_largest_depth_per_traverse_changes_no_ramp() {
+    // 0, the default, means the tool radius: an operation that sets it to
+    // 0 and one saved without it (the schema's default) give the same
+    // program, at one, two and many threads.
+    let f = fixture(&tool(ToolShape::FlatEnd, 2.0));
+    let spiral = Spiral {
+        radius: 12.0,
+        x0: 10.0,
+        pitch: 2.0,
+        turns: 1.0,
+    };
+    let mut zero = values();
+    zero.insert(names::RAMP_DEPTH_PER_TRAVERSE.into(), n(0.0));
+    let at = |threads: usize, s: &dyn Strategy, v: &BTreeMap<String, ParameterValue>| {
+        rayon::ThreadPoolBuilder::new()
+            .num_threads(threads)
+            .build()
+            .unwrap()
+            .install(|| make(&f, s, v).unwrap().group.segments)
+    };
+    for s in [&long_line() as &dyn Strategy, &spiral] {
+        let saved = at(1, s, &values());
+        for threads in [1, 2, 8] {
+            assert_eq!(saved, at(threads, s, &zero), "{threads} threads");
+        }
+    }
+}
+
+#[test]
+fn req_gc_07_ramps_held_by_the_largest_depth_per_traverse_are_the_same_at_one_two_and_many_threads()
+{
+    let f = fixture(&tool(ToolShape::FlatEnd, 2.0));
+    let mut v = values();
+    v.insert(names::RAMP_DEPTH_PER_TRAVERSE.into(), n(0.4));
+    let at = |threads: usize| {
+        rayon::ThreadPoolBuilder::new()
+            .num_threads(threads)
+            .build()
+            .unwrap()
+            .install(|| make(&f, &long_line(), &v).unwrap().group.segments)
+    };
+    let one = at(1);
+    assert_eq!(one, at(2));
+    assert_eq!(one, at(8));
+}
+
+#[test]
+fn req_op_11_a_ramp_round_a_whole_ring_ignores_the_largest_depth_per_traverse() {
+    // Decision record PATH-QUALITY-1, Q9: a whole ring ramps round itself,
+    // a turn's depth per traverse (2 pi 6 tan 3 = 1.976 mm here), and is
+    // measured before anything holds it, so the setting does not reach it.
+    let f = fixture(&tool(ToolShape::FlatEnd, 2.0));
+    let ring = Points((0..=72).map(|k| (20.0, 6.0, 5.0 * f64::from(k))).collect());
+    let default = make(&f, &ring, &values()).unwrap();
+    let mut v = values();
+    v.insert(names::RAMP_DEPTH_PER_TRAVERSE.into(), n(0.2));
+    let path = make(&f, &ring, &v).unwrap();
+    assert_eq!(path.group.segments, default.group.segments);
+    let note = load_note(&path);
+    assert!(
+        note.contains("turning up to") && note.contains("1.976 mm") && !note.contains("setting"),
+        "{note}"
+    );
 }

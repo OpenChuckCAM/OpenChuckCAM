@@ -1232,8 +1232,8 @@ fn req_ui_06_an_operation_is_added_edited_generated_and_deleted_as_undoable_step
     );
     assert_eq!(app.strategy_label("not_registered"), "not_registered");
     // Adding: at the end, enabled, with the strategy's defaults and the
-    // pass order, the low links, the blended ring steps, and Allow
-    // single-point plunge and Steeper ramp near the axis a new operation is
+    // pass order, the low links, the blended ring steps, and Plunge where
+    // no ramp fits and Steeper ramp near the axis a new operation is
     // given (decision records 0520, 0521, 0545 and PATH-QUALITY-1).
     let before = app.project().operations().len();
     let second = app
@@ -1247,7 +1247,8 @@ fn req_ui_06_an_operation_is_added_edited_generated_and_deleted_as_undoable_step
         added.parameters.iter().collect::<Vec<_>>(),
         [
             // Decision record PATH-QUALITY-1, Q4 (iii): a new operation
-            // allows single-point plunge and a steeper ramp near the axis.
+            // plunges where no ramp fits and has a steeper ramp near the
+            // axis.
             (
                 &openchuck_path::params::names::ALLOW_SINGLE_POINT_PLUNGE.to_owned(),
                 &openchuck_app::project::ParameterValue::Flag(true)

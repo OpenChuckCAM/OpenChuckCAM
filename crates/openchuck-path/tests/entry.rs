@@ -286,8 +286,8 @@ fn req_op_11_a_line_ramp_follows_the_pass_within_the_angle_and_ends_at_the_first
 }
 
 /// A pass that is a single cut point has no path to follow. Under a ramp it
-/// refuses the operation, naming the setting, unless Allow single-point
-/// plunge is on; then it is plunged, as plain plunge entry does, with a note
+/// refuses the operation, naming the setting, unless Plunge where no ramp
+/// fits is on; then it is plunged, as plain plunge entry does, with a note
 /// naming the pass (decision 0543 D7, the owner's answer). Under a lead it
 /// is plunged as before (decision 0204 item 4; decision 0544 L4).
 #[test]
@@ -297,7 +297,7 @@ fn req_op_11_req_nfr_07_a_single_point_pass_under_a_ramp_needs_allow_single_poin
     let ramp = values(10.0, 10.0, &[entry("ramp"), number(names::RAMP_ANGLE, 3.0)]);
     let err = path(&fixture, &ramp).unwrap_err().to_string();
     assert!(err.contains("pass 1 is a single point"), "{err}");
-    assert!(err.contains("Turn on Allow single-point plunge"), "{err}");
+    assert!(err.contains("Turn on Plunge where no ramp fits"), "{err}");
     let allowed = values(
         10.0,
         10.0,

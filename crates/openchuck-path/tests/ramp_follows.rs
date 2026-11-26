@@ -317,7 +317,7 @@ fn req_op_11_req_set_09_continuous_roughing_spiral_layers_ramp_and_a_single_poin
     // Pass 4 is a single point: refused unless allowed (decision 0543 D7).
     let err = make(&f, &RotaryRoughing, &v, &[]).unwrap_err();
     assert!(err.contains("is a single point"), "{err}");
-    assert!(err.contains("Allow single-point plunge"), "{err}");
+    assert!(err.contains("Plunge where no ramp fits"), "{err}");
     v.insert(
         names::ALLOW_SINGLE_POINT_PLUNGE.into(),
         ParameterValue::Flag(true),
@@ -543,7 +543,7 @@ fn req_op_11_req_op_15_a_ring_on_the_axis_descends_there_while_a_turns() {
         "{err}"
     );
     // Decision record PATH-QUALITY-1, Q4: where even the Maximum ramp angle
-    // needs more than 10 turns, with Allow single-point plunge on, it is
+    // needs more than 10 turns, with Plunge where no ramp fits on, it is
     // plunged and said with its depth (16 mm of stock down to the axis).
     let mut most = v.clone();
     most.insert(
@@ -648,12 +648,12 @@ fn req_op_11_req_nfr_07_steeper_ramp_near_the_axis_fits_ten_turns_up_to_the_maxi
         err.contains("Maximum ramp angle") && err.contains("more than the 10 allowed"),
         "{err}"
     );
-    // Decision record PATH-QUALITY-1, Q4: that refusal names Allow
-    // single-point plunge too, never the steeper ramp that is on; with it
-    // on, the pass has no room to ramp and is plunged, said in a note with
-    // its reason and depth.
+    // Decision record PATH-QUALITY-1, Q4: that refusal names Plunge where
+    // no ramp fits too, never the steeper ramp that is on; with it on, the
+    // pass has no room to ramp and is plunged, said in a note with its
+    // reason and depth.
     assert!(
-        err.contains("Allow single-point plunge") && !err.contains("turn on Steeper"),
+        err.contains("Plunge where no ramp fits") && !err.contains("turn on Steeper"),
         "{err}"
     );
     v.insert(
@@ -1241,9 +1241,9 @@ fn req_op_11_req_nfr_07_a_pass_shorter_than_ten_tolerances_is_refused_by_name() 
     assert!(
         err.contains("Ramp entry: pass 1 starts with a stretch of 0.050 mm")
             && err.contains("shorter than the 0.100 mm (ten times the tolerance)")
-            // Decision record PATH-QUALITY-1, Q4 (i): Allow single-point
-            // plunge now covers such a stretch, so the refusal names it.
-            && err.contains("Turn on Allow single-point plunge, or set Entry to Plunge or Helix"),
+            // Decision record PATH-QUALITY-1, Q4 (i): Plunge where no ramp
+            // fits now covers such a stretch, so the refusal names it.
+            && err.contains("Turn on Plunge where no ramp fits, or set Entry to Plunge or Helix"),
         "{err}"
     );
     // Ten tolerances longer than the tool radius: the radius is the minimum.
@@ -1280,7 +1280,7 @@ fn req_op_11_req_nfr_07_the_path_lists_the_passes_entered_by_a_straight_plunge_i
             .straight_plunges
             .is_empty()
     );
-    // A single point, plunged with Allow single-point plunge on.
+    // A single point, plunged with Plunge where no ramp fits on.
     v.insert(
         names::ALLOW_SINGLE_POINT_PLUNGE.into(),
         ParameterValue::Flag(true),
@@ -1317,9 +1317,9 @@ fn req_op_11_req_nfr_07_the_path_lists_the_passes_entered_by_a_straight_plunge_i
 
 /// Continuous rotary roughing of the public blisk (`testdata/stl/blisk.stl`)
 /// in rings with the 3 mm flat end mill of the blisk example: stock to leave
-/// 0, stepover and stepdown 1 mm, Entry Ramp at 3 degrees, with Allow
-/// single-point plunge (as in the issue's comment) and Steeper ramp near
-/// the axis on, up to 20 degrees (without it the rings 4 mm from the axis
+/// 0, stepover and stepdown 1 mm, Entry Ramp at 3 degrees, with Plunge
+/// where no ramp fits (as in the issue's comment) and Steeper ramp near the
+/// axis on, up to 20 degrees (without it the rings 4 mm from the axis
 /// are refused by name, needing 12.9 turns; at 15 degrees, the ring 1 mm
 /// from it, needing 11.9).
 #[test]
@@ -1392,7 +1392,7 @@ fn req_ui_12_ramp_entry_refusals_carry_their_topic_and_setting() {
             assert_eq!(topic, openchuck_path::topic::RAMP_ENTRY);
             assert!(text.starts_with("pass 1 starts with a stretch"), "{text}");
             // Decision record PATH-QUALITY-1, Q4 (i): its first remedy is
-            // now Allow single-point plunge, which covers such a stretch.
+            // now Plunge where no ramp fits, which covers such a stretch.
             assert_eq!(setting.as_deref(), Some(names::ALLOW_SINGLE_POINT_PLUNGE));
         }
         other => panic!("expected a refusal, got {other:?}"),

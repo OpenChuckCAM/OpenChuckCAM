@@ -479,6 +479,10 @@ pub mod names {
     pub const PLUNGE_FACE_NUBS: &str = "plunge_face_nubs";
     /// The widest nub plunged; zero means the tool's cutting diameter.
     pub const FACE_NUB_DIAMETER: &str = "face_nub_diameter";
+    /// The largest depth per traverse of a back-and-forth ramp; zero means
+    /// the tool's cutting radius, and more is held to it (decision record
+    /// PATH-QUALITY-1, Q9).
+    pub const RAMP_DEPTH_PER_TRAVERSE: &str = "ramp_depth_per_traverse";
     /// Descent angle for ramp and helix entry.
     pub const RAMP_ANGLE: &str = "ramp_angle";
     /// The helix entry's circle, as a fraction of the tool diameter.
@@ -584,10 +588,14 @@ pub fn common_parameters() -> Vec<ParameterSpec> {
         ParameterSpec {
             name: ENTRY.to_owned(),
             label: "Entry".to_owned(),
-            description: "How the tool enters the cut: a straight plunge, a tangent arc (lead), \
-                          a straight ramp, or a descending helix. On a \
-                          ring or a spiral the lead arcs turn with the part, in the plane of the \
-                          cut at the ring's X."
+            description: "How the tool enters the cut. Plunge goes straight down: it takes the \
+                          whole descent in one move on the tool's end, so its depth per traverse \
+                          is the whole descent. Lead comes in from the side on a tangent arc, at \
+                          the pass's depth. Ramp goes down at the Ramp angle back and forth over \
+                          the pass's own path, each traverse no deeper than the Largest depth per \
+                          traverse; round a whole ring it goes down round the ring. Helix goes \
+                          down round a circle at the Ramp angle. On a ring or a spiral the lead \
+                          arcs turn with the part, in the plane of the cut at the ring's X."
                 .to_owned(),
             kind: ParameterKind::Choice {
                 options: EntryStyle::ALL
@@ -600,20 +608,20 @@ pub fn common_parameters() -> Vec<ParameterSpec> {
         ParameterSpec { name: RAMP_BACK_AND_FORTH.to_owned(), label: "Back-and-forth ramp (ramp entry only)".to_owned(), description: "No longer has an effect: every ramp now follows the pass's own toolpath, going back and forth over a line where it needs to. Kept so saved operations still open.".to_owned(), kind: ParameterKind::Flag { default: false } },
         ParameterSpec {
             name: ALLOW_SINGLE_POINT_PLUNGE.to_owned(),
-            label: "Allow single-point plunge".to_owned(),
-            description: "A pass with no room for a ramp has no path for a ramp to follow: a single point, a pass that starts with a stretch shorter than the shortest ramp (ten times the tolerance, never more than the tool radius), or a ring or spiral near the rotary axis whose ramp would take more than 10 turns even at the Maximum ramp angle. With this on, the tool plunges straight down into such a pass instead of refusing the operation, and a note names it with its depth. A pass with room for a ramp is always ramped. The tool must be able to plunge (centre cutting).".to_owned(),
+            label: "Plunge where no ramp fits".to_owned(),
+            description: "Some passes have no room for a ramp: a single point, a pass that starts with a stretch shorter than the shortest ramp (ten times the tolerance, never more than the tool radius), or a ring or spiral near the rotary axis whose ramp would take more than 10 turns even at the Maximum ramp angle. With this on, the tool plunges straight into such a pass instead of refusing the operation. A plunge takes the whole descent in one move on the tool's end, so its depth per traverse is that whole descent; a note names each such pass with its depth. A pass with room for a ramp is always ramped. The tool must be able to plunge (centre cutting).".to_owned(),
             kind: ParameterKind::Flag { default: false },
         },
         ParameterSpec {
             name: RAMP_STEEPER_NEAR_AXIS.to_owned(),
             label: "Steeper ramp near the axis".to_owned(),
-            description: "Near the rotary axis a ramp round a ring, or back and forth over a spiral, needs many turns' length. With this on, a ring or spiral ramp that would need more than 10 turns at the Ramp angle uses a steeper angle, just enough to fit in 10 turns, never steeper than the Maximum ramp angle. Lines are not affected. Check that the tool can enter at the steeper angle.".to_owned(),
+            description: "Near the rotary axis a ramp round a ring, or back and forth over a spiral, needs many turns' length. With this on, a ring or spiral ramp that would need more than 10 turns at the Ramp angle uses a steeper angle, just enough to fit in 10 turns, never steeper than the Maximum ramp angle. A steeper angle takes more depth per millimetre of travel, and round a ring more depth per traverse: a heavier ramp in place of a plunge or a refusal. Lines are not affected. Check that the tool can enter at the steeper angle.".to_owned(),
             kind: ParameterKind::Flag { default: false },
         },
         ParameterSpec {
             name: RAMP_ANGLE_MAX.to_owned(),
             label: "Maximum ramp angle".to_owned(),
-            description: "The steepest angle the steeper ramp near the axis may use. A value below the Ramp angle uses the Ramp angle.".to_owned(),
+            description: "The steepest angle the steeper ramp near the axis may use, and so the most depth per millimetre of travel it may take there. A value below the Ramp angle uses the Ramp angle.".to_owned(),
             kind: ParameterKind::Number {
                 unit: Unit::Degrees,
                 min: Some(0.0),
@@ -622,6 +630,19 @@ pub fn common_parameters() -> Vec<ParameterSpec> {
                 default: Some(DEFAULT_RAMP_ANGLE_MAX),
             },
         },
+        number(
+            RAMP_DEPTH_PER_TRAVERSE,
+            "Largest depth per traverse",
+            "The deepest a back-and-forth ramp (over a line, a partial ring or a spiral) goes in \
+             one pass over the same place: its legs are kept short enough, at the same Ramp \
+             angle, and it takes more of them instead. 0 uses the tool's cutting radius, and a \
+             larger value is held to it. A ramp round a whole ring takes one turn's depth per \
+             traverse; the note gives it.",
+            Unit::Millimetres,
+            0.0,
+            false,
+            Some(0.0),
+        ),
         ParameterSpec {
             name: PLUNGE_FACE_NUBS.to_owned(),
             label: "Plunge to remove face nubs".to_owned(),
@@ -641,7 +662,7 @@ pub fn common_parameters() -> Vec<ParameterSpec> {
         ParameterSpec {
             name: RAMP_ANGLE.to_owned(),
             label: "Ramp angle".to_owned(),
-            description: "Angle of descent to the horizontal for ramp and helix entry.".to_owned(),
+            description: "The slope of a ramp or helix entry to the horizontal, along the path the tool's tip really takes. It sets the depth taken per millimetre of travel: a steeper angle goes down sooner and gives a shorter ramp, while each traverse of a back-and-forth ramp stays no deeper than the Largest depth per traverse. Ramp and Helix use the same angle.".to_owned(),
             kind: ParameterKind::Number {
                 unit: Unit::Degrees,
                 min: Some(0.0),
@@ -744,6 +765,10 @@ pub struct EntryParameters {
     pub plunge_face_nubs: bool,
     /// The widest nub plunged; zero means the tool's cutting diameter.
     pub face_nub_diameter: Millimetres,
+    /// The largest depth per traverse of a back-and-forth ramp; zero means
+    /// the tool's cutting radius, and more is held to it (decision record
+    /// PATH-QUALITY-1, Q9).
+    pub ramp_depth_per_traverse: Millimetres,
     /// The helix circle as a fraction of the tool diameter.
     pub helix_diameter: f64,
     /// Radius of the lead arcs, or zero for the tool radius.
@@ -760,6 +785,7 @@ impl EntryParameters {
         ramp_angle_max: Degrees(DEFAULT_RAMP_ANGLE_MAX),
         plunge_face_nubs: false,
         face_nub_diameter: Millimetres(0.0),
+        ramp_depth_per_traverse: Millimetres(0.0),
         helix_diameter: DEFAULT_HELIX_DIAMETER,
         lead_radius: Millimetres(0.0),
     };
@@ -790,6 +816,7 @@ impl EntryParameters {
             ramp_angle_max: Degrees(p.number(RAMP_ANGLE_MAX)?),
             plunge_face_nubs: p.flag(PLUNGE_FACE_NUBS)?,
             face_nub_diameter: Millimetres(p.number(FACE_NUB_DIAMETER)?),
+            ramp_depth_per_traverse: Millimetres(p.number(RAMP_DEPTH_PER_TRAVERSE)?),
             helix_diameter: p.number(HELIX_DIAMETER)?,
             lead_radius: Millimetres(p.number(LEAD_RADIUS)?),
         })

@@ -72,12 +72,79 @@ enum Shape {
     Spiral(f64),
 }
 
+/// What holds a back-and-forth ramp's depth per traverse (decision record
+/// PATH-QUALITY-1, Q9, and its agreement with lane TOOL-LOAD): the bound
+/// [`largest_depth_per_traverse`] took.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) enum DepthBound {
+    /// The tool's cutting radius.
+    ToolRadius,
+    /// One turn of a spiral ramp at its start radius.
+    OneTurn,
+    /// The Largest depth per traverse setting, below the tool radius.
+    Setting,
+    /// The cap lane TOOL-LOAD's TL-2 gives from Limit tool load (`L / D`);
+    /// nothing passes one until TL-2 is built, so no ramp names it yet.
+    ToolLoadLimit,
+}
+
+impl DepthBound {
+    /// Its name in the ramp note.
+    pub(super) const fn words(self) -> &'static str {
+        match self {
+            Self::ToolRadius => "the tool radius",
+            Self::OneTurn => "one turn round the part",
+            Self::Setting => "the Largest depth per traverse setting",
+            Self::ToolLoadLimit => "the tool-load limit",
+        }
+    }
+}
+
+/// A back-and-forth ramp's largest depth per traverse, in mm, and the bound
+/// that sets it (decision record PATH-QUALITY-1, Q8 and Q9, the owner's
+/// answers, and the agreement with lane TOOL-LOAD): the least of
+///
+/// - the tool's cutting radius;
+/// - `one_turn`, one turn of a spiral ramp at its start radius (`2 pi r
+///   tan`), for a pass that starts as a spiral only;
+/// - `setting`, the Largest depth per traverse, where it is above 0 (0
+///   means the tool radius, and more is held to it);
+/// - `cap`, the tool-load limit in mm: `None` here; lane TOOL-LOAD's TL-2
+///   passes `Some(L / D)` at the call site when Limit tool load is on.
+///
+/// A bound that is not a positive length (a NaN or a cap of 0) bounds
+/// nothing (NFR-07). Where two are equal the earlier in that list is
+/// named. A ramp round a whole ring is not held by it: it takes one turn's
+/// depth per traverse, measured before anything holds it (Q9 point 3).
+fn largest_depth_per_traverse(
+    tool_radius: f64,
+    setting: f64,
+    one_turn: Option<f64>,
+    cap: Option<f64>,
+) -> (f64, DepthBound) {
+    let mut out = (tool_radius, DepthBound::ToolRadius);
+    for (value, bound) in [
+        (one_turn, DepthBound::OneTurn),
+        (Some(setting), DepthBound::Setting),
+        (cap, DepthBound::ToolLoadLimit),
+    ] {
+        if let Some(v) = value
+            && v.is_finite()
+            && v > 0.0
+            && v < out.0
+        {
+            out = (v, bound);
+        }
+    }
+    out
+}
+
 /// The entry [`Entry::ring_plan`] chooses.
 enum RingEntry {
     /// A ramp round the ring, or a descent on the axis.
     Ramp(RingRamp),
     /// No ramp fits in 10 turns even at the Maximum ramp angle: plunged,
-    /// as Allow single-point plunge asks.
+    /// as Plunge where no ramp fits asks.
     Plunge,
 }
 
@@ -95,6 +162,8 @@ pub(super) struct Entry {
     nub_radius: Option<f64>,
     /// The tool's cutting radius.
     tool_radius: f64,
+    /// The Largest depth per traverse setting, mm: 0 means the tool radius.
+    depth_setting: f64,
     ramp_tan: f64,
     helix_radius: f64,
     lead_radius: f64,
@@ -156,6 +225,7 @@ impl Entry {
                 }
             }),
             tool_radius: radius,
+            depth_setting: e.ramp_depth_per_traverse.0,
             ramp_tan: e.ramp_angle.0.to_radians().tan(),
             helix_radius: e.helix_diameter * radius,
             lead_radius: if e.lead_radius.0 > 0.0 {
@@ -483,8 +553,8 @@ impl Entry {
 
     /// A pass with no room for a ramp: a single point, a stretch shorter
     /// than the shortest ramp, or a ring or spiral that would take more than
-    /// 10 turns even at the Maximum ramp angle. Refused unless Allow
-    /// single-point plunge is on; then plunged, listed for the host's check
+    /// 10 turns even at the Maximum ramp angle. Refused unless Plunge where
+    /// no ramp fits is on; then plunged, listed for the host's check
     /// of a tool that cannot cut straight down, and named in a note with its
     /// reason and its depth, the whole descent in one move (decision 0543
     /// D7; decision record PATH-QUALITY-1, Q4, the owner's answer).
@@ -502,7 +572,7 @@ impl Entry {
                 crate::topic::RAMP_ENTRY,
                 format!(
                     "pass {} is a single point, so there is no path for the ramp to follow. Turn \
-                     on Allow single-point plunge, or set Entry to Plunge or Helix.",
+                     on Plunge where no ramp fits, or set Entry to Plunge or Helix.",
                     pass + 1
                 ),
             )
@@ -603,8 +673,8 @@ impl Entry {
                 crate::topic::RAMP_ENTRY,
                 format!(
                     "pass {} starts with a {what} of {total:.3} mm, shorter than the {minimum:.3} \
-                     mm ({why}) a ramp needs to go back and forth over. Turn on Allow \
-                     single-point plunge, or set Entry to Plunge or Helix.",
+                     mm ({why}) a ramp needs to go back and forth over. Turn on Plunge where \
+                     no ramp fits, or set Entry to Plunge or Helix.",
                     pass + 1,
                     why = if minimum < radius {
                         "ten times the tolerance"
@@ -619,7 +689,7 @@ impl Entry {
         // more than 10 turns at its start radius, steeper as for a ring
         // (decision 0543 section 4, point 3), the angle fitted to the rise
         // the stock under the ramp actually gives at that angle.
-        let (tan, top, longest) = match shape {
+        let (tan, top, longest, bound) = match shape {
             Shape::Spiral(r) => {
                 let per_turn = std::f64::consts::TAU * r.max(EPS);
                 let (fitted, tan, at_max) = self.steepen(|tan| {
@@ -636,11 +706,25 @@ impl Entry {
                         if tan > self.ramp_tan * (1.0 + 1e-12) {
                             b.steepened_ramps.push((pass, tan.atan().to_degrees()));
                         }
-                        // One turn of a spiral ramp at the start radius
-                        // descends `2 pi r tan`; a leg of length S takes
-                        // `2 S tan` at its far end: S at most pi r, and at
-                        // most what keeps that within the tool radius.
-                        (tan, top, (0.5 * per_turn).min(0.5 * radius / tan))
+                        // A leg of length S takes `2 S tan` at its far
+                        // end, so S is at most half the largest depth per
+                        // traverse over `tan`; one turn of a spiral ramp at
+                        // the start radius descends `2 pi r tan`, and held
+                        // by it S is half the turn, `pi r`, taken as that
+                        // (not `2 pi r tan / 2 tan`) so the program is the
+                        // one it was before the bound had a function.
+                        let (depth, bound) = largest_depth_per_traverse(
+                            radius,
+                            self.depth_setting,
+                            Some(per_turn * tan),
+                            None,
+                        );
+                        let longest = if bound == DepthBound::OneTurn {
+                            0.5 * per_turn
+                        } else {
+                            0.5 * depth / tan
+                        };
+                        (tan, top, longest, (bound, depth))
                     }
                     Err(ring_ramp::Refusal::TooManyTurns { .. })
                         if at_max && self.single_point_plunge =>
@@ -677,13 +761,19 @@ impl Entry {
             }
             // Every back-and-forth ramp keeps its depth per traverse,
             // `2 S tan` at a leg's far end, within the tool radius (decision
-            // record PATH-QUALITY-1, Q8, the owner's answer A): lines and
-            // partial rings too, taking more legs instead.
-            Shape::Line | Shape::Arc => (
-                self.ramp_tan,
-                top_at(self.ramp_tan),
-                0.5 * radius / self.ramp_tan,
-            ),
+            // record PATH-QUALITY-1, Q8, the owner's answer A) and the
+            // Largest depth per traverse (Q9, B): lines and partial rings
+            // too, taking more legs instead.
+            Shape::Line | Shape::Arc => {
+                let (depth, bound) =
+                    largest_depth_per_traverse(radius, self.depth_setting, None, None);
+                (
+                    self.ramp_tan,
+                    top_at(self.ramp_tan),
+                    0.5 * depth / self.ramp_tan,
+                    (bound, depth),
+                )
+            }
         };
         let super::path_ramp::Ramp {
             moves,
@@ -697,8 +787,8 @@ impl Entry {
                     super::path_ramp::Refusal::TooShort { length } => (
                         format!(
                             "pass {} starts with a {what} of {length:.3} mm, shorter than the \
-                         {minimum:.3} mm a ramp needs to go back and forth over. Turn on Allow \
-                         single-point plunge, or set Entry to Plunge or Helix.",
+                         {minimum:.3} mm a ramp needs to go back and forth over. Turn on \
+                         Plunge where no ramp fits, or set Entry to Plunge or Helix.",
                             pass + 1,
                         ),
                         crate::params::names::ALLOW_SINGLE_POINT_PLUNGE,
@@ -748,6 +838,7 @@ impl Entry {
             legs: Some(legs),
             turns: None,
             depth: (2.0 * leg * tan).min(rise.max(0.0)),
+            bound: Some(bound),
         });
         if !matches!(shape, Shape::Line) {
             let reversals = moves
@@ -904,7 +995,7 @@ impl Entry {
     /// ramp and the pass starts as a closed ring (decision 0543 section 2),
     /// or the descent on the axis of a pass that starts there (section 4,
     /// point 2); a plunge where neither fits in 10 turns even at the Maximum
-    /// ramp angle and Allow single-point plunge is on (decision record
+    /// ramp angle and Plunge where no ramp fits is on (decision record
     /// PATH-QUALITY-1, Q4); `None` otherwise. A spiral off the axis is
     /// ramped over its own path ([`Self::ramp`]), never round the part
     /// (PATH-QUALITY-1, Q3).
@@ -1345,6 +1436,7 @@ impl Entry {
             legs: None,
             turns: Some(turns),
             depth,
+            bound: None,
         });
         Ok(())
     }
@@ -1789,9 +1881,9 @@ fn fix_setting(at_max: bool) -> &'static str {
 
 fn fix_words(at_max: bool) -> &'static str {
     if at_max {
-        // Reached only with Allow single-point plunge off: on, such a pass
+        // Reached only with Plunge where no ramp fits off: on, such a pass
         // is plunged (decision record PATH-QUALITY-1, Q4).
-        "Raise Maximum ramp angle, or turn on Allow single-point plunge, or set Entry to \
+        "Raise Maximum ramp angle, or turn on Plunge where no ramp fits, or set Entry to \
          Plunge or Helix."
     } else {
         "Raise Ramp angle, or turn on Steeper ramp near the axis, or set Entry to Plunge or Helix."
@@ -1804,6 +1896,36 @@ mod tests {
     use super::*;
     use crate::BrepSurface;
     use openchuck_testkit::ruled::wall_plane;
+
+    /// Decision record PATH-QUALITY-1, Q9 (the owner's answer B) and the
+    /// agreement with lane TOOL-LOAD: a back-and-forth ramp's largest depth
+    /// per traverse is the least of the tool radius, one turn of a spiral
+    /// ramp at its start radius, the Largest depth per traverse setting (0
+    /// the tool radius, more held to it) and the tool-load cap, and says
+    /// which held it.
+    #[test]
+    fn req_op_11_a_ramp_s_largest_depth_per_traverse_is_the_least_of_its_bounds() {
+        use DepthBound::{OneTurn, Setting, ToolLoadLimit, ToolRadius};
+        let bound = largest_depth_per_traverse;
+        assert_eq!(bound(1.5, 0.0, None, None), (1.5, ToolRadius));
+        assert_eq!(bound(1.5, 3.0, None, None), (1.5, ToolRadius));
+        assert_eq!(bound(1.5, 1.5, None, None), (1.5, ToolRadius));
+        assert_eq!(bound(1.5, 0.5, None, None), (0.5, Setting));
+        assert_eq!(bound(1.5, 0.0, Some(1.2), None), (1.2, OneTurn));
+        assert_eq!(bound(1.5, 0.0, Some(4.0), None), (1.5, ToolRadius));
+        assert_eq!(bound(1.5, 0.5, Some(1.2), None), (0.5, Setting));
+        assert_eq!(bound(1.5, 0.5, Some(0.3), None), (0.3, OneTurn));
+        assert_eq!(bound(1.5, 0.5, Some(1.2), Some(0.2)), (0.2, ToolLoadLimit));
+        assert_eq!(bound(1.5, 0.0, None, Some(2.0)), (1.5, ToolRadius));
+        // A cap that is not a positive length bounds nothing (NFR-07).
+        assert_eq!(bound(1.5, 0.0, None, Some(0.0)), (1.5, ToolRadius));
+        assert_eq!(bound(1.5, 0.0, None, Some(f64::NAN)), (1.5, ToolRadius));
+        assert_eq!(bound(1.5, f64::NAN, None, None), (1.5, ToolRadius));
+        assert_eq!(ToolRadius.words(), "the tool radius");
+        assert_eq!(OneTurn.words(), "one turn round the part");
+        assert_eq!(Setting.words(), "the Largest depth per traverse setting");
+        assert_eq!(ToolLoadLimit.words(), "the tool-load limit");
+    }
 
     /// CodeRabbit on #866 (decision record 0682): a face sampled no finer
     /// than 400 points each way is coarser than the spacing asked for when

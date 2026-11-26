@@ -343,7 +343,7 @@ impl Application {
                 ),
             );
         }
-        // A strategy that offers Allow single-point plunge and Steeper ramp
+        // A strategy that offers Plunge where no ramp fits and Steeper ramp
         // near the axis starts with both on, written into the operation, so a
         // Ramp entry plunges only the passes with no room to ramp, each said
         // in a note, instead of refusing them; one saved without them keeps

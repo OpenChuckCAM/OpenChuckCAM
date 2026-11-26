@@ -950,6 +950,9 @@ struct RampLoad {
     legs: Option<usize>,
     turns: Option<f64>,
     depth: f64,
+    /// For a back-and-forth ramp, what holds its depth per traverse and
+    /// that bound, mm; `None` for a ramp round a ring or on the axis.
+    bound: Option<(entry::DepthBound, f64)>,
 }
 
 /// The notes naming the passes plunged where no ramp fits, one per reason,
@@ -995,7 +998,7 @@ fn fallback_notes(plunged: &[(usize, PlungeReason, f64)]) -> Vec<String> {
             ),
         };
         out.push(format!(
-            "{} {what}, so {} entered by a straight plunge, as Allow single-point plunge asks; a \
+            "{} {what}, so {} entered by a straight plunge, as Plunge where no ramp fits asks; a \
              plunge takes the whole descent in one move, a depth per traverse of {}{deepest:.3} mm",
             passes_named(&passes),
             if one { "it is" } else { "they are" },
@@ -1039,10 +1042,32 @@ fn ramp_load_note(loads: &[RampLoad]) -> Option<String> {
             "turning up to {turns:.1} times round a ring or on the axis"
         ));
     }
+    // What held the deepest back-and-forth ramp (decision record
+    // PATH-QUALITY-1, Q9): its depth and the bound, after the deepest of
+    // all when that is a ramp round a ring.
+    let back = loads
+        .iter()
+        .filter_map(|l| l.bound.map(|b| (l, b)))
+        .reduce(|a, b| if b.0.depth > a.0.depth { b } else { a });
+    let held = match back {
+        Some((l, (bound, limit))) => {
+            let within = format!("within {} ({limit:.3} mm)", bound.words());
+            if l.pass == deepest.pass && deepest.bound.is_some() {
+                format!(", {within}")
+            } else {
+                format!(
+                    ", and back and forth {:.3} mm, at {}, {within}",
+                    l.depth,
+                    passes_named(&[l.pass])
+                )
+            }
+        }
+        None => String::new(),
+    };
     let one = loads.len() == 1;
     Some(format!(
         "{} {} ramped at {angle} along the tip's path, {}; the deepest depth per traverse is \
-         {:.3} mm, at {}",
+         {:.3} mm, at {}{held}",
         crate::counted(loads.len(), "pass", "passes"),
         if one { "is" } else { "are" },
         how.join(", and "),
@@ -1623,6 +1648,60 @@ mod tests {
             a: Degrees(a),
             contact,
         }
+    }
+
+    #[test]
+    fn req_op_11_the_ramp_note_names_the_bound_of_the_deepest_back_and_forth_ramp() {
+        // Decision record PATH-QUALITY-1, Q9: the note names what held the
+        // deepest back-and-forth ramp; a ramp round a whole ring has no
+        // such bound and is named only by its depth.
+        use entry::DepthBound;
+        let back = |pass, depth, bound, limit| RampLoad {
+            pass,
+            angle: 3.0,
+            legs: Some(10),
+            turns: None,
+            depth,
+            bound: Some((bound, limit)),
+        };
+        let ring = |pass, depth| RampLoad {
+            pass,
+            angle: 3.0,
+            legs: None,
+            turns: Some(2.0),
+            depth,
+            bound: None,
+        };
+        let note = ramp_load_note(&[back(0, 0.4, DepthBound::Setting, 0.4)]).unwrap();
+        assert_eq!(
+            note,
+            "1 pass is ramped at 3.00 degrees along the tip's path, back and forth in up to 10 \
+             legs; the deepest depth per traverse is 0.400 mm, at pass 1, within the Largest \
+             depth per traverse setting (0.400 mm)"
+        );
+        let note = ramp_load_note(&[
+            back(0, 0.9, DepthBound::ToolRadius, 1.5),
+            back(1, 1.2, DepthBound::OneTurn, 1.2),
+            ring(2, 4.7),
+        ])
+        .unwrap();
+        assert!(
+            note.ends_with(
+                "the deepest depth per traverse is 4.700 mm, at pass 3, and back and forth \
+                 1.200 mm, at pass 2, within one turn round the part (1.200 mm)"
+            ),
+            "{note}"
+        );
+        let note = ramp_load_note(&[back(0, 0.2, DepthBound::ToolLoadLimit, 0.2)]).unwrap();
+        assert!(
+            note.ends_with("within the tool-load limit (0.200 mm)"),
+            "{note}"
+        );
+        let note = ramp_load_note(&[ring(0, 1.976)]).unwrap();
+        assert!(
+            note.ends_with("the deepest depth per traverse is 1.976 mm, at pass 1"),
+            "{note}"
+        );
     }
 
     #[test]
