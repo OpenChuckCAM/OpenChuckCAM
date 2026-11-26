@@ -486,9 +486,13 @@ impl Entry {
         rapids: &[usize],
     ) -> Result<()> {
         let shape = pass_shape::start(&b.rotary, points, rapids, self.tolerance);
-        // The last point before the pass's first rapid.
-        let last = (1..points.len())
-            .find(|k| rapids.contains(k))
+        // The last point before the pass's first rapid, in one scan of the
+        // rapids.
+        let last = rapids
+            .iter()
+            .copied()
+            .filter(|k| (1..points.len()).contains(k))
+            .min()
             .map_or(points.len().saturating_sub(1), |k| k - 1);
         match shape {
             Start::SinglePoint => {
@@ -627,21 +631,6 @@ impl Entry {
         if here <= goal.height + EPS {
             return plunge(b, stock, common, &head);
         }
-        // D5: the highest stock under the stretch the ramp uses, which
-        // depends on how high it starts and on the angle: a few rounds
-        // settle it.
-        let top_at = |tan: f64| {
-            let mut top = here + approach;
-            for _ in 0..8 {
-                let reach = ((top - low) / tan).min(total);
-                let next = stock_top_along(b, stock, &path, reach, self.probe_height) + approach;
-                if next <= top + EPS {
-                    break;
-                }
-                top = next;
-            }
-            top
-        };
         // The shortest stretch a ramp goes back and forth over: ten path
         // tolerances, at most the tool radius (decision 0543 D3 as amended
         // for issue #687, accepted). The angle holds on any length (each leg
@@ -654,6 +643,49 @@ impl Entry {
         // for the host's check of a tool that cannot cut straight down.
         let radius = input.tool.cutting_radius();
         let minimum = (RAMP_MINIMUM_TOLERANCES * self.tolerance).min(radius);
+        // The longest leg at an angle, and the largest depth per traverse
+        // that holds it with its bound. A leg of length S takes `2 S tan`
+        // at its far end, so S is at most half the largest depth per
+        // traverse over `tan` (decision 0695, Q8, the owner's answer A, and
+        // Q9, B: lines and partial rings too, taking more legs instead). On
+        // a pass that starts as a spiral, one turn of a spiral ramp at the
+        // start radius descends `2 pi r tan`, and held by it S is half the
+        // turn, `pi r`, taken as that (not `2 pi r tan / 2 tan`) so the
+        // program is the one it was before the bound had a function.
+        let longest_at = |tan: f64| match shape {
+            Shape::Spiral(r) => {
+                let per_turn = std::f64::consts::TAU * r.max(EPS);
+                let (depth, bound) = largest_depth_per_traverse(
+                    radius,
+                    self.depth_setting,
+                    Some(per_turn * tan),
+                    None,
+                );
+                let longest = if bound == DepthBound::OneTurn {
+                    0.5 * per_turn
+                } else {
+                    0.5 * depth / tan
+                };
+                (longest, (bound, depth))
+            }
+            Shape::Line | Shape::Arc => {
+                let (depth, bound) =
+                    largest_depth_per_traverse(radius, self.depth_setting, None, None);
+                (0.5 * depth / tan, (bound, depth))
+            }
+        };
+        // D5: the highest stock under the stretch the ramp uses. No leg goes
+        // further along the path than the longest leg at the angle (nor than
+        // the path), and the legs may be lengthened to that while the ramp is
+        // fitted, so the stock is probed that far: never less, so the ramp
+        // starts above the stock under every leg (OP-12), and no further,
+        // so taller stock past the legs neither raises the ramp's start nor
+        // refuses it (CodeRabbit on #930). Shortened legs (see
+        // `path_ramp::back_and_forth`) stay within it.
+        let top_at = |tan: f64| {
+            let reach = longest_at(tan).0.min(total);
+            here.max(stock_top_along(b, stock, &path, reach, self.probe_height)) + approach
+        };
         let what = match shape {
             Shape::Line => "line",
             Shape::Arc | Shape::Spiral(_) => "stretch",
@@ -706,25 +738,8 @@ impl Entry {
                         if tan > self.ramp_tan * (1.0 + 1e-12) {
                             b.steepened_ramps.push((pass, tan.atan().to_degrees()));
                         }
-                        // A leg of length S takes `2 S tan` at its far
-                        // end, so S is at most half the largest depth per
-                        // traverse over `tan`; one turn of a spiral ramp at
-                        // the start radius descends `2 pi r tan`, and held
-                        // by it S is half the turn, `pi r`, taken as that
-                        // (not `2 pi r tan / 2 tan`) so the program is the
-                        // one it was before the bound had a function.
-                        let (depth, bound) = largest_depth_per_traverse(
-                            radius,
-                            self.depth_setting,
-                            Some(per_turn * tan),
-                            None,
-                        );
-                        let longest = if bound == DepthBound::OneTurn {
-                            0.5 * per_turn
-                        } else {
-                            0.5 * depth / tan
-                        };
-                        (tan, top, longest, (bound, depth))
+                        let (longest, bound) = longest_at(tan);
+                        (tan, top, longest, bound)
                     }
                     Err(ring_ramp::Refusal::TooManyTurns { .. })
                         if at_max && self.single_point_plunge =>
@@ -759,20 +774,11 @@ impl Entry {
                     }
                 }
             }
-            // Every back-and-forth ramp keeps its depth per traverse,
-            // `2 S tan` at a leg's far end, within the tool radius (decision
-            // 0695, Q8, the owner's answer A) and the
-            // Largest depth per traverse (Q9, B): lines and partial rings
-            // too, taking more legs instead.
+            // Every back-and-forth ramp keeps its depth per traverse within
+            // its bound (see `longest_at`): lines and partial rings too.
             Shape::Line | Shape::Arc => {
-                let (depth, bound) =
-                    largest_depth_per_traverse(radius, self.depth_setting, None, None);
-                (
-                    self.ramp_tan,
-                    top_at(self.ramp_tan),
-                    0.5 * depth / self.ramp_tan,
-                    (bound, depth),
-                )
+                let (longest, bound) = longest_at(self.ramp_tan);
+                (self.ramp_tan, top_at(self.ramp_tan), longest, bound)
             }
         };
         let super::path_ramp::Ramp {
@@ -781,6 +787,7 @@ impl Entry {
             leg,
             legs,
             steep,
+            depth: cut,
         } = super::path_ramp::back_and_forth(&path, top, tan, minimum, radius, longest).map_err(
             |refusal| {
                 let (text, setting) = match refusal {
@@ -830,14 +837,16 @@ impl Entry {
         }
         // The load figures for the note (decision 0695, Q3
         // point 4): the angle, the legs, and the depth per traverse, the
-        // drop between one visit to a leg's far end and the next.
-        let rise = moves.first().map_or(0.0, |(p, _)| p.height) - goal.height;
+        // deepest drop the ramp cuts between one visit to a place and the
+        // next (`2 · leg · tan` at a leg's far end, unless the pass rises
+        // under it; CodeRabbit on #930), to the nanometre so that ramps of
+        // the same drop name the first of them as the deepest.
         b.ramp_loads.push(super::RampLoad {
             pass,
             angle: tan.atan().to_degrees(),
             legs: Some(legs),
             turns: None,
-            depth: (2.0 * leg * tan).min(rise.max(0.0)),
+            depth: (cut * 1e9).round() / 1e9,
             bound: Some(bound),
         });
         if !matches!(shape, Shape::Line) {

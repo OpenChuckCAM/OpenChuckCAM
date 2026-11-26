@@ -1082,7 +1082,18 @@ fn ramp_load_note(loads: &[RampLoad]) -> Option<String> {
         .reduce(|a, b| if b.0.depth > a.0.depth { b } else { a });
     let held = match back {
         Some((l, (bound, limit))) => {
-            let within = format!("within {} ({limit:.3} mm)", bound.words());
+            // A ramp that follows its pass's own steep drop (decision 0543
+            // D4) can go down more than its bound there, where no shorter
+            // leg keeps it within (CodeRabbit on #930): said so, not
+            // "within".
+            let within = if l.depth > limit + 5e-4 {
+                format!(
+                    "more than {} ({limit:.3} mm), as it follows its pass's own steep drop",
+                    bound.words()
+                )
+            } else {
+                format!("within {} ({limit:.3} mm)", bound.words())
+            };
             if l.pass == deepest.pass && deepest.bound.is_some() {
                 format!(", {within}")
             } else {
@@ -1726,6 +1737,16 @@ mod tests {
         let note = ramp_load_note(&[back(0, 0.2, DepthBound::ToolLoadLimit, 0.2)]).unwrap();
         assert!(
             note.ends_with("within the tool-load limit (0.200 mm)"),
+            "{note}"
+        );
+        // CodeRabbit on #930: a ramp that follows its pass's own steep drop
+        // deeper than its bound is not said to be within it.
+        let note = ramp_load_note(&[back(0, 8.017, DepthBound::ToolRadius, 1.5)]).unwrap();
+        assert!(
+            note.ends_with(
+                "the deepest depth per traverse is 8.017 mm, at pass 1, more than the tool \
+                 radius (1.500 mm), as it follows its pass's own steep drop"
+            ),
             "{note}"
         );
         let note = ramp_load_note(&[ring(0, 1.976)]).unwrap();

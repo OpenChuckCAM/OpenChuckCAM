@@ -248,6 +248,10 @@ fn measure(
         let drop = from.height - at.height;
         if travel > 1e-9 {
             steepest = steepest.max(drop / travel);
+        } else {
+            // A move that goes down without travelling is a plunge, never
+            // part of a ramp (CodeRabbit on #930).
+            assert!(drop <= 1e-9, "a descent of {drop} mm with no travel");
         }
         length += travel;
         let key = place(&at, m.a.0);

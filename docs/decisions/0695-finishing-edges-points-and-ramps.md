@@ -483,4 +483,17 @@ Updated in place: OI-318 and OI-337 (the blisk now generates and cuts its blade 
   - No air or wood cut.
   - The STEP-kernel tests were run for the ramp cases only.
   - The cut-section figures are estimates from the tool's engaged section, because the simulation reports removal per operation only.
+- **CodeRabbit's review of #930 (two Major findings, both real, fixed in its one fix push, tests first):**
+  - **The depth per traverse is measured on the ramp as cut.** Where a pass rises faster than the Ramp angle, its own floor could hold an earlier visit high, so the drop between visits exceeded the bound while the note gave the bound. On the reviewer's case, 0.900 mm against 0.2 mm. The legs are now shortened until the measured drop fits.
+  - **Where no leg length can soften the drop, the ramp follows it** (decision 0543 D4), and the note says so: "more than the tool radius (…), as it follows its pass's own steep drop". The drop is the pass's own step, such as pass 1851 of the blisk's roughing in rings, an 8.017 mm step. That pass is not refused, because the step is the part's.
+  - **The stock under a ramp is probed only as far as its legs reach.** Stock beyond the legs no longer raises the ramp's start. The legs never go past that reach, so the probe still covers every leg (OP-12).
+  - **Tests:**
+    - `assemble::path_ramp::req_op_11_a_pass_rising_from_its_first_point_keeps_the_depth_per_traverse`;
+    - `assemble::path_ramp::req_op_11_a_rise_no_leg_can_bound_follows_the_pass_s_drop`;
+    - `entry_link_stock::req_op_11_req_op_12_a_ramp_probes_the_stock_only_as_far_as_its_legs_reach`.
+  - **Not fixed, and recorded in one sev3 issue:**
+    - a fallback plunge's depth when the rapid stop is clamped to the clearance;
+    - the refusal's wording when the Ramp angle equals the maximum with Steeper ramp near the axis off;
+    - a whole ring's depth per traverse is reported as the mean per turn;
+    - two test precisions.
 - **Open items:** OI-2232 and OI-2238 close with this pull request. OI-2239 (whole rings and the axis) stays open for the owner.
