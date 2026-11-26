@@ -1,6 +1,6 @@
 # Message review: which frame each printed position is in
 
-Inventory for the owner's decision of 26 Nov 2026 on issue OI-9998 ("every coordinate should be in a single reference frame", relayed by the coordinator) and the proposed record [WORDING-DOCS-E](../decisions/WORDING-DOCS-E-every-position-is-in-the-work-frame.md). It lists every place the application, the command line, the library crates and the user guide print a position along the rotary axis (or a point), and says which frame the number is in today. It was gathered by reading the code at `main` (17dcdded) and each variable's origin; it is a reading, not a test, and a row found wrong is corrected when the record is built. Lengths, distances, deltas and angles have no frame and are listed only to say so.
+Inventory for the owner's decision of 26 Nov 2026 on issue OI-9998 ("every coordinate should be in a single reference frame", relayed by the coordinator) and the proposed [decision 0699](../decisions/0699-every-position-is-in-the-work-frame.md). It lists every place the application, the command line, the library crates and the user guide print a position along the rotary axis (or a point), and says which frame the number is in today. It was gathered by reading the code at `main` (17dcdded) and each variable's origin; it is a reading, not a test, and a row found wrong is corrected when the record is built. Lengths, distances, deltas and angles have no frame and are listed only to say so.
 
 ## The frames
 

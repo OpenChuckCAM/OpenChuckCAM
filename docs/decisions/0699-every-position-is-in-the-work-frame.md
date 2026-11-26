@@ -1,11 +1,11 @@
-# WORDING-DOCS-E: Every position a message gives is in the work frame (UI-12, NFR-07, NFR-12, SET-05, GC-07; the owner's decision of 26 Nov 2026 on OI-9998; lane WORDING-DOCS)
+# 0699: Every position a message gives is in the work frame (UI-12, NFR-07, NFR-12, SET-05, GC-07; the owner's decision of 26 Nov 2026 on OI-9998; lane WORDING-DOCS)
 
-- **Status:** Proposed by lane WORDING-DOCS on 26 Nov 2026, for the owner. Not accepted. The number is provisional: the coordinator assigns the record number and the project owner accepts it (decision 0049). Until then this record is guidance, not authority.
+- **Status:** Proposed by lane WORDING-DOCS on 26 Nov 2026, with the owner's five answers recorded below (26 Nov 2026, relayed by the coordinator, decision 0049): the owner has answered the questions but has not said he accepts the text of this record, so it is not accepted and is guidance, not authority (decision 0049; only the project owner accepts a record). Number assigned by the coordinator.
 - **Date:** 26 Nov 2026.
 - **Requirements:** UI-12 (results and messages), NFR-07 (clear messages), NFR-12 (the user verifies the G-code, and a position in a message that matches the G-code is one they can verify), SET-05 (work zero and part position), GC-07 (a run's output follows its project: the G-code must not change).
 - **Amends, if accepted:** nothing yet. Option B would add a rule to [decision 0536](0536-message-levels-operation-reference-and-setting-links.md) (one form for messages) and change what [decision 0201](0201-setup-offset-moves-the-part.md) item 5 says the Setup step shows; it keeps 0201's frames.
-- **Open items:** OI-2213 (the owner's acceptance of this record and the answers below), OI-2214 (the lanes that build it, once accepted). OI-9998 stays as the issue this answers (its row is on the PATH-QUALITY lane's branch, raised in PQ-4; it closes when this record is built).
-- **Inventory:** [message-review/frames.md](../message-review/frames.md) lists every place a position is printed and its frame. A drawing is in [the diagram](WORDING-DOCS-E-every-position-is-in-the-work-frame.svg).
+- **Open items:** OI-2260 (the owner's acceptance of this record), OI-2261 (the build lane below). OI-2237 (raised in PQ-4, earlier called OI-9998) is the issue this answers; its question 5 is answered below, and it closes when the work is built.
+- **Inventory:** [message-review/frames.md](../message-review/frames.md) lists every place a position is printed and its frame. A drawing is in [the diagram](0699-every-position-is-in-the-work-frame.svg).
 
 ## Context
 
@@ -37,7 +37,7 @@ What the code does today (the inventory has every site):
 
 ## Recommendation
 
-**Option B, with a guard that makes a missed conversion fail a test.**
+**Option B (the owner's answer, question 1), with a guard that makes a missed conversion fail a test.**
 
 - The inventory's strongest finding is that two frames meet in the same sentence: the travel message gives "at X v" in the setup frame and "machine X v" in the machine frame, and a G-code check quotes the work frame for the same position. A rule stated for messages only (A) leaves the fields and the messages disagreeing, which is the case a user meets first (they type a tab and read a warning about it).
 - C removes the need to convert but changes what a stored value means and reverses an accepted record; the mismatch it removes is the one B removes at the edge, without changing a stored value or the G-code.
@@ -69,12 +69,29 @@ A message that quotes a setup field uses the field's frame, which under B is the
   - the guide and the screenshots that quote positions (the example pages' Results text and images would all read 17.99 less in the work frame): a docs lane, after the code, because the screenshots need the STEP kernel build.
 - **Tests (from the requirements):** a test per site family that the message gives the work-frame number for a setup whose **Zero at X** is not 0 (so a missed conversion fails); a test that a position typed in a setup field and the message quoting it agree; a test that the formatter's labels are the exceptions' labels and no others; the `xtask` check above. A project with **Zero at X** 0 must read the same as today.
 
-## Questions for the owner (one at a time)
+## Questions for the owner and the answers (all five answered on 26 Nov 2026, relayed)
 
 1. **Which option: A, B or C?** **Answered, 26 Nov 2026 (relayed by the coordinator, decision 0049): B** (messages and the setup fields in work-zero X; the project file and the G-code unchanged; **Zero at X** and **Rotary reference X** are the only values still given from the other origin, labelled so; decision 0201 is kept). The record as a whole is not accepted yet.
 2. When the user changes **Zero at X**, should the typed numbers of the stock, the held regions and the tabs change (the part stays where it is, as in decision 0201) or should the stock and workholding move with the zero? **Answered, 26 Nov 2026 (relayed by the coordinator, decision 0049): they stay where they are physically** (decision 0201); the typed numbers shift by the change in **Zero at X**; the **Zero at X** field's tooltip says so. Display and tooltip only, no project change.
 3. The label wording of the exceptions, and whether the machine's numbers in a travel message are shown beside the work-frame position or only the work-frame position is shown. **Answered, 26 Nov 2026 (relayed by the coordinator, decision 0049):** (i) the labels are accepted as proposed: "machine X" (travel limits, the G54 register value, **Rotary reference X**), "from the rotary reference point" (**Zero at X** itself), "model X" (import, placement, face geometry, and the cursor readout when no setup is chosen), and no label for lengths, deltas and angles; (ii) a travel message shows both positions, each labelled (for example "at X -82.760 (machine X -263.160)"). The list of labels is enforced by a test, so no other label appears.
 4. Whether the examples' Results text and screenshots are re-captured in one change after the code, or page by page. **Answered, 26 Nov 2026 (relayed by the coordinator, decision 0049): in one change.** All the example pages and screenshots are re-captured in one docs change after the code lanes have landed, so the guide is never half in one frame. Docs only.
+
+5. **OI-2237: should a message that gives X name its frame ("setup X")?** **Answered, 26 Nov 2026 (relayed by the coordinator, decision 0049): no frame word on a normal position.** "Setup X" is never written. Every unlabelled position is work-zero X, and only the exceptions of question 3 carry a label.
+
+## The build lane (proposed, for the coordinator)
+
+The work implied by option B is a breaking library change, so it is a separate lane after this record is accepted. Proposed name: **WORK-FRAME**, in three pull requests in this order (each opened as a draft, one push after release):
+
+1. **WF-1, the position formatter and the path crate.**
+   - Scope: the work zero becomes an input of `openchuck-path` (a new field on the generation context); one position formatter in `openchuck-types` taking the setup frame and giving the work-frame text with the labels of question 3 (the label list is a constant); every position in an `openchuck-path` message goes through it (about 26 sites) and `openchuck-types`' setup and workholding messages (5 sites); the `xtask` message check fails on a position-looking `X {` format string that does not use it (decision 0536's ratchet).
+   - Library impact: breaking; the workspace minor version is bumped with changelog entries for `openchuck-types` and `openchuck-path` (decision 0048; the coordinator assigns the number).
+   - Exit criteria: a test per message family that its X is the work-frame number for a setup whose **Zero at X** is not 0; a test that the formatter's labels are exactly the five of question 3; the `xtask` check fails on a raw position string and passes on the formatter; a project with **Zero at X** 0 reads as today; G-code and golden files unchanged (GC-07).
+2. **WF-2, the application, the setup fields, the command line and the interface.**
+   - Scope: the setup fields (**Start X** and the box's **X from** and **X to**, the held regions, the tabs, the grips and the Position row) typed and shown in work-zero X, converted at the edge, with the project file unchanged; the **Zero at X** tooltip says that the stock, held regions and tabs stay where they are when it changes (question 2); the travel messages show both positions, each labelled (question 3); the setup sheet, the command line (`setup`, `--tab`, `--held-start`, the `bounds` line, the "work zero ... at model X" wording), the viewport readout (labelled "model X" with no setup chosen) and the playback line; `openchuck-app` and the application crates are outside the library family.
+   - Exit criteria: a position typed in a setup field and the message quoting it agree (a test per field family); changing **Zero at X** moves no stored value and no G-code byte; the travel message shows both positions; the unit and CLI tests of the changed rows pass; the user-docs and release notes say it (the guide pages only for the changed texts; the examples wait for WF-3).
+3. **WF-3, the user guide and the screenshots (docs only).** One change that re-captures all the example pages' quoted text and screenshots and the tutorial's numbers in work-zero X (question 4), after WF-1 and WF-2 have merged, on a machine with the STEP kernel build; `CAPTURED.toml` hashes true.
+
+- **Where it sits:** it needs only this record accepted and the numbers assigned; WF-1 first (it changes the library), WF-2 after WF-1 has merged, WF-3 last. It touches `openchuck-path`, so it must not run beside a lane that is changing path messages; the coordinator orders it in the work breakdown's "Parallel work" table (a row to add when the record is accepted: not added here, because the table is the coordinator's).
 
 ## Consequences
 

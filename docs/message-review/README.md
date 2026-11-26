@@ -13,7 +13,7 @@ The inventory behind [decision 0536](../decisions/0536-message-levels-operation-
 | [ui-other.md](ui-other.md) | Interface: confirmations, status and progress, empty states, field validation, error dialogs, tooltips that state a rule, recovery | V |
 | [errors.md](errors.md) | Error and refusal texts of the library crates and the application's errors | R |
 | [cli.md](cli.md) | The command line, the setup sheet, and (listed only) help, About, log and crash texts | C |
-| [frames.md](frames.md) | Every printed position and the frame it is in (setup, work, machine, placed), for the proposed record WORDING-DOCS-E | none |
+| [frames.md](frames.md) | Every printed position and the frame it is in (setup, work, machine, placed), for the proposed decision 0699 | none |
 
 ## Columns
 
