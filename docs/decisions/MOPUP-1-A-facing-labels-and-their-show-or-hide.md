@@ -1,17 +1,22 @@
 # MOPUP-1-A: The Facing overlay's labels are short and say what they measure, and each kind can be shown or hidden in the view (UI-03, OP-24, UI-14, UI-15, SIM-01; issues #881 and #895 item 1; lane MOPUP-1)
 
-- **Status:** Proposed by lane MOPUP-1 on 26 Nov 2026; not yet accepted (OI-9922). It records the project owner's answers of 25 and 26 Nov 2026 to the lane's questions on issue #881, relayed by the coordinator (decision 0049), given on the lane's mock-up page:
+- **Status:** Accepted by the project owner on 26 Nov 2026, relayed by the coordinator (decision 0049), with the answers A to the three notes below (OI-9922 closed). Proposed by lane MOPUP-1 on 26 Nov 2026. It records the project owner's answers of 25 and 26 Nov 2026 to the lane's questions on issue #881, relayed by the coordinator (decision 0049), given on the lane's mock-up page:
   - Face label, option A: "Face A 0°: 13.650 mm from axis".
   - Stop beside a grip, option A: "Faced from X 25.490 (held start)" and "Faced up to X 85.990 (held end)".
   - Several Facing operations in one setup, option A: only the selected Facing operation's labels are shown.
   - Hiding the labels (the owner's addition), options A1 and B1: a "Facing labels" group of four kinds in the Show menu (V) and under View, kept per user; and the one "Hidden: …" chip that already names hidden kinds of move also names hidden Facing labels.
   - The chip's length rule: at most two names, then "+N more"; "Hidden (N)" when the strip has no room for that; never cut; only the hidden names. The chip stays the plain label of decision 0693 as the owner amended it on 25 Nov 2026, so the full list is in the tooltip of "Show everything" in the Show menu.
 
+  The owner's answers of 26 Nov 2026 on the record's three notes, relayed by the coordinator:
+  - Q1 (where the draft is said), option A as built: one information line per ungenerated Facing operation in Messages, "Face: the Facing outlines and labels are a draft until you generate", gone once generated; the labels stay short.
+  - Q2 (a separate "Show all Facing labels" button), option A as built: none; pressing the "Facing labels" box shows all four (at most two presses), and "Show everything" also brings them back.
+  - Q3 (the chip), option A as built: a plain label, with no tooltip and no Tab stop, and a click does nothing; the full list is in Show everything's tooltip, which opens on keyboard focus.
+
   Layouts are designed for a 1920 by 1080 window, with 1366 by 768 best effort, as the owner directed on 25 Nov 2026 (decision 0693).
 - **Date:** 26 Nov 2026.
 - **Requirements:** UI-03 (the view shows the setup and its overlays), OP-24 (Facing), UI-14 (every control by keyboard; commands in the menus), UI-15 (per-user settings on the computer, never in the project), SIM-01 (what the view shows and hides). No requirement changes.
 - **Builds on:** [decision 0252](0252-facing-ends-sides-and-extents.md) (the Facing extent diagram), [decision 0685](0685-facing-beside-a-grip.md) (where a face stops beside a held region), [decision 0693](0693-show-or-hide-kinds-of-move.md) (the Show menu's kinds of move, the chip and the per-user setting), [decision 0677](0677-keyboard-focus-tooltips-and-tool-windows.md) (tooltips open on keyboard focus).
-- **Open items:** adds OI-9922 (the owner's acceptance of this record). Issue #895 item 1 (the generated stop marker) is settled here.
+- **Open items:** adds OI-9922 (the owner's acceptance of this record, closed by the acceptance on 26 Nov 2026). Issue #895 item 1 (the generated stop marker) is settled here.
 
 Numbering: provisional. The coordinator assigns the record and OI numbers at release, in merge order. No project schema number: the choice is a per-user setting (`facing_labels` in the user's `settings.toml`), never in the project. No library-family API change: `openchuck-app` and `openchuck-ui` change, and neither is in the library family.
 
