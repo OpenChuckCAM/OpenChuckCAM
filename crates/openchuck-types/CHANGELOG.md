@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.71.0
+
+- **Family release (0.71.0; PATH-QUALITY, PQ-2b; issue #786; decision 0695, Q9 part 3, accepted):** `openchuck-path` changes ramp output (a whole ring whose one turn would descend more than the largest depth per traverse is ramped back and forth over itself). No change in this crate.
+
 ## 0.68.0
 
 - **Family release (0.68.0; PATH-QUALITY, PQ-2; issue #786; decision 0695, accepted):** `openchuck-path` breaks its API (`Strategy::ramps_round_the_part` is removed, and `params::EntryParameters` gains the public field `ramp_depth_per_traverse`) and changes ramp output; no change to this crate.

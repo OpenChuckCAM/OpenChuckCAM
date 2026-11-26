@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.71.0 (PATH-QUALITY, PQ-2b; issue #786; decision 0695, Q9 part 3, accepted; not breaking, output change)
+
+- **Changed output (Entry Ramp only; decision 0695, Q9 part 3, the owner's answer A):** a whole ring whose one turn round itself would descend more than the largest depth per traverse (the least of the tool's cutting radius, the Largest depth per traverse setting and, once lane TOOL-LOAD passes one, the tool-load cap) is no longer ramped round itself: it is ramped back and forth over its own ring, at the angle its ramp round it was planned at (the Ramp angle, or the steeper angle near the axis), with legs of at most `bound / (2 · tan(angle))`, under the same rule and the same bound function as lines, partial rings and spirals. Every ramp pose is a pose of the ring raised along the tool axis; A reverses during the entry, and only there. The ring counts as over the bound when the depth per traverse its ramp round it would cut, `min(2πr · tan(angle), rise)`, exceeds the bound. A ring within the bound ramps round itself as before, with the same output. The ramp note names the bound that held it ("within the tool radius (1.587 mm)"), and the note on reversals lists it. On the public baluster with Ramp forced on, the deepest depth per traverse falls from 4.700 to 1.587 mm at 6 degrees (+0.78 % program time) and from 2.987 to 1.587 mm at 3 degrees (+0.92 %).
+- **Unchanged:** a pass that starts on the rotary axis still descends there while A turns, and is not held to the bound (an open question for the owner); Steeper ramp near the axis and Plunge where no ramp fits act on a ring as before, before the ring is held. No public API change.
+- Generated G-code remains the user's to verify before running it on a machine.
+
 ## 0.68.0 (PATH-QUALITY, PQ-2; issue #786; decision 0695, accepted; breaking)
 
 - **Breaking (decision 0048; the workspace's minor bump to 0.68.0 is this change's own):** `Strategy::ramps_round_the_part` is removed: no ramp goes round the part any more, for any strategy (decision 0695, Q3, amending decisions 0543 D2 and 0645 item 1). Migration: an implementation of `Strategy` drops the method; nothing replaces it.
