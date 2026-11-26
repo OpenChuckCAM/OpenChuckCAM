@@ -284,10 +284,7 @@ impl Builder<'_> {
         // rotary axis times half a unit of A (issue #929; decision record
         // SEV1-929-1). Fed moves are timed for that too.
         let a_shift = if kind.is_fed() {
-            written_a_shift(
-                from.across.hypot(from.height),
-                to.across.hypot(to.height),
-            )
+            written_a_shift(from.across.hypot(from.height), to.across.hypot(to.height))
         } else {
             0.0
         };
@@ -1925,8 +1922,8 @@ mod tests {
         assert_eq!(limit, z);
         // The Z1's F word: the longer of the line and A's travel round the
         // part over the move's time (decision record 0007).
-        let line = ((w1[0] - w0[0]).powi(2) + (w1[1] - w0[1]).powi(2) + (w1[2] - w0[2]).powi(2))
-            .sqrt();
+        let line =
+            ((w1[0] - w0[0]).powi(2) + (w1[1] - w0[1]).powi(2) + (w1[2] - w0[2]).powi(2)).sqrt();
         let radius = w1[1].hypot(w1[2]).max(1.0);
         let counted = (wa1 - wa0).abs() * (std::f64::consts::TAU * radius + 30.0) / 360.0;
         let f = 60.0 * line.max(counted) / seconds;
