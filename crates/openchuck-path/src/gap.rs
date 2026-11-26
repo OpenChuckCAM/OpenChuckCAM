@@ -793,11 +793,11 @@ impl<'a> Body<'a> {
             return [0.0; 3];
         }
         let mut best = ([0.0; 3], value(&[0.0; 3]));
-        let mut consider = |lam: [f64; 3]| {
+        let consider = |lam: [f64; 3], best: &mut ([f64; 3], f64)| {
             if lam.iter().all(|l| l.is_finite() && *l >= 0.0) {
                 let v = value(&lam);
                 if v > best.1 {
-                    best = (lam, v);
+                    *best = (lam, v);
                 }
             }
         };
@@ -828,13 +828,25 @@ impl<'a> Body<'a> {
             for l in [lo, hi] {
                 let mut lam = [0.0; 3];
                 lam[i] = l;
-                consider(lam);
+                consider(lam, &mut best);
             }
         }
-        // On the column at a corner: the tool's outward normal there,
-        // written as -(m + λi ni + λj nj) scaled, gives both multipliers.
+        // The best so far is exact when its dual's lowest point has its
+        // foot on the face. Otherwise the lowest point lies on the column
+        // at a corner whose two sides it crosses: the tool's outward normal
+        // there, written as -(m + λi ni + λj nj) scaled, gives both
+        // multipliers.
+        let (w, _) = at.dual(&best.0);
+        let y = self.support_point(-w);
+        let crossed = [beyond(y, 0) > 0.0, beyond(y, 1) > 0.0, beyond(y, 2) > 0.0];
+        if !crossed.iter().any(|c| *c) {
+            return best.0;
+        }
         for k in 0..3 {
             let (i, j) = ((k + 2) % 3, k);
+            if !(crossed[i] || crossed[j]) {
+                continue;
+            }
             let x = at.corners[k];
             if let Some((_, y)) = self.column_first(&at, x) {
                 let normal = self.at_first(y).1;
@@ -842,7 +854,7 @@ impl<'a> Body<'a> {
                     let mut lam = [0.0; 3];
                     lam[i] = l.0;
                     lam[j] = l.1;
-                    consider(lam);
+                    consider(lam, &mut best);
                 }
             }
         }
