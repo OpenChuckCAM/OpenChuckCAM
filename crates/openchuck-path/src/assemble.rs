@@ -1867,7 +1867,7 @@ mod tests {
             across: end.across - 0.001096,
             height: end.height - 0.041942,
         };
-        let (a0, a1) = (32_328.3424, 32_328.3424 + 0.005372);
+        let (a0, a1) = (32_328.342_4, 32_328.342_4 + 0.005_372);
         let at = |p: AxisPosition, a: f64| CutPoint {
             tip: rotary.to_model(p, Degrees(a)),
             a: Degrees(a),
@@ -1918,8 +1918,8 @@ mod tests {
         // Gate 1's limit for the block: linear if X or Y is written to
         // change, else Z's (openchuck-gcode `FeedLimits::for_move`).
         let moved = |i: usize| (w1[i] - w0[i]).abs() > 1e-9;
-        let limit = if moved(0) || moved(1) { linear } else { z };
-        assert_eq!(limit, z);
+        assert!(!moved(0) && !moved(1) && moved(2), "{w0:?} to {w1:?}");
+        let limit = z;
         // The Z1's F word: the longer of the line and A's travel round the
         // part over the move's time (decision record 0007).
         let line =
