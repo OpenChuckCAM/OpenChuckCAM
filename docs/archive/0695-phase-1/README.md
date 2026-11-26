@@ -1,6 +1,6 @@
-# PATH-QUALITY-1, phase 1: reproduction notes
+# 0695, phase 1: reproduction notes
 
-Raw notes of lane PATH-QUALITY's phase 1 investigation, cited by [decision PATH-QUALITY-1](../../decisions/PATH-QUALITY-1-finishing-edges-points-and-ramps.md) (Context and Verification). Each file gives the commands, the settings, the messages and the numbers of its runs, on `main` at `d1674b7c5ba33e15227dff542814eeff1722a23e` (0.63.0), on the repository's public models only (the blisk, the baluster, the crankshaft and the stepped first-cut part). No program or project is stored here; the scratch projects were not kept.
+Raw notes of lane PATH-QUALITY's phase 1 investigation, cited by [decision 0695](../../decisions/0695-finishing-edges-points-and-ramps.md) (Context and Verification). Each file gives the commands, the settings, the messages and the numbers of its runs, on `main` at `d1674b7c5ba33e15227dff542814eeff1722a23e` (0.63.0), on the repository's public models only (the blisk, the baluster, the crankshaft and the stepped first-cut part). No program or project is stored here; the scratch projects were not kept.
 
 | File | What it holds |
 | --- | --- |
