@@ -1141,10 +1141,10 @@ mod tests {
         // What the application knows before Generate about an entry setting
         // is a warning line under the field, in the Entry, links and retract
         // section; none when there is no problem (#291).
-        let problem = "Allow single-point plunge needs a tool that can plunge.";
+        let problem = "Plunge where no ramp fits needs a tool that can plunge.";
         let field = |problem: Option<&str>| Field {
             name: "allow_single_point_plunge".into(),
-            label: "Allow single-point plunge".into(),
+            label: "Plunge where no ramp fits".into(),
             description: String::new(),
             kind: FieldKind::Flag,
             set: Some(ParameterValue::Flag(true)),
@@ -1194,7 +1194,7 @@ mod tests {
         let shown = run(field(None));
         assert!(!shown.iter().any(|t| t == problem), "{shown:?}");
         assert!(
-            shown.iter().any(|t| t == "Allow single-point plunge"),
+            shown.iter().any(|t| t == "Plunge where no ramp fits"),
             "{shown:?}"
         );
     }

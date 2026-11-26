@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.68.0
+
+- **Family release (0.68.0; PATH-QUALITY, PQ-2; issue #786; decision 0695, accepted):** `openchuck-path` breaks its API (`Strategy::ramps_round_the_part` is removed, and `params::EntryParameters` gains the public field `ramp_depth_per_traverse`) and changes ramp output; no change to this crate.
+
 ## 0.67.0
 
 - **Family release (0.67.0; SEV1-929, #948 follow-up; decision 0692 amendment 2, accepted):** `openchuck-path` changes output (on a controller that counts A in its F word, a fed turn of A with the tool tip fixed is timed for A's counted travel where an end's A is not on three decimals). No change in this crate.

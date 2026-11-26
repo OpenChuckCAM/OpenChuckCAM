@@ -2694,7 +2694,7 @@ impl Strategy for OnePoint {
 
 /// Decision 0543 D7 (the owner's answer) and decision 0544 item 7: a
 /// single-point pass under a ramp is refused, naming the setting, unless
-/// Allow single-point plunge is on; on, it is plunged, with a note; a tool
+/// Plunge where no ramp fits is on; on, it is plunged, with a note; a tool
 /// that cannot plunge is then refused by name, under a ramp or a lead. A
 /// saved operation without the setting reads it as off.
 #[test]
@@ -2721,7 +2721,7 @@ fn req_op_11_req_nfr_07_allow_single_point_plunge_decides_a_single_point_pass() 
         .iter()
         .find(|f| f.name == names::ALLOW_SINGLE_POINT_PLUNGE)
         .unwrap();
-    assert_eq!(field.label, "Allow single-point plunge");
+    assert_eq!(field.label, "Plunge where no ramp fits");
     assert_eq!(field.value, Some(ParameterValue::Flag(false)));
     assert_eq!(
         field.section,
@@ -2729,7 +2729,7 @@ fn req_op_11_req_nfr_07_allow_single_point_plunge_decides_a_single_point_pass() 
     );
     let e = app.start_regenerate().wait().unwrap_err().to_string();
     assert!(
-        e.contains("is a single point") && e.contains("Turn on Allow single-point plunge"),
+        e.contains("is a single point") && e.contains("Turn on Plunge where no ramp fits"),
         "{e}"
     );
     // In the one form of decision 0536: the topic, then the operation.
@@ -2939,5 +2939,176 @@ fn req_ui_07_every_link_parameter_is_in_the_links_section() {
         }
     }
     assert!(seen >= 3, "axial, indexed and facing offer it: {seen}");
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+#[test]
+fn req_op_11_a_new_operation_allows_single_point_plunge_and_a_steeper_ramp_near_the_axis() {
+    // Decision 0695, Q4 (iii), the owner's answer: a new
+    // operation whose Entry offers Ramp is written with Plunge where no ramp
+    // fits (stored as `allow_single_point_plunge`) and Steeper ramp near the
+    // axis on, so a Ramp entry plunges only the passes with no room to
+    // ramp; one saved without them keeps them off (the schema's default),
+    // and so its program (decision 0545 D3's pattern). Radial drilling
+    // offers only Plunge and gets neither.
+    use openchuck_path::params::names::{ALLOW_SINGLE_POINT_PLUNGE, RAMP_STEEPER_NEAR_AXIS};
+    let (dir, mut app, op) = project("ramp-defaults");
+    let setup = app.project().operation(op).unwrap().setup;
+    let tool = app.project().operation(op).unwrap().tool;
+    let value = |app: &Application, id, name: &str| {
+        app.project()
+            .operation(id)
+            .unwrap()
+            .parameters
+            .get(name)
+            .cloned()
+    };
+    for strategy in ["rotary_roughing", "helical_finishing", "indexed_finishing"] {
+        let added = app.add_operation(strategy, strategy, setup, tool).unwrap();
+        for name in [ALLOW_SINGLE_POINT_PLUNGE, RAMP_STEEPER_NEAR_AXIS] {
+            assert_eq!(
+                value(&app, added, name),
+                Some(ParameterValue::Flag(true)),
+                "{strategy} {name}"
+            );
+        }
+    }
+    // Drilling needs a STEP part.
+    let mut model = app.project().models()[0].clone();
+    model.path = openchuck_app::project::RelativePath::new("models/part.step").unwrap();
+    app.execute(Command::Replace(Item::Model(model))).unwrap();
+    let drill = app
+        .add_operation(
+            openchuck_path::drill::NAME,
+            openchuck_path::drill::NAME,
+            setup,
+            tool,
+        )
+        .unwrap();
+    assert_eq!(value(&app, drill, ALLOW_SINGLE_POINT_PLUNGE), None);
+    assert_eq!(value(&app, drill, RAMP_STEEPER_NEAR_AXIS), None);
+    // The operation the project was made with stands for one saved before:
+    // without the settings, so off.
+    assert_eq!(value(&app, op, ALLOW_SINGLE_POINT_PLUNGE), None);
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+/// Decision 0695, Q9 (the owner's answer B, with A's
+/// regrouping): the basic entry settings (Entry, Ramp angle and Plunge where
+/// no ramp fits, stored as before as `allow_single_point_plunge`) stay in
+/// the Entry, links and retract section; the rest of the ramp, helix and
+/// lead settings, with the new Largest depth per traverse (0, the tool
+/// radius, by default), are in Advanced (UI-07).
+#[test]
+fn req_op_11_req_ui_07_the_basic_entry_settings_stay_in_entry_and_the_rest_are_in_advanced() {
+    use openchuck_app::form::{FormSection, Source};
+    let (dir, mut app, op) = project("entry-groups");
+    app.register_strategy(Arc::new(OneLine)).unwrap();
+    let mut operation = app.project().operation(op).unwrap().clone();
+    operation.strategy = "one_line".into();
+    operation
+        .parameters
+        .insert(names::ENTRY.into(), ParameterValue::Text("ramp".into()));
+    app.execute(Command::Replace(Item::Operation(operation)))
+        .unwrap();
+    let form = app.parameter_form(op).unwrap();
+    let field = |name: &str| {
+        form.fields
+            .iter()
+            .find(|f| f.name == name)
+            .unwrap_or_else(|| panic!("no {name}"))
+    };
+    for name in [
+        names::ENTRY,
+        names::RAMP_ANGLE,
+        names::ALLOW_SINGLE_POINT_PLUNGE,
+    ] {
+        assert_eq!(
+            field(name).section,
+            FormSection::EntryLinksAndRetract,
+            "{name}"
+        );
+    }
+    assert_eq!(
+        names::ALLOW_SINGLE_POINT_PLUNGE,
+        "allow_single_point_plunge"
+    );
+    assert_eq!(
+        field(names::ALLOW_SINGLE_POINT_PLUNGE).label,
+        "Plunge where no ramp fits"
+    );
+    for name in [
+        names::RAMP_STEEPER_NEAR_AXIS,
+        names::RAMP_ANGLE_MAX,
+        names::PLUNGE_FACE_NUBS,
+        names::FACE_NUB_DIAMETER,
+        names::HELIX_DIAMETER,
+        names::LEAD_RADIUS,
+        names::RAMP_DEPTH_PER_TRAVERSE,
+    ] {
+        assert_eq!(field(name).section, FormSection::Advanced, "{name}");
+    }
+    let depth = field(names::RAMP_DEPTH_PER_TRAVERSE);
+    assert_eq!(depth.label, "Largest depth per traverse");
+    assert_eq!(depth.value, Some(ParameterValue::Number(0.0)));
+    assert_eq!(depth.source, Source::Default);
+    assert!(
+        depth
+            .description
+            .contains("0 uses the tool's cutting radius")
+            && depth.description.contains("a larger value is held to it")
+            && depth
+                .description
+                .contains("A ramp round a whole ring takes one turn's depth per traverse"),
+        "{}",
+        depth.description
+    );
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+/// Decision 0695, Q9: an operation saved before Largest
+/// depth per traverse existed opens without it, reads the default (the tool
+/// radius) and keeps its program, the same as one that sets 0; a value
+/// below the radius changes the ramp (GC-07).
+#[test]
+fn req_op_11_req_gc_07_a_saved_operation_without_largest_depth_per_traverse_keeps_its_program() {
+    let (dir, mut app, op) = project("depth-saved");
+    app.register_strategy(Arc::new(OneLine)).unwrap();
+    let mut operation = app.project().operation(op).unwrap().clone();
+    operation.strategy = "one_line".into();
+    operation
+        .parameters
+        .insert(names::ENTRY.into(), ParameterValue::Text("ramp".into()));
+    app.execute(Command::Replace(Item::Operation(operation)))
+        .unwrap();
+    let saved = app.start_regenerate().wait().unwrap().toolpath;
+    app.save().unwrap();
+    let mut again = Application::open(&dir, Threads::Exactly(3)).unwrap();
+    again.register_strategy(Arc::new(OneLine)).unwrap();
+    assert!(
+        !again
+            .project()
+            .operation(op)
+            .unwrap()
+            .parameters
+            .contains_key(names::RAMP_DEPTH_PER_TRAVERSE)
+    );
+    assert_eq!(again.start_regenerate().wait().unwrap().toolpath, saved);
+    again
+        .set_parameter(
+            op,
+            names::RAMP_DEPTH_PER_TRAVERSE,
+            Some(ParameterValue::Number(0.0)),
+        )
+        .unwrap();
+    assert_eq!(again.start_regenerate().wait().unwrap().toolpath, saved);
+    again
+        .set_parameter(
+            op,
+            names::RAMP_DEPTH_PER_TRAVERSE,
+            Some(ParameterValue::Number(0.2)),
+        )
+        .unwrap();
+    assert_ne!(again.start_regenerate().wait().unwrap().toolpath, saved);
     std::fs::remove_dir_all(&dir).unwrap();
 }

@@ -455,3 +455,45 @@ Updated in place: OI-318 and OI-337 (the blisk now generates and cuts its blade 
 - **Results:** the tables above. Raw notes with every command, setting and message: [docs/archive/0695-phase-1](../archive/0695-phase-1/README.md).
 - **Not verified:** the STEP blisk's simultaneous finish at a 2 degree step (the run hit the container's time limit); the crankshaft's roughing in rings with Ramp; nothing was cut or air-cut; no owner project was used.
 - **The figures** are drawn from the measured numbers (the finial) and as a schematic of the measured case (the blade tip).
+
+## Verification (PQ-2, pull request #930)
+
+- **What was built:**
+  - Q3 A, with the tool-load requirement: every ramp follows its own pass, back and forth, and `Strategy::ramps_round_the_part` is removed.
+  - Q4 A: a plunge only where no ramp fits, named in a note with its reason and depth. The steeper search reaches the maximum. New operations get Plunge where no ramp fits and Steeper ramp near the axis on.
+  - Q8 A: the tool-radius bound on every back-and-forth ramp.
+  - Q9 B, at its default: Largest depth per traverse, and one bound function as agreed with lane TOOL-LOAD.
+  - A's regrouping: "Plunge where no ramp fits" and the Advanced group.
+  - The whole-ring part of Q9 is not built; it waits for the owner (OI-2239).
+- **How:**
+  - Tests were written first, named by requirement:
+    - `tests/ramp_load.rs`, 15 tests. The first seven were run on `main` `aadf3cc8`, and six failed.
+    - `path_ramp` and `assemble::entry` unit tests, among them the bound function's.
+    - The `ramp_follows.rs` extensions.
+    - The `openchuck-app` tests for the new-operation defaults, the form groups, and a saved operation keeping its program.
+  - At the default, the ramp moves were byte-identical to the Q8 commit in 60 synthetic ramp cases.
+- **Results, at the release head (main `12cde6e` merged; Linux container, release build):**
+  - `cargo test --release -p openchuck-path`: 144 unit, 890 integration and 1 doc test pass.
+  - `-p openchuck-app`: 298 unit (1 ignored) and 625 integration tests pass. No golden changed.
+  - The `openchuck-ui` form tests pass.
+  - fmt, clippy, and `cargo xtask records`, `trace`, `deps`, `licences` and `changelog check-pr` all pass.
+- **Simulation of the six cases of OI-2232** (public blisk and crankshaft, release CLI, 0.1 mm cells): the deepest overcut with Ramp went from 0.261 to 0.684 mm before to 0.0441 to 0.0485 mm after, the same as each operation entered with Plunge. Q8 leaves these figures unchanged.
+- **Measured impact of Q8:** no golden or shipped example changes, and no new refusal or plunge. Two of the six cases change: crankshaft helical pass 1302 from 3.068 to 1.587 mm, and blisk face 19 pass 130 from 2.617 to 1.500 mm. Program times change by under 1%.
+- **Not verified:**
+  - No air or wood cut.
+  - The STEP-kernel tests were run for the ramp cases only.
+  - The cut-section figures are estimates from the tool's engaged section, because the simulation reports removal per operation only.
+- **CodeRabbit's review of #930 (two Major findings, both real, fixed in its one fix push, tests first):**
+  - **The depth per traverse is measured on the ramp as cut.** Where a pass rises faster than the Ramp angle, its own floor could hold an earlier visit high, so the drop between visits exceeded the bound while the note gave the bound. On the reviewer's case, 0.900 mm against 0.2 mm. The legs are now shortened until the measured drop fits.
+  - **Where no leg length can soften the drop, the ramp follows it** (decision 0543 D4), and the note says so: "more than the tool radius (…), as it follows its pass's own steep drop". The drop is the pass's own step, such as pass 1851 of the blisk's roughing in rings, an 8.017 mm step. That pass is not refused, because the step is the part's. **The owner confirmed this on 26 Nov 2026 (answer A, relayed by the coordinator): such passes are followed with the note and never refused; decision 0543 D4 is unchanged (OI-2240, closed).**
+  - **The stock under a ramp is probed only as far as its legs reach.** Stock beyond the legs no longer raises the ramp's start. The legs never go past that reach, so the probe still covers every leg (OP-12).
+  - **Tests:**
+    - `assemble::path_ramp::req_op_11_a_pass_rising_from_its_first_point_keeps_the_depth_per_traverse`;
+    - `assemble::path_ramp::req_op_11_a_rise_no_leg_can_bound_follows_the_pass_s_drop`;
+    - `entry_link_stock::req_op_11_req_op_12_a_ramp_probes_the_stock_only_as_far_as_its_legs_reach`.
+  - **Not fixed, and recorded in one sev3 issue:**
+    - a fallback plunge's depth when the rapid stop is clamped to the clearance;
+    - the refusal's wording when the Ramp angle equals the maximum with Steeper ramp near the axis off;
+    - a whole ring's depth per traverse is reported as the mean per turn;
+    - two test precisions.
+- **Open items:** OI-2232 and OI-2238 close with this pull request. OI-2239 (whole rings and the axis) stays open for the owner.
