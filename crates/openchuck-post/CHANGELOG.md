@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.66.0
+
+- **Family release (0.66.0; SEV1-929 follow-up; issue #943; decision 0692 amendment 1, accepted):** `openchuck-path` changes output (a fed turn of A with the tool tip fixed is timed for the line the post may write for it, and every fed move whose change of X and Y is below the written band, none included, is timed for the lower of the linear and Z limits). No change in this crate.
+
 ## 0.65.0
 
 - **Family release (0.65.0; MOPUP-1, PR M3; issues #887 and #895):** `openchuck-path` breaks its API (`swarf::Limits` gains the public field `least_lift_along_axis`) and changes the swarf face note's reach past the rulings for a tapered tool; restricted Facing refuses a host keep-out with a span the grip does not give. No change in this crate.
