@@ -270,7 +270,10 @@ fn req_op_12_tool_gap_of_a_ball_resting_beside_a_square_edge_reads_no_cut() {
     let resting = line(Point3::new(-0.011, 0.0, 0.0), UP);
     let g = surface.tool_gap(&tool, &resting, &checked()).unwrap();
     assert!(g.lower >= -0.01, "{g:?}");
-    holds(&gap_within(&surface, &tool, &resting, Vec3::ZERO, 0.0125), 0.0);
+    holds(
+        &gap_within(&surface, &tool, &resting, Vec3::ZERO, 0.0125),
+        0.0,
+    );
 }
 
 #[test]

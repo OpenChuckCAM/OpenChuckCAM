@@ -1990,10 +1990,7 @@ impl Shard {
                 let least = corners_least(&with, m).map_or(f64::INFINITY, |v| v - d);
                 by_plane = by_plane.max(least);
             }
-            return (
-                by_plane.max(-layer).min(cap.max(-layer)) - SLACK,
-                found,
-            );
+            return (by_plane.max(-layer).min(cap.max(-layer)) - SLACK, found);
         }
         for probe in probes {
             let plane = posed.at(probe);
@@ -2209,7 +2206,8 @@ fn convex_planes(triangles: &[[Point3; 3]], i: usize) -> Vec<(Vec3, f64)> {
         if nq.dot(n) > 1.0 - 1e-12 {
             continue;
         }
-        let under = |pts: &[Point3; 3], n: Vec3, d: f64| pts.iter().all(|p| n.dot(p.to_vec()) - d <= near);
+        let under =
+            |pts: &[Point3; 3], n: Vec3, d: f64| pts.iter().all(|p| n.dot(p.to_vec()) - d <= near);
         if under(q, n, d) && under(t, nq, dq) {
             out.push((nq, dq));
         }

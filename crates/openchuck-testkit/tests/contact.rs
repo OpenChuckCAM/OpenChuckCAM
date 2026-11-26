@@ -1019,7 +1019,10 @@ fn req_op_12_face_gap_counts_a_face_from_behind_only_within_the_layer() {
     // face is 14 mm above the face's plane on the material side.
     let deep = g.face_gap(&t, Point3::ORIGIN, up, 3.0, 1e-4, &s).unwrap();
     holds_face(&deep, -3.0);
-    assert!(g.face_gap(&t, Point3::ORIGIN, up, f64::NAN, 1e-4, &s).is_err());
+    assert!(
+        g.face_gap(&t, Point3::ORIGIN, up, f64::NAN, 1e-4, &s)
+            .is_err()
+    );
 }
 
 /// A block's square edge along Y at the origin: its top, z = 0 for x <= 0,

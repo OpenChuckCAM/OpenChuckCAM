@@ -1578,20 +1578,32 @@ struct Search<'a, 'b> {
 }
 
 impl Search<'_, '_> {
-    /// The face of `corners` on triangle `triangle`, with its clips.
+    /// The face of `corners` on triangle `triangle`, with the clips that
+    /// matter there: a clip every point of the piece's prism from its face
+    /// down to the layer already satisfies cuts nothing off what the face
+    /// counts below itself (the only part its clips are used for, see
+    /// [`Search::measure`]), so it is left out.
     fn face(&mut self, corners: [Point3; 3], m: Vec3, triangle: u32) -> Face {
-        let (neighbours, inside) = (self.neighbours, self.inside);
-        let clips = self
-            .clips
-            .entry(triangle)
-            .or_insert_with(|| {
-                neighbours(triangle)
-                    .into_iter()
-                    .map(|(n, d)| (n, d - inside))
-                    .collect()
+        let (neighbours, inside, limit) = (self.neighbours, self.inside, self.limit);
+        let clips = self.clips.entry(triangle).or_insert_with(|| {
+            neighbours(triangle)
+                .into_iter()
+                .map(|(n, d)| (n, d - inside))
+                .collect()
+        });
+        let floor = corners.map(|p| p + m * (-limit));
+        let slack = 1e-9 * (1.0 + (corners[0] - Point3::ORIGIN).length());
+        let relevant = clips
+            .iter()
+            .filter(|(n, b)| {
+                corners
+                    .iter()
+                    .chain(floor.iter())
+                    .any(|p| n.dot(*p - Point3::ORIGIN) > b - slack)
             })
-            .clone();
-        Face::new(corners, m).with_clips(clips)
+            .copied()
+            .collect();
+        Face::new(corners, m).with_clips(relevant)
     }
 
     /// Bounds a piece and queues it, unless it cannot count. A tool point
@@ -1664,11 +1676,7 @@ impl Search<'_, '_> {
             return empty;
         }
         let has_clips = !clipped.clips.is_empty();
-        let clipped_beside = has_clips && self.body.beside(&clipped, s0, s1);
         let (mut open_lower, mut clipped_lower) = (f64::NEG_INFINITY, f64::NEG_INFINITY);
-        if clipped_beside {
-            clipped_lower = f64::INFINITY;
-        }
         let mut near: Option<(f64, Point3, f64)> = None;
         let mut near_clipped: Option<(f64, Point3)> = None;
         for &f in &poses {
@@ -1705,8 +1713,19 @@ impl Search<'_, '_> {
                 near = Some((h, at, f));
             }
         }
-        // Below the face only the clipped region counts.
-        if has_clips && open_lower < 0.0 && !clipped_beside {
+        // Below the face only the clipped region counts. Its bound is only
+        // ever higher than the open region's, so it is needed only where
+        // that is short of what the caller accepts.
+        // And only where a real point below that is found: where the open
+        // bound is short only because it is loose (the piece is large, or
+        // its part of the move long), halving settles it, and the clipped
+        // bound is no better.
+        let wanted = open_lower < -self.inside && near.is_some_and(|(h, _, _)| h < -self.inside);
+        let clipped_beside = has_clips && wanted && self.body.beside(&clipped, s0, s1);
+        if clipped_beside {
+            clipped_lower = f64::INFINITY;
+        }
+        if has_clips && wanted && !clipped_beside {
             for &f in &poses {
                 let lam = self.body.multipliers(&clipped, f, false);
                 let bound = scaled(&lam)
@@ -1723,10 +1742,10 @@ impl Search<'_, '_> {
                 }
             }
         }
-        let bound = if !has_clips || open_lower >= 0.0 {
+        let bound = if !has_clips || open_lower >= 0.0 || !wanted {
             open_lower
         } else {
-            clipped_lower.min(0.0)
+            clipped_lower.min(0.0).max(open_lower)
         };
         let lower = piece.lower.max(bound.max(-self.limit) - e);
         // A real value: the open region's lowest point where it is not
@@ -1849,7 +1868,13 @@ pub(crate) fn on_mesh(
 /// index order (NFR-06). A mesh with cracks there finds fewer, and so
 /// counts more: never less.
 pub(crate) fn convex_neighbours(mesh: &TriangleMesh) -> Vec<Vec<(Vec3, f64)>> {
-    let key = |p: Point3| [(p.x + 0.0).to_bits(), (p.y + 0.0).to_bits(), (p.z + 0.0).to_bits()];
+    let key = |p: Point3| {
+        [
+            (p.x + 0.0).to_bits(),
+            (p.y + 0.0).to_bits(),
+            (p.z + 0.0).to_bits(),
+        ]
+    };
     let mut ids: std::collections::HashMap<[u64; 3], usize> = std::collections::HashMap::new();
     let tris: Vec<Option<([usize; 3], [Point3; 3], Vec3, f64)>> = (0..mesh.triangles.len())
         .map(|i| {
