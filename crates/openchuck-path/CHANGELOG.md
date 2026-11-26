@@ -1,10 +1,16 @@
 # Changelog
 
-## 0.72.0 (PATH-QUALITY, PQ-3; issue #779; decision 0695, Q2, accepted; not breaking, output change only with the new setting on)
+## 0.71.0 (PATH-QUALITY, PQ-3; issue #779; decision 0695, Q2, accepted; not breaking, output change only with the new setting on)
 
 - **Added (decision 0695, Q2 (a) A, the owner's answer):** the parameter `finishing::parameter::FINISH_TO_A_POINT` (`finish_to_a_point`), **Finish to a point**, on helical, axial and indexed finishing; off in the schema, so an operation saved without it keeps its program. With it on, where the part ends in a point inside the stock (a free end of decision 0344 where the tool at its last drop touches the part nearer the rotary axis than its own cutting radius, at every angle), the finish carries on past the end, following the part down to the end's last drop, then whole turns at that X take the tool down by the Stepdown to the rotary axis, the last with the tool's end at its cutting radius on the axis (a ball's centre on the axis at the point's X + R). Helical finishing continues its helix (or its rings) at its pitch; axial and indexed finishing continue each pass along X. The stretch is fitted on its own, so the passes over the part are unchanged. Where Face free ends also acts, its turns are cut first. Ends beside a tab or inside a held region's band are never free ends, so nothing is carried on there (OP-21, SET-09). The run-out of Extend past the stock is unchanged.
 - **Added warnings (decision 0695, Q2 (b) A, with decision 0344's):** finishing to a point cuts the part free of the stock past it, so the operation warns, on the Finish to a point setting and the Part cut free topic, that the stock past the point is not held (unless a held region past it grips it) and that the part is not held on its own side (unless a held region there holds it; a possible collision to acknowledge). An end Face free ends already faced to the axis has those warnings already.
 - **Changed output with adaptive spacing on and Finish to a point on (Q2 (c) B):** adaptive spacing measures the material left between the passes past the point as over the part, with the same Allowed excess and Smallest spacing, and adds passes there. On the public baluster's Finish it takes 3.6 % more time and about 29,000 more geometry queries (2.9 % of the limit).
+
+## 0.70.0 (PATH-QUALITY, PQ-2b; issue #786; decision 0695, Q9 part 3, accepted; not breaking, output change)
+
+- **Changed output (Entry Ramp only; decision 0695, Q9 part 3, the owner's answer A):** a whole ring whose one turn round itself would descend more than the largest depth per traverse (the least of the tool's cutting radius, the Largest depth per traverse setting and, once lane TOOL-LOAD passes one, the tool-load cap) is no longer ramped round itself: it is ramped back and forth over its own ring, at the angle its ramp round it was planned at (the Ramp angle, or the steeper angle near the axis), with legs of at most `bound / (2 · tan(angle))`, under the same rule and the same bound function as lines, partial rings and spirals. Every ramp pose is a pose of the ring raised along the tool axis; A reverses during the entry, and only there. The ring counts as over the bound when the depth per traverse its ramp round it would cut, `min(2πr · tan(angle), rise)`, exceeds the bound. A ring within the bound ramps round itself as before, with the same output. The ramp note names the bound that held it ("within the tool radius (1.587 mm)"), and the note on reversals lists it. On the public baluster with Ramp forced on, the deepest depth per traverse falls from 4.700 to 1.587 mm at 6 degrees (+0.78 % program time) and from 2.987 to 1.587 mm at 3 degrees (+0.92 %).
+- **Unchanged:** a pass that starts on the rotary axis still descends there while A turns, and is not held to the bound, as the owner decided (decision 0695, Q9: descents on the axis stay outside the limit); Steeper ramp near the axis and Plunge where no ramp fits act on a ring as before, before the ring is held. No public API change.
+
 - Generated G-code remains the user's to verify before running it on a machine.
 
 ## 0.69.0 (PATH-QUALITY, PQ-4; issue #826, OI-2198; decision 0695, Q6, accepted; not breaking, output change only with adaptive spacing on)
@@ -375,7 +381,6 @@
 
 - Lockstep library-family version for GC-17’s machine-profile and post API additions (accepted decision 0222, lane GATES). Path geometry and G-code replay behavior are unchanged.
 
-
 All notable changes to `openchuck-path` are recorded here.
 
 ## Unreleased
@@ -403,7 +408,6 @@ All notable changes to `openchuck-path` are recorded here.
 - Owner-approved optional internal Facing scope limits Flat cut lines per A or Round's axial span while retaining original stock and stock-history bounds. No-scope legacy IR/diagnostics match the native pre-scope reference exactly at1/2/4 threads.
 - `Strategy::validate_path` is a provided no-op hook called once after final assembly/checks/diagnostics on all generation routes; error/cancellation prevents usable return. FINSTEP's zoned-result and warning seam is unchanged.
 - **Breaking (0.25.0, FACING):** `StrategyInput` adds `facing: Option<&FacingSetup>` for whole placed part, stock, tool/machine and separate tab/held protections. Existing hosts use `None`; restricted extents/new modes require the context. Provided `Strategy::schema_for` / `resolve_parameters` select active fields/defaults while retaining inactive stored edits in the host. FACING delivers these hooks/common host wiring before FINSTEP consumes their merged interfaces; FINSTEP owns adaptive overrides. No project-schema migration.
-
 
 - RAMPBUDGET (#343, accepted decision 0248): certify optional reversing ramps with bounded adaptive continuous-envelope intervals and operation-scoped exact whole-target query reuse. Deep entries in the regression matrix now certify within the unchanged entry limits. Preserve motion, stock-clear start, full-tool/protected/machine checks, cancellation and option-off output. Public APIs and project format are unchanged; no library version is selected by this lane.
 - Version 0.24.0 with the library family (GC-17, decisions 0222/0245): configurable short-block reporting and geometry-preserving slowdown; profile/post/report APIs extended. Legacy project copies retain Off.

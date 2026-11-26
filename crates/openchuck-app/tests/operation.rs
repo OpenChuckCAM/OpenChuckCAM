@@ -3100,7 +3100,10 @@ fn req_op_11_req_ui_07_the_basic_entry_settings_stay_in_entry_and_the_rest_are_i
             && depth.description.contains("a larger value is held to it")
             && depth
                 .description
-                .contains("A ramp round a whole ring takes one turn's depth per traverse"),
+                .contains("A whole ring whose one turn round itself would go deeper is ramped back and forth over itself")
+            && depth
+                .description
+                .contains("A descent on the rotary axis is not held to it"),
         "{}",
         depth.description
     );
