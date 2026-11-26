@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased (SEV1-929, follow-up; issue #943; decision 0692 amendment 1, proposed; not breaking)
+
+- **Fixed, changed output (issue #943):** a fed move that turns A with the tool tip fixed (no change of X, Y or Z) is timed for the line the post may write for it, as well as for A's own limit: the post works XYZ out at A written to three decimals, so the two ends can be written with a change of X or Y of up to 0.002 mm plus the shift writing A gives them, which gate 1 holds to the linear limit. Only turns of a few thousandths of a degree take longer. Every fed move whose change of X and Y is below 0.001 mm plus that shift, none included, is timed for the lower of the linear and Z limits, whatever A does; this changes nothing where Z is no faster than the linear axes (the Makera Z1 and every built-in profile). No public API change.
+
 ## 0.64.0 (SEV1-929; issue #929; decision 0692, accepted; not breaking, output change)
 
 - **Fixed, changed output (issue #929; decision record 0692):** a fed move is timed for the shift that writing A to three decimals gives its end points (the post works X, Y and Z out at the written A, issue #780; up to `r` times 0.0005 degree at each end). The band below which a change of X or Y may be written either way is 0.001 mm plus that shift, so such a move is timed for the lower of the linear and Z limits, and the line's written allowance grows by the same shift. Before, a move that changed Y by just over 0.001 mm could be written with no Y change and its F word came out a fraction over Z's limit, which gate 1 refused (`F650.9 is above the limit 650` on a Makera Z1 job). No public API change.
