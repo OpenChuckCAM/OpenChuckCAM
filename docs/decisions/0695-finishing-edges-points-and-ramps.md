@@ -513,3 +513,51 @@ Updated in place: OI-318 and OI-337 (the blisk now generates and cuts its blade 
 - **Coverage:** 51 of the 52 changed lines in `helical.rs` are run. The one not run is the branch for a helix with nothing left to measure.
 - **Not verified:** nothing was cut or air-cut.
 - **Open items:** OI-2198 closes; OI-2237 is open.
+
+## Verification (PQ-3)
+
+- **What was built (Q2 (a) A, (b) A, (c) B):**
+  - **The setting.** A new setting, **Finish to a point** (`finishing::parameter::FINISH_TO_A_POINT`), on helical, axial and indexed finishing.
+    - It is off in the schema, so a saved operation keeps its program.
+    - `openchuck-app` writes it on for a new operation, in decision 0545 D3's pattern.
+  - **Finding the point.** A point is a free end of decision 0344 that the stock carries on past, where the tool at its last drop touches the part nearer the rotary axis than its own cutting radius at every angle.
+  - **The path past the point.**
+    - The finish carries on past the end, following the part down to the end's last drop: the helix (or the rings) at its pitch, or each pass along X.
+    - Whole turns then take the tool down by the Stepdown to the axis. The last turn puts the tool's end at its cutting radius on the axis: a ball's centre on the axis at the point's X + R.
+    - The stretch is fitted on its own, so the passes over the part are unchanged.
+    - Where Face free ends also acts, its turns are cut first.
+  - **Warnings.** Decision 0344's two Part cut free warnings are given on the new setting, unless Face free ends already faced that end down to the axis.
+  - **Adaptive spacing** measures past the point and adds passes there.
+- **Built differently from the record's wording:**
+  - **The run-out.** The run-out of Extend past the stock is unchanged. The record said decisions 0212 part B item 3 and 0546 item 3 are amended for this setting. As built, the setting adds its own stretch past the point, which follows the drop, and it does not turn the run-out into a descent. A run-out that followed the drop to the axis would cut through all the stock past the point at the axis. That would be a full-width slot, not a finish, and it would be cut free anyway.
+  - **Query accounting.** The queries spent past the end are read as the difference in the figure adaptive spacing already reports, as the record says. No separate counter was added.
+- **How:** tests first, in `crates/openchuck-path/tests/finish_to_a_point.rs` (new, 12 tests):
+  - Written before the code and seen failing first:
+    - the schema test;
+    - the reach-the-axis tests for the three strategies (for example, helical's nearest centre past the point stood at 1.587 mm from the axis);
+    - the adaptive test, which failed for axial finishing until its measure covered the point.
+  - The "off is as before" test was written first as a guard, and passed before and after.
+  - The gouge, warning, held-region, off-axis-end and GC-07 tests were written with the code, not before it, and were not seen failing.
+  - In `openchuck-app`, these were also written after the code:
+    - `operation::req_op_04_finish_to_a_point_is_on_for_a_new_operation_and_off_for_a_saved_one`;
+    - `adaptive_example::req_op_04_req_nfr_12_the_tutorial_piece_is_finished_to_a_point`, which was seen failing with the setting off (0.734, 0.432, 0.240, 0.113 and 0.037 mm left at 0.25 to 1.25 mm past the point, matching the record's table);
+    - `playback::req_ui_06_...`, updated for the new default.
+- **Results, the time budget** (median of five runs each, release CLI at all threads, `openchuck-cli regenerate`, on the PQ-3 head in this lane's container). Finish time is the total less a run with Rough only.
+
+  | Case | Adaptive spacing on | With Finish to a point | Change | Queries |
+  | --- | --- | --- | --- | --- |
+  | Public baluster, Finish | 17.86 s | 18.50 s | +3.6 % (budget 25 %) | 461,871 → 491,159: +29,288, 2.9 % of the 1,000,000 limit (budget 10 %) |
+  | Stepped first-cut part, Finish (no point) | 3.74 s | 3.76 s | +0.4 % | no passes added in either case; the LinuxCNC program is byte-identical |
+
+- **Results, the cut:**
+  - **The baluster tip.** With adaptive spacing and Finish to a point on, the path is complete, and 80 passes are added against 73.
+  - **What the finish leaves.** The radius the finish's swept ball leaves on the axis side past the finial's point is 0 at every sample from 0.25 to 1.25 mm past it.
+  - **Simulation.** `simulate` at 0.1 mm gives the same most-material-left (0.9239 mm) and deepest overcut (0.0502 mm) with and without the setting, and Finish removes 2168.3 against 2153.9 mm³.
+  - **Synthetic part.** On the synthetic pointed part, the generation time with adaptive spacing on grows by 3 to 4 times. The tip is a large share of that short part.
+- **Indexed finishing with 4 positions.** On the synthetic part, with adaptive spacing on, indexed finishing at 4 positions cannot confirm the material just past the point: another pass would need to be closer than the Smallest spacing. The partial-path warning names the places, as anywhere else. At 8 and 16 positions it is confirmed. Helical and axial finishing confirm it. This is noted, not changed.
+- **Checks:**
+  - `cargo test --release -p openchuck-path` and `-p openchuck-app` pass.
+  - fmt, clippy, and `cargo xtask records`, `trace`, `deps`, `licences` and `changelog check-pr` pass.
+  - No golden or shipped example changes, because their operations were saved without the setting.
+- **Not verified:** nothing was cut or air-cut.
+- **Open items:** OI-2236 closes.

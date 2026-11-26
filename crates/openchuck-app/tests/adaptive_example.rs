@@ -86,7 +86,7 @@ fn left_past(run: &openchuck_app::Regeneration, r: f64, xs: &[f64]) -> Vec<f64> 
         .iter()
         .position(|g| g.operation == finish)
         .unwrap();
-    let group = &run.canonical_toolpath.groups[index];
+    let group = run.canonical_toolpath.groups.get(index).unwrap();
     let centres: Vec<(f64, f64)> = group
         .segments
         .iter()
