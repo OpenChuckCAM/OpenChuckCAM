@@ -12,6 +12,8 @@
 
 #[path = "adaptive.rs"]
 mod adaptive;
+#[path = "adaptive_held_steps.rs"]
+mod adaptive_held_steps;
 #[path = "axial.rs"]
 mod axial;
 #[path = "axial_links.rs"]
