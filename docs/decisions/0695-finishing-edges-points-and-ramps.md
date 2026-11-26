@@ -419,7 +419,9 @@ Under the owner's standing rule, the effort figures in this list are information
 
 Recommended: **leave the axis outside the bound**, because the plunge it would force is the heavier load. Until the owner answers, descents on the axis are left as they are (OI-2239).
 
-**The owner's answer (26 Nov 2026, relayed by the coordinator): A (V1).** A whole ring whose depth per traverse would exceed the bound is ramped back and forth over its own ring at the same Ramp angle, with the same rule and the same bound function as lines and spirals; A reverses during the entry. It is built in PQ-2b (see *Verification (PQ-2b)*). **The axis question above stays open:** descents on the rotary axis are not changed and not held to the bound until the owner answers it (OI-2239 stays open for that part).
+**The owner's answer (26 Nov 2026, relayed by the coordinator): A (V1).** A whole ring whose depth per traverse would exceed the bound is ramped back and forth over its own ring at the same Ramp angle, with the same rule and the same bound function as lines and spirals; A reverses during the entry. It is built in PQ-2b (see *Verification (PQ-2b)*).
+
+**The owner's answer on the axis (26 Nov 2026, relayed by the coordinator): A.** Descents on the rotary axis stay outside the depth limit, as built. The ramp note gives their depth per turn, and the user guide says that descents on the axis are outside the limit. No code changes. OI-2239 closes.
 
 **Agreed with lane TOOL-LOAD (25 Nov 2026, in writing, at the owner's request; recorded in TOOL-LOAD-1 Q6 too).**
 1. **One function.** A single crate-private function in `assemble/entry.rs`, owned by PQ-2, gives a ramp's largest depth per traverse: the minimum of the tool radius, one turn of a spiral ramp at its start radius (spirals only), the Largest depth per traverse setting, and an optional cap in mm. PQ-2 passes no cap.
@@ -487,7 +489,7 @@ Added (provisional numbers):
 Added by the addendum (provisional numbers):
 
 - **OI-2238:** build Q8 A in PQ-2 (#930): the tool-radius bound on the depth per traverse of every back-and-forth ramp, once the owner has seen the measured impact.
-- **OI-2239:** the owner's answer to Q9, the settings that configure a ramp (A, B, C or D), including whether a whole ring's depth per traverse is bounded too. Q9 answered B (built in #930); its whole-ring part answered A (V1, 26 Nov 2026, relayed) and built in PQ-2b; the descent on the axis stays open.
+- **OI-2239:** the owner's answer to Q9, the settings that configure a ramp (A, B, C or D), including whether a whole ring's depth per traverse is bounded too. Q9 answered B (built in #930); its whole-ring part answered A (V1, 26 Nov 2026, relayed) and built in PQ-2b; the descent on the axis answered A (26 Nov 2026, relayed): left outside the limit, as built. Closed.
 
 Updated in place: OI-318 and OI-337 (the blisk now generates and cuts its blade tips; this record), OI-2198 (the causes found).
 
@@ -572,4 +574,4 @@ Updated in place: OI-318 and OI-337 (the blisk now generates and cuts its blade 
   - The "before" figures differ slightly from the prototype's on the crankshaft (30961.8 s there), because the prototype's base was PQ-2's earlier head `ec7d7400`.
   - Raw output was kept only in the session's scratch space and is not archived.
 - **Not verified:** no air or wood cut; the six blisk and crankshaft cases of OI-2232 were not re-run (the prototype found no whole-ring start in them); coverage was not run.
-- **Open items:** OI-2239 stays open for the descent on the axis; its ring part is settled here.
+- **Open items:** OI-2239 closes. Its ring part is settled here, and its axis part by the owner's answer A of 26 Nov 2026: descents on the axis stay outside the limit, as built.
