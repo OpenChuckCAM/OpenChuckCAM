@@ -1,32 +1,44 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-//! The tool gap: the smallest signed distance between a tool and a surface
-//! (OP-12; decision record SIMUL-EDGE-1, Q2).
+//! The tool gap: how far the tool is above the surface, each face measured
+//! along its own normal (OP-12; decision record SIMUL-EDGE-1, Q2, answered
+//! C by the project owner on 26 Nov 2026).
 //!
 //! The tool is its cutting part, the profile revolved about its axis and
 //! capped flat at the profile's top. Every profile the tool library makes
 //! (flat, ball, bull nose, tapered ball) gives a convex solid; a profile that
 //! is not convex is replaced by the cylinder of its cutting radius from the
 //! tip to the top, which holds it, so the answer is never less safe. The
-//! tool may also be swept along a short straight move without turning: the
-//! gap is then the least over every pose on the move.
+//! tool may also move along a short straight move, and turn about a fixed
+//! line as it does (a rotary machine's move): the gap is then the least over
+//! every pose on the move.
 //!
-//! The answer is an interval. `upper` is the signed distance of the tool, at
-//! one pose of the move, from a surface point it found: a real value, so the
-//! true gap is no larger. `lower` is proven: no surface point lies deeper
-//! inside the tool at any pose. Negative means the surface lies inside the
-//! tool by that much (the overcut depth).
+//! **The measure.** A face (a triangle, wound counter-clockwise seen from
+//! outside the material) counts the tool points whose foot on its plane lies
+//! on it, and their height above its plane along its outward normal. The gap
+//! is the least such height over the faces: negative by the depth the tool
+//! cuts below a face, along the face's normal, which is how the program's
+//! tolerance measures a cut. A face counts no tool point deeper than the
+//! query's limit below it: a convex tool cutting deeper passes through that
+//! layer and still reads the limit, while a tool beside a thin wall, beyond
+//! the layer below the wall's far face, is not in that face's material and
+//! counts nothing there. At a convex edge, a tool dipping below a face's
+//! extended plane beyond the face counts nothing for that face.
 //!
-//! **Why it is proven.** For a convex solid `K` and any unit direction `u`,
-//! every point `y` has a signed distance to `K` of at least
-//! `u . y - h(u)`, where `h` is `K`'s support function (the plane square to
-//! `u` touching `K` holds it on one side). Over the sweep the support grows by
-//! at most `max(0, u . v)`. So over a triangle (or a piece of one) the gap is
-//! at least the least of that bound at its corners, the bound being linear.
-//! The search takes `u` from the nearest point of the tool to the piece's
-//! centre and splits the piece with the smallest bound, smallest first, until
-//! the smallest bound left is within [`GAP_ACCURACY`] of the best value found
-//! (decision record 0255 item 1 makes the same argument for the independent
-//! checker in `openchuck_testkit::contact`, which this code does not share).
+//! The answer is an interval. `upper` is the height of a real tool point at
+//! one pose over a face; `lower` is proven: no counted tool point is lower
+//! at any pose.
+//!
+//! **Why it is proven.** Over a face's prism (its sides `n . y <= b`, `n`
+//! square to the face's normal `m`), the least of `m . y` over the tool is
+//! at least, for any multipliers `λ >= 0`, the least of `(m + Σ λ n) . y`
+//! over the whole tool less `Σ λ b` (Lagrangian duality), which the tool's
+//! support function gives; the best multipliers give the exact least. Over
+//! a move the direction is fixed to the surface and the tool's support
+//! along it is bounded over each part of the move (see [`Body::dual_over`]).
+//! The search splits parts of the move and pieces of faces, least bound
+//! first, until the least bound left is within [`GAP_ACCURACY`] of the best
+//! height found (the independent checker in `openchuck_testkit::contact`,
+//! which this code does not share, bounds the same measure its own way).
 //!
 //! **Determinism (NFR-06).** One query runs on one thread. Triangles are
 //! taken in index order, and pieces leave the queue by their bound, then by
@@ -54,21 +66,23 @@ const MAX_PIECES: usize = 200_000;
 /// A piece shorter than this along every side is not split again, mm.
 const MIN_PIECE: f64 = 1e-9;
 
-/// Steps of the golden-section search for the pose along a sweep. Each step
-/// keeps 0.618 of the interval, so 40 steps leave about 4e-9 of the sweep:
-/// the pose only sets `upper` and the direction of the bound, never `lower`'s
-/// validity.
-const SWEEP_STEPS: u32 = 40;
+/// A part of a move shorter than this (as a fraction) is not split again.
+const MIN_SPAN: f64 = 1e-9;
 
-/// The width either side of a turning tool's hinted pose that its search
-/// covers, as a share of the span, and the steps it takes there: the pose
-/// found only sets `upper` and the bound's direction, never its validity.
-const HINT_WIDTH: f64 = 0.125;
-const HINT_STEPS: u32 = 14;
+/// Rounds over the sides, and golden-section steps for each multiplier, of
+/// the dual's search for its best multipliers ([`Body::multipliers`]): any
+/// multipliers give a proven bound, the search only makes it tighter.
+const MULTIPLIER_ROUNDS: u32 = 2;
+const MULTIPLIER_STEPS: u32 = 40;
 
-/// Turns of the search for a piece's closest pair to the tool
-/// ([`Body::closest`]): it only chooses the direction of a bound.
-const CLOSEST_STEPS: u32 = 6;
+/// Golden-section and bisection steps of the search along a face's normal
+/// for the lowest tool point there ([`Body::column`]): it only finds a real
+/// value.
+const COLUMN_STEPS: u32 = 50;
+
+/// The most a part of a move may turn for the bound over it (radians); a
+/// part that turns more has no bound and is split.
+const MAX_PART_TURN: f64 = 1.0;
 
 /// A turn about a fixed line, for [`GapQuery::rotating`].
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -97,9 +111,9 @@ pub struct GapQuery {
     /// the rotary axis and the sweep is the machine's straight move as it
     /// is seen at the first pose. `None` for a tool that does not turn.
     pub rotation: Option<Rotation>,
-    /// How far from the tool the surface is looked for, mm: a gap larger
-    /// than this gives no answer, and the search stops once it finds the
-    /// surface deeper than this inside the tool.
+    /// How far the surface is looked for, mm: a gap larger than this gives
+    /// no answer, and a face counts no tool point deeper than this below
+    /// it, so the gap is never below `-limit` (see the module's measure).
     pub limit: f64,
     /// When set, the search stops as soon as the gap is proven at least this
     /// (mm; negative for an overcut depth a caller accepts), with whatever
@@ -150,20 +164,21 @@ impl GapQuery {
     }
 }
 
-/// The smallest signed distance between a tool and a surface, as an interval
-/// (decision record SIMUL-EDGE-1, Q2): see [`SurfaceSource::tool_gap`].
+/// How far the tool is above the surface, each face measured along its own
+/// normal over itself, as an interval (decision record SIMUL-EDGE-1, Q2):
+/// see [`SurfaceSource::tool_gap`].
 ///
 /// [`SurfaceSource::tool_gap`]: crate::SurfaceSource::tool_gap
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct ToolGap {
-    /// Proven: no surface point is nearer the tool than this, or deeper
-    /// inside it, at any pose. Negative when the surface may lie inside the
-    /// tool by up to that much.
+    /// Proven: no tool point counted by a face is lower above it than this
+    /// at any pose. Negative when the tool may cut that deep below a face.
     pub lower: f64,
-    /// Found: the signed distance from the tool, at one pose, of the surface
-    /// point [`at`](Self::at). The true gap lies between `lower` and this.
+    /// Found: the height above a face, at one pose, of a real tool point
+    /// over the face point [`at`](Self::at). The true gap lies between
+    /// `lower` and this.
     pub upper: f64,
-    /// The surface point where `upper` was found.
+    /// The face point under the tool point where `upper` was found.
     pub at: Point3,
 }
 
@@ -360,6 +375,42 @@ impl Outline {
             }
         }
         best
+    }
+
+    /// The outline point farthest in the half-plane direction `(a, b)`,
+    /// `a >= 0`: where [`support`](Self::support) is reached.
+    fn support_point(&self, a: f64, b: f64) -> (f64, f64) {
+        let mut best = (0.0_f64, (0.0, 0.0));
+        for p in &self.pieces {
+            for q in [p.start(), p.end()] {
+                let v = a * pr(q) + b * pz(q);
+                if v > best.0 {
+                    best = (v, (pr(q), pz(q)));
+                }
+            }
+            if let ProfilePiece::Arc {
+                start,
+                end,
+                centre,
+                radius,
+                convex: true,
+            } = *p
+            {
+                let len = a.hypot(b);
+                if len > 0.0 {
+                    let (ta, tb) = arc_range(start, end, centre);
+                    let angle = b.atan2(a);
+                    if angle >= ta && angle <= tb {
+                        let q = (pr(centre) + radius * a / len, pz(centre) + radius * b / len);
+                        let v = a * q.0 + b * q.1;
+                        if v > best.0 {
+                            best = (v, q);
+                        }
+                    }
+                }
+            }
+        }
+        best.1
     }
 }
 
@@ -646,13 +697,6 @@ impl<'a> Body<'a> {
         }
     }
 
-    /// The signed distance of `x` from the tool at the fraction `f` of the
-    /// move, and the outward unit normal of the tool there, in the tool's
-    /// frame.
-    fn at_pose(&self, x: Point3, f: f64) -> (f64, Vec3) {
-        self.at_first(self.frame(x, f))
-    }
-
     /// The signed distance of the point `y` of the tool's frame from the
     /// tool at its first pose, and the outward unit normal there.
     fn at_first(&self, y: Point3) -> (f64, Vec3) {
@@ -669,88 +713,10 @@ impl<'a> Body<'a> {
         (dist, w * nr + self.axis * nz)
     }
 
-    /// The least signed distance of `x` from the tool over the fractions
-    /// `s0` to `s1`, as found (an upper bound of the true least), the
-    /// normal there, how far above the true least it may be, and the
-    /// fraction found. Without a turn the distance is convex along the
-    /// move, so a golden-section search brackets the least, and the slack is
-    /// the move's length times the last bracket; with one it is not, so the
-    /// search starts from `hint` (where a larger piece holding this one
-    /// found its pose, when known), searches near it, and gives no slack.
-    fn upper(&self, x: Point3, s0: f64, s1: f64, hint: f64) -> (f64, Vec3, f64, f64) {
-        let length = self.sweep.length();
-        if length <= 0.0 && !self.turns() {
-            let (d, n) = self.at_pose(x, 0.0);
-            return (d, n, 0.0, 0.0);
-        }
-        let g = 0.5 * (5.0_f64.sqrt() - 1.0);
-        let (mut a, mut b, steps) = if self.turns() && hint.is_finite() {
-            let h = hint.clamp(s0, s1);
-            let w = HINT_WIDTH * (s1 - s0);
-            ((h - w).max(s0), (h + w).min(s1), HINT_STEPS)
-        } else {
-            (s0, s1, SWEEP_STEPS)
-        };
-        let mut c = b - g * (b - a);
-        let mut d = a + g * (b - a);
-        let mut fc = self.at_pose(x, c);
-        let mut fd = self.at_pose(x, d);
-        for _ in 0..steps {
-            if fc.0 <= fd.0 {
-                b = d;
-                d = c;
-                fd = fc;
-                c = b - g * (b - a);
-                fc = self.at_pose(x, c);
-            } else {
-                a = c;
-                c = d;
-                fc = fd;
-                d = a + g * (b - a);
-                fd = self.at_pose(x, d);
-            }
-        }
-        let mut best = if fc.0 <= fd.0 { (fc, c) } else { (fd, d) };
-        for s in [s0, s1] {
-            let end = self.at_pose(x, s);
-            if end.0 < best.0.0 {
-                best = (end, s);
-            }
-        }
-        let slack = if self.turns() {
-            f64::INFINITY
-        } else {
-            length * (b - a)
-        };
-        (best.0.0, best.0.1, slack, best.1)
-    }
-
     /// Where the point `y` of the tool's frame at the fraction `f` is on the
     /// surface: the inverse of [`frame`](Self::frame).
     fn unframe(&self, y: Point3, f: f64) -> Point3 {
         self.turned(y + self.sweep * f, f * self.angle)
-    }
-
-    /// The closest pair of the tool and the triangle `t` at the fraction
-    /// `f`, approached by turns: the tool's nearest boundary point to a
-    /// point of the triangle, then the triangle's closest point to that,
-    /// from `start` ([`CLOSEST_STEPS`] times; for two convex sets each turn
-    /// comes nearer). The last point of the triangle (on the surface), its
-    /// signed distance from the tool and the tool's normal there: the
-    /// direction of the plane that separates the two best.
-    fn closest(&self, t: &[Point3; 3], f: f64, start: Point3) -> (Point3, f64, Vec3) {
-        let tri = t.map(|p| self.frame(p, f));
-        let mut y = self.frame(start, f);
-        let (mut d, mut n) = self.at_first(y);
-        for _ in 0..CLOSEST_STEPS {
-            let next = crate::surface::closest_on_triangle(y + n * (-d), &tri);
-            let (nd, nn) = self.at_first(next);
-            if nd >= d {
-                break;
-            }
-            (y, d, n) = (next, nd, nn);
-        }
-        (self.unframe(y, f), d, n)
     }
 
     /// A surface direction `m` (fixed to the surface) as seen in the tool's
@@ -763,9 +729,284 @@ impl<'a> Body<'a> {
         }
     }
 
+    /// The tool's support along `v` measured from its tip, at its first
+    /// pose: never negative, the tip being part of the tool.
+    fn reach_along(&self, v: Vec3) -> f64 {
+        let along = self.axis.dot(v);
+        self.outline
+            .support((v - self.axis * along).length(), along)
+            .max(0.0)
+    }
+
+    /// The point of the tool at its first pose farthest along `v`.
+    fn support_point(&self, v: Vec3) -> Point3 {
+        let along = self.axis.dot(v);
+        let radial = v - self.axis * along;
+        let r = radial.length();
+        let (pr_, pz_) = self.outline.support_point(r, along);
+        let e = if r > 1e-15 {
+            radial * (1.0 / r)
+        } else {
+            across(self.axis)
+        };
+        self.tip + self.axis * pz_ + e * pr_
+    }
+
+    /// The least of `w . y` over the tool at its first pose.
+    fn lowest_first(&self, w: Vec3) -> f64 {
+        w.dot(self.tip - Point3::ORIGIN) - self.reach_along(-w)
+    }
+
+    /// The face `face` seen in the tool's frame at the fraction `f`.
+    fn face_at(&self, face: &Face, f: f64) -> Face {
+        let corners = face.corners.map(|p| self.frame(p, f));
+        Face::new(corners, self.direction(face.m, f))
+    }
+
+    /// The best multipliers for the dual bound of the lowest point of the
+    /// tool at the fraction `f` over the face's prism (see [`Face`]): the
+    /// unconstrained lowest point when its foot is on the face, else a
+    /// search over the sides it lies beyond, each multiplier in turn.
+    fn multipliers(&self, face: &Face, f: f64) -> [f64; 3] {
+        let at = self.face_at(face, f);
+        let value = |lam: &[f64; 3]| {
+            let (w, c) = at.dual(lam);
+            self.lowest_first(w) - c
+        };
+        let mut lam = [0.0; 3];
+        let low = self.support_point(-at.m);
+        let beyond: Vec<usize> = (0..3)
+            .filter(|&i| at.sides[i].0.dot(low - Point3::ORIGIN) > at.sides[i].1)
+            .collect();
+        if beyond.is_empty() {
+            return lam;
+        }
+        let golden = 0.5 * (5.0_f64.sqrt() - 1.0);
+        for _ in 0..MULTIPLIER_ROUNDS {
+            for &i in &beyond {
+                // Concave in the multiplier: golden-section search on its
+                // angle, tan t from 0 to nearly a right angle.
+                let at_t = |t: f64, lam: &[f64; 3]| {
+                    let mut l = *lam;
+                    l[i] = t.tan();
+                    value(&l)
+                };
+                let (mut a, mut b) = (0.0_f64, std::f64::consts::FRAC_PI_2 - 1e-6);
+                let mut c = b - golden * (b - a);
+                let mut d = a + golden * (b - a);
+                let (mut fc, mut fd) = (at_t(c, &lam), at_t(d, &lam));
+                for _ in 0..MULTIPLIER_STEPS {
+                    if fc >= fd {
+                        b = d;
+                        d = c;
+                        fd = fc;
+                        c = b - golden * (b - a);
+                        fc = at_t(c, &lam);
+                    } else {
+                        a = c;
+                        c = d;
+                        fc = fd;
+                        d = a + golden * (b - a);
+                        fd = at_t(d, &lam);
+                    }
+                }
+                let best = if fc >= fd { c } else { d };
+                let mut trial = lam;
+                trial[i] = best.tan();
+                if value(&trial) > value(&lam) {
+                    lam = trial;
+                }
+            }
+        }
+        lam
+    }
+
+    /// The constant and the three parts (`k0 + x cos(f θ) + y sin(f θ)`) of
+    /// `w_f . v`, `w_f` being the surface direction `w` seen in the tool's
+    /// frame at the fraction `f`.
+    fn seen(&self, w: Vec3, v: Vec3) -> (f64, f64, f64) {
+        let n = self.pivot.1;
+        let along = n * v.dot(n);
+        (v.dot(n) * w.dot(n), w.dot(v - along), w.dot(n.cross(v)))
+    }
+
+    /// A proven least of `min over the tool of w . y`, less `c`, over the
+    /// fractions `s0` to `s1`, `w` fixed to the surface. Seen from the
+    /// tool, `w` turns: the tool's support along it over the part is at
+    /// most the larger at its ends times `sec(α / 2)`, plus `sec(α / 2) - 1`
+    /// times its support along the part of `w` on the turn's axis, `α` the
+    /// part's turn (the turned direction is a blend of the two ends' with
+    /// weights summing to at least 1 and at most `sec(α / 2)`).
+    fn dual_over(&self, w: Vec3, c: f64, s0: f64, s1: f64) -> f64 {
+        if !self.turns() {
+            let k = w.dot(self.sweep);
+            return self.lowest_first(w) + (s0 * k).min(s1 * k) - c;
+        }
+        let alpha = self.turn_over(s0, s1);
+        if alpha >= MAX_PART_TURN {
+            return f64::NEG_INFINITY;
+        }
+        let (cl, n) = self.pivot;
+        let span = (s0, s1);
+        let (k0, x, y) = self.seen(w, self.tip - cl);
+        let first = least(k0, x, y, self.angle, 0.0, span);
+        let (k0, x, y) = self.seen(w, self.sweep);
+        let lo = least(k0, x, y, self.angle, 0.0, span);
+        let hi = -least(-k0, -x, -y, self.angle, 0.0, span);
+        let shift = (s0 * lo).min(s0 * hi).min(s1 * lo).min(s1 * hi);
+        let sec = 1.0 / (0.5 * alpha).cos();
+        let ends = self
+            .reach_along(self.direction(-w, s0))
+            .max(self.reach_along(self.direction(-w, s1)));
+        let on_axis = n * w.dot(n);
+        let axial = self.reach_along(on_axis).max(self.reach_along(-on_axis));
+        w.dot(cl - Point3::ORIGIN) + first + shift - sec * ends - (sec - 1.0) * axial - c
+    }
+
+    /// A proven most of the tool's height above the face's plane over the
+    /// fractions `s0` to `s1`: below `-limit`, the whole tool is deeper than
+    /// the layer the face counts.
+    fn top_over(&self, face: &Face, s0: f64, s1: f64) -> f64 {
+        -self.dual_over(-face.m, -face.d, s0, s1)
+    }
+
+    /// The lowest tool point at the fraction `f` with its foot on the face
+    /// and no deeper than `limit` below it, as found from the multipliers
+    /// `lam`: its height above the face's plane and its foot. The dual's
+    /// lowest point is the constrained one when the multipliers are best;
+    /// otherwise the column through the face's centre is measured.
+    fn found(&self, face: &Face, lam: &[f64; 3], f: f64, limit: f64) -> Option<(f64, Point3)> {
+        let (w, _) = face.dual(lam);
+        let y = self.unframe(self.support_point(-self.direction(w, f)), f);
+        let height = face.m.dot(y - Point3::ORIGIN) - face.d;
+        let foot = y + face.m * (-height);
+        if height >= -limit && face.holds(foot) {
+            return Some((height, foot));
+        }
+        // The foot is off the face (the multipliers are not quite the best,
+        // or rounding) or the point is below the layer: measure the column
+        // through the face point nearest the foot, then the face's centre.
+        let near = crate::surface::closest_on_triangle(foot, &face.corners);
+        let at_near = self.column(face, near, f, limit);
+        let at_centre = self.column(face, centroid(&face.corners), f, limit);
+        match (at_near, at_centre) {
+            (Some(a), Some(b)) => Some(if b.0 < a.0 { b } else { a }),
+            (a, b) => a.or(b),
+        }
+    }
+
+    /// The lowest tool point at the fraction `f` on the line through the
+    /// face point `x` along the face's normal, no deeper than `limit` below
+    /// it: the tool meets the line in an interval (it is convex), found by
+    /// a golden-section search for its deepest point and a bisection for
+    /// its lower end.
+    fn column(&self, face: &Face, x: Point3, f: f64, limit: f64) -> Option<(f64, Point3)> {
+        let base = self.frame(x, f);
+        let m = self.direction(face.m, f);
+        let sd = |t: f64| self.at_first(base + m * t).0;
+        let reach = base.distance(self.tip) + self.outline.top.abs() + self.outline.radius + 1.0;
+        let golden = 0.5 * (5.0_f64.sqrt() - 1.0);
+        let (mut a, mut b) = (-reach, reach);
+        let mut c = b - golden * (b - a);
+        let mut d = a + golden * (b - a);
+        let (mut fc, mut fd) = (sd(c), sd(d));
+        for _ in 0..COLUMN_STEPS {
+            if fc <= fd {
+                b = d;
+                d = c;
+                fd = fc;
+                c = b - golden * (b - a);
+                fc = sd(c);
+            } else {
+                a = c;
+                c = d;
+                fc = fd;
+                d = a + golden * (b - a);
+                fd = sd(d);
+            }
+        }
+        let (inner, deepest) = if fc <= fd { (c, fc) } else { (d, fd) };
+        if deepest > 0.0 {
+            return None;
+        }
+        let (mut out, mut inn) = (-reach, inner);
+        for _ in 0..COLUMN_STEPS {
+            let mid = 0.5 * (out + inn);
+            if sd(mid) <= 0.0 {
+                inn = mid;
+            } else {
+                out = mid;
+            }
+        }
+        let height = if inn >= -limit {
+            inn
+        } else if sd(-limit) <= 0.0 {
+            -limit
+        } else {
+            return None;
+        };
+        Some((height, x))
+    }
+
     /// The turn over the fractions `s0` to `s1`, radians.
     fn turn_over(&self, s0: f64, s1: f64) -> f64 {
         self.angle.abs() * (s1 - s0)
+    }
+}
+
+/// A face of the surface for the gap (decision record SIMUL-EDGE-1, Q2 as
+/// answered C): a triangle, or a piece of one, with the outward unit normal
+/// `m` of the triangle it is part of, its plane `m . y = d`, and its sides,
+/// each `n . y <= b` with `n` square to `m` pointing out of the face.
+///
+/// The gap over a face is the least height `m . y - d` of a tool point `y`
+/// whose foot on the plane lies on the face, counting no point deeper than
+/// the query's limit below it. Over a face's prism (its sides), the least
+/// of `m . y` over the tool is at least, for any multipliers `λ >= 0`,
+/// the least of `(m + Σ λ n) . y` over the whole tool less `Σ λ b`
+/// (Lagrangian duality): every multiplier gives a proven bound, the best
+/// ones the exact least.
+#[derive(Debug, Clone, Copy)]
+struct Face {
+    corners: [Point3; 3],
+    m: Vec3,
+    d: f64,
+    sides: [(Vec3, f64); 3],
+}
+
+impl Face {
+    fn new(corners: [Point3; 3], m: Vec3) -> Self {
+        let side = |i: usize| {
+            let (a, b) = (corners[i], corners[(i + 1) % 3]);
+            let n = UnitVec3::new((b - a).cross(m)).map_or(Vec3::ZERO, UnitVec3::get);
+            (n, n.dot(a - Point3::ORIGIN))
+        };
+        Self {
+            corners,
+            m,
+            d: m.dot(corners[0] - Point3::ORIGIN),
+            sides: [side(0), side(1), side(2)],
+        }
+    }
+
+    /// The dual direction and constant for the multipliers `lam`.
+    fn dual(&self, lam: &[f64; 3]) -> (Vec3, f64) {
+        let mut w = self.m;
+        let mut c = self.d;
+        for (l, (n, b)) in lam.iter().zip(self.sides) {
+            w = w + n * *l;
+            c += l * b;
+        }
+        (w, c)
+    }
+
+    /// Whether the plane point `x` lies on the face, a hair outside
+    /// counting as on it.
+    fn holds(&self, x: Point3) -> bool {
+        let scale = 1e-9 * (1.0 + (x - Point3::ORIGIN).length());
+        self.sides
+            .iter()
+            .all(|(n, b)| n.dot(x - Point3::ORIGIN) <= b + scale)
     }
 }
 
@@ -904,6 +1145,8 @@ struct Piece {
     triangle: u32,
     order: u64,
     corners: [Point3; 3],
+    /// The outward unit normal of the triangle the piece is part of.
+    normal: Vec3,
 }
 
 impl PartialEq for Piece {
@@ -932,11 +1175,11 @@ impl Ord for Piece {
     }
 }
 
-/// The tool gap over `triangles` (index and corners, in index order), within
-/// `limit`: `None` when no surface lies within `limit` of the tool. The
-/// search stops early once it finds the surface deeper than `limit` inside
-/// the tool; the interval then holds the true gap but may be wider than
-/// [`GAP_ACCURACY`].
+/// The tool gap over `triangles` (index and corners, in index order, each
+/// wound counter-clockwise seen from outside the material), within `limit`:
+/// `None` when no face has the tool within `limit` above it. A face counts
+/// no tool point deeper than `limit` below it, so the gap is never below
+/// `-limit`.
 pub(crate) fn search(
     body: &Body<'_>,
     triangles: impl IntoIterator<Item = (u32, [Point3; 3])>,
@@ -949,24 +1192,24 @@ pub(crate) fn search(
         queue: BinaryHeap::new(),
         order: 0,
         best: None,
+        limit,
     };
     for (i, t) in triangles {
-        if t.iter().all(|p| p.is_finite()) {
-            state.push(t, i, (0.0, 1.0), f64::NAN);
+        if !t.iter().all(|p| p.is_finite()) {
+            continue;
+        }
+        if let Ok(m) = UnitVec3::new((t[1] - t[0]).cross(t[2] - t[0])) {
+            state.push(t, m.get(), i, (0.0, 1.0), f64::NAN);
         }
     }
+    let moving = body.sweep.length() > 0.0 || body.turns();
     let mut pieces = 0_usize;
-    let close = GAP_ACCURACY;
     let lower = loop {
         let found = state.best.map_or(f64::INFINITY, |b| b.0);
         let Some(piece) = state.queue.pop() else {
             break found;
         };
-        if piece.lower >= found - close
-            || piece.lower >= accept
-            || piece.lower > limit
-            || found < -limit
-        {
+        if piece.lower >= found - GAP_ACCURACY || piece.lower >= accept || piece.lower > limit {
             if state.best.is_none() && piece.lower <= limit {
                 state.measure(piece);
             }
@@ -978,26 +1221,31 @@ pub(crate) fn search(
             continue;
         }
         let (a, b, c, len) = longest_side(&piece.corners);
-        // Over a part of the move the piece turns in the tool's frame, so
-        // one plane can bound it only as well as about the tool's radius
-        // and the piece's size times that turn allow: where that could
-        // explain half of what the piece's bound lacks, the part of the
-        // move is halved; otherwise the piece is.
+        // The bound is exact for one pose; over a part of a move it is
+        // taken with the multipliers of one of its poses, so the part is
+        // halved while the tool moves across the piece by more than a
+        // tenth of what the bound lacks, or while nothing has been found
+        // yet. Otherwise the piece is halved.
         let (s0, s1) = piece.span;
-        let slack = body.turn_over(s0, s1) * (body.outline.radius + len);
-        let split_move = 2.0 * slack >= found - piece.lower;
+        let centre = centroid(&piece.corners);
+        let travel = (s1 - s0)
+            * (body.sweep.length()
+                + body.angle.abs() * (centre.distance(body.pivot.0) + body.outline.top.abs()));
+        let split_move = moving
+            && s1 - s0 > MIN_SPAN
+            && (!found.is_finite() || 10.0 * travel >= found - piece.lower);
         if (len < MIN_PIECE && !split_move) || pieces >= MAX_PIECES {
             break piece.lower.min(found);
         }
         pieces += 2;
         if split_move {
             let sm = 0.5 * (s0 + s1);
-            state.push(piece.corners, piece.triangle, (s0, sm), piece.hint);
-            state.push(piece.corners, piece.triangle, (sm, s1), piece.hint);
+            state.push(piece.corners, piece.normal, piece.triangle, (s0, sm), piece.hint);
+            state.push(piece.corners, piece.normal, piece.triangle, (sm, s1), piece.hint);
         } else {
             let mid = midpoint(a, b);
-            state.push([a, mid, c], piece.triangle, piece.span, piece.hint);
-            state.push([mid, b, c], piece.triangle, piece.span, piece.hint);
+            state.push([a, mid, c], piece.normal, piece.triangle, piece.span, piece.hint);
+            state.push([mid, b, c], piece.normal, piece.triangle, piece.span, piece.hint);
         }
     };
     let (upper, at) = state.best?;
@@ -1008,36 +1256,41 @@ pub(crate) fn search(
     })
 }
 
-
 /// The state of one search: the queue of pieces and the best value found.
 struct Search<'a, 'b> {
     body: &'a Body<'b>,
     queue: BinaryHeap<Piece>,
     order: u64,
     best: Option<(f64, Point3)>,
+    limit: f64,
 }
 
 impl Search<'_, '_> {
-    /// Bounds a piece by its plane, by the capsule holding the tool and by
-    /// the plane facing it from the tool's spine, and queues it. The piece lies in its triangle's plane: the gap is at
-    /// least the gap between the tool and that plane, from either side,
-    /// which is exact at once where the tool rests on the triangle's face.
-    /// Neither costs a distance to the tool.
-    fn push(&mut self, corners: [Point3; 3], triangle: u32, span: (f64, f64), hint: f64) {
-        let (a, b, c) = (corners[0], corners[1], corners[2]);
+    /// Bounds a piece and queues it, unless it cannot count. A tool point
+    /// the face counts is as far from the face as its height, so a piece
+    /// the tool is proven farther than `limit` from (by the capsule holding
+    /// the tool, or the plane facing it from the tool's spine) has no gap
+    /// within `limit`; nor has one the whole tool is deeper than `limit`
+    /// below. Otherwise the bound is the dual's with no multipliers: the
+    /// lowest the tool reaches below the face's plane anywhere.
+    fn push(&mut self, corners: [Point3; 3], m: Vec3, triangle: u32, span: (f64, f64), hint: f64) {
         let (s0, s1) = span;
         let centre = centroid(&corners);
         let far = self
             .body
             .far_over(&corners, s0, s1)
             .max(self.body.facing(&corners, centre, s0, s1));
-        let lower = UnitVec3::new((b - a).cross(c - a)).map_or(far, |m| {
-            let m = self.body.direction(m.get(), 0.5 * (s0 + s1));
-            self.body
-                .lower(&corners, m, s0, s1)
-                .max(self.body.lower(&corners, -m, s0, s1))
-                .max(far)
-        });
+        if far > self.limit {
+            return;
+        }
+        let face = Face::new(corners, m);
+        if self.body.top_over(&face, s0, s1) < -self.limit {
+            return;
+        }
+        let lower = self
+            .body
+            .dual_over(face.m, face.d, s0, s1)
+            .max(-self.limit);
         self.order += 1;
         self.queue.push(Piece {
             lower,
@@ -1047,41 +1300,48 @@ impl Search<'_, '_> {
             triangle,
             order: self.order,
             corners,
+            normal: m,
         });
     }
 
-    /// Measures a piece's centre, notes its value, and narrows the piece's
-    /// bound by the better of two more proven ones: the plane square to the
-    /// normal at the centre's nearest tool point, and the centre's least
-    /// distance less the piece's reach from it (the distance changes no
-    /// faster than the point moves) and less the search's own slack.
+    /// Measures a piece at the ends and middle of its part of the move
+    /// (and its hint): the best multipliers at each pose give a proven
+    /// bound over the whole part, the best of which is kept, and the lowest
+    /// tool point on the face there a real value.
     fn measure(&mut self, piece: Piece) -> Piece {
-        let centre = centroid(&piece.corners);
+        let face = Face::new(piece.corners, piece.normal);
         let (s0, s1) = piece.span;
-        let (value, normal, slack, at) = self.body.upper(centre, s0, s1, piece.hint);
-        if self.best.is_none_or(|(b, _)| value < b) {
-            self.best = Some((value, centre));
+        let fm = 0.5 * (s0 + s1);
+        let mut lower = piece.lower;
+        let mut hint = piece.hint;
+        let mut near: Option<(f64, Point3, f64)> = None;
+        let mut poses = vec![s0, fm, s1];
+        if !self.body.turns() && self.body.sweep.length() <= 0.0 {
+            poses.truncate(1);
         }
-        let reach = piece
-            .corners
-            .iter()
-            .map(|p| p.distance(centre))
-            .fold(0.0, f64::max);
-        // The closest pair at the pose found gives the plane that best
-        // separates the piece from the tool there, and a nearer point.
-        let (near, gap, across) = self.body.closest(&piece.corners, at, centre);
-        if gap < value && self.best.is_none_or(|(b, _)| gap < b) {
-            self.best = Some((gap, near));
+        if piece.hint.is_finite() && piece.hint > s0 && piece.hint < s1 {
+            poses.push(piece.hint);
         }
-        let lower = piece
-            .lower
-            .max(self.body.lower(&piece.corners, normal, s0, s1))
-            .max(self.body.lower(&piece.corners, across, s0, s1))
-            .max(value - slack - reach);
+        for f in poses {
+            let lam = self.body.multipliers(&face, f);
+            let (w, c) = face.dual(&lam);
+            lower = lower.max(self.body.dual_over(w, c, s0, s1).max(-self.limit));
+            if let Some((h, at)) = self.body.found(&face, &lam, f, self.limit)
+                && near.is_none_or(|(b, _, _)| h < b)
+            {
+                near = Some((h, at, f));
+            }
+        }
+        if let Some((h, at, f)) = near {
+            hint = f;
+            if self.best.is_none_or(|(b, _)| h < b) {
+                self.best = Some((h, at));
+            }
+        }
         Piece {
             lower,
             measured: true,
-            hint: at,
+            hint,
             ..piece
         }
     }

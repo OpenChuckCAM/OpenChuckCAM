@@ -200,27 +200,30 @@ pub trait SurfaceSource: Send + Sync + std::fmt::Debug {
         0.0
     }
 
-    /// The tool gap (decision record SIMUL-EDGE-1, Q2; OP-12): the smallest
-    /// signed distance between the tool described by `profile`, its tip at
-    /// `line.origin` and its axis along `line.axis`, and this surface, over
-    /// every pose as the tool moves without turning along `query.sweep`
-    /// (zero for one pose). Negative when the surface lies inside the tool:
-    /// the overcut depth. The tool is its cutting part, revolved and capped at the top
-    /// of its profile; a profile that is not convex is taken as the cylinder
-    /// of its cutting radius, which holds it.
+    /// The tool gap (decision record SIMUL-EDGE-1, Q2; OP-12): how far the
+    /// tool described by `profile`, its tip at `line.origin` and its axis
+    /// along `line.axis`, is above this surface, each face measured along
+    /// its own outward normal over itself, over every pose as the tool
+    /// moves along `query.sweep` and turns with `query.rotation` (one pose
+    /// when both are none). Negative by the depth the tool cuts below a
+    /// face. A face counts no tool point deeper than `query.limit` below
+    /// it, so the gap is never below `-query.limit`, and a tool beyond the
+    /// far side of a wall thicker than that counts nothing there. The tool
+    /// is its cutting part, revolved and capped at the top of its profile;
+    /// a profile that is not convex is taken as the cylinder of its cutting
+    /// radius, which holds it. Faces are triangles, wound counter-clockwise
+    /// seen from outside the material.
     ///
     /// The answer is an interval ([`ToolGap`]) whose `lower` is proven
     /// against the surface this source answers on, its tessellation for an
     /// exact source (see [`tool_gap_accuracy`](Self::tool_gap_accuracy)).
-    /// `None` when no surface lies within `query.limit` of the tool. The
-    /// search stops once it finds the surface deeper than the limit inside
-    /// the tool, so callers pass a limit at least their tolerance, and, with
-    /// [`GapQuery::accept_above`], once the gap is proven above what the
-    /// caller accepts. Otherwise `upper - lower` is at most
-    /// [`GAP_ACCURACY`](crate::GAP_ACCURACY) unless the search's budget runs
-    /// out. The default
-    /// answers on [`tessellation`](Self::tessellation), testing every
-    /// triangle; a source with a search structure answers faster.
+    /// `None` when the gap is more than `query.limit`. With
+    /// [`GapQuery::accept_above`] the search stops once the gap is proven
+    /// above what the caller accepts; otherwise `upper - lower` is at most
+    /// [`GAP_ACCURACY`](crate::GAP_ACCURACY) unless the search's budget
+    /// runs out. The default answers on [`tessellation`](Self::tessellation),
+    /// testing every triangle; a source with a search structure answers
+    /// faster.
     fn tool_gap(
         &self,
         profile: &RevolvedProfile,

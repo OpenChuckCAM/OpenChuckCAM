@@ -1278,6 +1278,8 @@ pub struct Geometry {
     faces: Vec<Face>,
     leaves: Vec<Leaf>,
     nodes: Vec<Node>,
+    /// A mesh's triangles as given, for the face measure.
+    triangles: Vec<[Point3; 3]>,
 }
 
 #[derive(Debug)]
@@ -1356,7 +1358,16 @@ impl Geometry {
             }
             pieces.push(Patch::Tri(p));
         }
-        Self::build(Vec::new(), pieces)
+        let mut g = Self::build(Vec::new(), pieces)?;
+        g.triangles = mesh
+            .triangles
+            .iter()
+            .filter_map(|t| {
+                let p = t.map(|i| mesh.vertices.get(i as usize).copied());
+                Some([p[0]?, p[1]?, p[2]?])
+            })
+            .collect();
+        Ok(g)
     }
 
     fn build(faces: Vec<Face>, roots: Vec<Patch>) -> Result<Self, ContactError> {
@@ -1364,6 +1375,7 @@ impl Geometry {
             faces,
             leaves: Vec::new(),
             nodes: Vec::new(),
+            triangles: Vec::new(),
         };
         let mut stack: Vec<Patch> = roots;
         stack.reverse();
@@ -1720,4 +1732,336 @@ fn centroid(p: &[Point3]) -> Point3 {
     let n = p.len().max(1) as f64;
     let s = p.iter().fold(Vec3::ZERO, |s, q| s + q.to_vec());
     Point3::new(s.x / n, s.y / n, s.z / n)
+}
+
+// ---------------------------------------------------------------------------
+// The depth along a face's normal (decision record SIMUL-EDGE-1, Q2 as
+// answered C).
+
+impl ConvexTool {
+    /// The most of `a r + b z` over the tool's half-plane outline, `a >= 0`:
+    /// its support in that direction.
+    fn support(&self, a: f64, b: f64) -> f64 {
+        let mut best = 0.0_f64;
+        for piece in &self.pieces {
+            match *piece {
+                Piece::Line { a: p, b: q } => {
+                    best = best.max(a * p.r + b * p.z).max(a * q.r + b * q.z);
+                }
+                Piece::Arc { c, rho, t0, t1 } => {
+                    let t = b.atan2(a);
+                    let at = |t: f64| a * (c.r + rho * t.cos()) + b * (c.z + rho * t.sin());
+                    best = best.max(at(t0)).max(at(t1));
+                    if t > t0 && t < t1 {
+                        best = best.max(at(t));
+                    }
+                }
+            }
+        }
+        best
+    }
+}
+
+impl Posed<'_> {
+    /// The most of `v . y` over the tool.
+    fn most(&self, v: Vec3) -> f64 {
+        let b = v.dot(self.axis);
+        let a = (v - self.axis * b).length();
+        v.dot(self.tip.to_vec()) + self.tool.support(a, b)
+    }
+
+    /// Where the line `x + t m` (with `m` a unit vector) meets the tool:
+    /// the lowest and highest `t` found inside it, or `None` when the line
+    /// misses it. The signed distance along the line is convex, so its
+    /// least is found by a golden-section search, and the line's ends in
+    /// the tool by bisection; both ends are tool points.
+    fn column(&self, x: Point3, m: Vec3) -> Option<(f64, f64)> {
+        let s = |t: f64| self.at(x + m * t).value;
+        let reach = x.distance(self.tip) + self.tool.top + self.tool.support(1.0, 0.0) + 1.0;
+        let g = 0.5 * (5.0_f64.sqrt() - 1.0);
+        let (mut a, mut b) = (-reach, reach);
+        for _ in 0..80 {
+            let (c, d) = (b - g * (b - a), a + g * (b - a));
+            if s(c) <= s(d) {
+                b = d;
+            } else {
+                a = c;
+            }
+        }
+        let inner = 0.5 * (a + b);
+        if s(inner) > 0.0 {
+            return None;
+        }
+        let edge = |mut out: f64, mut inn: f64| {
+            for _ in 0..80 {
+                let mid = 0.5 * (out + inn);
+                if s(mid) <= 0.0 {
+                    inn = mid;
+                } else {
+                    out = mid;
+                }
+            }
+            inn
+        };
+        Some((edge(-reach, inner), edge(reach, inner)))
+    }
+}
+
+/// A triangle (or a piece of one) with the outward normal `m` of the
+/// triangle it came from: the corners keep the triangle's winding.
+#[derive(Debug, Clone, Copy)]
+struct Shard {
+    p: [Point3; 3],
+    m: Vec3,
+}
+
+impl Shard {
+    fn centre(&self) -> Point3 {
+        centroid(&self.p)
+    }
+
+    /// The two halves across the longest side, wound as the shard.
+    fn halves(&self) -> [Self; 2] {
+        let [a, b, c] = self.p;
+        let sides = [(a.distance(b), 0), (b.distance(c), 1), (c.distance(a), 2)];
+        let (_, i) = sides
+            .iter()
+            .copied()
+            .fold((f64::NEG_INFINITY, 0), |x, y| if y.0 > x.0 { y } else { x });
+        let (p, q, r) = match i {
+            0 => (a, b, c),
+            1 => (b, c, a),
+            _ => (c, a, b),
+        };
+        let mid = Point3::new(0.5 * (p.x + q.x), 0.5 * (p.y + q.y), 0.5 * (p.z + q.z));
+        [
+            Self {
+                p: [p, mid, r],
+                m: self.m,
+            },
+            Self {
+                p: [mid, q, r],
+                m: self.m,
+            },
+        ]
+    }
+
+    /// The bound on the least depth-signed height over the shard, and the
+    /// height at its centre's column when the tool is over it there. A
+    /// shard counts the tool points over it (their feet on the shard) no
+    /// deeper than `layer` below its plane:
+    ///
+    /// - nothing counts when the whole tool lies beyond one side of the
+    ///   shard's prism, or is deeper than the layer everywhere;
+    /// - otherwise a tool point over the shard is above every plane that
+    ///   touches the tool and faces down, so its height is at least that
+    ///   plane's over the shard (least at a corner), taken at the tool
+    ///   point nearest the centre's column.
+    fn bound(&self, posed: &Posed<'_>, layer: f64) -> (f64, Option<f64>) {
+        let m = self.m;
+        let d = m.dot(self.p[0].to_vec());
+        let empty = (f64::INFINITY, None);
+        for i in 0..3 {
+            let (a, b) = (self.p[i], self.p[(i + 1) % 3]);
+            let n = (b - a).cross(m);
+            let len = n.length();
+            if len > 0.0 {
+                let n = n * (1.0 / len);
+                // The least of n . y over the tool beyond the side.
+                if -posed.most(-n) > n.dot(a.to_vec()) + SLACK {
+                    return empty;
+                }
+            }
+        }
+        if posed.most(m) - d < -layer - SLACK {
+            return empty;
+        }
+        let centre = self.centre();
+        let found = posed.column(centre, m).and_then(|(lo, hi)| {
+            if lo >= -layer {
+                Some(lo)
+            } else if hi >= -layer {
+                Some(-layer)
+            } else {
+                None
+            }
+        });
+        let probe = match found {
+            Some(h) => centre + m * h.max(-layer),
+            None => centre,
+        };
+        let plane = posed.at(probe);
+        let facing = plane.n.dot(m);
+        let by_plane = if facing < -1e-12 {
+            // n . (x + t m) <= k for tool points: t >= (k - n . x) / (n . m).
+            self.p
+                .iter()
+                .map(|x| (plane.k - plane.n.dot(x.to_vec())) / facing)
+                .fold(f64::INFINITY, f64::min)
+        } else {
+            f64::NEG_INFINITY
+        };
+        (
+            by_plane.max(self.tilted(posed, centre)).max(-layer) - SLACK,
+            found,
+        )
+    }
+
+    /// The bound by a plane that touches the tool and leans from the face's
+    /// normal towards the shard by an angle `φ`: the tool lies on the side
+    /// `w . y >= least` of it, `w = m cos φ + e sin φ` with `e` in the face's
+    /// plane from under the tool's middle towards the shard's centre, so a
+    /// tool point over a corner `x` of the shard is at least
+    /// `(least - w . x) / cos φ` above it (least at a corner). The angle is
+    /// found by a golden-section search; every angle gives a proven bound.
+    fn tilted(&self, posed: &Posed<'_>, centre: Point3) -> f64 {
+        let m = self.m;
+        let middle = posed.tip + posed.axis * (0.5 * posed.tool.top);
+        let away = centre - middle;
+        let e = away - m * away.dot(m);
+        let len = e.length();
+        if len <= 1e-12 {
+            return f64::NEG_INFINITY;
+        }
+        let e = e * (1.0 / len);
+        let at = |phi: f64| {
+            let (s, c) = phi.sin_cos();
+            let w = m * c + e * s;
+            let least = -posed.most(-w);
+            self.p
+                .iter()
+                .map(|x| (least - w.dot(x.to_vec())) / c)
+                .fold(f64::INFINITY, f64::min)
+        };
+        let g = 0.5 * (5.0_f64.sqrt() - 1.0);
+        let (mut a, mut b) = (0.0_f64, FRAC_PI_2 - 1e-9);
+        for _ in 0..60 {
+            let (c, d) = (b - g * (b - a), a + g * (b - a));
+            if at(c) >= at(d) {
+                b = d;
+            } else {
+                a = c;
+            }
+        }
+        at(0.0).max(at(0.5 * (a + b)))
+    }
+}
+
+#[derive(Debug)]
+struct ShardEntry {
+    lower: f64,
+    seq: u64,
+    shard: Shard,
+}
+
+impl PartialEq for ShardEntry {
+    fn eq(&self, o: &Self) -> bool {
+        self.cmp(o) == Ordering::Equal
+    }
+}
+impl Eq for ShardEntry {}
+impl PartialOrd for ShardEntry {
+    fn partial_cmp(&self, o: &Self) -> Option<Ordering> {
+        Some(self.cmp(o))
+    }
+}
+impl Ord for ShardEntry {
+    fn cmp(&self, o: &Self) -> Ordering {
+        o.lower.total_cmp(&self.lower).then(o.seq.cmp(&self.seq))
+    }
+}
+
+impl Geometry {
+    /// The bounded least height of `tool` (tip at `tip`, axis along `axis`)
+    /// above the faces of a mesh geometry, each face measured along its own
+    /// outward normal (from the triangle's winding) and over itself only,
+    /// counting no tool point deeper than `layer` below a face: negative by
+    /// the depth the tool cuts below a face. Faces of a B-rep are refused.
+    pub fn face_gap(
+        &self,
+        tool: &ConvexTool,
+        tip: Point3,
+        axis: Vec3,
+        layer: f64,
+        settings: &Settings,
+    ) -> Result<Bounded, ContactError> {
+        let Settings {
+            margin,
+            tolerance,
+            budget,
+        } = *settings;
+        if !self.faces.is_empty() {
+            return Err(ContactError::Invalid(
+                "the face measure takes a mesh".to_owned(),
+            ));
+        }
+        if !(tolerance.is_finite() && tolerance > 0.0)
+            || !(margin.is_finite() && margin > 0.0)
+            || !(layer.is_finite() && layer >= 0.0)
+        {
+            return Err(ContactError::Invalid(format!(
+                "tolerance {tolerance}, margin {margin} and layer {layer} must be finite"
+            )));
+        }
+        let posed = Posed::new(tool, tip, axis)?;
+        let mut upper = margin;
+        let mut at = None;
+        let mut floor = f64::INFINITY;
+        let mut heap = BinaryHeap::new();
+        let mut seq = 0_u64;
+        let mut cells = 0_usize;
+        let mut consider = |shard: Shard,
+                            heap: &mut BinaryHeap<ShardEntry>,
+                            upper: &mut f64,
+                            at: &mut Option<Point3>,
+                            floor: &mut f64| {
+            let (lower, found) = shard.bound(&posed, layer);
+            if let Some(h) = found
+                && h < *upper
+            {
+                *upper = h;
+                *at = Some(shard.centre());
+            }
+            if lower >= *upper - tolerance {
+                *floor = floor.min(lower);
+            } else {
+                seq += 1;
+                heap.push(ShardEntry { lower, seq, shard });
+            }
+        };
+        for p in &self.triangles {
+            let n = (p[1] - p[0]).cross(p[2] - p[0]);
+            let len = n.length();
+            if len > 0.0 {
+                let shard = Shard {
+                    p: *p,
+                    m: n * (1.0 / len),
+                };
+                consider(shard, &mut heap, &mut upper, &mut at, &mut floor);
+            }
+        }
+        while let Some(entry) = heap.pop() {
+            if entry.lower >= upper - tolerance {
+                floor = floor.min(entry.lower);
+                break;
+            }
+            cells += 1;
+            if cells > budget {
+                return Err(ContactError::Budget {
+                    cells,
+                    lower: floor.min(entry.lower),
+                    upper,
+                });
+            }
+            for half in entry.shard.halves() {
+                consider(half, &mut heap, &mut upper, &mut at, &mut floor);
+            }
+        }
+        Ok(Bounded {
+            upper,
+            lower: floor.min(upper),
+            at,
+            cells,
+        })
+    }
 }

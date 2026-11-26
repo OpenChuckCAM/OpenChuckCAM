@@ -142,8 +142,18 @@ fn gap(
     l: &ToolLine,
     sweep: Vec3,
 ) -> ToolGap {
+    gap_within(surface, profile, l, sweep, 5.0)
+}
+
+fn gap_within(
+    surface: &dyn SurfaceSource,
+    profile: &RevolvedProfile,
+    l: &ToolLine,
+    sweep: Vec3,
+    limit: f64,
+) -> ToolGap {
     surface
-        .tool_gap(profile, l, &GapQuery::swept(sweep, 5.0))
+        .tool_gap(profile, l, &GapQuery::swept(sweep, limit))
         .expect("a surface within the limit")
 }
 
@@ -177,11 +187,9 @@ fn req_op_12_tool_gap_of_a_ball_above_and_into_a_plane() {
 #[test]
 fn req_op_12_tool_gap_of_a_tilted_flat_end_reads_its_corner() {
     // A flat end tilted 30 degrees: its lowest point is the corner, radius
-    // times sin 30 below the tip. Above the plane the gap is the corner's
-    // height. Below it, the corner is a right-angled wedge whose faces rise
-    // at 30 and 60 degrees; the plane point deepest inside the tool is on the
-    // wedge's bisector (rising at 135 - 30 degrees), where it is as far from
-    // both faces: depth p sin 45 / sin 105 for a corner p below the plane.
+    // times sin 30 below the tip, and the gap is the corner's height above
+    // the plane, below it as well: the depth the corner cuts along the
+    // face's normal (decision record SIMUL-EDGE-1, Q2 as answered C).
     let surface = mesh(&plane(10.0, 8));
     let r = 1.5;
     let t = 30.0_f64.to_radians();
@@ -193,20 +201,18 @@ fn req_op_12_tool_gap_of_a_tilted_flat_end_reads_its_corner() {
             &line(Point3::new(0.0, 0.0, h), axis),
             Vec3::ZERO,
         );
-        let corner = h - r * t.sin();
-        let exact = if corner >= 0.0 {
-            corner
-        } else {
-            corner * 45.0_f64.to_radians().sin() / (135.0_f64.to_radians() - t).sin()
-        };
-        holds(&g, exact);
+        holds(&g, h - r * t.sin());
     }
 }
 
 #[test]
 fn req_op_12_tool_gap_of_a_ball_over_a_sharp_edge() {
-    // The ball's centre 0.5 above and 0.5 beside the ridge: the edge is the
-    // nearest point, 0.5 * sqrt 2 from the centre.
+    // The ball's centre 0.5 above and 0.5 beside the ridge, on the plane of
+    // the far face (z = x) half a unit beyond that face's edge. That face
+    // counts the ball over itself only: its lowest point there is over the
+    // edge, sqrt(1 - 1/2) below the plane, so the ball cuts the ridge that
+    // deep along the far face's normal (Q2 answered C), deeper than its
+    // nearest distance into the near face.
     let surface = mesh(&ridge(5.0));
     let r = 1.0;
     let centre = Point3::new(0.5, 0.0, 0.5);
@@ -216,7 +222,7 @@ fn req_op_12_tool_gap_of_a_ball_over_a_sharp_edge() {
         &line(centre + Vec3::new(0.0, 0.0, -r), UP),
         Vec3::ZERO,
     );
-    holds(&g, 0.5_f64.hypot(0.5) - r);
+    holds(&g, -(r * r - 0.5).sqrt());
     assert!(
         g.at.x.abs() < 1e-2,
         "the deepest point is on the edge: {:?}",
@@ -228,7 +234,11 @@ fn req_op_12_tool_gap_of_a_ball_over_a_sharp_edge() {
 fn req_op_12_tool_gap_swept_past_a_sharp_edge_is_the_deepest_pose() {
     // A ball swept straight over the ridge at a height of 0.9: at its ends
     // it is clear of the faces by more than a millimetre, but over the edge
-    // the surface is 0.1 inside it. Only the swept query sees that.
+    // it cuts the ridge. Measured along the left face's normal (u along the
+    // face from its edge, h above it), its centre is at u = (x + 0.9)/sqrt 2
+    // and h = 1.8/sqrt 2 - u, and its lowest point over the face (u <= 0) is
+    // h - sqrt(r^2 - u^2), least at u = r/sqrt 2: 1.8/sqrt 2 - r sqrt 2.
+    // Only the swept query sees that.
     let surface = mesh(&ridge(5.0));
     let r = 1.0;
     let tool = ball(r);
@@ -240,7 +250,7 @@ fn req_op_12_tool_gap_swept_past_a_sharp_edge_is_the_deepest_pose() {
     holds(&at_start, exact_end);
     holds(&at_end, exact_end);
     let swept = gap(&surface, &tool, &line(start, UP), sweep);
-    holds(&swept, 0.9 - r);
+    holds(&swept, (1.8 - 2.0 * r) / 2.0_f64.sqrt());
 }
 
 #[test]
@@ -296,9 +306,10 @@ fn req_op_12_tool_gap_is_none_beyond_the_limit_and_for_bad_input() {
 }
 
 #[test]
-fn req_op_12_tool_gap_stops_once_deeper_than_the_limit() {
-    // A tool deep in the surface: the search stops when it has found a cut
-    // deeper than the limit, and the interval still holds the true gap.
+fn req_op_12_tool_gap_reads_a_cut_deeper_than_the_limit_as_the_limit() {
+    // A tool deep in the surface: a face counts the tool only down to the
+    // limit below it, and a convex tool cutting deeper passes through that
+    // layer, so the gap reads the limit.
     let surface = mesh(&plane(10.0, 8));
     let g = surface
         .tool_gap(
@@ -307,7 +318,25 @@ fn req_op_12_tool_gap_stops_once_deeper_than_the_limit() {
             &GapQuery::pose(0.1),
         )
         .unwrap();
-    assert!(g.lower <= -1.0 + 1e-9 && g.upper < -0.1, "{g:?}");
+    holds(&g, -0.1);
+}
+
+#[test]
+fn req_op_12_tool_gap_does_not_count_a_wall_from_behind() {
+    // A slab 2 mm thick: a ball resting on its top is beside the slab's
+    // underside, which faces down, from the material's side and 2 mm away;
+    // the underside counts nothing deeper than the limit below it, so the
+    // gap is the top's, not a cut through the slab.
+    let top = plane(10.0, 4);
+    let mut slab = top.clone();
+    let below = u32::try_from(top.vertices.len()).unwrap();
+    slab.vertices
+        .extend(top.vertices.iter().map(|p| Point3::new(p.x, p.y, -2.0)));
+    slab.triangles
+        .extend(top.triangles.iter().map(|[a, b, c]| [a + below, c + below, b + below]));
+    let surface = mesh(&slab);
+    let g = gap_within(&surface, &ball(1.0), &line(Point3::ORIGIN, UP), Vec3::ZERO, 1.0);
+    holds(&g, 0.0);
 }
 
 #[test]
@@ -436,11 +465,13 @@ fn req_op_12_tool_gap_of_a_part_with_a_tab_sees_the_tab() {
     let joined = CompositeSurface::new(part, vec![tab]);
     let r = 1.0;
     let h = 2.3; // the tool's tip above the tab's top (radius 2)
-    let g = gap(
+    // Within 1 mm: the tab's underside, 4 mm below, counts nothing.
+    let g = gap_within(
         &joined,
         &ball(r),
         &line(Point3::new(2.0, 0.0, h), UP),
         Vec3::ZERO,
+        1.0,
     );
     let accuracy = joined.tool_gap_accuracy();
     assert!(accuracy > 0.0 && accuracy < 2.0 * (1.0 - (std::f64::consts::PI / 90.0).cos()));
@@ -545,11 +576,7 @@ fn req_op_12_tool_gap_of_a_tool_turning_over_a_plane_is_its_lowest_end() {
     // one way to 25 degrees the other, above a plane: the poses at the ends
     // reach lowest, the flat end's corner its radius times sin 25 below the
     // tip and the ball's lowest point its radius times (1 - cos 25) below
-    // it. Where that is above the plane it is the gap. Where the flat end's
-    // corner is below the plane, the gap is the depth of the deepest plane
-    // point inside the tool (the record's definition of the overcut
-    // depth): in the section through the axis, where its depth above the
-    // end face equals its depth inside the side.
+    // it: the gap is that point's height above the plane, below it as well.
     let surface = mesh(&plane(10.0, 8));
     let t = 25.0_f64.to_radians();
     let (from, to) = (
@@ -574,13 +601,7 @@ fn req_op_12_tool_gap_of_a_tool_turning_over_a_plane_is_its_lowest_end() {
             let g = surface
                 .tool_gap(&tool, &line(Point3::new(0.1, 0.2, h), from), &query)
                 .expect("a surface within the limit");
-            let exact = if h + lowest >= 0.0 {
-                h + lowest
-            } else {
-                // x s - h c = r - (x c + h s), x along the plane from the tip.
-                let x = (r + h * c - h * s) / (s + c);
-                -(x * s - h * c)
-            };
+            let exact = h + lowest;
             assert!(
                 g.lower <= exact + 1e-9 && exact <= g.upper + 1e-9,
                 "{g:?} does not hold {exact}"
@@ -620,10 +641,11 @@ proptest! {
     #![proptest_config(ProptestConfig { cases: 48, ..ProptestConfig::default() })]
 
     /// The query's interval and the independent checker's proven interval
-    /// overlap, at one pose, for ball, flat and bull ends at any lean: each
-    /// holds the true gap. Swept, the query's proven lower bound is never
-    /// above what the checker finds at any of the poses along the move,
-    /// turning as well (its axis the normalised blend of the two).
+    /// of the same measure (each face along its own normal, over itself,
+    /// down to the limit) overlap at one pose, for ball, flat and bull ends
+    /// at any lean: each holds the true gap. Swept, and turning about a
+    /// line as well, the query's proven lower bound is never above what
+    /// the checker finds at any of the poses along the move.
     #[test]
     fn req_op_12_tool_gap_agrees_with_the_independent_checker(
         seed in prop::array::uniform4(0.0_f64..1.0),
@@ -642,7 +664,7 @@ proptest! {
         let tip = Point3::new(tip.0, tip.1, tip.2);
         let settings = Settings { margin: 5.0, tolerance: 1e-4, budget: 2_000_000 };
         let ours = surface.tool_gap(&profile, &line(tip, axis), &GapQuery::pose(4.0));
-        let theirs = geometry.clearance(&tool, tip, unit, &settings).unwrap();
+        let theirs = geometry.face_gap(&tool, tip, unit, 4.0, &settings).unwrap();
         if let Some(g) = ours {
             prop_assert!(g.lower <= theirs.upper + 1e-6, "{g:?} against {theirs:?}");
             prop_assert!(theirs.lower <= g.upper + 1e-6, "{g:?} against {theirs:?}");
@@ -653,7 +675,7 @@ proptest! {
         if let Some(g) = surface.tool_gap(&profile, &line(tip, axis), &GapQuery::swept(v, 4.0)) {
             for k in 0..=16 {
                 let s = f64::from(k) / 16.0;
-                let at = geometry.clearance(&tool, tip + v * s, unit, &settings).unwrap();
+                let at = geometry.face_gap(&tool, tip + v * s, unit, 4.0, &settings).unwrap();
                 prop_assert!(g.lower <= at.upper + 1e-6, "{g:?} above {at:?} at {s}");
             }
         }
@@ -670,7 +692,7 @@ proptest! {
                 let a = s * turn.1;
                 let at_tip = centre + turn_vector(tip + v * s - centre, x, a);
                 let at_axis = turn_vector(unit, x, a);
-                let at = geometry.clearance(&tool, at_tip, at_axis, &settings).unwrap();
+                let at = geometry.face_gap(&tool, at_tip, at_axis, 4.0, &settings).unwrap();
                 prop_assert!(g.lower <= at.upper + 1e-6, "{g:?} above {at:?} at {s}");
             }
         }
