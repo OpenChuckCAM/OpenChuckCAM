@@ -74,9 +74,9 @@ use openchuck_types::units::Degrees;
 
 use crate::adaptive::{self, Counting, Family, Interval, Pose};
 use crate::cutter::{self, Contact, ToolLine};
-use crate::gap::GapQuery;
 use crate::error::{PathError, Result};
 use crate::faces;
+use crate::gap::GapQuery;
 use crate::parallel;
 use crate::params::{ParameterKind, ParameterSchema, ParameterSpec, Parameters, Unit, names};
 use crate::region::RegionConstraint;
@@ -515,8 +515,6 @@ struct Plan<'a> {
     /// on: the tolerance less the source's stated accuracy (decision record
     /// SIMUL-EDGE-1, Q2 and Q3).
     allowed: f64,
-    /// The furthest any point of the surface lies from the rotary axis, mm.
-    part_radius: f64,
     /// Radius from which drive rays start.
     outside: f64,
     /// The X zones and the centres their drive rays aim at (OP-26).
@@ -771,12 +769,6 @@ fn run(
         tolerance,
         chord: CHORD_FACTOR * tolerance,
         allowed: tolerance - input.surface.tool_gap_accuracy(),
-        part_radius: {
-            let b = input.surface.bounds();
-            let y = b.min.y.abs().max(b.max.y.abs());
-            let z = b.min.z.abs().max(b.max.z.abs());
-            y.hypot(z)
-        },
         outside: radius + 1.0,
         sense,
         zones: &zones,
@@ -1053,7 +1045,11 @@ fn run(
         max_lean,
     )
     .into_iter()
-    .chain(gouge_warning(&gouged, 2.0 * input.tool.cutting_radius(), max_lean))
+    .chain(gouge_warning(
+        &gouged,
+        2.0 * input.tool.cutting_radius(),
+        max_lean,
+    ))
     .chain(shank_warning(&shank_breaks))
     .chain(under_warning(findings.under))
     .chain(faces::held_warning(&held))
@@ -1638,7 +1634,6 @@ fn adaptive_passes(
             tolerance: plan.tolerance,
             chord: plan.chord,
             allowed: plan.allowed,
-            part_radius: plan.part_radius,
             outside: plan.outside,
             zones: plan.zones,
             sense: plan.sense,
@@ -2658,7 +2653,8 @@ impl Plan<'_> {
                         // tolerance, on every pass (OP-20; decision record
                         // SIMUL-EDGE-1, Q4): the move is left out and the
                         // place marked, never refused.
-                        out.gouges.push(self.gouge(a, b, error, mid.contact.contact));
+                        out.gouges
+                            .push(self.gouge(a, b, error, mid.contact.contact));
                         out.points.push(None);
                         out.points.push(Some(*b));
                         return Ok(());
@@ -2719,14 +2715,18 @@ impl Plan<'_> {
     /// the deepest surface point found. `None` when proven within it
     /// (decision record SIMUL-EDGE-1, Q3).
     ///
-    /// In the machine's frame the tool only translates along the move while
-    /// the part turns by A. Over a piece of the move the part is held at the
-    /// piece's middle A, where the tool's sweep is straight and the source
-    /// answers its gap proven; the part's turn over the piece moves no point
-    /// of it further than half the turn times the point's distance from the
-    /// rotary axis, which is taken off the allowance. A piece where that
-    /// leaves less than half the allowance is split in two, up to
-    /// [`TURN_SPLITS`] times.
+    /// The machine moves X, Y, Z and A together in straight proportion, so
+    /// in the part's frame every point of the tool moves on a curve
+    /// `R(A(f)) w(f)`, with `w` the point's place fixed to the machine
+    /// (straight in `f`) and `R` the part's turn. Over a piece of the move
+    /// turning by `θ` (radians) while the tip moves `Δ` square to the
+    /// rotary axis, the curve's second derivative is at most
+    /// `θ² |w⊥| + 2 θ |Δ⊥|`, so it lies within an eighth of that of its
+    /// chord. The chords of all the tool's points lie in the hull of its
+    /// first and last poses, which the source bounds proven
+    /// ([`GapQuery::turned`]); the chord's distance is taken off the
+    /// allowance. A piece where that leaves less than half the allowance is
+    /// split in two, up to [`TURN_SPLITS`] times.
     fn gouges(&self, a: &Node, b: &Node) -> Option<(f64, Point3)> {
         let rotary = &self.input.rotary;
         let (pa, pb) = (
@@ -2741,37 +2741,47 @@ impl Plan<'_> {
         };
         let top = self.drop_profile.top();
         let radius = self.drop_profile.cutting_radius();
+        // The farthest any tool point is from the rotary axis over the
+        // move: the tool stands along the machine's height, so at an end
+        // its farthest point is at its top or tip, `radius` across.
+        let far = |p: AxisPosition| {
+            let across = p.across.abs() + radius;
+            across.hypot(p.height.abs().max((p.height + top).abs()))
+        };
+        let reach = far(pa).max(far(pb));
         let limit = self.tolerance.max(self.allowed.abs());
         let mut pieces = vec![(0.0_f64, 1.0_f64, 0_u32)];
         while let Some((f0, f1, level)) = pieces.pop() {
-            let fm = 0.5 * (f0 + f1);
-            let am = Degrees(a0 + fm * (a1 - a0));
-            let axis = rotary.tool_axis(am);
-            let (t0, t1) = (rotary.to_model(at(f0), am), rotary.to_model(at(f1), am));
-            let turn = ((f1 - f0) * (a1 - a0)).abs().to_radians();
-            let reach = [t0, t1, t0 + axis.get() * top, t1 + axis.get() * top]
-                .iter()
-                .map(|p| p.y.hypot(p.z) + radius)
-                .fold(0.0, f64::max);
-            let slack = 0.5 * turn * reach.min(self.part_radius);
-            if slack > 0.5 * self.allowed.max(0.0) {
+            let (p0, p1) = (at(f0), at(f1));
+            let (d0, d1) = (Degrees(a0 + f0 * (a1 - a0)), Degrees(a0 + f1 * (a1 - a0)));
+            let turn = (d1.0 - d0.0).abs().to_radians();
+            let moved = (p1.across - p0.across).hypot(p1.height - p0.height);
+            let arc = 0.125 * turn * (turn * reach + 2.0 * moved);
+            if arc > 0.5 * self.allowed.max(0.0) {
                 if level < TURN_SPLITS {
+                    let fm = 0.5 * (f0 + f1);
                     pieces.push((fm, f1, level + 1));
                     pieces.push((f0, fm, level + 1));
                     continue;
                 }
-                return Some((slack, t0));
+                return Some((arc, rotary.to_model(p0, d0)));
             }
-            let floor = -(self.allowed - slack);
+            let floor = -(self.allowed - arc);
+            let t0 = rotary.to_model(p0, d0);
             let line = ToolLine {
                 origin: t0,
-                axis,
+                axis: rotary.tool_axis(d0),
             };
-            let query = GapQuery::swept(t1 - t0, limit).accept_above(floor);
-            if let Some(g) = self.input.surface.tool_gap(self.drop_profile, &line, &query)
+            let query = GapQuery::swept(rotary.to_model(p1, d1) - t0, limit)
+                .turned(rotary.tool_axis(d1))
+                .accept_above(floor);
+            if let Some(g) = self
+                .input
+                .surface
+                .tool_gap(self.drop_profile, &line, &query)
                 && g.lower < floor
             {
-                return Some(((-g.upper).max(slack), g.at));
+                return Some(((-g.upper).max(arc), g.at));
             }
         }
         None

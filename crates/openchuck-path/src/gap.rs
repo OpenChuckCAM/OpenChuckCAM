@@ -64,9 +64,17 @@ const SWEEP_STEPS: u32 = 40;
 /// [`SurfaceSource::tool_gap`](crate::SurfaceSource::tool_gap).
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct GapQuery {
-    /// The straight move the tool is swept along without turning, from the
-    /// pose its line gives; zero for one pose.
+    /// The straight move of the tool's tip, from the pose its line gives;
+    /// zero for one pose.
     pub sweep: Vec3,
+    /// The tool's axis at the end of the sweep, when the tool also turns
+    /// along it; `None` for a tool that keeps its line's axis. A turning
+    /// tool is taken as every point of it moving straight from its place
+    /// at the first pose to its place at the last, so the answer covers
+    /// the hull of the two poses: a move along which the tool really turns
+    /// (on a rotary axis, each point on an arc) lies within the arc's
+    /// height of that, which the caller allows for.
+    pub end_axis: Option<UnitVec3>,
     /// How far from the tool the surface is looked for, mm: a gap larger
     /// than this gives no answer, and the search stops once it finds the
     /// surface deeper than this inside the tool.
@@ -84,6 +92,7 @@ impl GapQuery {
     pub fn pose(limit: f64) -> Self {
         Self {
             sweep: Vec3::ZERO,
+            end_axis: None,
             limit,
             accept: None,
         }
@@ -93,8 +102,19 @@ impl GapQuery {
     pub fn swept(sweep: Vec3, limit: f64) -> Self {
         Self {
             sweep,
+            end_axis: None,
             limit,
             accept: None,
+        }
+    }
+
+    /// This query, with the tool turning along the sweep to end with its
+    /// axis along `axis` (see [`end_axis`](Self::end_axis)).
+    #[must_use]
+    pub fn turned(self, axis: UnitVec3) -> Self {
+        Self {
+            end_axis: Some(axis),
+            ..self
         }
     }
 
@@ -336,34 +356,108 @@ fn nearest_on_piece(p: &ProfilePiece, r: f64, z: f64) -> ((f64, f64), (f64, f64)
     }
 }
 
-/// The tool at its first pose and the straight move it is swept along.
+/// The tool at its first pose, the straight move of its tip, and its axis
+/// at the end of the move.
 #[derive(Debug, Clone)]
 pub(crate) struct Body<'a> {
     outline: &'a Outline,
     tip: Point3,
     axis: Vec3,
     sweep: Vec3,
-    /// A direction square to the axis, for a point on the axis.
-    across: Vec3,
+    /// The axis at the end of the sweep; the same as `axis` unless the tool
+    /// turns.
+    end_axis: Vec3,
+    /// How far a pose between the two ends may lie outside their hull: the
+    /// largest distance of a tool point from the tip times the arc height
+    /// of the turn, `1 - cos(turn / 2)`. Zero without a turn.
+    outside: f64,
+    /// A segment and a radius whose capsule holds every pose: a cheap bound
+    /// for surface far from the tool.
+    core: (Point3, Point3, f64),
+    /// The middle pose's axis from the height of the outline's widest
+    /// radius above its lowest point (a ball's centre) to its top: the
+    /// bound by the plane square to the direction from it is cheap and
+    /// near exact for a round end.
+    spine: (Point3, Point3),
 }
 
 impl<'a> Body<'a> {
-    pub(crate) fn new(outline: &'a Outline, line: &ToolLine, sweep: Vec3) -> Self {
+    pub(crate) fn new(outline: &'a Outline, line: &ToolLine, query: &GapQuery) -> Self {
         let axis = line.axis.get();
-        let pick = if axis.x.abs() < 0.9 {
-            Vec3::new(1.0, 0.0, 0.0)
+        let end_axis = query.end_axis.map_or(axis, UnitVec3::get);
+        let turn = axis.dot(end_axis).clamp(-1.0, 1.0).acos();
+        let size = outline.top.abs().hypot(outline.radius);
+        let sweep = if query.sweep.is_finite() {
+            query.sweep
         } else {
-            Vec3::new(0.0, 1.0, 0.0)
+            Vec3::ZERO
         };
-        let across = UnitVec3::new(pick - axis * pick.dot(axis))
-            .map_or(Vec3::new(0.0, 0.0, 1.0), UnitVec3::get);
+        // Every pose lies in the hull of the first and last, and each pose
+        // lies within the outline's widest radius of its own axis between
+        // the outline's lowest and highest points; so the hull lies within
+        // that radius of the hull of the four ends of those axis pieces,
+        // which lies within the farthest of them from the middle pose's.
+        let (low, high) = (-outline.support(0.0, -1.0), outline.support(0.0, 1.0));
+        let wide = outline.support(1.0, 0.0);
+        let middle = UnitVec3::new(axis + end_axis).map_or(axis, UnitVec3::get);
+        let centre = line.origin + sweep * 0.5;
+        let (c0, c1) = (centre + middle * low, centre + middle * high);
+        let spread = [
+            line.origin + axis * low,
+            line.origin + axis * high,
+            line.origin + sweep + end_axis * low,
+            line.origin + sweep + end_axis * high,
+        ]
+        .iter()
+        .map(|p| to_segment(*p, c0, c1))
+        .fold(0.0, f64::max);
         Self {
             outline,
             tip: line.origin,
             axis,
-            sweep: if sweep.is_finite() { sweep } else { Vec3::ZERO },
-            across,
+            sweep,
+            end_axis,
+            outside: size * (1.0 - (0.5 * turn).cos()),
+            core: (c0, c1, spread + wide),
+            spine: (centre + middle * (low + wide).min(high), c1),
         }
+    }
+
+    /// A proven least signed distance over the triangle `t` from the tool
+    /// at every pose, by the capsule holding them: the distance from its
+    /// segment to the triangle's centre, less the triangle's reach from its
+    /// centre and the capsule's radius.
+    fn far(&self, centre: Point3, reach: f64) -> f64 {
+        let (c0, c1, r) = self.core;
+        to_segment(centre, c0, c1) - reach - r
+    }
+
+    /// A proven least signed distance over the triangle `t`, centred at
+    /// `centre`, by the plane square to the direction from the spine.
+    fn facing(&self, t: &[Point3; 3], centre: Point3) -> f64 {
+        let (s0, s1) = self.spine;
+        let d = s1 - s0;
+        let length = d.dot(d);
+        let f = if length > 0.0 {
+            ((centre - s0).dot(d) / length).clamp(0.0, 1.0)
+        } else {
+            0.0
+        };
+        UnitVec3::new(centre - (s0 + d * f)).map_or(f64::NEG_INFINITY, |u| self.lower(t, u.get()))
+    }
+
+    /// Whether the tool turns along the sweep.
+    fn turns(&self) -> bool {
+        self.outside > 0.0
+    }
+
+    /// The tool's axis at the pose `s` along the sweep (0 to 1).
+    fn axis_at(&self, s: f64) -> Vec3 {
+        if !self.turns() {
+            return self.axis;
+        }
+        let a = self.axis * (1.0 - s) + self.end_axis * s;
+        UnitVec3::new(a).map_or(self.axis, UnitVec3::get)
     }
 
     /// A box holding every pose of the tool, grown by `margin`.
@@ -372,9 +466,9 @@ impl<'a> Body<'a> {
             self.tip,
             self.tip + self.axis * self.outline.top,
             self.tip + self.sweep,
-            self.tip + self.sweep + self.axis * self.outline.top,
+            self.tip + self.sweep + self.end_axis * self.outline.top,
         ];
-        let grow = self.outline.radius + margin.max(0.0);
+        let grow = self.outline.radius + self.outside + margin.max(0.0);
         let mut min = ends[0];
         let mut max = ends[0];
         for p in ends {
@@ -390,17 +484,18 @@ impl<'a> Body<'a> {
     /// The signed distance of `x` from the tool at the pose `s` along the
     /// sweep (0 to 1), and the outward unit normal of the tool there.
     fn at_pose(&self, x: Point3, s: f64) -> (f64, Vec3) {
+        let axis = self.axis_at(s);
         let d = x - (self.tip + self.sweep * s);
-        let z = d.dot(self.axis);
-        let radial = d - self.axis * z;
+        let z = d.dot(axis);
+        let radial = d - axis * z;
         let r = radial.length();
         let w = if r > 1e-12 {
             radial * (1.0 / r)
         } else {
-            self.across
+            across(axis)
         };
         let (dist, (nr, nz)) = self.outline.signed(r, z);
-        (dist, w * nr + self.axis * nz)
+        (dist, w * nr + axis * nz)
     }
 
     /// The least signed distance of `x` from the tool over the sweep, as
@@ -409,9 +504,12 @@ impl<'a> Body<'a> {
     /// sweep's length times the width of the search's last interval, since
     /// the distance is convex along the sweep (so the least lies in that
     /// interval) and changes no faster than the sweep's length per unit.
+    /// For a turning tool the distance is not convex along the sweep and the
+    /// poses searched may lie outside the hull by [`outside`](Self::outside),
+    /// so no slack bounds it: infinity.
     fn upper(&self, x: Point3) -> (f64, Vec3, f64) {
         let length = self.sweep.length();
-        if length <= 0.0 {
+        if length <= 0.0 && !self.turns() {
             let (d, n) = self.at_pose(x, 0.0);
             return (d, n, 0.0);
         }
@@ -443,28 +541,67 @@ impl<'a> Body<'a> {
                 best = end;
             }
         }
-        (best.0, best.1, length * (b - a))
+        let slack = if self.turns() {
+            f64::INFINITY
+        } else {
+            length * (b - a)
+        };
+        (best.0, best.1, slack)
     }
 
     /// The proven least signed distance over the triangle `t` from the tool
-    /// at every pose, by the plane square to `u`.
+    /// at every pose, by the plane square to `u`: the hull of the first and
+    /// last poses reaches along `u` no further than the larger of their
+    /// supports (for a tool that does not turn, the first pose's support
+    /// plus the sweep's part along `u`).
     fn lower(&self, t: &[Point3; 3], u: Vec3) -> f64 {
-        let a = self.axis.dot(u);
-        let across = (u - self.axis * a).length();
-        let h = u.dot(self.tip - Point3::ORIGIN) + self.outline.support(across, a);
-        let grow = u.dot(self.sweep).max(0.0);
+        let support = |axis: Vec3| {
+            let a = axis.dot(u);
+            self.outline.support((u - axis * a).length(), a)
+        };
+        let first = support(self.axis);
+        let last = if self.turns() {
+            support(self.end_axis)
+        } else {
+            first
+        };
+        let h = u.dot(self.tip - Point3::ORIGIN) + first.max(last + u.dot(self.sweep));
         t.iter()
             .map(|p| u.dot(*p - Point3::ORIGIN))
             .fold(f64::INFINITY, f64::min)
             - h
-            - grow
     }
+}
+
+/// The distance from `p` to the segment from `a` to `b`.
+fn to_segment(p: Point3, a: Point3, b: Point3) -> f64 {
+    let d = b - a;
+    let length = d.dot(d);
+    let s = if length > 0.0 {
+        ((p - a).dot(d) / length).clamp(0.0, 1.0)
+    } else {
+        0.0
+    };
+    p.distance(a + d * s)
+}
+
+/// A direction square to `axis`, for a point on the axis.
+fn across(axis: Vec3) -> Vec3 {
+    let pick = if axis.x.abs() < 0.9 {
+        Vec3::new(1.0, 0.0, 0.0)
+    } else {
+        Vec3::new(0.0, 1.0, 0.0)
+    };
+    UnitVec3::new(pick - axis * pick.dot(axis)).map_or(Vec3::new(0.0, 0.0, 1.0), UnitVec3::get)
 }
 
 /// One piece of a triangle in the search queue.
 #[derive(Debug, Clone, Copy)]
 struct Piece {
     lower: f64,
+    /// Whether the piece's centre has been measured and its bound narrowed
+    /// by it; a piece is queued first with its plane's bound only.
+    measured: bool,
     triangle: u32,
     order: u64,
     corners: [Point3; 3],
@@ -520,17 +657,28 @@ pub(crate) fn search(
         }
     }
     let mut pieces = 0_usize;
+    // A turning tool's poses are searched up to `outside` beyond the hull
+    // the bound is for, so the two meet only that far apart.
+    let close = GAP_ACCURACY + body.outside;
     let lower = loop {
         let found = state.best.map_or(f64::INFINITY, |b| b.0);
         let Some(piece) = state.queue.pop() else {
             break found;
         };
-        if piece.lower >= found - GAP_ACCURACY
+        if piece.lower >= found - close
             || piece.lower >= accept
             || piece.lower > limit
             || found < -limit
         {
+            if state.best.is_none() && piece.lower <= limit {
+                state.measure(piece);
+            }
             break piece.lower.min(found);
+        }
+        if !piece.measured {
+            let piece = state.measure(piece);
+            state.queue.push(piece);
+            continue;
         }
         let (a, b, c, len) = longest_side(&piece.corners);
         if len < MIN_PIECE || pieces >= MAX_PIECES {
@@ -558,39 +706,64 @@ struct Search<'a, 'b> {
 }
 
 impl Search<'_, '_> {
-    /// Bounds a piece, notes its centre's value, and queues it. The bound is
-    /// the better of two proven ones: the plane square to the normal at the
-    /// centre's nearest tool point, and the centre's least distance less the
-    /// piece's reach from it (the distance changes no faster than the point
-    /// moves) and less the search's own slack.
+    /// Bounds a piece by its plane, by the capsule holding the tool and by
+    /// the plane facing it from the tool's spine, and queues it. The piece lies in its triangle's plane: the gap is at
+    /// least the gap between the tool and that plane, from either side,
+    /// which is exact at once where the tool rests on the triangle's face.
+    /// Neither costs a distance to the tool.
     fn push(&mut self, corners: [Point3; 3], triangle: u32) {
+        let (a, b, c) = (corners[0], corners[1], corners[2]);
         let centre = centroid(&corners);
-        let (value, normal, slack) = self.body.upper(centre);
-        if self.best.is_none_or(|(b, _)| value < b) {
-            self.best = Some((value, centre));
-        }
         let reach = corners
             .iter()
             .map(|p| p.distance(centre))
             .fold(0.0, f64::max);
-        let mut lower = self.body.lower(&corners, normal).max(value - slack - reach);
-        // The piece lies in its triangle's plane: the gap is at least the
-        // gap between the tool and that plane, from either side. Exact at
-        // once where the tool rests on the triangle's face.
-        let (a, b, c) = (corners[0], corners[1], corners[2]);
-        if let Ok(m) = UnitVec3::new((b - a).cross(c - a)) {
+        let far = self
+            .body
+            .far(centre, reach)
+            .max(self.body.facing(&corners, centre));
+        let lower = UnitVec3::new((b - a).cross(c - a)).map_or(far, |m| {
             let m = m.get();
-            lower = lower
-                .max(self.body.lower(&corners, m))
-                .max(self.body.lower(&corners, -m));
-        }
+            self.body
+                .lower(&corners, m)
+                .max(self.body.lower(&corners, -m))
+                .max(far)
+        });
         self.order += 1;
         self.queue.push(Piece {
             lower,
+            measured: false,
             triangle,
             order: self.order,
             corners,
         });
+    }
+
+    /// Measures a piece's centre, notes its value, and narrows the piece's
+    /// bound by the better of two more proven ones: the plane square to the
+    /// normal at the centre's nearest tool point, and the centre's least
+    /// distance less the piece's reach from it (the distance changes no
+    /// faster than the point moves) and less the search's own slack.
+    fn measure(&mut self, piece: Piece) -> Piece {
+        let centre = centroid(&piece.corners);
+        let (value, normal, slack) = self.body.upper(centre);
+        if self.best.is_none_or(|(b, _)| value < b) {
+            self.best = Some((value, centre));
+        }
+        let reach = piece
+            .corners
+            .iter()
+            .map(|p| p.distance(centre))
+            .fold(0.0, f64::max);
+        let lower = piece
+            .lower
+            .max(self.body.lower(&piece.corners, normal))
+            .max(value - slack - reach);
+        Piece {
+            lower,
+            measured: true,
+            ..piece
+        }
     }
 }
 
@@ -646,7 +819,7 @@ pub(crate) fn on_mesh(
         return None;
     }
     let outline = Outline::new(profile);
-    let body = Body::new(&outline, line, query.sweep);
+    let body = Body::new(&outline, line, query);
     let near = body.bounds(query.limit);
     let triangles = (0..mesh.triangles.len()).filter_map(|i| {
         let t = mesh.triangle(i)?;

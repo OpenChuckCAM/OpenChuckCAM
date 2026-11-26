@@ -505,7 +505,7 @@ impl SurfaceSource for MeshSurface {
             return None;
         }
         let outline = crate::gap::Outline::new(profile);
-        let body = crate::gap::Body::new(&outline, line, query.sweep);
+        let body = crate::gap::Body::new(&outline, line, query);
         let near = body.bounds(query.limit);
         let mut found: Vec<u32> = self
             .bvh

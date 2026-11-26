@@ -512,6 +512,62 @@ fn req_gc_07_req_nfr_06_tool_gap_is_the_same_on_every_thread() {
     }
 }
 
+/// How far a tool turning from `a` to `b` may reach outside the hull of
+/// its two poses at a pose between them (the query's own allowance).
+fn outside(profile: &RevolvedProfile, a: Vec3, b: Vec3) -> f64 {
+    let turn = a.dot(b).clamp(-1.0, 1.0).acos();
+    profile.top().hypot(profile.cutting_radius()) * (1.0 - (0.5 * turn).cos())
+}
+
+#[test]
+fn req_op_12_tool_gap_turned_to_its_own_axis_is_the_sweep() {
+    let surface = mesh(&ridge(5.0));
+    let tool = bull(1.5, 0.5);
+    let axis = UnitVec3::new(Vec3::new(0.2, -0.1, 1.0)).unwrap();
+    let l = ToolLine {
+        origin: Point3::new(-1.0, 0.3, 0.4),
+        axis,
+    };
+    let sweep = Vec3::new(2.0, -0.5, 0.1);
+    let plain = surface.tool_gap(&tool, &l, &GapQuery::swept(sweep, 5.0));
+    let turned = surface.tool_gap(&tool, &l, &GapQuery::swept(sweep, 5.0).turned(axis));
+    assert_eq!(plain, turned);
+}
+
+#[test]
+fn req_op_12_tool_gap_of_a_tool_turning_over_a_plane_is_its_lowest_end() {
+    // A flat end and a ball end turning about a fixed tip from 25 degrees
+    // one way to 25 degrees the other, above a plane: the poses at the ends
+    // reach lowest, the flat end's corner its radius times sin 25 below the
+    // tip and the ball's lowest point its radius times (1 - cos 25) above
+    // it, so the gap of the hull of the two is the ends' gap.
+    let surface = mesh(&plane(10.0, 8));
+    let t = 25.0_f64.to_radians();
+    let (from, to) = (
+        Vec3::new(-t.sin(), 0.0, t.cos()),
+        Vec3::new(t.sin(), 0.0, t.cos()),
+    );
+    let r = 1.5;
+    for (tool, lowest) in [(flat(r), -r * t.sin()), (ball(r), r * (1.0 - t.cos()))] {
+        for h in [1.2, 0.6] {
+            let query = GapQuery::pose(5.0).turned(UnitVec3::new(to).unwrap());
+            let g = surface
+                .tool_gap(&tool, &line(Point3::new(0.1, 0.2, h), from), &query)
+                .expect("a surface within the limit");
+            let exact = h + lowest;
+            let loose = outside(&tool, from, to);
+            assert!(
+                g.lower <= exact + 1e-9 && exact <= g.upper + 1e-9,
+                "{g:?} does not hold {exact}"
+            );
+            assert!(
+                g.upper - g.lower <= GAP_ACCURACY + loose + 1e-12,
+                "{g:?} is too wide"
+            );
+        }
+    }
+}
+
 /// A ridge with a random height and a random second edge, for the
 /// independent checker.
 fn uneven(seed: [f64; 4]) -> TriangleMesh {
@@ -544,7 +600,9 @@ proptest! {
     /// The query's interval and the independent checker's proven interval
     /// overlap, at one pose, for ball, flat and bull ends at any lean: each
     /// holds the true gap. Swept, the query's proven lower bound is never
-    /// above what the checker finds at any of the poses along the move.
+    /// above what the checker finds at any of the poses along the move;
+    /// turning as well, never above it by more than the query's allowance
+    /// for a pose outside the hull of the two ends.
     #[test]
     fn req_op_12_tool_gap_agrees_with_the_independent_checker(
         seed in prop::array::uniform4(0.0_f64..1.0),
@@ -552,6 +610,7 @@ proptest! {
         tip in (-2.0_f64..2.0, -2.0_f64..2.0, -1.0_f64..1.5),
         lean in (-0.8_f64..0.8, -0.8_f64..0.8),
         sweep in (-2.0_f64..2.0, -2.0_f64..2.0, -0.5_f64..0.5),
+        turn in (-0.8_f64..0.8, -0.8_f64..0.8),
     ) {
         let m = uneven(seed);
         let surface = mesh(&m);
@@ -575,6 +634,22 @@ proptest! {
                 let s = f64::from(k) / 16.0;
                 let at = geometry.clearance(&tool, tip + v * s, unit, &settings).unwrap();
                 prop_assert!(g.lower <= at.upper + 1e-6, "{g:?} above {at:?} at {s}");
+            }
+        }
+        // Turning as it moves: every pose between the ends lies within the
+        // query's allowance of the hull its bound is for.
+        let end = UnitVec3::new(Vec3::new(turn.0, turn.1, 1.0)).unwrap();
+        let query = GapQuery::swept(v, 4.0).turned(end);
+        if let Some(g) = surface.tool_gap(&profile, &line(tip, axis), &query) {
+            let loose = outside(&profile, unit, end.get());
+            for k in 0..=16 {
+                let s = f64::from(k) / 16.0;
+                let between = UnitVec3::new(unit * (1.0 - s) + end.get() * s).unwrap();
+                let at = geometry.clearance(&tool, tip + v * s, between.get(), &settings).unwrap();
+                prop_assert!(
+                    g.lower <= at.upper + loose + 1e-6,
+                    "{g:?} above {at:?} at {s} (allowance {loose})"
+                );
             }
         }
     }
