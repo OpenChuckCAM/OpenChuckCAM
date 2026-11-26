@@ -71,3 +71,74 @@ fn req_op_04_req_nfr_12_the_tutorial_piece_finishes_completely_with_adaptive_spa
     );
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+/// The radius of material the Finish operation's cutting moves leave on the
+/// rotary axis's side of the part past `face`, at each X in `xs`: the
+/// least, over the moves whose ball (radius `r`, centred `r` up the tool
+/// axis from the tip) reaches that X, of how far the ball's surface stays
+/// from the axis there. The moves turn round the axis, so what they leave
+/// is a solid of revolution.
+fn left_past(run: &openchuck_app::Regeneration, r: f64, xs: &[f64]) -> Vec<f64> {
+    let finish: openchuck_project::id::OperationId =
+        "34e3aa5e-36cc-4614-be6d-ec39cf22f5f8".parse().unwrap();
+    let index = run
+        .groups
+        .iter()
+        .position(|g| g.operation == finish)
+        .unwrap();
+    let group = &run.canonical_toolpath.groups[index];
+    let centres: Vec<(f64, f64)> = group
+        .segments
+        .iter()
+        .filter(|s| s.kind == openchuck_types::ir::MoveKind::Cutting)
+        .map(|s| {
+            let c = s.end.tip + s.end.axis.get() * r;
+            (c.x, c.y.hypot(c.z))
+        })
+        .collect();
+    xs.iter()
+        .map(|&x| {
+            centres
+                .iter()
+                .filter(|&&(cx, _)| (cx - x).abs() < r)
+                .map(|&(cx, rho)| (rho - (r * r - (cx - x).powi(2)).sqrt()).max(0.0))
+                .fold(f64::INFINITY, f64::min)
+        })
+        .collect()
+}
+
+#[test]
+fn req_op_04_req_nfr_12_the_tutorial_piece_is_finished_to_a_point() {
+    // Decision 0695, Q2 (a) A, (b) A, (c) B (issue #779): with Finish to a
+    // point on, the finial's point is cut down to the axis instead of
+    // keeping a nub (0.733 mm at 0.25 mm past it before, the record's
+    // table), and adaptive spacing confirms the material past the point:
+    // the path is complete.
+    let dir = example("point", true);
+    let finish = dir.join("operations/34e3aa5e-36cc-4614-be6d-ec39cf22f5f8.toml");
+    let text = std::fs::read_to_string(&finish).unwrap().replace(
+        "adaptive_spacing = true",
+        "adaptive_spacing = true\nfinish_to_a_point = true",
+    );
+    std::fs::write(&finish, text).unwrap();
+    let app = Application::open(&dir, Threads::Exactly(4)).unwrap();
+    let run = app.regenerate().unwrap();
+    assert!(openchuck_app::partial_operations(app.project(), &run).is_empty());
+    // The free end the Finish faces is the finial's point.
+    let face: f64 = run
+        .notes
+        .iter()
+        .find_map(|n| {
+            let at = n.find("end face at X ")? + "end face at X ".len();
+            n[at..].split(' ').next()?.parse().ok()
+        })
+        .unwrap();
+    let r = 3.175 / 2.0;
+    let xs: Vec<f64> = [0.25, 0.5, 0.75, 1.0, 1.25]
+        .iter()
+        .map(|d| face + d)
+        .collect();
+    let on = left_past(&run, r, &xs);
+    assert!(on.iter().all(|&l| l < 0.05), "left past X {face}: {on:?}");
+    let _ = std::fs::remove_dir_all(&dir);
+}

@@ -1291,9 +1291,9 @@ fn req_ui_06_an_operation_is_added_edited_generated_and_deleted_as_undoable_step
     );
     assert_eq!(app.strategy_label("not_registered"), "not_registered");
     // Adding: at the end, enabled, with the strategy's defaults and the
-    // pass order, the low links, the blended ring steps, and Plunge where
-    // no ramp fits and Steeper ramp near the axis a new operation is
-    // given (decision records 0520, 0521, 0545 and 0695).
+    // pass order, the low links, the blended ring steps, Plunge where no
+    // ramp fits, Steeper ramp near the axis and Finish to a point a new
+    // operation is given (decision records 0520, 0521, 0545 and 0695).
     let before = app.project().operations().len();
     let second = app
         .add_operation("  Second pass ", "helical_finishing", setup, Some(tool))
@@ -1310,6 +1310,12 @@ fn req_ui_06_an_operation_is_added_edited_generated_and_deleted_as_undoable_step
             // axis.
             (
                 &openchuck_path::params::names::ALLOW_SINGLE_POINT_PLUNGE.to_owned(),
+                &openchuck_app::project::ParameterValue::Flag(true)
+            ),
+            // Decision 0695, Q2 (a) A: a new finishing operation finishes
+            // to a point.
+            (
+                &openchuck_path::finishing::parameter::FINISH_TO_A_POINT.to_owned(),
                 &openchuck_app::project::ParameterValue::Flag(true)
             ),
             (
