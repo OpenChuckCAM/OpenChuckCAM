@@ -737,7 +737,7 @@ pub struct Viewport {
     /// What Simulate shows (7.1).
     pub(crate) simulate_show: SimulateShow,
     /// Which kinds of toolpath move are drawn (issue #789; decision record
-    /// 0691): the legend's tick boxes, the Show menu and View > Toolpath
+    /// 0693): the legend's tick boxes, the Show menu and View > Toolpath
     /// moves set it; the shell keeps it in the user's settings and gives it
     /// to the playback panel, which draws the lines.
     shown_moves: openchuck_app::pathview::ShownMoves,

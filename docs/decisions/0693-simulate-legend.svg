@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 540" role="img" aria-label="Simulate in a 1920 by 1080 window at half scale, toolpaths shown: the legend of moves at the top left of the view, the colour scale at the bottom left">
   <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
-  <!-- Decision 0691 (issue #789, the owner's answer P2b B). A drawing at half scale of a 1920 by 1080 window, not a capture. -->
+  <!-- Decision 0693 (issue #789, the owner's answer P2b B). A drawing at half scale of a 1920 by 1080 window, not a capture. -->
   <rect width="960" height="540" fill="#121417"/>
   <rect x="0" y="0" width="960" height="14" fill="#1e2228"/>
   <rect x="0" y="14" width="960" height="22" fill="#1a1d21"/>

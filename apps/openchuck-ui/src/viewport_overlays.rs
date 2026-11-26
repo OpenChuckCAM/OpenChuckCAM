@@ -123,7 +123,7 @@ impl LegendEntry {
 
 impl LegendEntry {
     /// The kinds of toolpath move the entry's tick box shows or hides (issue
-    /// #789; decision record 0691), or `None` for an entry with no
+    /// #789; decision record 0693), or `None` for an entry with no
     /// tick box.
     pub fn moves(self) -> Option<&'static [MoveKind]> {
         match self {
@@ -771,7 +771,7 @@ pub fn interact(ui: &egui::Ui, viewport: &mut Viewport, rect: Rect) -> bool {
     over
 }
 
-/// The path legend's tick boxes (issue #789; decision record 0691, the
+/// The path legend's tick boxes (issue #789; decision record 0693, the
 /// owner's answer P2 A): each row of moves is a control of its own, which a
 /// click, or Space or Enter while it has the keyboard, turns on or off. The
 /// whole row takes the click; Tab reaches each row in turn (UI-14).
@@ -1521,7 +1521,7 @@ mod tests {
         pos2(r.center().x, r.top() + 6.0 + ROW * (i as f32 + 0.5))
     }
 
-    /// Issue #789 (decision record 0691, the owner's answers P1 B and P2
+    /// Issue #789 (decision record 0693, the owner's answers P1 B and P2
     /// A): each row of moves in the path legend is a tick box. A click on
     /// the row turns its kind off and on; Entry and exit sets its three kinds
     /// together and reads partly ticked when only some are shown.

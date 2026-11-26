@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //! Showing and hiding each kind of toolpath move in the view (issue #789;
-//! decision record 0691, the owner's answers P1 B, P2 A and P3 A):
+//! decision record 0693, the owner's answers P1 B, P2 A and P3 A):
 //! the path legend's tick boxes on Operations, the Show menu (V) and View >
 //! Toolpath moves set one choice; the playback panel draws the lines for it;
 //! the user's settings keep it; a chip says what is hidden while anything

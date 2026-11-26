@@ -7,7 +7,7 @@
 //! moves of one kind (cut, link, rapid, plunge, lead-in, lead-out) in the
 //! part's frame, so the viewport can colour the classes apart ([`PathClass`]),
 //! show an operation or hide it, and show or hide each kind of move
-//! ([`ShownMoves`]; issue #789, decision record 0691). A move that turns A a long way is drawn as the arc the tool tip takes
+//! ([`ShownMoves`]; issue #789, decision record 0693). A move that turns A a long way is drawn as the arc the tool tip takes
 //! (the controller moves X, Y, Z and A together), not as a chord.
 //!
 //! **Level of detail (item 8).** A path of millions of moves cannot all be
@@ -79,7 +79,7 @@ impl PathClass {
 }
 
 /// Which kinds of move the view draws (issue #789; decision record
-/// 0691, the owner's answers P1 B and P3 A): the path's own six kinds,
+/// 0693, the owner's answers P1 B and P3 A): the path's own six kinds,
 /// each shown or hidden. Display only: the G-code, the simulation, the checks
 /// and playback never read it. Kept per user on the computer (UI-15), never
 /// in the project. A settings file without it, or without one of its kinds,

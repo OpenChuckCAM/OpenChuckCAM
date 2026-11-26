@@ -353,7 +353,7 @@ pub struct PlaybackPanel {
     /// last given to the path jobs.
     visible: Vec<bool>,
     /// Which kinds of move are drawn: the user's choice (issue #789;
-    /// decision record 0691), as last given to the path jobs.
+    /// decision record 0693), as last given to the path jobs.
     moves: ShownMoves,
     view: ViewFrame,
     show_tool: bool,
@@ -744,7 +744,7 @@ impl PlaybackPanel {
     }
 
     /// Sets which kinds of move are drawn: the user's choice (issue #789;
-    /// decision record 0691). The path, the window and the trace are
+    /// decision record 0693). The path, the window and the trace are
     /// made again for it; playback, the tool and the cut part do not change.
     pub fn set_shown_moves(&mut self, moves: ShownMoves) {
         if moves != self.moves {

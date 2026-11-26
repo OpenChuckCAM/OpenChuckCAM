@@ -1,4 +1,4 @@
-# 0691: Each kind of toolpath move can be shown or hidden in the view, from the path legend, the Show menu and the View menu (SIM-01, UI-14, UI-15; issue #789; lane PROJECT-UX-A)
+# 0693: Each kind of toolpath move can be shown or hidden in the view, from the path legend, the Show menu and the View menu (SIM-01, UI-14, UI-15; issue #789; lane PROJECT-UX-A)
 
 - **Status:** Accepted by the project owner on 25 Nov 2026, relayed by the coordinator (decision 0049). Chip text amended by the owner on 25 Nov 2026, relayed by the coordinator: a plain label without Show all (Decision item 3). Proposed by lane PROJECT-UX-A on 25 Nov 2026 and built in the lane's second pull request (#898) as the owner answered the lane's questions on 25 Nov 2026, relayed by the coordinator:
   - R1 option A: trace to SIM-01, UI-14 and UI-15, with no change to the requirements.
@@ -11,9 +11,9 @@
 - **Date:** 25 Nov 2026.
 - **Requirements:** SIM-01 (toolpaths in the view, moves told apart, per-operation visibility), UI-14 (every control by keyboard; commands in the menus), UI-15 (per-user settings on the computer, never in the project), NFR-03 (the view stays smooth). No requirement names hiding by kind; the owner chose to trace it to these rather than add one (answer R1 A).
 - **Builds on:** [decision 0169](0169-playback-window-and-path-visibility.md) (paths hidden per operation in the view only), [decision 0238](0238-simulate-display-and-operation-navigation.md) (Simulate's Show choices, per user), [decision 0512](0512-playback-layers-on-simulate-only.md) (the toolpath lines on every step, the playback layers on Simulate), [decision 0167](0167-path-detail-follows-the-zoom.md) (the level of detail and the point budget), [decision 0677](0677-keyboard-focus-tooltips-and-tool-windows.md) (focus and tooltips).
-- **Open items:** adds OI-2214 (kinds the path does not mark: retracts, run-outs past the stock, turns of A at a fixed position; the owner's answer P1 B sends them to a sev3 ticket, issue #899) and OI-2213 (the owner's acceptance of this record, closed by the acceptance on 25 Nov 2026).
+- **Open items:** adds OI-2218 (kinds the path does not mark: retracts, run-outs past the stock, turns of A at a fixed position; the owner's answer P1 B sends them to a sev3 ticket, issue #899) and OI-2217 (the owner's acceptance of this record, closed by the acceptance on 25 Nov 2026).
 
-Numbering: the coordinator assigned record 0691, OI-2213 and OI-2214 at release (main 17dcdde), in merge order. No project schema number: the choice is a per-user setting (`path_moves` in the user's `settings.toml`), never in the project. No library-family API change: `openchuck-app` and `openchuck-ui` change, and neither is in the library family, so there is no version bump. The library family's `MoveKind` is unchanged.
+Numbering: the coordinator assigned record 0693, OI-2217 and OI-2218 at release (main 17dcdde), in merge order. No project schema number: the choice is a per-user setting (`path_moves` in the user's `settings.toml`), never in the project. No library-family API change: `openchuck-app` and `openchuck-ui` change, and neither is in the library family, so there is no version bump. The library family's `MoveKind` is unchanged.
 
 ## Context
 
@@ -29,15 +29,15 @@ What `main` (`361613e`) did:
 - **Three things the issue names are not marked in the path.** Retracts are rapids or links. Run-outs past the stock and turns of A at a fixed position are not marked at all.
 - **The lines are already chosen off the UI thread.** A job picks the drawn lines from the kept runs for the visible operations, at the finest level of detail within the point budget (decision 0167), and runs again when the visible operations change.
 
-![The path legend with a tick box per kind, and the Hidden chip beside Show](0691-legend-tick-boxes.svg)
+![The path legend with a tick box per kind, and the Hidden chip beside Show](0693-legend-tick-boxes.svg)
 
-![Simulate at 1920 by 1080 with the toolpaths shown: the legend of moves at the top left, the colour scale at the bottom left](0691-simulate-legend.svg)
+![Simulate at 1920 by 1080 with the toolpaths shown: the legend of moves at the top left, the colour scale at the bottom left](0693-simulate-legend.svg)
 
 ## Decision
 
 1. **Six kinds, the path's own (the owner's answer P1 B).** The kinds are Cut, Link and Rapid, and Entry and exit with Plunge, Lead-in and ramp, and Lead-out under it. The names come from one function (`pathview::move_name`) used by the legend, the menus and the chip.
    - The display now cuts the path into runs of one kind, so each kind can be left out. The colour is still by class: the three kinds of entry and exit keep the one lilac (specification 7.4).
-   - Retracts, run-outs past the stock and turns of A at a fixed position are not marked in the path. Finding them from the geometry is OI-2214 (sev3, not built).
+   - Retracts, run-outs past the stock and turns of A at a fixed position are not marked in the path. Finding them from the geometry is OI-2218 (sev3, not built).
 2. **One choice, three controls (the owner's answer P2 A; UI-14).**
    - **The path legend on Operations.** Each row of moves is a tick box with the row's own swatch and colour, and a Tab stop of its own: Space or Enter while it has the keyboard, or a click anywhere on the row, turns it on or off. Its tooltip says that only the view changes.
    - **Entry and exit is the box of its three kinds.** It is ticked when all three are shown, shows a bar when some are, and is empty when none are. A press hides all three when any is shown, and shows all three when none is. The tick, bar and empty box tell the states apart without colour.
@@ -133,3 +133,4 @@ CodeRabbit's first review (on `4664c82`) found two Minor issues, both real and b
 
 After the two fixes: `cargo fmt --all --check` and `cargo clippy --workspace --all-targets` clean; `cargo nextest run -p openchuck-ui` 790 passed, 1 skipped (9 min 15 s); `cargo xtask records` and `trace` ok.
 
+Renumbered when #939 merged first, at `3476427`, and took decision 0692 and OI-2215 and OI-2216, as relayed by the coordinator and the merge manager on 26 Nov 2026: decision 0691 became 0693, OI-2213 became OI-2217, and OI-2214 became OI-2218. The pull request merged `main` once more for this, under a decision 0055 exception authorized by the coordinator. After the merge: `cargo fmt --all --check` and `cargo clippy --workspace --all-targets` clean; `cargo nextest run -p openchuck-ui` 790 passed, 1 skipped; `openchuck-app` playback, settings, pathview and operation tests 175 passed and its library tests 298 passed; `cargo xtask deps`, `licences`, `records` and `trace` ok.
