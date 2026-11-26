@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
+<!-- OpenChuckCAM user guide: the page template (decision 0400). It replaces mdBook's own theme completely.
+     The @@...@@ placeholders and the latest-banner markers are filled in by user-docs/tools/build.py. -->
+<html lang="en" dir="ltr">
+<head>
+  <meta charset="utf-8">
+  <title>Tabs and held regions - OpenChuckCAM user guide</title>
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="The user guide for OpenChuckCAM, free, open source CAM for 4-axis rotary CNC: how to turn a 3D model into G-code, and what to check before you run it.">
+  <meta name="docs-version" content="0.55.1">
+  <meta name="color-scheme" content="light dark">
+  <link rel="icon" href="../favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="../favicon.png" type="image/png" sizes="32x32">
+  <link rel="stylesheet" href="../style.css">
+  <script>
+    // The reader's theme choice, if any, is kept in localStorage (not a cookie). Without one, the page follows the system.
+    try { var t = localStorage.getItem('oc-theme'); if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t; } catch (e) {}
+    const path_to_root = "../";
+    window.path_to_searchindex_js = "../searchindex-36078234.js";
+  </script>
+</head>
+<body>
+  <a class="skip" href="#content">Skip to the content</a>
+  
+  <header class="site-header">
+    <a class="site-title" href="../index.html"><svg class="site-logo" viewBox="0 0 512 512" width="28" height="28" aria-hidden="true" focusable="false"><g transform="translate(256 256) scale(0.94) translate(-256 -256)" fill="currentColor" stroke="currentColor"><rect x="224" y="128" width="64" height="40" rx="8"/><rect x="224" y="128" width="64" height="40" rx="8" transform="rotate(120 256 256)"/><rect x="224" y="128" width="64" height="40" rx="8" transform="rotate(240 256 256)"/><circle cx="256" cy="256" r="64"/><path d="M239.3 64.7 A192 192 0 1 1 66.9 222.7" fill="none" stroke-width="64" stroke-linecap="round"/><polygon points="85.3,118.3 -0.9,214.8 133.4,238.4" stroke-width="10" stroke-linejoin="round"/></g></svg>OpenChuckCAM <span>User guide</span></a>
+    <div class="tools">
+      <span class="version-switch"><a class="version-link" href="../../versions.html">Version: 0.55.1</a></span>
+      <a href="../print.html">Print the guide</a>
+      <button class="theme-toggle" type="button" hidden>Dark theme</button>
+    </div>
+  </header>
+  <div class="layout">
+    <nav class="sidebar" aria-label="Contents">
+      <details open>
+        <summary>Contents</summary>
+        <div class="search hidden" id="mdbook-search-wrapper">
+          <button type="button" id="mdbook-search-toggle" hidden>Search</button>
+          <form id="mdbook-searchbar-outer" role="search" onsubmit="return false">
+            <label for="mdbook-searchbar">Search the guide</label>
+            <input type="search" id="mdbook-searchbar" name="searchbar" autocomplete="off" aria-controls="mdbook-searchresults-outer" aria-describedby="mdbook-searchresults-header">
+          </form>
+          <div id="mdbook-searchresults-outer" class="searchresults-outer hidden">
+            <div id="mdbook-searchresults-header" class="searchresults-header" aria-live="polite"></div>
+            <ul id="mdbook-searchresults"></ul>
+          </div>
+        </div>
+        <ol class="chapter"><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../index.html">OpenChuckCAM user guide</a></span></li><li class="part-title">Start here</li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../start/install.html">Install and first run</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../start/limitations.html">Known limitations</a></span></li><li class="part-title">Tutorial</li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../tutorial/index.html">Your first project</a></span><ol class="section"><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../tutorial/01-create-project.html">1. Create a project</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../tutorial/02-import-model.html">2. Import the model</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../tutorial/03-machine.html">3. Choose the machine</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../tutorial/04-stock.html">4. Set up the stock</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../tutorial/05-hold.html">5. Hold the work</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../tutorial/06-tools.html">6. Choose the tools</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../tutorial/07-operations.html">7. Add the operations</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../tutorial/08-generate.html">8. Generate the toolpaths</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../tutorial/09-simulate.html">9. Simulate and read the results</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../tutorial/10-export.html">10. Post and export</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../tutorial/11-verify.html">Before you run anything</a></span></li></ol><li class="part-title">Concepts</li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../concepts/rotary-machining.html">How 4-axis rotary machining works</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../concepts/stock-and-held-region.html">Stock and the held region</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../concepts/roughing-and-finishing.html">Roughing and finishing</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../concepts/stepover-and-stock-to-leave.html">Stepover, stepdown, scallop and stock to leave</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../concepts/finishing-strategies.html">Helical, axial, indexed and simultaneous finishing</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../concepts/tabs.html">Tabs</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../concepts/simulation.html">Simulation and deviation colours</a></span></li><li class="part-title">How-to guides</li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../how-to/import-step.html">Import a STEP file</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../how-to/limit-to-a-region.html">Limit an operation to a region</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../how-to/add-a-tool.html">Add a tool to the library</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../how-to/confirm-machine-values.html">Confirm machine profile values</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../how-to/short-block-settings.html">Machine setup: short moves</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../how-to/export.html">Export G-code and the setup sheet</a></span></li><li class="part-title">Worked examples</li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../examples/custom-machine.html">Create a custom machine</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../examples/create-a-post.html">Create a post-processing template</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../examples/tabs-and-held-regions.html" aria-current="page">Tabs and held regions</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../examples/limit-to-a-region.html">Limit an operation to a region</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../examples/rest-machining.html">Rest machining</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../examples/flute-length-warning.html">The flute-length warning</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../examples/stepover-and-scallop.html">Stepover, stock to leave and scallop</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../examples/selection-sets.html">Selection sets on a blisk</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../examples/faceflow.html">Face-flow finishing on a blisk floor</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../examples/swarf.html">Swarf on a blisk blade</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../examples/simultaneous-finishing.html">Simultaneous finishing</a></span></li><li class="part-title">Safety and verification</li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../safety/checking-gcode.html">Checking G-code before you run it</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../safety/air-cut.html">Air cut on the Makera Z1</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../safety/checklist.html">Safe-practice checklist</a></span></li><li class="part-title">Reference</li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../reference/operations.html">Operations and strategies</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../reference/settings.html">Settings</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../reference/machine-profiles.html">Machine profiles</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../reference/tool-library.html">Tool library</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../reference/gcode-and-posts.html">G-code and posts</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../reference/writing-a-post.html">Writing a post-processor</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../reference/command-line.html">Command line</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../reference/messages.html">Messages and item states</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../glossary.html">Glossary</a></span></li><li class="part-title">More</li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../troubleshooting.html">Troubleshooting</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../reporting.html">Reporting a problem or asking for a feature</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../release-notes.html">Release notes</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../credits.html">Credits and licences</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../contributing.html">Contributing to this guide</a></span></li></ol>
+      </details>
+    </nav>
+    <div class="content">
+      <main id="content">
+        <div id="mdbook-content">
+<h1 id="tabs-and-held-regions"><a class="header" href="#tabs-and-held-regions">Tabs and held regions</a></h1>
+<p>This example gives the tutorial’s baluster a <a href="../glossary.html#tab">tab</a> at each end, lets the program place them, and then makes the two mistakes that tabs most often meet: a tab shorter than the tool is wide, and a tab with no room left for it. You see what the program says each time and what to change.</p>
+<blockquote class="blockquote-tag blockquote-tag-warning">
+<p class="blockquote-tag-title"><svg viewbox="0 0 16 16" width="18" height="18"><path d="M6.457 1.047c.659-1.234 2.427-1.234 3.086 0l6.082 11.378A1.75 1.75 0 0 1 14.082 15H1.918a1.75 1.75 0 0 1-1.543-2.575Zm1.763.707a.25.25 0 0 0-.44 0L1.698 13.132a.25.25 0 0 0 .22.368h12.164a.25.25 0 0 0 .22-.368Zm.53 3.996v2.5a.75.75 0 0 1-1.5 0v-2.5a.75.75 0 0 1 1.5 0ZM9 11a1 1 0 1 1-2 0 1 1 0 0 1 2 0Z"></path></svg>Warning</p>
+<p>Tabs and held regions change where the tool may go, but the program does not know your chuck jaws, your tailstock or how you will cut the tabs away. A tab that is too thin can break while the part is being cut. Check every path near a tab in the simulation, and run an <a href="../glossary.html#air-cut">air cut</a> first. Generated G-code must be verified by you before it is run on a machine.</p>
+</blockquote>
+<p>You need the tutorial’s finished project, <a href="https://github.com/OpenChuckCAM/OpenChuckCAM/tree/main/testdata/examples/baluster/baluster-project"><code>testdata/examples/baluster/baluster-project</code></a>. Copy it to a folder of your own and open the copy with <strong>File &gt; Open project</strong>. The numbers on this page come from that project and the build named in the figures’ record; your own part gives other numbers.</p>
+<blockquote class="blockquote-tag blockquote-tag-note">
+<p class="blockquote-tag-title"><svg viewbox="0 0 16 16" width="18" height="18"><path d="M0 8a8 8 0 1 1 16 0A8 8 0 0 1 0 8Zm8-6.5a6.5 6.5 0 1 0 0 13 6.5 6.5 0 0 0 0-13ZM6.5 7.75A.75.75 0 0 1 7.25 7h1a.75.75 0 0 1 .75.75v2.75h.25a.75.75 0 0 1 0 1.5h-2a.75.75 0 0 1 0-1.5h.25v-2h-.25a.75.75 0 0 1-.75-.75ZM8 6a1 1 0 1 1 0-2 1 1 0 0 1 0 2Z"></path></svg>Note</p>
+<p>The example project places the part 17.99 mm from the headstock face (<strong>Offset along X</strong> and <strong>Zero at X</strong> in the setup), the length of the project owner’s supplied chuck. It is not a value for your machine: for your own parts, measure the distance from the face of the headstock body to the face of your chuck where the stock starts, with your jaws fitted and gripping as you will grip, and use that number. See <a href="../tutorial/04-stock.html">Set up the stock</a>.</p>
+</blockquote>
+<h2 id="what-you-are-setting"><a class="header" href="#what-you-are-setting">What you are setting</a></h2>
+<p>A <a href="../glossary.html#held-region">held region</a> is a length of the stock that the chuck or the tailstock holds. It is never cut, and links keep clear of it. A tab is a short bridge of uncut material between the part and the stock, so that the part stays attached until you cut it free yourself. Both count as part of the finished shape: the program cuts round them as if they were part of the model.</p>
+<p>A tab may only sit in one of two zones along the rotary axis:</p>
+<dl>
+<dt id="head-zone"><a class="header" href="#head-zone">Head zone</a></dt>
+<dd>Between the end of the held region at the start (or the start of the stock) and the start of the part.</dd>
+<dt id="tail-zone"><a class="header" href="#tail-zone">Tail zone</a></dt>
+<dd>Between the end of the part and the held region at the end (or the end of the stock).</dd>
+</dl>
+<p>The tutorial’s project grips 8 mm of stock, and the grip reaches 7 mm into the part, so there is no head zone at all. You first make room.</p>
+<h2 id="1-make-room-at-the-head"><a class="header" href="#1-make-room-at-the-head">1. Make room at the head</a></h2>
+<ol>
+<li>Click <strong>Setup</strong> at the top of the window.</li>
+<li>In the project panel, under <strong>Setup 1</strong>, click <strong>Stock</strong>.</li>
+<li>Set <strong>Length</strong> to <code>78</code> and <strong>Start X</strong> to <code>4.99</code> (millimetres), pressing <kbd>Enter</kbd> after each.</li>
+<li>Under <strong>Setup 1</strong>, click <strong>Workholding</strong>.</li>
+</ol>
+<p>The grip is still 8 mm long, so it now holds X = 4.99 to 12.99, and the bar from X = 12.99 to the part at X = 17.99 is free. (The example project places the part 17.99 mm from the headstock face; 4.99 is 13 mm before the part.) The section shows the zones:</p>
+<figure>
+<a href="images/tabs_held/01-zones.png"><img src="images/tabs_held/01-zones.png" width="1920" height="1080" alt="The Setup step with the stock 78 mm long: the side view shows the hatched held region at the left, a gap, and the baluster; the Inspector shows Held span X 4.990 to 12.990 mm, Head zone X 12.990 to 17.990 mm (5.000 mm), Tail zone X 78.990 to 82.990 mm (4.000 mm), and Retaining tabs (0) with the buttons Add tab, Add default tabs, Head tab and Tail tab."></a>
+<figcaption><b>Figure 1.</b> A 5 mm head zone and a 4 mm tail zone. The amber line under <b>Retaining tabs (0)</b> says the part stays joined to the stock at the held end.</figcaption>
+</figure>
+<h2 id="2-add-a-head-and-a-tail-tab"><a class="header" href="#2-add-a-head-and-a-tail-tab">2. Add a head and a tail tab</a></h2>
+<ol>
+<li>Click <strong>Head tab</strong>. A cylinder tab appears in the head zone, with <strong>Place automatically</strong> ticked.</li>
+<li>Click <strong>Tail tab</strong>. A second tab appears in the tail zone.</li>
+</ol>
+<figure>
+<a href="images/tabs_held/02-head-and-tail-tabs.png"><img src="images/tabs_held/02-head-and-tail-tabs.png" width="1920" height="1080" alt="The side view with Tab 1 between the held region and the part and Tab 2 beyond the point of the finial, both drawn in tan; the Inspector lists Tab 1, Cylinder, X 12.990 to 17.99023438, Head, Automatic, and Tab 2, Cylinder, X 78.9902344 to 82.990, Tail, Automatic, each 6.000 mm across, with Length vs tools reading 5.000 mm and 4.000 mm, as long as every tool of the setup&#39;s operations is wide, or longer."></a>
+<figcaption><b>Figure 2.</b> Two tabs placed automatically. Each fills its zone; the "Showing unapplied workholding" chip at the top of the view says the changes are not stored yet.</figcaption>
+</figure>
+<p>An automatic tab fills its zone and follows it: if you later move the part or change the stock, the tab moves with the zone. If you type a <strong>Start X</strong> or <strong>Length</strong> yourself, the tab stops being automatic and stays where you put it.</p>
+<p><strong>Length vs tools</strong> compares the tab with the tools of the setup’s operations. Both tools of this project are 3.175 mm across, and both tabs are longer, so the line gives each tab’s length and says it is as long as every tool of the setup’s operations is wide, or longer.</p>
+<ol start="3" style="counter-reset: step 2">
+<li>Press <strong>Apply</strong> at the bottom of the section.</li>
+</ol>
+<p>Nothing the view shows is used until you apply it: the toolpaths, the simulation and the G-code use the held regions and tabs stored in the setup. Until you press <strong>Apply</strong> or <strong>Revert</strong>, the Messages list says “Workholding (setup ‘Setup 1’): it has changes that are not applied.” and the status bar says “Workholding changes not applied”. Apply runs the same checks as <strong>Check against the part and tools</strong> first, and stores the workholding when they finish.</p>
+<ol start="4" style="counter-reset: step 3">
+<li>Click <strong>Continue to operations</strong>, then <strong>Generate</strong>.</li>
+</ol>
+<p>With two 5 mm and 4 mm tabs, the Messages list has no warning about tabs. The project chip reads “Needs attention”, and <strong>2 Finish</strong> carries a warning mark for a warning about the held region, not the tabs (Figure 3 shows it):</p>
+<blockquote>
+<p>Held region (operation ‘Finish’): nothing within one tool radius of the held region at the start of the stock is cut: no part of the tool reaches over the gripped length of the stock.</p>
+</blockquote>
+<h2 id="3-a-tab-shorter-than-the-tool-is-wide"><a class="header" href="#3-a-tab-shorter-than-the-tool-is-wide">3. A tab shorter than the tool is wide</a></h2>
+<p>Make the tail tab shorter than the tool:</p>
+<ol>
+<li>In the Inspector, under <strong>Tab 2</strong>, set <strong>Length</strong> to <code>2</code> and press <kbd>Enter</kbd>.</li>
+</ol>
+<p>The tab is no longer automatic (you typed its length), and <strong>Length vs tools</strong> turns amber: “2.000 mm, shorter than the tool T204 Z1 ball 3.175x22 (3.175 mm) of 2 Finish”.</p>
+<figure>
+<a href="images/tabs_held/03-length-vs-tools.png"><img src="images/tabs_held/03-length-vs-tools.png" width="1920" height="1080" alt="The Operations step with the paths generated, 2 Finish carrying a warning mark and the Messages list showing Warnings 3: a Held region warning for operation Finish, the Tool length warning for tool 104 and the line about workholding changes that are not applied; the Inspector shows Tab 2, Cylinder, X 78.9902344 to 80.9902344, Tail, no longer Automatic, Place automatically unticked, Length 2.000, and Length vs tools in amber: 2.000 mm, shorter than the tool T204 Z1 ball 3.175x22 (3.175 mm) of 2 Finish."></a>
+<figcaption><b>Figure 3.</b> The tab is 2 mm long and the tools are 3.175 mm across. <b>Length vs tools</b> warns before you apply.</figcaption>
+</figure>
+<ol start="2" style="counter-reset: step 1">
+<li>Press <strong>Apply</strong>, then <strong>Generate</strong>.</li>
+</ol>
+<p>Apply stores the change and keeps the warning on the tab’s row; it does not refuse a short tab. Generation then warns once for each operation whose path can reach the tab:</p>
+<figure>
+<a href="images/tabs_held/04-tab-length-warnings.png"><img src="images/tabs_held/04-tab-length-warnings.png" width="1920" height="1080" alt="The Messages list with Warnings 6, starting with two Tab length warnings, for operation Rough with tool Z1 O-flute 3.175x25 and for operation Finish with tool Z1 ball 3.175x22, then the Held region warning for operation Finish and a Workholding line about tab 2; the row of Tab 2 in the Inspector shows two amber lines, Tab 2 is 2.000 mm long along X, shorter than the tool T104 of 1 Rough, and the same for T204 of 2 Finish."></a>
+<figcaption><b>Figure 4.</b> A short tab is a warning, not an error: the paths were made, and the two operations carry a warning triangle in the project panel.</figcaption>
+</figure>
+<p>The operation’s warning reads, in full:</p>
+<blockquote>
+<p>Tab length (operation ‘Rough’, tool ‘Z1 O-flute 3.175x25’): tab 2 (X 78.990 to 80.990 mm) is 2.000 mm long along X, shorter than the tool is wide (3.175 mm), so the tool may be unable to cut the gap beside it to shape. The path was made: check it before running it. Use a smaller tool, or make the tab longer.</p>
+</blockquote>
+<p>and the setup’s own line on the tab’s row reads “Tab 2 is 2.000 mm long along X, shorter than the tool T104 Z1 O-flute 3.175x25 (3.175 mm) of 1 Rough. Make the tab longer or use a smaller tool.”</p>
+<p>Because the tool may cut through a tab that is too short, and the part may then come loose, the program treats this warning as a possible collision. Hold the mouse over the warning mark beside <strong>1 Rough</strong> or <strong>2 Finish</strong>:</p>
+<figure>
+<a href="images/tabs_held/04a-needs-acknowledging.png"><img src="images/tabs_held/04a-needs-acknowledging.png" width="1920" height="1080" alt="The project panel with the mouse on the amber warning mark of 1 Rough; its tooltip reads Needs acknowledging: Tab length (operation &#39;Rough&#39;, tool &#39;Z1 O-flute 3.175x25&#39;): tab 2 (X 78.990 to 80.990 mm) is 2.000 mm long along X, shorter than the tool is wide (3.175 mm), so the tool may be unable to cut the gap beside it to shape."></a>
+<figcaption><b>Figure 5.</b> The mark starts "Needs acknowledging": the warning must be acknowledged before the G-code is written.</figcaption>
+</figure>
+<p>In <strong>Post and export…</strong>, <strong>Write G-code</strong> then waits for the tick “I have read the possible collisions listed for this result and will check them before running the program”, and the command line needs <code>--acknowledge-collision-warnings</code>. <a href="flute-length-warning.html">The flute-length warning</a> shows that dialog. The tick lets you write the files; it does not change the path, so fix the tab first if you can.</p>
+<p>What it means: a tool cannot cut a gap narrower than itself. Beside a tab shorter than the tool, the tool cannot reach down to the part on both sides of the tab, so material may be left there, or the path may not come as close to the part as you expect. Look at that end in the simulation before you go on.</p>
+<p>What to change, in order of preference:</p>
+<ul>
+<li>Make the tab at least as long as the widest tool that reaches it. Here, set <strong>Length</strong> back to <code>4</code>, or tick <strong>Place automatically</strong> again so it fills the zone.</li>
+<li>Use a smaller tool for the operations that cut near the tab.</li>
+<li>If the operation only cuts part of the model, limit it to a region away from the tab: the check only counts operations whose path can reach the tab (<a href="limit-to-a-region.html">Limit an operation to a region</a>).</li>
+</ul>
+<p>When there is no room for the tab to sit beside the tool at all, the operation adds a <strong>Tab clearance</strong> warning, naming the operation and the tool, that the tool “cannot cut down beside” the tab, with the room it had, and leaves the stock round the tab above it there.</p>
+<h2 id="4-a-tab-with-no-room"><a class="header" href="#4-a-tab-with-no-room">4. A tab with no room</a></h2>
+<p>An automatic tab needs its zone. Take the zone away:</p>
+<ol>
+<li>Set <strong>Grip length</strong> to <code>14</code> and press <kbd>Enter</kbd>.</li>
+</ol>
+<p>The held region now runs from X = 4.99 to 18.99, 1 mm into the part, so the grip warning comes back (“The chuck grips 1.000 mm of the part here”), and Tab 1 has nowhere to go. Its row turns amber:</p>
+<blockquote>
+<p>No room at the head: the held region reaches the part. It keeps its last position: move the part or shorten the held region, or untick “Place automatically” and place it by hand.</p>
+</blockquote>
+<figure>
+<a href="images/tabs_held/05-no-room.png"><img src="images/tabs_held/05-no-room.png" width="1920" height="1080" alt="The Inspector with Grip length 14.000 and Held span X 4.990 to 18.990 mm; the row of Tab 1, Head, Automatic, carries an amber triangle and the text No room at the head: the held region reaches the part. It keeps its last position: move the part or shorten the held region, or untick Place automatically and place it by hand."></a>
+<figcaption><b>Figure 6.</b> The automatic head tab has no room once the grip reaches the part.</figcaption>
+</figure>
+<ol start="2" style="counter-reset: step 1">
+<li>Press <strong>Apply</strong>.</li>
+</ol>
+<p>Apply stores the workholding with the 14 mm grip and keeps a warning for the tab. Tab 1 stays where it was last placed, X = 12.99 to 17.99, which is now inside the held region, and the section says “Head zone: no room for a tab”. The operations become stale, because the held region changed.</p>
+<figure>
+<a href="images/tabs_held/06-apply-warns.png"><img src="images/tabs_held/06-apply-warns.png" width="1920" height="1080" alt="After Apply, the Inspector shows Held span X 4.990 to 18.990 mm and Head zone: no room for a tab; Tab 1&#39;s row has an amber triangle and the text tab 1 is placed automatically at the head of the part, but there is no room there; the Messages list shows Warnings 5, among them the Tool length warning for tool 104, the Tab position line for tab 1, the Held region warning that the grip covers 1.000 mm of the part, and Workholding lines about tab 2 being shorter than the tools; the Generate button reads Generate stale (2)."></a>
+<figcaption><b>Figure 7.</b> Apply stores the workholding and warns about the tab with no room. Nothing is refused.</figcaption>
+</figure>
+<p>The warning in the Messages list reads:</p>
+<blockquote>
+<p>Tab position (setup ‘Setup 1’): tab 1 is placed automatically at the head of the part, but there is no room there: the held region at the start (or the start of the stock) reaches the part. It keeps its last position; move the part or shorten the held region, or untick “Place automatically” and place it by hand.</p>
+</blockquote>
+<p>A tab with no room is a warning because the job can still be made: the tab only takes up space that the grip already holds. Read it as “this tab is not doing what you set it up to do”. Apply also stores and warns when two tabs overlap.</p>
+<p>To fix it, do one of these, then press <strong>Apply</strong> again:</p>
+<ul>
+<li>Shorten the grip so the zone comes back (here, <code>8</code> again).</li>
+<li>Move the part along the stock (<strong>Offset along X</strong> under <strong>Part position</strong>), or lengthen the stock.</li>
+<li>Untick <strong>Place automatically</strong> on the tab and place it by hand inside a zone, or remove it with <strong>…</strong> on its row.</li>
+</ul>
+<h2 id="read-the-result"><a class="header" href="#read-the-result">Read the result</a></h2>
+<p>After step 2 the stored setup has an 8 mm grip from X = 4.99 and two tabs, X = 12.99 to 17.99 and X = 78.99 to 82.99, each 6 mm across. Generation treats them as part of the shape, so no path cuts into them; look at both ends in the simulation to see what is left round them. The project panel shows “1 held · 2 tabs” beside <strong>Workholding</strong>.</p>
+<p>A warning about a tab is about whether the tool can cut beside it, not whether the part will hold: the program does not work out the cutting forces on a tab. Choose the tab’s diameter for your material, and look at it in the simulation.</p>
+<h2 id="common-mistakes"><a class="header" href="#common-mistakes">Common mistakes</a></h2>
+<dl>
+<dt id="no-tabs-are-stored-the-part-stays-joined-to-the-stock-at-the-held-end"><a class="header" href="#no-tabs-are-stored-the-part-stays-joined-to-the-stock-at-the-held-end">“No tabs are stored. The part stays joined to the stock at the held end.”</a></dt>
+<dd>Not a mistake on its own: the part is held by its uncut end. Add tabs when an operation will cut the part free of the held end.</dd>
+<dt id="workholding-setup-setup-1-it-has-changes-that-are-not-applied"><a class="header" href="#workholding-setup-setup-1-it-has-changes-that-are-not-applied">“Workholding (setup ‘Setup 1’): it has changes that are not applied.”</a></dt>
+<dd>You changed the workholding and did not press <strong>Apply</strong>. The view shows the change, but generation does not use it.</dd>
+<dt id="tab-length-operation---shorter-than-the-tool-is-wide"><a class="header" href="#tab-length-operation---shorter-than-the-tool-is-wide">“Tab length (operation …): … shorter than the tool is wide”</a></dt>
+<dd>The tab is shorter than the tool. Make it longer, use a smaller tool, or keep the operation away from it.</dd>
+<dt id="no-room-at-the-head-the-held-region-reaches-the-part"><a class="header" href="#no-room-at-the-head-the-held-region-reaches-the-part">“No room at the head: the held region reaches the part.”</a></dt>
+<dd>An automatic tab has no zone. Shorten the grip, move the part, or place the tab by hand.</dd>
+<dt id="the-part-comes-to-a-point-at-x-78990-mm-so-there-is-no-diameter-to-base-a-default-tab-on-add-the-tab-by-hand"><a class="header" href="#the-part-comes-to-a-point-at-x-78990-mm-so-there-is-no-diameter-to-base-a-default-tab-on-add-the-tab-by-hand">“The part comes to a point at X 78.990 mm, so there is no diameter to base a default tab on; add the tab by hand.”</a></dt>
+<dd><strong>Add default tabs</strong> sizes a tab from the part’s diameter at its end, and the baluster’s finial ends in a point. <strong>Tail tab</strong> still adds a tab of the default 6 mm diameter there.</dd>
+<dt id="the-grip-covers-part-of-the-model"><a class="header" href="#the-grip-covers-part-of-the-model">The grip covers part of the model</a></dt>
+<dd>“The grip at the start of the stock covers 7.000 mm of the part … which is never machined”. That length stays as bar. Shorten the grip, or lengthen the stock as in step 1, if it should be cut.</dd>
+</dl>
+<p>Related: <a href="../concepts/stock-and-held-region.html">Stock and the held region</a>, <a href="../concepts/tabs.html">Tabs</a>.</p>
+
+        </div>
+        <nav class="pager" aria-label="Previous and next page">
+          <a class="prev" rel="prev" href="../examples/create-a-post.html"><span>Previous</span>Create a post-processing template</a>
+          <a class="next" rel="next" href="../examples/limit-to-a-region.html"><span>Next</span>Limit an operation to a region</a>
+        </nav>
+      </main>
+      <footer class="site-footer">
+        <p class="notice">Generated G-code must be verified by the user before it is run on a machine. OpenChuckCAM does not guarantee that a program is safe or correct for any machine, tool or setup.</p>
+        <p class="stamp">Describes OpenChuckCAM 0.55.1 (app-v0.55.1, commit 7dbae3a), built 2026-11-26. Licensed AGPL-3.0-or-later.</p>
+      </footer>
+    </div>
+  </div>
+  <script>
+    // On a narrow screen the contents start folded; without JavaScript they stay open.
+    if (matchMedia('(max-width: 900px)').matches) document.querySelector('.sidebar details').open = false;
+    (function () {
+      var b = document.querySelector('.theme-toggle'), root = document.documentElement;
+      function dark() { return root.dataset.theme ? root.dataset.theme === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches; }
+      function label() { b.textContent = dark() ? 'Light theme' : 'Dark theme'; }
+      b.hidden = false; label();
+      b.addEventListener('click', function () {
+        root.dataset.theme = dark() ? 'light' : 'dark';
+        try { localStorage.setItem('oc-theme', root.dataset.theme); } catch (e) {}
+        label();
+      });
+    })();
+  </script>
+  <script src="../versions.js"></script>
+  <script src="../elasticlunr-ef4e11c1.min.js"></script>
+  <script src="../mark-09e88c2c.min.js"></script>
+  <script src="../searcher-09f2665d.js"></script>
+  <script>
+    // mdBook's search script expects a toggle button and loads its index when the box is shown.
+    // The box is always visible here, so the first focus presses the (hidden) toggle once.
+    (function () {
+      var bar = document.getElementById('mdbook-searchbar'), t = document.getElementById('mdbook-search-toggle'), done = false;
+      bar.addEventListener('focus', function () { if (!done) { done = true; t.click(); bar.focus(); } });
+    })();
+  </script>
+  
+</body>
+</html>

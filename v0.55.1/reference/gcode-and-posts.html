@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
+<!-- OpenChuckCAM user guide: the page template (decision 0400). It replaces mdBook's own theme completely.
+     The @@...@@ placeholders and the latest-banner markers are filled in by user-docs/tools/build.py. -->
+<html lang="en" dir="ltr">
+<head>
+  <meta charset="utf-8">
+  <title>G-code and posts - OpenChuckCAM user guide</title>
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="The user guide for OpenChuckCAM, free, open source CAM for 4-axis rotary CNC: how to turn a 3D model into G-code, and what to check before you run it.">
+  <meta name="docs-version" content="0.55.1">
+  <meta name="color-scheme" content="light dark">
+  <link rel="icon" href="../favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="../favicon.png" type="image/png" sizes="32x32">
+  <link rel="stylesheet" href="../style.css">
+  <script>
+    // The reader's theme choice, if any, is kept in localStorage (not a cookie). Without one, the page follows the system.
+    try { var t = localStorage.getItem('oc-theme'); if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t; } catch (e) {}
+    const path_to_root = "../";
+    window.path_to_searchindex_js = "../searchindex-36078234.js";
+  </script>
+</head>
+<body>
+  <a class="skip" href="#content">Skip to the content</a>
+  
+  <header class="site-header">
+    <a class="site-title" href="../index.html"><svg class="site-logo" viewBox="0 0 512 512" width="28" height="28" aria-hidden="true" focusable="false"><g transform="translate(256 256) scale(0.94) translate(-256 -256)" fill="currentColor" stroke="currentColor"><rect x="224" y="128" width="64" height="40" rx="8"/><rect x="224" y="128" width="64" height="40" rx="8" transform="rotate(120 256 256)"/><rect x="224" y="128" width="64" height="40" rx="8" transform="rotate(240 256 256)"/><circle cx="256" cy="256" r="64"/><path d="M239.3 64.7 A192 192 0 1 1 66.9 222.7" fill="none" stroke-width="64" stroke-linecap="round"/><polygon points="85.3,118.3 -0.9,214.8 133.4,238.4" stroke-width="10" stroke-linejoin="round"/></g></svg>OpenChuckCAM <span>User guide</span></a>
+    <div class="tools">
+      <span class="version-switch"><a class="version-link" href="../../versions.html">Version: 0.55.1</a></span>
+      <a href="../print.html">Print the guide</a>
+      <button class="theme-toggle" type="button" hidden>Dark theme</button>
+    </div>
+  </header>
+  <div class="layout">
+    <nav class="sidebar" aria-label="Contents">
+      <details open>
+        <summary>Contents</summary>
+        <div class="search hidden" id="mdbook-search-wrapper">
+          <button type="button" id="mdbook-search-toggle" hidden>Search</button>
+          <form id="mdbook-searchbar-outer" role="search" onsubmit="return false">
+            <label for="mdbook-searchbar">Search the guide</label>
+            <input type="search" id="mdbook-searchbar" name="searchbar" autocomplete="off" aria-controls="mdbook-searchresults-outer" aria-describedby="mdbook-searchresults-header">
+          </form>
+          <div id="mdbook-searchresults-outer" class="searchresults-outer hidden">
+            <div id="mdbook-searchresults-header" class="searchresults-header" aria-live="polite"></div>
+            <ul id="mdbook-searchresults"></ul>
+          </div>
+        </div>
+        <ol class="chapter"><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../index.html">OpenChuckCAM user guide</a></span></li><li class="part-title">Start here</li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../start/install.html">Install and first run</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../start/limitations.html">Known limitations</a></span></li><li class="part-title">Tutorial</li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../tutorial/index.html">Your first project</a></span><ol class="section"><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../tutorial/01-create-project.html">1. Create a project</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../tutorial/02-import-model.html">2. Import the model</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../tutorial/03-machine.html">3. Choose the machine</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../tutorial/04-stock.html">4. Set up the stock</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../tutorial/05-hold.html">5. Hold the work</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../tutorial/06-tools.html">6. Choose the tools</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../tutorial/07-operations.html">7. Add the operations</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../tutorial/08-generate.html">8. Generate the toolpaths</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../tutorial/09-simulate.html">9. Simulate and read the results</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../tutorial/10-export.html">10. Post and export</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../tutorial/11-verify.html">Before you run anything</a></span></li></ol><li class="part-title">Concepts</li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../concepts/rotary-machining.html">How 4-axis rotary machining works</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../concepts/stock-and-held-region.html">Stock and the held region</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../concepts/roughing-and-finishing.html">Roughing and finishing</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../concepts/stepover-and-stock-to-leave.html">Stepover, stepdown, scallop and stock to leave</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../concepts/finishing-strategies.html">Helical, axial, indexed and simultaneous finishing</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../concepts/tabs.html">Tabs</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../concepts/simulation.html">Simulation and deviation colours</a></span></li><li class="part-title">How-to guides</li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../how-to/import-step.html">Import a STEP file</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../how-to/limit-to-a-region.html">Limit an operation to a region</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../how-to/add-a-tool.html">Add a tool to the library</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../how-to/confirm-machine-values.html">Confirm machine profile values</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../how-to/short-block-settings.html">Machine setup: short moves</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../how-to/export.html">Export G-code and the setup sheet</a></span></li><li class="part-title">Worked examples</li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../examples/custom-machine.html">Create a custom machine</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../examples/create-a-post.html">Create a post-processing template</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../examples/tabs-and-held-regions.html">Tabs and held regions</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../examples/limit-to-a-region.html">Limit an operation to a region</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../examples/rest-machining.html">Rest machining</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../examples/flute-length-warning.html">The flute-length warning</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../examples/stepover-and-scallop.html">Stepover, stock to leave and scallop</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../examples/selection-sets.html">Selection sets on a blisk</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../examples/faceflow.html">Face-flow finishing on a blisk floor</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../examples/swarf.html">Swarf on a blisk blade</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../examples/simultaneous-finishing.html">Simultaneous finishing</a></span></li><li class="part-title">Safety and verification</li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../safety/checking-gcode.html">Checking G-code before you run it</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../safety/air-cut.html">Air cut on the Makera Z1</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../safety/checklist.html">Safe-practice checklist</a></span></li><li class="part-title">Reference</li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../reference/operations.html">Operations and strategies</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../reference/settings.html">Settings</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../reference/machine-profiles.html">Machine profiles</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../reference/tool-library.html">Tool library</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../reference/gcode-and-posts.html" aria-current="page">G-code and posts</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../reference/writing-a-post.html">Writing a post-processor</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../reference/command-line.html">Command line</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../reference/messages.html">Messages and item states</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../glossary.html">Glossary</a></span></li><li class="part-title">More</li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../troubleshooting.html">Troubleshooting</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../reporting.html">Reporting a problem or asking for a feature</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../release-notes.html">Release notes</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../credits.html">Credits and licences</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../contributing.html">Contributing to this guide</a></span></li></ol>
+      </details>
+    </nav>
+    <div class="content">
+      <main id="content">
+        <div id="mdbook-content">
+<h1 id="g-code-and-posts"><a class="header" href="#g-code-and-posts">G-code and posts</a></h1>
+<p>A <a href="../glossary.html#post-processor">post-processor</a>, or post, turns the program’s toolpaths into the G-code one controller reads. This page describes the two posts that come with OpenChuckCAM, what they write, and how to read the result.</p>
+<blockquote class="blockquote-tag blockquote-tag-warning">
+<p class="blockquote-tag-title"><svg viewbox="0 0 16 16" width="18" height="18"><path d="M6.457 1.047c.659-1.234 2.427-1.234 3.086 0l6.082 11.378A1.75 1.75 0 0 1 14.082 15H1.918a1.75 1.75 0 0 1-1.543-2.575Zm1.763.707a.25.25 0 0 0-.44 0L1.698 13.132a.25.25 0 0 0 .22.368h12.164a.25.25 0 0 0 .22-.368Zm.53 3.996v2.5a.75.75 0 0 1-1.5 0v-2.5a.75.75 0 0 1 1.5 0ZM9 11a1 1 0 1 1-2 0 1 1 0 0 1 2 0Z"></path></svg>Warning</p>
+<p>Generated G-code must be verified by you before it is run on a machine. OpenChuckCAM does not guarantee that a program is safe or correct for any machine, tool or setup. <a href="../safety/checking-gcode.html">Checking G-code before you run it</a> says what to look for.</p>
+</blockquote>
+<h2 id="the-built-in-posts"><a class="header" href="#the-built-in-posts">The built-in posts</a></h2>
+<dl>
+<dt id="makera-z1"><a class="header" href="#makera-z1">Makera Z1</a></dt>
+<dd>For the Makera Z1. Files end in <code>.nc</code>.</dd>
+<dt id="linuxcnc-verification"><a class="header" href="#linuxcnc-verification">LinuxCNC verification</a></dt>
+<dd>For the LinuxCNC simulator, which the project uses to check its output. Files end in <code>.ngc</code>. It is not set up for any particular LinuxCNC machine.</dd>
+</dl>
+<p>Both use the same template and differ only in their options and their feed rule. You choose the post when you export: in the export panel, under <strong>Post-processor</strong>, pick it from <strong>Post</strong>. <strong>A post folder</strong> loads a post of your own from a folder; see <a href="writing-a-post.html">Writing a post-processor</a>. Below the list, the panel shows what the post sets: <strong>Units</strong>, <strong>Rotary axis</strong>, <strong>Wrap</strong> and <strong>Feed mode</strong>. These come from the post’s files and cannot be changed in the panel.</p>
+<p>On the command line, <code>openchuck-cli regenerate</code> takes <code>--post makera-z1</code>, <code>--post linuxcnc</code> or <code>--post</code> and a folder.</p>
+<h2 id="what-a-program-looks-like"><a class="header" href="#what-a-program-looks-like">What a program looks like</a></h2>
+<p>This is the start of a program from the project’s reference jobs, written by the Makera Z1 post. In a real program the second line holds the program’s version, for example <code>(OpenChuckCAM 0.49.0)</code>, and the operation line holds the operation’s name, its tool and its time.</p>
+<pre><code class="language-text">(cone_axial - Setup 1)
+(OpenChuckCAM &lt;version&gt;)
+(This program has not been run on your machine. Check it before you run it.)
+(Simulate it and air cut it first. You are responsible for what the machine does.)
+G90 G21 G17
+G54
+(operation &lt;id&gt;)
+M5
+T1 M6
+S12000 M3
+G0 X0.000 Y0.000 Z45.000 A0.000
+Z12.000
+G1 Z10.000 F150.0
+</code></pre>
+<p>And this is the end of a Makera Z1 program that turned A ten times:</p>
+<pre><code class="language-text">X10.000 Z4.177 A3600.000 F281.2
+Z12.000 F150.0
+G0 Z45.000
+G92.4 A0 S0
+M5
+G53 G0 Z-3
+G28
+M2
+</code></pre>
+<h2 id="line-by-line"><a class="header" href="#line-by-line">Line by line</a></h2>
+<dl>
+<dt id="title"><a class="header" href="#title">Title</a></dt>
+<dd>The first line names the project and the setup, as a comment.</dd>
+<dt id="program-version"><a class="header" href="#program-version">Program version</a></dt>
+<dd><code>(OpenChuckCAM &lt;version&gt;)</code>: the version of the program that wrote the file. There is no date, so the same project and version always give the same file.</dd>
+<dt id="safety-notice"><a class="header" href="#safety-notice">Safety notice</a></dt>
+<dd>Two comment lines that say the program has not been run on your machine and that you are responsible for what the machine does. Both built-in posts write them. A post of your own can leave them out by setting <code>safety_notice = false</code>; there is no switch for it when you export.</dd>
+<dt id="header"><a class="header" href="#header">Header</a></dt>
+<dd><code>G90</code> (absolute positions), <code>G21</code> (millimetres) and <code>G17</code> (the XY plane). The LinuxCNC post adds <code>G61</code>, exact stop, so the simulator stops at each point.</dd>
+<dt id="work-offset"><a class="header" href="#work-offset">Work offset</a></dt>
+<dd>The setup’s work offset register, <code>G54</code> to <code>G59</code>. It replaces the post’s own. The program writes every move relative to it, and you set where its zero is on the machine, with the controller: on the rotary axis, at the setup’s <strong>Zero at X</strong>. On the Makera Z1 you can set X0 anywhere along the axis when you set G54.</dd>
+<dt id="operation"><a class="header" href="#operation">Operation</a></dt>
+<dd>Each operation starts with a comment that names it, its tool and its programmed time, for example <code>(operation Rough, tool T1 Z1 O-flute 3.175x25, about 1923 s)</code>.</dd>
+<dt id="tool-change"><a class="header" href="#tool-change">Tool change</a></dt>
+<dd><code>M5</code> (spindle off), then <code>T&lt;n&gt; M6</code>, written when the tool changes. Neither post writes a tool length offset (<code>G43</code>). The Makera Z1 measures each tool on its tool setter.</dd>
+<dt id="spindle"><a class="header" href="#spindle">Spindle</a></dt>
+<dd><code>S&lt;rpm&gt; M3</code> at the start of every operation. Neither built-in post turns coolant on.</dd>
+<dt id="moves"><a class="header" href="#moves">Moves</a></dt>
+<dd><code>G0</code> for a rapid move and <code>G1</code> for a feed move. There are no arcs: curves are written as short straight moves within the operation’s <a href="../glossary.html#tolerance">tolerance</a>. The G code, each axis word and the F word are written only when they change. Positions have 3 decimal places, feeds at least 3 significant figures.</dd>
+<dt id="end"><a class="header" href="#end">End</a></dt>
+<dd>The Makera Z1 post ends with <code>M5</code>, <code>G53 G0 Z-3</code> (raise the spindle in machine coordinates), <code>G28</code> (go to the reference position) and <code>M2</code>. The LinuxCNC post ends with <code>M5</code> and <code>M30</code>.</dd>
+</dl>
+<h2 id="units-and-feeds"><a class="header" href="#units-and-feeds">Units and feeds</a></h2>
+<p>The output is in millimetres only. Every feed is in units per minute (<code>G94</code>). The Makera Z1 does not support inverse-time feed (<code>G93</code>), so neither post writes it.</p>
+<p>On a move that turns A and moves X, Y or Z at the same time, controllers read the F word in different ways. Each post computes F with its controller’s rule, so that the move takes the time the toolpath intends:</p>
+<ul>
+<li>The LinuxCNC post applies F to the X, Y and Z distance, and to degrees per minute on a move that turns only A.</li>
+<li>The Makera Z1 post uses the Z1 firmware’s rule, which also counts the A movement. This rule was checked in an air cut on a Z1 (firmware 1.1.2).</li>
+</ul>
+<p>The machine profile’s <strong>A in the feed word</strong> must match the post you use; see <a href="machine-profiles.html#maximum-feeds">Machine profiles</a>.</p>
+<h2 id="the-a-axis"><a class="header" href="#the-a-axis">The A axis</a></h2>
+<p>A is written as a continuous angle that is never wrapped to 0 to 360 degrees: after ten turns a program says <code>A3600.000</code>. The sign follows the machine profile’s <strong>A+ direction</strong>.</p>
+<p>The Makera Z1 post drops whole turns from the controller’s count with <code>G92.4 A0 S0</code>. This does not move the machine. It is written only between operations, with the tool at or above the safe Z, and only when the count is beyond one turn either way. The LinuxCNC post writes no such command, and A keeps its full value to the end of the program.</p>
+<h2 id="checks-when-you-export"><a class="header" href="#checks-when-you-export">Checks when you export</a></h2>
+<p>Every program is read back after it is written and checked against the machine profile and the setup: units and the work offset before the first move, a feed on every cutting move, the spindle on while cutting, the travel and feed limits, the safe Z, tool changes with the spindle off, and the end of the program. It is then compared with the toolpath it came from. Export is refused when a tool number is outside the machine’s range or a spindle speed is outside its spindle range.</p>
+<p>These checks find some mistakes. They do not show that a program is right for your machine, tool, stock or fixture.</p>
+<h2 id="not-yet-confirmed-on-the-makera-z1"><a class="header" href="#not-yet-confirmed-on-the-makera-z1">Not yet confirmed on the Makera Z1</a></h2>
+<p>The A direction, the turn-dropping command and the feed rule were checked in attended air cuts on the project owner’s Makera Z1, on firmware 1.1.2 and 1.1.3. The tool change (<code>M5</code>, <code>T&lt;n&gt; M6</code>) and the <code>G28</code> at the end were run, attended, on the same machine on firmware 1.1.3, and one small first cut in tooling board has been made with real tools. That is one machine and a few programs: check them in your own air cut; see <a href="../safety/air-cut.html">Air cut on the Makera Z1</a>.</p>
+
+        </div>
+        <nav class="pager" aria-label="Previous and next page">
+          <a class="prev" rel="prev" href="../reference/tool-library.html"><span>Previous</span>Tool library</a>
+          <a class="next" rel="next" href="../reference/writing-a-post.html"><span>Next</span>Writing a post-processor</a>
+        </nav>
+      </main>
+      <footer class="site-footer">
+        <p class="notice">Generated G-code must be verified by the user before it is run on a machine. OpenChuckCAM does not guarantee that a program is safe or correct for any machine, tool or setup.</p>
+        <p class="stamp">Describes OpenChuckCAM 0.55.1 (app-v0.55.1, commit 7dbae3a), built 2026-11-26. Licensed AGPL-3.0-or-later.</p>
+      </footer>
+    </div>
+  </div>
+  <script>
+    // On a narrow screen the contents start folded; without JavaScript they stay open.
+    if (matchMedia('(max-width: 900px)').matches) document.querySelector('.sidebar details').open = false;
+    (function () {
+      var b = document.querySelector('.theme-toggle'), root = document.documentElement;
+      function dark() { return root.dataset.theme ? root.dataset.theme === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches; }
+      function label() { b.textContent = dark() ? 'Light theme' : 'Dark theme'; }
+      b.hidden = false; label();
+      b.addEventListener('click', function () {
+        root.dataset.theme = dark() ? 'light' : 'dark';
+        try { localStorage.setItem('oc-theme', root.dataset.theme); } catch (e) {}
+        label();
+      });
+    })();
+  </script>
+  <script src="../versions.js"></script>
+  <script src="../elasticlunr-ef4e11c1.min.js"></script>
+  <script src="../mark-09e88c2c.min.js"></script>
+  <script src="../searcher-09f2665d.js"></script>
+  <script>
+    // mdBook's search script expects a toggle button and loads its index when the box is shown.
+    // The box is always visible here, so the first focus presses the (hidden) toggle once.
+    (function () {
+      var bar = document.getElementById('mdbook-searchbar'), t = document.getElementById('mdbook-search-toggle'), done = false;
+      bar.addEventListener('focus', function () { if (!done) { done = true; t.click(); bar.focus(); } });
+    })();
+  </script>
+  
+</body>
+</html>

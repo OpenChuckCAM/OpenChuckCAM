@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
+<!-- OpenChuckCAM user guide: the page template (decision 0400). It replaces mdBook's own theme completely.
+     The @@...@@ placeholders and the latest-banner markers are filled in by user-docs/tools/build.py. -->
+<html lang="en" dir="ltr">
+<head>
+  <meta charset="utf-8">
+  <title>Operations and strategies - OpenChuckCAM user guide</title>
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="The user guide for OpenChuckCAM, free, open source CAM for 4-axis rotary CNC: how to turn a 3D model into G-code, and what to check before you run it.">
+  <meta name="docs-version" content="0.55.1">
+  <meta name="color-scheme" content="light dark">
+  <link rel="icon" href="../favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="../favicon.png" type="image/png" sizes="32x32">
+  <link rel="stylesheet" href="../style.css">
+  <script>
+    // The reader's theme choice, if any, is kept in localStorage (not a cookie). Without one, the page follows the system.
+    try { var t = localStorage.getItem('oc-theme'); if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t; } catch (e) {}
+    const path_to_root = "../";
+    window.path_to_searchindex_js = "../searchindex-36078234.js";
+  </script>
+</head>
+<body>
+  <a class="skip" href="#content">Skip to the content</a>
+  
+  <header class="site-header">
+    <a class="site-title" href="../index.html"><svg class="site-logo" viewBox="0 0 512 512" width="28" height="28" aria-hidden="true" focusable="false"><g transform="translate(256 256) scale(0.94) translate(-256 -256)" fill="currentColor" stroke="currentColor"><rect x="224" y="128" width="64" height="40" rx="8"/><rect x="224" y="128" width="64" height="40" rx="8" transform="rotate(120 256 256)"/><rect x="224" y="128" width="64" height="40" rx="8" transform="rotate(240 256 256)"/><circle cx="256" cy="256" r="64"/><path d="M239.3 64.7 A192 192 0 1 1 66.9 222.7" fill="none" stroke-width="64" stroke-linecap="round"/><polygon points="85.3,118.3 -0.9,214.8 133.4,238.4" stroke-width="10" stroke-linejoin="round"/></g></svg>OpenChuckCAM <span>User guide</span></a>
+    <div class="tools">
+      <span class="version-switch"><a class="version-link" href="../../versions.html">Version: 0.55.1</a></span>
+      <a href="../print.html">Print the guide</a>
+      <button class="theme-toggle" type="button" hidden>Dark theme</button>
+    </div>
+  </header>
+  <div class="layout">
+    <nav class="sidebar" aria-label="Contents">
+      <details open>
+        <summary>Contents</summary>
+        <div class="search hidden" id="mdbook-search-wrapper">
+          <button type="button" id="mdbook-search-toggle" hidden>Search</button>
+          <form id="mdbook-searchbar-outer" role="search" onsubmit="return false">
+            <label for="mdbook-searchbar">Search the guide</label>
+            <input type="search" id="mdbook-searchbar" name="searchbar" autocomplete="off" aria-controls="mdbook-searchresults-outer" aria-describedby="mdbook-searchresults-header">
+          </form>
+          <div id="mdbook-searchresults-outer" class="searchresults-outer hidden">
+            <div id="mdbook-searchresults-header" class="searchresults-header" aria-live="polite"></div>
+            <ul id="mdbook-searchresults"></ul>
+          </div>
+        </div>
+        <ol class="chapter"><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../index.html">OpenChuckCAM user guide</a></span></li><li class="part-title">Start here</li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../start/install.html">Install and first run</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../start/limitations.html">Known limitations</a></span></li><li class="part-title">Tutorial</li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../tutorial/index.html">Your first project</a></span><ol class="section"><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../tutorial/01-create-project.html">1. Create a project</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../tutorial/02-import-model.html">2. Import the model</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../tutorial/03-machine.html">3. Choose the machine</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../tutorial/04-stock.html">4. Set up the stock</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../tutorial/05-hold.html">5. Hold the work</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../tutorial/06-tools.html">6. Choose the tools</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../tutorial/07-operations.html">7. Add the operations</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../tutorial/08-generate.html">8. Generate the toolpaths</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../tutorial/09-simulate.html">9. Simulate and read the results</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../tutorial/10-export.html">10. Post and export</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../tutorial/11-verify.html">Before you run anything</a></span></li></ol><li class="part-title">Concepts</li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../concepts/rotary-machining.html">How 4-axis rotary machining works</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../concepts/stock-and-held-region.html">Stock and the held region</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../concepts/roughing-and-finishing.html">Roughing and finishing</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../concepts/stepover-and-stock-to-leave.html">Stepover, stepdown, scallop and stock to leave</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../concepts/finishing-strategies.html">Helical, axial, indexed and simultaneous finishing</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../concepts/tabs.html">Tabs</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../concepts/simulation.html">Simulation and deviation colours</a></span></li><li class="part-title">How-to guides</li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../how-to/import-step.html">Import a STEP file</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../how-to/limit-to-a-region.html">Limit an operation to a region</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../how-to/add-a-tool.html">Add a tool to the library</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../how-to/confirm-machine-values.html">Confirm machine profile values</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../how-to/short-block-settings.html">Machine setup: short moves</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../how-to/export.html">Export G-code and the setup sheet</a></span></li><li class="part-title">Worked examples</li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../examples/custom-machine.html">Create a custom machine</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../examples/create-a-post.html">Create a post-processing template</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../examples/tabs-and-held-regions.html">Tabs and held regions</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../examples/limit-to-a-region.html">Limit an operation to a region</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../examples/rest-machining.html">Rest machining</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../examples/flute-length-warning.html">The flute-length warning</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../examples/stepover-and-scallop.html">Stepover, stock to leave and scallop</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../examples/selection-sets.html">Selection sets on a blisk</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../examples/faceflow.html">Face-flow finishing on a blisk floor</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../examples/swarf.html">Swarf on a blisk blade</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../examples/simultaneous-finishing.html">Simultaneous finishing</a></span></li><li class="part-title">Safety and verification</li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../safety/checking-gcode.html">Checking G-code before you run it</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../safety/air-cut.html">Air cut on the Makera Z1</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../safety/checklist.html">Safe-practice checklist</a></span></li><li class="part-title">Reference</li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../reference/operations.html" aria-current="page">Operations and strategies</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../reference/settings.html">Settings</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../reference/machine-profiles.html">Machine profiles</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../reference/tool-library.html">Tool library</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../reference/gcode-and-posts.html">G-code and posts</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../reference/writing-a-post.html">Writing a post-processor</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../reference/command-line.html">Command line</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../reference/messages.html">Messages and item states</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../glossary.html">Glossary</a></span></li><li class="part-title">More</li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../troubleshooting.html">Troubleshooting</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../reporting.html">Reporting a problem or asking for a feature</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../release-notes.html">Release notes</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../credits.html">Credits and licences</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../contributing.html">Contributing to this guide</a></span></li></ol>
+      </details>
+    </nav>
+    <div class="content">
+      <main id="content">
+        <div id="mdbook-content">
+<h1 id="operations-and-strategies"><a class="header" href="#operations-and-strategies">Operations and strategies</a></h1>
+<p>An operation is one cutting job: a strategy, a tool, a setup, the surfaces to work on, and the strategy’s settings. This page lists every strategy, every setting with its default, and the warnings and errors an operation can give. <a href="../concepts/roughing-and-finishing.html">Roughing and finishing</a> explains the ideas behind them.</p>
+<blockquote class="blockquote-tag blockquote-tag-warning">
+<p class="blockquote-tag-title"><svg viewbox="0 0 16 16" width="18" height="18"><path d="M6.457 1.047c.659-1.234 2.427-1.234 3.086 0l6.082 11.378A1.75 1.75 0 0 1 14.082 15H1.918a1.75 1.75 0 0 1-1.543-2.575Zm1.763.707a.25.25 0 0 0-.44 0L1.698 13.132a.25.25 0 0 0 .22.368h12.164a.25.25 0 0 0 .22-.368Zm.53 3.996v2.5a.75.75 0 0 1-1.5 0v-2.5a.75.75 0 0 1 1.5 0ZM9 11a1 1 0 1 1-2 0 1 1 0 0 1 2 0Z"></path></svg>Warning</p>
+<p>Every default on this page is a starting value, not a cutting recipe tested on a machine. Generated G-code must be verified by you before it is run on a machine; see <a href="../safety/checking-gcode.html">Checking G-code before you run it</a>.</p>
+</blockquote>
+<h2 id="the-strategies"><a class="header" href="#the-strategies">The strategies</a></h2>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Group</th><th>Strategy</th><th>What it does</th><th>Needs</th></tr>
+</thead>
+<tbody>
+<tr><td>Roughing</td><td><a href="#rotary-roughing">Rotary roughing</a></td><td>Removes most of the stock in layers, from the outside in.</td><td></td></tr>
+<tr><td>Roughing</td><td><a href="#facing">Facing</a></td><td>Flat faces, a round diameter, the free end, or box sides on the stock.</td><td></td></tr>
+<tr><td>Finishing</td><td><a href="#helical-finishing">Helical finishing</a></td><td>Follows the surface in a spiral round the part.</td><td></td></tr>
+<tr><td>Finishing</td><td><a href="#axial-finishing">Axial finishing</a></td><td>Passes along the part, turning it a step between passes.</td><td></td></tr>
+<tr><td>Finishing</td><td><a href="#indexed-finishing">Indexed finishing</a></td><td>Passes along the part at a few fixed angles.</td><td></td></tr>
+<tr><td>Finishing</td><td><a href="#simultaneous-4-axis-finishing">Simultaneous 4-axis finishing</a></td><td>Turns the part while cutting, to keep the tool near the surface normal.</td><td></td></tr>
+<tr><td>Finishing</td><td><a href="#rest-machining">Rest machining</a></td><td>Cuts the material earlier operations left.</td><td></td></tr>
+<tr><td>Finishing</td><td><a href="#pencil-clean-up">Pencil clean-up</a></td><td>Follows sharp inside corners.</td><td></td></tr>
+<tr><td>Finishing</td><td><a href="#face-flow-finishing">Face flow finishing</a></td><td>Passes that follow a chosen edge across selected faces.</td><td>a STEP model</td></tr>
+<tr><td>Specialist</td><td><a href="#edge-and-curve-following">Edge and curve following</a></td><td>Engraves or carves along edges.</td><td></td></tr>
+<tr><td>Specialist</td><td><a href="#swarf-flank-machining">Swarf (flank) machining</a></td><td>Cuts walls with the side of the tool.</td><td>a STEP model</td></tr>
+<tr><td>Specialist</td><td><a href="#radial-drilling">Radial drilling</a></td><td>Drills round holes in the side of the part.</td><td>a STEP model</td></tr>
+</tbody>
+</table>
+</div>
+<h2 id="adding-an-operation"><a class="header" href="#adding-an-operation">Adding an operation</a></h2>
+<p>On the Operations step, open <strong>Add operation</strong>. Give the operation a <strong>Name</strong>, choose a <strong>Strategy</strong>, the <strong>Setup</strong> and a <strong>Tool</strong> (<strong>From the library…</strong> adds one to the project), and a <strong>Material preset</strong>. Everything else starts at the strategy’s defaults.</p>
+<p>A strategy that needs a STEP model is shown greyed out when the setup’s part is a mesh (an STL file), with the reason under it. Facing, Rest machining, Pencil clean-up, Edge and curve following and Radial drilling are listed with “ignores selections”: they work on the whole part, and selection sets do not limit them.</p>
+<p>The <strong>Material preset</strong> fills the spindle speed, feed per tooth, plunge feed, stepover and stepdown from the tool’s cutting data for one stock material. It starts at the setup’s stock material. Changing one of those values drops the preset. Check the values against your tool, material and machine.</p>
+<h2 id="the-operation-inspector"><a class="header" href="#the-operation-inspector">The operation inspector</a></h2>
+<p>Select an operation to show its settings in the Inspector, from the top:</p>
+<ul>
+<li>the name, <strong>Delete</strong>, and the operation’s state;</li>
+<li><strong>Strategy</strong>: the strategy’s name and description, which cannot be changed here;</li>
+<li>a line such as “2 values are missing”, with <strong>Show first</strong>, when a required value is empty;</li>
+<li>a red banner when the operation cannot be generated: export is blocked while an operation is in error, and turning it off lets the others export;</li>
+<li><strong>Geometry</strong>: the selection sets the operation uses (below);</li>
+<li>the <strong>Tool</strong> section: the tool, its <strong>Tool number</strong>, <strong>Material preset</strong> and <strong>Spindle speed</strong>, and <strong>Update from library</strong>, <strong>Edit tool…</strong> and <strong>Save to library…</strong>;</li>
+<li>the settings, in the sections <strong>Tool and feeds</strong>, <strong>Pattern and tolerance</strong>, <strong>Tool axis and A</strong>, <strong>Entry, links and retract</strong> and <strong>Advanced</strong>;</li>
+<li>the operation’s notes.</li>
+</ul>
+<p>Each setting’s label has a tooltip that says what it does. An empty field shows the value that applies and where it comes from: “default”, “from the tool’s cutting data”, or “required”. The ↺ button returns a field to that value. A value outside the setting’s range is refused with a message such as “Ramp angle: above 0, at most 89. Not applied.” A setting that the last path warned about is marked; change it to remove the warning.</p>
+<p>Choices are shown as the program stores them, for example <code>clearance</code> and <code>safe_z</code> for <strong>Retract</strong>. A few have names: <strong>Shape</strong>, <strong>Coverage extent</strong>, <strong>Layer distribution</strong>, <strong>Passes</strong>, <strong>Steps between rings</strong> and <strong>Links between passes</strong>.</p>
+<h2 id="settings-every-operation-has"><a class="header" href="#settings-every-operation-has">Settings every operation has</a></h2>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Setting</th><th>Default</th><th>What it does</th></tr>
+</thead>
+<tbody>
+<tr><td>Tolerance</td><td>0.01 mm</td><td>How far the toolpath may be from the ideal surface.</td></tr>
+<tr><td>Stepover</td><td>from the tool’s cutting data, else required</td><td>The distance between neighbouring passes, measured as the strategy states.</td></tr>
+<tr><td>Stock to leave</td><td>0 mm</td><td>Material left on the surfaces for a later operation. A new rotary roughing operation starts at a tenth of the tool’s diameter, rounded to 0.05 mm and kept between 0.1 and 1 mm.</td></tr>
+<tr><td>Cutting feed</td><td>from the tool’s cutting data, else required</td><td>The <a href="../glossary.html#feed">feed</a> at the cutter’s contact point while cutting, in mm/min.</td></tr>
+<tr><td>Plunge feed</td><td>from the tool’s cutting data, else required</td><td>The feed of the tool tip moving into the material. Rotary roughing and flat or round facing also go down into the stock inside a pass no faster than this.</td></tr>
+<tr><td>Retract</td><td><code>clearance</code></td><td>Where moves between passes go: up to the safe cylinder (<code>clearance</code>), or to the safe Z (<code>safe_z</code>).</td></tr>
+<tr><td>Approach distance</td><td>1 mm</td><td>A rapid approach stops this far above the stock; the rest is a plunge at the plunge feed.</td></tr>
+<tr><td>Entry</td><td><code>plunge</code></td><td>How the tool enters the cut: a straight <code>plunge</code>, a tangent arc (<code>lead</code>), a <code>ramp</code> that follows the pass’s own path down to its first cut point, or a descending <code>helix</code>. With <code>lead</code>, a matching arc also leaves the cut at the end of the pass. On a ring or a spiral the arcs turn with the part, in the plane of the cut at the ring’s X: the tool comes down onto the cut and rises from it while the part turns, so the arcs never run along the part. A pass that is a single point is entered by a plunge instead, and a note names it.</td></tr>
+<tr><td>Allow single-point plunge</td><td>off</td><td>A pass that is a single point (a roughing layer that only touches the part’s tip, for example) has no path for a ramp to follow. With this on, the tool plunges straight down to that point instead of refusing the operation. The tool must be able to plunge (centre cutting). Only for ramp entry.</td></tr>
+<tr><td>Steeper ramp near the axis</td><td>off</td><td>Near the rotary axis a ramp round a ring needs many turns. With this on, a ring or spiral ramp that would need more than 10 turns at the Ramp angle uses a steeper angle, just enough to fit in 10 turns, never steeper than the Maximum ramp angle. Lines are not affected. Only for ramp entry.</td></tr>
+<tr><td>Maximum ramp angle</td><td>15°</td><td>The steepest angle the steeper ramp near the axis may use, at most 45°.</td></tr>
+<tr><td>Plunge to remove face nubs</td><td>off</td><td>Roughing only. Use this where the part comes to a point near the rotary axis (a pointed or tapering end, or a pin) with stock beyond it. There, roughing in rings narrows the stock round the axis to a nub no wider than the Face nub diameter, with nothing of the part inside it; with this on, the tool plunges at the axis while the part turns, to remove the nub, instead of ramping round ever smaller rings. It has no effect anywhere else. On a flat free end roughing makes no rings near the axis: face that end with a Facing operation with the <strong>Unheld end</strong> shape before roughing. Only with Entry Ramp. The tool must be able to plunge (centre cutting), and it cuts with its full width.</td></tr>
+<tr><td>Face nub diameter</td><td>0 mm</td><td>The widest nub that is plunged; 0 uses the tool’s cutting diameter, and a larger value is held to it.</td></tr>
+<tr><td>Back-and-forth ramp</td><td>off</td><td>No longer has an effect: shown only where an operation saved by an earlier version has it on. Every ramp now follows the pass’s own path.</td></tr>
+<tr><td>Ramp angle</td><td>3°</td><td>The angle of descent for a ramp or helix entry, above 0 and at most 89°.</td></tr>
+<tr><td>Helix diameter</td><td>0.75</td><td>The diameter of the helix entry, as a fraction of the tool’s diameter.</td></tr>
+<tr><td>Lead radius</td><td>0 mm</td><td>The radius of the lead arcs; 0 uses the tool’s radius.</td></tr>
+</tbody>
+</table>
+</div>
+<p><strong>A flat free end.</strong> Where the part ends in a flat face square to the rotary axis with stock beyond it, a Facing operation with the <strong>Unheld end</strong> shape before roughing removes the stock past the end across Y, so roughing leaves no nub round the axis there.</p>
+<p>The entry defaults are starting values that have not been checked on a machine. A tool that is not centre-cutting cannot plunge: choose ramp or helix entry, or say on the tool that it can plunge.</p>
+<p><strong>How a ramp follows the pass.</strong> A ramp starts the approach distance above the highest stock under the stretch of the pass it uses, and descends at no more than the ramp angle to the pass’s first cut point, where the pass is cut unchanged. On a pass that starts along a line it goes back and forth over the start of the line, ending at the first cut point. On a ring it goes round the ring before its first point, the part turning the same way as the pass; on a spiral it goes round the part at the spiral’s starting X. A swarf pass, which turns A along a blade, is the exception: it is not ramped round the part like a spiral, and its ramp goes back and forth along the blade, following the pass. Because it stays over the pass’s own path, it keeps clear of a held region, tabs and the next ring as the pass does. It enters the first line or ring with the full width of the tool, as the pass cuts it. Near the rotary axis a ring ramp can take several turns; more than 10 is refused, and Plunge or Helix is then the way in. Check the program before running it on a machine.</p>
+<p>When a required value is empty and no cutting data fills it, the operation cannot be generated, and the message says why: the setup has no stock material, the tool has no cutting data for that material, or the operation has no tool.</p>
+<h2 id="geometry-the-surfaces-an-operation-works-on"><a class="header" href="#geometry-the-surfaces-an-operation-works-on">Geometry: the surfaces an operation works on</a></h2>
+<p>Selection sets are named groups of faces, triangles or edges, made in <strong>Selection sets</strong>. The Geometry section puts them in four roles. With nothing in <strong>Cut on</strong>, the operation cuts the whole part, except Swarf (flank) machining and Face flow finishing: they cut only the faces you choose, so with no face set in <strong>Cut on</strong> they are not generated, and the message says so (“swarf needs a face set: …” or “Face-flow finishing needs a face set: …”). The Geometry section’s own line, “With nothing in Cut on, the operation cuts the whole part.”, is shown for these two strategies as well; it does not apply to them.</p>
+<dl>
+<dt id="cut-on"><a class="header" href="#cut-on">Cut on</a></dt>
+<dd>The operation cuts only on these surfaces.</dd>
+<dt id="contain-within"><a class="header" href="#contain-within">Contain within</a></dt>
+<dd>The tool may cut only inside the window of X and angle that this set spans.</dd>
+<dt id="avoid"><a class="header" href="#avoid">Avoid</a></dt>
+<dd>These surfaces are never cut; the tool may pass over them.</dd>
+<dt id="check"><a class="header" href="#check">Check</a></dt>
+<dd>The tool must not touch these surfaces.</dd>
+</dl>
+<p>For each set in <strong>Avoid</strong> or <strong>Check</strong>, the strategies that take selections (rotary roughing, helical, axial, indexed, simultaneous and face flow finishing, and swarf) offer three choices:</p>
+<dl>
+<dt id="cut-short"><a class="header" href="#cut-short">Cut short</a></dt>
+<dd>Where the tool would break the set, the pass stops short of it and starts again after it. In rotary roughing, on a Check set, the tool is instead lifted to stay the stock to leave above the set, and the material over it is still roughed. In swarf, the tool is first lifted up the face it cuts by the least that keeps it off the set, leaving a strip of that width uncut.</dd>
+<dt id="warn-only"><a class="header" href="#warn-only">Warn only</a></dt>
+<dd>The path is kept where the tool would break the set: the tool is not kept clear of it. A warning says how far along the path it breaks the set. On a <strong>Check</strong> set it is a warning to acknowledge, since a check set often stands for a clamp. It samples the path and can miss a narrow set, so no warning does not show that the tool is clear.</dd>
+<dt id="ignore"><a class="header" href="#ignore">Ignore</a></dt>
+<dd>The set limits nothing, and the operation warns that it limits nothing.</dd>
+</dl>
+<p>Swarf also has two choices for a set in <strong>Contain within</strong>: <strong>Limits the pass</strong> (cut only the rulings that lie wholly inside the boundary) and <strong>Limits the tip</strong> (raise the tool tip so the bottom of the flank stops where a ruling enters the boundary).</p>
+<p>The Geometry section also warns when a set cannot be used by this strategy on this part, or when a set reaches a <a href="../glossary.html#held-region">held region</a> or a tab, with <strong>Show in view</strong> and <strong>Edit workholding</strong>. On a mesh part, a strategy that ignores selections cannot be generated while it has selection sets: take them out of the operation.</p>
+<h2 id="settings-some-strategies-share"><a class="header" href="#settings-some-strategies-share">Settings some strategies share</a></h2>
+<dl>
+<dt id="extend-past-the-stock"><a class="header" href="#extend-past-the-stock">Extend past the stock</a></dt>
+<dd>
+<p><code>no</code>, <code>both ends</code>, <code>start end</code> or <code>far end</code>. Carries the passes past the chosen ends of the stock, so the tool leaves no thin skin at the stock’s edge. The start end is the low X end. An end held by the chuck cannot be extended past. Rotary roughing, facing, and helical, axial and indexed finishing. On helical finishing the passes carry on past the part in their own motion: the spiral at its pitch, or rings at the ring spacing joined by the operation’s <strong>Steps between rings</strong>, so the stock past the part’s end is cut all round. That takes as many extra turns at each end as the pitch fits into the distance from the part’s end to the extended end, which can be many turns at a fine pitch; the operation’s note gives the turns and the length of path added.</p>
+</dd>
+<dd>
+<p>Past the part’s end the passes run on at the height of the pass’s last point; they do not go down to the rotary axis. Where the part’s end is narrower than the tool can follow, such as a point or a dome, a core of stock that wide stays past the end. On the tutorial’s baluster, with 4 mm of stock past its pointed finial and a 3.175 mm ball, the core is about 5.3 mm across. <strong>Face free ends</strong> (on by default) takes that end down to the axis, with a <strong>Part cut free</strong> warning to acknowledge, because the stock past the end can come free and be thrown; a Facing operation with the <strong>Unheld end</strong> shape also removes the stock past the end. Even then a blunt nub can stay at a point, about as wide as the core and about 1 mm long. The simulation measures the material left on the part’s surface, so its figures do not count stock past the part’s end: look at the cut stock in the view.</p>
+</dd>
+<dt id="steps-between-rings"><a class="header" href="#steps-between-rings">Steps between rings</a></dt>
+<dd>
+<p>With <strong>Passes</strong> set to <strong>Rings</strong>: <strong>Sharp</strong> steps along the part with A held still, a square corner at each end of the step; <strong>Blended</strong>, the default for new operations, moves to the next ring while A turns on by <strong>Blend over</strong> (default 45°, more than 0 and at most 180), so the tool eases across instead of turning into the uncut wall. Blended keeps the load nearer the stepover and makes each ring’s path a little longer (about an eighth at 45°). An operation saved before this setting keeps sharp steps. Rotary roughing (continuous, around the part), round facing, helical finishing, rest machining and simultaneous finishing (spiral pattern). Beside a held region the rings start on a whole ring at the edge of the region the tool must keep out of.</p>
+</dd>
+<dt id="distance-past-the-stock"><a class="header" href="#distance-past-the-stock">Distance past the stock</a></dt>
+<dd>
+<p>How far past the edge of the stock the near side of the tool goes, from 0 up to the tool’s diameter. It starts at a tenth of the tool’s diameter, rounded to 0.05 mm, at least 0.1 mm. A distance that takes the path beyond the machine’s travel is refused.</p>
+</dd>
+<dt id="adaptive-spacing"><a class="header" href="#adaptive-spacing">Adaptive spacing</a></dt>
+<dd>
+<p>On by default. Spaces the passes by the material they leave: the stepover is the widest spacing, and passes are added where more than the <strong>Allowed excess</strong> (default 0.01 mm) would stand between them. They are never closer than <strong>Smallest spacing</strong> (default 0.01 mm). Rotary roughing when its passes run along the axis, flat facing, helical, axial and indexed finishing, and simultaneous finishing with the axial pattern. See <a href="../glossary.html#adaptive-spacing">adaptive spacing</a> and <a href="#a-partial-path-must-be-acknowledged">Partial paths</a>.</p>
+</dd>
+<dt id="scallop-height"><a class="header" href="#scallop-height">Scallop height</a></dt>
+<dd>
+<p>On helical and axial finishing with <strong>Adaptive spacing</strong> off: the largest cusp between passes for a ball-end or bull-nose tool. The passes are as close as the smaller of this and the stepover needs. 0 turns it off. With <strong>Adaptive spacing</strong> on, the same field is <strong>Allowed excess</strong>.</p>
+</dd>
+<dt id="exact-step-surface-contact"><a class="header" href="#exact-step-surface-contact">Exact STEP surface contact</a></dt>
+<dd>
+<p>Only on a STEP part. Drops the tool on the part’s exact surfaces instead of the triangles made from them: more accurate, and slower. On by default for helical, indexed and simultaneous finishing and rest machining; off for axial finishing and pencil clean-up, where it is much slower. Some tool shapes always use the triangles, and a line under the field says so.</p>
+</dd>
+<dt id="links-between-passes"><a class="header" href="#links-between-passes">Links between passes</a></dt>
+<dd>
+<p><strong>Retract to the clearance</strong>, or <strong>Stay low where clear</strong>, the default for new operations: links stay the approach distance above the stock where the whole link is clear of the stock, the held regions and the part. The stock is checked at points along each link, so a very thin piece of stock between them could be missed. A link that cannot stay low retracts, and a note says how many did. Facing (end and box shapes), helical, axial, indexed and simultaneous finishing, and rest machining.</p>
+</dd>
+<dt id="pass-order"><a class="header" href="#pass-order">Pass order</a></dt>
+<dd>
+<p><code>by_region</code>, the default for new operations, cuts the turns at end faces and the passes on hidden surfaces next to the passes of their region; <code>after_main</code> cuts them after all the main passes. The passes are the same either way. Helical and simultaneous finishing, and rest machining.</p>
+</dd>
+<dt id="face-free-ends"><a class="header" href="#face-free-ends">Face free ends</a></dt>
+<dd>
+<p>On by default. At each end face of the part with nothing beyond it, the tool steps down beside the face by the <strong>Stepdown</strong>, so the face keeps only the stock to leave. Helical and axial finishing, and rest machining. See <a href="#a-free-end-deeper-than-the-flutes">A free end deeper than the flutes</a>.</p>
+</dd>
+<dt id="finishing-layers-finish-allowance-stepdown"><a class="header" href="#finishing-layers-finish-allowance-stepdown">Finishing layers, Finish allowance, Stepdown</a></dt>
+<dd>
+<p><strong>Finishing layers</strong> (off by default) cuts in layers the <strong>Stepdown</strong> apart along the tool axis, the last on the finished surface. The layers stop <strong>Finish allowance</strong> (default 0.1 mm, less than the stepdown) above the surface, and the final pass takes the rest. <strong>Stepdown</strong> comes from the tool’s cutting data when it is not set, and is required with finishing layers on. Helical, axial and indexed finishing.</p>
+</dd>
+</dl>
+<h2 id="rotary-roughing"><a class="header" href="#rotary-roughing">Rotary roughing</a></h2>
+<p>Removes most of the material from the stock in layers, from the outside in. The part can turn continuously or be held at chosen angles. Use it before finishing, with a stock to leave for the finishing tool.</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Setting</th><th>Default</th><th>What it does</th></tr>
+</thead>
+<tbody>
+<tr><td>Form</td><td><code>continuous</code></td><td><code>continuous</code> layers turn A as the tool cuts; <code>indexed</code> layers hold A at fixed positions (3+1).</td></tr>
+<tr><td>Cut direction</td><td><code>usual for the form</code></td><td><code>along the length of the part</code> runs passes along X; <code>around the part</code> wraps them round the part. The usual is around for continuous, along for indexed.</td></tr>
+<tr><td>Stepdown</td><td>from the tool’s cutting data, else required</td><td>The depth of each layer. Layers are made equal. It cannot be more than the tool’s flute length.</td></tr>
+<tr><td>Index angle</td><td>30°</td><td>Indexed form: the angle between positions of A.</td></tr>
+<tr><td>Start angle</td><td>0°</td><td>A at the first index position, or at the start of the helix.</td></tr>
+<tr><td>Largest angle step</td><td>5°</td><td>Continuous form: the most A may turn between two points of a layer.</td></tr>
+<tr><td>Smallest cut</td><td>0.15 mm</td><td>Material standing less than this above the tool is treated as air. Keep it at least the simulation’s cell size (0.1 mm by default).</td></tr>
+<tr><td>Passes</td><td>Spiral</td><td>Continuous form around the part: <strong>Spiral</strong>, one continuous spiral per layer, or <strong>Rings</strong>, one full turn at a time.</td></tr>
+</tbody>
+</table>
+</div>
+<p>It also has <strong>Extend past the stock</strong>, and <strong>Adaptive spacing</strong> when its passes run along the axis.</p>
+<h2 id="facing"><a class="header" href="#facing">Facing</a></h2>
+<p>Prepares the stock: flat faces along it, a round diameter, the end opposite the held end, or chosen box sides. It ignores selections, and keeps off the held regions and tabs.</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Setting</th><th>Default</th><th>What it does</th></tr>
+</thead>
+<tbody>
+<tr><td>Shape</td><td>Flat along stock</td><td><strong>Flat along stock</strong>: a flat face at each angle listed. <strong>Round</strong>: the stock turned down to a cylinder. <strong>Unheld end</strong>: the end opposite the only held end. <strong>Box sides</strong>: chosen standard sides and extra faces at any angle.</td></tr>
+<tr><td>Finished size</td><td>required</td><td>Flat: how far the face is from the rotary axis. Round: the diameter to turn down to.</td></tr>
+<tr><td>Angles</td><td>0</td><td>Flat and round: the A positions to face at, in degrees, separated by commas, in cutting order.</td></tr>
+<tr><td>Coverage extent</td><td>Whole stock</td><td><strong>Whole stock</strong>, <strong>Part only</strong> (the part’s outline), or <strong>Part plus tabs</strong>.</td></tr>
+<tr><td>Extent margin</td><td>0 mm</td><td>Extra coverage beyond each edge of the coverage. For round it is <strong>Axial margin</strong>, at both ends.</td></tr>
+<tr><td>Layer distribution</td><td>Full stepdown, shorter final pass</td><td>Box sides: full layers with a shorter last one, or <strong>Equal stepdowns</strong>.</td></tr>
+<tr><td>Face +Z (A 0°), +Y (A 90°), −Z (A 180°), −Y (A 270°)</td><td>off</td><td>Box sides: the standard sides to face; <strong>All four sides</strong> ticks them all. For each, <strong>part plus allowance</strong> (on) sets the face from the part and its stock to leave; clear it to type a <strong>plane offset</strong>.</td></tr>
+<tr><td>Arbitrary A faces</td><td>none</td><td>Box sides: more faces at any A, each with its offset, in your order.</td></tr>
+<tr><td>Stepdown</td><td>from the tool’s cutting data, else required</td><td>The depth of each layer. For the unheld end it is <strong>Stepdown (band along the tool)</strong>: the spacing of the bands the tool’s flank cuts, at most the flute length.</td></tr>
+<tr><td>Largest angle step, Start angle</td><td>5°, 0°</td><td>As for rotary roughing.</td></tr>
+<tr><td>Smallest cut</td><td>0.15 mm</td><td>Flat and round: as for rotary roughing.</td></tr>
+<tr><td>Passes</td><td>Spiral</td><td>Round: <strong>Spiral</strong> or <strong>Rings</strong>.</td></tr>
+</tbody>
+</table>
+</div>
+<p>For the unheld end, <strong>Stepover</strong> is labelled <strong>Stepover (slice thickness along X)</strong>: the thickness of each slice taken off the end, at most the tool’s cutting diameter. Where there is room beside the stock, each band is entered from the air; where there is not, at the plunge feed. Facing also has <strong>Extend past the stock</strong> with <strong>Also past the sides</strong>, and flat facing has <strong>Adaptive spacing</strong>.</p>
+<h2 id="helical-finishing"><a class="header" href="#helical-finishing">Helical finishing</a></h2>
+<p>Follows the surface in a spiral round the part as the tool moves along it: a general finish for round shapes. Selections and gaps can split the spiral, and the tool may not reach tight inside corners.</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Setting</th><th>Default</th><th>What it does</th></tr>
+</thead>
+<tbody>
+<tr><td>Rotation</td><td><code>positive</code></td><td>Which way A turns as X increases.</td></tr>
+<tr><td>Start angle</td><td>0°</td><td>A at the lowest X of the part.</td></tr>
+<tr><td>Largest angle step</td><td>5°</td><td>The most A may turn between two points; points are added where the surface needs them.</td></tr>
+<tr><td>Scallop height / Allowed excess</td><td>0 / 0.01 mm</td><td>See <a href="#settings-some-strategies-share">the shared settings</a>.</td></tr>
+<tr><td>Passes</td><td>Spiral</td><td><strong>Spiral</strong> or <strong>Rings</strong> (one full turn at a time, at the start angle).</td></tr>
+</tbody>
+</table>
+</div>
+<p>Also: <strong>Exact STEP surface contact</strong> (on), <strong>Extend past the stock</strong>, <strong>Face free ends</strong>, <strong>Finishing layers</strong>, <strong>Adaptive spacing</strong>, <strong>Pass order</strong> and <strong>Links between passes</strong>.</p>
+<h2 id="axial-finishing"><a class="header" href="#axial-finishing">Axial finishing</a></h2>
+<p>Passes along the length of the part, turning it a small step between passes. Use it where marks along the part suit the job better than a spiral.</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Setting</th><th>Default</th><th>What it does</th></tr>
+</thead>
+<tbody>
+<tr><td>Direction</td><td><code>zigzag</code></td><td><code>zigzag</code> alternates the direction of each pass; <code>climb</code> cuts every pass the same way.</td></tr>
+<tr><td>Start angle</td><td>0°</td><td>A of the first pass.</td></tr>
+<tr><td>Scallop height / Allowed excess</td><td>0 / 0.01 mm</td><td>See <a href="#settings-some-strategies-share">the shared settings</a>.</td></tr>
+<tr><td>Largest step along X</td><td>1 mm</td><td>The most X may advance between two points of a pass.</td></tr>
+</tbody>
+</table>
+</div>
+<p>Also: <strong>Exact STEP surface contact</strong> (off), <strong>Links between passes</strong>, <strong>Extend past the stock</strong>, <strong>Face free ends</strong>, <strong>Finishing layers</strong> and <strong>Adaptive spacing</strong>.</p>
+<h2 id="indexed-finishing"><a class="header" href="#indexed-finishing">Indexed finishing</a></h2>
+<p>Turns the part to each chosen angle, holds it still, and follows the surface along its length. It does not turn the part during a pass.</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Setting</th><th>Default</th><th>What it does</th></tr>
+</thead>
+<tbody>
+<tr><td>Angles</td><td>empty</td><td>The A positions to cut at, in degrees, separated by commas, in cutting order (up to 720). Empty uses <strong>Count</strong>.</td></tr>
+<tr><td>Count</td><td>4</td><td>How many equally spaced positions to cut at, from 1 to 720.</td></tr>
+<tr><td>Start angle</td><td>0°</td><td>A of the first equally spaced position.</td></tr>
+<tr><td>Direction</td><td><code>zigzag</code></td><td>As for axial finishing.</td></tr>
+<tr><td>Largest step along X</td><td>1 mm</td><td>As for axial finishing.</td></tr>
+</tbody>
+</table>
+</div>
+<p>Also: <strong>Exact STEP surface contact</strong> (on), <strong>Links between passes</strong>, <strong>Extend past the stock</strong>, <strong>Finishing layers</strong> and <strong>Adaptive spacing</strong>. It has no Scallop height and no Face free ends.</p>
+<h2 id="simultaneous-4-axis-finishing"><a class="header" href="#simultaneous-4-axis-finishing">Simultaneous 4-axis finishing</a></h2>
+<p>Turns the part while the tool moves, so the tool meets the surface from different directions and stays close to the surface normal. Four axes cannot follow every surface direction; where it cannot follow the part it says so instead of cutting it badly. Surfaces a tool cannot reach from outside, such as the walls of a slot, get passes of their own, and a section of the part that is off the rotary axis, such as a crank pin, is driven round its own centre.</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Setting</th><th>Default</th><th>What it does</th></tr>
+</thead>
+<tbody>
+<tr><td>Pattern</td><td><code>spiral</code></td><td><code>spiral</code>: one helix round the axis, the stepover apart per turn. <code>axial</code>: passes along the axis, the stepover apart at the part’s largest radius.</td></tr>
+<tr><td>Rotation</td><td><code>positive</code></td><td>Which way A turns as X increases along a spiral.</td></tr>
+<tr><td>Start angle</td><td>0°</td><td>A at the start of the path.</td></tr>
+<tr><td>Largest angle step</td><td>5°</td><td>The most the path turns round the axis between two points.</td></tr>
+<tr><td>Lead angle</td><td>0°</td><td>From −30° to 30°. Leans the tool from the normal towards the direction of travel round the axis, for example to keep the centre of a ball, where it barely cuts, off the surface. Axial passes need 0.</td></tr>
+<tr><td>Largest tilt</td><td>10°</td><td>From 0° to 30°. How far the tool may lean away from the normal so that A turns smoothly. A larger value cuts with more of the tool’s side.</td></tr>
+<tr><td>Largest lean on hidden surfaces</td><td>90°</td><td>From 0° to 90°. How far the tool may lean on surfaces a straight approach cannot see. Anything that needs more is left uncut and listed in a warning.</td></tr>
+<tr><td>Passes</td><td>Spiral</td><td>Spiral pattern: <strong>Spiral</strong> or <strong>Rings</strong>.</td></tr>
+</tbody>
+</table>
+</div>
+<p>Also: <strong>Exact STEP surface contact</strong> (on), <strong>Pass order</strong> and <strong>Links between passes</strong>, and with the axial pattern <strong>Adaptive spacing</strong>. It has no Extend past the stock.</p>
+<h2 id="rest-machining"><a class="header" href="#rest-machining">Rest machining</a></h2>
+<p>Uses the stock left by earlier operations in the same setup to find and cut what remains, for example with a smaller tool in inside corners. The remaining material comes from the stock simulation. It ignores selections. If no earlier operation in the setup has cut, the setup’s whole stock counts as material left.</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Setting</th><th>Default</th><th>What it does</th></tr>
+</thead>
+<tbody>
+<tr><td>Smallest material to clean</td><td>0.15 mm</td><td>Material thinner than this above the part is taken as clean. Keep it above one and a half simulation cells.</td></tr>
+<tr><td>Rotation, Start angle</td><td><code>positive</code>, 0°</td><td>As for helical finishing.</td></tr>
+<tr><td>Largest angle step</td><td>2°</td><td>The most A may turn between two points.</td></tr>
+<tr><td>Passes</td><td>Spiral</td><td><strong>Spiral</strong> or <strong>Rings</strong>. Either way only the places with material left are cut.</td></tr>
+</tbody>
+</table>
+</div>
+<p>Also: <strong>Exact STEP surface contact</strong> (on), <strong>Face free ends</strong>, <strong>Stepdown</strong>, <strong>Pass order</strong> and <strong>Links between passes</strong>.</p>
+<h2 id="pencil-clean-up"><a class="header" href="#pencil-clean-up">Pencil clean-up</a></h2>
+<p>Follows sharp inside corners to remove ridges left by other finishing operations. Use it as a final clean-up, not to cut large areas. It does not cover every inside corner. It ignores selections.</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Setting</th><th>Default</th><th>What it does</th></tr>
+</thead>
+<tbody>
+<tr><td>Smallest material to clean</td><td>0.15 mm</td><td>As for rest machining.</td></tr>
+<tr><td>Crease angle</td><td>30°</td><td>The smallest turn between two faces that counts as an inside corner.</td></tr>
+<tr><td>Largest step</td><td>0.5 mm</td><td>The furthest apart that points of the path are along the corner.</td></tr>
+</tbody>
+</table>
+</div>
+<p>Also: <strong>Exact STEP surface contact</strong> (off).</p>
+<h2 id="face-flow-finishing"><a class="header" href="#face-flow-finishing">Face flow finishing</a></h2>
+<p>Finishes selected faces of a STEP model with passes that run along one edge of each face, the guide, and step across the face to the opposite side. The passes follow the face’s shape rather than the machine’s axes: for example the floor between the blades of a blisk. Where the two sides differ in length, the passes blend between them. It always uses the exact faces.</p>
+<p>In its Geometry section, <strong>Cut on</strong> has two rows:</p>
+<dl>
+<dt id="cut-on-1"><a class="header" href="#cut-on-1">Cut on</a></dt>
+<dd>The faces to cut, each with passes along its guide. Only face sets can go here, and at least one is needed.</dd>
+<dt id="guide-edge"><a class="header" href="#guide-edge">Guide edge</a></dt>
+<dd>The edges each face’s passes run along. With none, each face starts from its longest side: the face’s outline is split into sides where it turns by more than 30°, and the longest is the guide. The guide edges must be on the outline of the faces, joined end to end, and not the whole outline.</dd>
+</dl>
+<p>Each face is cut on its own, longest guide first, then the faces that share an edge with it. No pass crosses from one face to the next.</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Setting</th><th>Default</th><th>What it does</th></tr>
+</thead>
+<tbody>
+<tr><td>Scallop height</td><td>0 mm</td><td>The highest ridge left between passes for a ball-end or bull-nose tool; passes are put closer than the stepover where it needs it. 0 leaves the stepover alone. With other tool shapes it is ignored, and a note says so.</td></tr>
+<tr><td>Cutting direction</td><td><code>meander</code></td><td><code>meander</code> alternates the direction of the passes; <code>climb</code> and <code>conventional</code> cut every pass the same way relative to the uncut material.</td></tr>
+<tr><td>Lead angle</td><td>0°</td><td>From −30° to 30°. How far the tool leans from the normal towards the travel round the axis. Passes along the axis cannot lean.</td></tr>
+<tr><td>Maximum tilt</td><td>5°</td><td>From 0° to 30°. How far the tool may leave its leaned direction to smooth the turning of the part.</td></tr>
+</tbody>
+</table>
+</div>
+<p>The notes say how many passes were cut on how many faces, and the guide of each face. Where a neighbouring face, such as a blade wall, is in the way of the tool, or the face is too narrow for it, that stretch is left uncut and a warning lists where (up to five places, then how many more). Check those places in the simulation.</p>
+<h2 id="edge-and-curve-following"><a class="header" href="#edge-and-curve-following">Edge and curve following</a></h2>
+<p>Moves the tool along the part’s edges to cut lines, for engraving or carving. It follows lines rather than clearing areas.</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Setting</th><th>Default</th><th>What it does</th></tr>
+</thead>
+<tbody>
+<tr><td>Mode</td><td><code>engrave</code></td><td><code>engrave</code> cuts one line along each chain of edges; <code>carve</code> cuts a band of the <strong>Carve width</strong>.</td></tr>
+<tr><td>Depth</td><td>0.2 mm</td><td>How far below the surface the tool tip goes, along the tool axis.</td></tr>
+<tr><td>Line width</td><td>0 mm</td><td>Above 0, the depth is the one at which the tool cuts this width (for a V-bit).</td></tr>
+<tr><td>Depth per pass</td><td>0 mm</td><td>The depth of each level; 0 cuts the whole depth at once.</td></tr>
+<tr><td>Carve width</td><td>0 mm</td><td>Carve only: the width of the band, centred on the chain.</td></tr>
+<tr><td>Start</td><td><code>first</code></td><td>Where each chain starts: as stored (<code>first</code>), <code>reversed</code>, at the lowest or highest X (<code>low_x</code>, <code>high_x</code>), or nearest the <strong>Start angle</strong> (<code>angle</code>).</td></tr>
+<tr><td>Start angle</td><td>0°</td><td>From −360° to 360°, measured from +Y towards +Z.</td></tr>
+<tr><td>Crease angle</td><td>30°</td><td>The smallest turn between two faces that makes a mesh edge one to follow.</td></tr>
+<tr><td>Shortest chain</td><td>0 mm</td><td>Chains shorter than this are not cut.</td></tr>
+<tr><td>Largest step</td><td>0.5 mm</td><td>The furthest apart that points of the path are along a chain.</td></tr>
+</tbody>
+</table>
+</div>
+<h2 id="swarf-flank-machining"><a class="header" href="#swarf-flank-machining">Swarf (flank) machining</a></h2>
+<p>Cuts selected wall faces, such as a blade, with the side of the tool. The wall can curve along its length, but must have straight lines (rulings) across its height for the side of the tool to follow. Put a face set of the walls in <strong>Cut on</strong>. Faces that are not ruled, or whose rulings run along the rotary axis, are refused, and the message names them.</p>
+<p>Some faces make the tool cut into the surface by more than the tolerance. A warning then gives the depth and the place, and says which tool or tolerance would avoid it.</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Setting</th><th>Default</th><th>What it does</th></tr>
+</thead>
+<tbody>
+<tr><td>Keep off the end faces</td><td>on</td><td>Stops each pass short of the faces that meet the ends of the face, such as a wall it stands against, by the least length that keeps the tool off them. That part of the face is left uncut, and the note says how much. Off, the pass runs to the ends, and any cut into those faces is warned of. Only the faces that share an edge with the face are checked.</td></tr>
+<tr><td>Direction</td><td><code>forward</code></td><td>Which way along the face the tool moves.</td></tr>
+<tr><td>Tip extension</td><td>0 mm</td><td>How far the tool tip reaches beyond the end of the ruling it sits at. A negative value pulls the tool up the face, leaving a strip that wide uncut.</td></tr>
+<tr><td>Tip end</td><td><code>auto</code></td><td>Which end of the rulings the tip sits at: <code>auto</code> chooses the end with less tilt, then the one nearer the axis; <code>reversed</code> takes the other.</td></tr>
+<tr><td>Most material left</td><td>0 (meaning 0.1 mm)</td><td>The most material the flank may leave anywhere on the face. More than the tolerance is reported; more than this refuses the face.</td></tr>
+</tbody>
+</table>
+</div>
+<p><strong>Keep off the end faces</strong> checks the faces next to the face against the tool’s cutting part only: the shank, the holder and the rest of the part are not checked. The swarf warnings each point at the setting to change. The three below are about a cut into a face next to the face, and are warnings to acknowledge:</p>
+<ul>
+<li>The tool cuts into a face along the ends of the rulings, such as a floor, by more than the tolerance: put that face in an avoid set on <strong>Cut short</strong>, or set a negative <strong>Tip extension</strong>.</li>
+<li>With <strong>Keep off the end faces</strong> off, the tool cuts into an end face: turn the setting on, or put the face in an avoid set on <strong>Cut short</strong>.</li>
+<li>With it on, the tool still reaches an end face between the points checked: put the face in an avoid set on <strong>Cut short</strong>, or use a tool with a smaller radius.</li>
+</ul>
+<p>If no position along the face keeps the tool off its end faces, the face is refused: use a tool with a smaller radius, turn the setting off, or take the face out of the set.</p>
+<h2 id="radial-drilling"><a class="header" href="#radial-drilling">Radial drilling</a></h2>
+<p>Drills holes into the side of the part, turning the part so each hole faces the tool. It finds the round holes in a STEP model. Use a drill that matches the hole.</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Setting</th><th>Default</th><th>What it does</th></tr>
+</thead>
+<tbody>
+<tr><td>Peck depth</td><td>0 mm</td><td>The deepest one peck goes; 0 drills each hole in one move.</td></tr>
+<tr><td>Peck mode</td><td><code>full_retract</code></td><td>Between pecks the tool goes back to the retract height (<code>full_retract</code>), or backs out a short way (<code>chip_break</code>).</td></tr>
+<tr><td>Chip-break retract</td><td>0.5 mm</td><td>How far the tool backs out in <code>chip_break</code> mode.</td></tr>
+<tr><td>Retract height</td><td>2 mm</td><td>How far above the top of the hole the tool retracts to and starts feeding from.</td></tr>
+<tr><td>Re-entry clearance</td><td>0.5 mm</td><td>In <code>full_retract</code> mode, a rapid back into the hole stops this far above the last peck.</td></tr>
+<tr><td>Through allowance</td><td>0.5 mm</td><td>How far past the end of a through hole the tool’s full diameter goes.</td></tr>
+<tr><td>Blind hole depth</td><td><code>full_diameter</code></td><td>A blind hole is drilled until the full diameter (<code>full_diameter</code>), or the tip (<code>tip</code>), reaches its depth.</td></tr>
+<tr><td>Diameter tolerance</td><td>0.1 mm</td><td>A hole is drilled only if its diameter is within this of the tool’s.</td></tr>
+<tr><td>Axis tolerance</td><td>0.5°</td><td>A hole tilted more than this from the plane across the axis cannot be drilled on four axes and is left out.</td></tr>
+</tbody>
+</table>
+</div>
+<p>Holes left out are listed in the notes with the reason. If no hole can be drilled with the tool, the operation cannot be generated. The output has no canned drilling cycles.</p>
+<h2 id="checks-on-every-operation"><a class="header" href="#checks-on-every-operation">Checks on every operation</a></h2>
+<h3 id="errors-warnings-and-notes"><a class="header" href="#errors-warnings-and-notes">Errors, warnings and notes</a></h3>
+<dl>
+<dt id="errors"><a class="header" href="#errors">Errors</a></dt>
+<dd>The operation cannot be generated, and the message says why. Export is blocked while an operation is in error; turn it off to export the others.</dd>
+<dt id="warnings"><a class="header" href="#warnings">Warnings</a></dt>
+<dd>The path was made, but something needs your attention. The export lists each one in the same words as Messages (for example “Held region (operation ‘Finish’): …”). Read them before you run the program.</dd>
+<dt id="warnings-to-acknowledge"><a class="header" href="#warnings-to-acknowledge">Warnings to acknowledge</a></dt>
+<dd>A warning that may be a collision of the tool, its shank or its holder with the part, the stock, a tab or a held region. The operation’s mark reads “Needs acknowledging: …”, Messages lists it first among the warnings, and the export writes nothing until you tick that you have read it (see <a href="#possible-collisions-must-be-acknowledged">Possible collisions must be acknowledged</a>).</dd>
+<dt id="information"><a class="header" href="#information">Information</a></dt>
+<dd>Notes about what the operation did, such as how many links stayed low.</dd>
+</dl>
+<h3 id="flute-length"><a class="header" href="#flute-length">Flute length</a></h3>
+<p>For strategies that do not cut in layers, the program checks the written path against the stock in the tool’s reach. Where the stock stands higher above the tool’s tip than the tool’s flutes are long, the shank may meet the stock. This is a warning to acknowledge, “Flute length (operation ‘…’, tool ‘…’): …”, and the path is kept. It gives the depth and the place, and suggests a tool with longer flutes, roughing the part first in this setup, or turning on <strong>Finishing layers</strong> where the strategy has it.</p>
+<p>Rotary roughing, facing and finishing layers check their own <strong>Stepdown</strong> instead: a stepdown deeper than the flutes is an error.</p>
+<h3 id="a-free-end-deeper-than-the-flutes"><a class="header" href="#a-free-end-deeper-than-the-flutes">A free end deeper than the flutes</a></h3>
+<p>With <strong>Face free ends</strong> on, where the stock beside a free end is deeper than the tool’s flutes, that end is not faced. It keeps what earlier operations left, the rest of the path is made, and a “Flute length” warning to acknowledge says so. Use a tool with longer flutes, face the end with a Facing operation, or turn off <strong>Face free ends</strong>.</p>
+<h3 id="tabs"><a class="header" href="#tabs">Tabs</a></h3>
+<p>An operation is checked against the tabs it can reach. A tab shorter than the tool is wide gives a warning to acknowledge, “Tab length (operation ‘…’, tool ‘…’): …”: the tool may not be able to cut the gap beside it to shape, and may cut through it. Use a smaller tool, or make the tab longer. A tab that is not wholly in the head or tail zone, between a held region or the end of the stock and the part, is an error for the operations that can reach it. See <a href="../concepts/tabs.html">Tabs</a>.</p>
+<h3 id="a-partial-path-must-be-acknowledged"><a class="header" href="#a-partial-path-must-be-acknowledged">A partial path must be acknowledged</a></h3>
+<p>Where <strong>Adaptive spacing</strong> cannot confirm the material left between passes before it reaches its limits, it keeps the path made so far and warns that it is not complete. Before it writes any G-code, the export asks you to tick “I accept the partial path made for this result: it is not complete, and I will check the surface before running the program”. Without the tick it does not write the files.</p>
+<h3 id="possible-collisions-must-be-acknowledged"><a class="header" href="#possible-collisions-must-be-acknowledged">Possible collisions must be acknowledged</a></h3>
+<p>These warnings may be a collision, so the export asks you to tick “I have read the possible collisions listed for this result and will check them before running the program” before it writes any G-code. The tick is separate from the partial-path tick, and holds for these files only.</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Asks for the tick</th><th>Does not</th></tr>
+</thead>
+<tbody>
+<tr><td>The stock deeper than the tool’s flutes, in any of the flute-length warnings</td><td>A swarf overcut into the face it cuts</td></tr>
+<tr><td>A tab shorter than the tool is wide</td><td>A cut into an avoid set</td></tr>
+<tr><td>Swarf cutting into a face next to it</td><td>The ring of stock left at a faced end</td></tr>
+<tr><td>A check set the tool touches (<strong>Warn only</strong>)</td><td>A move beyond the machine’s travel</td></tr>
+<tr><td>A part that can be cut free at a free end and thrown</td><td>Areas simultaneous finishing could not reach</td></tr>
+<tr><td>A rapid move that removes material, found by the simulation</td><td>A shank wider than the cutting part, where the path is broken</td></tr>
+<tr><td>A safe cylinder that does not enclose the stock or the part, or is inside the minimum clearance</td><td></td></tr>
+<tr><td>A tool that may be too long to clear the workholding at the safe Z</td><td></td></tr>
+</tbody>
+</table>
+</div>
+<p>On the command line, <code>openchuck-cli regenerate --out</code> refuses to write while there are possible collisions, unless you pass <code>--acknowledge-collision-warnings</code> (see <a href="command-line.html#regenerating-and-writing-g-code">Command line</a>).</p>
+<p>None of these checks shows that a program is right for your machine. The program does not check the chuck, a tailstock, the tool holder or the machine body against the part; see <a href="../start/limitations.html">Known limitations</a>.</p>
+
+        </div>
+        <nav class="pager" aria-label="Previous and next page">
+          <a class="prev" rel="prev" href="../safety/checklist.html"><span>Previous</span>Safe-practice checklist</a>
+          <a class="next" rel="next" href="../reference/settings.html"><span>Next</span>Settings</a>
+        </nav>
+      </main>
+      <footer class="site-footer">
+        <p class="notice">Generated G-code must be verified by the user before it is run on a machine. OpenChuckCAM does not guarantee that a program is safe or correct for any machine, tool or setup.</p>
+        <p class="stamp">Describes OpenChuckCAM 0.55.1 (app-v0.55.1, commit 7dbae3a), built 2026-11-26. Licensed AGPL-3.0-or-later.</p>
+      </footer>
+    </div>
+  </div>
+  <script>
+    // On a narrow screen the contents start folded; without JavaScript they stay open.
+    if (matchMedia('(max-width: 900px)').matches) document.querySelector('.sidebar details').open = false;
+    (function () {
+      var b = document.querySelector('.theme-toggle'), root = document.documentElement;
+      function dark() { return root.dataset.theme ? root.dataset.theme === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches; }
+      function label() { b.textContent = dark() ? 'Light theme' : 'Dark theme'; }
+      b.hidden = false; label();
+      b.addEventListener('click', function () {
+        root.dataset.theme = dark() ? 'light' : 'dark';
+        try { localStorage.setItem('oc-theme', root.dataset.theme); } catch (e) {}
+        label();
+      });
+    })();
+  </script>
+  <script src="../versions.js"></script>
+  <script src="../elasticlunr-ef4e11c1.min.js"></script>
+  <script src="../mark-09e88c2c.min.js"></script>
+  <script src="../searcher-09f2665d.js"></script>
+  <script>
+    // mdBook's search script expects a toggle button and loads its index when the box is shown.
+    // The box is always visible here, so the first focus presses the (hidden) toggle once.
+    (function () {
+      var bar = document.getElementById('mdbook-searchbar'), t = document.getElementById('mdbook-search-toggle'), done = false;
+      bar.addEventListener('focus', function () { if (!done) { done = true; t.click(); bar.focus(); } });
+    })();
+  </script>
+  
+</body>
+</html>

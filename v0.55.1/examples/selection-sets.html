@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
+<!-- OpenChuckCAM user guide: the page template (decision 0400). It replaces mdBook's own theme completely.
+     The @@...@@ placeholders and the latest-banner markers are filled in by user-docs/tools/build.py. -->
+<html lang="en" dir="ltr">
+<head>
+  <meta charset="utf-8">
+  <title>Selection sets on a blisk - OpenChuckCAM user guide</title>
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="The user guide for OpenChuckCAM, free, open source CAM for 4-axis rotary CNC: how to turn a 3D model into G-code, and what to check before you run it.">
+  <meta name="docs-version" content="0.55.1">
+  <meta name="color-scheme" content="light dark">
+  <link rel="icon" href="../favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="../favicon.png" type="image/png" sizes="32x32">
+  <link rel="stylesheet" href="../style.css">
+  <script>
+    // The reader's theme choice, if any, is kept in localStorage (not a cookie). Without one, the page follows the system.
+    try { var t = localStorage.getItem('oc-theme'); if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t; } catch (e) {}
+    const path_to_root = "../";
+    window.path_to_searchindex_js = "../searchindex-36078234.js";
+  </script>
+</head>
+<body>
+  <a class="skip" href="#content">Skip to the content</a>
+  
+  <header class="site-header">
+    <a class="site-title" href="../index.html"><svg class="site-logo" viewBox="0 0 512 512" width="28" height="28" aria-hidden="true" focusable="false"><g transform="translate(256 256) scale(0.94) translate(-256 -256)" fill="currentColor" stroke="currentColor"><rect x="224" y="128" width="64" height="40" rx="8"/><rect x="224" y="128" width="64" height="40" rx="8" transform="rotate(120 256 256)"/><rect x="224" y="128" width="64" height="40" rx="8" transform="rotate(240 256 256)"/><circle cx="256" cy="256" r="64"/><path d="M239.3 64.7 A192 192 0 1 1 66.9 222.7" fill="none" stroke-width="64" stroke-linecap="round"/><polygon points="85.3,118.3 -0.9,214.8 133.4,238.4" stroke-width="10" stroke-linejoin="round"/></g></svg>OpenChuckCAM <span>User guide</span></a>
+    <div class="tools">
+      <span class="version-switch"><a class="version-link" href="../../versions.html">Version: 0.55.1</a></span>
+      <a href="../print.html">Print the guide</a>
+      <button class="theme-toggle" type="button" hidden>Dark theme</button>
+    </div>
+  </header>
+  <div class="layout">
+    <nav class="sidebar" aria-label="Contents">
+      <details open>
+        <summary>Contents</summary>
+        <div class="search hidden" id="mdbook-search-wrapper">
+          <button type="button" id="mdbook-search-toggle" hidden>Search</button>
+          <form id="mdbook-searchbar-outer" role="search" onsubmit="return false">
+            <label for="mdbook-searchbar">Search the guide</label>
+            <input type="search" id="mdbook-searchbar" name="searchbar" autocomplete="off" aria-controls="mdbook-searchresults-outer" aria-describedby="mdbook-searchresults-header">
+          </form>
+          <div id="mdbook-searchresults-outer" class="searchresults-outer hidden">
+            <div id="mdbook-searchresults-header" class="searchresults-header" aria-live="polite"></div>
+            <ul id="mdbook-searchresults"></ul>
+          </div>
+        </div>
+        <ol class="chapter"><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../index.html">OpenChuckCAM user guide</a></span></li><li class="part-title">Start here</li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../start/install.html">Install and first run</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../start/limitations.html">Known limitations</a></span></li><li class="part-title">Tutorial</li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../tutorial/index.html">Your first project</a></span><ol class="section"><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../tutorial/01-create-project.html">1. Create a project</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../tutorial/02-import-model.html">2. Import the model</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../tutorial/03-machine.html">3. Choose the machine</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../tutorial/04-stock.html">4. Set up the stock</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../tutorial/05-hold.html">5. Hold the work</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../tutorial/06-tools.html">6. Choose the tools</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../tutorial/07-operations.html">7. Add the operations</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../tutorial/08-generate.html">8. Generate the toolpaths</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../tutorial/09-simulate.html">9. Simulate and read the results</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../tutorial/10-export.html">10. Post and export</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../tutorial/11-verify.html">Before you run anything</a></span></li></ol><li class="part-title">Concepts</li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../concepts/rotary-machining.html">How 4-axis rotary machining works</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../concepts/stock-and-held-region.html">Stock and the held region</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../concepts/roughing-and-finishing.html">Roughing and finishing</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../concepts/stepover-and-stock-to-leave.html">Stepover, stepdown, scallop and stock to leave</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../concepts/finishing-strategies.html">Helical, axial, indexed and simultaneous finishing</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../concepts/tabs.html">Tabs</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../concepts/simulation.html">Simulation and deviation colours</a></span></li><li class="part-title">How-to guides</li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../how-to/import-step.html">Import a STEP file</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../how-to/limit-to-a-region.html">Limit an operation to a region</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../how-to/add-a-tool.html">Add a tool to the library</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../how-to/confirm-machine-values.html">Confirm machine profile values</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../how-to/short-block-settings.html">Machine setup: short moves</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../how-to/export.html">Export G-code and the setup sheet</a></span></li><li class="part-title">Worked examples</li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../examples/custom-machine.html">Create a custom machine</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../examples/create-a-post.html">Create a post-processing template</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../examples/tabs-and-held-regions.html">Tabs and held regions</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../examples/limit-to-a-region.html">Limit an operation to a region</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../examples/rest-machining.html">Rest machining</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../examples/flute-length-warning.html">The flute-length warning</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../examples/stepover-and-scallop.html">Stepover, stock to leave and scallop</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../examples/selection-sets.html" aria-current="page">Selection sets on a blisk</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../examples/faceflow.html">Face-flow finishing on a blisk floor</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../examples/swarf.html">Swarf on a blisk blade</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../examples/simultaneous-finishing.html">Simultaneous finishing</a></span></li><li class="part-title">Safety and verification</li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../safety/checking-gcode.html">Checking G-code before you run it</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../safety/air-cut.html">Air cut on the Makera Z1</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../safety/checklist.html">Safe-practice checklist</a></span></li><li class="part-title">Reference</li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../reference/operations.html">Operations and strategies</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../reference/settings.html">Settings</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../reference/machine-profiles.html">Machine profiles</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../reference/tool-library.html">Tool library</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../reference/gcode-and-posts.html">G-code and posts</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../reference/writing-a-post.html">Writing a post-processor</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../reference/command-line.html">Command line</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../reference/messages.html">Messages and item states</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../glossary.html">Glossary</a></span></li><li class="part-title">More</li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../troubleshooting.html">Troubleshooting</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../reporting.html">Reporting a problem or asking for a feature</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../release-notes.html">Release notes</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../credits.html">Credits and licences</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../contributing.html">Contributing to this guide</a></span></li></ol>
+      </details>
+    </nav>
+    <div class="content">
+      <main id="content">
+        <div id="mdbook-content">
+<h1 id="selection-sets-on-a-blisk"><a class="header" href="#selection-sets-on-a-blisk">Selection sets on a blisk</a></h1>
+<p>This example makes the five kinds of <a href="../glossary.html#selection-set">selection set</a> the program uses on a STEP part, and uses them in two operations on a bladed disk (a blisk): a face set to cut, an edge set as the guide of face-flow finishing, a check set, an avoid set that cuts the pass short, and an avoid set that only warns. It shows what each one changes in the toolpath and what the Results say about it, with the numbers from a real run.</p>
+<blockquote class="blockquote-tag blockquote-tag-warning">
+<p class="blockquote-tag-title"><svg viewbox="0 0 16 16" width="18" height="18"><path d="M6.457 1.047c.659-1.234 2.427-1.234 3.086 0l6.082 11.378A1.75 1.75 0 0 1 14.082 15H1.918a1.75 1.75 0 0 1-1.543-2.575Zm1.763.707a.25.25 0 0 0-.44 0L1.698 13.132a.25.25 0 0 0 .22.368h12.164a.25.25 0 0 0 .22-.368Zm.53 3.996v2.5a.75.75 0 0 1-1.5 0v-2.5a.75.75 0 0 1 1.5 0ZM9 11a1 1 0 1 1-2 0 1 1 0 0 1 2 0Z"></path></svg>Warning</p>
+<p>A selection set changes where the tool cuts and what it is kept away from, but the program checks only what the set names and what the messages say was checked. Generated G-code must be verified by you before it is run on a machine: watch the <a href="../glossary.html#simulation">simulation</a>, read every warning, and run an <a href="../glossary.html#air-cut">air cut</a> first.</p>
+</blockquote>
+<p>You need the example project <a href="https://github.com/OpenChuckCAM/OpenChuckCAM/tree/main/testdata/examples/blisk-start/blisk-project"><code>testdata/examples/blisk-start/blisk-project</code></a>. Copy it to a folder of your own and open the copy with <strong>File &gt; Open project</strong>, so the example in the repository stays as it is. It holds the public blisk model (a STEP file), the built-in Makera Z1, oak stock 42 mm across, a 3 mm flat end mill (T1) and a 3 mm ball end mill (T2), and no sets or operations yet. Reading a STEP file needs the STEP reader that comes with the program (<a href="../how-to/import-step.html">Import a STEP file</a>).</p>
+<p>The numbers on this page come from OpenChuckCAM 0.55.0 on Linux (main at 55e6348). Another version can give other numbers.</p>
+<h2 id="what-the-sets-are-for"><a class="header" href="#what-the-sets-are-for">What the sets are for</a></h2>
+<p>A selection set is a named group of faces or edges of the part. An operation uses a set in a role:</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Role in the operation</th><th>What it does</th></tr>
+</thead>
+<tbody>
+<tr><td><strong>Cut on</strong></td><td>The faces the operation cuts. With face-flow finishing and swarf, the operation cuts only these faces.</td></tr>
+<tr><td><strong>Guide edge</strong></td><td>Face-flow finishing only: the edge each pass runs along. Empty, each face starts from its longest side.</td></tr>
+<tr><td><strong>Avoid</strong></td><td>Faces the tool must not cut into. Each set has a choice: <strong>Cut short</strong> (the default) stops or lifts the pass, <strong>Warn only</strong> keeps the path and warns, <strong>Ignore</strong> limits nothing.</td></tr>
+<tr><td><strong>Check</strong></td><td>Faces the tool must stay clear of by the operation’s <a href="../glossary.html#stock-to-leave">stock to leave</a>, with the same three choices.</td></tr>
+<tr><td><strong>Contain within</strong></td><td>A window the cut must stay inside. Not used in this example.</td></tr>
+</tbody>
+</table>
+</div>
+<p>On a STEP part, these roles take face sets, except <strong>Guide edge</strong>, which takes an edge set. (Edge following, not used here, cuts along an edge set in <strong>Cut on</strong>.) The same set can have a different role in each operation.</p>
+<h2 id="1-make-a-face-set-the-hub-floor"><a class="header" href="#1-make-a-face-set-the-hub-floor">1. Make a face set: the hub floor</a></h2>
+<ol>
+<li>Click <strong>Operations</strong> at the top of the window.</li>
+<li>Click <strong>Front</strong>, then <strong>Fit</strong>, and zoom in with the mouse wheel until the blisk fills the view.</li>
+<li>In the project panel, click the <strong>+</strong> beside <strong>Selection sets</strong>. The Inspector shows <strong>New selection</strong>.</li>
+<li>In the box on the view, choose <strong>Faces</strong> and <strong>Select one (Q)</strong>.</li>
+<li>Click the floor between the two blades in the middle of the view. The face turns blue and the Inspector says “1 face selected”.</li>
+</ol>
+<figure>
+<a href="images/blisk_selection_sets/01-new-selection.png"><img src="images/blisk_selection_sets/01-new-selection.png" width="1920" height="1080" alt="The Operations step in the front view of the blisk. One hub floor between two twisted blades is blue. The Inspector shows New selection, the lines on how to pick, 1 face selected, the name field with Selection 1, and the buttons Save as new set and Clear."></a>
+<figcaption><b>Figure 1.</b> The picked floor is blue. The box on the view says what can be picked: <b>Faces</b>, one at a time.</figcaption>
+</figure>
+<ol start="6" style="counter-reset: step 5">
+<li>Type <code>Hub floor</code> in the name field and press <kbd>Enter</kbd>.</li>
+<li>Click <strong>Save as new set</strong>. The set appears in the project panel, and the Inspector shows the set itself.</li>
+</ol>
+<figure>
+<a href="images/blisk_selection_sets/02-face-set.png"><img src="images/blisk_selection_sets/02-face-set.png" width="1920" height="1080" alt="The set Hub floor is listed under Selection sets with 1 faces and drawn in green on the part. The Inspector shows Hub floor, On models/blisk.step, No operation uses it, Change this set on the part with Shift-click adds and Ctrl-click takes away, Pick again, and the colours."></a>
+<figcaption><b>Figure 2.</b> A saved set is drawn in its own colour. Shift-click adds faces to it and Ctrl-click takes them away; each change makes every operation that uses it out of date.</figcaption>
+</figure>
+<ol start="8" style="counter-reset: step 7">
+<li>Press <kbd>Esc</kbd> to stop picking.</li>
+</ol>
+<p>This floor is face 20 of the model. The Results name faces by number, so it helps to know it.</p>
+<h2 id="2-make-an-edge-set-the-guide"><a class="header" href="#2-make-an-edge-set-the-guide">2. Make an edge set: the guide</a></h2>
+<ol>
+<li>Click the <strong>+</strong> beside <strong>Selection sets</strong> again.</li>
+<li>In the box on the view, choose <strong>Edges</strong> and <strong>Select one (Q)</strong>.</li>
+<li>Move the pointer onto the line where the blade above the floor meets the floor. The box says “Over an edge” and the edge is drawn in colour. Click it.</li>
+<li>Name the set <code>Floor guide</code> and click <strong>Save as new set</strong>, then press <kbd>Esc</kbd>.</li>
+</ol>
+<figure>
+<a href="images/blisk_selection_sets/03-edge-set.png"><img src="images/blisk_selection_sets/03-edge-set.png" width="1920" height="1080" alt="The set Floor guide, 1 edges, drawn in purple along the root of a blade where it meets the hub floor. The box on the view shows Pick Edges, Select one (Q), Chain (W) and Smooth chain (E). The Inspector shows Floor guide with a Tangent edges choice set to Project default (drop)."></a>
+<figcaption><b>Figure 3.</b> An edge set holds edges, not faces. Here it is edge 65, the root of the blade along the floor.</figcaption>
+</figure>
+<h2 id="3-make-two-more-face-sets"><a class="header" href="#3-make-two-more-face-sets">3. Make two more face sets</a></h2>
+<p>In the same way, make two more face sets with <strong>Faces</strong> and <strong>Select one (Q)</strong>:</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Name</th><th>Click</th><th>What it is</th></tr>
+</thead>
+<tbody>
+<tr><td><code>Blade wall</code></td><td>the side of the blade above the floor</td><td>face 19, the blade side that rises from the guide edge</td></tr>
+<tr><td><code>Rim</code></td><td>the plain round part of the disc at the left</td><td>face 1, the outer cylinder: the rim of the disc and the tips of the blades</td></tr>
+</tbody>
+</table>
+</div>
+<figure>
+<a href="images/blisk_selection_sets/04-four-sets.png"><img src="images/blisk_selection_sets/04-four-sets.png" width="1920" height="1080" alt="Four sets under Selection sets: Hub floor 1 faces, Floor guide 1 edges, Blade wall 1 faces and Rim 1 faces. The Rim set is chosen and drawn in green over the rim of the disc and along the tips of all the blades."></a>
+<figcaption><b>Figure 4.</b> One face can reach further than it looks: <b>Rim</b> is one cylinder that runs over the disc and the tips of every blade.</figcaption>
+</figure>
+<h2 id="4-use-the-face-set-the-edge-set-and-a-check-set"><a class="header" href="#4-use-the-face-set-the-edge-set-and-a-check-set">4. Use the face set, the edge set and a check set</a></h2>
+<p>Face-flow finishing cuts the faces in <strong>Cut on</strong> with passes that run along a guide edge (<a href="faceflow.html">Face-flow finishing on a blisk floor</a> goes through it in detail).</p>
+<ol>
+<li>Click <strong>+ New operation</strong>. Choose <strong>Face flow finishing</strong>, tool <strong>3 mm ball</strong>, name it <code>Floor finish</code>, and click <strong>Add</strong>.</li>
+<li>In the Inspector, under <strong>Geometry</strong>, open the list beside <strong>Cut on</strong> and choose <strong>Hub floor</strong>.</li>
+<li>Open the list beside <strong>Guide edge</strong> and choose <strong>Floor guide</strong>. This list offers only edge sets.</li>
+<li>Open the list beside <strong>Check</strong> and choose <strong>Blade wall</strong>. Leave its choice on <strong>Cut short</strong>.</li>
+<li>Scroll down to <strong>Pattern and tolerance</strong> and set <strong>Stock to leave</strong> to <code>0.2</code> mm.</li>
+</ol>
+<figure>
+<a href="images/blisk_selection_sets/05-faceflow-sets.png"><img src="images/blisk_selection_sets/05-faceflow-sets.png" width="1920" height="1080" alt="The Inspector of Floor finish, a Face flow finishing operation, Stale. Geometry: Cut on Hub floor, Guide edge Floor guide, Contain within and Avoid empty, Check Blade wall with the choices Cut short (chosen), Warn only and Ignore."></a>
+<figcaption><b>Figure 5.</b> Each set in <b>Avoid</b> or <b>Check</b> has its own choice, shown under it.</figcaption>
+</figure>
+<p>A check set keeps the tool the operation’s stock to leave away from its faces. Here the tool stays 0.2 mm clear of the blade wall, and leaves 0.2 mm on the floor too, since the stock to leave is the operation’s.</p>
+<ol start="6" style="counter-reset: step 5">
+<li>Click <strong>Generate stale</strong> at the bottom right. It took about 30 s on the test computer.</li>
+</ol>
+<figure>
+<a href="images/blisk_selection_sets/06-faceflow-result.png"><img src="images/blisk_selection_sets/06-faceflow-result.png" width="1920" height="1080" alt="The face-flow passes in orange along the hub floor, with white-cased black diagonal hatching marking the unreachable area along the blade walls, labelled Unreachable (Floor finish) in the legend, a numbered black-and-white marker 1 on the floor, and the check set Blade wall hatched. Results: 1 operation, 2133 moves, 32.8 s to generate, Warnings 1, and the lines quoted in the text."></a>
+<figcaption><b>Figure 6.</b> The passes follow the floor along the guide. The hatched area beside the walls is the part of the floor the 3 mm ball cannot reach.</figcaption>
+</figure>
+<p>The Results say:</p>
+<ul>
+<li>“face 20 is cut from its guide, edge 65 (49.1 mm long), towards the opposite side in 17 passes up to 0.953 mm apart along the face”. The guide is the edge of the edge set.</li>
+<li>“face-flow finishing cannot reach 1 area of the selected faces, which stay uncut: X 37.990 to 77.990 near A 282 (208.6 mm2), a neighbouring face is in the way of the tool”.</li>
+<li>“Floor finish: 5196 mm³ removed in 2133 moves”.</li>
+</ul>
+<p>Without the check set and with no stock to leave, the same floor reported 173.8 mm2 unreached: the tool kept 0.2 mm from every face reaches less of the floor.</p>
+<h2 id="5-use-the-same-sets-the-other-way-round-swarf-with-avoid-sets"><a class="header" href="#5-use-the-same-sets-the-other-way-round-swarf-with-avoid-sets">5. Use the same sets the other way round: swarf with avoid sets</a></h2>
+<p><a href="../glossary.html#swarf">Swarf</a> cuts a wall with the side of the tool (<a href="swarf.html">Swarf on a blisk blade</a> goes through it in detail). Here the blade wall is the face to cut, and the hub floor, which the face-flow operation cut, is a face to keep off.</p>
+<ol>
+<li>Click <strong>+ New operation</strong>. Choose <strong>Swarf (flank) machining</strong>, tool <strong>3 mm flat end mill</strong>, name it <code>Blade wall swarf</code>, and click <strong>Add</strong>.</li>
+<li>Beside <strong>Cut on</strong>, choose <strong>Blade wall</strong>.</li>
+<li>Click <strong>Generate stale</strong>.</li>
+</ol>
+<figure>
+<a href="images/blisk_selection_sets/08-swarf-before.png"><img src="images/blisk_selection_sets/08-swarf-before.png" width="1920" height="1080" alt="Blade wall swarf generated with only Cut on Blade wall: the Inspector shows Warning, and the Results, 2 operations, 2181 moves, 35.1 s to generate, Warnings 4, list the warnings that the swarf on face 19 cuts 0.0158 mm into the finished surface and 0.014 mm into face 1; the warning about face 20 is further down the list."></a>
+<figcaption><b>Figure 7.</b> Before: no avoid set. The swarf cuts a little into the rim and the floor, and says so.</figcaption>
+</figure>
+<p>With only <strong>Cut on</strong>, the Results warn that the tool reaches the faces beside the wall:</p>
+<ul>
+<li>“Overcut (operation ‘Blade wall swarf’): swarf on face 19 cuts 0.023 mm into face 20, which meets it along the ends of its rulings, at (75.583, 1.020, 9.305), more than this operation’s tolerance of 0.01 mm. To keep the tool off it, put face 20 in an avoid set on Cut short, which lifts the tool clear of it, or set a negative Tip extension …”</li>
+<li>The same for face 1, the rim: 0.014 mm.</li>
+</ul>
+<p>Now add the avoid sets:</p>
+<ol start="4" style="counter-reset: step 3">
+<li>Beside <strong>Avoid</strong>, choose <strong>Hub floor</strong>. Leave it on <strong>Cut short</strong>.</li>
+<li>Open the <strong>add…</strong> list under it and choose <strong>Rim</strong>. Under <strong>Rim</strong>, click <strong>Warn only</strong>.</li>
+</ol>
+<figure>
+<a href="images/blisk_selection_sets/09-swarf-sets.png"><img src="images/blisk_selection_sets/09-swarf-sets.png" width="1920" height="1080" alt="The Geometry section of Blade wall swarf: Cut on Blade wall; Avoid Hub floor and Rim; under Hub floor the choice Cut short is chosen, under Rim the choice Warn only is chosen."></a>
+<figcaption><b>Figure 8.</b> Two avoid sets with different choices: the floor cuts the pass short, the rim only warns.</figcaption>
+</figure>
+<ol start="6" style="counter-reset: step 5">
+<li>Click <strong>Generate stale</strong>.</li>
+</ol>
+<figure>
+<a href="images/blisk_selection_sets/10-swarf-after.png"><img src="images/blisk_selection_sets/10-swarf-after.png" width="1920" height="1080" alt="Both operations generated, the avoid sets Hub floor and Rim hatched on the part. Results: 2 operations, 2183 moves, 30.2 s to generate, Warnings 3, Generated Blade wall swarf, Reused Floor finish, and the swarf warnings listed in the text."></a>
+<figcaption><b>Figure 9.</b> After: the warning about the floor is gone, and the rim is reported as a cut into a set that only warns.</figcaption>
+</figure>
+<h2 id="read-the-result"><a class="header" href="#read-the-result">Read the result</a></h2>
+<p>Compare the swarf operation’s lines before and after the avoid sets:</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th></th><th>Before (Figure 7)</th><th>After (Figure 9)</th></tr>
+</thead>
+<tbody>
+<tr><td>Hub floor (face 20)</td><td>“cuts 0.023 mm into face 20” (a warning)</td><td>“The tool is lifted up to 0.069 mm along the rulings to keep clear of the avoid surfaces, so a strip up to about 0.069 mm wide is left at that end of the face.”</td></tr>
+<tr><td>Rim (face 1)</td><td>“cuts 0.014 mm into face 1” (a warning)</td><td>“Avoid set (operation ‘Blade wall swarf’): the tool cuts into the avoid set ‘Rim’ along about 18.120 mm of face 19. The set only warns, so the path is kept: set it to cut the pass short, or check the cut in the simulation before using the path.”</td></tr>
+<tr><td>Ends of the wall</td><td>stops 0.471 mm short of face 5 and 0.833 mm short of face 15</td><td>0.470 mm and 0.833 mm</td></tr>
+<tr><td>Moves of the swarf</td><td>48</td><td>50</td></tr>
+</tbody>
+</table>
+</div>
+<p>What it means:</p>
+<ul>
+<li><strong>Cut short</strong> on the floor lifted the tool’s end up the wall by up to 0.069 mm, so it no longer cuts the floor. A strip that wide is left uncut at the foot of the wall, on purpose.</li>
+<li><strong>Warn only</strong> on the rim changed nothing in the path. It measures the path against the set and tells you how much of the wall’s length the tool reaches into it. The warning names the set by its name, so you can find it.</li>
+<li><strong>Reused (nothing they depend on changed): Floor finish</strong> says the face-flow operation was not made again. Changing the swarf’s sets does not touch it, although the two operations share sets.</li>
+<li>A face that is in no set is still measured if it shares an edge with the swarf’s wall, and a cut into it is warned of (the “Before” column). Swarf also stops short of the faces at the ends of the wall by itself; <a href="swarf.html">Swarf on a blisk blade</a> explains those lines.</li>
+</ul>
+<p>The face-flow operation’s line about the unreached area is still there, and so is a swarf warning that the twisted wall itself is cut 0.0156 mm deep, more than the 0.01 mm <a href="../glossary.html#tolerance">tolerance</a>. Read each warning and decide what to change: these are yours to judge.</p>
+<h2 id="common-mistakes"><a class="header" href="#common-mistakes">Common mistakes</a></h2>
+<dl>
+<dt id="a-face-set-leaves-a-wall-or-a-floor-out"><a class="header" href="#a-face-set-leaves-a-wall-or-a-floor-out">A face set leaves a wall or a floor out</a></dt>
+<dd>An operation cuts only the faces in <strong>Cut on</strong>, but its tool still reaches the faces next to them. With nothing in <strong>Avoid</strong>, the swarf above warns “swarf on face 19 cuts 0.023 mm into face 20, which meets it along the ends of its rulings … put face 20 in an avoid set on Cut short, which lifts the tool clear of it, or set a negative Tip extension”. Put the face it names in an avoid or check set, as in step 5. For face-flow finishing, a face beside the floor that is in the way shows as the unreached area; cut that face with another operation, such as swarf for a wall.</dd>
+<dt id="a-selection-reaches-a-held-region"><a class="header" href="#a-selection-reaches-a-held-region">A selection reaches a held region</a></dt>
+<dd>In this project nothing is held. If you click <strong>Workholding</strong> under <strong>Setup 1</strong>, tick <strong>Held at the start</strong>, keep the <strong>Grip length</strong> of 10 mm and click <strong>Apply</strong>, the setup says “The chuck grips 9.000 mm of the part here (X 27.990 to 36.990 mm), so that length is never machined. Shorten the grip if it should be cut.”, and Messages repeat it: “The grip at the start of the stock covers 9.000 mm of the part (X 27.990 to 36.990), which is never machined; shorten the grip if that length should be cut.” The <strong>Rim</strong> set reaches into that length. An operation on it does not cut there, and its Results say “Nothing within one tool radius of the held region at the start of the stock is cut: no part of the tool reaches over the gripped length of the stock.” A set does not override a <a href="../glossary.html#held-region">held region</a>. Shorten the grip or move the part if that length must be cut.</dd>
+<dt id="a-set-of-the-wrong-kind"><a class="header" href="#a-set-of-the-wrong-kind">A set of the wrong kind</a></dt>
+<dd>Lists such as <strong>Cut on</strong> of swarf and <strong>Avoid</strong> offer every set, edge sets too. An edge set where faces are needed is refused before anything is made. In <strong>Cut on</strong> of swarf: “Only edge following follows chosen edges, and face-flow finishing takes them as its guide. Take the edge set ‘Floor guide’ out of the operation, or use one of those.” In <strong>Avoid</strong>: “Avoid takes faces, not edges, on a STEP part. Take the edge set ‘Floor guide’ out of Avoid, and select faces instead.” Click the <strong>×</strong> on the set to take it out.</dd>
+</dl>
+<figure>
+<a href="images/blisk_selection_sets/07-wrong-kind.png"><img src="images/blisk_selection_sets/07-wrong-kind.png" width="1920" height="1080" alt="Blade wall swarf in error with Floor guide in Cut on: the red banner This operation can&#39;t be generated, with the sentence Only edge following follows chosen edges, and face-flow finishing takes them as its guide; the step bar says Error to fix."></a>
+<figcaption><b>Figure 10.</b> An edge set in <b>Cut on</b> of a swarf operation. The banner names the set to take out.</figcaption>
+</figure>
+<dl>
+<dt id="face-flow-finishing-with-nothing-in-cut-on"><a class="header" href="#face-flow-finishing-with-nothing-in-cut-on">Face-flow finishing with nothing in Cut on</a></dt>
+<dd>It is refused: “Selection set (operation ‘Floor finish’): face-flow finishing needs a face set: select the faces to cut, save them as a set and put it in Cut on; an edge set there is the guide.” Make a face set of the faces to cut and choose it beside <strong>Cut on</strong>.</dd>
+<dt id="editing-a-set-changes-more-than-one-operation"><a class="header" href="#editing-a-set-changes-more-than-one-operation">Editing a set changes more than one operation</a></dt>
+<dd>A set is shared. Shift-click or Ctrl-click on a chosen set changes it at once and makes every operation that uses it out of date, as its Inspector says. Make a new set if only one operation should change.</dd>
+</dl>
+
+        </div>
+        <nav class="pager" aria-label="Previous and next page">
+          <a class="prev" rel="prev" href="../examples/stepover-and-scallop.html"><span>Previous</span>Stepover, stock to leave and scallop</a>
+          <a class="next" rel="next" href="../examples/faceflow.html"><span>Next</span>Face-flow finishing on a blisk floor</a>
+        </nav>
+      </main>
+      <footer class="site-footer">
+        <p class="notice">Generated G-code must be verified by the user before it is run on a machine. OpenChuckCAM does not guarantee that a program is safe or correct for any machine, tool or setup.</p>
+        <p class="stamp">Describes OpenChuckCAM 0.55.1 (app-v0.55.1, commit 7dbae3a), built 2026-11-26. Licensed AGPL-3.0-or-later.</p>
+      </footer>
+    </div>
+  </div>
+  <script>
+    // On a narrow screen the contents start folded; without JavaScript they stay open.
+    if (matchMedia('(max-width: 900px)').matches) document.querySelector('.sidebar details').open = false;
+    (function () {
+      var b = document.querySelector('.theme-toggle'), root = document.documentElement;
+      function dark() { return root.dataset.theme ? root.dataset.theme === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches; }
+      function label() { b.textContent = dark() ? 'Light theme' : 'Dark theme'; }
+      b.hidden = false; label();
+      b.addEventListener('click', function () {
+        root.dataset.theme = dark() ? 'light' : 'dark';
+        try { localStorage.setItem('oc-theme', root.dataset.theme); } catch (e) {}
+        label();
+      });
+    })();
+  </script>
+  <script src="../versions.js"></script>
+  <script src="../elasticlunr-ef4e11c1.min.js"></script>
+  <script src="../mark-09e88c2c.min.js"></script>
+  <script src="../searcher-09f2665d.js"></script>
+  <script>
+    // mdBook's search script expects a toggle button and loads its index when the box is shown.
+    // The box is always visible here, so the first focus presses the (hidden) toggle once.
+    (function () {
+      var bar = document.getElementById('mdbook-searchbar'), t = document.getElementById('mdbook-search-toggle'), done = false;
+      bar.addEventListener('focus', function () { if (!done) { done = true; t.click(); bar.focus(); } });
+    })();
+  </script>
+  
+</body>
+</html>

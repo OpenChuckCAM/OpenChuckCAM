@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
+<!-- OpenChuckCAM user guide: the page template (decision 0400). It replaces mdBook's own theme completely.
+     The @@...@@ placeholders and the latest-banner markers are filled in by user-docs/tools/build.py. -->
+<html lang="en" dir="ltr">
+<head>
+  <meta charset="utf-8">
+  <title>Troubleshooting - OpenChuckCAM user guide</title>
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="The user guide for OpenChuckCAM, free, open source CAM for 4-axis rotary CNC: how to turn a 3D model into G-code, and what to check before you run it.">
+  <meta name="docs-version" content="0.55.1">
+  <meta name="color-scheme" content="light dark">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="favicon.png" type="image/png" sizes="32x32">
+  <link rel="stylesheet" href="style.css">
+  <script>
+    // The reader's theme choice, if any, is kept in localStorage (not a cookie). Without one, the page follows the system.
+    try { var t = localStorage.getItem('oc-theme'); if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t; } catch (e) {}
+    const path_to_root = "";
+    window.path_to_searchindex_js = "searchindex-36078234.js";
+  </script>
+</head>
+<body>
+  <a class="skip" href="#content">Skip to the content</a>
+  
+  <header class="site-header">
+    <a class="site-title" href="index.html"><svg class="site-logo" viewBox="0 0 512 512" width="28" height="28" aria-hidden="true" focusable="false"><g transform="translate(256 256) scale(0.94) translate(-256 -256)" fill="currentColor" stroke="currentColor"><rect x="224" y="128" width="64" height="40" rx="8"/><rect x="224" y="128" width="64" height="40" rx="8" transform="rotate(120 256 256)"/><rect x="224" y="128" width="64" height="40" rx="8" transform="rotate(240 256 256)"/><circle cx="256" cy="256" r="64"/><path d="M239.3 64.7 A192 192 0 1 1 66.9 222.7" fill="none" stroke-width="64" stroke-linecap="round"/><polygon points="85.3,118.3 -0.9,214.8 133.4,238.4" stroke-width="10" stroke-linejoin="round"/></g></svg>OpenChuckCAM <span>User guide</span></a>
+    <div class="tools">
+      <span class="version-switch"><a class="version-link" href="../versions.html">Version: 0.55.1</a></span>
+      <a href="print.html">Print the guide</a>
+      <button class="theme-toggle" type="button" hidden>Dark theme</button>
+    </div>
+  </header>
+  <div class="layout">
+    <nav class="sidebar" aria-label="Contents">
+      <details open>
+        <summary>Contents</summary>
+        <div class="search hidden" id="mdbook-search-wrapper">
+          <button type="button" id="mdbook-search-toggle" hidden>Search</button>
+          <form id="mdbook-searchbar-outer" role="search" onsubmit="return false">
+            <label for="mdbook-searchbar">Search the guide</label>
+            <input type="search" id="mdbook-searchbar" name="searchbar" autocomplete="off" aria-controls="mdbook-searchresults-outer" aria-describedby="mdbook-searchresults-header">
+          </form>
+          <div id="mdbook-searchresults-outer" class="searchresults-outer hidden">
+            <div id="mdbook-searchresults-header" class="searchresults-header" aria-live="polite"></div>
+            <ul id="mdbook-searchresults"></ul>
+          </div>
+        </div>
+        <ol class="chapter"><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="index.html">OpenChuckCAM user guide</a></span></li><li class="part-title">Start here</li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="start/install.html">Install and first run</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="start/limitations.html">Known limitations</a></span></li><li class="part-title">Tutorial</li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="tutorial/index.html">Your first project</a></span><ol class="section"><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="tutorial/01-create-project.html">1. Create a project</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="tutorial/02-import-model.html">2. Import the model</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="tutorial/03-machine.html">3. Choose the machine</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="tutorial/04-stock.html">4. Set up the stock</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="tutorial/05-hold.html">5. Hold the work</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="tutorial/06-tools.html">6. Choose the tools</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="tutorial/07-operations.html">7. Add the operations</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="tutorial/08-generate.html">8. Generate the toolpaths</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="tutorial/09-simulate.html">9. Simulate and read the results</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="tutorial/10-export.html">10. Post and export</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="tutorial/11-verify.html">Before you run anything</a></span></li></ol><li class="part-title">Concepts</li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="concepts/rotary-machining.html">How 4-axis rotary machining works</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="concepts/stock-and-held-region.html">Stock and the held region</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="concepts/roughing-and-finishing.html">Roughing and finishing</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="concepts/stepover-and-stock-to-leave.html">Stepover, stepdown, scallop and stock to leave</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="concepts/finishing-strategies.html">Helical, axial, indexed and simultaneous finishing</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="concepts/tabs.html">Tabs</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="concepts/simulation.html">Simulation and deviation colours</a></span></li><li class="part-title">How-to guides</li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="how-to/import-step.html">Import a STEP file</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="how-to/limit-to-a-region.html">Limit an operation to a region</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="how-to/add-a-tool.html">Add a tool to the library</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="how-to/confirm-machine-values.html">Confirm machine profile values</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="how-to/short-block-settings.html">Machine setup: short moves</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="how-to/export.html">Export G-code and the setup sheet</a></span></li><li class="part-title">Worked examples</li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="examples/custom-machine.html">Create a custom machine</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="examples/create-a-post.html">Create a post-processing template</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="examples/tabs-and-held-regions.html">Tabs and held regions</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="examples/limit-to-a-region.html">Limit an operation to a region</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="examples/rest-machining.html">Rest machining</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="examples/flute-length-warning.html">The flute-length warning</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="examples/stepover-and-scallop.html">Stepover, stock to leave and scallop</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="examples/selection-sets.html">Selection sets on a blisk</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="examples/faceflow.html">Face-flow finishing on a blisk floor</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="examples/swarf.html">Swarf on a blisk blade</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="examples/simultaneous-finishing.html">Simultaneous finishing</a></span></li><li class="part-title">Safety and verification</li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="safety/checking-gcode.html">Checking G-code before you run it</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="safety/air-cut.html">Air cut on the Makera Z1</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="safety/checklist.html">Safe-practice checklist</a></span></li><li class="part-title">Reference</li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="reference/operations.html">Operations and strategies</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="reference/settings.html">Settings</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="reference/machine-profiles.html">Machine profiles</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="reference/tool-library.html">Tool library</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="reference/gcode-and-posts.html">G-code and posts</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="reference/writing-a-post.html">Writing a post-processor</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="reference/command-line.html">Command line</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="reference/messages.html">Messages and item states</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="glossary.html">Glossary</a></span></li><li class="part-title">More</li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="troubleshooting.html" aria-current="page">Troubleshooting</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="reporting.html">Reporting a problem or asking for a feature</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="release-notes.html">Release notes</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="credits.html">Credits and licences</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="contributing.html">Contributing to this guide</a></span></li></ol>
+      </details>
+    </nav>
+    <div class="content">
+      <main id="content">
+        <div id="mdbook-content">
+<h1 id="troubleshooting"><a class="header" href="#troubleshooting">Troubleshooting</a></h1>
+<p>Common problems, the messages the program shows for them, and what to do. <a href="reference/messages.html">Messages and item states</a> explains where messages appear.</p>
+<h2 id="a-model-will-not-import"><a class="header" href="#a-model-will-not-import">A model will not import</a></h2>
+<p>The <strong>Import model</strong> window shows the reason in red.</p>
+<dl>
+<dt id="-is-not-a-model-format-openchuckcam-reads-use-an-stl-step-or-stp-file"><a class="header" href="#-is-not-a-model-format-openchuckcam-reads-use-an-stl-step-or-stp-file">“‘…’ is not a model format OpenChuckCAM reads: use an .stl, .step or .stp file”</a></dt>
+<dd>The program reads STL and STEP files only. Export the model as one of them.</dd>
+<dt id="not-a-valid-stl-file-"><a class="header" href="#not-a-valid-stl-file-">“not a valid STL file: …”</a></dt>
+<dd>The file is empty, cut short, or not an STL file. The message says which, for example “it is truncated”. Export it again.</dd>
+<dt id="step-import-failed-"><a class="header" href="#step-import-failed-">“STEP import failed: …”</a></dt>
+<dd>See <a href="how-to/import-step.html#if-it-does-not-import">Import a STEP file</a>, which lists the STEP messages, including a missing STEP reader.</dd>
+<dt id="a-question-about-the-unit-in-an-amber-box"><a class="header" href="#a-question-about-the-unit-in-an-amber-box">A question about the unit, in an amber box</a></dt>
+<dd>Not an error: the file’s size suggests another unit, for example “read in mm the part is only 1.6 mm across”. Choose the unit the model was drawn in.</dd>
+</dl>
+<h2 id="an-operation-cannot-be-generated"><a class="header" href="#an-operation-cannot-be-generated">An operation cannot be generated</a></h2>
+<p>The operation’s mark turns red, and Messages, the Results tab and the command line name the check that refused it, then the operation, then the reason, for example “End facing (operation ‘Face’): …”. Where the reason names a setting, <strong>Show setting</strong> in Messages opens the operation at it. Common reasons:</p>
+<dl>
+<dt id="machine-profile-operation--the-project-has-no-machine-profile-stock-operation--its-setup-has-no-stock-tool-operation--it-has-no-tool"><a class="header" href="#machine-profile-operation--the-project-has-no-machine-profile-stock-operation--its-setup-has-no-stock-tool-operation--it-has-no-tool">“Machine profile (operation ‘…’): the project has no machine profile”, “Stock (operation ‘…’): its setup has no stock”, “Tool (operation ‘…’): it has no tool”</a></dt>
+<dd>Something the operation needs is missing. Set it on the Setup step, or choose a tool in the operation’s Tool section.</dd>
+<dt id="cutting-data-operation---is-required-set-it-on-the-operation-or-fix-the-cause-"><a class="header" href="#cutting-data-operation---is-required-set-it-on-the-operation-or-fix-the-cause-">“Cutting data (operation ‘…’): … is required: set it on the operation, or fix the cause: …”</a></dt>
+<dd>A cutting value, such as the stepover or the stepdown, is empty and no cutting data fills it. The reason says why: the setup has no stock material, the tool has no cutting data for that material, or there is no tool. Type the value, or add cutting data to the tool (see <a href="how-to/add-a-tool.html">Add a tool to the library</a>) and click <strong>Update from library</strong>.</dd>
+<dt id="stepdown-operation---or-another-settings-name-first"><a class="header" href="#stepdown-operation---or-another-settings-name-first">“Stepdown (operation ‘…’): …”, or another setting’s name first</a></dt>
+<dd>A setting is out of its range or does not suit the tool, for example a stepdown deeper than the tool’s flutes. The message starts with the setting’s name as the operation shows it; <strong>Show setting</strong> opens it.</dd>
+<dt id="tab--is-not-wholly-in-the-head-or-the-tail-zone"><a class="header" href="#tab--is-not-wholly-in-the-head-or-the-tail-zone">“tab … is not wholly in the head or the tail zone”</a></dt>
+<dd>Move the tab into a zone, in the setup’s Workholding section. See <a href="concepts/tabs.html">Tabs</a>.</dd>
+<dt id="selection-set-operation--the-selection-set--cannot-be-used-"><a class="header" href="#selection-set-operation--the-selection-set--cannot-be-used-">“Selection set (operation ‘…’): the selection set ‘…’ cannot be used: …”</a></dt>
+<dd>The set does not suit this strategy or this part. Choose another set, or <strong>Reselect</strong> it.</dd>
+<dt id="the-job--stopped-on-an-internal-error-please-report-this-as-a-defect"><a class="header" href="#the-job--stopped-on-an-internal-error-please-report-this-as-a-defect">“the job ‘…’ stopped on an internal error; please report this as a defect”</a></dt>
+<dd>A fault in the program. Report it (below), with what you did.</dd>
+</dl>
+<p>An operation that was generated with a warning still works: read the warning in Messages, and <strong>Show setting</strong> goes to the setting it is about.</p>
+<h2 id="the-simulation-is-slow-or-runs-out-of-memory"><a class="header" href="#the-simulation-is-slow-or-runs-out-of-memory">The simulation is slow or runs out of memory</a></h2>
+<p>The simulation’s time and memory grow quickly as the cell gets smaller: half the cell takes about eight times the time and four times the memory.</p>
+<ul>
+<li>Keep <strong>Cell size</strong>, on the Simulate step under <strong>RESOLUTION</strong>, at the default 0.1 mm unless you need finer.</li>
+<li>“a … mm cell needs … columns for this stock, more than the 64000000 supported; choose a coarser resolution”: the stock is too large for that cell. Use a larger cell.</li>
+<li>Lower <strong>Memory for playback checkpoints</strong> in <strong>File &gt; Settings…</strong> if the computer runs short of memory while playing.</li>
+<li><strong>Skip stock simulation</strong> in the Playback tab makes only the toolpaths. There is then no cut part and no check of the stock, and the export asks you to confirm that.</li>
+</ul>
+<p>See <a href="concepts/simulation.html">Simulation and deviation colours</a>.</p>
+<h2 id="the-export-is-greyed-out-or-refuses"><a class="header" href="#the-export-is-greyed-out-or-refuses">The export is greyed out or refuses</a></h2>
+<p><strong>Write G-code</strong> stays greyed out while something blocks it; the line above the button says what, and <strong>Checks before writing</strong> lists each problem marked <strong>Blocks writing</strong>. The usual cause is an operation that is out of date: generate again. The other common one is a box not yet ticked: the line then starts “Tick the box to say …”, for example “Tick the box to say you have read the possible collisions of these files.” Read what the box is about before you tick it. On the command line, a result with possible collisions is written only with <code>--acknowledge-collision-warnings</code>. See <a href="how-to/export.html">Export G-code and the setup sheet</a>.</p>
+<h2 id="messages-about-recovery-copies"><a class="header" href="#messages-about-recovery-copies">Messages about recovery copies</a></h2>
+<dl>
+<dt id="recovered-checkpoint-the-project-holds-changes-recovered-from-a-checkpoint-"><a class="header" href="#recovered-checkpoint-the-project-holds-changes-recovered-from-a-checkpoint-">“Recovered checkpoint: the project holds changes recovered from a checkpoint, …”</a></dt>
+<dd>A warning, after you recovered a project. The changes are kept only in memory until you save. Click <strong>Save</strong> in the message, or use <strong>File &gt; Save</strong>.</dd>
+<dt id="recovery-checkpoint-the-latest-checkpoint-could-not-be-written--"><a class="header" href="#recovery-checkpoint-the-latest-checkpoint-could-not-be-written--">“Recovery checkpoint: the latest checkpoint could not be written (…), …”</a></dt>
+<dd>An error: the program could not write a recovery copy, for example because the project folder cannot be written. The changes since the last copy are not protected if the program closes unexpectedly. Save the project, then check that its folder can be written. The error goes when a later copy is written.</dd>
+<dt id="recovery-another-application-instance-owns-this-projects-checkpoints-"><a class="header" href="#recovery-another-application-instance-owns-this-projects-checkpoints-">“Recovery: another application instance owns this project’s checkpoints. …”</a></dt>
+<dd>The project is open in another copy of the program, so this one writes no recovery copies. Close the other copy.</dd>
+<dt id="recovery-this-project-folder-is-a-copy-of-"><a class="header" href="#recovery-this-project-folder-is-a-copy-of-">“Recovery: this project folder is a copy of …”</a></dt>
+<dd>The recovery copies in the folder belong to the project it was copied from, so they are not offered here. They are kept aside, in a folder inside the project folder.</dd>
+</dl>
+<h2 id="a-command-fails-with-a-dialog"><a class="header" href="#a-command-fails-with-a-dialog">A command fails with a dialog</a></h2>
+<p>The dialog’s title names what failed, for example “Save failed” or “Import model failed”, and its text says why. “Import model: there is no project open.” means the model was dropped on the window with no project open: open or create a project first.</p>
+<h2 id="the-controller-rejects-a-program-or-the-machine-does-something-unexpected"><a class="header" href="#the-controller-rejects-a-program-or-the-machine-does-something-unexpected">The controller rejects a program, or the machine does something unexpected</a></h2>
+<p>The program is not connected to the machine and cannot see what the controller does.</p>
+<ol>
+<li>Stop the machine. Do not run the program again until you know why.</li>
+<li>Note the line the controller rejected, or the line it was on.</li>
+<li>Check the file on the machine is the one you exported: compare its SHA-256 hash with the setup sheet.</li>
+<li>Check the values the program could not know: the origin, the height of the rotary axis, the tool lengths, the direction of A, and the unwinding at the end of the program. Confirm the unconfirmed machine values (see <a href="how-to/confirm-machine-values.html">Confirm machine profile values</a>).</li>
+<li>If the controller’s firmware differs from the one the post was checked with (firmware 1.1.2 on the Makera Z1), its conventions may differ.</li>
+</ol>
+<p>Run an <a href="safety/air-cut.html">air cut</a> before trying again. If the program wrote something wrong, report it, with the program and the build.</p>
+<h2 id="reporting-a-problem"><a class="header" href="#reporting-a-problem">Reporting a problem</a></h2>
+<p><a href="reporting.html">Reporting a problem or asking for a feature</a> says how to open an issue, what to include, and what the program’s log file holds.</p>
+
+        </div>
+        <nav class="pager" aria-label="Previous and next page">
+          <a class="prev" rel="prev" href="glossary.html"><span>Previous</span>Glossary</a>
+          <a class="next" rel="next" href="reporting.html"><span>Next</span>Reporting a problem or asking for a feature</a>
+        </nav>
+      </main>
+      <footer class="site-footer">
+        <p class="notice">Generated G-code must be verified by the user before it is run on a machine. OpenChuckCAM does not guarantee that a program is safe or correct for any machine, tool or setup.</p>
+        <p class="stamp">Describes OpenChuckCAM 0.55.1 (app-v0.55.1, commit 7dbae3a), built 2026-11-26. Licensed AGPL-3.0-or-later.</p>
+      </footer>
+    </div>
+  </div>
+  <script>
+    // On a narrow screen the contents start folded; without JavaScript they stay open.
+    if (matchMedia('(max-width: 900px)').matches) document.querySelector('.sidebar details').open = false;
+    (function () {
+      var b = document.querySelector('.theme-toggle'), root = document.documentElement;
+      function dark() { return root.dataset.theme ? root.dataset.theme === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches; }
+      function label() { b.textContent = dark() ? 'Light theme' : 'Dark theme'; }
+      b.hidden = false; label();
+      b.addEventListener('click', function () {
+        root.dataset.theme = dark() ? 'light' : 'dark';
+        try { localStorage.setItem('oc-theme', root.dataset.theme); } catch (e) {}
+        label();
+      });
+    })();
+  </script>
+  <script src="versions.js"></script>
+  <script src="elasticlunr-ef4e11c1.min.js"></script>
+  <script src="mark-09e88c2c.min.js"></script>
+  <script src="searcher-09f2665d.js"></script>
+  <script>
+    // mdBook's search script expects a toggle button and loads its index when the box is shown.
+    // The box is always visible here, so the first focus presses the (hidden) toggle once.
+    (function () {
+      var bar = document.getElementById('mdbook-searchbar'), t = document.getElementById('mdbook-search-toggle'), done = false;
+      bar.addEventListener('focus', function () { if (!done) { done = true; t.click(); bar.focus(); } });
+    })();
+  </script>
+  
+</body>
+</html>

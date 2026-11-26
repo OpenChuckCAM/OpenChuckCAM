@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
+<!-- OpenChuckCAM user guide: the page template (decision 0400). It replaces mdBook's own theme completely.
+     The @@...@@ placeholders and the latest-banner markers are filled in by user-docs/tools/build.py. -->
+<html lang="en" dir="ltr">
+<head>
+  <meta charset="utf-8">
+  <title>Machine profiles - OpenChuckCAM user guide</title>
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="The user guide for OpenChuckCAM, free, open source CAM for 4-axis rotary CNC: how to turn a 3D model into G-code, and what to check before you run it.">
+  <meta name="docs-version" content="0.55.1">
+  <meta name="color-scheme" content="light dark">
+  <link rel="icon" href="../favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="../favicon.png" type="image/png" sizes="32x32">
+  <link rel="stylesheet" href="../style.css">
+  <script>
+    // The reader's theme choice, if any, is kept in localStorage (not a cookie). Without one, the page follows the system.
+    try { var t = localStorage.getItem('oc-theme'); if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t; } catch (e) {}
+    const path_to_root = "../";
+    window.path_to_searchindex_js = "../searchindex-36078234.js";
+  </script>
+</head>
+<body>
+  <a class="skip" href="#content">Skip to the content</a>
+  
+  <header class="site-header">
+    <a class="site-title" href="../index.html"><svg class="site-logo" viewBox="0 0 512 512" width="28" height="28" aria-hidden="true" focusable="false"><g transform="translate(256 256) scale(0.94) translate(-256 -256)" fill="currentColor" stroke="currentColor"><rect x="224" y="128" width="64" height="40" rx="8"/><rect x="224" y="128" width="64" height="40" rx="8" transform="rotate(120 256 256)"/><rect x="224" y="128" width="64" height="40" rx="8" transform="rotate(240 256 256)"/><circle cx="256" cy="256" r="64"/><path d="M239.3 64.7 A192 192 0 1 1 66.9 222.7" fill="none" stroke-width="64" stroke-linecap="round"/><polygon points="85.3,118.3 -0.9,214.8 133.4,238.4" stroke-width="10" stroke-linejoin="round"/></g></svg>OpenChuckCAM <span>User guide</span></a>
+    <div class="tools">
+      <span class="version-switch"><a class="version-link" href="../../versions.html">Version: 0.55.1</a></span>
+      <a href="../print.html">Print the guide</a>
+      <button class="theme-toggle" type="button" hidden>Dark theme</button>
+    </div>
+  </header>
+  <div class="layout">
+    <nav class="sidebar" aria-label="Contents">
+      <details open>
+        <summary>Contents</summary>
+        <div class="search hidden" id="mdbook-search-wrapper">
+          <button type="button" id="mdbook-search-toggle" hidden>Search</button>
+          <form id="mdbook-searchbar-outer" role="search" onsubmit="return false">
+            <label for="mdbook-searchbar">Search the guide</label>
+            <input type="search" id="mdbook-searchbar" name="searchbar" autocomplete="off" aria-controls="mdbook-searchresults-outer" aria-describedby="mdbook-searchresults-header">
+          </form>
+          <div id="mdbook-searchresults-outer" class="searchresults-outer hidden">
+            <div id="mdbook-searchresults-header" class="searchresults-header" aria-live="polite"></div>
+            <ul id="mdbook-searchresults"></ul>
+          </div>
+        </div>
+        <ol class="chapter"><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../index.html">OpenChuckCAM user guide</a></span></li><li class="part-title">Start here</li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../start/install.html">Install and first run</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../start/limitations.html">Known limitations</a></span></li><li class="part-title">Tutorial</li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../tutorial/index.html">Your first project</a></span><ol class="section"><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../tutorial/01-create-project.html">1. Create a project</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../tutorial/02-import-model.html">2. Import the model</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../tutorial/03-machine.html">3. Choose the machine</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../tutorial/04-stock.html">4. Set up the stock</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../tutorial/05-hold.html">5. Hold the work</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../tutorial/06-tools.html">6. Choose the tools</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../tutorial/07-operations.html">7. Add the operations</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../tutorial/08-generate.html">8. Generate the toolpaths</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../tutorial/09-simulate.html">9. Simulate and read the results</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../tutorial/10-export.html">10. Post and export</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../tutorial/11-verify.html">Before you run anything</a></span></li></ol><li class="part-title">Concepts</li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../concepts/rotary-machining.html">How 4-axis rotary machining works</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../concepts/stock-and-held-region.html">Stock and the held region</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../concepts/roughing-and-finishing.html">Roughing and finishing</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../concepts/stepover-and-stock-to-leave.html">Stepover, stepdown, scallop and stock to leave</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../concepts/finishing-strategies.html">Helical, axial, indexed and simultaneous finishing</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../concepts/tabs.html">Tabs</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../concepts/simulation.html">Simulation and deviation colours</a></span></li><li class="part-title">How-to guides</li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../how-to/import-step.html">Import a STEP file</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../how-to/limit-to-a-region.html">Limit an operation to a region</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../how-to/add-a-tool.html">Add a tool to the library</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../how-to/confirm-machine-values.html">Confirm machine profile values</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../how-to/short-block-settings.html">Machine setup: short moves</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../how-to/export.html">Export G-code and the setup sheet</a></span></li><li class="part-title">Worked examples</li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../examples/custom-machine.html">Create a custom machine</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../examples/create-a-post.html">Create a post-processing template</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../examples/tabs-and-held-regions.html">Tabs and held regions</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../examples/limit-to-a-region.html">Limit an operation to a region</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../examples/rest-machining.html">Rest machining</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../examples/flute-length-warning.html">The flute-length warning</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../examples/stepover-and-scallop.html">Stepover, stock to leave and scallop</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../examples/selection-sets.html">Selection sets on a blisk</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../examples/faceflow.html">Face-flow finishing on a blisk floor</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../examples/swarf.html">Swarf on a blisk blade</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../examples/simultaneous-finishing.html">Simultaneous finishing</a></span></li><li class="part-title">Safety and verification</li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../safety/checking-gcode.html">Checking G-code before you run it</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../safety/air-cut.html">Air cut on the Makera Z1</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../safety/checklist.html">Safe-practice checklist</a></span></li><li class="part-title">Reference</li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../reference/operations.html">Operations and strategies</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../reference/settings.html">Settings</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../reference/machine-profiles.html" aria-current="page">Machine profiles</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../reference/tool-library.html">Tool library</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../reference/gcode-and-posts.html">G-code and posts</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../reference/writing-a-post.html">Writing a post-processor</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../reference/command-line.html">Command line</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../reference/messages.html">Messages and item states</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../glossary.html">Glossary</a></span></li><li class="part-title">More</li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../troubleshooting.html">Troubleshooting</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../reporting.html">Reporting a problem or asking for a feature</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../release-notes.html">Release notes</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../credits.html">Credits and licences</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../contributing.html">Contributing to this guide</a></span></li></ol>
+      </details>
+    </nav>
+    <div class="content">
+      <main id="content">
+        <div id="mdbook-content">
+<h1 id="machine-profiles"><a class="header" href="#machine-profiles">Machine profiles</a></h1>
+<p>A <a href="../glossary.html#machine-profile">machine profile</a> describes one machine: its rotary axis, how far it can travel, how fast it can move, where it is safe to retract to, and how its controller handles short moves. The program uses it to place the part, to check every program it writes against the machine’s limits, and to work out the feeds.</p>
+<p>The profile does not name a <a href="../glossary.html#post-processor">post-processor</a>. You choose the post when you export; see <a href="gcode-and-posts.html">G-code and posts</a>.</p>
+<h2 id="where-profiles-are-kept"><a class="header" href="#where-profiles-are-kept">Where profiles are kept</a></h2>
+<dl>
+<dt id="built-in"><a class="header" href="#built-in">Built in</a></dt>
+<dd>
+<p>The Makera Z1 profile is part of the program and cannot be edited. Use <strong>Copy to edit</strong> to make a copy you can change.</p>
+</dd>
+<dt id="library"><a class="header" href="#library">Library</a></dt>
+<dd>
+<p>Your own profiles are files in the library folder, one <code>.toml</code> file each. The folder is <code>OpenChuckCAM/machines</code> in your system’s settings folder:</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>System</th><th>Folder</th></tr>
+</thead>
+<tbody>
+<tr><td>Linux</td><td><code>~/.config/OpenChuckCAM/machines</code> (or <code>$XDG_CONFIG_HOME/OpenChuckCAM/machines</code>)</td></tr>
+<tr><td>Windows</td><td><code>%APPDATA%\OpenChuckCAM\machines</code></td></tr>
+<tr><td>macOS</td><td><code>~/Library/Application Support/OpenChuckCAM/machines</code></td></tr>
+</tbody>
+</table>
+</div>
+<p>The folder does not exist until you create it: the machine section offers <strong>Create the library folder</strong>.</p>
+</dd>
+<dt id="the-project"><a class="header" href="#the-project">The project</a></dt>
+<dd>
+<p>Each project keeps its own copy of the profile it uses, in <code>machine.toml</code> in the project folder. Changing a library profile never changes a project. The machine section says whether the project’s copy still matches the profile it came from (“Matches …” or “Differs from … in: …”), and <strong>Update the copy from the library</strong> brings the library’s values in.</p>
+</dd>
+</dl>
+<h2 id="confirmed-and-unconfirmed-values"><a class="header" href="#confirmed-and-unconfirmed-values">Confirmed and unconfirmed values</a></h2>
+<p>Each value records where it came from, and whether it has been confirmed on the machine. A confirmed value has a tick; an unconfirmed one has a triangle, and its tooltip says where the value came from and how to check it. The status bar names an unconfirmed value, for example “Clearance unconfirmed”, or counts them when there are more (“2 machine values unconfirmed”). The built-in Makera Z1 has none.</p>
+<p>When you change a value, it becomes unconfirmed, with the source “Changed by the user; check it on the machine”. After you have measured or checked it on the machine, use <strong>Mark confirmed…</strong> and say how you confirmed it. <a href="../how-to/confirm-machine-values.html">Confirm machine profile values</a> says how to check each one.</p>
+<h2 id="the-fields"><a class="header" href="#the-fields">The fields</a></h2>
+<p>The machine library window groups the fields as below. The Inspector on the Setup step shows the most-used ones, with the rest under <strong>Travel and maximum feeds</strong>. Positions are machine coordinates (the controller’s <code>G53</code> frame) in millimetres.</p>
+<h3 id="profile"><a class="header" href="#profile">Profile</a></h3>
+<dl>
+<dt id="name"><a class="header" href="#name">Name</a></dt>
+<dd>The name shown in lists. It cannot be empty.</dd>
+</dl>
+<h3 id="rotary-axis"><a class="header" href="#rotary-axis">Rotary axis</a></h3>
+<dl>
+<dt id="rotary-axis-1"><a class="header" href="#rotary-axis-1">Rotary axis</a></dt>
+<dd>The machine axis the chuck turns about. Only X is supported: the <a href="../glossary.html#a-axis">A axis</a> turns about X.</dd>
+<dt id="a-direction"><a class="header" href="#a-direction">A+ direction</a></dt>
+<dd>Which way the part turns for a positive A move, <strong>positive</strong> or <strong>negative</strong>. Positive is anticlockwise when you look along the axis from its positive end towards the chuck (the right-hand rule).</dd>
+<dt id="a-range-lowest-a-highest-a"><a class="header" href="#a-range-lowest-a-highest-a">A range, Lowest A, Highest A</a></dt>
+<dd><strong>Continuous</strong> if A can turn without limit, or a limited range in degrees. On a limited axis every program is checked against the range, and no turn-dropping command is written.</dd>
+<dt id="rotary-reference-x-rotary-reference-y"><a class="header" href="#rotary-reference-x-rotary-reference-y">Rotary reference X, Rotary reference Y</a></dt>
+<dd>A point on the rotary axis, in machine coordinates, such as the centre of the headstock face next to the chuck (the Makera Z1’s), where the controller works from. Along the axis it is where a setup’s part position is measured from, so on the Z1 model X 0 is the headstock face, and a part must be placed past the chuck: measure the distance from the face of the headstock body to the face of your chuck where the stock starts, with your jaws fitted and gripping as you will grip, and use it for the setup’s <strong>Offset along X</strong> and <strong>Zero at X</strong>. The 18 mm in the tutorial is the owner’s supplied chuck, not a value for yours; the program does not check that the stock is clear of the chuck.</dd>
+<dt id="axis-height-machine-z"><a class="header" href="#axis-height-machine-z">Axis height (machine Z)</a></dt>
+<dd>The machine Z of the rotary axis. Everything the program writes in Z is measured from this height, so it matters more than any other value. Measure it on your machine.</dd>
+</dl>
+<h3 id="travel"><a class="header" href="#travel">Travel</a></h3>
+<dl>
+<dt id="lowest-x-highest-x-lowest-y-highest-y-lowest-z-highest-z"><a class="header" href="#lowest-x-highest-x-lowest-y-highest-y-lowest-z-highest-z">Lowest X, Highest X, Lowest Y, Highest Y, Lowest Z, Highest Z</a></dt>
+<dd>The travel limits of the linear axes. Every move of an exported program is checked against them, shifted by the setup’s work zero.</dd>
+</dl>
+<h3 id="maximum-feeds"><a class="header" href="#maximum-feeds">Maximum feeds</a></h3>
+<dl>
+<dt id="x-and-y-feed-z-feed-a-feed"><a class="header" href="#x-and-y-feed-z-feed-a-feed">X and Y feed, Z feed, A feed</a></dt>
+<dd>The highest <a href="../glossary.html#feed">feed</a> of each axis, in mm/min (A in degrees per minute). Feeds in a program are checked against them.</dd>
+<dt id="x-and-y-rapid-z-rapid-a-rapid"><a class="header" href="#x-and-y-rapid-z-rapid-a-rapid">X and Y rapid, Z rapid, A rapid</a></dt>
+<dd>The rapid move speeds, used to estimate the program’s time.</dd>
+<dt id="a-in-the-feed-word"><a class="header" href="#a-in-the-feed-word">A in the feed word</a></dt>
+<dd>How the controller reads the F word on a move that turns A and moves X, Y or Z at the same time: <strong>separate</strong> (LinuxCNC’s rule) or <strong>makera</strong> (the Makera Z1’s rule). It must match the feed rule of the post you export with. The program does not check that they match, so keep them consistent yourself.</dd>
+</dl>
+<h3 id="clearance"><a class="header" href="#clearance">Clearance</a></h3>
+<dl>
+<dt id="safe-cylinder-radius"><a class="header" href="#safe-cylinder-radius">Safe cylinder radius</a></dt>
+<dd>The default radius about the rotary axis that retract and rapid moves stay outside. A setup can set its own.</dd>
+<dt id="safe-z"><a class="header" href="#safe-z">Safe Z</a></dt>
+<dd>The height above the rotary axis for large rotations, tool changes and the start and end of the program. It cannot be below the safe cylinder.</dd>
+<dt id="minimum-clearance-radius"><a class="header" href="#minimum-clearance-radius">Minimum clearance radius</a></dt>
+<dd>Optional. The smallest safe cylinder that clears the chuck, its jaws and anything else round the axis. A setup with a smaller safe cylinder gets a warning.</dd>
+</dl>
+<h3 id="tools-and-spindle"><a class="header" href="#tools-and-spindle">Tools and spindle</a></h3>
+<dl>
+<dt id="highest-tool-number"><a class="header" href="#highest-tool-number">Highest tool number</a></dt>
+<dd>The highest T number the controller accepts. Exporting refuses a tool numbered outside 1 to this value.</dd>
+<dt id="lowest-spindle-speed-highest-spindle-speed"><a class="header" href="#lowest-spindle-speed-highest-spindle-speed">Lowest spindle speed, Highest spindle speed</a></dt>
+<dd>The spindle speed range, in rpm. An operation whose speed is outside it cannot be posted until you change the speed.</dd>
+</dl>
+<h3 id="short-moves"><a class="header" href="#short-moves">Short moves</a></h3>
+<dl>
+<dt id="minimum-block-time-block-window-short-moves"><a class="header" href="#minimum-block-time-block-window-short-moves">Minimum block time, Block window, Short moves</a></dt>
+<dd>Whether the controller can read the program’s lines as fast as the program supplies them. <a href="../how-to/short-block-settings.html">Machine setup: short moves</a> explains the three settings.</dd>
+</dl>
+<h3 id="spindle-height"><a class="header" href="#spindle-height">Spindle height</a></h3>
+<dl>
+<dt id="tool-length-measurement"><a class="header" href="#tool-length-measurement">Tool length measurement</a></dt>
+<dd><strong>Automatic (tool setter)</strong> if the controller measures each tool on a tool setter, so that a longer tool raises the spindle; otherwise none.</dd>
+<dt id="spindle-to-axis"><a class="header" href="#spindle-to-axis">Spindle to axis</a></dt>
+<dd>The distance from the spindle, at the top of its Z travel, down to the rotary axis. A tool that sticks out further than this distance less the safe Z would need the spindle above the top of its travel at safe Z, and the program warns you.</dd>
+<dt id="recommended-minimum-safe-z"><a class="header" href="#recommended-minimum-safe-z">Recommended minimum safe Z</a></dt>
+<dd>Advice only: the lowest safe Z that is recommended for this machine. It is never used as a limit.</dd>
+</dl>
+<h2 id="the-built-in-makera-z1-profile"><a class="header" href="#the-built-in-makera-z1-profile">The built-in Makera Z1 profile</a></h2>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Field</th><th>Value</th><th>Confirmed on a machine</th></tr>
+</thead>
+<tbody>
+<tr><td>Rotary axis, A+ direction</td><td>A about X, positive (at A +90 the top of the part faces the front of the machine)</td><td>yes</td></tr>
+<tr><td>A range</td><td>continuous</td><td>yes</td></tr>
+<tr><td>Axis height (machine Z)</td><td>-48.6 mm</td><td>yes (48.568 mm measured again on firmware 1.1.3)</td></tr>
+<tr><td>Rotary reference X, Y</td><td>-198.39 mm, -124.39 mm (the centre of the headstock face next to the chuck)</td><td>yes (firmware 1.1.3; Y is the G54 Y the firmware sets in the 4-axis setup)</td></tr>
+<tr><td>Travel</td><td>X -207 to -1, Y -160 to -1, Z -102 to -1 mm</td><td>yes (the controller’s soft limits on firmware 1.1.3, with the rotary module fitted)</td></tr>
+<tr><td>X and Y feed, Z feed, A feed</td><td>1200 mm/min, 600 mm/min, 1800 degrees/min, the same for rapids</td><td>yes (on firmware 1.1.3 <code>M203.1</code> prints <code>X: 20</code>, <code>Y: 20</code>, <code>Z: 10</code> and <code>A: 30</code>, per second; rapids timed)</td></tr>
+<tr><td>A in the feed word</td><td>makera</td><td>yes</td></tr>
+<tr><td>Safe cylinder radius, Safe Z</td><td>45 mm, 45 mm</td><td>yes (set to the minimum clearance radius)</td></tr>
+<tr><td>Minimum clearance radius</td><td>45 mm</td><td>yes, for the supplied chuck with its jaws reversed and fully open only: set your own on the setup for any other chuck or jaws</td></tr>
+<tr><td>Highest tool number</td><td>1000</td><td>not applicable (the program’s limit; the controller accepts 1000 and 1001)</td></tr>
+<tr><td>Spindle speed</td><td>4000 to 13000 rpm</td><td>yes</td></tr>
+<tr><td>Minimum block time, Block window, Short moves</td><td>7 ms, 32 blocks, Report</td><td>yes; the mode is a program choice</td></tr>
+<tr><td>Tool length measurement</td><td>Automatic (tool setter)</td><td>yes</td></tr>
+<tr><td>Spindle to axis</td><td>72.0 mm (from the collet face, at the top of the Z travel)</td><td>yes</td></tr>
+<tr><td>Recommended minimum safe Z</td><td>45 mm</td><td>yes (for the supplied chuck with its jaws reversed and fully open)</td></tr>
+</tbody>
+</table>
+</div>
+<p>Every value is confirmed on the project owner’s machine (firmware 1.1.3, with the supplied chuck), not on yours. Check them on your machine before you rely on them.</p>
+<h2 id="rotary-positioning-on-the-makera-z1"><a class="header" href="#rotary-positioning-on-the-makera-z1">Rotary positioning on the Makera Z1</a></h2>
+<p>How precisely A turns is not a value in the profile, and the program does not check it. It was measured once, on the project owner’s Z1 (firmware 1.1.3), with a dial indicator on a rod held in the chuck. That is one result on one machine:</p>
+<ul>
+<li>after moves to A 90, A 180 and A 270, A returned to A 0 within 0.01 mm;</li>
+<li>A repeated within 0.01 to 0.02 mm at a radius of 23 mm.</li>
+</ul>
+<p>Every move approached from the same side, so this is how well A repeats, not how much it loses when it reverses (backlash).</p>
+<p>Makera gives the Z1’s 4th axis module as 0.1 degrees, without saying whether that is its resolution or its accuracy. 0.1 degrees is 0.04 mm at a radius of 23 mm; it is 0.01 mm of arc only at a radius of about 5.7 mm. Your machine may differ: measure it if your part depends on it.</p>
+<h2 id="make-a-profile-for-another-machine"><a class="header" href="#make-a-profile-for-another-machine">Make a profile for another machine</a></h2>
+<ol>
+<li>On the Setup step, in the machine section, click <strong>Manage machines…</strong> to open the machine library window.</li>
+<li>Choose a starting point:
+<ul>
+<li><strong>New machine</strong> makes a blank profile. Its 18 required values (the name, the rotary reference, the six travel limits, the six feed and rapid limits, the safe cylinder radius and the safe Z) are empty until you fill them in.</li>
+<li><strong>Duplicate</strong> copies a library profile, and <strong>Copy to edit</strong> copies the built-in one.</li>
+</ul>
+</li>
+<li>Fill in or change the values.</li>
+<li>Click <strong>Save</strong>. Nothing is written to the library until you save, and <strong>Cancel</strong> discards the changes.</li>
+<li>Select the profile and click <strong>Use this machine</strong> to give the project a copy of it.</li>
+</ol>
+<p><strong>Import…</strong> and <strong>Export…</strong> read and write profile files, so you can share a profile. The project’s own copy can be changed in the same window; <strong>Save to library…</strong> writes it back over its source, or saves it as a new profile.</p>
+<p>A machine that is not 4-axis with A about X cannot be described. Generated G-code must be verified by you before it is run on a machine, whatever profile you use; a profile you made is yours to check.</p>
+
+        </div>
+        <nav class="pager" aria-label="Previous and next page">
+          <a class="prev" rel="prev" href="../reference/settings.html"><span>Previous</span>Settings</a>
+          <a class="next" rel="next" href="../reference/tool-library.html"><span>Next</span>Tool library</a>
+        </nav>
+      </main>
+      <footer class="site-footer">
+        <p class="notice">Generated G-code must be verified by the user before it is run on a machine. OpenChuckCAM does not guarantee that a program is safe or correct for any machine, tool or setup.</p>
+        <p class="stamp">Describes OpenChuckCAM 0.55.1 (app-v0.55.1, commit 7dbae3a), built 2026-11-26. Licensed AGPL-3.0-or-later.</p>
+      </footer>
+    </div>
+  </div>
+  <script>
+    // On a narrow screen the contents start folded; without JavaScript they stay open.
+    if (matchMedia('(max-width: 900px)').matches) document.querySelector('.sidebar details').open = false;
+    (function () {
+      var b = document.querySelector('.theme-toggle'), root = document.documentElement;
+      function dark() { return root.dataset.theme ? root.dataset.theme === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches; }
+      function label() { b.textContent = dark() ? 'Light theme' : 'Dark theme'; }
+      b.hidden = false; label();
+      b.addEventListener('click', function () {
+        root.dataset.theme = dark() ? 'light' : 'dark';
+        try { localStorage.setItem('oc-theme', root.dataset.theme); } catch (e) {}
+        label();
+      });
+    })();
+  </script>
+  <script src="../versions.js"></script>
+  <script src="../elasticlunr-ef4e11c1.min.js"></script>
+  <script src="../mark-09e88c2c.min.js"></script>
+  <script src="../searcher-09f2665d.js"></script>
+  <script>
+    // mdBook's search script expects a toggle button and loads its index when the box is shown.
+    // The box is always visible here, so the first focus presses the (hidden) toggle once.
+    (function () {
+      var bar = document.getElementById('mdbook-searchbar'), t = document.getElementById('mdbook-search-toggle'), done = false;
+      bar.addEventListener('focus', function () { if (!done) { done = true; t.click(); bar.focus(); } });
+    })();
+  </script>
+  
+</body>
+</html>

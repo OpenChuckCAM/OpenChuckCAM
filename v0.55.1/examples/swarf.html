@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
+<!-- OpenChuckCAM user guide: the page template (decision 0400). It replaces mdBook's own theme completely.
+     The @@...@@ placeholders and the latest-banner markers are filled in by user-docs/tools/build.py. -->
+<html lang="en" dir="ltr">
+<head>
+  <meta charset="utf-8">
+  <title>Swarf on a blisk blade - OpenChuckCAM user guide</title>
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="The user guide for OpenChuckCAM, free, open source CAM for 4-axis rotary CNC: how to turn a 3D model into G-code, and what to check before you run it.">
+  <meta name="docs-version" content="0.55.1">
+  <meta name="color-scheme" content="light dark">
+  <link rel="icon" href="../favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="../favicon.png" type="image/png" sizes="32x32">
+  <link rel="stylesheet" href="../style.css">
+  <script>
+    // The reader's theme choice, if any, is kept in localStorage (not a cookie). Without one, the page follows the system.
+    try { var t = localStorage.getItem('oc-theme'); if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t; } catch (e) {}
+    const path_to_root = "../";
+    window.path_to_searchindex_js = "../searchindex-36078234.js";
+  </script>
+</head>
+<body>
+  <a class="skip" href="#content">Skip to the content</a>
+  
+  <header class="site-header">
+    <a class="site-title" href="../index.html"><svg class="site-logo" viewBox="0 0 512 512" width="28" height="28" aria-hidden="true" focusable="false"><g transform="translate(256 256) scale(0.94) translate(-256 -256)" fill="currentColor" stroke="currentColor"><rect x="224" y="128" width="64" height="40" rx="8"/><rect x="224" y="128" width="64" height="40" rx="8" transform="rotate(120 256 256)"/><rect x="224" y="128" width="64" height="40" rx="8" transform="rotate(240 256 256)"/><circle cx="256" cy="256" r="64"/><path d="M239.3 64.7 A192 192 0 1 1 66.9 222.7" fill="none" stroke-width="64" stroke-linecap="round"/><polygon points="85.3,118.3 -0.9,214.8 133.4,238.4" stroke-width="10" stroke-linejoin="round"/></g></svg>OpenChuckCAM <span>User guide</span></a>
+    <div class="tools">
+      <span class="version-switch"><a class="version-link" href="../../versions.html">Version: 0.55.1</a></span>
+      <a href="../print.html">Print the guide</a>
+      <button class="theme-toggle" type="button" hidden>Dark theme</button>
+    </div>
+  </header>
+  <div class="layout">
+    <nav class="sidebar" aria-label="Contents">
+      <details open>
+        <summary>Contents</summary>
+        <div class="search hidden" id="mdbook-search-wrapper">
+          <button type="button" id="mdbook-search-toggle" hidden>Search</button>
+          <form id="mdbook-searchbar-outer" role="search" onsubmit="return false">
+            <label for="mdbook-searchbar">Search the guide</label>
+            <input type="search" id="mdbook-searchbar" name="searchbar" autocomplete="off" aria-controls="mdbook-searchresults-outer" aria-describedby="mdbook-searchresults-header">
+          </form>
+          <div id="mdbook-searchresults-outer" class="searchresults-outer hidden">
+            <div id="mdbook-searchresults-header" class="searchresults-header" aria-live="polite"></div>
+            <ul id="mdbook-searchresults"></ul>
+          </div>
+        </div>
+        <ol class="chapter"><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../index.html">OpenChuckCAM user guide</a></span></li><li class="part-title">Start here</li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../start/install.html">Install and first run</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../start/limitations.html">Known limitations</a></span></li><li class="part-title">Tutorial</li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../tutorial/index.html">Your first project</a></span><ol class="section"><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../tutorial/01-create-project.html">1. Create a project</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../tutorial/02-import-model.html">2. Import the model</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../tutorial/03-machine.html">3. Choose the machine</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../tutorial/04-stock.html">4. Set up the stock</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../tutorial/05-hold.html">5. Hold the work</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../tutorial/06-tools.html">6. Choose the tools</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../tutorial/07-operations.html">7. Add the operations</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../tutorial/08-generate.html">8. Generate the toolpaths</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../tutorial/09-simulate.html">9. Simulate and read the results</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../tutorial/10-export.html">10. Post and export</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../tutorial/11-verify.html">Before you run anything</a></span></li></ol><li class="part-title">Concepts</li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../concepts/rotary-machining.html">How 4-axis rotary machining works</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../concepts/stock-and-held-region.html">Stock and the held region</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../concepts/roughing-and-finishing.html">Roughing and finishing</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../concepts/stepover-and-stock-to-leave.html">Stepover, stepdown, scallop and stock to leave</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../concepts/finishing-strategies.html">Helical, axial, indexed and simultaneous finishing</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../concepts/tabs.html">Tabs</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../concepts/simulation.html">Simulation and deviation colours</a></span></li><li class="part-title">How-to guides</li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../how-to/import-step.html">Import a STEP file</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../how-to/limit-to-a-region.html">Limit an operation to a region</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../how-to/add-a-tool.html">Add a tool to the library</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../how-to/confirm-machine-values.html">Confirm machine profile values</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../how-to/short-block-settings.html">Machine setup: short moves</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../how-to/export.html">Export G-code and the setup sheet</a></span></li><li class="part-title">Worked examples</li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../examples/custom-machine.html">Create a custom machine</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../examples/create-a-post.html">Create a post-processing template</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../examples/tabs-and-held-regions.html">Tabs and held regions</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../examples/limit-to-a-region.html">Limit an operation to a region</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../examples/rest-machining.html">Rest machining</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../examples/flute-length-warning.html">The flute-length warning</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../examples/stepover-and-scallop.html">Stepover, stock to leave and scallop</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../examples/selection-sets.html">Selection sets on a blisk</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../examples/faceflow.html">Face-flow finishing on a blisk floor</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../examples/swarf.html" aria-current="page">Swarf on a blisk blade</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../examples/simultaneous-finishing.html">Simultaneous finishing</a></span></li><li class="part-title">Safety and verification</li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../safety/checking-gcode.html">Checking G-code before you run it</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../safety/air-cut.html">Air cut on the Makera Z1</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../safety/checklist.html">Safe-practice checklist</a></span></li><li class="part-title">Reference</li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../reference/operations.html">Operations and strategies</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../reference/settings.html">Settings</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../reference/machine-profiles.html">Machine profiles</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../reference/tool-library.html">Tool library</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../reference/gcode-and-posts.html">G-code and posts</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../reference/writing-a-post.html">Writing a post-processor</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../reference/command-line.html">Command line</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../reference/messages.html">Messages and item states</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../glossary.html">Glossary</a></span></li><li class="part-title">More</li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../troubleshooting.html">Troubleshooting</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../reporting.html">Reporting a problem or asking for a feature</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../release-notes.html">Release notes</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../credits.html">Credits and licences</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../contributing.html">Contributing to this guide</a></span></li></ol>
+      </details>
+    </nav>
+    <div class="content">
+      <main id="content">
+        <div id="mdbook-content">
+<h1 id="swarf-on-a-blisk-blade"><a class="header" href="#swarf-on-a-blisk-blade">Swarf on a blisk blade</a></h1>
+<p>This example cuts one side of one blade of a bladed disk (a blisk) with <a href="../glossary.html#swarf">swarf</a>, first with a flat end mill and then with a ball end mill. It shows how the pass stops short of the faces at the ends of the blade, what the warnings about the faces beside the blade mean, and what to change: an avoid set that lifts the tool off the floor, or a negative tip extension. The numbers come from a real run and match those measured when this behaviour was built.</p>
+<blockquote class="blockquote-tag blockquote-tag-warning">
+<p class="blockquote-tag-title"><svg viewbox="0 0 16 16" width="18" height="18"><path d="M6.457 1.047c.659-1.234 2.427-1.234 3.086 0l6.082 11.378A1.75 1.75 0 0 1 14.082 15H1.918a1.75 1.75 0 0 1-1.543-2.575Zm1.763.707a.25.25 0 0 0-.44 0L1.698 13.132a.25.25 0 0 0 .22.368h12.164a.25.25 0 0 0 .22-.368Zm.53 3.996v2.5a.75.75 0 0 1-1.5 0v-2.5a.75.75 0 0 1 1.5 0ZM9 11a1 1 0 1 1-2 0 1 1 0 0 1 2 0Z"></path></svg>Warning</p>
+<p>Swarf checks the faces that share an edge with the blade, and only against the cutting part of the tool: not the shank, the holder or the rest of the part. Generated G-code must be verified by you before it is run on a machine: watch the <a href="../glossary.html#simulation">simulation</a>, read every warning, and run an <a href="../glossary.html#air-cut">air cut</a> first.</p>
+</blockquote>
+<p>You need the example project <a href="https://github.com/OpenChuckCAM/OpenChuckCAM/tree/main/testdata/examples/blisk-start/blisk-project"><code>testdata/examples/blisk-start/blisk-project</code></a>. Copy it to a folder of your own and open the copy with <strong>File &gt; Open project</strong>. Swarf needs a STEP part. The numbers on this page come from OpenChuckCAM 0.55.0 on Linux (main at 55e6348).</p>
+<h2 id="how-swarf-cuts-a-blade"><a class="header" href="#how-swarf-cuts-a-blade">How swarf cuts a blade</a></h2>
+<p>The side of a blade is a ruled face: it is made of straight lines, its rulings, that run from the floor up to the tip. Swarf lays the side of the tool along each ruling in turn and moves along the blade, so one pass cuts the whole height. The blade meets other faces:</p>
+<ul>
+<li>at its <strong>ends</strong>: the wall of the disc at X = 37.99 (face 5 here) and the end plane at X = 77.99 (face 15);</li>
+<li>along the <strong>ends of its rulings</strong>: the hub floor at the bottom (face 20) and the outer cylinder at the tip (face 1).</li>
+</ul>
+<h2 id="1-make-the-sets"><a class="header" href="#1-make-the-sets">1. Make the sets</a></h2>
+<p>Make two face sets as in step 1 of <a href="selection-sets.html">Selection sets on a blisk</a>:</p>
+<ul>
+<li><code>Blade wall</code>: the side of the blade above the floor in the middle of the front view (face 19);</li>
+<li><code>Hub floor</code>: that floor (face 20). It is used in step 4.</li>
+</ul>
+<h2 id="2-swarf-with-a-flat-end-mill"><a class="header" href="#2-swarf-with-a-flat-end-mill">2. Swarf with a flat end mill</a></h2>
+<ol>
+<li>Click <strong>+ New operation</strong>. Choose <strong>Swarf (flank) machining</strong>, the tool <strong>3 mm flat end mill</strong>, name it <code>Blade swarf</code>, and click <strong>Add</strong>.</li>
+<li>Beside <strong>Cut on</strong>, choose <strong>Blade wall</strong>.</li>
+</ol>
+<figure>
+<a href="images/blisk_swarf/01-geometry.png"><img src="images/blisk_swarf/01-geometry.png" width="1920" height="1080" alt="The Inspector of Blade swarf, Swarf (flank) machining, Stale, with its description, and Geometry with Cut on Blade wall; Contain within, Avoid and Check empty."></a>
+<figcaption><b>Figure 1.</b> A swarf operation with only the face to cut.</figcaption>
+</figure>
+<ol start="3" style="counter-reset: step 2">
+<li>Click <strong>Generate stale</strong>. It took about 30 s on the test computer.</li>
+</ol>
+<figure>
+<a href="images/blisk_swarf/02-flat.png"><img src="images/blisk_swarf/02-flat.png" width="1920" height="1080" alt="The swarf pass drawn in orange along the blade root. Results: 1 operation, 47 moves, 30.2 s to generate, Errors 0, Warnings 3, Generated Blade swarf, and the warnings quoted in the text."></a>
+<figcaption><b>Figure 2.</b> One pass along the blade with the 3 mm flat end mill.</figcaption>
+</figure>
+<p>The face’s note, the last swarf line in the Results, says:</p>
+<blockquote>
+<p>… The tool’s end is level with the end of the rulings at the tip. The pass stops short of face 5, which meets this face at an end, so the tool keeps off it: about 0.471 mm along the face is left uncut there. The pass stops short of face 15, which meets this face at an end, so the tool keeps off it: about 0.833 mm along the face is left uncut there. The faces that share an edge with this face were checked against the tool’s cutting part; the shank, the holder and other faces were not.</p>
+</blockquote>
+<p>This is <strong>Keep off the end faces</strong> at work. It is on by default: each pass stops short of a face that meets an end of the blade, by the least length that keeps the tool off it. Without it, the side of the tool would run past the end of the blade into the disc wall.</p>
+<p>The other two swarf warnings are about the faces along the ends of the rulings:</p>
+<ul>
+<li>“Overcut (operation ‘Blade swarf’): swarf on face 19 cuts 0.023 mm into face 20, which meets it along the ends of its rulings, at (75.583, 1.020, 9.305), more than this operation’s tolerance of 0.01 mm. To keep the tool off it, put face 20 in an avoid set on Cut short, which lifts the tool clear of it, or set a negative Tip extension to pull the tool up the face …”</li>
+<li>The same for face 1, the outer cylinder at the tips: 0.014 mm.</li>
+</ul>
+<p>And one is about the blade itself: “Overcut (operation ‘Blade swarf’): swarf on face 19 cuts into the finished surface by 0.0158 mm … The face is ruled but not developable: it is made of straight lines, but its surface turns 8.62 degrees along each of them, so the straight side of the tool cannot lie flat on it everywhere”. The blade twists, so a straight tool cannot follow it exactly. The warning says what you can do: accept it by raising <strong>Tolerance</strong> to 0.0158 mm, or use a tool with a smaller radius or a taper.</p>
+<h2 id="3-swarf-with-a-ball-end-mill"><a class="header" href="#3-swarf-with-a-ball-end-mill">3. Swarf with a ball end mill</a></h2>
+<ol>
+<li>Scroll the Inspector to <strong>Tool</strong> and choose <strong>T2 3 mm ball</strong> in the tool list.</li>
+<li>Click <strong>Generate stale</strong>.</li>
+</ol>
+<figure>
+<a href="images/blisk_swarf/03-ball.png"><img src="images/blisk_swarf/03-ball.png" width="1920" height="1080" alt="Blade swarf with the 3 mm ball. No orange pass shows in the view, only the pink entry move above the blade: the pass runs below the floor, which hides it. Results: 1 operation, 46 moves, 30.9 s to generate, Errors 1, Warnings 3, and the warning that the swarf on face 19 cuts 1.190 mm into face 20. In the Inspector, Tolerance and Tip extension are outlined, with the note The last path was made with a warning about this setting."></a>
+<figcaption><b>Figure 3.</b> With a ball, the tool's round end reaches below the end of the rulings into the floor.</figcaption>
+</figure>
+<p>The note now says “The tool’s end reaches 1.500 mm beyond the end of the rulings at the tip (its corner radius and the tip extension), so it cuts into any face that meets them there, such as a floor, unless that face is in an avoid or check set.” The flank of a ball end mill starts at its equator, 1.5 mm above its tip, so the tip goes 1.5 mm past the foot of the blade. The warnings show it:</p>
+<ul>
+<li>“Overcut (operation ‘Blade swarf’): swarf on face 19 cuts 1.190 mm into face 20, which meets it along the ends of its rulings, at (39.472, -13.814, -5.250) …”</li>
+<li>The simulation finds it too: “Overcut: 1.151 mm deepest, at X 73.52, Y -0.84, Z 9.63; 60878 samples beyond 0.10 mm”, counted under <strong>Errors</strong>.</li>
+</ul>
+<p>The pass also stops 2.158 mm short of the end plane (face 15) instead of 0.833 mm, because the ball’s round end needs more room there.</p>
+<h2 id="4-lift-the-tool-off-the-floor-with-an-avoid-set"><a class="header" href="#4-lift-the-tool-off-the-floor-with-an-avoid-set">4. Lift the tool off the floor with an avoid set</a></h2>
+<ol>
+<li>Scroll back to <strong>Geometry</strong>. Beside <strong>Avoid</strong>, choose <strong>Hub floor</strong>. Leave it on <strong>Cut short</strong>.</li>
+</ol>
+<figure>
+<a href="images/blisk_swarf/04-avoid-set.png"><img src="images/blisk_swarf/04-avoid-set.png" width="1920" height="1080" alt="The Geometry section of Blade swarf: Cut on Blade wall, Avoid Hub floor with the choice Cut short chosen and Warn only and Ignore beside it; the hub floor is hatched red on the part."></a>
+<figcaption><b>Figure 4.</b> On swarf, <b>Cut short</b> lifts the tool's end up the blade until it is clear of the set.</figcaption>
+</figure>
+<ol start="2" style="counter-reset: step 1">
+<li>Click <strong>Generate stale</strong>.</li>
+</ol>
+<figure>
+<a href="images/blisk_swarf/05-avoid.png"><img src="images/blisk_swarf/05-avoid.png" width="1920" height="1080" alt="Blade swarf with Hub floor as an avoid set: the orange pass runs along the foot of the blade, above the hatched floor. Results: 1 operation, 48 moves, 33.4 s to generate, Errors 0, Warnings 2, and no warning about face 20."></a>
+<figcaption><b>Figure 5.</b> The warning about the floor is gone, and so is the overcut.</figcaption>
+</figure>
+<p>The note says: “The tool is lifted up to 1.266 mm along the rulings to keep clear of the avoid surfaces, so a strip up to about 1.266 mm wide is left at that end of the face.” That strip at the foot of the blade is left on purpose, and is not counted as material left. The simulation’s line is “Deepest cut below the surface: 0.054 mm, within the simulation’s error”.</p>
+<p>The note no longer says the pass stops short of face 15. The faces at the ends are measured against the tool as lifted, so a lift can shorten the stop or make it unneeded. It still stops 0.456 mm short of face 5.</p>
+<p>The other way to keep the tool off the floor is a negative <strong>Tip extension</strong> (under <strong>Tool axis and A</strong>): it starts the flank that far up the blade, along the whole pass, and leaves a strip that wide. The avoid set lifts the tool only as much as each place needs.</p>
+<h2 id="5-keep-off-the-end-faces-turned-off"><a class="header" href="#5-keep-off-the-end-faces-turned-off">5. Keep off the end faces, turned off</a></h2>
+<p>To see what the setting does, turn it off:</p>
+<ol>
+<li>Scroll to <strong>Pattern and tolerance</strong> and clear <strong>Keep off the end faces</strong>.</li>
+<li>Click <strong>Generate stale</strong>.</li>
+</ol>
+<figure>
+<a href="images/blisk_swarf/06-keep-off-setting.png"><img src="images/blisk_swarf/06-keep-off-setting.png" width="1920" height="1080" alt="The Pattern and tolerance section of Blade swarf: Tolerance 0.010 default, Stepover 1.000 from the tool&#39;s cutting data, Stock to leave 0.000 default, the tick box Keep off the end faces cleared, Direction forward; then Tool axis and A with Tip extension 0.000 default and Tip end auto. The Results under the view say The project has changed since this run."></a>
+<figcaption><b>Figure 6.</b> <b>Keep off the end faces</b> is a tick box in <b>Pattern and tolerance</b>.</figcaption>
+</figure>
+<figure>
+<a href="images/blisk_swarf/07-keep-off-off.png"><img src="images/blisk_swarf/07-keep-off-off.png" width="1920" height="1080" alt="Blade swarf with Keep off the end faces off: Results 1 operation, 48 moves, 32.2 s to generate, Errors 1, Warnings 3, and the warnings that the swarf on face 19 cuts 0.266 mm into face 1 and 0.269 mm into face 5. In the Inspector, Tolerance and Tip extension are outlined, and Tolerance and Keep off the end faces have the note The last path was made with a warning about this setting."></a>
+<figcaption><b>Figure 7.</b> With the setting off, the pass runs to the end of the blade and into the disc wall. A setting that a warning points at is outlined or has a note under it.</figcaption>
+</figure>
+<p>The Results now say: “Overcut (operation ‘Blade swarf’): swarf on face 19 cuts 0.269 mm into face 5, which meets it at an end of the pass, at (37.990, -17.997, -6.539), more than this operation’s tolerance of 0.01 mm. Keep off the end faces is off for this operation: turn it on to stop the pass short of face 5 (in the operation inspector’s parameters, where the field is marked), or put face 5 in an avoid set on Cut short.” The simulation reports “Overcut: 0.300 mm deepest, at X 37.99, Y -16.89, Z -6.30”. Turn the setting back on, unless you mean to cut into that face, for example because it is stock that a later operation removes.</p>
+<h2 id="read-the-result"><a class="header" href="#read-the-result">Read the result</a></h2>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th></th><th>Flat 3 mm</th><th>Ball 3 mm</th><th>Ball, floor in Avoid</th><th>Ball, floor in Avoid, Keep off the end faces off</th></tr>
+</thead>
+<tbody>
+<tr><td>Stops short of face 5 (disc wall)</td><td>0.471 mm</td><td>0.471 mm</td><td>0.456 mm</td><td>no: cuts it 0.269 mm</td></tr>
+<tr><td>Stops short of face 15 (end plane)</td><td>0.833 mm</td><td>2.158 mm</td><td>not needed</td><td>not needed</td></tr>
+<tr><td>Cut into face 20 (floor), warned</td><td>0.023 mm</td><td>1.190 mm</td><td>lifted up to 1.266 mm</td><td>lifted up to 1.266 mm</td></tr>
+<tr><td>Cut into face 1 (outer cylinder), warned</td><td>0.014 mm</td><td>0.014 mm</td><td>0.011 mm</td><td>0.266 mm</td></tr>
+<tr><td>Moves</td><td>47</td><td>46</td><td>48</td><td>48</td></tr>
+</tbody>
+</table>
+</div>
+<p>These are the same numbers that were measured on this blade when the stop at the ends was built: 0.471 mm and 0.833 mm with a 3 mm flat end mill, 0.471 mm and 2.157 mm with a 3 mm ball, and the floor cut by 0.023 mm and 1.190 mm (on blade 7). Other blades of this blisk twist into the disc wall more, and there the pass stops much further short: 6.935 mm with a 3 mm flat end mill on blade 9.</p>
+<p>How to read the lines:</p>
+<ul>
+<li>“stops short of face N … about X mm along the face is left uncut there”: the end of the blade is left on purpose, to keep the tool off a face at the end. Finish it another way if it matters.</li>
+<li>“cuts X mm into face N, which meets it along the ends of its rulings”: the floor or the tip cylinder is cut. Put that face in an avoid set on <strong>Cut short</strong>, or use a negative <strong>Tip extension</strong>.</li>
+<li>“cuts X mm into face N, which meets it at an end of the pass”: only with <strong>Keep off the end faces</strong> off.</li>
+<li>“The faces that share an edge with this face were checked against the tool’s cutting part; the shank, the holder and other faces were not.” Faces that do not touch the blade, such as the next blade, are not checked. Check the simulation for those.</li>
+</ul>
+<h2 id="common-mistakes"><a class="header" href="#common-mistakes">Common mistakes</a></h2>
+<dl>
+<dt id="a-ball-end-mill-on-a-blade-that-stands-on-a-floor"><a class="header" href="#a-ball-end-mill-on-a-blade-that-stands-on-a-floor">A ball end mill on a blade that stands on a floor</a></dt>
+<dd>The round end goes below the foot of the blade by its radius: “Overcut (operation ‘Blade swarf’): swarf on face 19 cuts 1.190 mm into face 20”. Put the floor in an avoid set on <strong>Cut short</strong> (step 4), or use a flat end mill.</dd>
+<dt id="putting-the-floor-in-an-avoid-set-on-warn-only"><a class="header" href="#putting-the-floor-in-an-avoid-set-on-warn-only">Putting the floor in an avoid set on Warn only</a></dt>
+<dd>The path is kept as it is and the cut is only reported. Use <strong>Cut short</strong> to lift the tool.</dd>
+<dt id="turning-keep-off-the-end-faces-off-to-cut-the-whole-blade"><a class="header" href="#turning-keep-off-the-end-faces-off-to-cut-the-whole-blade">Turning Keep off the end faces off to cut the whole blade</a></dt>
+<dd>The tool then cuts the face at the end: “Overcut (operation ‘Blade swarf’): swarf on face 19 cuts 0.269 mm into face 5, which meets it at an end of the pass”. Leave it on unless that face is meant to be cut.</dd>
+<dt id="raising-the-tolerance-to-remove-the-not-developable-warning-without-reading-it"><a class="header" href="#raising-the-tolerance-to-remove-the-not-developable-warning-without-reading-it">Raising the tolerance to remove the “not developable” warning without reading it</a></dt>
+<dd>The warning gives the depth (0.0158 mm here) and checks the value it proposes. A larger tolerance accepts that cut into the blade; it does not make the tool follow the twist better. A tool with a smaller radius does.</dd>
+<dt id="an-edge-set-in-cut-on"><a class="header" href="#an-edge-set-in-cut-on">An edge set in Cut on</a></dt>
+<dd>Swarf cuts faces. It is refused: “Only edge following follows chosen edges, and face-flow finishing takes them as its guide. Take the edge set ‘Floor guide’ out of the operation, or use one of those.” See <a href="selection-sets.html">Selection sets on a blisk</a>.</dd>
+</dl>
+
+        </div>
+        <nav class="pager" aria-label="Previous and next page">
+          <a class="prev" rel="prev" href="../examples/faceflow.html"><span>Previous</span>Face-flow finishing on a blisk floor</a>
+          <a class="next" rel="next" href="../examples/simultaneous-finishing.html"><span>Next</span>Simultaneous finishing</a>
+        </nav>
+      </main>
+      <footer class="site-footer">
+        <p class="notice">Generated G-code must be verified by the user before it is run on a machine. OpenChuckCAM does not guarantee that a program is safe or correct for any machine, tool or setup.</p>
+        <p class="stamp">Describes OpenChuckCAM 0.55.1 (app-v0.55.1, commit 7dbae3a), built 2026-11-26. Licensed AGPL-3.0-or-later.</p>
+      </footer>
+    </div>
+  </div>
+  <script>
+    // On a narrow screen the contents start folded; without JavaScript they stay open.
+    if (matchMedia('(max-width: 900px)').matches) document.querySelector('.sidebar details').open = false;
+    (function () {
+      var b = document.querySelector('.theme-toggle'), root = document.documentElement;
+      function dark() { return root.dataset.theme ? root.dataset.theme === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches; }
+      function label() { b.textContent = dark() ? 'Light theme' : 'Dark theme'; }
+      b.hidden = false; label();
+      b.addEventListener('click', function () {
+        root.dataset.theme = dark() ? 'light' : 'dark';
+        try { localStorage.setItem('oc-theme', root.dataset.theme); } catch (e) {}
+        label();
+      });
+    })();
+  </script>
+  <script src="../versions.js"></script>
+  <script src="../elasticlunr-ef4e11c1.min.js"></script>
+  <script src="../mark-09e88c2c.min.js"></script>
+  <script src="../searcher-09f2665d.js"></script>
+  <script>
+    // mdBook's search script expects a toggle button and loads its index when the box is shown.
+    // The box is always visible here, so the first focus presses the (hidden) toggle once.
+    (function () {
+      var bar = document.getElementById('mdbook-searchbar'), t = document.getElementById('mdbook-search-toggle'), done = false;
+      bar.addEventListener('focus', function () { if (!done) { done = true; t.click(); bar.focus(); } });
+    })();
+  </script>
+  
+</body>
+</html>

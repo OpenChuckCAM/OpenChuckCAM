@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
+<!-- OpenChuckCAM user guide: the page template (decision 0400). It replaces mdBook's own theme completely.
+     The @@...@@ placeholders and the latest-banner markers are filled in by user-docs/tools/build.py. -->
+<html lang="en" dir="ltr">
+<head>
+  <meta charset="utf-8">
+  <title>Stepover, stock to leave and scallop - OpenChuckCAM user guide</title>
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="The user guide for OpenChuckCAM, free, open source CAM for 4-axis rotary CNC: how to turn a 3D model into G-code, and what to check before you run it.">
+  <meta name="docs-version" content="0.55.1">
+  <meta name="color-scheme" content="light dark">
+  <link rel="icon" href="../favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="../favicon.png" type="image/png" sizes="32x32">
+  <link rel="stylesheet" href="../style.css">
+  <script>
+    // The reader's theme choice, if any, is kept in localStorage (not a cookie). Without one, the page follows the system.
+    try { var t = localStorage.getItem('oc-theme'); if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t; } catch (e) {}
+    const path_to_root = "../";
+    window.path_to_searchindex_js = "../searchindex-36078234.js";
+  </script>
+</head>
+<body>
+  <a class="skip" href="#content">Skip to the content</a>
+  
+  <header class="site-header">
+    <a class="site-title" href="../index.html"><svg class="site-logo" viewBox="0 0 512 512" width="28" height="28" aria-hidden="true" focusable="false"><g transform="translate(256 256) scale(0.94) translate(-256 -256)" fill="currentColor" stroke="currentColor"><rect x="224" y="128" width="64" height="40" rx="8"/><rect x="224" y="128" width="64" height="40" rx="8" transform="rotate(120 256 256)"/><rect x="224" y="128" width="64" height="40" rx="8" transform="rotate(240 256 256)"/><circle cx="256" cy="256" r="64"/><path d="M239.3 64.7 A192 192 0 1 1 66.9 222.7" fill="none" stroke-width="64" stroke-linecap="round"/><polygon points="85.3,118.3 -0.9,214.8 133.4,238.4" stroke-width="10" stroke-linejoin="round"/></g></svg>OpenChuckCAM <span>User guide</span></a>
+    <div class="tools">
+      <span class="version-switch"><a class="version-link" href="../../versions.html">Version: 0.55.1</a></span>
+      <a href="../print.html">Print the guide</a>
+      <button class="theme-toggle" type="button" hidden>Dark theme</button>
+    </div>
+  </header>
+  <div class="layout">
+    <nav class="sidebar" aria-label="Contents">
+      <details open>
+        <summary>Contents</summary>
+        <div class="search hidden" id="mdbook-search-wrapper">
+          <button type="button" id="mdbook-search-toggle" hidden>Search</button>
+          <form id="mdbook-searchbar-outer" role="search" onsubmit="return false">
+            <label for="mdbook-searchbar">Search the guide</label>
+            <input type="search" id="mdbook-searchbar" name="searchbar" autocomplete="off" aria-controls="mdbook-searchresults-outer" aria-describedby="mdbook-searchresults-header">
+          </form>
+          <div id="mdbook-searchresults-outer" class="searchresults-outer hidden">
+            <div id="mdbook-searchresults-header" class="searchresults-header" aria-live="polite"></div>
+            <ul id="mdbook-searchresults"></ul>
+          </div>
+        </div>
+        <ol class="chapter"><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../index.html">OpenChuckCAM user guide</a></span></li><li class="part-title">Start here</li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../start/install.html">Install and first run</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../start/limitations.html">Known limitations</a></span></li><li class="part-title">Tutorial</li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../tutorial/index.html">Your first project</a></span><ol class="section"><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../tutorial/01-create-project.html">1. Create a project</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../tutorial/02-import-model.html">2. Import the model</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../tutorial/03-machine.html">3. Choose the machine</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../tutorial/04-stock.html">4. Set up the stock</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../tutorial/05-hold.html">5. Hold the work</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../tutorial/06-tools.html">6. Choose the tools</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../tutorial/07-operations.html">7. Add the operations</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../tutorial/08-generate.html">8. Generate the toolpaths</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../tutorial/09-simulate.html">9. Simulate and read the results</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../tutorial/10-export.html">10. Post and export</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../tutorial/11-verify.html">Before you run anything</a></span></li></ol><li class="part-title">Concepts</li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../concepts/rotary-machining.html">How 4-axis rotary machining works</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../concepts/stock-and-held-region.html">Stock and the held region</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../concepts/roughing-and-finishing.html">Roughing and finishing</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../concepts/stepover-and-stock-to-leave.html">Stepover, stepdown, scallop and stock to leave</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../concepts/finishing-strategies.html">Helical, axial, indexed and simultaneous finishing</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../concepts/tabs.html">Tabs</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../concepts/simulation.html">Simulation and deviation colours</a></span></li><li class="part-title">How-to guides</li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../how-to/import-step.html">Import a STEP file</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../how-to/limit-to-a-region.html">Limit an operation to a region</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../how-to/add-a-tool.html">Add a tool to the library</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../how-to/confirm-machine-values.html">Confirm machine profile values</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../how-to/short-block-settings.html">Machine setup: short moves</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../how-to/export.html">Export G-code and the setup sheet</a></span></li><li class="part-title">Worked examples</li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../examples/custom-machine.html">Create a custom machine</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../examples/create-a-post.html">Create a post-processing template</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../examples/tabs-and-held-regions.html">Tabs and held regions</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../examples/limit-to-a-region.html">Limit an operation to a region</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../examples/rest-machining.html">Rest machining</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../examples/flute-length-warning.html">The flute-length warning</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../examples/stepover-and-scallop.html" aria-current="page">Stepover, stock to leave and scallop</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../examples/selection-sets.html">Selection sets on a blisk</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../examples/faceflow.html">Face-flow finishing on a blisk floor</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../examples/swarf.html">Swarf on a blisk blade</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../examples/simultaneous-finishing.html">Simultaneous finishing</a></span></li><li class="part-title">Safety and verification</li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../safety/checking-gcode.html">Checking G-code before you run it</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../safety/air-cut.html">Air cut on the Makera Z1</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../safety/checklist.html">Safe-practice checklist</a></span></li><li class="part-title">Reference</li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../reference/operations.html">Operations and strategies</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../reference/settings.html">Settings</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../reference/machine-profiles.html">Machine profiles</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../reference/tool-library.html">Tool library</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../reference/gcode-and-posts.html">G-code and posts</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../reference/writing-a-post.html">Writing a post-processor</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../reference/command-line.html">Command line</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../reference/messages.html">Messages and item states</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../glossary.html">Glossary</a></span></li><li class="part-title">More</li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../troubleshooting.html">Troubleshooting</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../reporting.html">Reporting a problem or asking for a feature</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../release-notes.html">Release notes</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../credits.html">Credits and licences</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="../contributing.html">Contributing to this guide</a></span></li></ol>
+      </details>
+    </nav>
+    <div class="content">
+      <main id="content">
+        <div id="mdbook-content">
+<h1 id="stepover-stock-to-leave-and-scallop"><a class="header" href="#stepover-stock-to-leave-and-scallop">Stepover, stock to leave and scallop</a></h1>
+<p>This example changes the <a href="../glossary.html#stepover">stepover</a> of the tutorial’s finishing operation and its <strong>Scallop height</strong>, and the <a href="../glossary.html#stock-to-leave">stock to leave</a> of its roughing operation, and puts numbers on what each change does: the height of the ridges left between passes, the programmed time, and how the work is shared between roughing and finishing.</p>
+<blockquote class="blockquote-tag blockquote-tag-warning">
+<p class="blockquote-tag-title"><svg viewbox="0 0 16 16" width="18" height="18"><path d="M6.457 1.047c.659-1.234 2.427-1.234 3.086 0l6.082 11.378A1.75 1.75 0 0 1 14.082 15H1.918a1.75 1.75 0 0 1-1.543-2.575Zm1.763.707a.25.25 0 0 0-.44 0L1.698 13.132a.25.25 0 0 0 .22.368h12.164a.25.25 0 0 0 .22-.368Zm.53 3.996v2.5a.75.75 0 0 1-1.5 0v-2.5a.75.75 0 0 1 1.5 0ZM9 11a1 1 0 1 1-2 0 1 1 0 0 1 2 0Z"></path></svg>Warning</p>
+<p>The times on this page are programmed times: the sum of the moves at their programmed feeds. They are not the time your machine will take, which also depends on its acceleration, the feed override and the spindle. A finer finish is not a safer one: check every path in the simulation and run an <a href="../glossary.html#air-cut">air cut</a> first. Generated G-code must be verified by you before it is run on a machine.</p>
+</blockquote>
+<p>You need the tutorial’s finished project, <a href="https://github.com/OpenChuckCAM/OpenChuckCAM/tree/main/testdata/examples/baluster/baluster-project"><code>testdata/examples/baluster/baluster-project</code></a>. Copy it to a folder of your own and open the copy with <strong>File &gt; Open project</strong>. The numbers on this page come from that project on the build named in the figures’ record, with the Makera Z1 post; your own part gives other numbers. <a href="../concepts/stepover-and-stock-to-leave.html">Stepover, stepdown, scallop and stock to leave</a> explains the terms.</p>
+<blockquote class="blockquote-tag blockquote-tag-note">
+<p class="blockquote-tag-title"><svg viewbox="0 0 16 16" width="18" height="18"><path d="M0 8a8 8 0 1 1 16 0A8 8 0 0 1 0 8Zm8-6.5a6.5 6.5 0 1 0 0 13 6.5 6.5 0 0 0 0-13ZM6.5 7.75A.75.75 0 0 1 7.25 7h1a.75.75 0 0 1 .75.75v2.75h.25a.75.75 0 0 1 0 1.5h-2a.75.75 0 0 1 0-1.5h.25v-2h-.25a.75.75 0 0 1-.75-.75ZM8 6a1 1 0 1 1 0-2 1 1 0 0 1 0 2Z"></path></svg>Note</p>
+<p>The example project places the part 17.99 mm from the headstock face (<strong>Offset along X</strong> and <strong>Zero at X</strong> in the setup), the length of the project owner’s supplied chuck. It is not a value for your machine: for your own parts, measure the distance from the face of the headstock body to the face of your chuck where the stock starts, with your jaws fitted and gripping as you will grip, and use that number. See <a href="../tutorial/04-stock.html">Set up the stock</a>.</p>
+</blockquote>
+<h2 id="the-scallop-of-a-ball-end-mill"><a class="header" href="#the-scallop-of-a-ball-end-mill">The scallop of a ball end mill</a></h2>
+<p>A ball end mill of radius <em>R</em> that steps over by <em>s</em> between passes leaves a ridge, the <a href="../glossary.html#scallop">scallop</a>, between them. On a flat or gently curved surface its height is about</p>
+<p><em>h</em> = <em>R</em> − √(<em>R</em>² − (<em>s</em>/2)²)</p>
+<p>The tutorial’s finishing tool, <strong>Z1 ball 3.175x22</strong>, has <em>R</em> = 1.5875 mm. The program does not measure the scallop on the part, so the heights on this page are worked out with this formula; they are what the stepover allows, not a measurement.</p>
+<h2 id="1-a-larger-stepover"><a class="header" href="#1-a-larger-stepover">1. A larger stepover</a></h2>
+<ol>
+<li>In the project panel, click <strong>2 Finish</strong>.</li>
+<li>In the Inspector, under <strong>Pattern and tolerance</strong>, set <strong>Stepover</strong> to <code>0.9</code> and press <kbd>Enter</kbd>.</li>
+</ol>
+<figure>
+<a href="images/scallop/01-stepover.png"><img src="images/scallop/01-stepover.png" width="1920" height="1080" alt="The Finish operation&#39;s Inspector with Stepover 0.900 mm, a button beside it to go back to the tool&#39;s value, Stock to leave 0.000 default, Scallop height 0.000 default, Passes Spiral, and Material preset No preset; the operation is marked Stale."></a>
+<figcaption><b>Figure 1.</b> The stepover set to 0.9 mm. A value typed into the operation is kept with it and shows a button to go back to the tool's value.</figcaption>
+</figure>
+<ol start="3" style="counter-reset: step 2">
+<li>Click <strong>Generate</strong>, then <strong>Continue to simulate</strong>, then <strong>Post and export…</strong>.</li>
+<li>Under <strong>Files</strong>, choose <strong>One file per operation</strong>, so that the table lists each operation’s programmed time.</li>
+</ol>
+<figure>
+<a href="images/scallop/02-time-stepover-0.9.png"><img src="images/scallop/02-time-stepover-0.9.png" width="1920" height="1080" alt="The Post and export dialog with One file per operation chosen; Files to write lists 01-setup-1-rough.nc, Setup 1, 9189 lines, 25 min 26 s, and 02-setup-1-finish.nc, Setup 1, 9096 lines, 13 min 30 s; the text says Programmed time is the sum of the moves at their programmed feeds. It is not an estimate of the machine&#39;s time."></a>
+<figcaption><b>Figure 2.</b> With a 0.9 mm stepover the finish is 13 min 30 s of programmed time, against 24 min 57 s at the tutorial's stepover.</figcaption>
+</figure>
+<p>Close the dialog with the <strong>×</strong> at its top right: nothing is written until you choose a folder and click <strong>Write G-code</strong>.</p>
+<h2 id="2-set-the-scallop-height-instead"><a class="header" href="#2-set-the-scallop-height-instead">2. Set the scallop height instead</a></h2>
+<p><strong>Scallop height</strong> sets the largest ridge you will accept, and the program works out the spacing from it. “The pitch is the smaller of this and the stepover allows”, so it only ever makes the passes closer, never further apart.</p>
+<ol>
+<li>Click <strong>Operations</strong> at the top, then <strong>2 Finish</strong>.</li>
+<li>Leave <strong>Stepover</strong> at <code>0.9</code>, and set <strong>Scallop height</strong> to <code>0.01</code>.</li>
+</ol>
+<figure>
+<a href="images/scallop/03-scallop-height.png"><img src="images/scallop/03-scallop-height.png" width="1920" height="1080" alt="The Finish operation&#39;s Inspector with Stepover 0.900 and Scallop height 0.010, both with a button to go back to the default; the view still shows the earlier path with the wide stepover."></a>
+<figcaption><b>Figure 3.</b> A scallop height of 0.01 mm with the stepover still at 0.9 mm. The scallop height wins: it allows only about 0.356 mm between passes.</figcaption>
+</figure>
+<ol start="3" style="counter-reset: step 2">
+<li>Generate, and open <strong>Post and export…</strong> again.</li>
+</ol>
+<figure>
+<a href="images/scallop/04-time-scallop-0.01.png"><img src="images/scallop/04-time-scallop-0.01.png" width="1920" height="1080" alt="The Post and export dialog: 01-setup-1-rough.nc, 9189 lines, 25 min 26 s, and 02-setup-1-finish.nc, 25730 lines, 31 min 13 s; behind it the Simulate step&#39;s Inspector shows Within ±0.100 mm 92.8 %."></a>
+<figcaption><b>Figure 4.</b> With a 0.01 mm scallop height the finish is 31 min 13 s. The roughing does not change.</figcaption>
+</figure>
+<h2 id="read-the-result-stepover"><a class="header" href="#read-the-result-stepover">Read the result: stepover</a></h2>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Finish set to</th><th>Spacing between passes</th><th>Scallop height (worked out)</th><th>Finish programmed time</th></tr>
+</thead>
+<tbody>
+<tr><td><strong>Stepover</strong> 0.9 mm</td><td>0.9 mm</td><td>0.065 mm</td><td>13 min 30 s</td></tr>
+<tr><td><strong>Stepover</strong> 0.453571 mm (the tutorial’s)</td><td>0.4536 mm</td><td>0.016 mm</td><td>24 min 57 s</td></tr>
+<tr><td><strong>Scallop height</strong> 0.01 mm</td><td>about 0.356 mm</td><td>0.010 mm</td><td>31 min 13 s</td></tr>
+<tr><td><strong>Stepover</strong> 0.2 mm</td><td>0.2 mm</td><td>0.003 mm</td><td>53 min 53 s</td></tr>
+</tbody>
+</table>
+</div>
+<p>The roughing is 25 min 26 s in every row.</p>
+<ul>
+<li>Halving the stepover roughly doubles the time, and divides the scallop height by about four: the height grows with the square of the stepover.</li>
+<li>A scallop of 0.065 mm is easy to feel and to see on a finished surface; one of 0.003 mm is hard to see. Choose the largest stepover that leaves a surface you can accept, then sand or polish the rest if the part needs it.</li>
+<li>On curved and steep parts of the surface the real ridge differs from the formula. <strong>Adaptive spacing</strong>, in the same section, measures the material left between passes and adds passes where it is more than its <strong>Allowed excess</strong>.</li>
+</ul>
+<p>The simulation cannot measure ridges this small at its default cell of 0.1 mm: “Deviation is accurate to about one cell”. It does show the overall effect. In the Simulate step, the share of the surface <strong>Within ±0.100 mm</strong> rose from 85.4 % with the 0.9 mm stepover to 92.8 % with the 0.01 mm scallop height. The finest cell, 0.025 mm, takes “About 64.0 times the time and 16.0 times the memory of the default”, too slow for this comparison.</p>
+<h2 id="read-the-result-stock-to-leave"><a class="header" href="#read-the-result-stock-to-leave">Read the result: stock to leave</a></h2>
+<p>The roughing leaves <strong>Stock to leave</strong> on the part so that the finishing tool has an even, light cut. The tutorial’s roughing leaves 0.3 mm. With the same project, changing the roughing’s <strong>Stock to leave</strong> to <code>1.0</code> gives, from <code>openchuck-cli simulate</code>:</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Roughing stock to leave</th><th>Roughing removes</th><th>Finish removes</th><th>Most material left</th></tr>
+</thead>
+<tbody>
+<tr><td>0.3 mm (the tutorial’s)</td><td>12,099.6 mm³</td><td>2,110.4 mm³</td><td>0.924 mm</td></tr>
+<tr><td>1.0 mm</td><td>9,445.4 mm³</td><td>4,703.1 mm³</td><td>0.924 mm</td></tr>
+</tbody>
+</table>
+</div>
+<p>With 1 mm left, the finish removes more than twice as much, with the same ball and the same stepover: a heavier cut for a small tool, and more load where the ball cuts with its tip. The part ends the same: the most material left, 0.924 mm, is at the collar next to the chuck’s grip in both, where neither tool reaches.</p>
+<p>A new rotary roughing operation starts with a stock to leave of a tenth of its tool’s diameter, rounded to 0.05 mm and kept between 0.1 and 1 mm: 0.3 mm for this 3.175 mm tool. A selection set can have its own stock to leave; the roughing then leaves the largest of the operation’s and its sets’ values, and says which set gave it.</p>
+<h2 id="common-mistakes"><a class="header" href="#common-mistakes">Common mistakes</a></h2>
+<dl>
+<dt id="setting-a-small-stepover-to-get-a-fine-finish-then-finding-the-job-takes-hours"><a class="header" href="#setting-a-small-stepover-to-get-a-fine-finish-then-finding-the-job-takes-hours">Setting a small stepover to get a fine finish, then finding the job takes hours</a></dt>
+<dd>Look at the programmed time in <strong>Post and export…</strong> before you choose. Work out the scallop height you need first.</dd>
+<dt id="a-scallop-height-that-does-nothing"><a class="header" href="#a-scallop-height-that-does-nothing">A <strong>Scallop height</strong> that does nothing</a></dt>
+<dd>If the stepover already gives a smaller ridge than the scallop height you set, the stepover wins. The scallop height only makes passes closer.</dd>
+<dt id="stock-to-leave-on-the-finishing-operation"><a class="header" href="#stock-to-leave-on-the-finishing-operation">Stock to leave on the finishing operation</a></dt>
+<dd>The finish cuts to the model plus its own stock to leave. Leave the finish’s <strong>Stock to leave</strong> at 0 unless a later operation will cut that material.</dd>
+<dt id="too-much-stock-left-for-the-finish"><a class="header" href="#too-much-stock-left-for-the-finish">Too much stock left for the finish</a></dt>
+<dd>The finish’s tool must take what the roughing leaves in one pass. If you leave more, use <strong>Finishing layers</strong> (<a href="flute-length-warning.html">The flute-length warning</a> shows them) or a semi-finishing operation.</dd>
+</dl>
+<p>Related: <a href="rest-machining.html">Rest machining</a>, <a href="../reference/operations.html">Operations and strategies</a>.</p>
+
+        </div>
+        <nav class="pager" aria-label="Previous and next page">
+          <a class="prev" rel="prev" href="../examples/flute-length-warning.html"><span>Previous</span>The flute-length warning</a>
+          <a class="next" rel="next" href="../examples/selection-sets.html"><span>Next</span>Selection sets on a blisk</a>
+        </nav>
+      </main>
+      <footer class="site-footer">
+        <p class="notice">Generated G-code must be verified by the user before it is run on a machine. OpenChuckCAM does not guarantee that a program is safe or correct for any machine, tool or setup.</p>
+        <p class="stamp">Describes OpenChuckCAM 0.55.1 (app-v0.55.1, commit 7dbae3a), built 2026-11-26. Licensed AGPL-3.0-or-later.</p>
+      </footer>
+    </div>
+  </div>
+  <script>
+    // On a narrow screen the contents start folded; without JavaScript they stay open.
+    if (matchMedia('(max-width: 900px)').matches) document.querySelector('.sidebar details').open = false;
+    (function () {
+      var b = document.querySelector('.theme-toggle'), root = document.documentElement;
+      function dark() { return root.dataset.theme ? root.dataset.theme === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches; }
+      function label() { b.textContent = dark() ? 'Light theme' : 'Dark theme'; }
+      b.hidden = false; label();
+      b.addEventListener('click', function () {
+        root.dataset.theme = dark() ? 'light' : 'dark';
+        try { localStorage.setItem('oc-theme', root.dataset.theme); } catch (e) {}
+        label();
+      });
+    })();
+  </script>
+  <script src="../versions.js"></script>
+  <script src="../elasticlunr-ef4e11c1.min.js"></script>
+  <script src="../mark-09e88c2c.min.js"></script>
+  <script src="../searcher-09f2665d.js"></script>
+  <script>
+    // mdBook's search script expects a toggle button and loads its index when the box is shown.
+    // The box is always visible here, so the first focus presses the (hidden) toggle once.
+    (function () {
+      var bar = document.getElementById('mdbook-searchbar'), t = document.getElementById('mdbook-search-toggle'), done = false;
+      bar.addEventListener('focus', function () { if (!done) { done = true; t.click(); bar.focus(); } });
+    })();
+  </script>
+  
+</body>
+</html>

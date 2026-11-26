@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
+<!-- OpenChuckCAM user guide: the page template (decision 0400). It replaces mdBook's own theme completely.
+     The @@...@@ placeholders and the latest-banner markers are filled in by user-docs/tools/build.py. -->
+<html lang="en" dir="ltr">
+<head>
+  <meta charset="utf-8">
+  <title>OpenChuckCAM: free, open source CAM for 4-axis rotary CNC</title>
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="The user guide for OpenChuckCAM, free, open source CAM for 4-axis rotary CNC: how to turn a 3D model into G-code, and what to check before you run it.">
+  <meta name="docs-version" content="0.55.1">
+  <meta name="color-scheme" content="light dark">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="favicon.png" type="image/png" sizes="32x32">
+  <link rel="stylesheet" href="style.css">
+  <script>
+    // The reader's theme choice, if any, is kept in localStorage (not a cookie). Without one, the page follows the system.
+    try { var t = localStorage.getItem('oc-theme'); if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t; } catch (e) {}
+    const path_to_root = "";
+    window.path_to_searchindex_js = "searchindex-36078234.js";
+  </script>
+</head>
+<body class="home">
+  <a class="skip" href="#content">Skip to the content</a>
+  
+  <header class="site-header">
+    <a class="site-title" href="index.html"><svg class="site-logo" viewBox="0 0 512 512" width="28" height="28" aria-hidden="true" focusable="false"><g transform="translate(256 256) scale(0.94) translate(-256 -256)" fill="currentColor" stroke="currentColor"><rect x="224" y="128" width="64" height="40" rx="8"/><rect x="224" y="128" width="64" height="40" rx="8" transform="rotate(120 256 256)"/><rect x="224" y="128" width="64" height="40" rx="8" transform="rotate(240 256 256)"/><circle cx="256" cy="256" r="64"/><path d="M239.3 64.7 A192 192 0 1 1 66.9 222.7" fill="none" stroke-width="64" stroke-linecap="round"/><polygon points="85.3,118.3 -0.9,214.8 133.4,238.4" stroke-width="10" stroke-linejoin="round"/></g></svg>OpenChuckCAM <span>User guide</span></a>
+    <div class="tools">
+      <span class="version-switch"><a class="version-link" href="../versions.html">Version: 0.55.1</a></span>
+      <a href="print.html">Print the guide</a>
+      <button class="theme-toggle" type="button" hidden>Dark theme</button>
+    </div>
+  </header>
+  <div class="layout">
+    <nav class="sidebar" aria-label="Contents">
+      <details open>
+        <summary>Contents</summary>
+        <div class="search hidden" id="mdbook-search-wrapper">
+          <button type="button" id="mdbook-search-toggle" hidden>Search</button>
+          <form id="mdbook-searchbar-outer" role="search" onsubmit="return false">
+            <label for="mdbook-searchbar">Search the guide</label>
+            <input type="search" id="mdbook-searchbar" name="searchbar" autocomplete="off" aria-controls="mdbook-searchresults-outer" aria-describedby="mdbook-searchresults-header">
+          </form>
+          <div id="mdbook-searchresults-outer" class="searchresults-outer hidden">
+            <div id="mdbook-searchresults-header" class="searchresults-header" aria-live="polite"></div>
+            <ul id="mdbook-searchresults"></ul>
+          </div>
+        </div>
+        <ol class="chapter"><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="index.html" aria-current="page">OpenChuckCAM user guide</a></span></li><li class="part-title">Start here</li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="start/install.html">Install and first run</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="start/limitations.html">Known limitations</a></span></li><li class="part-title">Tutorial</li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="tutorial/index.html">Your first project</a></span><ol class="section"><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="tutorial/01-create-project.html">1. Create a project</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="tutorial/02-import-model.html">2. Import the model</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="tutorial/03-machine.html">3. Choose the machine</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="tutorial/04-stock.html">4. Set up the stock</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="tutorial/05-hold.html">5. Hold the work</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="tutorial/06-tools.html">6. Choose the tools</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="tutorial/07-operations.html">7. Add the operations</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="tutorial/08-generate.html">8. Generate the toolpaths</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="tutorial/09-simulate.html">9. Simulate and read the results</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="tutorial/10-export.html">10. Post and export</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="tutorial/11-verify.html">Before you run anything</a></span></li></ol><li class="part-title">Concepts</li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="concepts/rotary-machining.html">How 4-axis rotary machining works</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="concepts/stock-and-held-region.html">Stock and the held region</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="concepts/roughing-and-finishing.html">Roughing and finishing</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="concepts/stepover-and-stock-to-leave.html">Stepover, stepdown, scallop and stock to leave</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="concepts/finishing-strategies.html">Helical, axial, indexed and simultaneous finishing</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="concepts/tabs.html">Tabs</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="concepts/simulation.html">Simulation and deviation colours</a></span></li><li class="part-title">How-to guides</li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="how-to/import-step.html">Import a STEP file</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="how-to/limit-to-a-region.html">Limit an operation to a region</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="how-to/add-a-tool.html">Add a tool to the library</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="how-to/confirm-machine-values.html">Confirm machine profile values</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="how-to/short-block-settings.html">Machine setup: short moves</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="how-to/export.html">Export G-code and the setup sheet</a></span></li><li class="part-title">Worked examples</li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="examples/custom-machine.html">Create a custom machine</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="examples/create-a-post.html">Create a post-processing template</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="examples/tabs-and-held-regions.html">Tabs and held regions</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="examples/limit-to-a-region.html">Limit an operation to a region</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="examples/rest-machining.html">Rest machining</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="examples/flute-length-warning.html">The flute-length warning</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="examples/stepover-and-scallop.html">Stepover, stock to leave and scallop</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="examples/selection-sets.html">Selection sets on a blisk</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="examples/faceflow.html">Face-flow finishing on a blisk floor</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="examples/swarf.html">Swarf on a blisk blade</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="examples/simultaneous-finishing.html">Simultaneous finishing</a></span></li><li class="part-title">Safety and verification</li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="safety/checking-gcode.html">Checking G-code before you run it</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="safety/air-cut.html">Air cut on the Makera Z1</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="safety/checklist.html">Safe-practice checklist</a></span></li><li class="part-title">Reference</li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="reference/operations.html">Operations and strategies</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="reference/settings.html">Settings</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="reference/machine-profiles.html">Machine profiles</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="reference/tool-library.html">Tool library</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="reference/gcode-and-posts.html">G-code and posts</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="reference/writing-a-post.html">Writing a post-processor</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="reference/command-line.html">Command line</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="reference/messages.html">Messages and item states</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="glossary.html">Glossary</a></span></li><li class="part-title">More</li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="troubleshooting.html">Troubleshooting</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="reporting.html">Reporting a problem or asking for a feature</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="release-notes.html">Release notes</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="credits.html">Credits and licences</a></span></li><li class="chapter-item expanded "><span class="chapter-link-wrapper"><a href="contributing.html">Contributing to this guide</a></span></li></ol>
+      </details>
+    </nav>
+    <div class="content">
+      <main id="content">
+        <div id="mdbook-content">
+<section class="hero" aria-labelledby="hero-title">
+<div class="hero-text">
+<p class="hero-meta">OpenChuckCAM user guide · <a href="../versions.html">Version: 0.55.1</a></p>
+
+<h1 id="hero-title">Free, open source CAM for <span class="nowrap">4-axis</span> rotary CNC</h1>
+
+<p class="hero-lead"><strong>OpenChuckCAM is an open source CAM utility that targets 4-axis rotary CNC machine programming for makers and hobbyists.</strong> Tools that comprehensively support 4-axis rotary CNC machining carry heavy licensing fees, which means that they are often out of reach for home and small-workshop users. OpenChuckCAM has been developed with the vision to close that gap.</p>
+
+<ol class="routes">
+<li><a href="start/install.html"><span class="route-num">1</span><span class="route-title">Start here</span><span class="route-text">Install the program and open it for the first time.</span></a></li>
+
+<li><a href="tutorial/index.html"><span class="route-num">2</span><span class="route-title">Your first project</span><span class="route-text">Take one part from a model file to G-code, in ten steps.</span></a></li>
+
+</ol>
+
+<p class="hero-notice"><strong>Before you cut:</strong> OpenChuckCAM is in early development. Generated G-code <strong>must be verified by you before it is run on a machine</strong>. OpenChuckCAM does not guarantee that a program is safe or correct for any machine, tool or setup, and it has not been approved for any machine. See the section below on <a href="#real-world-use">real world use</a> and <a href="start/limitations.html">known limitations</a>.</p>
+
+</div>
+
+<figure class="hero-figure">
+<img src="images/hero-1-toolpaths.png" width="1920" height="1080" alt="The OpenChuckCAM window on its Operations step. A turned baluster lies along the rotary axis, wrapped in the orange lines of its finishing toolpath, with dotted rapid moves and the held region at the chuck end.">
+<figcaption>The Operations step: the finishing toolpath of the tutorial's baluster, in orange, around the part on the rotary axis. From a development build.</figcaption>
+</figure>
+</section>
+<h2 id="about-openchuckcam"><a class="header" href="#about-openchuckcam">About OpenChuckCAM</a></h2>
+<figure class="thumbs">
+<a href="images/hero-1-toolpaths.png"><img src="images/hero-1-toolpaths-thumb.png" width="400" height="225" alt="The OpenChuckCAM window on its Operations step: the finishing toolpath of the tutorial&#39;s baluster drawn in orange around the part on the rotary axis."></a>
+<a href="images/hero-2-deviation.png"><img src="images/hero-2-deviation-thumb.png" width="400" height="225" alt="The OpenChuckCAM window on its Simulate step: the simulated cut part in 3D, coloured by how far each point is from the model."></a>
+<figcaption>The real program, with the tutorial's example piece: the toolpath of a finishing operation, and the simulated cut part, coloured by deviation from the model. Select an image to see it full size.</figcaption>
+</figure>
+<p><strong>OpenChuckCAM is machine agnostic</strong> at its core: additional machines can be supported by adding a machine profile and a post template. Machine support is currently very limited and based on the machines the developer has access to and software used for simulation. OpenChuckCAM currently has support for G-Code post-processing output for:</p>
+<ul>
+<li>LinuxCNC (used and tested in simulation only)</li>
+<li>Makera Z1 (used for real life testing)</li>
+</ul>
+<p><strong>OpenChuckCAM wants to integrate.</strong> It has its own comprehensive front end and CLI version, but it is also architected with the intent to be able to provide 4-axis rotary CAM features to other open source software such as CAD tools which may wish to integrate it.</p>
+<p><strong>OpenChuckCAM supports multiple machining strategies.</strong> From the outset the aim has been to support greater flexibility in 4-axis strategies. Some exciting ones are:</p>
+<ul>
+<li>Swarf - which allows the machining of more complex face geometries - for example on blades on a disk</li>
+<li>Simultaneous XYZA - this moves the machine in all 4 axes to maintain the normal of the tool where needed - this means it is possible to mill items like crankshafts which have multiple centres of rotation in their design.</li>
+</ul>
+<p>It is recognised that this project is likely never going to replace those high level CAM tools as they have specialists working on them and have a deep history of resolving edge cases and exercising their output on a huge range of machines. If this project persists then it may reach that level of maturity, but it is understood that it is not where it is today.</p>
+<h3 id="real-world-use"><a class="header" href="#real-world-use">Real world use</a></h3>
+<p>This project also recognises that you put your CNC machine on the line when you load G-Code into it. It is reasonably cautious to that and so will produce a lot of warnings which it is recommended that you pay attention to - but it doesn’t have full safeguards and carries the risks of bugs. <em>Check your G-Code!</em></p>
+<p>Having said that, G-Code from the system has been run for real. Currently the Makera Z1 is the only CNC machine that can be accessed for real world testing. Access to or evidence of use on other machines is very welcome! Please contact the maintainer if you can support in provision of machine access.</p>
+<p>The first real tests were done on nightly v0.20.0 app binaries. Other real world machine jobs have been completed and evidence of these will be included in the repository to show that the project isn’t without some grounding in reality.</p>
+<h3 id="ai-disclosure"><a class="header" href="#ai-disclosure">AI disclosure</a></h3>
+<p>This project has also been an experiment in so called ‘agentic development’. Today’s AI workflows fundamentally have the challenge of how to control the quality of code (/slop!). This project seeks to do this through comprehensive unit tests at high code coverage levels, test first development flows, use of third-party simulation (shout out LinuxCNC!) and golden references to verify and validate output as well as comprehensive guard-rails around use of requirements and architecture to drive consistent delivery. Comprehensive decision records (see the docs/ folder) reviewed by the developer are also a key part of the workflow and guardrailing.</p>
+<p>However - it is still AI developed and you will encounter rough edges (as you would in any software!) but the intention is we find ways to hold and improve quality levels, address issues suitably and mature the software with thorough testing and guardrails.</p>
+<p><em>Note</em> For clarity - OpenChuckCAM itself does not use AI or have any external network connectivity. OpenChuckCAM is deterministic in output: the same project always gives the same G-code, which makes it reproducible and testable.</p>
+<h2 id="where-to-start"><a class="header" href="#where-to-start">Where to start</a></h2>
+<dl>
+<dt id="new-to-the-program"><a class="header" href="#new-to-the-program">New to the program</a></dt>
+<dd>Read <a href="start/install.html">Install and first run</a>, then work through <a href="tutorial/index.html">Your first project</a>. The tutorial takes one small part from a model file to G-code, with a screenshot of each step.</dd>
+<dt id="new-to-cam-or-to-4-axis-work"><a class="header" href="#new-to-cam-or-to-4-axis-work">New to CAM or to 4-axis work</a></dt>
+<dd>The concepts pages explain <a href="concepts/rotary-machining.html">what a rotary axis does</a>, what <a href="concepts/stock-and-held-region.html">stock and a held region</a> are, and why a job is usually cut in two stages, <a href="concepts/roughing-and-finishing.html">roughing and then finishing</a>. Terms are defined the first time a page uses them and collected in the <a href="glossary.html">glossary</a>.</dd>
+<dt id="before-you-run-a-program-on-the-makera-z1"><a class="header" href="#before-you-run-a-program-on-the-makera-z1">Before you run a program on the Makera Z1</a></dt>
+<dd>Read <a href="safety/checking-gcode.html">Checking G-code before you run it</a>, then follow the <a href="safety/air-cut.html">air cut</a> and the <a href="safety/checklist.html">safe-practice checklist</a>. An air cut runs the program with no tool and no material, so you can watch every move before anything can be damaged.</dd>
+<dt id="looking-for-a-setting-or-a-word"><a class="header" href="#looking-for-a-setting-or-a-word">Looking for a setting or a word</a></dt>
+<dd>Use the search box, the <a href="glossary.html">glossary</a>, or the reference pages.</dd>
+</dl>
+<h2 id="what-the-program-does"><a class="header" href="#what-the-program-does">What the program does</a></h2>
+<p>You work through four steps, shown along the top of the window.</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Step</th><th>What you do there</th></tr>
+</thead>
+<tbody>
+<tr><td>Model</td><td>Import an STL or STEP file, check it, and place it on the rotary axis.</td></tr>
+<tr><td>Setup</td><td>Choose the machine, describe the stock and how the work is held.</td></tr>
+<tr><td>Operations</td><td>Choose tools and add the cutting operations, from roughing to finishing.</td></tr>
+<tr><td>Simulate</td><td>Generate the toolpaths, watch the cut, and compare the result with the model. From here you also post and export the G-code and a setup sheet.</td></tr>
+</tbody>
+</table>
+</div>
+<p>Read the <a href="start/limitations.html">known limitations</a> before you rely on the program for a real job.</p>
+<h2 id="about-this-guide"><a class="header" href="#about-this-guide">About this guide</a></h2>
+<p>Each release of OpenChuckCAM has its own copy of this guide; use <strong>Version</strong> at the top of the page to switch between them. The version called <em>latest</em> describes the nightly build, the development version built each night from the main branch, and may describe features that are not in a release yet.</p>
+<p>The guide is part of the project’s source and is licensed AGPL-3.0-or-later. To report a mistake in it, see <a href="contributing.html">Contributing to this guide</a>.</p>
+
+        </div>
+        <nav class="pager" aria-label="Previous and next page">
+          
+          <a class="next" rel="next" href="start/install.html"><span>Next</span>Install and first run</a>
+        </nav>
+      </main>
+      <footer class="site-footer">
+        <p class="notice">Generated G-code must be verified by the user before it is run on a machine. OpenChuckCAM does not guarantee that a program is safe or correct for any machine, tool or setup.</p>
+        <p class="stamp">Describes OpenChuckCAM 0.55.1 (app-v0.55.1, commit 7dbae3a), built 2026-11-26. Licensed AGPL-3.0-or-later.</p>
+      </footer>
+    </div>
+  </div>
+  <script>
+    // On a narrow screen the contents start folded; without JavaScript they stay open.
+    if (matchMedia('(max-width: 900px)').matches) document.querySelector('.sidebar details').open = false;
+    (function () {
+      var b = document.querySelector('.theme-toggle'), root = document.documentElement;
+      function dark() { return root.dataset.theme ? root.dataset.theme === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches; }
+      function label() { b.textContent = dark() ? 'Light theme' : 'Dark theme'; }
+      b.hidden = false; label();
+      b.addEventListener('click', function () {
+        root.dataset.theme = dark() ? 'light' : 'dark';
+        try { localStorage.setItem('oc-theme', root.dataset.theme); } catch (e) {}
+        label();
+      });
+    })();
+  </script>
+  <script src="versions.js"></script>
+  <script src="elasticlunr-ef4e11c1.min.js"></script>
+  <script src="mark-09e88c2c.min.js"></script>
+  <script src="searcher-09f2665d.js"></script>
+  <script>
+    // mdBook's search script expects a toggle button and loads its index when the box is shown.
+    // The box is always visible here, so the first focus presses the (hidden) toggle once.
+    (function () {
+      var bar = document.getElementById('mdbook-searchbar'), t = document.getElementById('mdbook-search-toggle'), done = false;
+      bar.addEventListener('focus', function () { if (!done) { done = true; t.click(); bar.focus(); } });
+    })();
+  </script>
+  
+</body>
+</html>
