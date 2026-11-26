@@ -1,12 +1,12 @@
-# UI-BUGS-C: The operation's Geometry section shows each selection set once, on its own line, with its choice under it, and a set on Ignore greyed and struck through (UI-07, UI-16, OP-02, OP-21; issue #759; lane UI-BUGS)
+# 0696: The operation's Geometry section shows each selection set once, on its own line, with its choice under it, and a set on Ignore greyed and struck through (UI-07, UI-16, OP-02, OP-21; issue #759; lane UI-BUGS)
 
-- **Status:** Approved by the project owner on 24 Nov 2026 with the Ignore change, relayed by the coordinator (decision 0049): D1 A, D2 A, and a set on Ignore is drawn greyed and struck through instead of warned about (design item 4); D3 A on 25 Nov 2026, relayed by the coordinator: the operation's own message for a set on Ignore becomes information (design item 8). Proposed by lane UI-BUGS on 24 Nov 2026, design first as the owner asked (Q6 option A). The build follows as the lane's third pull request, after lane FACEFLOW's pull request #854, which changes the same section, has merged.
+- **Status:** Accepted by the project owner, relayed by the coordinator (decision 0049): on 24 Nov 2026, D1 A and D2 A, with his change that a set on Ignore is drawn greyed and struck through instead of warned about (design item 4); on 25 Nov 2026, D3 A, the operation's own message for a set on Ignore becomes information (design item 8). Proposed by lane UI-BUGS on 24 Nov 2026, design first as the owner asked (Q6 option A). The build is the lane's third pull request, #936, after lane FACEFLOW's #854, which changes the same section, merged.
 - **Date:** 24 Nov 2026.
 - **Requirements:** UI-07 (the inspector's fields and choices), UI-16 (the reference screens: nothing cut off or overlapping at the inspector's widths), OP-02 (selection sets in an operation's roles), OP-21 (Avoid and Check, and what a set limits).
 - **Amends:** the layout of the Geometry section that [decision 0215](0215-selection-sets-in-the-inspector-and-direct-set-editing.md) and the specification's section 11.4 describe; the roles, the choices and the other messages stay as they are. The level of the operation's message for a set on Ignore, a warning under [decision 0176](0176-swarf-boundary-avoid-and-check-sets.md) and [decision 0229](0229-avoid-and-check-choices-for-every-region-strategy.md) item 1, becomes information (D3). [Decision 0440](0440-inspector-label-and-entry-widths.md) (the label column) is followed.
-- **Open items:** adds OI-9983 (the owner's approval of this design), closed by the approval; adds OI-9985 (D3: what becomes of the operation's own warning for a set on Ignore), closed by the owner's answer A on 25 Nov 2026.
+- **Open items:** adds OI-2241 (the owner's approval of this design), closed by the approval; adds OI-2242 (D3: what becomes of the operation's own warning for a set on Ignore), closed by the owner's answer A on 25 Nov 2026.
 
-Numbering: provisional. The coordinator assigns the record number and the OI number at release, in merge order. No project schema number and no library change: only how the section is drawn changes.
+No project schema number and no library change: only how the section is drawn, and the level of one message, change.
 
 ## Context
 
@@ -19,7 +19,7 @@ Issue #759 (user report, Windows, 0.54.0): with several selection sets in an ope
 
 So each set in Avoid or Check is named twice, the buttons wrap under the label, and a note shared by every set on Warn only is repeated. The left half of the diagram shows it with a synthetic example at the inspector's 340 px.
 
-![The Geometry section today and as proposed](UI-BUGS-C-geometry-section.svg)
+![The Geometry section today and as proposed](0696-geometry-section.svg)
 
 ## Design (approved by the owner)
 
@@ -40,7 +40,7 @@ Asked on 24 Nov 2026 and answered on 24 Nov 2026, relayed by the coordinator.
 
 - **D1.** The layout above (A, recommended), or keep today's layout and only stop the buttons wrapping under the label (B)? **Answer: A.**
 - **D2.** Each set's line shows its colour dot (A, recommended: the colour the view draws the set in, decision 0216), or its name only (B)? **Answer: A,** with the change in design item 4: no "Limits nothing." warning; an ignored set's line greyed and struck through.
-- **D3 (OI-9985).** The owner's change removes the Geometry section's line. The operation also has its own warning for a set on Ignore, made when it is generated (decision 0176's wording, `operation.rs` `limits_nothing`): "The avoid set 'Bead' limits nothing, because it is set to Ignore: the tool is not kept clear of it. Set it to Cut short or Warn only beside the set in the operation inspector's Geometry section, or take the set out of the operation." It is a warning, so it marks the operation amber, counts in Messages, Results, the project badge, the checks before writing and the command line's `warning:` lines. Should it **(A, recommended)** become information: said once in Results and on the command line as a `note:`, no amber mark and no count, so a forgotten Ignore can still be found after the run; **(B)** go entirely; or **(C)** stay a warning? A boundary set of swarf with both Limits the pass and Limits the tip off ("The boundary set 'Fence' limits nothing, because both … are off") is not a choice of Ignore and is not changed by this record unless the owner says so. **Answer (25 Nov 2026): A;** the swarf boundary with both limits off stays as it is.
+- **D3 (OI-2242).** The owner's change removes the Geometry section's line. The operation also has its own warning for a set on Ignore, made when it is generated (decision 0176's wording, `operation.rs` `limits_nothing`): "The avoid set 'Bead' limits nothing, because it is set to Ignore: the tool is not kept clear of it. Set it to Cut short or Warn only beside the set in the operation inspector's Geometry section, or take the set out of the operation." It is a warning, so it marks the operation amber, counts in Messages, Results, the project badge, the checks before writing and the command line's `warning:` lines. Should it **(A, recommended)** become information: said once in Results and on the command line as a `note:`, no amber mark and no count, so a forgotten Ignore can still be found after the run; **(B)** go entirely; or **(C)** stay a warning? A boundary set of swarf with both Limits the pass and Limits the tip off ("The boundary set 'Fence' limits nothing, because both … are off") is not a choice of Ignore and is not changed by this record unless the owner says so. **Answer (25 Nov 2026): A;** the swarf boundary with both limits off stays as it is.
 
 ## Consequences
 
