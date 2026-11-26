@@ -22,7 +22,7 @@ def run(cap, work):
     b.save_set(cap, "Hub floor")
     b.leave_picking(cap)
     b.add_operation(cap, "swarf", "flat", "Blade swarf")
-    cap.click(1810, 429, 1)                    # Cut on: add...
+    cap.click(1810, 429, 1)                    # Cut on: Add a set...
     cap.click(1800, 462, 1.5)                  # Blade wall
     cap.shot("01-geometry")
     b.generate(cap)
@@ -37,7 +37,7 @@ def run(cap, work):
     cap.shot("03-ball")
     b.dump_results(cap, work, "ball")
     cap.scroll(1740, 500, 10, down=False)
-    cap.click(1810, 525, 1)                    # Avoid: add...
+    cap.click(1810, 525, 1)                    # Avoid: Add a set... (under Blade wall's line)
     cap.click(1800, 590, 1.5)                  # Hub floor
     cap.shot("04-avoid-set")
     b.generate(cap)

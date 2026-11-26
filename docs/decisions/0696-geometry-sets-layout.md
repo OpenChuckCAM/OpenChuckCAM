@@ -59,6 +59,45 @@ What depends on the removed line, and what the build changes with it:
 - About seven pages of the user guide show this section (the operations reference, the selection-sets, swarf, face flow and limit-to-a-region examples and how-to); their screenshots are captured again in the build, and their text is checked.
 - The inspector's layout tests gain a case with several sets per role at 340 px and at the default width.
 
+## Build notes
+
+Choices the build made within the approved design:
+
+- **The boundary of swarf.** Design item 4 and the first consequence remove the line "The set 'X' limits nothing." for a set on Ignore. A swarf boundary with both Limits the pass and Limits the tip off is not a set on Ignore, and D3 keeps its operation message a warning; its line under the role's options stays, so the inspector still warns before a boundary that limits nothing is generated.
+- **A set with a problem.** Its name is drawn in red with "· N not found" on its line, and × has the red border the old button had; the reason is the tooltip of both, as before.
+- **The name's tooltip.** Only a set on Ignore or with a problem has one, and only those names are Tab stops; a set's name otherwise needs no tooltip, and × keeps "Take it out of this role", with the accessible name "Take {set} out of this role".
+- **The message's words** (D3) are those of decision 0176, as Results and the command line word any note: "Selection set (operation 'Finish'): the avoid set 'Bead' limits nothing, because it is set to Ignore: …".
+
 ## Verification
 
-None yet: the design is approved, and the build's tests are written first from this record in the lane's third pull request, after #854.
+Linux container, 4 cores, uninstrumented `cargo nextest`, on branch `claude/lane-ui-bugs-c` (`main` `e126459` with this record's branch merged), code commit `54a2d6a`.
+
+- **Tests written first from this record, each seen to fail before the change:**
+  - `openchuck-ui` `shell::inspector_layout_tests`:
+    - `req_ui_07_req_ui_16_each_set_is_named_once_on_its_own_line_with_its_choice_under_it` (items 1 to 3, 5 and 6; four sets at 280, 340 and 520 px);
+    - `req_ui_07_req_op_21_a_set_on_ignore_is_struck_through_and_says_so_in_words` (items 4 and 7: the strike-through, the tooltip on hover and on keyboard focus, the accessible name read from the focus event);
+  - `openchuck-ui` `shell::frame_tests::req_op_21_req_ui_11_a_set_on_ignore_adds_no_warning_and_no_amber_mark` (item 8). It fails with the notice made a warning again.
+  - `openchuck-cli` `req_op_21_cli_says_a_set_on_ignore_as_a_note` (item 8, `note:` on the command line, on a copy of the public baluster project). It fails with the notice made a warning again. 22 s, the longest new test.
+  - Added after the first coverage run showed those paths untested, so not seen to fail first: `inspector_layout_tests::req_ui_07_req_set_09_a_sets_line_carries_its_reach_warning_choice_and_remove` (items 2 to 4: the reach warning once under its set, a choice click, ×).
+  - From the review of the release head (CodeRabbit, on `inspector.rs`): `inspector_layout_tests::req_ui_14_a_sets_name_comes_before_its_remove_button_in_tab_order` (item 7: a set's line in Tab order from left to right, its name before ×). It failed first, with × added before the name; the fix lays out the name first in a width that leaves room for × at the right end.
+  - Rewritten to the owner's answers, as the consequences list:
+    - `frame_tests::req_op_02_req_ui_07_the_geometry_section_shows_each_sets_options`;
+    - `openchuck-app` `operation::tests::req_op_02_req_op_07_swarf_on_a_step_part_honours_boundary_avoid_and_check_face_sets`;
+    - `tests/selection.rs::req_op_02_avoid_and_check_sets_of_other_strategies_take_their_choices`;
+    - #609's `req_ui_07_req_ui_16_the_avoid_choice_row_wraps_inside_the_value_column`.
+- **Suites:**
+  - `openchuck-ui`, `-app` and `-cli`: 1,783 tests pass, before the reach test was added. The inspector and frame modules pass again with it.
+  - Clippy (workspace, all targets) and `cargo fmt` are clean.
+  - `cargo xtask deps`, `licences`, `records` and `trace` pass.
+- **Coverage** (local, the tests of these areas). Every new line runs except:
+  - the Show in view and Edit workholding clicks of a reach warning, moved under the set's line unchanged (no test clicks them on `main` either);
+  - the guard for a set with no summary.
+- **The guide:**
+  - **Captured again:** from the release build at 1920 x 1080 (Xvfb, Mesa lavapipe), every page that shows the section: *Limit a path to a region*, and the blisk *Selection sets*, *Swarf* and *Face flow* examples.
+  - **How the pages were found:** a template search for the old "add…" list over every guide screenshot found no other page that shows it.
+  - **Tutorial:** its screens show neither the section nor a set and are marked reviewed at `54a2d6a`.
+  - **Checks:** `check.py --screens strict` reports 0 errors and 0 warnings.
+- **Not verified:**
+  - Windows and macOS.
+  - A screen reader (OI-2110): the accessible name is checked only through egui's focus event.
+  - At the default 340 px, the three choices of a set wrap onto two or three short lines under its name, inside the value column (item 6). The design's diagram shows them on one line at a wider pane.
