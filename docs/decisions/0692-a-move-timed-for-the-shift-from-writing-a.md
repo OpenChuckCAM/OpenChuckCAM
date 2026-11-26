@@ -55,6 +55,8 @@ Since issue #780 (lane RUNOUT-TIP, on `main` since 11 Nov 2026 and in 0.55.0), t
 
 **Consequences.** The shortest time of such a move is `60 * (0.002 + s) / min(linear, Z)` seconds: 0.00022 s on the Z1 at 45 mm from the axis. A's own term is longer than that for any turn above about 0.006 degree on the Z1, so only turns of a few thousandths of a degree take longer. Golden files: see *Verification*.
 
+**Library family.** `openchuck-path` changes output, with no public API change; the workspace moves to 0.66.0, as the coordinator assigned in merge order (decision 0048).
+
 **Options not chosen.** Leave it as it is (gate 1 refuses the file, the safe direction, but the user cannot work round it). Write such a turn without the A rounding in the post (two IRs, against GC-10, or a post rule that undoes issue #780 for some moves).
 
 **Verification (amendment 1).**
