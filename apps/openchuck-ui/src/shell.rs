@@ -445,6 +445,9 @@ impl Shell {
     /// Gives the playback panel and the view the user's Simulate choices
     /// (decision records 0168 and 0169).
     fn apply_simulate_settings(&mut self) {
+        // The kinds of move shown apply on every step (issue #789).
+        self.viewport.set_shown_moves(self.settings.path_moves);
+        self.play.set_shown_moves(self.settings.path_moves);
         let simulate = self.settings.simulate;
         self.viewport.set_cut_part_solid(simulate.cut_part_solid);
         self.play.set_turn_part_with_a(simulate.turn_part_with_a);
@@ -465,6 +468,14 @@ impl Shell {
     /// Keeps the Simulate choices the user made in the settings, so they are
     /// remembered between runs (issues 203, 204, 205).
     fn keep_simulate_settings(&mut self) {
+        // The kinds of move the view's controls set: drawn by the playback
+        // panel, kept for the user (issue #789; the owner's answer P3 A).
+        let moves = self.viewport.shown_moves();
+        self.play.set_shown_moves(moves);
+        if moves != self.settings.path_moves {
+            self.settings.path_moves = moves;
+            self.settings_touched();
+        }
         let show = self.viewport.simulate_show();
         let now = openchuck_app::settings::SimulateSettings {
             cut_part_solid: self.viewport.cut_part_solid(),
@@ -3174,6 +3185,12 @@ mod smoke_tests;
 mod machine_library_tests;
 #[cfg(test)]
 mod tool_library_tests;
+
+#[cfg(test)]
+mod path_moves_tests;
+
+#[cfg(test)]
+mod tool_chip_tests;
 
 #[cfg(test)]
 mod tooltip_tests;
