@@ -107,11 +107,17 @@ impl Rig {
     }
 
     pub(super) fn frame(&mut self, events: Vec<Event>) {
-        let input = egui::RawInput {
+        self.raw_frame(|input| input.events = events);
+    }
+
+    /// One frame with input the events alone cannot give, such as dropped
+    /// or hovered files.
+    pub(super) fn raw_frame(&mut self, edit: impl FnOnce(&mut egui::RawInput)) {
+        let mut input = egui::RawInput {
             screen_rect: Some(egui::Rect::from_min_size(egui::pos2(0.0, 0.0), self.size)),
-            events,
             ..Default::default()
         };
+        edit(&mut input);
         let Self {
             shell,
             ctx,
@@ -332,7 +338,9 @@ pub(super) fn temp(name: &str) -> PathBuf {
 fn req_ui_10_the_empty_state_offers_a_project_and_dims_the_other_steps() {
     let mut rig = Rig::new(Shell::with_settings(false, None, None), Vec::new());
     rig.frame(Vec::new());
-    assert!(rig.shows("Start with a model"));
+    // With no project open the card says "Start a project" (decision record
+    // 0697 item 1); "Start with a model" is for a project with none.
+    assert!(rig.shows("Start a project"));
     assert!(rig.shows("Open project…"));
     assert!(rig.shows("New project…"));
     for group in ["MODEL", "SETUPS", "SELECTION SETS", "OPERATIONS"] {

@@ -394,11 +394,18 @@ The inspector shows the selected item: a model, setup, selection set or operatio
 File > New project opens a dialog for a parent folder and project name (decision 0165 item 4). Enabled OK accepts these entries and creates the project; Cancel discards them, with no additional unconfirmed-field warning (decision 0246). Empty or unusable input remains refused. Esc in an edited field restores its previous value; the application's window close control remains a guarded application close.
 
 - **The window.** The tree shows each group with "None yet". Steps 2 to 4 are dimmed with their reasons. Undo and Redo are dimmed.
-- **The centre card,** "Start with a model":
-  - a drop zone for a model file;
-  - "Import model…" and "Open project…";
-  - the four steps, one line each;
-  - recent projects *(UI-23)*.
+- **The centre card** (UI-23; decision 0697 item 1). It shows whenever no project is open, or a project is open with no model and no import window. It is centred in the view, at most 560 points wide, and as tall as its content (designed for a 1920 by 1080 window, best effort at 1366 by 768).
+  - **Heading and buttons.** With no project open: "Start a project", with "New project…" (primary) and "Open project…". With a project open and no model: "Start with a model", with "Import model…" (primary) and "Open project…".
+  - **The drop zone,** a dashed box: "Drop an STL or STEP file here to start a project with it, or a project folder to open it.", or with a project open "Drop an STL or STEP file here to import it." It is not a control and takes no Tab stop; the whole window takes a drop.
+  - **Recent projects,** up to 10, newest first, as File > Open recent keeps them (UI-15). Each row is a button with the folder's name, a Tab stop in reading order, with its full path beside it, muted (any Windows `\\?\` prefix removed). Enter or a click does what File > Open recent does: the Open dialog with the folder filled in, then the unsaved-changes question and the recovery rules (decision 0460). A folder that is gone is forgotten by the same check off the UI thread. "Clear recent list" is under the list. With nothing recent the list and its heading are left out. When the view is too short, the list scrolls inside the card, so the buttons and the drop zone stay in view.
+  - **The four steps,** one line each, at the bottom.
+- **Dropped files** (UI-23, IMP-01, IMP-02; decision 0697 items 2 to 4), anywhere on the window:
+  - a model (STL or STEP) with a project open opens the import window on it, or replaces the file in an import window that is open and not adding (section 11.2);
+  - a model with no project open opens New project with the name taken from the file ("demo-shaft.step" gives "demo-shaft"); OK creates the project and then opens the import window on the file, and Cancel abandons both;
+  - a project folder, or its `project.toml`, opens through Open with its guards, with a project open or not;
+  - with several items, the first usable one in the order the system gives is used, and Messages says "Not imported: b.stl, c.step. Drop or import one file at a time.";
+  - anything else does nothing, and Messages says "Dropped file: 'notes.txt' is neither a model nor a project. OpenChuckCAM imports STL and STEP files and opens project folders."
+  - While items are dragged over the window, it is tinted and says in the middle what the drop will do: "Drop to import demo-shaft.step", "Drop to start a new project with demo-shaft.step", "Drop to open the project baluster-project", or "OpenChuckCAM imports STL and STEP files and opens project folders", with "(1 of 3; the rest are not imported)" after the first of several. This needs the system to report dragged files: on a Linux desktop running Wayland it does not (OI-2243), and the program must run under X11 (XWayland) to take a drop there.
 - **The footer** primary is "Import model…".
 
 ### 11.2 Model, and the import dialog
