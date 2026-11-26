@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.55.1 (hotfix of 0.55.0; issue #929; not breaking)
+
+- **Fixed, changed output (issue #929; decision 0692 on `main`, accepted, backported):** a fed move is timed for the shift that writing A to three decimals gives its end points (the post works X, Y and Z out at the written A; up to `r` times 0.0005 degree at each end). The band below which a change of X or Y may be written either way is 0.001 mm plus that shift, so such a move is timed for the lower of the linear and Z limits, and the line's written allowance grows by the same shift; a fed move that turns A with no exact change of X or Y is timed for the same lower limit, as its ends are turned by different amounts when A is written. Before, a move that changed Y by just over 0.001 mm could be written with no Y change and its F word came out a fraction over Z's limit, which gate 1 refused (`F650.9 is above the limit 650` on a Makera Z1 job). No public API change.
+
 ## Unreleased (ALIMIT, issue #793; decision 0647, accepted)
 
 - **Changed behaviour:** a fed move that turns A is timed for A written to three decimals, up to 0.001 degree further than the exact turn, as the line already was for its positions (decision 0076). A turn held to A's own limit no longer writes an F word over that limit: with the Z1's A at 1800 deg/min an edge-following engraving wrote `F1802.2` on LinuxCNC. Moves A's limit sets take up to 0.001 degree's time longer; no position changes. No API change.
