@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.67.0 (SEV1-929, #948 follow-up; issue #948; decision 0692 amendment 2, accepted; not breaking, output change)
+
+- **Fixed, changed output (issue #948):** on a controller that counts A's travel in its F word (`RotaryInFeed::Makera`, the Makera Z1), a fed turn of A with the tool tip fixed is timed for that counted travel too, where an end's A is not on a written unit (three decimals): writing A then gives the block a small change of X, Y or Z, the controller counts A's travel round the part with it, and gate 1 holds that to the linear limit. A turn between angles on a written unit is written with no change of XYZ and keeps A's own limit (decision 0076 item 2). No public API change.
+
 ## Unreleased (MOPUP-1, PR B1; issues #859 and #860; not breaking)
 
 - **Fixed (#859 item 1):** a B-spline whose knots write zero as `-0.0` is split into its Bezier pieces like the same B-spline written with `0.0`, so `enclose` bounds the face instead of refusing it, and the exact queries' piece bounds apply to it.
