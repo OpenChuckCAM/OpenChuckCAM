@@ -911,3 +911,99 @@ fn req_op_12_a_trims_top_edge_inside_the_box_bounds_the_face() {
     assert!(b.upper <= exact + TOL + 1e-6, "{b:?} against {exact}");
     assert!(b.error() <= TOL + 1e-9);
 }
+
+// ---------------------------------------------------------------------------
+// The depth along each face's normal (decision record SIMUL-EDGE-1, Q2
+// answered C).
+
+/// The square |x|, |y| <= `half` of the plane z = `z` in `n` by `n` cells,
+/// wound to face up (`up`) or down.
+fn square(half: f64, n: u32, z: f64, up: bool) -> TriangleMesh {
+    let step = 2.0 * half / f64::from(n);
+    let mut vertices = Vec::new();
+    for j in 0..=n {
+        for i in 0..=n {
+            vertices.push(Point3::new(
+                -half + step * f64::from(i),
+                -half + step * f64::from(j),
+                z,
+            ));
+        }
+    }
+    let at = |i: u32, j: u32| j * (n + 1) + i;
+    let mut triangles = Vec::new();
+    for j in 0..n {
+        for i in 0..n {
+            let (a, b, c, d) = (at(i, j), at(i + 1, j), at(i + 1, j + 1), at(i, j + 1));
+            if up {
+                triangles.extend([[a, b, c], [a, c, d]]);
+            } else {
+                triangles.extend([[a, c, b], [a, d, c]]);
+            }
+        }
+    }
+    TriangleMesh {
+        vertices,
+        triangles,
+    }
+}
+
+fn face_settings() -> Settings {
+    Settings {
+        margin: 5.0,
+        tolerance: TOL,
+        budget: 2_000_000,
+    }
+}
+
+fn holds_face(b: &Bounded, exact: f64) {
+    assert!(
+        b.lower <= exact + 1e-9 && exact <= b.upper + 1e-9 && b.error() <= TOL + 1e-9,
+        "{b:?} does not hold {exact}"
+    );
+}
+
+#[test]
+fn req_op_12_face_gap_of_a_ball_above_and_into_a_plane() {
+    let g = Geometry::of_mesh(&square(10.0, 4, 0.0, true)).unwrap();
+    let t = ConvexTool::new(&ball2()).unwrap();
+    for h in [0.4, 0.0, -0.05, -0.3] {
+        let b = g
+            .face_gap(&t, Point3::new(0.3, -0.2, h), Vec3::new(0.0, 0.0, 1.0), 1.0, &face_settings())
+            .unwrap();
+        holds_face(&b, h);
+    }
+}
+
+#[test]
+fn req_op_12_face_gap_of_a_tilted_flat_end_is_its_corner_below_the_plane() {
+    // A flat end tilted 30 degrees: the corner, radius times sin 30 below the
+    // tip, is how deep it cuts along the plane's normal, below it as well.
+    let g = Geometry::of_mesh(&square(10.0, 4, 0.0, true)).unwrap();
+    let t = ConvexTool::new(&flat2()).unwrap();
+    let a = 30.0_f64.to_radians();
+    for h in [0.8, 0.2] {
+        let b = g
+            .face_gap(&t, Point3::new(0.0, 0.0, h), Vec3::new(a.sin(), 0.0, a.cos()), 1.0, &face_settings())
+            .unwrap();
+        holds_face(&b, h - a.sin());
+    }
+}
+
+#[test]
+fn req_op_12_face_gap_counts_a_face_from_behind_only_within_the_layer() {
+    // A face wound to face down, 2 mm below a ball resting on nothing: the
+    // tool is 2 mm on the face's material side, beyond a layer of 1 mm, so
+    // nothing counts; within a layer of 3 mm it is 2 mm deep.
+    let g = Geometry::of_mesh(&square(10.0, 4, -2.0, false)).unwrap();
+    let t = ConvexTool::new(&ball2()).unwrap();
+    let up = Vec3::new(0.0, 0.0, 1.0);
+    let s = face_settings();
+    let none = g.face_gap(&t, Point3::ORIGIN, up, 1.0, &s).unwrap();
+    assert!(none.lower >= s.margin - TOL - 1e-9, "{none:?}");
+    // The tool's top is 12 mm above its tip, so its highest point over the
+    // face is 14 mm above the face's plane on the material side.
+    let deep = g.face_gap(&t, Point3::ORIGIN, up, 3.0, &s).unwrap();
+    holds_face(&deep, -3.0);
+    assert!(g.face_gap(&t, Point3::ORIGIN, up, f64::NAN, &s).is_err());
+}

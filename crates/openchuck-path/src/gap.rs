@@ -766,15 +766,21 @@ impl<'a> Body<'a> {
     /// The best multipliers for the dual bound of the lowest point of the
     /// tool at the fraction `f` over the face's prism (see [`Face`]): the
     /// unconstrained lowest point when its foot is on the face, else a
-    /// search over the sides it lies beyond, each multiplier in turn.
-    fn multipliers(&self, face: &Face, f: f64) -> [f64; 3] {
+    /// search over the sides it lies beyond, each multiplier in turn. With
+    /// `highest`, the same for the highest point (see [`Face::dual_top`]).
+    fn multipliers(&self, face: &Face, f: f64, highest: bool) -> [f64; 3] {
         let at = self.face_at(face, f);
         let value = |lam: &[f64; 3]| {
-            let (w, c) = at.dual(lam);
-            self.lowest_first(w) - c
+            if highest {
+                let (v, c) = at.dual_top(lam);
+                self.lowest_first(-v) + c
+            } else {
+                let (w, c) = at.dual(lam);
+                self.lowest_first(w) - c
+            }
         };
         let mut lam = [0.0; 3];
-        let low = self.support_point(-at.m);
+        let low = self.support_point(if highest { at.m } else { -at.m });
         let beyond: Vec<usize> = (0..3)
             .filter(|&i| at.sides[i].0.dot(low - Point3::ORIGIN) > at.sides[i].1)
             .collect();
@@ -998,6 +1004,21 @@ impl Face {
             c += l * b;
         }
         (w, c)
+    }
+
+    /// The direction and constant for the multipliers `mu` of the bound on
+    /// the highest point: over the face's prism, the most of `m . y` over
+    /// the tool is at most the most of `(m - Σ μ n) . y` over the whole
+    /// tool plus `Σ μ b`, so the height is at most that less `d`: the most
+    /// of `v . y` less `c`.
+    fn dual_top(&self, mu: &[f64; 3]) -> (Vec3, f64) {
+        let mut v = self.m;
+        let mut c = self.d;
+        for (l, (n, b)) in mu.iter().zip(self.sides) {
+            v = v - n * *l;
+            c -= l * b;
+        }
+        (v, c)
     }
 
     /// Whether the plane point `x` lies on the face, a hair outside
@@ -1323,7 +1344,16 @@ impl Search<'_, '_> {
             poses.push(piece.hint);
         }
         for f in poses {
-            let lam = self.body.multipliers(&face, f);
+            // Nothing counts when the whole tool over the face is deeper
+            // than the layer.
+            let mu = self.body.multipliers(&face, f, true);
+            let (v, c) = face.dual_top(&mu);
+            if -self.body.dual_over(-v, -c, s0, s1) < -self.limit {
+                lower = f64::INFINITY;
+                near = None;
+                break;
+            }
+            let lam = self.body.multipliers(&face, f, false);
             let (w, c) = face.dual(&lam);
             lower = lower.max(self.body.dual_over(w, c, s0, s1).max(-self.limit));
             if let Some((h, at)) = self.body.found(&face, &lam, f, self.limit)

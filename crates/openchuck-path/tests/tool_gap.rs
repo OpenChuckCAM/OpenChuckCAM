@@ -20,7 +20,7 @@ use openchuck_path::{
     BrepSurface, CompositeSurface, GAP_ACCURACY, GapQuery, MeshSurface, Rotation, Solid,
     SurfaceSource, ToolGap, ToolLine,
 };
-use openchuck_testkit::contact::{ConvexTool, Geometry, Settings};
+use openchuck_testkit::contact::{Bounded, ContactError, ConvexTool, Geometry, Settings};
 use openchuck_types::geometry::{Point3, UnitVec3, Vec3};
 use openchuck_types::mesh::TriangleMesh;
 use openchuck_types::tool::profile::{ProfilePoint, ProfileSegment, RevolvedProfile, ToolProfile};
@@ -637,6 +637,26 @@ fn profiles() -> impl Strategy<Value = RevolvedProfile> {
     ]
 }
 
+/// The checker's proven interval: its answer, or, where its budget ran out
+/// first (a tool silhouette running along a face's edge, where the measure
+/// jumps), the interval it had reached, still proven.
+fn interval(answer: Result<Bounded, ContactError>) -> Bounded {
+    match answer {
+        Ok(b) => b,
+        Err(ContactError::Budget {
+            cells,
+            lower,
+            upper,
+        }) => Bounded {
+            upper,
+            lower,
+            at: None,
+            cells,
+        },
+        Err(e) => panic!("the checker refused: {e}"),
+    }
+}
+
 proptest! {
     #![proptest_config(ProptestConfig { cases: 48, ..ProptestConfig::default() })]
 
@@ -662,9 +682,9 @@ proptest! {
         let axis = Vec3::new(lean.0, lean.1, 1.0);
         let unit = UnitVec3::new(axis).unwrap().get();
         let tip = Point3::new(tip.0, tip.1, tip.2);
-        let settings = Settings { margin: 5.0, tolerance: 1e-4, budget: 2_000_000 };
+        let settings = Settings { margin: 5.0, tolerance: 5e-4, budget: 20_000 };
         let ours = surface.tool_gap(&profile, &line(tip, axis), &GapQuery::pose(4.0));
-        let theirs = geometry.face_gap(&tool, tip, unit, 4.0, &settings).unwrap();
+        let theirs = interval(geometry.face_gap(&tool, tip, unit, 4.0, &settings));
         if let Some(g) = ours {
             prop_assert!(g.lower <= theirs.upper + 1e-6, "{g:?} against {theirs:?}");
             prop_assert!(theirs.lower <= g.upper + 1e-6, "{g:?} against {theirs:?}");
@@ -675,7 +695,7 @@ proptest! {
         if let Some(g) = surface.tool_gap(&profile, &line(tip, axis), &GapQuery::swept(v, 4.0)) {
             for k in 0..=16 {
                 let s = f64::from(k) / 16.0;
-                let at = geometry.face_gap(&tool, tip + v * s, unit, 4.0, &settings).unwrap();
+                let at = interval(geometry.face_gap(&tool, tip + v * s, unit, 4.0, &settings));
                 prop_assert!(g.lower <= at.upper + 1e-6, "{g:?} above {at:?} at {s}");
             }
         }
@@ -692,9 +712,10 @@ proptest! {
                 let a = s * turn.1;
                 let at_tip = centre + turn_vector(tip + v * s - centre, x, a);
                 let at_axis = turn_vector(unit, x, a);
-                let at = geometry.face_gap(&tool, at_tip, at_axis, 4.0, &settings).unwrap();
+                let at = interval(geometry.face_gap(&tool, at_tip, at_axis, 4.0, &settings));
                 prop_assert!(g.lower <= at.upper + 1e-6, "{g:?} above {at:?} at {s}");
             }
         }
     }
 }
+

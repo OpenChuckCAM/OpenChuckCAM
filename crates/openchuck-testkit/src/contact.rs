@@ -70,6 +70,10 @@ const LEAF: f64 = 0.5;
 /// Angle tolerance of the convexity check, radians.
 const TURN: f64 = 1e-9;
 
+/// Directions round a face's normal that the face measure's leaning planes
+/// are tried in ([`Shard::tilted`]).
+const TILT_DIRECTIONS: u32 = 8;
+
 /// Why no bound was given.
 #[derive(Debug, Clone, PartialEq)]
 pub enum ContactError {
@@ -1857,7 +1861,7 @@ impl Shard {
     ///   touches the tool and faces down, so its height is at least that
     ///   plane's over the shard (least at a corner), taken at the tool
     ///   point nearest the centre's column.
-    fn bound(&self, posed: &Posed<'_>, layer: f64) -> (f64, Option<f64>) {
+    fn bound(&self, posed: &Posed<'_>, layer: f64) -> (f64, Option<(f64, Point3)>) {
         let m = self.m;
         let d = m.dot(self.p[0].to_vec());
         let empty = (f64::INFINITY, None);
@@ -1873,38 +1877,103 @@ impl Shard {
                 }
             }
         }
-        if posed.most(m) - d < -layer - SLACK {
+        if posed.most(m) - d < -layer - SLACK || self.tilted_top(posed) - d < -layer - SLACK {
             return empty;
         }
         let centre = self.centre();
-        let found = posed.column(centre, m).and_then(|(lo, hi)| {
-            if lo >= -layer {
-                Some(lo)
-            } else if hi >= -layer {
-                Some(-layer)
-            } else {
-                None
-            }
-        });
-        let probe = match found {
-            Some(h) => centre + m * h.max(-layer),
+        let counted = |x: Point3| {
+            posed.column(x, m).and_then(|(lo, hi)| {
+                if lo >= -layer {
+                    Some((lo, lo))
+                } else if hi >= -layer {
+                    Some((-layer, lo))
+                } else {
+                    None
+                }
+            })
+        };
+        let found_centre = counted(centre);
+        // Tangent planes where the columns through the centre and the
+        // corners enter the tool (or at the tool's nearest point to them).
+        let mut found = found_centre.map(|v| (v.0, centre));
+        let mut probes = vec![match found_centre {
+            Some((h, _)) => centre + m * h,
             None => centre,
-        };
-        let plane = posed.at(probe);
-        let facing = plane.n.dot(m);
-        let by_plane = if facing < -1e-12 {
-            // n . (x + t m) <= k for tool points: t >= (k - n . x) / (n . m).
-            self.p
-                .iter()
-                .map(|x| (plane.k - plane.n.dot(x.to_vec())) / facing)
-                .fold(f64::INFINITY, f64::min)
-        } else {
-            f64::NEG_INFINITY
-        };
+        }];
+        // The corners are points of the face too: their columns are real
+        // values as well as places for tangent planes.
+        for x in self.p {
+            match counted(x) {
+                Some((h, lo)) => {
+                    if found.is_none_or(|(f, _)| h < f) {
+                        found = Some((h, x));
+                    }
+                    probes.push(x + m * lo);
+                }
+                None => probes.push(x),
+            }
+        }
+        let mut by_plane = f64::NEG_INFINITY;
+        for probe in probes {
+            let plane = posed.at(probe);
+            let facing = plane.n.dot(m);
+            if facing < -1e-12 {
+                // n . (x + t m) <= k for tool points: t >= (k - n . x) / (n . m).
+                by_plane = by_plane.max(
+                    self.p
+                        .iter()
+                        .map(|x| (plane.k - plane.n.dot(x.to_vec())) / facing)
+                        .fold(f64::INFINITY, f64::min),
+                );
+            }
+        }
         (
             by_plane.max(self.tilted(posed, centre)).max(-layer) - SLACK,
             found,
         )
+    }
+
+    /// The most of `m . y` over tool points over the shard, by a plane that
+    /// touches the tool from above and leans from the face's normal away
+    /// from the tool by an angle `φ`: with `v = m cos φ - e sin φ` (`e` in
+    /// the face's plane from under the tool's middle towards the shard),
+    /// the tool lies on the side `v . y <= most` of it, so a point over a
+    /// corner `x` is at most `(most - v . x) / cos φ` above `x`; with
+    /// `x . m = d` that bounds `m . y`. Searched as [`Shard::tilted`].
+    fn tilted_top(&self, posed: &Posed<'_>) -> f64 {
+        let m = self.m;
+        let centre = self.centre();
+        let middle = posed.tip + posed.axis * (0.5 * posed.tool.top);
+        let away = centre - middle;
+        let e = away - m * away.dot(m);
+        let len = e.length();
+        let d = m.dot(self.p[0].to_vec());
+        let top = posed.most(m);
+        if len <= 1e-12 {
+            return top;
+        }
+        let e = e * (1.0 / len);
+        let at = |phi: f64| {
+            let (s, c) = phi.sin_cos();
+            let v = m * c - e * s;
+            let most = posed.most(v);
+            d + self
+                .p
+                .iter()
+                .map(|x| (most - v.dot(x.to_vec())) / c)
+                .fold(f64::NEG_INFINITY, f64::max)
+        };
+        let g = 0.5 * (5.0_f64.sqrt() - 1.0);
+        let (mut a, mut b) = (0.0_f64, FRAC_PI_2 - 1e-9);
+        for _ in 0..60 {
+            let (c, dd) = (b - g * (b - a), a + g * (b - a));
+            if at(c) <= at(dd) {
+                b = dd;
+            } else {
+                a = c;
+            }
+        }
+        top.min(at(0.5 * (a + b)))
     }
 
     /// The bound by a plane that touches the tool and leans from the face's
@@ -1918,32 +1987,57 @@ impl Shard {
         let m = self.m;
         let middle = posed.tip + posed.axis * (0.5 * posed.tool.top);
         let away = centre - middle;
-        let e = away - m * away.dot(m);
-        let len = e.length();
-        if len <= 1e-12 {
-            return f64::NEG_INFINITY;
-        }
-        let e = e * (1.0 / len);
-        let at = |phi: f64| {
-            let (s, c) = phi.sin_cos();
-            let w = m * c + e * s;
-            let least = -posed.most(-w);
-            self.p
-                .iter()
-                .map(|x| (least - w.dot(x.to_vec())) / c)
-                .fold(f64::INFINITY, f64::min)
-        };
-        let g = 0.5 * (5.0_f64.sqrt() - 1.0);
-        let (mut a, mut b) = (0.0_f64, FRAC_PI_2 - 1e-9);
-        for _ in 0..60 {
-            let (c, d) = (b - g * (b - a), a + g * (b - a));
-            if at(c) >= at(d) {
-                b = d;
+        let e0 = away - m * away.dot(m);
+        let e0 = if e0.length() > 1e-12 {
+            e0 * (1.0 / e0.length())
+        } else {
+            let any = if m.x.abs() < 0.9 {
+                Vec3::new(1.0, 0.0, 0.0)
             } else {
-                a = c;
+                Vec3::new(0.0, 1.0, 0.0)
+            };
+            let e = any - m * any.dot(m);
+            e * (1.0 / e.length())
+        };
+        let e1 = m.cross(e0);
+        let mut best = f64::NEG_INFINITY;
+        // Round the normal, and out across each side of the shard (where a
+        // lowest point against that side is bounded exactly).
+        let mut leans: Vec<Vec3> = (0..TILT_DIRECTIONS)
+            .map(|k| {
+                let turn = TAU * f64::from(k) / f64::from(TILT_DIRECTIONS);
+                e0 * turn.cos() + e1 * turn.sin()
+            })
+            .collect();
+        for i in 0..3 {
+            let side = (self.p[(i + 1) % 3] - self.p[i]).cross(m);
+            if side.length() > 0.0 {
+                leans.push(side * (1.0 / side.length()));
             }
         }
-        at(0.0).max(at(0.5 * (a + b)))
+        for e in leans {
+            let at = |phi: f64| {
+                let (s, c) = phi.sin_cos();
+                let w = m * c + e * s;
+                let least = -posed.most(-w);
+                self.p
+                    .iter()
+                    .map(|x| (least - w.dot(x.to_vec())) / c)
+                    .fold(f64::INFINITY, f64::min)
+            };
+            let g = 0.5 * (5.0_f64.sqrt() - 1.0);
+            let (mut a, mut b) = (0.0_f64, FRAC_PI_2 - 1e-9);
+            for _ in 0..60 {
+                let (c, d) = (b - g * (b - a), a + g * (b - a));
+                if at(c) >= at(d) {
+                    b = d;
+                } else {
+                    a = c;
+                }
+            }
+            best = best.max(at(0.0)).max(at(0.5 * (a + b)));
+        }
+        best
     }
 }
 
@@ -2016,11 +2110,11 @@ impl Geometry {
                             at: &mut Option<Point3>,
                             floor: &mut f64| {
             let (lower, found) = shard.bound(&posed, layer);
-            if let Some(h) = found
+            if let Some((h, x)) = found
                 && h < *upper
             {
                 *upper = h;
-                *at = Some(shard.centre());
+                *at = Some(x);
             }
             if lower >= *upper - tolerance {
                 *floor = floor.min(lower);
