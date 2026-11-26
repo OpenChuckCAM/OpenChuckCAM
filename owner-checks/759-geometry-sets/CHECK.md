@@ -7,7 +7,7 @@
 
 ## What changed, and what to check
 
-The change is pull request #936 (lane UI-BUGS, PR 3, draft, head `7b7873c`), with record UI-BUGS-C (D1 A, D2 A, D3 A).
+The change is pull request #936 (lane UI-BUGS, PR 3), merged as `255765e6` on 26 Nov 2026, with decision 0696 (`docs/decisions/0696-geometry-sets-layout.md` on `main`) (accepted, from #890: D1 A, D2 A with the Ignore change, D3 A).
 
 - Each role (Cut on, Contain within, Avoid, Check) is one line, with **Add a set…** in the value column.
 - **Each set is on its own line** under its role: colour dot, name, **×** at the right end.
@@ -24,6 +24,7 @@ The change is pull request #936 (lane UI-BUGS, PR 3, draft, head `7b7873c`), wit
 | Generate | Warnings name Ball and Neck only; Results has, as information, "Selection set (operation 'Finish'): the check set 'Foot' limits nothing, because it is set to Ignore: …", once |
 | Ball and Neck back to Cut short, Generate | 2 Finish green, Foot still on Ignore |
 | × on Neck | Neck leaves Avoid; Ball stays with its choice |
+| Tab along a set's line | The set's name (with its tooltip) comes before its × (decision 0696 item 7) |
 
 ## The example project
 
@@ -37,12 +38,12 @@ The change is pull request #936 (lane UI-BUGS, PR 3, draft, head `7b7873c`), wit
 
 ## Steps
 
-Use a build of PR #936 (`7b7873c` or later), or a nightly after it merges, on Windows, at the default inspector width.
+Use a nightly with `255765e6` (26 Nov 2026 or later), on Windows, at your usual window size and the default inspector width. The check is how the section looks at **your** window size: if it is not 1920 × 1080, say what it is.
 
 1. Copy [`project/`](project/) and open the copy. Click **3 Operations**. The project panel lists **Ball**, **Neck** and **Foot** under SELECTION SETS (screenshot 1).
 2. Click **2 Finish**. In the Inspector under **Geometry**: beside **Avoid**, **Add a set…** > **Ball**, then again > **Neck**; beside **Check**, **Add a set…** > **Foot** (screenshot 2).
 3. Under **Ball** and under **Neck**, click **Warn only**. **Expect** one amber note under Avoid (screenshot 3).
-4. Under **Foot**, click **Ignore**. Hold the pointer over **Foot**. **Expect** grey, struck through, and the tooltip (screenshot 4). Also press **Tab** to reach **Foot**'s name: #936 says the same tooltip opens on keyboard focus (not checked here).
+4. Under **Foot**, click **Ignore**. Hold the pointer over **Foot**. **Expect** grey, struck through, and the tooltip (screenshot 4). Also press **Tab** to reach **Foot**'s name: the same tooltip opens on keyboard focus, and the next Tab goes to Foot's **×** (name before ×; not checked here).
 5. Drag the Inspector's left edge to make it wider, then back. **Expect** each set named once and × at the right end at every width (screenshot 5, wide).
 6. Click **Generate stale (2)** and wait for **Ready**. **Expect:** Messages and Results warn about Ball and Neck only (screenshot 6); with **Information** on, the Foot line appears once (screenshot 7).
 7. Set **Ball** and **Neck** back to **Cut short**, and **Generate stale (1)**. **Expect:** 2 Finish green (screenshot 8).
@@ -60,7 +61,7 @@ Use a build of PR #936 (`7b7873c` or later), or a nightly after it merges, on Wi
 Build (Help > About version / commit):        Windows version:        Window size / inspector width:
 2 each set on its own line, choices under, x at the right:   PASS / ...
 3 one Warn only note under Avoid:                             PASS / ...
-4 Foot on Ignore greyed, struck through, tooltip (hover and Tab): PASS / ...
+4 Foot on Ignore greyed, struck through, tooltip (hover and Tab), Tab name then x: PASS / ...
 5 narrow and wide: still one line per set:                    PASS / ...
 6 Foot only as information, once:                             PASS / ...
 7 Finish green with Foot on Ignore:                           PASS / ...
@@ -70,7 +71,7 @@ Result: PASS / FAIL
 
 ## As captured here
 
-True captures from the release build of PR #936 at `7b7873c`, Linux, Xvfb with Mesa lavapipe, 1920 × 1080, the steps in order in one session. Screenshots 2 to 4 are the inspector at its default 340 px; 5 to 9 after widening it.
+True captures from the release build of `main` at `255765e6` (#936 merged), Linux, Xvfb with Mesa lavapipe, 1920 × 1080, the steps in order in one session, 26 Nov 2026. They replace the earlier captures from #936's draft head `7b7873c`; the look did not change. Screenshots 2 to 4 are the inspector at its default 340 px; 5 to 9 after widening it. Not checked here: the tooltip and the name-before-× order on keyboard focus (step 4), and any window size but 1920 × 1080.
 
 1. ![Three sets](screens/01-three-sets-in-the-project-panel.png)
 2. ![Ball and Neck in Avoid, Foot in Check](screens/02-ball-neck-avoid-foot-check-340px.png)
