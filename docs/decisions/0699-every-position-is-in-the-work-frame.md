@@ -1,4 +1,4 @@
-# 0699: Every position a message gives is in the work frame (UI-12, NFR-07, NFR-12, SET-05, GC-07; the owner's decision of 26 Nov 2026 on OI-9998; lane WORDING-DOCS)
+# 0699: Every position a message gives is in the work frame (UI-12, NFR-07, NFR-12, SET-05, GC-07; the owner's decision of 26 Nov 2026 on OI-2237; lane WORDING-DOCS)
 
 - **Status:** Proposed by lane WORDING-DOCS on 26 Nov 2026, with the owner's five answers recorded below (26 Nov 2026, relayed by the coordinator, decision 0049): the owner has answered the questions but has not said he accepts the text of this record, so it is not accepted and is guidance, not authority (decision 0049; only the project owner accepts a record). Number assigned by the coordinator.
 - **Date:** 26 Nov 2026.
