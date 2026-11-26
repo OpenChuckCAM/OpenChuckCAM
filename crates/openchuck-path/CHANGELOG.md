@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.69.0 (PATH-QUALITY, PQ-4; issue #826, OI-2198; decision 0695, Q6, accepted; not breaking, output change only with adaptive spacing on)
+
+- **Fixed, changed output only with adaptive spacing on (helical finishing as a spiral):** adaptive spacing measures the gaps between the helix's wraps only where the whole gap is outside the held regions' keep-out bands and more than the tool's reach from each face turn of decision 0297. It no longer spends its geometry queries inside a held region, or reports a partial path at a step wall where a flat end's height jumps from one wrap to the next (the face turn cuts that corner). Rings, and every operation with adaptive spacing off, are unchanged. No API change.
+
 ## 0.68.0 (PATH-QUALITY, PQ-2; issue #786; decision 0695, accepted; breaking)
 
 - **Breaking (decision 0048; the workspace's minor bump to 0.68.0 is this change's own):** `Strategy::ramps_round_the_part` is removed: no ramp goes round the part any more, for any strategy (decision 0695, Q3, amending decisions 0543 D2 and 0645 item 1). Migration: an implementation of `Strategy` drops the method; nothing replaces it.
