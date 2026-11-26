@@ -1,6 +1,6 @@
 # Changelog
 
-## VERSION_TBD (PATH-QUALITY, PQ-4; issue #826, OI-2198; decision 0695, Q6, accepted; not breaking, output change only with adaptive spacing on)
+## 0.69.0 (PATH-QUALITY, PQ-4; issue #826, OI-2198; decision 0695, Q6, accepted; not breaking, output change only with adaptive spacing on)
 
 - **Fixed, changed output only with adaptive spacing on (helical finishing as a spiral):** adaptive spacing measures the gaps between the helix's wraps only where the whole gap is outside the held regions' keep-out bands and more than the tool's reach from each face turn of decision 0297. It no longer spends its geometry queries inside a held region, or reports a partial path at a step wall where a flat end's height jumps from one wrap to the next (the face turn cuts that corner). Rings, and every operation with adaptive spacing off, are unchanged. No API change.
 

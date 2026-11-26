@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.69.0
+
+- **Family release (0.69.0; PATH-QUALITY, PQ-4; issue #826, OI-2198; decision 0695, Q6, accepted):** `openchuck-path` changes output only for helical finishing as a spiral with adaptive spacing on (it measures the helix only outside the held regions' bands and the face turns); no API change; no change to this crate.
+
 ## 0.68.0
 
 - **Family release (0.68.0; PATH-QUALITY, PQ-2; issue #786; decision 0695, accepted):** `openchuck-path` breaks its API (`Strategy::ramps_round_the_part` is removed, and `params::EntryParameters` gains the public field `ramp_depth_per_traverse`) and changes ramp output; no change to this crate.
