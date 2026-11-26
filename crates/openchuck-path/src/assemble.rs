@@ -302,7 +302,16 @@ impl Builder<'_> {
         // A controller that counts A's travel round the part in the feed word
         // holds that length, not just the line, to the line's limit (decision
         // record 0076).
-        let counted = if line > EPS && kind.is_fed() {
+        // A fed turn of A with the tip fixed is written with a change of X, Y
+        // or Z only where writing A moves an end, that is where an end's A is
+        // not on a written unit; a controller that counts A then counts its
+        // travel with that change, so such a turn is timed for it too
+        // (decision record 0692, amendment 2). A turn between angles on a
+        // written unit is written with no change of XYZ and keeps A's own
+        // limit (decision record 0076 item 2).
+        let counted = if kind.is_fed()
+            && (line > EPS || (da > EPS && a_off_written_unit(self.pose.a.0, end.a.0)))
+        {
             (line + allowance).max(rotary_in_feed(
                 limits.rotary_in_feed,
                 da,
@@ -431,6 +440,14 @@ const WRITTEN_A_ALLOWANCE: f64 = 0.001;
 /// How much the end point's distance from the rotary axis can grow when its
 /// two coordinates across the axis are written to three decimals.
 const WRITTEN_RADIUS_ALLOWANCE: f64 = 0.001;
+
+/// Whether writing A to three decimals moves either end of a turn: an A
+/// already on a written unit is written as it is, so the post works XYZ out
+/// at the exact angle and a fixed tip stays written where it is.
+fn a_off_written_unit(a0: f64, a1: f64) -> bool {
+    let off = |a: f64| ((a * 1000.0).round() / 1000.0 - a).abs() > 1e-9;
+    off(a0) || off(a1)
+}
 
 /// Half a written unit of A (0.0005 degree), in radians.
 const WRITTEN_A_HALF_UNIT_RADIANS: f64 = 0.0005 * std::f64::consts::PI / 180.0;
@@ -2434,6 +2451,94 @@ mod tests {
             assert!(f <= linear, "across {across}: F{f:.3} against {linear}");
         }
         assert_eq!(checked, 1, "one sense writes a change of Y");
+    }
+
+    /// A fed turn of A with the tip fixed, on a controller that counts A in
+    /// its F word (the Makera Z1): written with a change of Y, the block's F
+    /// word is the larger of the line and A's counted travel round the part
+    /// over its time, and gate 1 holds it to the linear limit. Timed for the
+    /// written line alone, it was about F3200 against 1000 (CodeRabbit's
+    /// review of pull request #945; issue #948; decision record 0692, amendment 2).
+    #[test]
+    fn req_op_13_req_gc_08_a_turn_with_the_tip_fixed_counts_a_as_the_z1_does() {
+        let machine = MachineProfile::example_x_rotary();
+        let rotary = RotaryMapping::of_profile(&machine);
+        let profile = Tool {
+            shape: ToolShape::BallEnd,
+            diameter: openchuck_types::units::Millimetres(3.0),
+            flute_length: openchuck_types::units::Millimetres(8.0),
+            overall_length: openchuck_types::units::Millimetres(40.0),
+            shank_diameter: openchuck_types::units::Millimetres(3.0),
+            flute_count: 2,
+            material: None,
+            centre_cutting: None,
+            stick_out: None,
+        }
+        .profile()
+        .unwrap();
+        let (linear, z, a_limit) = (1000.0, 600.0, 3600.0);
+        let mut feeds = machine.max_feeds;
+        (feeds.linear, feeds.z, feeds.rotary) =
+            (FeedRate(linear), FeedRate(z), RotaryFeedRate(a_limit));
+        feeds.rotary_in_feed = RotaryInFeed::Makera;
+        let round = |v: f64| (v * 1000.0).round() / 1000.0;
+        let at_axis = AxisPosition {
+            along: 5.0,
+            across: 0.0,
+            height: 100.0,
+        };
+        let (a0, a1) = (0.000_4, 0.010_6);
+        let at = |a: f64| CutPoint {
+            tip: rotary.to_model(at_axis, Degrees(a)),
+            a: Degrees(a),
+            contact: rotary.to_model(at_axis, Degrees(a)),
+        };
+        let (from, to) = (at(a0), at(a1));
+        let mut b = Builder {
+            rotary,
+            tool_radius: 1.5,
+            profile: &profile,
+            max_feeds: feeds,
+            collision: &AcceptAll,
+            pose: ToolPose {
+                tip: from.tip,
+                axis: rotary.tool_axis(from.a),
+                a: from.a,
+            },
+            contact: from.tip,
+            segments: Vec::new(),
+            notes: Vec::new(),
+            raised_entries: 0,
+            steep_ramps: Vec::new(),
+            fallback_plunges: Vec::new(),
+            ramp_loads: Vec::new(),
+            steepened_ramps: Vec::new(),
+            nubs: Vec::new(),
+            reversed_ramps: Vec::new(),
+            on_axis_ramps: Vec::new(),
+            straight_plunges: Vec::new(),
+        };
+        let pose = b.pose(to.tip, to.a);
+        b.push(MoveKind::Cutting, pose, Some(to.tip), Some(FeedRate(1.0e6)))
+            .unwrap();
+        let seconds = b.segments[0].duration.0;
+        let written = |p: &CutPoint| {
+            let a = round(p.a.0);
+            let q = rotary.to_axis(p.tip, Degrees(a));
+            ([round(q.along), round(q.across), round(q.height)], a)
+        };
+        let ((w0, wa0), (w1, wa1)) = (written(&from), written(&to));
+        // Written with a change of Y, so gate 1 holds the F word to the
+        // linear limit.
+        assert!((w1[1] - w0[1]).abs() > 1e-9, "{w0:?} to {w1:?}");
+        let line =
+            ((w1[0] - w0[0]).powi(2) + (w1[1] - w0[1]).powi(2) + (w1[2] - w0[2]).powi(2)).sqrt();
+        // The Z1's F word (decision record 0007): the longer of the line and
+        // A's counted travel, at the written end's distance from the axis.
+        let radius = w1[1].hypot(w1[2]).max(1.0);
+        let counted = (wa1 - wa0).abs() * (std::f64::consts::TAU * radius + 30.0) / 360.0;
+        let f = 60.0 * line.max(counted) / seconds;
+        assert!(f <= linear.min(z), "F{f:.3} against {linear}");
     }
 
     #[test]
