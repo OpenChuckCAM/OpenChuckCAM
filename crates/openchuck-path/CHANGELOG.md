@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased (MOPUP-1, PR B1; issues #859 and #860; not breaking)
+
+- **Fixed (#859 item 1):** a B-spline whose knots write zero as `-0.0` is split into its Bezier pieces like the same B-spline written with `0.0`, so `enclose` bounds the face instead of refusing it, and the exact queries' piece bounds apply to it.
+- **Fixed (#859 item 2):** `enclose` refuses a B-spline face or edge whose weight is so small that a pole's coordinate times it is subnormal or zero (the pole would be lost), naming the face. It used to accept it, with a bound that could miss part of the face. The weights are never adjusted.
+- **Fixed (#860 item 1):** a flat face whose exact edges ran out of room and then met an edge with no exact curve is bounded by its parameter box when that fits, instead of being refused.
+- **Fixed (#860 item 2):** a rational Bezier curve is its last control point exactly at its end, however unequal the weights; very unequal weights no longer make a valid B-spline edge or face fail as "not finite".
+- **Changed (#860 item 3):** `enclose` counts a B-spline face's pieces from its knots before it builds them, and refuses a face whose pieces cannot fit in the work limit without building them first (a degree-24 face of 81 by 81 spans is refused at once instead of after about 29 seconds and about 4 million points). Refining stops while the pieces still fit; the stated spline excess is that of the pieces kept.
+
 ## 0.66.0 (SEV1-929, follow-up; issue #943; decision 0692 amendment 1, accepted; not breaking, output change)
 
 - **Fixed, changed output (issue #943):** a fed move that turns A with the tool tip fixed (no change of X, Y or Z) is timed for the line the post may write for it, as well as for A's own limit: the post works XYZ out at A written to three decimals, so the two ends can be written with a change of X or Y of up to 0.002 mm plus the shift writing A gives them, which gate 1 holds to the linear limit. Only turns of a few thousandths of a degree take longer. Every fed move whose change of X and Y is below 0.001 mm plus that shift, none included, is timed for the lower of the linear and Z limits, whatever A does; this changes nothing where Z is no faster than the linear axes (the Makera Z1 and every built-in profile). No public API change.
