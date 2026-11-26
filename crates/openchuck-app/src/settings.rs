@@ -215,6 +215,10 @@ pub struct UserSettings {
     /// record 0693, the owner's answer P3 A), remembered across
     /// projects. A file written before the field existed shows every kind.
     pub path_moves: crate::pathview::ShownMoves,
+    /// Which kinds of Facing label the view draws (issue #881; decision
+    /// record MOPUP-1-A), remembered across projects. A file written before
+    /// the field existed shows every kind.
+    pub facing_labels: crate::facing_labels::ShownFacingLabels,
 }
 
 impl Default for UserSettings {
@@ -235,6 +239,7 @@ impl Default for UserSettings {
             tool_library: ToolLibraryView::default(),
             file_names: FileNameTemplates::default(),
             path_moves: crate::pathview::ShownMoves::ALL,
+            facing_labels: crate::facing_labels::ShownFacingLabels::ALL,
         }
     }
 }

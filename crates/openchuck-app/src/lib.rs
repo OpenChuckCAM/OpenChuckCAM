@@ -35,6 +35,7 @@ mod connections;
 mod error;
 mod export;
 pub mod facing;
+pub mod facing_labels;
 pub mod form;
 mod jobs;
 pub mod lead_in;

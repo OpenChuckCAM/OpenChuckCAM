@@ -867,6 +867,13 @@ impl Shell {
                     crate::viewport_toolbar::move_ticks(ui, &mut moves);
                     self.viewport.set_shown_moves(moves);
                 });
+                // The kinds of Facing label, as the Show menu (V) (issue
+                // #881; UI-14).
+                ui.menu_button(openchuck_app::facing_labels::FACING_LABELS_NAME, |ui| {
+                    let mut labels = self.viewport.shown_facing_labels();
+                    crate::viewport_toolbar::facing_label_ticks(ui, &mut labels);
+                    self.viewport.set_shown_facing_labels(labels);
+                });
                 let unavailable = directions_unavailable(
                     self.setup_panes().is_some(),
                     self.viewport.project_has_models(),

@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased (MOPUP-1, PR M5; issues #881 and #895 item 1; decision record MOPUP-1-A, proposed)
+
+- **Added:** `facing_labels`: `FacingLabel` (Face, Margin, Separation, Stop), `FacingTag` (a Facing label's or line's operation and kind), `ShownFacingLabels` (which kinds the view draws; a per-user setting) and `HiddenChip` (the one "Hidden" chip's long, short and full forms). `UserSettings::facing_labels`; a file without it shows every kind. `ShownMoves::hidden_names`.
+- **Changed:** `SceneLabel` and `ScenePolyline` gain `facing: Option<FacingTag>`, `None` for everything but the Facing overlay. The Facing overlay's labels are 32 characters or fewer and say what they measure; the draft is said once in a note; once generated, an operation's stop lines and labels are those of the generated cut (`add_generated`).
+
 ## Unreleased (WORDING-DOCS; issues #613 and #676)
 
 - **Added:** `form::choice_label(setting, stored_word)`, the plain name the inspector shows for each choice of every built-in strategy; a test fails if a strategy has a choice with no name. The inspector uses it. No stored value changes.
