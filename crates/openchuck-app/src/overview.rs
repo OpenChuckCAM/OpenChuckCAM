@@ -1092,6 +1092,9 @@ struct RecordState {
     /// Each setup's warning about material no tool can reach, from the last
     /// simulation of it (issue 478); shown while that simulation is current.
     enclosed: BTreeMap<SetupId, String>,
+    /// Each setup's closed pockets too small to measure, from the last
+    /// simulation of it (issue 849); shown while that simulation is current.
+    too_small: BTreeMap<SetupId, crate::simulation::TooSmallSummary>,
 }
 
 /// What a pipeline run is doing with the operation it has reached
@@ -1279,6 +1282,14 @@ impl GenerationRecord {
                     }
                     None => {
                         s.enclosed.remove(&setup.id);
+                    }
+                }
+                match setup.reach.as_ref().and_then(|r| r.too_small) {
+                    Some(summary) => {
+                        s.too_small.insert(setup.id, summary);
+                    }
+                    None => {
+                        s.too_small.remove(&setup.id);
                     }
                 }
             }
@@ -2400,30 +2411,50 @@ fn build(app: &Application, checks: Option<&Checks>, jobs: &JobLog) -> Overview 
     for s in project.setups() {
         let setup = ItemRef::Setup(s.id);
         let at = |part| ItemRef::SetupPart(s.id, part);
-        // Material no tool can reach, while the simulation that found it is
-        // current for every enabled operation of the setup (issue 478;
-        // NFR-12): a warning in Messages, on the setup.
-        if let Some(text) = record.enclosed.get(&s.id) {
+        // Whether the simulation that found the material no tool can reach
+        // (issue 478; NFR-12) or the pockets too small to measure (issue 849)
+        // is current for every enabled operation of the setup.
+        let simulation_current = || {
             let mut operations = project
                 .operations()
                 .iter()
                 .filter(|o| o.setup == s.id && o.enabled)
                 .peekable();
-            let current = operations.peek().is_some()
+            operations.peek().is_some()
                 && operations.all(|o| {
                     matches!(
                         (keys.get(&o.id), record.simulated.get(&o.id)),
                         (Some(k), Some(simulated)) if k.chained == *simulated
                     )
-                });
-            if current {
-                messages.push(Message::formed(
-                    Severity::Warning,
-                    text.clone(),
-                    Some((setup, s.name.clone())),
-                    Some(MessageAction::ReviewSetup(s.id)),
-                ));
-            }
+                })
+        };
+        // Material no tool can reach: a warning in Messages, on the setup.
+        if let Some(text) = record.enclosed.get(&s.id)
+            && simulation_current()
+        {
+            messages.push(Message::formed(
+                Severity::Warning,
+                text.clone(),
+                Some((setup, s.name.clone())),
+                Some(MessageAction::ReviewSetup(s.id)),
+            ));
+        }
+        // Closed pockets too small to measure: always told, as a note, and a
+        // warning when they are a share of the surface that matters (issue
+        // 849).
+        if let Some(summary) = record.too_small.get(&s.id)
+            && simulation_current()
+        {
+            messages.push(Message::formed(
+                if summary.is_warning() {
+                    Severity::Warning
+                } else {
+                    Severity::Info
+                },
+                summary.message(&s.name, s.frame.work_offset.x.0),
+                Some((setup, s.name.clone())),
+                Some(MessageAction::ReviewSetup(s.id)),
+            ));
         }
         match project.machine() {
             None => {

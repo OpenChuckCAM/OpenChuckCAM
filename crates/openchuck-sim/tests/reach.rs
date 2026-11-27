@@ -68,6 +68,28 @@ fn tube(outer: f64, inner: f64, x0: f64, x1: f64, n: usize) -> TriangleMesh {
     }
 }
 
+/// A closed bar along X from `x0` to `x1`, outer radius `outer`, with a
+/// closed slot through it along X: an ellipse `half_w` across Y and `half_l`
+/// across Z, centred at `centre_y` across Y, as `n` facets round.
+fn slotted_bar(
+    outer: f64,
+    centre_y: f64,
+    half_w: f64,
+    half_l: f64,
+    x0: f64,
+    x1: f64,
+    n: usize,
+) -> TriangleMesh {
+    let mut mesh = tube(outer, 1.0, x0, x1, n);
+    // The bore's rings are the second half of the vertices.
+    for v in mesh.vertices.iter_mut().skip(2 * n) {
+        let t = v.z.atan2(v.y);
+        v.y = centre_y + half_w * t.cos();
+        v.z = half_l * t.sin();
+    }
+    mesh
+}
+
 /// A tube cut open along its length by a slit `width` wide at A = 0.
 fn slit_tube(outer: f64, inner: f64, x0: f64, x1: f64, width: f64, n: usize) -> TriangleMesh {
     let (po, pi) = ((width / 2.0 / outer).asin(), (width / 2.0 / inner).asin());
@@ -392,4 +414,84 @@ fn req_sim_05_each_triangle_names_the_range_of_its_samples() {
     }
     let other = tube(6.0, 3.0, 0.0, 9.0, 12);
     assert!(triangle_samples(&d, &other, CELL).is_err());
+}
+
+/// The samples of a tube's bore, away from its ends.
+fn bore_classes(part: &TriangleMesh, d: &Deviation, classes: &[ReachClass]) -> Vec<ReachClass> {
+    let end = part
+        .vertices
+        .iter()
+        .map(|v| v.x)
+        .fold(f64::NEG_INFINITY, f64::max);
+    d.points
+        .iter()
+        .zip(classes)
+        .filter(|(p, _)| facing(p) == -1 && p.point.x > 2.0 * CELL && p.point.x < end - 2.0 * CELL)
+        .map(|(_, c)| *c)
+        .collect()
+}
+
+#[test]
+fn req_sim_05_a_closed_pocket_under_two_pitches_across_is_too_small_to_measure() {
+    // Decision 0513 item 3, amended (issue 849): a hairline fold or slit the
+    // model closes is thinner than the grid can read, so it is neither
+    // enclosed nor open: it is not measured. Here a bore 0.14 mm across.
+    // The slot sits at four offsets across a pitch, so that grid points fall
+    // in it at some and between its walls at others.
+    let mut too_small = 0;
+    for centre_y in [0.0, 0.025, 0.05, 0.075] {
+        let part = slotted_bar(6.0, centre_y, 0.04, 1.5, 0.0, 8.0, 48);
+        part.validate().unwrap();
+        assert!(volume(&part) > 0.0);
+        let d = measured(&part, &box_stock(8.0, -2.0, 10.0));
+        let classes = classify(&part, &d, 6.0);
+        for (p, c) in d.points.iter().zip(&classes) {
+            let near_slot = (p.point.y - centre_y).abs() < 0.2
+                && p.point.z.abs() < 1.7
+                && p.point.x > 2.0 * CELL
+                && p.point.x < 8.0 - 2.0 * CELL;
+            if near_slot {
+                assert!(
+                    !matches!(c, ReachClass::Enclosed | ReachClass::Open),
+                    "a slot 0.08 mm across is read as neither: {c:?} at {:?}",
+                    p.point
+                );
+                too_small += usize::from(*c == ReachClass::TooSmall);
+            }
+        }
+    }
+    assert!(too_small > 0);
+}
+
+#[test]
+fn req_sim_05_a_cavity_of_three_to_five_cells_still_counts_as_enclosed() {
+    // Real small cavities still warn: a bore 0.5 mm across (five cells).
+    let part = tube(6.0, 0.25, 0.0, 8.0, 32);
+    let d = measured(&part, &box_stock(8.0, -2.0, 10.0));
+    let classes = classify(&part, &d, 6.0);
+    let bore = bore_classes(&part, &d, &classes);
+    assert!(!bore.is_empty());
+    assert!(
+        bore.iter().all(|c| *c == ReachClass::Enclosed),
+        "{:?}",
+        bore.iter().filter(|c| **c != ReachClass::Enclosed).count()
+    );
+}
+
+#[test]
+fn req_sim_05_req_nfr_06_the_too_small_class_does_not_depend_on_the_thread_count() {
+    let part = slotted_bar(6.0, 0.05, 0.04, 1.5, 0.0, 8.0, 48);
+    let d = measured(&part, &box_stock(8.0, -2.0, 10.0));
+    let runs: Vec<Vec<ReachClass>> = [1, 3]
+        .iter()
+        .map(|&threads| {
+            rayon::ThreadPoolBuilder::new()
+                .num_threads(threads)
+                .build()
+                .unwrap()
+                .install(|| classify(&part, &d, 6.0))
+        })
+        .collect();
+    assert_eq!(runs[0], runs[1]);
+    assert!(runs[0].contains(&ReachClass::TooSmall));
 }

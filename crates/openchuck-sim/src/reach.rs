@@ -91,6 +91,11 @@ pub enum ReachClass {
     /// Material is left, closed off from the outside across X: no tool on
     /// this machine reaches it.
     Enclosed,
+    /// Material is left in a closed pocket thinner than two grid pitches
+    /// (a hairline slit or fold the model closes): the grid cannot read it,
+    /// so it is neither enclosed nor open and is not measured (decision
+    /// 0513 item 3, amended; issue 849).
+    TooSmall,
     /// Material is left, open to the outside across X at the grid's pitch.
     /// Whether a tool fits there is not decided.
     Open,
@@ -340,6 +345,9 @@ enum Cell {
     Outside,
     /// Empty and closed off from the border.
     Pocket,
+    /// Empty and closed off, in a pocket with no 2 x 2 block of empty points:
+    /// thinner than two pitches everywhere.
+    Small,
 }
 
 /// The rays of `body` along X through every grid point.
@@ -452,7 +460,65 @@ fn fill(grid: &Grid, rays: &[Rays], a: f64, b: f64) -> Vec<Cell> {
             visit(k + 1, &mut cells, &mut stack);
         }
     }
+    mark_small(grid, &mut cells);
     cells
+}
+
+/// Marks as [`Cell::Small`] every closed pocket with no 2 x 2 block of empty
+/// points: the grid reads such a pocket as a strip under two pitches wide.
+fn mark_small(grid: &Grid, cells: &mut [Cell]) {
+    let n = cells.len();
+    let mut seen = vec![false; n];
+    let mut stack = Vec::new();
+    let mut members = Vec::new();
+    for start in 0..n {
+        if seen.get(start) != Some(&false) || cells.get(start) != Some(&Cell::Pocket) {
+            continue;
+        }
+        members.clear();
+        stack.push(start);
+        if let Some(s) = seen.get_mut(start) {
+            *s = true;
+        }
+        let mut thick = false;
+        while let Some(k) = stack.pop() {
+            members.push(k);
+            let (i, j) = (k / grid.nz, k % grid.nz);
+            let pocket = |a: usize, b: usize| {
+                a < grid.ny && b < grid.nz && cells.get(a * grid.nz + b) == Some(&Cell::Pocket)
+            };
+            // The 2 x 2 block with this point at its lower corner.
+            if pocket(i + 1, j) && pocket(i, j + 1) && pocket(i + 1, j + 1) {
+                thick = true;
+            }
+            let around = [
+                (i.checked_sub(1), Some(j)),
+                (Some(i + 1), Some(j)),
+                (Some(i), j.checked_sub(1)),
+                (Some(i), Some(j + 1)),
+            ];
+            for (a, b) in around {
+                if let (Some(a), Some(b)) = (a, b)
+                    && pocket(a, b)
+                {
+                    let m = a * grid.nz + b;
+                    if let Some(s) = seen.get_mut(m)
+                        && !*s
+                    {
+                        *s = true;
+                        stack.push(m);
+                    }
+                }
+            }
+        }
+        if !thick {
+            for &k in &members {
+                if let Some(c) = cells.get_mut(k) {
+                    *c = Cell::Small;
+                }
+            }
+        }
+    }
 }
 
 /// A sample's class from the grid points on its empty side across X: past
@@ -477,10 +543,21 @@ fn decide(grid: &Grid, cells: &[Cell], p: &crate::DeviationPoint) -> ReachClass 
         })
         .skip_while(|c| *c == Cell::Solid)
         .collect();
-    if states.is_empty() || states.contains(&Cell::Solid) {
+    if states.first() == Some(&Cell::Small) {
+        // The empty side opens into a pocket under two pitches thick, however
+        // far it runs on: not measured (issue 849).
+        ReachClass::TooSmall
+    } else if states.is_empty() || states.contains(&Cell::Solid) {
         ReachClass::Undecided
-    } else if states.iter().all(|c| *c == Cell::Pocket) {
-        ReachClass::Enclosed
+    } else if states
+        .iter()
+        .all(|c| matches!(c, Cell::Pocket | Cell::Small))
+    {
+        if states.iter().all(|c| *c == Cell::Small) {
+            ReachClass::TooSmall
+        } else {
+            ReachClass::Enclosed
+        }
     } else if states.iter().all(|c| *c == Cell::Outside) {
         ReachClass::Open
     } else {

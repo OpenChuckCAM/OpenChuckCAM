@@ -129,12 +129,63 @@ fn tube_stl(outer: f64, inner: f64, length: f64) -> String {
     out
 }
 
+/// An ASCII STL of a closed bar along X from 0 to `length`, outer radius
+/// `outer`, with a closed slot along its whole length: an ellipse `half_w`
+/// across Y and `half_l` across Z centred at `centre_y` (a hairline gap the
+/// model closes).
+fn slot_stl(outer: f64, centre_y: f64, half_w: f64, half_l: f64, length: f64) -> String {
+    let n = 96;
+    let outer_at = |x: f64, i: usize| {
+        let t = TAU * (i % n) as f64 / n as f64;
+        [x, outer * t.cos(), outer * t.sin()]
+    };
+    let slot_at = |x: f64, i: usize| {
+        let t = TAU * (i % n) as f64 / n as f64;
+        [x, centre_y + half_w * t.cos(), half_l * t.sin()]
+    };
+    let mut facets: Vec<[[f64; 3]; 3]> = Vec::new();
+    for i in 0..n {
+        let j = i + 1;
+        facets.extend([
+            [outer_at(0.0, i), outer_at(0.0, j), outer_at(length, i)],
+            [outer_at(0.0, j), outer_at(length, j), outer_at(length, i)],
+            [slot_at(0.0, i), slot_at(length, i), slot_at(0.0, j)],
+            [slot_at(0.0, j), slot_at(length, i), slot_at(length, j)],
+            [outer_at(0.0, i), slot_at(0.0, i), slot_at(0.0, j)],
+            [outer_at(0.0, i), slot_at(0.0, j), outer_at(0.0, j)],
+            [outer_at(length, i), outer_at(length, j), slot_at(length, j)],
+            [outer_at(length, i), slot_at(length, j), slot_at(length, i)],
+        ]);
+    }
+    let mut out = String::from("solid slot\n");
+    for f in facets {
+        out.push_str(" facet normal 0 0 0\n  outer loop\n");
+        for v in f {
+            writeln!(out, "   vertex {} {} {}", v[0], v[1], v[2]).unwrap();
+        }
+        out.push_str("  endloop\n endfacet\n");
+    }
+    out.push_str("endsolid slot\n");
+    out
+}
+
 /// A project with `part` (an STL's text) in Ø`stock` stock from X -2 to
 /// `length` + 2, a 4 mm ball and one ring operation.
 fn project(name: &str, part: &str, stock: f64, length: f64) -> (PathBuf, Application) {
+    project_with(name, part, stock, length, 2)
+}
+
+/// [`project`] with `threads` worker threads.
+fn project_with(
+    name: &str,
+    part: &str,
+    stock: f64,
+    length: f64,
+    threads: usize,
+) -> (PathBuf, Application) {
     let dir = std::env::temp_dir().join(format!("openchuck-reach-{name}-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
-    let mut app = Application::create(&dir, name, Threads::Exactly(2)).unwrap();
+    let mut app = Application::create(&dir, name, Threads::Exactly(threads)).unwrap();
     app.register_strategy(Arc::new(Ring)).unwrap();
     std::fs::create_dir_all(dir.join("models")).unwrap();
     std::fs::write(dir.join("models/part.stl"), part).unwrap();
@@ -467,4 +518,160 @@ fn req_sim_04_req_sim_05_only_a_still_frame_draws_the_cut_part_in_pieces() {
     // Whole triangles carry the same values either way.
     assert_eq!(playing.values, still.values);
     std::fs::remove_dir_all(&dir).unwrap();
+}
+
+/// The slot is `half_w` 0.04 across at an offset where the grid has points
+/// in it (a gap narrower than a cell is seen only when a grid point falls in
+/// it; the sweep in the simulation's own tests covers the offsets).
+fn hairline(name: &str, half_l: f64) -> (PathBuf, Application) {
+    project(name, &slot_stl(8.0, 0.05, 0.04, half_l, 20.0), 20.0, 20.0)
+}
+
+/// What the note about pockets too narrow to measure says.
+const TOO_SMALL: &str = "too narrow to measure";
+
+#[test]
+fn req_sim_05_req_nfr_12_a_hairline_gap_is_a_note_not_enclosed_and_says_where() {
+    // Issue 849 (decision 0513 item 3, amended): a closed pocket under two
+    // pitches thick is not enclosed, not open, and not measured; the run
+    // always says so, with how many, how much, where (X from the work zero
+    // and shares of the length) and what to do.
+    let (dir, app) = hairline("hairline", 0.12);
+    let run = app.simulate().unwrap();
+    let setup = &run.simulation.as_ref().unwrap().setups[0];
+    let reach = setup.reach.as_ref().unwrap();
+    assert!(reach.enclosed.is_none(), "{:?}", reach.enclosed);
+    assert!(!reach.classes.contains(&ReachClass::Enclosed));
+    let small = reach.too_small.expect("the hairline gap is reported");
+    assert!(!small.is_warning(), "{small:?}");
+    assert!(
+        reach.classes.contains(&ReachClass::TooSmall),
+        "a hairline gap is classed too small"
+    );
+    // A note in the overview's Messages, as information, on the setup.
+    let found: Vec<_> = app
+        .overview(None, &openchuck_app::JobLog::default())
+        .messages
+        .into_iter()
+        .filter(|m| m.text.contains(TOO_SMALL))
+        .collect();
+    assert_eq!(found.len(), 1, "{found:?}");
+    assert_eq!(found[0].severity, openchuck_app::overview::Severity::Info);
+    let text = &found[0].text;
+    for words in [
+        "Mesh check (setup 'Setup 1'): ",
+        "1 place too narrow to measure",
+        "from X ",
+        "of the part's length)",
+        "fix it in the model",
+    ] {
+        assert!(text.contains(words), "{words:?} not in {text:?}");
+    }
+    // Never "0.0%" beside "0 mm²".
+    assert!(
+        !(text.contains("(about 0 mm²") || text.contains(" 0.0% of the surface")),
+        "{text}"
+    );
+    // Not a warning of the run.
+    assert!(
+        run.warnings.iter().all(|w| !w.contains(TOO_SMALL)),
+        "{:?}",
+        run.warnings
+    );
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+#[test]
+fn req_sim_05_req_nfr_12_many_narrow_gaps_over_one_percent_of_the_surface_are_a_warning() {
+    let (dir, app) = hairline("hairline-warning", 3.0);
+    let run = app.simulate().unwrap();
+    let reach = run.simulation.as_ref().unwrap().setups[0]
+        .reach
+        .as_ref()
+        .unwrap();
+    let small = reach.too_small.unwrap();
+    assert!(small.share >= 0.01 && small.is_warning(), "{small:?}");
+    assert_eq!(
+        run.warnings
+            .iter()
+            .filter(|w| w.contains(TOO_SMALL))
+            .count(),
+        1,
+        "{:?}",
+        run.warnings
+    );
+    let found: Vec<_> = app
+        .overview(None, &openchuck_app::JobLog::default())
+        .messages
+        .into_iter()
+        .filter(|m| m.text.contains(TOO_SMALL))
+        .collect();
+    assert_eq!(found.len(), 1);
+    assert_eq!(
+        found[0].severity,
+        openchuck_app::overview::Severity::Warning
+    );
+    assert!(found[0].text.contains("check the results with care"));
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+#[test]
+fn req_sim_05_a_hairline_gap_is_drawn_not_measured_and_left_out_of_the_bands_it_covers() {
+    use openchuck_app::pathview::DeviationBand;
+    let (dir, app) = hairline("hairline-bands", 3.0);
+    let run = Arc::new(app.simulate().unwrap());
+    let setup = run.simulation.as_ref().unwrap().setups[0].id;
+    let (_, bands) = app
+        .start_deviation_bands(Arc::clone(&run), setup)
+        .wait()
+        .unwrap();
+    let count = |band: DeviationBand| -> usize {
+        bands
+            .bands
+            .iter()
+            .filter(|(b, _)| *b == band)
+            .map(|(_, s)| s.len())
+            .sum()
+    };
+    // The slot's long strips hold samples near their ends that are measured
+    // and many that are not: drawn in pieces, the unmeasured ones as such.
+    let pieces = bands.pieces.as_ref().expect("the strips are cut");
+    let in_pieces = |band: DeviationBand| -> usize {
+        pieces
+            .bands
+            .bands
+            .iter()
+            .filter(|(b, _)| *b == band)
+            .map(|(_, s)| s.len())
+            .sum()
+    };
+    assert!(
+        in_pieces(DeviationBand::Unmeasured) > 0,
+        "drawn as not measured"
+    );
+    assert_eq!(in_pieces(DeviationBand::Unreachable), 0);
+    assert_eq!(count(DeviationBand::Unreachable), 0, "and not as enclosed");
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+#[test]
+fn req_nfr_06_the_too_small_report_is_the_same_at_any_thread_count() {
+    let reports: Vec<_> = [1_usize, 3]
+        .iter()
+        .map(|&threads| {
+            let (dir, app) = project_with(
+                &format!("hairline-threads{threads}"),
+                &slot_stl(8.0, 0.05, 0.04, 0.12, 20.0),
+                20.0,
+                20.0,
+                threads,
+            );
+            let run = app.simulate().unwrap();
+            let reach = run.simulation.unwrap().setups[0].reach.clone().unwrap();
+            std::fs::remove_dir_all(&dir).unwrap();
+            reach
+        })
+        .collect();
+    assert_eq!(reports[0], reports[1]);
+    assert!(reports[0].too_small.is_some());
 }

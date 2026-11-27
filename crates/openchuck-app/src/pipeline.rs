@@ -659,6 +659,24 @@ pub(crate) fn regenerate(
             if let Some(summary) = finished.reach.as_ref().and_then(|r| r.enclosed.as_ref()) {
                 regeneration.warnings.push(summary.warning(&finished.setup));
             }
+            // Closed pockets too small to measure: a warning here only when
+            // they are a share of the surface that matters; the note is in
+            // Messages whatever their share (issue 849).
+            if let Some(summary) = finished
+                .reach
+                .as_ref()
+                .and_then(|r| r.too_small)
+                .filter(|t| t.is_warning())
+            {
+                let zero = project
+                    .setups()
+                    .iter()
+                    .find(|s| s.id == finished.id)
+                    .map_or(0.0, |s| s.frame.work_offset.x.0);
+                regeneration
+                    .warnings
+                    .push(summary.message(&finished.setup, zero));
+            }
             report.setups.push(finished);
             own.finish();
         }

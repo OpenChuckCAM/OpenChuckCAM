@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 300" role="img" aria-labelledby="t d">
+  <title id="t">Closed pockets by size on the simulation grid</title>
+  <desc id="d">Three grids of cells in a section across X. A closed pocket one row wide, with no two by two block of empty cells, is too small to measure. A pocket with a two by two block of empty cells is enclosed and warns. A pocket open to the outside is open.</desc>
+  <style>
+    .cell{fill:#e8edf2;stroke:#9aa7b4;stroke-width:1}
+    .solid{fill:#5b6770;stroke:#9aa7b4;stroke-width:1}
+    .gap{fill:#ffffff;stroke:#9aa7b4;stroke-width:1}
+    .small{fill:#f4c542;stroke:#9aa7b4;stroke-width:1}
+    .enc{fill:#9b5de5;stroke:#9aa7b4;stroke-width:1}
+    text{font:14px sans-serif;fill:#1d2630}
+    .h{font-weight:bold}
+  </style>
+  <text class="h" x="20" y="24">Too small to measure</text>
+  <g transform="translate(20,40)">
+    <rect class="solid" x="0" y="0" width="190" height="190"/>
+    <rect class="small" x="38" y="38" width="38" height="38"/>
+    <rect class="small" x="76" y="38" width="38" height="38"/>
+    <rect class="small" x="114" y="38" width="38" height="38"/>
+  </g>
+  <text x="20" y="252">A closed gap one row wide: no 2 x 2 block</text>
+  <text x="20" y="272">of empty cells. Not enclosed, not open,</text>
+  <text x="20" y="292">not measured. Always reported.</text>
+  <text class="h" x="260" y="24">Enclosed (warns, as before)</text>
+  <g transform="translate(260,40)">
+    <rect class="solid" x="0" y="0" width="190" height="190"/>
+    <rect class="enc" x="38" y="38" width="38" height="38"/>
+    <rect class="enc" x="76" y="38" width="38" height="38"/>
+    <rect class="enc" x="38" y="76" width="38" height="38"/>
+    <rect class="enc" x="76" y="76" width="38" height="38"/>
+  </g>
+  <text x="260" y="252">A closed cavity with a 2 x 2 block of</text>
+  <text x="260" y="272">empty cells (about 0.2 mm across at the</text>
+  <text x="260" y="292">default cell): no tool can reach it.</text>
+  <text class="h" x="500" y="24">Open</text>
+  <g transform="translate(500,40)">
+    <rect class="solid" x="0" y="0" width="190" height="190"/>
+    <rect class="gap" x="38" y="0" width="38" height="114"/>
+    <rect class="gap" x="76" y="76" width="38" height="38"/>
+  </g>
+  <text x="500" y="252">Joined to the outside: open at the grid's</text>
+  <text x="500" y="272">pitch; whether a tool fits is not decided.</text>
+</svg>

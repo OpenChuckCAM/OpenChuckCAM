@@ -578,6 +578,37 @@ impl SetupResults {
         let (Some(d), Some(reach)) = (deviation, reach) else {
             return self;
         };
+        // Pockets too small to measure are left out of every number below, the
+        // histogram and the worst values included (issue 849).
+        let measured: Vec<(&openchuck_app::sim::DeviationPoint, bool)> = d
+            .points
+            .iter()
+            .zip(&reach.classes)
+            .filter(|(p, _)| p.counts() && p.value.is_finite())
+            .map(|(p, c)| (p, *c != openchuck_app::sim::ReachClass::TooSmall))
+            .collect();
+        if measured.iter().any(|(_, kept)| !kept) {
+            let values: Vec<f64> = measured
+                .iter()
+                .filter(|(_, kept)| *kept)
+                .map(|(p, _)| p.value)
+                .collect();
+            self.samples = values.len();
+            self.histogram = histogram(&values, self.tolerance);
+            self.within = (!values.is_empty()).then(|| {
+                values.iter().filter(|v| v.abs() <= self.tolerance).count() as f64
+                    / values.len() as f64
+            });
+            self.overcut_samples = values.iter().filter(|v| **v < -self.tolerance).count();
+            let worst = measured
+                .iter()
+                .filter(|(_, kept)| *kept)
+                .map(|(p, _)| *p)
+                .filter(|p| p.value > 0.0)
+                .max_by(|a, b| a.value.total_cmp(&b.value));
+            self.largest_left = worst.map(|p| p.value);
+            self.left_is_bound = worst.is_some_and(|p| p.at_least);
+        }
         let (mut unreachable, mut unclassified) = (0, 0);
         for (p, class) in d.points.iter().zip(&reach.classes) {
             if !p.counts() || !p.value.is_finite() {
@@ -1935,6 +1966,7 @@ mod tests {
             pitch: 0.1,
             classified: true,
             enclosed: None,
+            too_small: None,
         }
     }
 
@@ -2021,6 +2053,40 @@ mod tests {
         assert_eq!(unreachable_text(&r), "30.0 %");
         assert_eq!(unclassified_text(&r), "20.0 %");
         assert_eq!(unreachable_text(&plain), "not classified");
+    }
+
+    #[test]
+    fn req_sim_05_pockets_too_small_to_measure_are_left_out_of_the_table() {
+        // Issue 849: a closed pocket under two pitches thick has no value:
+        // not in the histogram, the counts, the share within tolerance or the
+        // worst material left, and not counted as enclosed or open.
+        use openchuck_app::sim::ReachClass::{Enclosed, NotLeft, TooSmall};
+        let values = [
+            (0.0, false),
+            (0.0, false),
+            (5.0, false),
+            (5.0, false),
+            (2.0, false),
+            (3.0, true),
+        ];
+        let classes = [NotLeft, NotLeft, TooSmall, TooSmall, Enclosed, Enclosed];
+        let d = deviation(&values, 0.1, 0);
+        let plain = SetupResults::new("Setup 1".into(), 0.1, Some(&d), Vec::new());
+        let r = plain.clone().with_reach(Some(&d), Some(&reach(&classes)));
+        assert_eq!(plain.samples, 6);
+        assert_eq!(r.samples, 4, "the two unmeasured samples do not count");
+        assert_eq!(r.histogram.iter().map(|b| b.count).sum::<usize>(), 4);
+        assert_eq!(r.within, Some(0.5));
+        assert_eq!(r.largest_left, Some(3.0), "not the 5 mm of a hairline gap");
+        assert!(r.left_is_bound);
+        assert_eq!(r.unreachable_samples, Some(2));
+        assert_eq!(r.unclassified_samples, Some(0));
+        // Without any, the numbers are those of the whole comparison.
+        let none = plain
+            .clone()
+            .with_reach(Some(&d), Some(&reach(&[NotLeft; 6])));
+        assert_eq!(none.samples, 6);
+        assert_eq!(none.largest_left, plain.largest_left);
     }
 
     #[test]
