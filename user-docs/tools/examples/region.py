@@ -5,7 +5,8 @@ Run with `python3 user-docs/tools/capture_example.py region`. The click position
 layout of the build they were taken with, at 1920 x 1080; change them and the page together.
 """
 
-GENERATE = 75  # seconds; the Finish limited by an avoid set takes the longest, about 40 s here
+# Generate waits, bounded, until the status bar reads Ready again (issue 629): the Finish limited by
+# an avoid set takes the longest, about 40 s here.
 
 
 def results_end(cap):
@@ -23,19 +24,19 @@ def run(cap, work):
     cap.key("Escape")                          # stop picking
     cap.click(148, 578, 2)                     # 2 Finish
     cap.click(90, 550, 2)                      # hide 1 Rough's path, before generating (#607)
-    cap.click(1855, 1057, GENERATE)            # Generate: the whole part, as in the tutorial
+    cap.generate(at=(1855, 1057))              # Generate: the whole part, as in the tutorial
     cap.click(1640, 823, 1)                    # fold TOOL AND FEEDS: its feed-limit note is under review (#600)
     cap.click(452, 789, 2)                     # Results
     results_end(cap)
     cap.shot("02-before")
     cap.click(1817, 396, 1.5)                  # Cut on: Add a set...
     cap.click(1807, 429, 2)                    # Finial ball
-    cap.click(1855, 1057, GENERATE)
+    cap.generate(at=(1855, 1057))
     results_end(cap)
     cap.shot("03-cut-on")
     cap.click(1890, 428, 2)                    # the x at the end of Finial ball's line: Cut on is empty again (#759)
     cap.click(1817, 460, 1.5)                  # Avoid: Add a set...
     cap.click(1807, 493, 2)                    # Finial ball
-    cap.click(1855, 1057, GENERATE)
+    cap.generate(at=(1855, 1057))
     results_end(cap)
     cap.shot("04-avoid")

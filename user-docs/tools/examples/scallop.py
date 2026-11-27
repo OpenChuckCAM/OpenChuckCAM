@@ -5,11 +5,12 @@ Run with `python3 user-docs/tools/capture_example.py scallop`. The click positio
 layout of the build they were taken with, at 1920 x 1080; change them and the page together.
 """
 
-GENERATE = 75  # seconds; the finish at a 0.01 mm scallop height takes the longest, under 30 s here
+# Generate waits, bounded, until the status bar reads Ready again (issue 629): the finish at a 0.01
+# mm scallop height takes the longest, under 30 s here.
 
 
 def export_times(cap, name):
-    cap.click(1855, 1057, GENERATE)            # Generate
+    cap.generate(at=(1855, 1057))              # Generate
     cap.click(1847, 1057, 5)                   # Continue to simulate
     cap.click(1855, 1057, 4)                   # Post and export...
     cap.click(486, 556, 2)                     # One file per operation

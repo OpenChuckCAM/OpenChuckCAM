@@ -9,7 +9,8 @@ of the build they were taken with, at 1920 x 1080; change them and the page toge
 """
 
 PROJECT = "testdata/examples/crankshaft-simultaneous/crankshaft-project"
-GENERATE = 160  # seconds; both operations take about 100 s here
+# Generate waits, bounded, until the status bar reads Ready again (issue 629): both operations take
+# about 100 s here.
 
 
 def add_operation(cap, name, tool_row, strategy_row=None):
@@ -32,7 +33,7 @@ def run(cap, work):
     cap.shot("02-add-simultaneous")
     cap.click(1210, 785, 3)                    # Add (bottom right, decision 0677)
     cap.click(90, 550, 1)                      # hide 1 Rough's path, before generating (#607)
-    cap.click(1855, 1057, GENERATE)            # Generate
+    cap.generate(at=(1855, 1057))              # Generate
     cap.click(1640, 695, 1)                    # fold TOOL AND FEEDS: its feed-limit note is under review (#600)
     cap.click(668, 98, 2)                      # Iso
     cap.click(452, 789, 2)                     # Results
@@ -41,7 +42,7 @@ def run(cap, work):
     cap.scroll(1740, 600, 15)                  # the Inspector down to TOOL AXIS AND A
     cap.shot("04-tool-axis")
     cap.fill(1810, 922, "10")                  # Lead angle
-    cap.click(1855, 1057, GENERATE)
+    cap.generate(at=(1855, 1057))
     cap.shot("05-lead-10")
     cap.click(1840, 668, 1)                    # Pattern: axial, with the lead still at 10
     cap.click(1855, 1057, 30)

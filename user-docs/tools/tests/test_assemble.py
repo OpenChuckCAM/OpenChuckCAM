@@ -6,6 +6,7 @@ Run with `python3 -m unittest discover -s user-docs/tools/tests`.
 import html
 import json
 import os
+import shutil
 import sys
 import tempfile
 import tomllib
@@ -17,6 +18,22 @@ import assemble  # noqa: E402
 import manifest  # noqa: E402
 
 BANNER = '<span data-newest-release></span>'
+
+# Every folder the tests make, removed when the module's tests are done, also
+# when one fails (issue 618).
+_MADE = []
+
+
+def tmp():
+    """A new, empty temporary folder, removed after the tests."""
+    d = tempfile.mkdtemp(prefix="openchuck-assemble-test-")
+    _MADE.append(d)
+    return d
+
+
+def tearDownModule():
+    for d in _MADE:
+        shutil.rmtree(d, ignore_errors=True)
 
 
 def write(root, rel, text):
@@ -33,7 +50,7 @@ def read(root, rel):
 
 
 def built(version):
-    d = tempfile.mkdtemp()
+    d = tmp()
     write(d, "index.html", f'<html><meta name="docs-version" content="{version}"><p>{BANNER}</p></html>')
     write(d, "tutorial/index.html", f"<html>tutorial<p>{BANNER}</p></html>")
     return d
@@ -91,7 +108,7 @@ class Assemble(unittest.TestCase):
     """Section V: latest beside every verified release, versions.json, versions.html and the root redirect."""
 
     def releases(self, *versions):
-        d = tempfile.mkdtemp()
+        d = tmp()
         for v in versions:
             folder = os.path.join(d, f"v{v}")
             os.makedirs(folder)
@@ -105,7 +122,7 @@ class Assemble(unittest.TestCase):
         return d
 
     def test_req_nfr_19_no_release_yet(self):
-        out = tempfile.mkdtemp()
+        out = tmp()
         assemble.assemble(built("latest"), None, out)
         data = json.loads(read(out, "versions.json"))
         self.assertEqual(data, {"newest_release": None, "versions": [{"version": "latest", "path": "latest/"}]})
@@ -114,7 +131,7 @@ class Assemble(unittest.TestCase):
         self.assertIn("latest", read(out, "versions.html"))
 
     def test_req_nfr_19_root_goes_to_the_newest_release(self):
-        out = tempfile.mkdtemp()
+        out = tmp()
         assemble.assemble(built("latest"), self.releases("0.30.0", "0.31.0"), out)
         data = json.loads(read(out, "versions.json"))
         self.assertEqual(data["newest_release"], "0.31.0")
@@ -125,14 +142,14 @@ class Assemble(unittest.TestCase):
         self.assertNotIn(BANNER, read(out, "latest/index.html"))
 
     def test_req_nfr_19_the_newest_release_link_resolves_from_nested_pages(self):
-        out = tempfile.mkdtemp()
+        out = tmp()
         assemble.assemble(built("latest"), self.releases("0.31.0"), out)
         self.assertIn('href="../v0.31.0/"', read(out, "latest/index.html"))
         self.assertIn('href="../../v0.31.0/"', read(out, "latest/tutorial/index.html"))
 
     def test_req_nfr_19_released_folders_are_served_unchanged(self):
         releases = self.releases("0.31.0")
-        out = tempfile.mkdtemp()
+        out = tmp()
         assemble.assemble(built("latest"), releases, out)
         self.assertEqual(read(out, "v0.31.0/index.html"), read(releases, "v0.31.0/index.html"))
         self.assertFalse(os.path.exists(os.path.join(out, "README.md")))
@@ -141,11 +158,11 @@ class Assemble(unittest.TestCase):
         releases = self.releases("0.31.0")
         write(releases, "v0.31.0/index.html", "tampered")
         with self.assertRaises(assemble.AssemblyError) as e:
-            assemble.assemble(built("latest"), releases, tempfile.mkdtemp())
+            assemble.assemble(built("latest"), releases, tmp())
         self.assertIn("v0.31.0", str(e.exception))
 
     def test_req_nfr_19_an_output_folder_already_holding_a_site_is_refused(self):
-        out = tempfile.mkdtemp()
+        out = tmp()
         assemble.assemble(built("latest"), None, out)
         with self.assertRaises(assemble.AssemblyError):
             assemble.assemble(built("latest"), None, out)
@@ -156,7 +173,7 @@ class Assemble(unittest.TestCase):
         latest = built("latest")
         write(latest, "favicon.svg", "<svg/>")
         write(latest, "favicon.png", "png")
-        out = tempfile.mkdtemp()
+        out = tmp()
         assemble.assemble(latest, None, out, base="/OpenChuckCAM/")
         self.assertEqual(read(out, "favicon.svg"), "<svg/>")
         self.assertEqual(read(out, "favicon.png"), "png")
@@ -169,7 +186,7 @@ class Assemble(unittest.TestCase):
         """The domain root, https://openchuck.cam/, is the address people share: its redirect page has
         the guide's front-page title, the same as the theme gives the front page, and the
         description of book.toml, and still sends the reader to the guide."""
-        out = tempfile.mkdtemp()
+        out = tmp()
         assemble.assemble(built("latest"), None, out)
         text = read(out, "index.html")
         self.assertIn("<title>OpenChuckCAM: free, open source CAM for 4-axis rotary CNC</title>", text)
@@ -183,13 +200,13 @@ class Assemble(unittest.TestCase):
             self.assertEqual(assemble.site_description(), tomllib.load(f)["book"]["description"])
 
     def test_a_guide_without_a_favicon_still_assembles(self):
-        out = tempfile.mkdtemp()
+        out = tmp()
         assemble.assemble(built("latest"), None, out)
         self.assertFalse(os.path.exists(os.path.join(out, "favicon.svg")))
         self.assertNotIn('rel="icon"', read(out, "index.html"))
 
     def test_req_nfr_19_versions_page_lists_every_version_with_links(self):
-        out = tempfile.mkdtemp()
+        out = tmp()
         assemble.assemble(built("latest"), self.releases("0.31.0"), out)
         page = read(out, "versions.html")
         self.assertIn('href="latest/"', page)
@@ -201,12 +218,12 @@ class Publish(unittest.TestCase):
     """Section V: a release adds its folder once and never replaces one."""
 
     def test_req_nfr_19_adding_a_new_version(self):
-        branch = tempfile.mkdtemp()
+        branch = tmp()
         assemble.add_release(built("0.31.0"), branch, "0.31.0")
         self.assertEqual(manifest.verify(os.path.join(branch, "v0.31.0")), [])
 
     def test_req_nfr_19_an_existing_version_is_never_replaced(self):
-        branch = tempfile.mkdtemp()
+        branch = tmp()
         assemble.add_release(built("0.31.0"), branch, "0.31.0")
         before = read(branch, "v0.31.0/index.html")
         with self.assertRaises(assemble.AssemblyError):
@@ -215,7 +232,7 @@ class Publish(unittest.TestCase):
 
     def test_req_nfr_19_a_bad_version_is_refused(self):
         with self.assertRaises(assemble.AssemblyError):
-            assemble.add_release(built("x"), tempfile.mkdtemp(), "../escape")
+            assemble.add_release(built("x"), tmp(), "../escape")
 
 
 if __name__ == "__main__":
