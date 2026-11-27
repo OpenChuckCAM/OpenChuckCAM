@@ -669,6 +669,7 @@ fn find(
     // overlaps the part's at the face (decision record 0700, case (c)).
     let mut loose: Vec<LooseEnd> = Vec::new();
     if extra > 0 && !turns.is_empty() {
+        let radial = crate::finishing::radial_reach(bounds);
         let thin = crate::finishing::thin_probe(profile)?;
         let along = |x: f64, a: f64, part_only: bool| {
             let line = input
@@ -708,12 +709,12 @@ fn find(
             // or a gap between two lugs, is not material the tab meets
             // (CodeRabbit on #968).
             for &a in &lines {
-                let tab = crate::finishing::occupied(input, x_out, a, reach + 1.0);
+                let tab = crate::finishing::occupied(input, x_out, a, radial + 1.0);
                 if tab.is_empty() {
                     continue;
                 }
                 tabbed = true;
-                let part = crate::finishing::occupied(input, x_in, a, reach + 1.0);
+                let part = crate::finishing::occupied(input, x_in, a, radial + 1.0);
                 if part.iter().any(|&(p_lo, p_hi)| {
                     tab.iter()
                         .any(|&(t_lo, t_hi)| p_lo.max(t_lo) < p_hi.min(t_hi) - WIDTH)

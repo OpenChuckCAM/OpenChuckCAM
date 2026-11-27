@@ -2671,3 +2671,19 @@ fn req_nfr_07_a_stepdown_that_would_make_too_many_points_is_refused() {
 fn pin_at_axis() -> TriangleMesh {
     revolve(&[(0.0, 7.5), (20.0, 7.5)], 720)
 }
+
+#[test]
+fn req_op_04_an_end_on_a_diagonal_is_faced_to_its_nearest_point() {
+    // CodeRabbit on #968 (re-review): the pin at 45 degrees reaches 17.5 mm
+    // from the axis along its own line, past its largest Y or Z (14.6 mm),
+    // so the ray that reads the material along that line must start outside
+    // the part there. The last layer is at 2 mm, as at 90 degrees, not the
+    // axis.
+    let job = off_axis_job(&pin_at(45.0), false);
+    let path = job.path(&HelicalFinishing, &[("stepdown", 2.0)]);
+    let lowest = moves_at(&path, NEAR_END)
+        .iter()
+        .map(|(_, b)| height_of(b))
+        .fold(f64::INFINITY, f64::min);
+    assert!((lowest - 2.0).abs() < 1e-6, "{lowest}");
+}

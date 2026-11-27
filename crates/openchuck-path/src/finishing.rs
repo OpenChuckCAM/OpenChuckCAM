@@ -810,6 +810,16 @@ struct Arcs {
 /// and where it comes out, so a hole or a gap between two lugs is kept
 /// (decision record 0700; CodeRabbit on #968), where a drop from each side
 /// gives only the outermost material.
+/// How far from the rotary axis anything in `bounds` can be: the radial
+/// extent of the box across the axis, not its largest Y or Z, so a ray
+/// started that far out along any line of A starts outside the part
+/// (CodeRabbit on #968).
+pub(crate) fn radial_reach(bounds: openchuck_types::geometry::Aabb) -> f64 {
+    let y = bounds.min.y.abs().max(bounds.max.y.abs());
+    let z = bounds.min.z.abs().max(bounds.max.z.abs());
+    y.hypot(z)
+}
+
 pub(crate) fn occupied(input: &StrategyInput<'_>, x: f64, a: f64, reach: f64) -> Vec<(f64, f64)> {
     let line = input
         .rotary
@@ -877,10 +887,7 @@ fn arcs(
     let da = 360.0 / n as f64;
     let inside = end.face + toward * radius;
     let bounds = input.surface.bounds();
-    let reach = [bounds.min.y, bounds.max.y, bounds.min.z, bounds.max.z]
-        .into_iter()
-        .fold(0.0_f64, |r, v| r.max(v.abs()))
-        + 1.0;
+    let reach = radial_reach(bounds) + 1.0;
     // A probe a fiftieth of a millimetre wide: how near the axis the part
     // comes along the tool's own line, not beside it (the tool's side
     // reaches a point beside the line from that point's own angle).
