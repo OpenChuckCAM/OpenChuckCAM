@@ -639,10 +639,6 @@ impl Entry {
             a: a0,
             contact: b.rotary.to_model(goal, a0),
         };
-        let low = path
-            .iter()
-            .map(|(p, _)| p.height)
-            .fold(f64::INFINITY, f64::min);
         let total = travel_of(&path);
         let approach = common.approach_distance.0;
         // The stock over the first point: none means nothing to descend into.
@@ -746,6 +742,10 @@ impl Entry {
                 let per_turn = std::f64::consts::TAU * r.max(EPS);
                 let (fitted, tan, at_max) = self.steepen(|tan| {
                     let top = top_at(tan);
+                    // The descent down to the lowest point of the stretch
+                    // the legs use, as the stock is probed (D5), not of the
+                    // whole pass (CodeRabbit on #930, issue #951).
+                    let low = lowest_along(&path, longest_at(tan).0.min(total));
                     let turns = (top - low.min(goal.height)) / tan / per_turn;
                     if !turns.is_finite() || turns > ring_ramp::MAX_TURNS {
                         Err(ring_ramp::Refusal::TooManyTurns { radius: r, turns })
@@ -784,7 +784,7 @@ impl Entry {
                                 pass + 1,
                                 angle_words(tan, at_max),
                                 ring_ramp::MAX_TURNS,
-                                fix_words(at_max)
+                                fix_words(at_max, self.tan_max > self.ramp_tan)
                             ),
                         )
                         .with_setting(fix_setting(at_max)));
@@ -1097,7 +1097,7 @@ impl Entry {
                         pass + 1,
                         angle_words(tan, at_max),
                         ring_ramp::MAX_TURNS,
-                        fix_words(at_max)
+                        fix_words(at_max, self.tan_max > self.ramp_tan)
                     ),
                 )
                 .with_setting(fix_setting(at_max))),
@@ -1151,7 +1151,7 @@ impl Entry {
                         pass + 1,
                         angle_words(tan, at_max),
                         ring_ramp::MAX_TURNS,
-                        fix_words(at_max)
+                        fix_words(at_max, self.tan_max > self.ramp_tan)
                     ),
                 )
                 .with_setting(fix_setting(at_max)));
@@ -1761,12 +1761,31 @@ fn beside_samples(
 /// approach distance above where the stock begins on that line (or above the
 /// goal, whichever is higher), and never above where the tool is.
 fn stop_height(b: &Builder<'_>, stock: View<'_>, common: &CommonParameters, goal: f64) -> f64 {
+    stop_and_entry(b, stock, common, goal).0
+}
+
+/// [`stop_height`], and the height where the stock begins on that line
+/// (none where there is no stock above the goal).
+fn stop_and_entry(
+    b: &Builder<'_>,
+    stock: View<'_>,
+    common: &CommonParameters,
+    goal: f64,
+) -> (f64, Option<f64>) {
     let here = b.at();
     let travel = (here.height - goal).max(0.0);
     let entry_height = super::footprint_entry(b, stock, here, b.pose.a, here.height, travel)
         .map(|d| here.height - d);
     let stop = goal.max(entry_height.unwrap_or(f64::NEG_INFINITY)) + common.approach_distance.0;
-    stop.min(here.height)
+    (stop.min(here.height), entry_height)
+}
+
+/// The depth a plunge from `here` down to `goal` cuts into stock that
+/// begins at `entry` on its line: from where the stock begins, or from
+/// `here` when the tool is already lower than that, never from where the
+/// rapid stopped (CodeRabbit on #930, issue #951); 0 with no stock.
+fn depth_into_stock(here: f64, entry: Option<f64>, goal: f64) -> f64 {
+    entry.map_or(0.0, |e| (e.min(here) - goal).max(0.0))
 }
 
 /// A rapid straight down to `height`, if the tool is above it.
@@ -1801,11 +1820,12 @@ fn plunge_depth(
     target: &CutPoint,
 ) -> Result<f64> {
     let goal = b.rotary.to_axis(target.tip, target.a);
-    let stop = stop_height(b, stock, common, goal.height);
+    let here = b.at().height;
+    let (stop, entry) = stop_and_entry(b, stock, common, goal.height);
     rapid_to(b, stop)?;
     let end = b.pose(target.tip, target.a);
     b.push(MoveKind::Plunge, end, None, Some(common.plunge_feed))?;
-    Ok((stop - common.approach_distance.0 - goal.height).max(0.0))
+    Ok(depth_into_stock(here, entry, goal.height))
 }
 
 /// The unit horizontal direction of the first move of the pass that has one.
@@ -1848,6 +1868,31 @@ fn travel_of(path: &[(AxisPosition, Degrees)]) -> f64 {
 pub(super) fn step_length(q: AxisPosition, b: Degrees, p: AxisPosition, a: Degrees) -> f64 {
     let radius = 0.5 * (p.across.hypot(p.height) + q.across.hypot(q.height));
     (p.along - q.along).hypot(p.across - q.across) + (a.0 - b.0).abs().to_radians() * radius
+}
+
+/// The lowest height of `path` from its first point up to a travel of
+/// `reach`, the point at `reach` included.
+fn lowest_along(path: &[(AxisPosition, Degrees)], reach: f64) -> f64 {
+    let Some(&(first, _)) = path.first() else {
+        return f64::INFINITY;
+    };
+    let mut low = first.height;
+    let mut travelled = 0.0;
+    for w in path.windows(2) {
+        let [(q, b0), (p, a)] = w else { continue };
+        let length = step_length(*q, *b0, *p, *a);
+        if travelled + length >= reach {
+            let f = if length > EPS {
+                ((reach - travelled) / length).clamp(0.0, 1.0)
+            } else {
+                1.0
+            };
+            return low.min(q.height + f * (p.height - q.height));
+        }
+        low = low.min(p.height);
+        travelled += length;
+    }
+    low
 }
 
 /// The highest stock under the tool's footprint along `path` from its first
@@ -1924,14 +1969,19 @@ fn fix_setting(at_max: bool) -> &'static str {
     }
 }
 
-fn fix_words(at_max: bool) -> &'static str {
+/// `can_steepen` is whether the Maximum ramp angle is steeper than the Ramp
+/// angle: where it is not, turning on Steeper ramp near the axis cannot
+/// help, so it is not asked for (CodeRabbit on #930, issue #951).
+fn fix_words(at_max: bool, can_steepen: bool) -> &'static str {
     if at_max {
         // Reached only with Plunge where no ramp fits off: on, such a pass
         // is plunged (decision 0695, Q4).
         "Raise Maximum ramp angle, or turn on Plunge where no ramp fits, or set Entry to \
          Plunge or Helix."
-    } else {
+    } else if can_steepen {
         "Raise Ramp angle, or turn on Steeper ramp near the axis, or set Entry to Plunge or Helix."
+    } else {
+        "Raise Ramp angle, or set Entry to Plunge or Helix."
     }
 }
 
@@ -1970,6 +2020,23 @@ mod tests {
         assert_eq!(OneTurn.words(), "one turn round the part");
         assert_eq!(Setting.words(), "the Largest depth per traverse setting");
         assert_eq!(ToolLoadLimit.words(), "the tool-load limit");
+    }
+
+    /// Issue #951, item 1 (CodeRabbit on #930): the depth a fallback plunge
+    /// names is the descent below where the stock begins, also when the
+    /// tool is already less than the approach distance above the stock,
+    /// where the rapid stops where the tool is.
+    #[test]
+    fn req_op_11_req_nfr_12_a_plunge_s_depth_is_from_where_the_stock_begins() {
+        // Stock begins at 10, the plunge goes to 7.
+        assert!((depth_into_stock(30.0, Some(10.0), 7.0) - 3.0).abs() < 1e-12);
+        // The tool 0.5 above the stock, less than an approach distance of 1.
+        assert!((depth_into_stock(10.5, Some(10.0), 7.0) - 3.0).abs() < 1e-12);
+        // Already in the stock: from where the tool is.
+        assert!((depth_into_stock(9.0, Some(10.0), 7.0) - 2.0).abs() < 1e-12);
+        // No stock over the point, or the stock below the goal.
+        assert!(depth_into_stock(30.0, None, 7.0).abs() < 1e-12);
+        assert!(depth_into_stock(30.0, Some(6.0), 7.0).abs() < 1e-12);
     }
 
     /// CodeRabbit on #866 (decision record 0682): a face sampled no finer

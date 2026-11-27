@@ -212,7 +212,7 @@ Follows the surface in a spiral round the part as the tool moves along it: a gen
 | --- | --- | --- |
 | Rotation | Positive | Which way A turns as X increases. |
 | Start angle | 0° | A at the lowest X of the part. |
-| Largest angle step | 5° | The most A may turn between two points; points are added where the surface needs them. |
+| Largest angle step | 5° | The most A may turn between two points; points are added where the surface needs them. With **Finish to a point**, the turns down to the rotary axis past a point have at most 3600 points a turn (0.1° apart), however small this is. |
 | Scallop height / Allowed excess | 0 / 0.01 mm | See [the shared settings](#settings-some-strategies-share). |
 | Passes | Spiral | **Spiral** or **Rings** (one full turn at a time, at the start angle). |
 

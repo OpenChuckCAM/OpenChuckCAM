@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.72.0
+
+- **Family release (0.72.0; PATH-QUALITY; issues #951 and #959):** `openchuck-path` refines how ramps are measured and fitted, measures a plunge's depth from where the stock begins, and refuses a stretch past a point that would make too many points; no change to this crate.
+
 ## 0.71.0
 
 - **Family release (0.71.0; PATH-QUALITY, PQ-3; issue #779; decision 0695, Q2, accepted):** `openchuck-path` adds the parameter Finish to a point (helical, axial and indexed finishing; off for saved operations) and changes output only where it is on; no change to this crate.
