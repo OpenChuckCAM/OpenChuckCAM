@@ -421,7 +421,17 @@ pub(crate) fn free_ends(
         // A Stepdown so small that the layers would be too many points is
         // refused before any is made (CodeRabbit on #968), as the passes
         // over the part are.
-        let made = (top / stepdown).ceil() * (360.0 / step).ceil();
+        // A turn's points in each layer; arcs beside an end that does not
+        // reach round the axis also walk every sampled angle in each layer
+        // and can add an arc's ends at as many places, so each of their
+        // layers counts the samples too (CodeRabbit's re-review of #968).
+        let turn = (360.0 / step).ceil();
+        let per_layer = if end.round {
+            turn
+        } else {
+            turn + turn.max(SAMPLES_A_TURN as f64)
+        };
+        let made = (top / stepdown).ceil() * per_layer;
         if !made.is_finite() || made > MOST_LAYER_POINTS {
             return Err(PathError::parameter(
                 parameter::STEPDOWN,

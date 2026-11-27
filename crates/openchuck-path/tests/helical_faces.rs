@@ -2748,3 +2748,35 @@ fn req_op_04_an_end_on_a_diagonal_is_faced_to_its_nearest_point() {
         .fold(f64::INFINITY, f64::min);
     assert!((lowest - 2.0).abs() < 1e-6, "{lowest}");
 }
+
+#[test]
+fn req_nfr_07_the_point_limit_beside_an_end_counts_the_arcs_own_work() {
+    // CodeRabbit on #968 (re-review): at a coarse largest angle step a turn
+    // has few points, but the arcs beside an end that does not reach round
+    // the axis walk every sampled angle (a degree apart) in each layer and
+    // add points at each arc's ends. A Stepdown whose layers would be too
+    // much of that work is refused, naming the Stepdown, before any layer is
+    // made: here about 50,000 layers at 45 degrees.
+    let job = off_axis_job(&pin_at(90.0), false);
+    let tag = tags();
+    let input = input_for(job.surface.as_ref(), job.stock.as_ref(), &job.profile, &tag);
+    let values: BTreeMap<String, ParameterValue> = [
+        (names::STEPOVER, STEPOVER),
+        (names::FEED, 600.0),
+        (names::PLUNGE_FEED, 150.0),
+        (names::TOLERANCE, TOLERANCE),
+        ("stepdown", 0.0004),
+        ("max_angle_step", 45.0),
+    ]
+    .into_iter()
+    .map(|(k, x)| (k.to_owned(), ParameterValue::Number(x)))
+    .collect();
+    let started = std::time::Instant::now();
+    let made = run(|ctx| generate(&HelicalFinishing, &input, &values, ctx));
+    let text = made.map(|_| ()).unwrap_err().to_string();
+    assert!(
+        text.contains("Stepdown") && text.contains("too many points"),
+        "{text}"
+    );
+    assert!(started.elapsed().as_secs() < 60);
+}
