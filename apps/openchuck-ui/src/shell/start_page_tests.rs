@@ -468,6 +468,27 @@ fn req_ui_23_a_drops_message_outlives_only_the_project_the_drop_made() {
     std::fs::remove_dir_all(root).ok();
 }
 
+/// Issue #958: a cancelled New project gives up the open the drop's note
+/// was allowed to outlive, so the next, unrelated project does not show it.
+#[test]
+fn req_ui_23_cancelled_new_project_drops_the_not_imported_line() {
+    let root = temp("start-drop-note-cancel");
+    let a = cube_file(&root, "a.stl");
+    let b = cube_file(&root, "b.stl");
+    let mut rig = Rig::new(Shell::with_settings(false, None, None), Vec::new());
+    drop_files(&mut rig, &[a, b]);
+    let note = "Not imported: b.stl. Drop or import one file at a time.".to_owned();
+    assert!(messages(&rig).contains(&note), "{:?}", messages(&rig));
+    click(&mut rig, "Cancel");
+    rig.frame(Vec::new());
+    assert!(rig.shell.dialog.is_none() && rig.shell.app.is_none());
+    rig.shell.create(root.join("other"), "Other");
+    rig.settle();
+    assert!(rig.shell.app.is_some());
+    assert!(!messages(&rig).contains(&note), "{:?}", messages(&rig));
+    std::fs::remove_dir_all(root).ok();
+}
+
 #[test]
 fn req_ui_23_a_drag_the_system_does_not_name_says_what_is_taken() {
     let mut rig = Rig::new(Shell::with_settings(false, None, None), Vec::new());

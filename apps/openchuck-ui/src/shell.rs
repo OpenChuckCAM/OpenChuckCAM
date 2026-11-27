@@ -2712,6 +2712,11 @@ impl Shell {
                 crate::pending_edits::clear(ctx);
                 self.start_import = None;
                 self.new_name = None;
+                // The drop's note was allowed to outlive the open this
+                // dialog would have made; the next open removes it (#958).
+                if let Some((_, opens)) = &mut self.drop_note {
+                    *opens = 0;
+                }
             }
             let deferred_ctx = ctx.clone();
             if !crate::pending_edits::entries(ctx).is_empty() {
