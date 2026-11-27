@@ -209,13 +209,14 @@ pub fn information(summary: &LoadSummary, limit: &Limit) -> Notice {
         .longest_engaged
         .map(|(e, _)| format!(", with up to {e:.2} mm of flute in the material"))
         .unwrap_or_default();
-    let rates = match (summary.average_rate(), summary.fastest.and_then(|f| f.rate)) {
-        (Some(average), Some(highest)) => format!(
-            "; removal rate {average:.0} mm³/min on average over the cutting time, \
-             {highest:.0} mm³/min at most"
-        ),
-        _ => String::new(),
-    };
+    let rates = summary.average_rate().map_or_else(String::new, |average| {
+        let highest = summary
+            .fastest
+            .and_then(|f| f.rate)
+            .map(|highest| format!(", {highest:.0} mm³/min at most"))
+            .unwrap_or_default();
+        format!("; removal rate {average:.0} mm³/min on average over the cutting time{highest}")
+    });
     Notice::information(format!("{heaviest}{engaged}{rates}")).about(topic::TOOL_LOAD)
 }
 
@@ -387,6 +388,22 @@ mod tests {
             n.text
         );
         assert!(n.text.contains("600 mm³/min at most"), "{}", n.text);
+    }
+
+    #[test]
+    fn req_sim_16_the_average_rate_is_given_when_no_cut_is_one_tool_diameter_long() {
+        // Cuts shorter than one tool diameter give no stretch, so no highest
+        // rate, but the average over the cutting time is still measured.
+        let mut s = summary(0, 5.3);
+        s.fastest = None;
+        let n = information(&s, &twice());
+        assert!(
+            n.text
+                .contains("600 mm³/min on average over the cutting time"),
+            "{}",
+            n.text
+        );
+        assert!(!n.text.contains("at most"), "{}", n.text);
     }
 
     #[test]

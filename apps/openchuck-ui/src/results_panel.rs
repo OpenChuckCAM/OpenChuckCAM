@@ -346,8 +346,9 @@ pub struct LoadRow {
     pub heaviest: Option<f64>,
     /// The move the heaviest stretch ends at (counted from 1).
     pub heaviest_move: Option<usize>,
-    /// The limit the operation was measured against, mm².
-    pub limit: f64,
+    /// The limit the operation was measured against, mm²; `None` on a
+    /// setup's total, whose stretches are each counted against their own operation's limit.
+    pub limit: Option<f64>,
     /// Stretches past the limit.
     pub over: usize,
 }
@@ -364,7 +365,7 @@ impl LoadRow {
             highest_move: s.fastest.map(|f| f.last + 1),
             heaviest: s.heaviest.map(|h| h.section),
             heaviest_move: s.heaviest.map(|h| h.last + 1),
-            limit: s.limit,
+            limit: Some(s.limit),
             over: s.over,
         }
     }
@@ -396,7 +397,7 @@ impl LoadRow {
                 highest_move: None,
                 heaviest: None,
                 heaviest_move: None,
-                limit: 0.0,
+                limit: None,
                 over: 0,
             });
             t.removed += r.removed;
@@ -452,11 +453,15 @@ fn load_tooltip(row: &LoadRow) -> String {
         .map(|m| format!(" The heaviest stretch ends at move {m}."))
         .unwrap_or_default();
     let over = if row.over > 0 {
-        format!(
-            " {} pass the limit of {:.2} mm²; see the operation's Tool load warning.",
-            openchuck_app::path::counted(row.over, "stretch", "stretches"),
-            row.limit
-        )
+        let stretches = openchuck_app::path::counted(row.over, "stretch", "stretches");
+        match row.limit {
+            Some(limit) => format!(
+                " {stretches} pass the limit of {limit:.2} mm²; see the operation's Tool load warning."
+            ),
+            None => format!(
+                " {stretches} pass their operation's limit; see each operation's Tool load warning."
+            ),
+        }
     } else {
         String::new()
     };
@@ -1379,6 +1384,32 @@ mod tests {
     #![allow(clippy::float_cmp)]
 
     use super::*;
+
+    #[test]
+    fn req_sim_16_the_setup_total_counts_stretches_against_each_operations_limit() {
+        let row = |limit, over| LoadRow {
+            removed: 10.0,
+            cutting_time: 1.0,
+            total_time: 2.0,
+            highest: Some(600.0),
+            highest_move: Some(3),
+            heaviest: Some(8.0),
+            heaviest_move: Some(3),
+            limit: Some(limit),
+            over,
+        };
+        let rows = [row(6.35, 2), row(4.0, 1)];
+        let total = LoadRow::total(&rows).expect("a total");
+        assert_eq!(total.over, 3);
+        assert_eq!(total.limit, None);
+        let tip = load_tooltip(&total);
+        assert!(
+            tip.contains("3 stretches pass their operation's limit"),
+            "{tip}"
+        );
+        assert!(!tip.contains("0.00"), "{tip}");
+        assert!(load_tooltip(&rows[0]).contains("pass the limit of 6.35 mm²"));
+    }
 
     #[test]
     fn req_sim_05_colour_by_remaining_hides_overcut_and_overcut_hides_the_rest() {

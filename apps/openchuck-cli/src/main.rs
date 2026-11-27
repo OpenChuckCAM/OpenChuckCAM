@@ -1510,7 +1510,7 @@ fn print_simulation(
             if let Some(load) = &op.load {
                 let rate = |r: Option<f64>| r.map_or_else(|| "-".to_owned(), |r| format!("{r:.0}"));
                 println!(
-                    "      tool load: heaviest cut {} mm2 per mm of travel (limit {:.2}, {} past it); \
+                    "      tool load: heaviest cut section {} mm2 (limit {:.2}, {} past it); \
                      removal rate {} mm3/min on average over the cutting time, {} at most",
                     load.heaviest
                         .map_or_else(|| "-".to_owned(), |h| format!("{:.2}", h.section)),
