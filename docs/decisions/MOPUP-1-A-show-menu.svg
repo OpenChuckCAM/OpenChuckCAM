@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 470" width="1080" height="470" role="img" aria-label="The Show menu with a Facing labels group of tick boxes under Toolpath moves, and the Hidden chip beside Show naming the hidden facing labels">
+  <!-- A drawing, not a capture. Proposed for issue #881 (lane MOPUP-1), following decision PROJUX-A-2's Show menu and chip. -->
+  <rect width="1080" height="470" fill="#15171a"/>
+  <rect x="0" y="0" width="1080" height="40" fill="#1e2228"/>
+  <g font-family="DejaVu Sans, sans-serif" font-size="12">
+    <text x="14" y="25" fill="#c9d1d9">Shaded  Wire  Edges  |  Persp  Ortho  |  Front  Top  Iso  |  Fit</text>
+    <rect x="360" y="9" width="62" height="22" rx="3" fill="#2a3038" stroke="#6fa3ff" stroke-width="1.5"/>
+    <text x="370" y="25" fill="#e6e9ee">Show ⏷</text>
+    <rect x="430" y="9" width="230" height="22" rx="11" fill="none" stroke="#f2b84b"/>
+    <text x="545" y="25" fill="#f2b84b" text-anchor="middle">Hidden: Facing margin, Facing stops</text>
+  </g>
+  <rect x="360" y="34" width="260" height="250" rx="4" fill="#1f2329" stroke="#353c45"/>
+  <g font-family="DejaVu Sans, sans-serif" font-size="12.5" fill="#e6e9ee">
+    <text x="374" y="56" fill="#9aa6b5">Part, stock, axes, held regions …</text>
+    <text x="374" y="76" fill="#9aa6b5">Toolpaths by operation …</text>
+    <text x="374" y="96" fill="#9aa6b5">Toolpath moves …</text>
+    <line x1="370" y1="108" x2="610" y2="108" stroke="#353c45"/>
+    <text x="374" y="128" fill="#9aa6b5" font-size="11.5">FACING LABELS</text>
+    <!-- parent: partly ticked -->
+    <rect x="374" y="140" width="13" height="13" rx="2" fill="#3d8bff"/><path d="M377 146.5 h7" stroke="#fff" stroke-width="1.8"/>
+    <text x="396" y="151">Facing labels</text>
+    <rect x="390" y="162" width="13" height="13" rx="2" fill="#3d8bff"/><path d="M392.5 168.5 l3 3.5 l4.5 -6" stroke="#fff" stroke-width="1.6" fill="none"/>
+    <text x="412" y="173">Faces</text>
+    <rect x="390" y="184" width="13" height="13" rx="2" fill="none" stroke="#e6e9ee"/>
+    <text x="412" y="195">Margin</text>
+    <rect x="390" y="206" width="13" height="13" rx="2" fill="#3d8bff"/><path d="M392.5 212.5 l3 3.5 l4.5 -6" stroke="#fff" stroke-width="1.6" fill="none"/>
+    <text x="412" y="217">Opposite faces</text>
+    <rect x="390" y="228" width="13" height="13" rx="2" fill="none" stroke="#e6e9ee"/>
+    <rect x="388" y="226" width="17" height="17" rx="3" fill="none" stroke="#6fa3ff" stroke-width="2"/>
+    <text x="412" y="239">Stops beside a grip</text>
+    <line x1="370" y1="254" x2="610" y2="254" stroke="#353c45"/>
+    <text x="374" y="276">Show everything</text>
+  </g>
+  <!-- tooltip on focus -->
+  <rect x="628" y="214" width="340" height="62" rx="4" fill="#2a3038" stroke="#4a525c"/>
+  <g font-family="DejaVu Sans, sans-serif" font-size="11.5" fill="#e6e9ee">
+    <text x="638" y="233">Show or hide where each Facing face stops beside</text>
+    <text x="638" y="250">a grip. Only the words in the view change: the</text>
+    <text x="638" y="267">outlines, the notes and the G-code stay the same.</text>
+  </g>
+  <g font-family="DejaVu Sans, sans-serif" font-size="11.5" fill="#9aa6b5">
+    <text x="628" y="310">"Stops beside a grip" has the keyboard; its tooltip opens on focus.</text>
+    <text x="628" y="328">"Facing labels" shows a bar: some kinds are hidden. Pressing it</text>
+    <text x="628" y="346">hides all four when any is shown, shows all four when none is.</text>
+    <text x="628" y="364">The same group is under View &gt; Facing labels. Kept per user.</text>
+    <text x="628" y="382">End and Round facing labels count as Faces.</text>
+    <text x="628" y="400">The chip names what is hidden ("Facing labels" when all four are),</text>
+    <text x="628" y="418">and "Show everything" in this menu shows them all again.</text>
+  </g>
+</svg>
