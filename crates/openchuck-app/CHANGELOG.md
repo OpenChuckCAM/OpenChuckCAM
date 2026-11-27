@@ -2,7 +2,7 @@
 
 ## Unreleased (MOPUP-1, PR M10; issue #892)
 
-- **Changed:** a new pencil clean-up operation is written with Shortest cut `tool_diameter`, which follows the operation's tool. An operation saved without it is shown, and given to the library, as Tool diameter too (it took the tool's diameter before, as a number); a number the user set is kept. The program is unchanged in every case.
+- **Changed:** a new pencil clean-up operation is written with Shortest cut `tool_diameter`, which follows the operation's tool. An operation saved without it is shown, and given to the library, as Tool diameter too (it took the tool's diameter before, as a number); a number the user set is kept. The program is unchanged in every case. A rollback consequence (CodeRabbit on #969): an operation saved with `tool_diameter` is refused by an earlier build, whose pencil `min_length` is a number only ("expected a number"); there is no conversion back.
 
 ## Unreleased (MOPUP-1, issue #965)
 
