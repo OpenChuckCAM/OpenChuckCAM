@@ -65,7 +65,13 @@ Tests written first from UI-18's verification row ("Inch display round-trips to 
 - `openchuck-ui`, `model_panel` tests: a placement step reads in inches.
 - Changed: `shell::numbox_tests::req_ui_26_the_last_good_value_is_kept_while_an_entry_is_unreadable` typed "5 mm" as an unreadable entry (decision 0206: no units read). This record makes "5 mm" readable, so the test now types "5 ft". It still checks that an unreadable entry keeps the last good value.
 
-Results, commands, environment and coverage are added when the checks have run before the push.
+### Results (lane PROJECT-UX-B, 27 Nov 2026, before the rebase onto #904)
+
+Environment: managed Linux x86_64 container, Rust 1.97.0, debug builds, branch `claude/lane-projux-b-2-inches` from `main` `bfbcac7`. Tests were timed uninstrumented with `cargo nextest run`.
+- `cargo nextest run -p openchuck-ui`: 836 of 836 passed, 1 skipped, in 728 s. The new tests take 0.01 s (unit tests) to 4.7 s (real frames). The slowest tests are the existing playback tests.
+- `cargo nextest run -p openchuck-app`: 956 of 956 passed, 1 skipped, in 1431 s.
+- `cargo fmt --all`, `cargo clippy --workspace --all-targets` (no warnings), and `cargo xtask deps`, `licences`, `records` and `trace` pass.
+- To do before the push, after the rebase onto `main` with #904: the suites again, coverage of the changed files, and the changelog check against the final description.
 
 Not verified here: native drawing and keys, which are the owner's check (OI-9944).
 
