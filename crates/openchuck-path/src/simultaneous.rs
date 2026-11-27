@@ -4255,6 +4255,71 @@ mod tests {
     }
 
     #[test]
+    fn req_op_12_a_flat_end_whose_corner_grazes_a_piece_is_settled_at_once() {
+        // Four more samples of the move check on the public blisk at the
+        // finest growth (lane SE-PERF, 27 Nov 2026), each of which ran to
+        // the search's cap of pieces: the corner of the 3 mm flat end a
+        // fraction of a micrometre clear of a small place of a face, in two
+        // of them inside the thin region a nearly level neighbour leaves a
+        // face to count. Each must be settled at once, and where it is
+        // proven the independent checker must not read deeper than the
+        // tolerance.
+        use openchuck_testkit::contact::{ConvexTool, Geometry, Settings};
+        let mesh = blisk();
+        let surface = crate::MeshSurface::new(&mesh).unwrap();
+        let geometry = Geometry::of_mesh(&mesh).unwrap();
+        let profile = cutter::grow_profile(&flat_3mm(), 0.005 / 64.0).unwrap();
+        let tool = ConvexTool::new(&profile).unwrap();
+        for (tip, axis) in [
+            (
+                Point3::new(39.74304147790153, -19.688781456717635, 2.66530518881695),
+                Vec3::new(0.0, -0.9988906834292923, 0.047089304073871886),
+            ),
+            (
+                Point3::new(38.634574865149006, -19.612141004217953, 4.933094161277826),
+                Vec3::new(0.0, -0.998736097204247, 0.05026139812250504),
+            ),
+            (
+                Point3::new(29.60809652062892, -5.990183095756758, -18.94396242886031),
+                Vec3::new(0.0, -0.4665616263280874, -0.8844886934484185),
+            ),
+            (
+                Point3::new(41.463678983598314, 11.487210660686216, -17.41229587436939),
+                Vec3::new(0.0, -0.06844945768971303, -0.9976545853861367),
+            ),
+        ] {
+            let line = ToolLine {
+                origin: tip,
+                axis: UnitVec3::new(axis).unwrap(),
+            };
+            let started = std::time::Instant::now();
+            let g = surface.tool_gap(&profile, &line, &move_query(Vec3::ZERO, 0.01));
+            let took = started.elapsed().as_secs_f64();
+            assert!(took < 1.0, "{took} s: {g:?}");
+            if g.is_none_or(|g| proven(&g, 0.01)) {
+                let settings = Settings {
+                    margin: 5.0,
+                    tolerance: 1e-4,
+                    budget: 20_000,
+                };
+                let upper = match geometry.face_gap(
+                    &tool,
+                    line.origin,
+                    line.axis.get(),
+                    LAYER * 0.01,
+                    0.01,
+                    &settings,
+                ) {
+                    Ok(b) => b.upper,
+                    Err(openchuck_testkit::contact::ContactError::Budget { upper, .. }) => upper,
+                    Err(e) => panic!("{e}"),
+                };
+                assert!(upper >= -0.01 - 1e-6, "{g:?} against {upper}");
+            }
+        }
+    }
+
+    #[test]
     fn req_op_12_a_flat_end_overhanging_the_blisk_rim_is_settled_at_once() {
         // One sample of the move check on the public blisk (27 Nov 2026): a
         // 3 mm flat end grown by a tenth of the tolerance, its bottom resting

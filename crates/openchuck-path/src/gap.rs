@@ -118,6 +118,10 @@ fn polytope_lowest(planes: &[(Vec3, f64)], m: Vec3) -> Option<(f64, Point3)> {
 /// [`Body::lower_surface`].
 const LEAN_STEPS: u32 = 40;
 
+/// The golden-section steps of the search along a piece's column for its
+/// point nearest the tool ([`Body::parted`]).
+const NEAREST_STEPS: u32 = 24;
+
 /// The same over a part of a move ([`Body::cheap_planes`]).
 const MOVING_LEAN_STEPS: u32 = 14;
 
@@ -1203,46 +1207,111 @@ impl<'a> Body<'a> {
         })
     }
 
-    /// Whether no tool point with its foot on the face lies above the
-    /// layer, `limit` below it, at any pose from `s0` to `s1`, shown by the
-    /// plane square to the direction from the layer's floor under the piece
-    /// (or from a point of the column through its centre above the floor)
-    /// to the tool's nearest point (at the middle pose): the whole tool
-    /// beyond it at every pose, and, the direction not rising along the
-    /// face's normal, the prism above the floor behind it at its floor
-    /// corners (lane SE-PERF). A tool that passes under a small piece below
-    /// the layer, clear of its prism above the floor, is parted from it
-    /// only by a plane leaning by the angle its own surface has there,
-    /// which the fixed angles of [`below_layer`](Self::below_layer) may
-    /// miss: without it such a piece is halved without end.
-    fn under(&self, face: &Face, limit: f64, s0: f64, s1: f64) -> bool {
+    /// Whether the tool is parted from what a face counts at every pose from
+    /// `s0` to `s1` by a plane found from the tool's own surface (lane
+    /// SE-PERF): from points of the column through the piece's centre, at
+    /// the layer's floor, at the face, between and above, and from the
+    /// floor under its corners, the direction to the tool's nearest point
+    /// (at the middle pose), and that direction laid square to the face's
+    /// normal. A direction parts them when the whole tool lies beyond the
+    /// furthest the region reaches along it, to within the side margin, as
+    /// in [`beside`](Self::beside).
+    ///
+    /// With no `region` the face's whole prism above the floor is meant:
+    /// a direction that does not rise along the face's normal reaches
+    /// furthest at the floor's corners. With a `region` (its sides as
+    /// `n . y <= b`, closed: the face's prism with its clips, between the
+    /// floor and the face), any direction serves, and the furthest is at
+    /// one of the region's corners; a region with no corner is empty.
+    ///
+    /// A tool that passes a small piece a few micrometres clear, under it
+    /// below the layer or with a flat end's corner at the floor, counts
+    /// nothing there, but is parted from it only by a plane leaning as its
+    /// own surface does there, which the directions of `beside` and the
+    /// fixed angles of [`below_layer`](Self::below_layer) miss: without
+    /// this such a piece is halved until the pieces run out.
+    fn parted(
+        &self,
+        face: &Face,
+        region: Option<&[(Vec3, f64)]>,
+        limit: f64,
+        s0: f64,
+        s1: f64,
+    ) -> bool {
         let fm = 0.5 * (s0 + s1);
-        let floor = face.corners.map(|p| p + face.m * (-limit));
-        // From the floor under the piece's centre and corners, and from
-        // the column through its centre at the face and half way down and
-        // as far above: a flat end's corner passing the piece at the floor
-        // has its side beside the piece above and its bottom over it
-        // below, and the plane that parts them is the one along its side.
+        let m = face.m;
+        let floor = face.corners.map(|p| p + m * (-limit));
         let centre = centroid(&face.corners);
-        let column = [-0.5 * limit, 0.0, limit].map(|h| centre + face.m * h);
-        std::iter::once(centroid(&floor))
-            .chain(floor)
-            .chain(column)
-            .any(|q| {
-                let (distance, normal) = self.at_first(self.frame(q, fm));
-                if distance <= 0.0 {
-                    return false;
-                }
-                let w = self.undirection(-normal, fm);
-                if w.dot(face.m) > 0.0 {
-                    return false;
-                }
-                let c = floor
-                    .iter()
-                    .map(|p| w.dot(*p - Point3::ORIGIN))
-                    .fold(f64::NEG_INFINITY, f64::max);
-                self.dual_over(w, c, s0, s1) > -SIDE_MARGIN
+        let column = [
+            -limit,
+            -0.8 * limit,
+            -0.5 * limit,
+            -0.25 * limit,
+            0.0,
+            limit,
+        ]
+        .map(|h| centre + m * h);
+        // And from the point of the centre's column nearest the tool,
+        // between the floor and where the column leaves the region (the
+        // face, or a clip; as far above the face as the floor is below it
+        // for the whole prism): the plane square to the shortest way
+        // between two convex shapes parts them. The distance along the
+        // column is convex, so a golden-section search finds it.
+        let top = match region {
+            Some(_) => face
+                .clips
+                .iter()
+                .filter_map(|(n, b)| {
+                    let k = n.dot(m);
+                    (k > 1e-12).then(|| (b - n.dot(centre - Point3::ORIGIN)) / k)
+                })
+                .fold(0.0, f64::min),
+            None => limit,
+        };
+        let away = |h: f64| self.at_first(self.frame(centre + m * h, fm)).0;
+        let golden = 0.5 * (5.0_f64.sqrt() - 1.0);
+        let (mut lo, mut hi) = (-limit, top.max(-limit));
+        let (mut c, mut d) = (hi - golden * (hi - lo), lo + golden * (hi - lo));
+        let (mut at_c, mut at_d) = (away(c), away(d));
+        for _ in 0..NEAREST_STEPS {
+            if at_c <= at_d {
+                hi = d;
+                d = c;
+                at_d = at_c;
+                c = hi - golden * (hi - lo);
+                at_c = away(c);
+            } else {
+                lo = c;
+                c = d;
+                at_c = at_d;
+                d = lo + golden * (hi - lo);
+                at_d = away(d);
+            }
+        }
+        let nearest = centre + m * (0.5 * (lo + hi));
+        column.into_iter().chain(floor).chain([nearest]).any(|q| {
+            let (distance, normal) = self.at_first(self.frame(q, fm));
+            if distance <= 0.0 {
+                return false;
+            }
+            let toward = self.undirection(-normal, fm);
+            let level = UnitVec3::new(toward - m * toward.dot(m)).map(UnitVec3::get);
+            std::iter::once(toward).chain(level).any(|w| {
+                let furthest = match region {
+                    Some(planes) => match polytope_least(planes, -w) {
+                        Some(least) => -least,
+                        // No corner: nothing is in the region.
+                        None => return true,
+                    },
+                    None if w.dot(m) > 0.0 => return false,
+                    None => floor
+                        .iter()
+                        .map(|p| w.dot(*p - Point3::ORIGIN))
+                        .fold(f64::NEG_INFINITY, f64::max),
+                };
+                self.dual_over(w, furthest, s0, s1) > -SIDE_MARGIN
             })
+        })
     }
 
     /// The lowest tool point at the fraction `f` with its foot on the face
@@ -2262,7 +2331,7 @@ impl Search<'_, '_> {
         let foot =
             |face: &Face, y: Point3| y + face.m * (-(face.m.dot(y - Point3::ORIGIN) - face.d));
         let mut probes: Vec<(bool, Point3)> = Vec::new();
-        if open_lower < -self.inside && self.body.under(&open, self.limit, s0, s1) {
+        if open_lower < -self.inside && self.body.parted(&open, None, self.limit, s0, s1) {
             return Bound::Empty;
         }
         if open_lower < -self.inside {
@@ -2286,12 +2355,24 @@ impl Search<'_, '_> {
                 f64::INFINITY
             } else {
                 let region: Vec<(Vec3, f64)> = clipped.constraints().copied().collect();
-                let cplanes = self.body.cheap_planes(&clipped, s0, s1, &mut |_| false);
-                let (v, at) = self
+                // The clipped region between the layer's floor and the
+                // face, closed.
+                let mut closed = region.clone();
+                closed.push((-clipped.m, self.limit - clipped.d));
+                closed.push((clipped.m, clipped.d));
+                if self
                     .body
-                    .polytope_bound(&clipped, &region, &cplanes, self.limit, 0.0);
-                probes.extend(at.map(|y| (true, foot(&clipped, y))));
-                v.max(open_lower)
+                    .parted(&clipped, Some(&closed), self.limit, s0, s1)
+                {
+                    f64::INFINITY
+                } else {
+                    let cplanes = self.body.cheap_planes(&clipped, s0, s1, &mut |_| false);
+                    let (v, at) = self
+                        .body
+                        .polytope_bound(&clipped, &region, &cplanes, self.limit, 0.0);
+                    probes.extend(at.map(|y| (true, foot(&clipped, y))));
+                    v.max(open_lower)
+                }
             };
             bound = clipped_lower.min(0.0).max(open_lower);
         }
