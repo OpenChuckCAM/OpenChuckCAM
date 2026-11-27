@@ -1,6 +1,6 @@
-# TOOL-LOAD-1, phase 1: engagement on the public crankshaft, measured in the simulation
+# decision 0698, phase 1: engagement on the public crankshaft, measured in the simulation
 
-Raw evidence for [decision TOOL-LOAD-1](../../decisions/TOOL-LOAD-1-managing-tool-load.md) (its *Verification (phase 1)* section). Produced by lane TOOL-LOAD on 25 Nov 2026 at `main` `aadf3cc` (workspace 0.63.0), in a Linux cloud container with 4 cores, with nothing else running during the timed runs. Not a source of truth: where these notes and the record differ, the record holds. Generated G-code remains the user's to verify before running it on a machine.
+Raw evidence for [decision 0698](../../decisions/0698-managing-tool-load.md) (its *Verification (phase 1)* section). Produced by lane TOOL-LOAD on 25 Nov 2026 at `main` `aadf3cc` (workspace 0.63.0), in a Linux cloud container with 4 cores, with nothing else running during the timed runs. Not a source of truth: where these notes and the record differ, the record holds. Generated G-code remains the user's to verify before running it on a machine.
 
 | File | What it is |
 | --- | --- |
@@ -68,7 +68,7 @@ Cut section over one tool diameter of travel (mm²); the tool's own "slot at its
 | Rough | 23,120 | 17,287 | 1,388 | 0 | 0 | 5.32 |
 | Finish after Rough | 19,171 | 34 | 0 | 0 | 0 | 1.47 |
 
-Lane PATH-QUALITY's earlier estimate on the STEP example ([decision PATH-QUALITY-1](../../decisions/PATH-QUALITY-1-finishing-edges-points-and-ramps.md), *#844*), made outside the program on 0.3 mm voxels, found 8,643 moves of the finish alone at one diameter or more and 2,771 at 16 mm or more, largest 21.5 mm, and 163 moves of the finish after roughing at 1 mm or more, largest 11.3 mm. The figures here are on the STL and on 0.1 mm cells, so they differ in the counts; the largest engaged length is the same.
+Lane PATH-QUALITY's earlier estimate on the STEP example ([decision 0695](../../decisions/0695-finishing-edges-points-and-ramps.md), *#844*), made outside the program on 0.3 mm voxels, found 8,643 moves of the finish alone at one diameter or more and 2,771 at 16 mm or more, largest 21.5 mm, and 163 moves of the finish after roughing at 1 mm or more, largest 11.3 mm. The figures here are on the STL and on 0.1 mm cells, so they differ in the counts; the largest engaged length is the same.
 
 ## Not done
 

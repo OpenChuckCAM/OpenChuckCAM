@@ -30,5 +30,5 @@
 <rect x="300" y="240" width="592.1" height="22" fill="#d0473b"/>
 <text x="562" y="284" fill="#b02a1e">185.7; engaged length up to 21.5 of the 22 mm flute;</text><text x="562" y="300" fill="#b02a1e">4,757 of 19,183 stretches over 2 ×</text>
 <text x="20" y="400" fill="#444">Today none of the three gives a warning about load: the flute check (decisions 0509, 0522) warns only past the flute length, and 21.5 mm is under 22.</text>
-<text x="20" y="420" fill="#444">Cost of the measure in the prototype: about 0.6 s on a 12 s simulation of the finish (about 5 %). Raw figures: docs/archive/TOOL-LOAD-1-phase-1.</text>
+<text x="20" y="420" fill="#444">Cost of the measure in the prototype: about 0.6 s on a 12 s simulation of the finish (about 5 %). Raw figures: docs/archive/0698-managing-tool-load.</text>
 </svg>
