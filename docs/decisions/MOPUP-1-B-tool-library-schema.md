@@ -1,6 +1,6 @@
 # MOPUP-1-B: Tool-library files have their own schema number, and a file a build cannot read says it needs a newer version (TL-01, PRJ-04, NFR-07; issue #864; lane MOPUP-1)
 
-- **Status:** Proposed by lane MOPUP-1 on 26 Nov 2026; not yet accepted (OI-9921). The project owner chose option A on issue #864 on 26 Nov 2026, relayed by the coordinator (decision 0049): library files get their own schema number, raised when a field is added; builds from then on refuse a newer library file cleanly and name a file that fails only on an unknown field as written by a newer version; nothing is ever dropped. The owner confirmed A again after the corrected facts below (26 Nov 2026, relayed). He has not read this record's text.
+- **Status:** Proposed by lane MOPUP-1 on 26 Nov 2026; not yet accepted (OI-9921). The project owner chose option A on issue #864 on 26 Nov 2026, relayed by the coordinator (decision 0049): library files get their own schema number, raised when a field is added; builds from then on refuse a newer library file cleanly and name a file that fails only on an unknown field as written by a newer version; nothing is ever dropped. The owner confirmed A again after the corrected facts below (26 Nov 2026, relayed). The owner has not read this record's text.
 - **Date:** 26 Nov 2026.
 - **Requirements:** TL-01 (the tool library), PRJ-04 (files written by another version), NFR-07 (a clear error, never a crash).
 - **Builds on:** [decision 0014](0014-slice-4-tool-library.md) (the library folder, one file per tool), [decision 0033](0033-slice-14-rotary-roughing.md) (`centre_cutting` added without a schema step), [decision 0673](0673-check-the-bottom-of-the-z-travel-for-each-tool.md) (`stick_out`, also without one), [decision 0008](0008-slice-1-project-model.md) item 12 (the project schema's rule).
@@ -37,6 +37,7 @@ Issue #864, from CodeRabbit's note on #852. The facts, checked in the code at th
 - The user guide's tool library page says how a library shared with an older version behaves. The release notes say the same.
 - The next field added to tool files raises the library schema to 3 under item 2. TOOL-LOAD's claimed TL-1b (issue #844), which adds `largest_cut_section` to cutting data in tool library files, is the first expected: a tool file declares 3 only when it holds that field.
 - The project file's tool snapshots are unchanged; they follow the project schema (29 for `stick_out`).
+- A rollback after a save (CodeRabbit on #964): once a build with this change saves a tool with a stick-out, it declares schema 2. A nightly build from 23 to 27 Nov 2026 (0.59 to 0.73) reads `stick_out` but accepts only library schema 1, so it skips that tool with its newer-version message; the other tools open, and the file is not changed. This affects nightly builds only, loses no data, and is inherent in the owner's option A (the same trade as a raised project schema).
 
 ## Verification
 
