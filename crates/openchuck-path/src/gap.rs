@@ -1601,15 +1601,41 @@ pub(crate) fn search(
             CAP.fetch_add(1, Relaxed);
             let mut ps: Vec<&Piece> = state.queue.iter().collect();
             ps.sort_by(|a, b| a.lower.total_cmp(&b.lower));
-            eprintln!("CAPPED lower {lower} found {:?} accept {accept} tip {:?} axis {:?} sweep {:?} angle {} queue {}", state.best.map(|b| b.0), body.tip, body.axis, body.sweep, body.angle, ps.len());
+            eprintln!(
+                "CAPPED lower {lower} found {:?} accept {accept} tip {:?} axis {:?} sweep {:?} angle {} queue {}",
+                state.best.map(|b| b.0),
+                body.tip,
+                body.axis,
+                body.sweep,
+                body.angle,
+                ps.len()
+            );
             for p in ps.iter().take(4) {
-                eprintln!("   piece lower {} tri {} span {:?} size {:.2e} normal {:?} corners {:?}", p.lower, p.triangle, p.span, longest_side(&p.corners).3, p.normal, p.corners);
+                eprintln!(
+                    "   piece lower {} tri {} span {:?} size {:.2e} normal {:?} corners {:?}",
+                    p.lower,
+                    p.triangle,
+                    p.span,
+                    longest_side(&p.corners).3,
+                    p.normal,
+                    p.corners
+                );
             }
-            let mut tris: Vec<u32> = ps.iter().map(|p| p.triangle).collect(); tris.sort(); tris.dedup();
-            eprintln!("   triangles {} : {:?}", tris.len(), tris.iter().take(12).collect::<Vec<_>>());
+            let mut tris: Vec<u32> = ps.iter().map(|p| p.triangle).collect();
+            tris.sort();
+            tris.dedup();
+            eprintln!(
+                "   triangles {} : {:?}",
+                tris.len(),
+                tris.iter().take(12).collect::<Vec<_>>()
+            );
         }
         if q % 500 == 0 {
-            eprintln!("GSTAT queries {q} pieces/q {:.1} capped {}", P.load(Relaxed) as f64 / q as f64, CAP.load(Relaxed));
+            eprintln!(
+                "GSTAT queries {q} pieces/q {:.1} capped {}",
+                P.load(Relaxed) as f64 / q as f64,
+                CAP.load(Relaxed)
+            );
         }
     }
     // The best was kept less its triangle's error, as the bounds are; the

@@ -300,6 +300,72 @@ fn req_op_12_tool_gap_of_a_ball_plunged_at_a_square_edge_is_a_cut() {
     assert!(g.lower >= -0.01, "{g:?}");
 }
 
+/// A face of the plane z = 0 from x = `from` to 6, |y| <= 6, facing +Z,
+/// turned by `tilt` radians about the Y axis.
+fn strip(from: f64, tilt: f64) -> TriangleMesh {
+    let turn = |x: f64, y: f64| Point3::new(x * tilt.cos(), y, -x * tilt.sin());
+    TriangleMesh {
+        vertices: vec![
+            turn(from, -6.0),
+            turn(6.0, -6.0),
+            turn(6.0, 6.0),
+            turn(from, 6.0),
+        ],
+        triangles: vec![[0, 1, 2], [0, 2, 3]],
+    }
+}
+
+/// A ball-end tool of radius `r` lying on its side along Y, its axis `h`
+/// above the plane z = 0 at x = 0, the whole turned as [`strip`] is.
+fn lying(r: f64, h: f64, tilt: f64) -> ToolLine {
+    let turn = |v: Vec3| {
+        Vec3::new(
+            v.x * tilt.cos() + v.z * tilt.sin(),
+            v.y,
+            -v.x * tilt.sin() + v.z * tilt.cos(),
+        )
+    };
+    let tip = Point3::ORIGIN + turn(Vec3::new(0.0, -5.0 - r, h));
+    ToolLine {
+        origin: tip,
+        axis: UnitVec3::new(turn(Vec3::new(0.0, 1.0, 0.0))).unwrap(),
+    }
+}
+
+#[test]
+fn req_op_12_tool_gap_of_a_tool_grazing_a_face_from_beside_is_its_clearance() {
+    // A tool lying on its side along a face's edge (a 3.175 mm ball's
+    // flutes running beside a crank web, or along a blade): its body would
+    // cut the plane, but the face ends where the tool's side is upright, so
+    // over the face the tool's lowest point is its axis, h above, at the
+    // face's edge; a face starting a little inside reads the tool's lower
+    // surface there, still clear. The query answers both, proven, without
+    // running out of pieces, flat and tilted as a blade side is. Where the
+    // tool only touches the face's edge, along a line, that line is within
+    // the side margin, so no point counts and none is an answer too.
+    let (r, h) = (1.5875, 0.128);
+    let tool = ball(r);
+    for tilt in [0.0, 0.5] {
+        for (from, exact) in [
+            (r, h),
+            (r - 1e-3, h - (r * r - (r - 1e-3) * (r - 1e-3)).sqrt()),
+        ] {
+            let surface = mesh(&strip(from, tilt));
+            let line = lying(r, h, tilt);
+            let checked =
+                surface.tool_gap(&tool, &line, &GapQuery::pose(0.0125).accept_above(-0.01));
+            assert!(
+                checked.is_none_or(|g| g.lower >= -0.01),
+                "tilt {tilt}, from {from}: {checked:?}"
+            );
+            match surface.tool_gap(&tool, &line, &GapQuery::pose(0.5)) {
+                Some(g) => holds(&g, exact),
+                None => assert!(from >= r, "tilt {tilt}, from {from}: none"),
+            }
+        }
+    }
+}
+
 #[test]
 fn req_op_12_tool_gap_swept_past_a_sharp_edge_is_the_deepest_pose() {
     // A ball swept straight over the ridge at a height of 0.9: at its ends
@@ -736,6 +802,45 @@ fn profiles() -> impl Strategy<Value = RevolvedProfile> {
         (0.5_f64..2.0).prop_map(flat),
         (1.0_f64..2.0, 0.1_f64..0.9).prop_map(|(r, c)| bull(r, c * r)),
     ]
+}
+
+proptest! {
+    #![proptest_config(ProptestConfig::with_cases(64))]
+
+    /// A tool lying beside a face's edge, grazing it, at any height and
+    /// lean, for ball and flat ends: the query and the independent checker
+    /// overlap (decision record SIMUL-EDGE-1; the second bound the project
+    /// owner approved on 27 Nov 2026).
+    #[test]
+    fn req_op_12_tool_gap_grazing_a_face_agrees_with_the_independent_checker(
+        r in 0.5_f64..2.0,
+        h in 0.01_f64..0.4,
+        // Clear of the side margin either way: a touch along a line is
+        // counted by the checker and not by the query, both within it.
+        inset in 1e-5_f64..0.01,
+        outside in prop::bool::ANY,
+        tilt in -0.6_f64..0.6,
+        round in prop::bool::ANY,
+    ) {
+        let m = strip(if outside { r + inset } else { r - inset }, tilt);
+        let surface = mesh(&m);
+        let geometry = Geometry::of_mesh(&m).unwrap();
+        let profile = if round { ball(r) } else { flat(r) };
+        let tool = ConvexTool::new(&profile).unwrap();
+        let line = lying(r, h, tilt);
+        let settings = Settings { margin: 5.0, tolerance: 5e-4, budget: 20_000 };
+        let ours = surface.tool_gap(&profile, &line, &GapQuery::pose(0.5));
+        let theirs = interval(geometry.face_gap(&tool, line.origin, line.axis.get(), 0.5, GAP_ACCURACY, &settings));
+        if let Some(g) = ours {
+            prop_assert!(g.lower <= theirs.upper + 1e-6, "{g:?} against {theirs:?}");
+            prop_assert!(theirs.lower <= g.upper + 1e-6, "{g:?} against {theirs:?}");
+        } else {
+            // The checker found no real value under the limit either (it
+            // may run out of budget proving a tool that ends a hair before
+            // the face clear of it).
+            prop_assert!(theirs.upper > 0.5 - 1e-3, "none against {theirs:?}");
+        }
+    }
 }
 
 /// The checker's proven interval: its answer, or, where its budget ran out
