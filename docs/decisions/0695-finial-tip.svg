@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 560" width="1000" height="560" font-family="Helvetica, Arial, sans-serif" font-size="13">
+<title>Finial tip: what the finish leaves past a point today, and option A</title>
+<rect width="1000" height="560" fill="#ffffff"/>
+<text x="20" y="28" font-size="17" font-weight="bold" fill="#222">Public baluster, finial tip: radius left by the 3.175 mm finishing ball, against X</text>
+<text x="20" y="48" fill="#444">Measured from the program on main d1674b7 (lane PATH-QUALITY); stock ends at X 62. Upper half of the section, same scale on both axes.</text>
+<defs><clipPath id="box"><rect x="90" y="84.0" width="550.0" height="396.0"/></clipPath></defs>
+<line x1="90" y1="480.0" x2="640.0" y2="480.0" stroke="#eee"/><text x="82" y="484.0" text-anchor="end" fill="#222">0</text>
+<line x1="90" y1="370.0" x2="640.0" y2="370.0" stroke="#eee"/><text x="82" y="374.0" text-anchor="end" fill="#222">1</text>
+<line x1="90" y1="260.0" x2="640.0" y2="260.0" stroke="#eee"/><text x="82" y="264.0" text-anchor="end" fill="#222">2</text>
+<line x1="90" y1="150.0" x2="640.0" y2="150.0" stroke="#eee"/><text x="82" y="154.0" text-anchor="end" fill="#222">3</text>
+<line x1="90" y1="480" x2="640.0" y2="480" stroke="#222" stroke-width="1.5"/><line x1="90" y1="480" x2="90" y2="84.0" stroke="#222"/>
+<line x1="145.0" y1="480" x2="145.0" y2="486" stroke="#222"/><text x="145.0" y="502" text-anchor="middle" fill="#222">X 59</text>
+<line x1="255.0" y1="480" x2="255.0" y2="486" stroke="#222"/><text x="255.0" y="502" text-anchor="middle" fill="#222">X 60</text>
+<line x1="365.0" y1="480" x2="365.0" y2="486" stroke="#222"/><text x="365.0" y="502" text-anchor="middle" fill="#222">X 61</text>
+<line x1="475.0" y1="480" x2="475.0" y2="486" stroke="#222"/><text x="475.0" y="502" text-anchor="middle" fill="#222">X 62</text>
+<line x1="585.0" y1="480" x2="585.0" y2="486" stroke="#222"/><text x="585.0" y="502" text-anchor="middle" fill="#222">X 63</text>
+<text x="80" y="74.0" fill="#222">radius (mm)</text><text x="365.0" y="524" text-anchor="middle" fill="#222">part X (mm); the bottom line is the rotary axis</text>
+<g clip-path="url(#box)">
+<polygon points="90.0,480.0 90.0,3.7 92.2,5.0 94.4,6.3 96.6,7.6 98.8,8.9 101.0,10.2 103.2,11.6 105.4,12.9 107.6,14.3 109.8,15.7 112.0,17.1 114.2,18.5 116.4,19.9 118.6,21.4 120.8,22.8 123.0,24.3 125.2,25.8 127.4,27.3 129.6,28.9 131.8,30.4 134.0,32.0 136.2,33.5 138.4,35.1 140.6,36.7 142.8,38.4 145.0,40.0 147.2,41.7 149.4,43.3 151.6,45.0 153.8,46.7 156.0,48.5 158.2,50.2 160.4,52.0 162.6,53.8 164.8,55.6 167.0,57.4 169.2,59.2 171.4,61.1 173.6,63.0 175.8,64.9 178.0,66.8 180.2,68.7 182.4,70.7 184.6,72.7 186.8,74.7 189.0,76.7 191.2,78.8 193.4,80.9 195.6,83.0 197.8,85.1 200.0,87.2 202.2,89.4 204.4,91.6 206.6,93.8 208.8,96.0 211.0,98.3 213.2,100.6 215.4,102.9 217.6,105.3 219.8,107.7 222.0,110.1 224.2,112.5 226.4,115.0 228.6,117.5 230.8,120.0 233.0,122.5 235.2,125.1 237.4,127.8 239.6,130.4 241.8,133.1 244.0,135.8 246.2,138.6 248.4,141.4 250.6,144.2 252.8,147.1 255.0,150.0 257.2,153.0 259.4,155.9 261.6,159.0 263.8,162.1 266.0,165.2 268.2,168.4 270.4,171.6 272.6,174.9 274.8,178.2 277.0,181.6 279.2,185.0 281.4,188.5 283.6,192.1 285.8,195.7 288.0,199.3 290.2,203.1 292.4,206.9 294.6,210.8 296.8,214.7 299.0,218.8 301.2,222.9 303.4,227.1 305.6,231.4 307.8,235.8 310.0,240.3 312.2,244.9 314.4,249.6 316.6,254.4 318.8,259.4 321.0,264.4 323.2,269.7 325.4,275.1 327.6,280.6 329.8,286.4 332.0,292.4 334.2,298.5 336.4,305.0 338.6,311.6 340.8,318.6 343.0,326.0 345.2,333.8 347.4,342.0 349.6,350.8 351.8,360.2 354.0,370.6 356.2,382.0 358.4,395.1 360.6,410.6 362.8,430.9 365.0,480.0 365.0,480.0" fill="#e6eef7" stroke="#2b5d8a" stroke-width="2"/>
+<polyline points="255.0,148.3 310.0,178.5 337.5,185.2 365.0,187.4 392.5,185.2 447.5,166.7 475.0,148.3" fill="none" stroke="#888" stroke-width="2" stroke-dasharray="6 4"/>
+<polyline points="255.0,148.3 310.0,178.5 337.5,185.2 365.0,187.4 392.5,399.4 447.5,453.7 475.0,467.6 530.0,479.8" fill="none" stroke="#c0392b" stroke-width="2.5"/>
+<polygon points="255.0,148.3 310.0,178.5 337.5,185.2 365.0,187.4 392.5,399.4 447.5,453.7 475.0,467.6 530.0,479.8 365.0,480.0 359.5,402.4 354.0,370.6 348.5,346.3 343.0,326.0 337.5,308.3 332.0,292.4 326.5,277.8 321.0,264.4 315.5,252.0 310.0,240.3 304.5,229.2 299.0,218.8 293.5,208.8 288.0,199.3 282.5,190.3 277.0,181.6 271.5,173.2 266.0,165.2 260.5,157.5 255.0,150.0" fill="#c0392b" fill-opacity="0.18"/>
+<polyline points="255.0,150.0 282.5,190.3 310.0,240.3 337.5,308.3 354.0,370.6 365.0,480.0 365.0,480.0" fill="none" stroke="#1e8449" stroke-width="3" stroke-dasharray="3 3"/>
+<circle cx="365.0" cy="12.8" r="174.6" fill="none" stroke="#c0392b" stroke-width="1.2"/>
+<circle cx="539.6" cy="305.4" r="174.6" fill="none" stroke="#1e8449" stroke-width="1.2" stroke-dasharray="4 3"/>
+</g>
+<text x="101.0" y="425.0" fill="#2b5d8a" font-weight="bold">the part: a ball of radius 5</text><text x="101.0" y="441.0" fill="#2b5d8a" font-weight="bold">ending in a point at X 61</text>
+<text x="431.0" y="320.5" fill="#c0392b">nub left today (shaded):</text><text x="431.0" y="336.5" fill="#c0392b">2.66 mm at X 61, 0.24 at X 61.75</text>
+<line x1="660.0" y1="104.0" x2="696.0" y2="104.0" stroke="#c0392b" stroke-width="2.5" stroke-dasharray=""/><text x="704.0" y="108.0" fill="#222">today, defaults (Face free ends on)</text>
+<line x1="660.0" y1="128.0" x2="696.0" y2="128.0" stroke="#888" stroke-width="2.5" stroke-dasharray="6 4"/><text x="704.0" y="132.0" fill="#222">today, Face free ends off (a tab is left)</text>
+<line x1="660.0" y1="152.0" x2="696.0" y2="152.0" stroke="#1e8449" stroke-width="2.5" stroke-dasharray="3 3"/><text x="704.0" y="156.0" fill="#222">option A: the run-out follows the drop</text>
+<text x="704.0" y="172.0" fill="#222">down past the point, so the ball</text><text x="704.0" y="188.0" fill="#222">centre reaches the axis at X 62.59</text>
+<circle cx="678.0" cy="224.0" r="9" fill="none" stroke="#c0392b"/><text x="704.0" y="228.0" fill="#222">ball at the helix's last point today:</text><text x="704.0" y="244.0" fill="#222">tip 2.66 mm above the axis at X 61,</text><text x="704.0" y="260.0" fill="#222">its side still on the sphere</text>
+<circle cx="678.0" cy="288.0" r="9" fill="none" stroke="#1e8449" stroke-dasharray="4 3"/><text x="704.0" y="292.0" fill="#222">ball at the end of option A's run-out</text>
+</svg>

@@ -487,7 +487,8 @@ fn req_op_02_a_check_surface_is_not_touched_and_a_boundary_limits_the_cut() {
 /// The avoid and check sets of a strategy other than swarf take the three
 /// choices of decision 0229 item 1: Cut short is today's path, Warn only
 /// keeps the whole path and warns naming the set, and Ignore keeps the
-/// whole path and says the set limits nothing.
+/// whole path and says the set limits nothing, as information (decision
+/// 0696 item 8): no warning, a note once in the run.
 #[test]
 fn req_op_02_avoid_and_check_sets_of_other_strategies_take_their_choices() {
     use openchuck_app::project::OnBreak;
@@ -509,37 +510,39 @@ fn req_op_02_avoid_and_check_sets_of_other_strategies_take_their_choices() {
             "{name}"
         );
         assert!(short.groups[0].warnings.is_empty(), "{name}");
-        for (choice, said) in [
-            (
-                OnBreak::Warn,
-                if role == SelectionRole::Avoid {
-                    "The tool cuts into the avoid set 'Top' along about ".to_owned()
-                } else {
-                    "The tool touches the check set 'Top' along about ".to_owned()
-                },
-            ),
-            (
-                OnBreak::Ignore,
-                format!(
-                    "The {name} set 'Top' limits nothing, because it is set to Ignore: the tool \
-                     is not kept clear of it."
-                ),
-            ),
-        ] {
-            app.set_on_break(op, role, roof, choice).unwrap();
-            let run = app.regenerate().unwrap();
-            assert!(
-                run.toolpath.groups[0] == whole.toolpath.groups[0],
-                "{name} {choice:?}: the path is not the whole path"
-            );
-            let warnings = &run.groups[0].warnings;
-            assert_eq!(warnings.len(), 1, "{name} {choice:?}: {warnings:?}");
-            assert!(
-                warnings[0].text.starts_with(&said),
-                "{name} {choice:?}: {}",
-                warnings[0].text
-            );
-        }
+        // Warn only: a warning naming the set.
+        app.set_on_break(op, role, roof, OnBreak::Warn).unwrap();
+        let run = app.regenerate().unwrap();
+        assert!(
+            run.toolpath.groups[0] == whole.toolpath.groups[0],
+            "{name} Warn: the path is not the whole path"
+        );
+        let said = if role == SelectionRole::Avoid {
+            "The tool cuts into the avoid set 'Top' along about "
+        } else {
+            "The tool touches the check set 'Top' along about "
+        };
+        let warnings = &run.groups[0].warnings;
+        assert_eq!(warnings.len(), 1, "{name} Warn: {warnings:?}");
+        assert!(warnings[0].text.starts_with(said), "{}", warnings[0].text);
+        // Ignore: no warning; the run says once, as information, that the
+        // set limits nothing, with the words of decision 0176.
+        app.set_on_break(op, role, roof, OnBreak::Ignore).unwrap();
+        let run = app.regenerate().unwrap();
+        assert!(
+            run.toolpath.groups[0] == whole.toolpath.groups[0],
+            "{name} Ignore: the path is not the whole path"
+        );
+        let warnings = &run.groups[0].warnings;
+        assert!(warnings.is_empty(), "{name} Ignore: {warnings:?}");
+        // The run words it after its topic, "Selection set (operation
+        // 'Ring'): the avoid set ...".
+        let said = format!(
+            "the {name} set 'Top' limits nothing, because it is set to Ignore: the tool is not \
+             kept clear of it."
+        );
+        let notes: Vec<&String> = run.notes.iter().filter(|n| n.contains(&said)).collect();
+        assert_eq!(notes.len(), 1, "{name} Ignore: {:?}", run.notes);
         app.set_operation_selection(op, role, roof, false).unwrap();
     }
     std::fs::remove_dir_all(&dir).unwrap();

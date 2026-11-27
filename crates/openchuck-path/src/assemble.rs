@@ -194,8 +194,13 @@ struct Builder<'a> {
     /// Passes whose ramp followed a drop of the pass steeper than the ramp
     /// angle just before its first point (decision 0543 D4).
     steep_ramps: Vec<usize>,
-    /// Single-point passes plunged under a ramp (decision 0543 D7).
-    single_point_plunges: Vec<usize>,
+    /// Passes plunged under a ramp where no ramp fits, with why and the
+    /// depth of the plunge (decision 0543 D7; decision
+    /// 0695, Q4).
+    fallback_plunges: Vec<(usize, PlungeReason, f64)>,
+    /// The load figures of each ramp (decision 0695, Q3
+    /// point 4).
+    ramp_loads: Vec<RampLoad>,
     /// Ring and spiral ramps made steeper near the axis, with the angle
     /// used (decision 0543 section 4, point 3).
     steepened_ramps: Vec<(usize, f64)>,
@@ -297,7 +302,16 @@ impl Builder<'_> {
         // A controller that counts A's travel round the part in the feed word
         // holds that length, not just the line, to the line's limit (decision
         // record 0076).
-        let counted = if line > EPS && kind.is_fed() {
+        // A fed turn of A with the tip fixed is written with a change of X, Y
+        // or Z only where writing A moves an end, that is where an end's A is
+        // not on a written unit; a controller that counts A then counts its
+        // travel with that change, so such a turn is timed for it too
+        // (decision record 0692, amendment 2). A turn between angles on a
+        // written unit is written with no change of XYZ and keeps A's own
+        // limit (decision record 0076 item 2).
+        let counted = if kind.is_fed()
+            && (line > EPS || (da > EPS && a_off_written_unit(self.pose.a.0, end.a.0)))
+        {
             (line + allowance).max(rotary_in_feed(
                 limits.rotary_in_feed,
                 da,
@@ -309,13 +323,15 @@ impl Builder<'_> {
         // A move that changes X or Y by less than a written unit, widened by
         // the shift from writing A, may be written with or without that
         // change, so it is checked against either limit: it is timed for
-        // the lower (decision records 0050 and 0692). A fed move that turns A
-        // may be written with a change of X or Y even where it has none: its
-        // two ends are turned by different amounts when A is written.
+        // the lower (decision records 0050 and 0692). A fed move may be
+        // written with a change of X or Y even where it has none: when A is
+        // written its two ends are turned by different amounts, or by the
+        // same angle about different points (decision record 0692,
+        // amendment 1).
         let written_band = WRITTEN_UNIT + a_shift;
         let line_limit = if dx >= written_band || dy >= written_band {
             linear
-        } else if dx > EPS || dy > EPS || (a_shift > 0.0 && da > EPS) {
+        } else if dx > EPS || dy > EPS || kind.is_fed() {
             linear.min(z)
         } else {
             z
@@ -334,7 +350,10 @@ impl Builder<'_> {
                 dy / linear,
                 dz / z,
                 written_da / rotary,
-                if line > EPS {
+                // A fed turn of A with the tip fixed may still be written
+                // with a change of X or Y, its ends turned by different
+                // amounts when A is written: the written line is timed too.
+                if line > EPS || (kind.is_fed() && da > EPS) {
                     counted / line_limit
                 } else {
                     0.0
@@ -422,6 +441,14 @@ const WRITTEN_A_ALLOWANCE: f64 = 0.001;
 /// two coordinates across the axis are written to three decimals.
 const WRITTEN_RADIUS_ALLOWANCE: f64 = 0.001;
 
+/// Whether writing A to three decimals moves either end of a turn: an A
+/// already on a written unit is written as it is, so the post works XYZ out
+/// at the exact angle and a fixed tip stays written where it is.
+fn a_off_written_unit(a0: f64, a1: f64) -> bool {
+    let off = |a: f64| ((a * 1000.0).round() / 1000.0 - a).abs() > 1e-9;
+    off(a0) || off(a1)
+}
+
 /// Half a written unit of A (0.0005 degree), in radians.
 const WRITTEN_A_HALF_UNIT_RADIANS: f64 = 0.0005 * std::f64::consts::PI / 180.0;
 
@@ -486,13 +513,12 @@ pub fn assemble_with_entry(
     entry: &EntryParameters,
     context: &JobContext<'_>,
 ) -> Result<GeneratedPath> {
-    assemble_limited(passes, input, common, entry, None, true, None, context)
+    assemble_limited(passes, input, common, entry, None, None, context)
 }
 
 /// [`assemble_with_entry`], with every cutting move inside a pass that goes
 /// down along the tool axis slowed, where needed, so its tip goes down no
 /// faster than `descent_limit` (the plunge feed; decision record 0548).
-/// `round_the_part` is [`Strategy::ramps_round_the_part`](crate::Strategy::ramps_round_the_part).
 /// `beside` is the faces next to the face set
 /// ([`RegionConstraint::neighbours`](crate::RegionConstraint::neighbours)),
 /// which the entry and exit moves are checked against as well as the
@@ -504,7 +530,6 @@ pub(crate) fn assemble_limited(
     common: &CommonParameters,
     entry: &EntryParameters,
     descent_limit: Option<FeedRate>,
-    round_the_part: bool,
     beside: Option<&dyn SurfaceSource>,
     context: &JobContext<'_>,
 ) -> Result<GeneratedPath> {
@@ -614,7 +639,8 @@ pub(crate) fn assemble_limited(
         notes: Vec::new(),
         raised_entries: 0,
         steep_ramps: Vec::new(),
-        single_point_plunges: Vec::new(),
+        fallback_plunges: Vec::new(),
+        ramp_loads: Vec::new(),
         steepened_ramps: Vec::new(),
         nubs: Vec::new(),
         reversed_ramps: Vec::new(),
@@ -622,7 +648,7 @@ pub(crate) fn assemble_limited(
         straight_plunges: Vec::new(),
     };
 
-    let entry = entry::Entry::new(input, common, entry, round_the_part, beside)?;
+    let entry = entry::Entry::new(input, common, entry, beside)?;
     let entry_nub_radius = entry.nub_radius();
     if entry_nub_radius > 0.0 {
         split_nubs(
@@ -786,23 +812,13 @@ pub(crate) fn assemble_limited(
     )?;
     b.retract(safe_height)?;
     let list = |passes: &[usize]| passes_named(passes);
-    if !b.single_point_plunges.is_empty() {
-        let text = format!(
-            "{} with no path for a ramp to follow, so {} entered by a straight plunge, as \
-             Allow single-point plunge asks",
-            if b.single_point_plunges.len() == 1 {
-                format!("{} is a single point", list(&b.single_point_plunges))
-            } else {
-                format!("{} are single points", list(&b.single_point_plunges))
-            },
-            if b.single_point_plunges.len() == 1 {
-                "it is"
-            } else {
-                "they are"
-            }
-        );
+    for note in fallback_notes(&b.fallback_plunges).into_iter().rev() {
         b.notes
-            .insert(0, Notice::information(text).about(topic::RAMP_ENTRY));
+            .insert(0, Notice::information(note).about(topic::RAMP_ENTRY));
+    }
+    if let Some(note) = ramp_load_note(&b.ramp_loads) {
+        b.notes
+            .insert(0, Notice::information(note).about(topic::RAMP_ENTRY));
     }
     if !b.nubs.is_empty() {
         let width = 2.0 * entry_nub_radius;
@@ -955,6 +971,168 @@ pub(crate) fn assemble_limited(
             passes
         },
     })
+}
+
+/// Why a pass under a ramp entry is plunged instead (decision 0543 D7;
+/// decision 0695, Q4, the owner's answer: only where no
+/// ramp fits, and each said with its reason).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+enum PlungeReason {
+    /// The pass is a single point: no path to follow.
+    SinglePoint,
+    /// It starts with a stretch shorter than the shortest ramp (ten path
+    /// tolerances, never above the tool radius; 0543 amendment 4).
+    ShortStretch,
+    /// A ramp round it, or over it, would take more than 10 turns even at
+    /// the Maximum ramp angle.
+    TooManyTurns,
+}
+
+/// What one ramp asks of the tool (decision 0695, Q3 point
+/// 4): the Ramp angle used along the tip's path, degrees; its legs back and
+/// forth or its turns round a ring; and its deepest depth per traverse, mm.
+#[derive(Debug, Clone, Copy, PartialEq)]
+struct RampLoad {
+    pass: usize,
+    angle: f64,
+    legs: Option<usize>,
+    turns: Option<f64>,
+    depth: f64,
+    /// For a back-and-forth ramp, what holds its depth per traverse and
+    /// that bound, mm; `None` for a ramp round a ring or on the axis.
+    bound: Option<(entry::DepthBound, f64)>,
+}
+
+/// The notes naming the passes plunged where no ramp fits, one per reason,
+/// each with the depth of the plunge: a plunge takes the whole descent in
+/// one move, so that is its depth per traverse.
+fn fallback_notes(plunged: &[(usize, PlungeReason, f64)]) -> Vec<String> {
+    let mut out = Vec::new();
+    for reason in [
+        PlungeReason::SinglePoint,
+        PlungeReason::ShortStretch,
+        PlungeReason::TooManyTurns,
+    ] {
+        let passes: Vec<usize> = plunged
+            .iter()
+            .filter(|p| p.1 == reason)
+            .map(|p| p.0)
+            .collect();
+        if passes.is_empty() {
+            continue;
+        }
+        let one = passes.len() == 1;
+        let deepest = plunged
+            .iter()
+            .filter(|p| p.1 == reason)
+            .map(|p| p.2)
+            .fold(0.0, f64::max);
+        let what = match (reason, one) {
+            (PlungeReason::SinglePoint, true) => "is a single point with no path for a ramp to \
+                follow"
+                .to_owned(),
+            (PlungeReason::SinglePoint, false) => "are single points with no path for a ramp to \
+                follow"
+                .to_owned(),
+            (PlungeReason::ShortStretch, _) => format!(
+                "{} with a stretch shorter than the shortest ramp (ten path tolerances, never \
+                 more than the tool radius)",
+                if one { "starts" } else { "start" }
+            ),
+            (PlungeReason::TooManyTurns, _) => format!(
+                "{} round the part so near the rotary axis that a ramp would take more than 10 \
+                 turns even at the Maximum ramp angle",
+                if one { "turns" } else { "turn" }
+            ),
+        };
+        out.push(format!(
+            "{} {what}, so {} entered by a straight plunge, as Plunge where no ramp fits asks; a \
+             plunge takes the whole descent in one move, a depth per traverse of {}{deepest:.3} mm",
+            passes_named(&passes),
+            if one { "it is" } else { "they are" },
+            if one { "" } else { "up to " }
+        ));
+    }
+    out
+}
+
+/// The note giving what the ramps ask of the tool, per operation (decision
+/// 0695, Q3 point 4): the Ramp angle used along the tip's
+/// path, the legs back and forth and the turns round a ring, and the
+/// deepest depth per traverse with its pass. Information only: it does not
+/// say the load suits the tool (NFR-12).
+fn ramp_load_note(loads: &[RampLoad]) -> Option<String> {
+    let deepest = loads
+        .iter()
+        .copied()
+        .reduce(|a, b| if b.depth > a.depth { b } else { a })?;
+    let low = loads.iter().map(|l| l.angle).fold(f64::INFINITY, f64::min);
+    let high = loads.iter().map(|l| l.angle).fold(0.0, f64::max);
+    let angle = if high - low < 0.005 {
+        format!("{high:.2} degrees")
+    } else {
+        format!("{low:.2} to {high:.2} degrees")
+    };
+    let legs = loads.iter().filter_map(|l| l.legs).max();
+    let turns = loads
+        .iter()
+        .filter_map(|l| l.turns)
+        .fold(None, |m: Option<f64>, t| Some(m.map_or(t, |m| m.max(t))));
+    let mut how = Vec::new();
+    if let Some(legs) = legs {
+        how.push(format!(
+            "back and forth in up to {}",
+            crate::counted(legs, "leg", "legs")
+        ));
+    }
+    if let Some(turns) = turns {
+        how.push(format!(
+            "turning up to {turns:.1} times round a ring or on the axis"
+        ));
+    }
+    // What held the deepest back-and-forth ramp (decision
+    // 0695, Q9): its depth and the bound, after the deepest of
+    // all when that is a ramp round a ring.
+    let back = loads
+        .iter()
+        .filter_map(|l| l.bound.map(|b| (l, b)))
+        .reduce(|a, b| if b.0.depth > a.0.depth { b } else { a });
+    let held = match back {
+        Some((l, (bound, limit))) => {
+            // A ramp that follows its pass's own steep drop (decision 0543
+            // D4) can go down more than its bound there, where no shorter
+            // leg keeps it within (CodeRabbit on #930): said so, not
+            // "within".
+            let within = if l.depth > limit + 5e-4 {
+                format!(
+                    "more than {} ({limit:.3} mm), as it follows its pass's own steep drop",
+                    bound.words()
+                )
+            } else {
+                format!("within {} ({limit:.3} mm)", bound.words())
+            };
+            if l.pass == deepest.pass && deepest.bound.is_some() {
+                format!(", {within}")
+            } else {
+                format!(
+                    ", and back and forth {:.3} mm, at {}, {within}",
+                    l.depth,
+                    passes_named(&[l.pass])
+                )
+            }
+        }
+        None => String::new(),
+    };
+    let one = loads.len() == 1;
+    Some(format!(
+        "{} {} ramped at {angle} along the tip's path, {}; the deepest depth per traverse is \
+         {:.3} mm, at {}{held}",
+        crate::counted(loads.len(), "pass", "passes"),
+        if one { "is" } else { "are" },
+        how.join(", and "),
+        deepest.depth,
+        passes_named(&[deepest.pass])
+    ))
 }
 
 /// Slows the cutting move `index` of `b`, which takes the tip `down` along
@@ -1532,6 +1710,70 @@ mod tests {
     }
 
     #[test]
+    fn req_op_11_the_ramp_note_names_the_bound_of_the_deepest_back_and_forth_ramp() {
+        // Decision 0695, Q9: the note names what held the
+        // deepest back-and-forth ramp; a ramp round a whole ring has no
+        // such bound and is named only by its depth.
+        use entry::DepthBound;
+        let back = |pass, depth, bound, limit| RampLoad {
+            pass,
+            angle: 3.0,
+            legs: Some(10),
+            turns: None,
+            depth,
+            bound: Some((bound, limit)),
+        };
+        let ring = |pass, depth| RampLoad {
+            pass,
+            angle: 3.0,
+            legs: None,
+            turns: Some(2.0),
+            depth,
+            bound: None,
+        };
+        let note = ramp_load_note(&[back(0, 0.4, DepthBound::Setting, 0.4)]).unwrap();
+        assert_eq!(
+            note,
+            "1 pass is ramped at 3.00 degrees along the tip's path, back and forth in up to 10 \
+             legs; the deepest depth per traverse is 0.400 mm, at pass 1, within the Largest \
+             depth per traverse setting (0.400 mm)"
+        );
+        let note = ramp_load_note(&[
+            back(0, 0.9, DepthBound::ToolRadius, 1.5),
+            back(1, 1.2, DepthBound::OneTurn, 1.2),
+            ring(2, 4.7),
+        ])
+        .unwrap();
+        assert!(
+            note.ends_with(
+                "the deepest depth per traverse is 4.700 mm, at pass 3, and back and forth \
+                 1.200 mm, at pass 2, within one turn round the part (1.200 mm)"
+            ),
+            "{note}"
+        );
+        let note = ramp_load_note(&[back(0, 0.2, DepthBound::ToolLoadLimit, 0.2)]).unwrap();
+        assert!(
+            note.ends_with("within the tool-load limit (0.200 mm)"),
+            "{note}"
+        );
+        // CodeRabbit on #930: a ramp that follows its pass's own steep drop
+        // deeper than its bound is not said to be within it.
+        let note = ramp_load_note(&[back(0, 8.017, DepthBound::ToolRadius, 1.5)]).unwrap();
+        assert!(
+            note.ends_with(
+                "the deepest depth per traverse is 8.017 mm, at pass 1, more than the tool \
+                 radius (1.500 mm), as it follows its pass's own steep drop"
+            ),
+            "{note}"
+        );
+        let note = ramp_load_note(&[ring(0, 1.976)]).unwrap();
+        assert!(
+            note.ends_with("the deepest depth per traverse is 1.976 mm, at pass 1"),
+            "{note}"
+        );
+    }
+
+    #[test]
     fn req_op_11_req_nfr_07_one_note_names_many_passes_shortly() {
         // One note per operation, as the feed-limit summary of #600: a few
         // passes by name, many as a count with the first and last.
@@ -1644,7 +1886,8 @@ mod tests {
                 notes: Vec::new(),
                 raised_entries: 0,
                 steep_ramps: Vec::new(),
-                single_point_plunges: Vec::new(),
+                fallback_plunges: Vec::new(),
+                ramp_loads: Vec::new(),
                 steepened_ramps: Vec::new(),
                 nubs: Vec::new(),
                 reversed_ramps: Vec::new(),
@@ -1734,7 +1977,8 @@ mod tests {
                 notes: Vec::new(),
                 raised_entries: 0,
                 steep_ramps: Vec::new(),
-                single_point_plunges: Vec::new(),
+                fallback_plunges: Vec::new(),
+                ramp_loads: Vec::new(),
                 steepened_ramps: Vec::new(),
                 nubs: Vec::new(),
                 reversed_ramps: Vec::new(),
@@ -1795,7 +2039,8 @@ mod tests {
             notes: Vec::new(),
             raised_entries: 0,
             steep_ramps: Vec::new(),
-            single_point_plunges: Vec::new(),
+            fallback_plunges: Vec::new(),
+            ramp_loads: Vec::new(),
             steepened_ramps: Vec::new(),
             nubs: Vec::new(),
             reversed_ramps: Vec::new(),
@@ -1892,7 +2137,8 @@ mod tests {
             notes: Vec::new(),
             raised_entries: 0,
             steep_ramps: Vec::new(),
-            single_point_plunges: Vec::new(),
+            fallback_plunges: Vec::new(),
+            ramp_loads: Vec::new(),
             steepened_ramps: Vec::new(),
             nubs: Vec::new(),
             reversed_ramps: Vec::new(),
@@ -1996,7 +2242,8 @@ mod tests {
                 notes: Vec::new(),
                 raised_entries: 0,
                 steep_ramps: Vec::new(),
-                single_point_plunges: Vec::new(),
+                fallback_plunges: Vec::new(),
+                ramp_loads: Vec::new(),
                 steepened_ramps: Vec::new(),
                 nubs: Vec::new(),
                 reversed_ramps: Vec::new(),
@@ -2027,6 +2274,271 @@ mod tests {
             assert!(f <= linear, "across {across}: F{f:.3} against {linear}");
         }
         assert_eq!(checked, 1, "one sense writes a change of Y");
+    }
+
+    /// A fed turn of A with the tip fixed (no exact change of X, Y or Z)
+    /// can be written with a change of Y: the post works XYZ out at A
+    /// written to three decimals, and the two ends are turned by different
+    /// amounts (CodeRabbit's second review of pull request #939). Held to A's
+    /// own limit alone, its F word on LinuxCNC was the written line's speed,
+    /// about 6000 against a linear limit of 1000.
+    #[test]
+    fn req_op_13_req_gc_08_a_turn_with_the_tip_fixed_stays_within_the_limit_as_written() {
+        let machine = MachineProfile::example_x_rotary();
+        let rotary = RotaryMapping::of_profile(&machine);
+        let profile = Tool {
+            shape: ToolShape::BallEnd,
+            diameter: openchuck_types::units::Millimetres(3.0),
+            flute_length: openchuck_types::units::Millimetres(8.0),
+            overall_length: openchuck_types::units::Millimetres(40.0),
+            shank_diameter: openchuck_types::units::Millimetres(3.0),
+            flute_count: 2,
+            material: None,
+            centre_cutting: None,
+            stick_out: None,
+        }
+        .profile()
+        .unwrap();
+        let (linear, z, a_limit) = (1000.0, 600.0, 3600.0);
+        let mut feeds = machine.max_feeds;
+        (feeds.linear, feeds.z, feeds.rotary) =
+            (FeedRate(linear), FeedRate(z), RotaryFeedRate(a_limit));
+        let round = |v: f64| (v * 1000.0).round() / 1000.0;
+        let at_axis = AxisPosition {
+            along: 5.0,
+            across: 0.0,
+            height: 100.0,
+        };
+        let (a0, a1) = (0.000_4, 0.000_6);
+        let at = |a: f64| CutPoint {
+            tip: rotary.to_model(at_axis, Degrees(a)),
+            a: Degrees(a),
+            contact: rotary.to_model(at_axis, Degrees(a)),
+        };
+        let (from, to) = (at(a0), at(a1));
+        let mut b = Builder {
+            rotary,
+            tool_radius: 1.5,
+            profile: &profile,
+            max_feeds: feeds,
+            collision: &AcceptAll,
+            pose: ToolPose {
+                tip: from.tip,
+                axis: rotary.tool_axis(from.a),
+                a: from.a,
+            },
+            contact: from.tip,
+            segments: Vec::new(),
+            notes: Vec::new(),
+            raised_entries: 0,
+            steep_ramps: Vec::new(),
+            fallback_plunges: Vec::new(),
+            ramp_loads: Vec::new(),
+            steepened_ramps: Vec::new(),
+            nubs: Vec::new(),
+            reversed_ramps: Vec::new(),
+            on_axis_ramps: Vec::new(),
+            straight_plunges: Vec::new(),
+        };
+        let pose = b.pose(to.tip, to.a);
+        b.push(MoveKind::Cutting, pose, Some(to.tip), Some(FeedRate(1.0e6)))
+            .unwrap();
+        let seconds = b.segments[0].duration.0;
+        let written = |p: &CutPoint| {
+            let q = rotary.to_axis(p.tip, Degrees(round(p.a.0)));
+            [round(q.along), round(q.across), round(q.height)]
+        };
+        let (w0, w1) = (written(&from), written(&to));
+        // Written with a change of Y of 0.002 mm, so gate 1 holds the
+        // line's speed (the F word on LinuxCNC) to the linear limit.
+        assert!((w1[1] - w0[1]).abs() > 1e-9, "{w0:?} to {w1:?}");
+        let line =
+            ((w1[0] - w0[0]).powi(2) + (w1[1] - w0[1]).powi(2) + (w1[2] - w0[2]).powi(2)).sqrt();
+        let f = 60.0 * line / seconds;
+        assert!(f <= linear.min(z), "F{f:.3} against {linear}");
+    }
+
+    /// A fed move with no exact change of X or Y that does not turn A can
+    /// still be written with one: at an A not on three decimals, both ends
+    /// are turned by the same angle when A is written, but ends at different
+    /// heights move by slightly different amounts (CodeRabbit's third
+    /// comment on pull request #939; issue #943).
+    #[test]
+    fn req_op_13_req_gc_08_a_move_at_one_a_with_no_y_change_stays_within_the_limit_as_written() {
+        let machine = MachineProfile::example_x_rotary();
+        let rotary = RotaryMapping::of_profile(&machine);
+        let profile = Tool {
+            shape: ToolShape::BallEnd,
+            diameter: openchuck_types::units::Millimetres(3.0),
+            flute_length: openchuck_types::units::Millimetres(8.0),
+            overall_length: openchuck_types::units::Millimetres(40.0),
+            shank_diameter: openchuck_types::units::Millimetres(3.0),
+            flute_count: 2,
+            material: None,
+            centre_cutting: None,
+            stick_out: None,
+        }
+        .profile()
+        .unwrap();
+        let (linear, z) = (1000.0, 2000.0);
+        let mut feeds = machine.max_feeds;
+        (feeds.linear, feeds.z) = (FeedRate(linear), FeedRate(z));
+        let round = |v: f64| (v * 1000.0).round() / 1000.0;
+        let mut checked = 0;
+        // Both senses of the shift: one of them writes a change of Y.
+        for across in [0.000_358, -0.000_358] {
+            let start = AxisPosition {
+                along: 5.0,
+                across,
+                height: 20.0,
+            };
+            let end = AxisPosition {
+                height: 21.0,
+                ..start
+            };
+            let (a0, a1) = (0.000_4, 0.000_4);
+            let at = |p: AxisPosition, a: f64| CutPoint {
+                tip: rotary.to_model(p, Degrees(a)),
+                a: Degrees(a),
+                contact: rotary.to_model(p, Degrees(a)),
+            };
+            let (from, to) = (at(start, a0), at(end, a1));
+            let mut b = Builder {
+                rotary,
+                tool_radius: 1.5,
+                profile: &profile,
+                max_feeds: feeds,
+                collision: &AcceptAll,
+                pose: ToolPose {
+                    tip: from.tip,
+                    axis: rotary.tool_axis(from.a),
+                    a: from.a,
+                },
+                contact: from.tip,
+                segments: Vec::new(),
+                notes: Vec::new(),
+                raised_entries: 0,
+                steep_ramps: Vec::new(),
+                fallback_plunges: Vec::new(),
+                ramp_loads: Vec::new(),
+                steepened_ramps: Vec::new(),
+                nubs: Vec::new(),
+                reversed_ramps: Vec::new(),
+                on_axis_ramps: Vec::new(),
+                straight_plunges: Vec::new(),
+            };
+            let pose = b.pose(to.tip, to.a);
+            // A contact feed far above the limits, so the axes set the time.
+            b.push(MoveKind::Cutting, pose, Some(to.tip), Some(FeedRate(1.0e6)))
+                .unwrap();
+            let seconds = b.segments[0].duration.0;
+            let written = |p: &CutPoint| {
+                let q = rotary.to_axis(p.tip, Degrees(round(p.a.0)));
+                [round(q.along), round(q.across), round(q.height)]
+            };
+            let (w0, w1) = (written(&from), written(&to));
+            let moved = |i: usize| (w1[i] - w0[i]).abs() > 1e-9;
+            if !(moved(0) || moved(1)) {
+                continue;
+            }
+            checked += 1;
+            // Written with a change of Y, so gate 1 holds the line to the
+            // linear limit (`FeedLimits::for_move`).
+            let line =
+                ((w1[0] - w0[0]).powi(2) + (w1[1] - w0[1]).powi(2) + (w1[2] - w0[2]).powi(2))
+                    .sqrt();
+            let f = 60.0 * line / seconds;
+            assert!(f <= linear, "across {across}: F{f:.3} against {linear}");
+        }
+        assert_eq!(checked, 1, "one sense writes a change of Y");
+    }
+
+    /// A fed turn of A with the tip fixed, on a controller that counts A in
+    /// its F word (the Makera Z1): written with a change of Y, the block's F
+    /// word is the larger of the line and A's counted travel round the part
+    /// over its time, and gate 1 holds it to the linear limit. Timed for the
+    /// written line alone, it was about F3200 against 1000 (CodeRabbit's
+    /// review of pull request #945; issue #948; decision record 0692, amendment 2).
+    #[test]
+    fn req_op_13_req_gc_08_a_turn_with_the_tip_fixed_counts_a_as_the_z1_does() {
+        let machine = MachineProfile::example_x_rotary();
+        let rotary = RotaryMapping::of_profile(&machine);
+        let profile = Tool {
+            shape: ToolShape::BallEnd,
+            diameter: openchuck_types::units::Millimetres(3.0),
+            flute_length: openchuck_types::units::Millimetres(8.0),
+            overall_length: openchuck_types::units::Millimetres(40.0),
+            shank_diameter: openchuck_types::units::Millimetres(3.0),
+            flute_count: 2,
+            material: None,
+            centre_cutting: None,
+            stick_out: None,
+        }
+        .profile()
+        .unwrap();
+        let (linear, z, a_limit) = (1000.0, 600.0, 3600.0);
+        let mut feeds = machine.max_feeds;
+        (feeds.linear, feeds.z, feeds.rotary) =
+            (FeedRate(linear), FeedRate(z), RotaryFeedRate(a_limit));
+        feeds.rotary_in_feed = RotaryInFeed::Makera;
+        let round = |v: f64| (v * 1000.0).round() / 1000.0;
+        let at_axis = AxisPosition {
+            along: 5.0,
+            across: 0.0,
+            height: 100.0,
+        };
+        let (a0, a1) = (0.000_4, 0.010_6);
+        let at = |a: f64| CutPoint {
+            tip: rotary.to_model(at_axis, Degrees(a)),
+            a: Degrees(a),
+            contact: rotary.to_model(at_axis, Degrees(a)),
+        };
+        let (from, to) = (at(a0), at(a1));
+        let mut b = Builder {
+            rotary,
+            tool_radius: 1.5,
+            profile: &profile,
+            max_feeds: feeds,
+            collision: &AcceptAll,
+            pose: ToolPose {
+                tip: from.tip,
+                axis: rotary.tool_axis(from.a),
+                a: from.a,
+            },
+            contact: from.tip,
+            segments: Vec::new(),
+            notes: Vec::new(),
+            raised_entries: 0,
+            steep_ramps: Vec::new(),
+            fallback_plunges: Vec::new(),
+            ramp_loads: Vec::new(),
+            steepened_ramps: Vec::new(),
+            nubs: Vec::new(),
+            reversed_ramps: Vec::new(),
+            on_axis_ramps: Vec::new(),
+            straight_plunges: Vec::new(),
+        };
+        let pose = b.pose(to.tip, to.a);
+        b.push(MoveKind::Cutting, pose, Some(to.tip), Some(FeedRate(1.0e6)))
+            .unwrap();
+        let seconds = b.segments[0].duration.0;
+        let written = |p: &CutPoint| {
+            let a = round(p.a.0);
+            let q = rotary.to_axis(p.tip, Degrees(a));
+            ([round(q.along), round(q.across), round(q.height)], a)
+        };
+        let ((w0, wa0), (w1, wa1)) = (written(&from), written(&to));
+        // Written with a change of Y, so gate 1 holds the F word to the
+        // linear limit.
+        assert!((w1[1] - w0[1]).abs() > 1e-9, "{w0:?} to {w1:?}");
+        let line =
+            ((w1[0] - w0[0]).powi(2) + (w1[1] - w0[1]).powi(2) + (w1[2] - w0[2]).powi(2)).sqrt();
+        // The Z1's F word (decision record 0007): the longer of the line and
+        // A's counted travel, at the written end's distance from the axis.
+        let radius = w1[1].hypot(w1[2]).max(1.0);
+        let counted = (wa1 - wa0).abs() * (std::f64::consts::TAU * radius + 30.0) / 360.0;
+        let f = 60.0 * line.max(counted) / seconds;
+        assert!(f <= linear.min(z), "F{f:.3} against {linear}");
     }
 
     #[test]
@@ -2067,7 +2579,8 @@ mod tests {
             notes: Vec::new(),
             raised_entries: 0,
             steep_ramps: Vec::new(),
-            single_point_plunges: Vec::new(),
+            fallback_plunges: Vec::new(),
+            ramp_loads: Vec::new(),
             steepened_ramps: Vec::new(),
             nubs: Vec::new(),
             reversed_ramps: Vec::new(),

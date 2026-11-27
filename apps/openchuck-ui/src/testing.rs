@@ -162,9 +162,15 @@ fn model_project(name: &str, stl: &str) -> (PathBuf, Application, OperationId, S
             material: None,
             // Not about free ends (decision 0344): the stock past the
             // cube's ends would otherwise be faced, with its warning.
+            // Nor about the tool load: a helical finish on the bar is a
+            // heavy cut, warned of unless the limit is set past it (SIM-16).
             parameters: BTreeMap::from([
                 ("face_free_ends".to_owned(), ParameterValue::Flag(false)),
                 ("adaptive_spacing".to_owned(), ParameterValue::Flag(false)),
+                (
+                    openchuck_app::tool_load::LARGEST_CUT_SECTION.to_owned(),
+                    ParameterValue::Number(1.0e6),
+                ),
             ]),
         }),
     ] {
