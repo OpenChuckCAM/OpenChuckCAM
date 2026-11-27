@@ -730,3 +730,51 @@ fn req_nfr_07_a_tiny_angle_step_does_not_flood_the_turns_to_the_axis() {
         .count();
     assert!(on_axis > 0 && on_axis <= 3601, "{on_axis}");
 }
+
+/// A part shorter than the stretch past its point: a hemisphere of radius
+/// 0.8 from X 0 to its point at X 0.8, in stock carried on past it.
+fn short_point() -> Fixture {
+    let n = 40;
+    let profile: Vec<(f64, f64)> = (0..=n)
+        .map(|i| {
+            let t = std::f64::consts::FRAC_PI_2 * f64::from(i) / f64::from(n);
+            (0.8 * t.sin(), (0.8 * t.cos()).max(1e-3))
+        })
+        .collect();
+    let mesh = revolve(&profile, 90);
+    let mut f = Fixture::new(MeshSurface::new(&mesh).unwrap(), 8.0, &ball(D));
+    f.stock = AnalyticStock::Cylinder {
+        radius: 8.0,
+        x_start: -1.0,
+        x_end: 40.0,
+    };
+    f
+}
+
+#[test]
+fn req_nfr_07_req_op_04_the_stretch_past_a_point_counts_towards_the_most_points() {
+    // Issue #959, item 2 (CodeRabbit on #956): the points past the point
+    // are held to the same limit as the passes over the part (5,000,000),
+    // and refused before any is fitted. The part is 0.8 mm long and the
+    // stretch past its point about 1.6 mm (the ball's radius), so at these
+    // steps the passes over the part alone are within the limit (helical:
+    // 3.84 million points; axial: 11 passes of 320,000) and the stretch
+    // takes them over it.
+    let f = short_point();
+    let mut v = values(&HelicalFinishing, true);
+    v.insert("max_angle_step".into(), ParameterValue::Number(1.5e-4));
+    let err = run(|ctx| generate(&HelicalFinishing, &f.input(), &v, ctx)).unwrap_err();
+    let text = err.to_string();
+    assert!(
+        text.contains("past the point") && text.contains("points"),
+        "{text}"
+    );
+    let mut v = values(&AxialFinishing, true);
+    v.insert("max_x_step".into(), ParameterValue::Number(2.5e-6));
+    let err = run(|ctx| generate(&AxialFinishing, &f.input(), &v, ctx)).unwrap_err();
+    let text = err.to_string();
+    assert!(
+        text.contains("past the point") && text.contains("points"),
+        "{text}"
+    );
+}

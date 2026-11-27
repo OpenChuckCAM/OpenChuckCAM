@@ -3034,6 +3034,51 @@ fn req_op_04_finish_to_a_point_is_on_for_a_new_operation_and_off_for_a_saved_one
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
+#[test]
+fn req_op_04_req_gc_07_a_saved_finishing_operation_without_finish_to_a_point_keeps_its_program() {
+    // Issue #959, item 1 (CodeRabbit on #956; decision 0545 D3's pattern):
+    // a helical, axial or indexed finishing operation saved before Finish to
+    // a point existed has no such setting. Opened again, it reads the
+    // setting as off and makes the same program as with it set off; set on,
+    // its program changes, so the part (a cylinder ending in a cone to a
+    // point inside the stock) is one the setting acts on.
+    use openchuck_path::finishing::parameter::FINISH_TO_A_POINT;
+    let profile = [(0.0, 5.0), (10.0, 5.0), (14.0, 0.0)];
+    for strategy in ["helical_finishing", "axial_finishing", "indexed_finishing"] {
+        // Face free ends off where the strategy has it, so the point is
+        // what changes the program.
+        let mut parameters: BTreeMap<String, ParameterValue> =
+            [("adaptive_spacing".to_owned(), ParameterValue::Flag(false))].into();
+        if strategy != "indexed_finishing" {
+            parameters.insert("face_free_ends".into(), ParameterValue::Flag(false));
+        }
+        let (dir, app) =
+            super::walls::build_with(strategy, &profile, (5.0, 6.0), strategy, parameters);
+        app.save().unwrap();
+        let mut app = Application::open(&dir, Threads::Exactly(2)).unwrap();
+        app.set_post(Some(openchuck_app::PostSelection::parse("linuxcnc")));
+        let op = app.project().operations()[0].id;
+        let saved = app.project().operation(op).unwrap().clone();
+        assert_eq!(saved.parameters.get(FINISH_TO_A_POINT), None, "{strategy}");
+        let program = |app: &Application| app.regenerate().unwrap().gcode;
+        let before = program(&app);
+        assert!(!before.is_empty(), "{strategy}: a program");
+        let set = |app: &mut Application, on: bool| {
+            let mut changed = saved.clone();
+            changed
+                .parameters
+                .insert(FINISH_TO_A_POINT.into(), ParameterValue::Flag(on));
+            app.execute(Command::Replace(Item::Operation(changed)))
+                .unwrap();
+        };
+        set(&mut app, false);
+        assert_eq!(program(&app), before, "{strategy}: off is as saved");
+        set(&mut app, true);
+        assert_ne!(program(&app), before, "{strategy}: on acts on this part");
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+}
+
 /// Decision 0695, Q9 (the owner's answer B, with A's
 /// regrouping): the basic entry settings (Entry, Ramp angle and Plunge where
 /// no ramp fits, stored as before as `allow_single_point_plunge`) stay in

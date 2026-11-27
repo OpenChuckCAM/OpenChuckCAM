@@ -333,6 +333,7 @@ fn passes(
     } else {
         Vec::new()
     };
+    along.check_point_stretches(&ends, angles.len())?;
     let (passes, spaced) = match adaptive {
         None => {
             let mut passes = along.passes_at(&angles, "indexed finishing", context)?;

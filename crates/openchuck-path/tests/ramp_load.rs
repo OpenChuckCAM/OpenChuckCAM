@@ -34,7 +34,7 @@ use openchuck_testkit::parts::{Cone, Cylinder, RadialPart};
 use openchuck_types::ir::{MoveKind, ToolPose};
 use openchuck_types::tool::ToolShape;
 use openchuck_types::units::Degrees;
-use support::{Fixture, ball, generate, run, tool};
+use support::{Fixture, ball, entries_by_pass, generate, named_passes, run, tool};
 
 /// The Ramp angle of these tests, degrees.
 const ANGLE: f64 = 3.0;
@@ -369,6 +369,68 @@ fn req_op_11_the_depth_per_traverse_of_a_spiral_s_ramp_is_at_most_the_tool_radiu
 }
 
 #[test]
+fn req_op_11_a_spiral_s_turns_count_only_the_stretch_its_legs_use() {
+    // Issue #951, item 7 (CodeRabbit on #930): a pass that starts as a
+    // spiral at 4 mm from the axis and, a turn later, goes down to 1 mm.
+    // Its ramp's legs use only half a turn (one turn's depth at 4 mm is
+    // less than the tool radius), so its descent is from 17 mm to 4 mm:
+    // 9.9 turns' length at 3 degrees, within the 10 allowed. Counting the
+    // drop to 1 mm beyond the legs would make it 12.2 and refuse it.
+    let f = fixture(&ball(6.0));
+    let mut points: Vec<(f64, f64, f64)> = (0..=72)
+        .map(|k| {
+            let a = 5.0 * f64::from(k);
+            (10.0 + 2.0 * a / 360.0, 4.0, a)
+        })
+        .collect();
+    points.extend((73..=144).map(|k| {
+        let a = 5.0 * f64::from(k);
+        let f = f64::from(k - 72) / 72.0;
+        (10.0 + 2.0 * a / 360.0, 4.0 - 3.0 * f, a)
+    }));
+    let v = values();
+    let path = make(&f, &Points(points), &v).unwrap();
+    let (before, moves) = first_entry(&path);
+    assert!(moves.len() > 2, "a ramp, not a plunge");
+    let start = f.rotary.to_axis(before.tip, before.a);
+    assert!((start.height - 17.0).abs() < 1e-6, "{start:?}");
+    assert!(
+        !path.notices.iter().any(|n| n.text.contains("steeper")),
+        "{:?}",
+        path.notices
+    );
+}
+
+#[test]
+fn req_op_11_req_nfr_07_a_refusal_asks_for_the_steeper_ramp_only_where_it_could_steepen() {
+    // Issue #951, item 2 (CodeRabbit on #930): with Steeper ramp near the
+    // axis off and a Maximum ramp angle no steeper than the Ramp angle,
+    // turning the steeper ramp on cannot help, so a refusal of too many
+    // turns does not ask for it. With a steeper maximum it still does.
+    let f = fixture(&ball(1.0));
+    let spiral = Spiral {
+        radius: 1.0,
+        x0: 10.0,
+        pitch: 0.5,
+        turns: 2.0,
+    };
+    let mut v = values();
+    for most in [ANGLE, 2.0] {
+        v.insert(names::RAMP_ANGLE_MAX.into(), n(most));
+        let err = make(&f, &spiral, &v).unwrap_err();
+        assert!(
+            err.contains("more than the 10 allowed")
+                && err.contains("Raise Ramp angle")
+                && !err.contains("Steeper ramp near the axis"),
+            "{most}: {err}"
+        );
+    }
+    v.insert(names::RAMP_ANGLE_MAX.into(), n(15.0));
+    let err = make(&f, &spiral, &v).unwrap_err();
+    assert!(err.contains("turn on Steeper ramp near the axis"), "{err}");
+}
+
+#[test]
 fn req_op_11_req_nfr_07_a_spiral_near_the_axis_is_steepened_then_plunged_only_where_no_ramp_fits() {
     // The tip 1 mm from the axis: 16 mm of descent at 3 degrees would
     // travel 16 / tan 3 / (2 pi) = 48.6 turns' length, more than the 10
@@ -565,63 +627,41 @@ fn req_op_11_req_nfr_07_a_stretch_shorter_than_the_shortest_ramp_is_plunged_when
     );
 }
 
-/// How many passes a note names, as `passes_named` writes them: "pass 3",
-/// "passes 1, 2 and 3" or "12 passes, from pass 1 to pass 40 (...)".
-fn count_named(text: &str) -> usize {
-    let mut words = text.split(' ');
-    match words.next() {
-        Some("pass") => 1,
-        Some("passes") => words
-            .take_while(|w| {
-                let w = w.trim_end_matches(',');
-                w == "and" || w.parse::<usize>().is_ok()
-            })
-            .filter(|w| *w != "and")
-            .count(),
-        Some(first) => first.parse().unwrap_or(0),
-        None => 0,
-    }
-}
-
-/// Every pass `path` enters by a plunge into the stock, by number, and the
-/// passes its notes name as plunged where no ramp fits.
-fn plunged_and_named(f: &Fixture, path: &GeneratedPath) -> (usize, usize) {
-    let segs = &path.group.segments;
-    let mut plunges = 0;
-    let mut i = 0;
-    while i < segs.len() {
-        if matches!(segs[i].kind, MoveKind::LeadIn | MoveKind::Plunge) {
-            let mut k = i;
-            while k < segs.len() && matches!(segs[k].kind, MoveKind::LeadIn | MoveKind::Plunge) {
-                k += 1;
-            }
-            if k == i + 1 && segs[i].kind == MoveKind::Plunge {
-                let from = if i == 0 {
-                    path.group.start
-                } else {
-                    segs[i - 1].end
-                };
-                let (a, b) = (
-                    f.rotary.to_axis(from.tip, from.a),
-                    f.rotary.to_axis(segs[i].end.tip, segs[i].end.a),
-                );
-                // A plunge through air to the stock's edge is not into it.
-                if a.height - b.height > 1.0 + 1e-6 {
-                    plunges += 1;
-                }
-            }
-            i = k;
-            continue;
-        }
-        i += 1;
-    }
-    let named = path
+/// The passes, by number, that `path` enters by a plunge into the stock,
+/// and the passes its notes name as plunged where no ramp fits, with how
+/// many those notes say they name.
+fn plunged_and_named(
+    f: &Fixture,
+    strategy: &dyn Strategy,
+    v: &BTreeMap<String, ParameterValue>,
+    path: &GeneratedPath,
+) -> (Vec<usize>, Vec<usize>, usize) {
+    let plunged = entries_by_pass(&f.input(), strategy, v, path)
+        .into_iter()
+        .filter(|(_, before, moves)| {
+            let [only] = moves.as_slice() else {
+                return false;
+            };
+            let (a, b) = (
+                f.rotary.to_axis(before.tip, before.a),
+                f.rotary.to_axis(only.tip, only.a),
+            );
+            // A plunge through air to the stock's edge is not into it.
+            a.height - b.height > 1.0 + 1e-6
+        })
+        .map(|(pass, _, _)| pass)
+        .collect();
+    let (mut named, mut count) = (Vec::new(), 0);
+    for n in path
         .notices
         .iter()
         .filter(|n| n.text.contains("entered by a straight plunge"))
-        .map(|n| count_named(&n.text))
-        .sum();
-    (plunges, named)
+    {
+        let (listed, said) = named_passes(&n.text);
+        named.extend(listed);
+        count += said;
+    }
+    (plunged, named, count)
 }
 
 #[test]
@@ -648,9 +688,23 @@ fn req_op_11_req_op_03_at_the_new_defaults_only_passes_with_no_room_to_ramp_are_
     v.insert(names::ALLOW_SINGLE_POINT_PLUNGE.into(), flag(true));
     v.insert(names::RAMP_STEEPER_NEAR_AXIS.into(), flag(true));
     let path = make(&f, &RotaryRoughing, &v).unwrap();
-    let (plunges, named) = plunged_and_named(&f, &path);
-    assert!(plunges >= 1, "the cone's single-point pass");
-    assert_eq!(plunges, named, "{:?}", path.notices);
+    let (plunged, named, count) = plunged_and_named(&f, &RotaryRoughing, &v, &path);
+    assert!(!plunged.is_empty(), "the cone's single-point pass");
+    // The same passes, each named once (issue #951, item 4): not only the
+    // same number of them.
+    let mut once = named.clone();
+    once.sort_unstable();
+    once.dedup();
+    assert_eq!(once.len(), named.len(), "named twice: {named:?}");
+    assert_eq!(count, plunged.len(), "{:?}", path.notices);
+    if count == named.len() {
+        assert_eq!(once, plunged, "{:?}", path.notices);
+    } else {
+        assert!(
+            once.iter().all(|p| plunged.contains(p)),
+            "{once:?} {plunged:?}"
+        );
+    }
     assert!(
         path.group
             .segments

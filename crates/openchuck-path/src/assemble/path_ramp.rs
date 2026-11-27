@@ -212,8 +212,14 @@ pub(super) fn back_and_forth(
             // in the pass, which no leg shortens), the ramp first fitted
             // follows the pass's own steep drop, as decision 0543 D4 accepts,
             // and reports the drop it cuts.
-            let shorter = leg * (bound / ramp.depth).min(0.99);
+            let mut shorter = leg * (bound / ramp.depth).min(0.99);
             let first = fitted.take().unwrap_or(ramp);
+            // Below the shortest stretch, a leg of exactly that stretch is
+            // tried once before the first fit is kept: over a flat start it
+            // may still hold the bound (CodeRabbit on #930, issue #951).
+            if shorter < minimum && leg > minimum + 1e-12 {
+                shorter = minimum;
+            }
             if shorter < minimum || !shorter.is_finite() {
                 return Ok(first);
             }
@@ -684,6 +690,43 @@ mod tests {
             "{} {measured}",
             ramp.depth
         );
+        assert_eq!(ramp.moves.last().unwrap().0, path[0].0);
+    }
+
+    /// CodeRabbit on #930 (issue #951, item 6): where scaling the leg to the
+    /// bound would take it below the shortest stretch a ramp goes over, a
+    /// leg of exactly that shortest stretch is tried before the ramp first
+    /// fitted is kept. On a flat start before a rise it holds the bound.
+    #[test]
+    fn req_op_11_a_leg_of_the_shortest_stretch_is_tried_before_the_first_fit_is_kept() {
+        let p = |x: f64, h: f64| {
+            (
+                AxisPosition {
+                    along: x,
+                    across: 0.0,
+                    height: h,
+                },
+                Degrees(30.0),
+            )
+        };
+        // Flat for 0.8 mm, then up 1 mm in 0.2 mm; legs bounded to 1 mm at
+        // 0.1, so a depth per traverse of at most 0.2 mm; at least 0.3 mm.
+        let path = vec![p(0.0, 10.0), p(0.8, 10.0), p(1.0, 11.0)];
+        let ramp = back_and_forth(&path, 11.0, TAN, 0.3, 0.0, 1.0).unwrap();
+        let measured = measured_depth(&ramp.moves);
+        assert!(!ramp.steep, "{} mm legs follow the rise", ramp.leg);
+        assert!(
+            measured <= 0.2 + 1e-9,
+            "{measured} over {} mm legs",
+            ramp.leg
+        );
+        assert!((ramp.depth - measured).abs() < 1e-9);
+        assert!(
+            ramp.leg >= 0.3 - 1e-9 && ramp.leg <= 0.8 + 1e-9,
+            "{}",
+            ramp.leg
+        );
+        assert_eq!(ramp.moves.first().unwrap().0.height, 11.0);
         assert_eq!(ramp.moves.last().unwrap().0, path[0].0);
     }
 

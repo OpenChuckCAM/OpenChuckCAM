@@ -21,7 +21,7 @@ use openchuck_path::{
 use openchuck_testkit::parts::{Cone, Cylinder, RadialPart};
 use openchuck_types::ir::{MoveKind, ToolPose};
 use openchuck_types::tool::ToolShape;
-use support::{Fixture, ball, generate, run, tool};
+use support::{Fixture, ball, entries_by_pass, generate, named_passes, run, tool};
 
 const ANGLE: f64 = 3.0;
 
@@ -265,11 +265,40 @@ fn assert_spiral_ramp(
     assert!(p.tip.distance(head.tip) < 1e-9 && (p.a.0 - head.a.0).abs() < 1e-9);
 }
 
-/// Checks every ramp of `path` that turns A (a ring entry round its ring,
-/// a spiral entry over its own path); counts them and the plunges.
-fn turning_ramps(f: &Fixture, path: &GeneratedPath) -> (usize, usize) {
+/// Checks every ramp of `path` (made by `strategy` with `v`, beside the
+/// held regions `keep`) that turns A (a ring entry round its ring, a spiral
+/// entry over its own path); counts them and the plunges. A spiral ramp may
+/// drop more steeply than the angle only on the final move of a pass the
+/// note names as following its own steep drop (decision 0543 D4; issue
+/// #951, item 5), not on any pass of a path that has the note.
+fn turning_ramps(
+    f: &Fixture,
+    strategy: &dyn Strategy,
+    v: &BTreeMap<String, ParameterValue>,
+    keep: &[(f64, f64)],
+    path: &GeneratedPath,
+) -> (usize, usize) {
+    let steep: Vec<usize> = path
+        .notices
+        .iter()
+        .filter(|n| n.text.contains("more steeply than the ramp angle"))
+        .flat_map(|n| {
+            let (listed, count) = named_passes(&n.text);
+            assert_eq!(listed.len(), count, "every steep pass listed: {}", n.text);
+            listed
+        })
+        .collect();
+    let mut input = f.input();
+    input.keep_out = keep;
+    let by_pass = entries_by_pass(&input, strategy, v, path);
+    assert_eq!(
+        by_pass.len(),
+        entries(path).len(),
+        "every entry belongs to a pass"
+    );
     let (mut ramps, mut plunges) = (0, 0);
-    for (before, moves, head) in entries(path) {
+    for (pass, before, moves) in by_pass {
+        let head = *moves.last().unwrap();
         if moves.len() == 1 {
             plunges += 1;
             continue;
@@ -283,11 +312,14 @@ fn turning_ramps(f: &Fixture, path: &GeneratedPath) -> (usize, usize) {
             .iter()
             .any(|m| (f.rotary.to_axis(m.tip, m.a).along - goal.along).abs() > 1e-6);
         if moves_along || (start.along - goal.along).abs() > 1e-6 {
-            let steep = path
-                .notices
-                .iter()
-                .any(|n| n.text.contains("more steeply than the ramp angle"));
-            assert_spiral_ramp(f, before, &moves, head, pass_sign(path, head), steep);
+            assert_spiral_ramp(
+                f,
+                before,
+                &moves,
+                head,
+                pass_sign(path, head),
+                steep.contains(&pass),
+            );
         } else {
             assert_ring_ramp(f, before, &moves, head, pass_sign(path, head));
         }
@@ -304,7 +336,8 @@ fn req_op_11_req_set_09_a_spiral_is_ramped_over_its_own_path_beside_a_held_regio
     let f = cylinder();
     for keep in [&[][..], &[(-25.0, -4.0)][..]] {
         let path = make(&f, &HelicalFinishing, &finishing("helix"), keep).unwrap();
-        let (ramps, plunges) = turning_ramps(&f, &path);
+        let (ramps, plunges) =
+            turning_ramps(&f, &HelicalFinishing, &finishing("helix"), keep, &path);
         assert_eq!((ramps, plunges), (1, 0), "{keep:?}");
     }
 }
@@ -324,7 +357,7 @@ fn req_op_11_req_set_09_continuous_roughing_spiral_layers_ramp_and_a_single_poin
     );
     for keep in [&[][..], &[(-25.0, -4.0)][..]] {
         let path = make(&f, &RotaryRoughing, &v, keep).unwrap();
-        let (ramps, plunges) = turning_ramps(&f, &path);
+        let (ramps, plunges) = turning_ramps(&f, &RotaryRoughing, &v, keep, &path);
         assert!(
             ramps >= 3 && plunges >= 1,
             "{ramps} ramps, {plunges} plunges"
