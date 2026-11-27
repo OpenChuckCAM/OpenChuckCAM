@@ -187,7 +187,7 @@ pub(super) fn nominal(description: FacingDescription) -> Result<FacingDisplay, A
                     face.target.plane,
                     face.coverage,
                     offset,
-                    fit(|d| format!("Face A {}°: {offset:.d$} mm from axis", degrees(a))),
+                    face_text(a, offset),
                 )?;
             }
             // Where each face stops beside a held region (decision 0685):
@@ -224,12 +224,11 @@ pub(super) fn nominal(description: FacingDescription) -> Result<FacingDisplay, A
                 for b in faces.iter().skip(i + 1) {
                     if (a.target.plane.normal() + b.target.plane.normal()).length() < 1e-9 {
                         let apart = a.target.offset + b.target.offset;
-                        let (from, to) = (degrees(a.target.angle.0), degrees(b.target.angle.0));
                         labels.push(label(
                             SceneRole::FacingMargin,
                             a.corners()?[0],
                             FacingLabel::Separation,
-                            fit(|d| format!("A {from}° to A {to}°: {apart:.d$} mm apart")),
+                            separation_text(a.target.angle.0, b.target.angle.0, apart),
                         ));
                     }
                 }
@@ -357,11 +356,53 @@ fn fit(text: impl Fn(usize) -> String) -> String {
         .unwrap_or_else(|| text(0))
 }
 
+/// A label with a length and angles: every decimal while it fits in
+/// [`LABEL_CHARS`], then the length and the angles give up decimals in turn
+/// (issue #965), never a word or a number. `text(d, a)` writes the length
+/// to `d` decimals and the angles to at most `a`.
+fn fit_angled(text: impl Fn(usize, usize) -> String) -> String {
+    const STEPS: [(usize, usize); 7] = [(3, 3), (2, 3), (2, 2), (1, 2), (1, 1), (0, 1), (0, 0)];
+    STEPS
+        .iter()
+        .map(|&(d, a)| text(d, a))
+        .find(|t| t.chars().count() <= LABEL_CHARS)
+        .unwrap_or_else(|| text(0, 0))
+}
+
+/// A face's label: its angle and its finished plane's distance from the
+/// rotary axis.
+fn face_text(angle: f64, offset: f64) -> String {
+    fit_angled(|d, a| {
+        format!(
+            "Face A {}°: {offset:.d$} mm from axis",
+            degrees_to(angle, a)
+        )
+    })
+}
+
+/// The label of a pair of opposite faces: their angles and the distance
+/// between them.
+fn separation_text(from: f64, to: f64, apart: f64) -> String {
+    fit_angled(|d, a| {
+        format!(
+            "A {}° to A {}°: {apart:.d$} mm apart",
+            degrees_to(from, a),
+            degrees_to(to, a)
+        )
+    })
+}
+
 /// An angle in degrees as the labels write it: whole degrees without a
-/// fraction, otherwise to a tenth of a millidegree, trailing zeros dropped.
-fn degrees(a: f64) -> String {
-    let text = format!("{a:.3}");
-    let text = text.trim_end_matches('0').trim_end_matches('.');
+/// fraction, otherwise to at most `places` decimals (three at most, a
+/// tenth of a millidegree), trailing zeros dropped.
+fn degrees_to(a: f64, places: usize) -> String {
+    let text = format!("{a:.places$}");
+    // Only a fraction's trailing zeros go: "180" with no decimals stays.
+    let text = if text.contains('.') {
+        text.trim_end_matches('0').trim_end_matches('.')
+    } else {
+        text.as_str()
+    };
     if text == "-0" {
         "0".to_owned()
     } else {
@@ -596,7 +637,9 @@ fn place(display: &mut FacingDisplay, operation: openchuck_project::id::Operatio
 
 #[cfg(test)]
 mod tests {
-    use super::{LABEL_CHARS, degrees, fit, unfaced_edge, unfaced_label};
+    use super::{
+        LABEL_CHARS, degrees_to, face_text, fit, separation_text, unfaced_edge, unfaced_label,
+    };
     use openchuck_path::facing::geometry::FacingEnd;
     use openchuck_path::facing::held::Unfaced;
 
@@ -642,9 +685,50 @@ mod tests {
                 face(offset)
             );
         }
-        assert_eq!(degrees(90.0), "90");
-        assert_eq!(degrees(22.5), "22.5");
-        assert_eq!(degrees(-0.0), "0");
-        assert_eq!(degrees(12.3456), "12.346");
+        assert_eq!(degrees_to(90.0, 3), "90");
+        assert_eq!(degrees_to(22.5, 3), "22.5");
+        assert_eq!(degrees_to(-0.0, 3), "0");
+        assert_eq!(degrees_to(12.3456, 3), "12.346");
+        assert_eq!(degrees_to(180.0, 0), "180");
+        assert_eq!(degrees_to(202.125, 1), "202.1");
+    }
+
+    /// Issue #965 (CodeRabbit on #950): a label with angles stays within 32
+    /// characters for any angle, giving up the angles' decimals too, never
+    /// a word or a number; it keeps every decimal while it fits.
+    #[test]
+    fn req_ui_03_a_label_with_arbitrary_angles_stays_within_32_characters() {
+        assert_eq!(
+            separation_text(0.0, 180.0, 27.3),
+            "A 0° to A 180°: 27.300 mm apart"
+        );
+        let odd = separation_text(22.125, 202.125, 27.0);
+        assert!(odd.chars().count() <= LABEL_CHARS, "{odd}");
+        assert!(
+            odd.starts_with("A 22") && odd.contains("° to A 202") && odd.contains(" mm apart"),
+            "{odd}"
+        );
+        assert_eq!(face_text(270.0, 13.65), "Face A 270°: 13.650 mm from axis");
+        for (a, offset) in [
+            (22.125, 13.65),
+            (202.125, 123.456),
+            (359.999, 999.999),
+            (-179.875, 0.5),
+        ] {
+            let face = face_text(a, offset);
+            assert!(face.chars().count() <= LABEL_CHARS, "{face}");
+            assert!(
+                face.starts_with("Face A ") && face.ends_with(" mm from axis"),
+                "{face}"
+            );
+        }
+        for (from, to, apart) in [
+            (22.125, 202.125, 999.999),
+            (359.875, 179.875, 27.3),
+            (-179.875, 0.125, 54.0),
+        ] {
+            let text = separation_text(from, to, apart);
+            assert!(text.chars().count() <= LABEL_CHARS, "{text}");
+        }
     }
 }
