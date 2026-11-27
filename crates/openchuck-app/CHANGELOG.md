@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased (MOPUP-1, PR M10; issue #892)
+
+- **Changed:** a new pencil clean-up operation is written with Shortest cut `tool_diameter`, which follows the operation's tool. An operation saved without it is shown, and given to the library, as Tool diameter too (it took the tool's diameter before, as a number); a number the user set is kept. The program is unchanged in every case.
+
 ## Unreleased (MOPUP-1, issue #965)
 
 - **Fixed:** a Facing face or opposite-faces label at an arbitrary angle stays within 32 characters: the angles give up decimals too, in turn with the distance (`facing::display::face_text`, `separation_text`). A whole angle without decimals is written whole ("180", not "18").

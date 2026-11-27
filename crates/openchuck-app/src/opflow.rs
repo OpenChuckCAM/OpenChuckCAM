@@ -390,6 +390,18 @@ impl Application {
                 }
             }
         }
+        // Pencil clean-up starts with a Shortest cut of Tool diameter, which
+        // follows the operation's tool, as face flow's does (issue #892, the
+        // owner's answer A). One saved without it still takes the tool's
+        // diameter when the path is made (decision 0684 item 3).
+        if strategy == openchuck_path::pencil::NAME {
+            parameters.insert(
+                openchuck_path::pencil::pencil_parameter::MIN_LENGTH.to_owned(),
+                openchuck_project::ParameterValue::Text(
+                    openchuck_path::params::TOOL_DIAMETER.to_owned(),
+                ),
+            );
+        }
         let id = OperationId::new();
         self.execute(Command::Add {
             item: Item::Operation(Operation {

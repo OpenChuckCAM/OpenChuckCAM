@@ -3,7 +3,12 @@
 ## 0.75.0 (PATH-QUALITY; issue #957; decision 0701, proposed; not breaking, output change: new refusals)
 
 - **New refusal (Entry Lead and Helix, every strategy but swarf, an operation limited to a selection):** a lead or helix is measured against the part's faces outside the selection (`RegionConstraint::outside`) that it comes near: the faces whose box meets the box the tool's cutting part sweeps over the entry, sampled lazily as swarf samples its faces next to the face set. One that would cut such a face deeper than the tolerance and the sampling slack is refused, naming the face. Where the pass itself cuts the face where the move meets it, the refusal says so. Plunge and Ramp, swarf (decision 0682, unchanged) and faces with no exact form (a mesh) are not measured.
+- **Fixed (CodeRabbit on #972):** the measure reaches the tool on up its axis past the top of the flutes, as far as any face goes, so a swarf entry keeps decision 0682's refusals there; a face whose trim the coarse 2 mm grid misses is kept, its box from its own samples; for the faces outside a selection the point where the move meets the pass is measured too.
 - No public API change.
+
+## Unreleased (MOPUP-1, PR M10; issue #892; a non-breaking addition, no version change)
+
+- **Changed:** pencil clean-up's `min_length` (Shortest cut) is a `ParameterKind::LengthOrTool`: a length in millimetres or `tool_diameter`, the operation's tool's diameter when the path is made, as face flow's Shortest cut is (decision 0686). Its default stays 0 mm, so a call that does not give it keeps every stretch; a number gives the same path as before. No API change: the parameter's name and the `ParameterKind` variant already exist.
 
 ## 0.74.0 (PATH-QUALITY; issue #834; decision 0700, proposed; not breaking, output change)
 
