@@ -147,32 +147,56 @@ struct CuttingDraft {
     /// The material the entry was opened for; `None` for a new one.
     editing: Option<String>,
     material: String,
+    /// The values as typed, lengths and feeds in `display`'s unit (UI-18).
     values: [String; 5],
     problem: Option<String>,
+    /// The unit lengths and feeds are typed in, as it was when the draft
+    /// opened.
+    display: crate::units::Display,
 }
 
 impl CuttingDraft {
-    fn of(row: &CuttingRow) -> Self {
+    fn of(row: &CuttingRow, display: crate::units::Display) -> Self {
         let d = &row.data;
+        let stored = [
+            d.spindle_speed.0,
+            d.feed_per_tooth.0,
+            d.plunge_feed.0,
+            d.stepover.0,
+            d.stepdown.0,
+        ];
         Self {
             editing: Some(row.material.clone()),
             material: row.material.clone(),
-            values: [
-                d.spindle_speed.0.to_string(),
-                d.feed_per_tooth.0.to_string(),
-                d.plunge_feed.0.to_string(),
-                d.stepover.0.to_string(),
-                d.stepdown.0.to_string(),
-            ],
+            values: std::array::from_fn(|i| {
+                let unit = CUTTING.get(i).map_or("", |c| c.1);
+                let text = stored.get(i).map_or_else(String::new, f64::to_string);
+                crate::units::shown_text(&text, unit, display)
+            }),
             problem: None,
+            display,
+        }
+    }
+
+    /// A new entry, its lengths and feeds typed in `display`'s unit.
+    fn new(display: crate::units::Display) -> Self {
+        Self {
+            display,
+            ..Self::default()
         }
     }
 
     /// The typed values, or which one is not a number.
     fn data(&self) -> Result<CuttingData, String> {
         let mut numbers = [0.0; 5];
-        for ((n, text), (label, ..)) in numbers.iter_mut().zip(&self.values).zip(CUTTING) {
-            *n = crate::arith::number(text, None)
+        for ((n, text), (label, unit, ..)) in numbers.iter_mut().zip(&self.values).zip(CUTTING) {
+            // Read in the draft's unit and stored in millimetres (UI-18).
+            *n = crate::units::read(text, unit, self.display)
+                .and_then(|r| {
+                    r.stored
+                        .parse::<f64>()
+                        .map_err(|_| format!("Cannot read '{text}'."))
+                })
                 .map_err(|reason| format!("{label}: {reason} Not applied."))?;
         }
         let [rpm, fpt, plunge, over, down] = numbers;
@@ -900,11 +924,19 @@ impl ToolLibraryWindow {
         heading(ui, "Cutting data by material");
         let read_only = self.read_only();
         let rows = library::cutting_rows(tool);
+        let display = crate::units::display(ui.ctx());
+        let length =
+            |mm: f64| crate::units::shown_text(&field_row::number(mm, Some(3)), "mm", display);
+        let feed =
+            |mm: f64| crate::units::shown_text(&field_row::number(mm, Some(0)), "mm/min", display);
+        let length_unit = crate::units::shown_unit("mm", display);
+        let feed_unit = crate::units::shown_unit("mm/min", display);
         egui::Grid::new("cutting data")
             .num_columns(4)
             .striped(true)
             .show(ui, |ui| {
-                for h in ["Material", "rpm", "mm/t", "Plunge"] {
+                let per_tooth = format!("{length_unit}/t");
+                for h in ["Material", "rpm", per_tooth.as_str(), "Plunge"] {
                     ui.label(RichText::new(h).small().color(DARK.muted));
                 }
                 ui.end_row();
@@ -914,22 +946,23 @@ impl ToolLibraryWindow {
                         .as_ref()
                         .is_some_and(|d| d.editing.as_deref() == Some(row.material.as_str()));
                     let tip = format!(
-                        "Stepover {} mm, stepdown {} mm; cutting feed {:.0} mm/min.{}",
-                        row.data.stepover.0,
-                        row.data.stepdown.0,
-                        row.feed,
+                        "Stepover {} {length_unit}, stepdown {} {length_unit}; cutting feed {} \
+                         {feed_unit}.{}",
+                        length(row.data.stepover.0),
+                        length(row.data.stepdown.0),
+                        feed(row.feed),
                         if read_only { "" } else { " Click to edit." }
                     );
                     if ui.selectable_label(open, &row.material).tip(tip).clicked() && !read_only {
                         self.cutting = if open {
                             None
                         } else {
-                            Some(CuttingDraft::of(row))
+                            Some(CuttingDraft::of(row, display))
                         };
                     }
                     ui.monospace(format!("{:.0}", row.data.spindle_speed.0));
-                    ui.monospace(format!("{:.3}", row.data.feed_per_tooth.0));
-                    ui.monospace(format!("{:.0}", row.data.plunge_feed.0));
+                    ui.monospace(length(row.data.feed_per_tooth.0));
+                    ui.monospace(feed(row.data.plunge_feed.0));
                     ui.end_row();
                 }
             });
@@ -942,7 +975,7 @@ impl ToolLibraryWindow {
                     .color(DARK.muted),
             );
         } else if self.cutting.is_none() && ui.small_button("Add material").clicked() {
-            self.cutting = Some(CuttingDraft::default());
+            self.cutting = Some(CuttingDraft::new(crate::units::display(ui.ctx())));
         }
         if let Some(draft) = &mut self.cutting {
             let known = openchuck_app::materials::known_materials(project, self.library.as_ref());
@@ -2086,10 +2119,12 @@ fn cutting_editor(
                             format!("{label} in {unit}"),
                         )
                     });
+                    let display = draft.display;
                     crate::pending_edits::draft_text(ui, &response, label, &before, text, |text| {
-                        crate::arith::entry_text(text, field_row::places(unit)).and_then(|number| {
-                            if number.parse::<f64>().is_ok_and(|v| v > 0.0) {
-                                Ok(number)
+                        crate::units::read(text, unit, display).and_then(|read| {
+                            if read.stored.parse::<f64>().is_ok_and(|v| v > 0.0) {
+                                // Kept in the draft as the box shows it.
+                                Ok(crate::units::shown_text(&read.stored, unit, display))
                             } else {
                                 Err(format!("{label} must be above 0. Not applied."))
                             }
@@ -2100,7 +2135,10 @@ fn cutting_editor(
                         draft.problem = Some(reason);
                     }
                     field_row::tip(response, &tip);
-                    ui.label(RichText::new(*unit).color(DARK.muted));
+                    ui.label(
+                        RichText::new(crate::units::shown_unit(unit, draft.display))
+                            .color(DARK.muted),
+                    );
                     ui.end_row();
                 }
             });

@@ -164,13 +164,18 @@ pub fn unit_source(units: &openchuck_app::model::Units) -> String {
     }
 }
 
-/// A placement step in words for its row, with its values to fixed places.
-pub fn describe(step: &TransformStep) -> String {
-    let mm = |v: f64| field_row::number(v, Some(3));
+/// A placement step in words for its row, with its values to fixed places,
+/// lengths in `display`'s unit (UI-18).
+pub fn describe(step: &TransformStep, display: crate::units::Display) -> String {
+    let mm = |v: f64| crate::units::shown_text(&field_row::number(v, Some(3)), "mm", display);
     match step {
-        TransformStep::Translate { x, y, z } => {
-            format!("Translate X {} Y {} Z {} mm", mm(*x), mm(*y), mm(*z))
-        }
+        TransformStep::Translate { x, y, z } => format!(
+            "Translate X {} Y {} Z {} {}",
+            mm(*x),
+            mm(*y),
+            mm(*z),
+            crate::units::shown_unit("mm", display)
+        ),
         TransformStep::Rotate { axis, angle } => format!(
             "Rotate {} about {}",
             field_row::number(angle.0, Some(2)) + "\u{b0}",
@@ -369,15 +374,20 @@ impl ModelPanel {
                 field_row::read_only_row(ui, "Format", "", format);
                 field_row::read_only_row(ui, "Triangles", "", i.summary.triangles.to_string());
                 if let Some(b) = i.summary.bounds {
+                    let display = crate::units::display(ui.ctx());
+                    let size = |v: f64| {
+                        crate::units::shown_text(&field_row::number(v, Some(3)), "mm", display)
+                    };
                     field_row::read_only_row(
                         ui,
                         "Size",
                         "Along X, across Y and Z, as placed.",
                         format!(
-                            "{} \u{d7} {} \u{d7} {} mm",
-                            field_row::number(b.max.x - b.min.x, Some(3)),
-                            field_row::number(b.max.y - b.min.y, Some(3)),
-                            field_row::number(b.max.z - b.min.z, Some(3))
+                            "{} \u{d7} {} \u{d7} {} {}",
+                            size(b.max.x - b.min.x),
+                            size(b.max.y - b.min.y),
+                            size(b.max.z - b.min.z),
+                            crate::units::shown_unit("mm", display)
                         ),
                     );
                 }
@@ -479,7 +489,11 @@ impl ModelPanel {
                     )
                     .tip("Drag to reorder");
                 handle.dnd_set_drag_payload(i);
-                ui.label(format!("{}. {}", i + 1, describe(step)));
+                ui.label(format!(
+                    "{}. {}",
+                    i + 1,
+                    describe(step, crate::units::display(ui.ctx()))
+                ));
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                     if ui
                         .small_button("\u{d7}")
@@ -693,9 +707,10 @@ impl ModelPanel {
         });
         ui.horizontal(|ui| match &mut self.new_step {
             NewStep::Translate(v) => {
+                let display = crate::units::display(ui.ctx());
                 for (value, label) in v.iter_mut().zip(["X", "Y", "Z"]) {
                     ui.label(label);
-                    ui.add(egui::DragValue::new(value).speed(0.1).suffix(" mm"));
+                    ui.add(crate::units::length_drag(value, display, 0.1, true));
                 }
             }
             NewStep::Rotate(axis, angle) => {
@@ -979,19 +994,37 @@ mod tests {
         assert_eq!(reordered[1], TransformStep::CentreOnRotaryAxis);
         assert_eq!(moved(&steps, 0, 9), steps.to_vec());
         assert_eq!(
-            describe(&TransformStep::Rotate {
-                axis: Axis::X,
-                angle: Degrees(90.0)
-            }),
+            describe(
+                &TransformStep::Rotate {
+                    axis: Axis::X,
+                    angle: Degrees(90.0)
+                },
+                crate::units::Display::Inches
+            ),
             "Rotate 90.00\u{b0} about X"
         );
         assert_eq!(
-            describe(&TransformStep::Translate {
-                x: 1.0,
-                y: 0.0,
-                z: -2.5
-            }),
+            describe(
+                &TransformStep::Translate {
+                    x: 1.0,
+                    y: 0.0,
+                    z: -2.5
+                },
+                crate::units::Display::Millimetres
+            ),
             "Translate X 1.000 Y 0.000 Z -2.500 mm"
+        );
+        // In inches (UI-18).
+        assert_eq!(
+            describe(
+                &TransformStep::Translate {
+                    x: 25.4,
+                    y: 0.0,
+                    z: -12.7
+                },
+                crate::units::Display::Inches
+            ),
+            "Translate X 1.0000 Y 0.0000 Z -0.5000 in"
         );
     }
 

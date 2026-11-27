@@ -215,7 +215,13 @@ fn table(
         .show(ui, |ui| {
             ui.label(RichText::new("#").color(DARK.muted));
             ui.label(RichText::new("Type").color(DARK.muted));
-            ui.label(RichText::new("End r, z (mm)").color(DARK.muted));
+            ui.label(
+                RichText::new(format!(
+                    "End r, z ({})",
+                    crate::units::shown_unit("mm", crate::units::display(ui.ctx()))
+                ))
+                .color(DARK.muted),
+            );
             ui.label(RichText::new("Arc").color(DARK.muted));
             ui.end_row();
             for (i, segment) in profile.segments.iter_mut().enumerate() {
@@ -264,25 +270,27 @@ fn table(
         selected.and_then(|i| profile.segments.get_mut(i))
     {
         ui.horizontal(|ui| {
-            ui.label(RichText::new("Arc centre r, z (mm)").color(DARK.muted));
+            ui.label(
+                RichText::new(format!(
+                    "Arc centre r, z ({})",
+                    crate::units::shown_unit("mm", crate::units::display(ui.ctx()))
+                ))
+                .color(DARK.muted),
+            );
             point(ui, centre);
         });
     }
 }
 
 /// Two drag boxes for a point's radius and height; true when either changed.
+/// They show and drag in the user's unit and store millimetres (UI-18).
 fn point(ui: &mut egui::Ui, p: &mut ProfilePoint) -> bool {
+    let display = crate::units::display(ui.ctx());
     let r = ui.add(
-        egui::DragValue::new(&mut p.radius.0)
-            .speed(0.05)
-            .max_decimals(4)
-            .range(0.0..=f64::MAX),
+        crate::units::length_drag(&mut p.radius.0, display, 0.05, false).range(0.0..=f64::MAX),
     );
     let h = ui.add(
-        egui::DragValue::new(&mut p.height.0)
-            .speed(0.05)
-            .max_decimals(4)
-            .range(0.0..=f64::MAX),
+        crate::units::length_drag(&mut p.height.0, display, 0.05, false).range(0.0..=f64::MAX),
     );
     r.changed() || h.changed()
 }
@@ -367,8 +375,11 @@ fn preview(ui: &mut egui::Ui, profile: &ToolProfile, valid: bool, selected: Opti
         rect.min + vec2(6.0, 4.0),
         egui::Align2::LEFT_TOP,
         format!(
-            "Ø{:.3} mm",
-            2.0 * outline.iter().fold(0.0f64, |m, p| m.max(p[0]))
+            "Ø{}",
+            crate::units::length_text(
+                2.0 * outline.iter().fold(0.0f64, |m, p| m.max(p[0])),
+                crate::units::display(painter.ctx())
+            )
         ),
         egui::FontId::monospace(11.0),
         DARK.muted,

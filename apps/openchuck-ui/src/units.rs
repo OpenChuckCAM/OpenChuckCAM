@@ -239,6 +239,57 @@ pub fn stored_note(stored: &str, stored_unit: &str, display: Display) -> String 
     }
 }
 
+/// A drag box for a length stored in millimetres in `value`, shown and
+/// dragged in `display`'s unit with `suffix` after it (" mm" or " in") when
+/// asked for. What it stores is millimetres either way (UI-18).
+pub fn length_drag<'a>(
+    value: &'a mut f64,
+    display: Display,
+    speed_mm: f64,
+    suffix: bool,
+) -> egui::DragValue<'a> {
+    let factor = match display {
+        Display::Millimetres => 1.0,
+        Display::Inches => MM_PER_INCH,
+    };
+    let unit = shown_unit("mm", display);
+    let drag = egui::DragValue::from_get_set(move |new| {
+        if let Some(new) = new {
+            *value = new * factor;
+        }
+        *value / factor
+    })
+    .speed(speed_mm / factor)
+    .max_decimals(shown_places(unit).unwrap_or(3) + 1);
+    if suffix {
+        drag.suffix(format!(" {unit}"))
+    } else {
+        drag
+    }
+}
+
+/// A length stored in millimetres as the interface shows it, with its unit:
+/// "1.200 mm" or "0.0472 in".
+pub fn length_text(mm: f64, display: Display) -> String {
+    let unit = shown_unit("mm", display);
+    format!(
+        "{} {unit}",
+        shown_text(&number(mm, places("mm")), "mm", display)
+    )
+}
+
+/// A length stored in millimetres as a bare number in `display`'s unit, to
+/// `places_mm` places in millimetres and one more in inches (a readout).
+pub fn length_number(mm: f64, display: Display, places_mm: usize) -> String {
+    match display {
+        Display::Millimetres => format!("{mm:.places_mm$}"),
+        Display::Inches => {
+            let places = places_mm + 1;
+            format!("{:.places$}", mm / MM_PER_INCH)
+        }
+    }
+}
+
 /// The context's key for the display choice.
 fn key() -> egui::Id {
     egui::Id::unique("openchuck display units")
@@ -363,6 +414,14 @@ mod tests {
             "Machine setting"
         );
         assert_eq!(shown_hint("2.54", "mm", Display::Millimetres), "2.54");
+    }
+
+    #[test]
+    fn req_ui_18_readouts_and_read_only_lengths_follow_the_unit() {
+        assert_eq!(length_text(1.2, Display::Millimetres), "1.200 mm");
+        assert_eq!(length_text(25.4, Display::Inches), "1.0000 in");
+        assert_eq!(length_number(12.7, Display::Millimetres, 3), "12.700");
+        assert_eq!(length_number(12.7, Display::Inches, 3), "0.5000");
     }
 
     #[test]

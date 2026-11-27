@@ -1970,18 +1970,29 @@ impl PlaybackPanel {
                 openchuck_app::playback::MoveKind::LeadIn => "lead-in",
                 openchuck_app::playback::MoveKind::LeadOut => "lead-out",
             });
-            let feed = pose
-                .feed
-                .map_or_else(String::new, |f| format!("   Feed {f:.0} mm/min"));
+            // Positions and the feed in the user's unit (UI-18).
+            let display = crate::units::display(ui.ctx());
+            let feed = pose.feed.map_or_else(String::new, |f| {
+                format!(
+                    "   Feed {} {}",
+                    crate::units::shown_text(
+                        &crate::field_row::number(f, Some(0)),
+                        "mm/min",
+                        display
+                    ),
+                    crate::units::shown_unit("mm/min", display)
+                )
+            });
+            let at = |mm: f64| crate::units::length_number(mm, display, 3);
             // A reads 0 to 360 degrees; the tooltip gives the continuous
             // value the G-code holds, to compare with it (issue 207).
             ui.monospace(format!(
-                "{}  move {}  {kind}   X{:.3} Y{:.3} Z{:.3} A{}{feed}",
+                "{}  move {}  {kind}   X{} Y{} Z{} A{}{feed}",
                 timeline.operation_name(pose.group).unwrap_or(""),
                 pose.cursor.done.min(moves),
-                pose.work[0],
-                pose.work[1],
-                pose.work[2],
+                at(pose.work[0]),
+                at(pose.work[1]),
+                at(pose.work[2]),
                 wrapped_a_text(pose.work[3], 3),
             ))
             .tip(continuous_a_tip(pose.work[3], 3));
