@@ -107,7 +107,9 @@ fn req_ui_26_the_last_good_value_is_kept_while_an_entry_is_unreadable() {
     let mut rig = setup_rig("numbox-last-good");
     let before = rig.shell.app.as_ref().unwrap().project().clone();
     let at = unit_box(&rig);
-    type_into(&mut rig, at, "5 mm");
-    assert!(rig.shows("Cannot read '5 mm'"), "{:?}", rig.texts());
+    // A unit is read since UI-18 (decision PROJUX-B-2); a word that is not
+    // one of the box's units is still unreadable.
+    type_into(&mut rig, at, "5 ft");
+    assert!(rig.shows("Cannot read '5 ft'"), "{:?}", rig.texts());
     assert_eq!(&before, rig.shell.app.as_ref().unwrap().project());
 }

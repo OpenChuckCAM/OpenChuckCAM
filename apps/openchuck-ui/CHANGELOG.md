@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased (PROJECT-UX-B, B2; issue #704; record PROJUX-B-2, proposed)
+
+- **Added:** `units`: the display choice (`Display`, set per context from the user's settings), lengths and feeds shown and read in inches (`shown_text`, `shown_unit`, `read`, `length_drag`, `length_text`), and a unit typed after a value or a sum. `field_row::text_row` shows and reads the chosen unit and still gives its caller the stored unit; a value confirmed unchanged is never committed again; a value typed with a unit is followed by "Stored as …". The footer's "mm | in" switch, guarded like a departure from a form.
+- **Changed:** the tool library's cutting data, the model's size and placement steps, the tool profile's points and the playback readout follow the unit.
+
 
 ## Unreleased (FACEFLOW; issues #614 and #615)
 

@@ -20,7 +20,6 @@ use std::collections::BTreeMap;
 
 use eframe::egui::{self, Key, RichText, Stroke};
 
-use crate::arith;
 use crate::theme::{DARK, RADIUS, width};
 
 /// Text being typed into fields, and refused values with their reasons, by

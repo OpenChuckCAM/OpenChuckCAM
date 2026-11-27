@@ -211,7 +211,7 @@ pub fn read(typed: &str, stored_unit: &str, display: Display) -> Result<Read, St
         ));
     }
     let value = arith::evaluate(sum).map_err(|e| e.to_string())?;
-    if factor == 1.0 {
+    if typed_unit == Some(stored_unit) {
         // Typed in the stored unit: as a plain entry of that unit.
         let stored = arith::entry_text(sum, places(stored_unit))?;
         return Ok(Read { stored, typed_unit });

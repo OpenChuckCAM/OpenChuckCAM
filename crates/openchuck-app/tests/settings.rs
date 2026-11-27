@@ -525,3 +525,23 @@ fn req_nfr_07_req_ui_15_the_settings_text_read_gives_defaults_and_a_message_neve
         15
     );
 }
+
+#[test]
+fn req_ui_18_req_ui_15_the_display_unit_is_personal_and_survives_restart() {
+    let file = SettingsFile::in_folder(&folder("units"));
+    let mut settings = UserSettings::default();
+    assert_eq!(settings.units, "mm");
+    settings.units = "in".to_owned();
+    file.save(&settings).unwrap();
+    let loaded = file.load();
+    assert!(loaded.problem.is_none());
+    assert_eq!(loaded.settings.units, "in");
+    // Anything but "mm" or "in" reads as millimetres.
+    settings.units = "furlongs".to_owned();
+    assert_eq!(settings.clamped().units, "mm");
+    let upper = UserSettings {
+        units: " IN ".to_owned(),
+        ..UserSettings::default()
+    };
+    assert_eq!(upper.clamped().units, "in");
+}

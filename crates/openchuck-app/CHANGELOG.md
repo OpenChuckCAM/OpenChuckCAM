@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased (PROJECT-UX-B, B2; issue #704; record PROJUX-B-2, proposed)
+
+- **Changed:** `UserSettings::units` keeps "in" as well as "mm" (any other text reads as "mm"); it chooses how the interface shows and reads lengths and feeds. Nothing stored in a project changes.
+
 ## Unreleased (MOPUP-1, PR M10; issue #892)
 
 - **Changed:** a new pencil clean-up operation is written with Shortest cut `tool_diameter`, which follows the operation's tool. An operation saved without it is shown, and given to the library, as Tool diameter too (it took the tool's diameter before, as a number); a number the user set is kept. The program is unchanged in every case.

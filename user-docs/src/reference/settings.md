@@ -26,11 +26,20 @@ The program also remembers, between runs:
 - which Inspector sections are open;
 - the Simulate view choices, such as **Turn part with A** and which of **Model**, **Cut part** and **Toolpath** are shown;
 - the tool library window's folded groups and size filter;
-- the file name patterns for the G-code and the setup sheet.
+- the file name patterns for the G-code and the setup sheet;
+- whether lengths are shown in millimetres or inches (see [Millimetres or inches](#millimetres-or-inches)).
 
 **View > Projection** and **View > Display mode** are not remembered.
 
-Units are millimetres and degrees. There is no setting for inches, and no light theme yet.
+Angles are in degrees. There is no light theme yet.
+
+## Millimetres or inches
+
+The **mm | in** switch at the right of the bar along the bottom of the window chooses how lengths and feeds are shown and typed: in millimetres and millimetres per minute, or in inches and inches per minute. The number boxes follow it, with the tool library, the model's size and placement, the playback position and the tolerance at the bottom. Messages, the Results tab, the program files and the project files stay in millimetres, and the G-code is always written in millimetres (`G21`). The project stores millimetres whatever you choose, so a project opened by someone who works in the other unit is unchanged.
+
+You can type a unit after a value in any length or feed box, whichever unit is chosen: `0.005 in`, `1/8 in`, `1/8"`, `0.2 mm`, `1.5 cm`, `3 + 0.5 mm`, and in a feed box `40 in/min` or `1000 mm/min`. The box then says what it stored, for example "Stored as 0.127 mm". A box takes one unit, at the end of the value or the sum; another word is refused, with a line under the box saying which units it reads, and the last value stays.
+
+A value shown rounded in inches is not changed by confirming it unchanged: pressing <kbd>Enter</kbd> on it stores nothing new. If you have typed in a box when you change the switch, the program first asks whether to keep or discard what you typed, as it does when you leave a form.
 
 ## Where settings are kept
 
