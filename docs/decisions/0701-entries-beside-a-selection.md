@@ -32,11 +32,11 @@ Probes on the public shouldered shaft of the test kit (`openchuck_testkit::brep:
 
 1. **Which faces (the owner's Q1: B with per-entry proximity).** For every strategy but swarf, a lead or helix is measured against the part's faces outside the operation's selection that it comes near.
    - **The candidate faces:** the host already gives every strategy limited to a selection the part's faces outside it (`RegionConstraint::outside`, decision 0527), so no new input is needed.
-   - **The reach:** for each entry or exit, the box the tool's cutting part sweeps over its positions and where it meets the pass. That is the tip and the top of the flutes along the tool axis at each position, grown by the tool radius, the stock to leave and the tolerance.
-   - **The faces measured:** those whose box (from a coarse sampling, grown by its own spacing) meets the reach. A face outside the reach cannot meet the cutting part during that entry, so this is complete for the cutting part, up to the sampling slack (OI-2078).
+   - **The reach:** for each entry or exit, the box the tool's cutting part sweeps over its positions and where it meets the pass. That is the tip and the line on up the tool axis at each position, past the top of the flutes as far as any of the faces goes, since the measure counts the tool on up at its cutting radius. The box is grown by the tool radius, the stock to leave and the tolerance.
+   - **The faces measured:** those whose box (from a coarse sampling, grown by its own spacing) meets the reach. A face whose trim the coarse sampling misses takes its box from the measure's own samples instead. A face outside the reach cannot meet the cutting part during that entry, so this is complete for the cutting part, up to the sampling slack (OI-2078).
    - **Sampling:** each such face is sampled once, the first time an entry needs it, at swarf's spacing (decision 0532 item 1), and measured as decision 0682 measures (the deepest sample inside the tool's cutting profile).
    - **Coverage:** the faces that share an edge with the selection are among them whenever an entry comes near them, so this covers option B and the faces B misses.
-2. **What is allowed (the owner's Q3).** A face outside the selection may be cut no deeper than the tolerance plus the sampling slack. The pass's own cut is **not** allowed, as decision 0682 allows for swarf: the pass's cut into those faces is measured nowhere else.
+2. **What is allowed (the owner's Q3).** A face outside the selection may be cut no deeper than the tolerance plus the sampling slack. The pass's own cut is **not** allowed, as decision 0682 allows for swarf: the pass's cut into those faces is measured nowhere else. So the point where the move meets the pass is measured too, as the last position the move sends the tool to.
 3. **What happens (the owner's Q2: refuse).** A lead or helix that cuts such a face deeper than allowed is refused, as decision 0682 does for swarf. The operation is not made, and the message names the pass, the move, the face, the depth and what to do. Two wordings:
    - **The entry cuts the face:** "the tool would cut 0.621 mm into face 5, outside the operation's selection, at position 421 of its path (the tolerance is 0.010 mm); set Entry to Plunge or Ramp, or use a smaller size".
    - **The pass itself cuts the face where the move meets it**, so no lead or helix there can keep clear: "the pass itself cuts 1.555 mm into face 3, outside the operation's selection, where the lead-out meets it, so the lead-out would cut it too (…). Set Entry to Plunge or Ramp, or change the selection or the stock to leave so that the pass keeps clear of face 3".
@@ -75,7 +75,7 @@ In `crates/openchuck-path/tests/swarf.rs`: `req_op_11_req_op_12_swarf_keeps_its_
 
 In `src/assemble/entry.rs`, the unit test `req_op_12_a_large_face_next_to_the_face_set_takes_the_slack_of_its_own_samples` is ported to the new sampler and passes.
 
-**Results** on the draft head, from `main` `7947ed78` (0.74.0), version 0.75.0 provisional, in this container (Linux, Rust 1.97.0):
+**Results** on the draft head, from `main` `7947ed78` (0.74.0), version 0.75.0 (provisional then), in this container (Linux, Rust 1.97.0):
 - `cargo test --release --locked -p openchuck-path`: 153 unit, 954 integration and 1 doc test pass.
 - `-p openchuck-app`: 318 unit (1 ignored) and 636 integration tests pass. The app already gives every strategy limited to a selection the faces outside it, so no app code changed, and no shipped example or golden test is refused or changes.
 - `cargo fmt --all`, `cargo clippy --workspace --all-targets --locked` (no findings), `cargo check --locked` in `fuzz/`, and `cargo xtask deps`, `licences`, `records` and `trace` pass.
@@ -86,5 +86,15 @@ In `src/assemble/entry.rs`, the unit test `req_op_12_a_large_face_next_to_the_fa
 - the wording for the faces next to swarf's face set and for the finished surface, run by the existing swarf and entry tests;
 - the pass-cut refusal of a lead on a pass that turns A, which the shaft's helical passes do not reach.
 
+
+**CodeRabbit on the draft (7313593c), three Majors, fixed in the release push.** Each has a unit test, written before the fix:
+- `assemble::beside::tests::req_op_12_a_face_the_coarse_grid_misses_is_still_measured`: a face trimmed to a band about 0.7 mm wide along a 200 mm diagonal, which the 2 mm grid misses (the test asserts that). Before, the face was dropped, where the measure before this record sampled every face at its own spacing. It is now kept, its box from those samples.
+- `assemble::beside::tests::req_op_12_the_reach_covers_the_tool_above_its_flutes`: a face 30 mm up the axis of a tool with 10 mm of flutes, within its radius, is near; one 30 mm below the tip is not. Before, the reach stopped at the top of the flutes, though the measure counts the tool on up at its cutting radius, so a swarf entry could lose a refusal decision 0682 gave.
+- `assemble::entry::tests::req_op_11_req_op_12_the_join_is_measured_against_the_faces_outside_the_selection`: where only the join cuts a face outside the selection deeper than allowed, it is refused, as the pass's own cut; beside swarf's face set the join stays the allowance; a deeper move is the one named.
+
+**Release head** (`main` `bfbcac75` merged, library family 0.75.0, confirmed by the coordinator):
+- `cargo test --release --locked -p openchuck-path`: 157 unit, 954 integration and 1 doc test pass.
+- `-p openchuck-app`: 318 unit (1 ignored) and 637 integration tests pass. No shipped example or golden test is refused or changes, now that the join is measured too.
+- `cargo clippy --workspace --all-targets --locked` gives no findings, and `cargo check --locked` in `fuzz/` and `cargo xtask deps`, `licences`, `records` and `trace` pass.
 
 Not done: no air or wood cut. Generated G-code remains the user's to verify before it is run on a machine (NFR-12).

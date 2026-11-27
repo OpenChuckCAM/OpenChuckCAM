@@ -27,11 +27,12 @@
 use std::collections::BTreeMap;
 use std::f64::consts::{FRAC_PI_2, TAU};
 
+use openchuck_types::geometry::{Point3, UnitVec3};
 use openchuck_types::ir::MoveKind;
 use openchuck_types::tool::profile::RevolvedProfile;
 use openchuck_types::units::Degrees;
 
-use super::beside::{Allowance, Beside, bounding, widen};
+use super::beside::{Allowance, Beside};
 use super::pass_shape::{self, Start};
 use super::ring_ramp::{self, RingRamp};
 use super::{Builder, EPS, PlungeReason, View};
@@ -1593,13 +1594,18 @@ impl<'a> Entry<'a> {
         let at = |(pos, a): (AxisPosition, Degrees)| (rotary.to_model(pos, a), rotary.tool_axis(a));
         // Only the faces the tool's cutting part comes near over these
         // moves and where they meet the pass (decision 0701, per-entry
-        // proximity): the box of its tip and its top along its axis at each,
-        // grown by its radius, the stock to leave and the tolerance.
-        let reach = bounding(moves.iter().chain(std::iter::once(&join)).flat_map(|m| {
-            let (tip, axis) = at(*m);
-            [tip, tip + axis.get() * self.cutter.top()]
-        }))
-        .map(|b| widen(b, self.tool_radius + leave + self.tolerance))?;
+        // proximity): the box of its tip and on up its axis at each, grown
+        // by its radius, the stock to leave and the tolerance.
+        let positions: Vec<(Point3, UnitVec3)> = moves
+            .iter()
+            .chain(std::iter::once(&join))
+            .map(|m| at(*m))
+            .collect();
+        let reach = beside.reach(
+            &positions,
+            self.cutter.top(),
+            self.tool_radius + leave + self.tolerance,
+        )?;
         let near = beside.near(&reach);
         if near.is_empty() {
             return None;
@@ -1614,31 +1620,25 @@ impl<'a> Entry<'a> {
         let cuts: Vec<BTreeMap<usize, f64>> = parallel::map_in_order(moves, |m| {
             beside.cuts(&near, &self.cutter, self.tool_radius, at(*m))
         });
-        let mut deepest: Option<Gouge> = None;
-        for (i, cut) in cuts.into_iter().enumerate() {
-            for (face, d) in cut {
-                let pass_cut = own.get(&face).copied().unwrap_or(0.0);
-                let allowed = match beside.allowance {
-                    Allowance::PassCut => pass_cut,
-                    Allowance::Tolerance => 0.0,
-                } + self.tolerance
-                    + beside.slack(face);
-                if d > allowed && deepest.is_none_or(|w| d > w.depth) {
-                    deepest = Some(Gouge {
-                        depth: d,
-                        position: i,
-                        x: x(i),
-                        face: Some(Struck {
-                            number: beside.number(face),
-                            allowance: beside.allowance,
-                            pass_cut: (pass_cut > self.tolerance + beside.slack(face))
-                                .then_some(pass_cut),
-                        }),
-                    });
-                }
-            }
-        }
-        deepest
+        let (i, face, depth, pass_cut) =
+            deepest_beside(&cuts, &own, beside.allowance, self.tolerance, |f| {
+                beside.slack(f)
+            })?;
+        Some(Gouge {
+            depth,
+            position: i,
+            // The join is the position after the moves.
+            x: if i < moves.len() {
+                x(i)
+            } else {
+                rotary.to_model(join.0, join.1).x
+            },
+            face: Some(Struck {
+                number: beside.number(face),
+                allowance: beside.allowance,
+                pass_cut: (pass_cut > self.tolerance + beside.slack(face)).then_some(pass_cut),
+            }),
+        })
     }
 
     /// The refusal of an entry or exit that would cut into the finished
@@ -1705,6 +1705,42 @@ pub(super) struct Gouge {
     /// The face beside the operation's surface it cuts, deeper than its
     /// allowance; `None` for the finished surface.
     face: Option<Struck>,
+}
+
+/// The deepest cut into a face beside the operation's surface that is deeper
+/// than its allowance, as (position, face, depth, the pass's own cut into
+/// that face where the move meets it). `cuts` are each position's cuts by
+/// face and `own` the cuts where the move meets the pass (the join).
+/// Beside swarf's face set the join is the allowance (decision 0682); for
+/// the faces outside a selection the join is a position the tool is sent to
+/// like the others, after them, with only the tolerance and the slack
+/// allowed (decision 0701, the owner's Q3 answer; CodeRabbit on #972).
+fn deepest_beside(
+    cuts: &[BTreeMap<usize, f64>],
+    own: &BTreeMap<usize, f64>,
+    allowance: Allowance,
+    tolerance: f64,
+    slack: impl Fn(usize) -> f64,
+) -> Option<(usize, usize, f64, f64)> {
+    let join = match allowance {
+        Allowance::PassCut => None,
+        Allowance::Tolerance => Some(own),
+    };
+    let mut deepest: Option<(usize, usize, f64, f64)> = None;
+    for (i, cut) in cuts.iter().chain(join).enumerate() {
+        for (&face, &d) in cut {
+            let pass_cut = own.get(&face).copied().unwrap_or(0.0);
+            let allowed = match allowance {
+                Allowance::PassCut => pass_cut,
+                Allowance::Tolerance => 0.0,
+            } + tolerance
+                + slack(face);
+            if d > allowed && deepest.is_none_or(|w| d > w.2) {
+                deepest = Some((i, face, d, pass_cut));
+            }
+        }
+    }
+    deepest
 }
 
 /// A face beside the operation's surface that an entry or exit would cut.
@@ -2079,6 +2115,42 @@ mod tests {
         // No stock over the point, or the stock below the goal.
         assert!(depth_into_stock(30.0, None, 7.0).abs() < 1e-12);
         assert!(depth_into_stock(30.0, Some(6.0), 7.0).abs() < 1e-12);
+    }
+
+    /// CodeRabbit on #972: where the lead-in meets the pass (the join) is a
+    /// position the tool is sent to, so a face outside the selection that
+    /// only the join cuts deeper than the tolerance (and the slack) is
+    /// refused there, as the pass's own cut; beside swarf's face set the
+    /// pass's own cut there is the allowance, as before (decision 0682).
+    #[test]
+    fn req_op_11_req_op_12_the_join_is_measured_against_the_faces_outside_the_selection() {
+        let none: Vec<BTreeMap<usize, f64>> = vec![BTreeMap::new(), BTreeMap::new()];
+        let own = BTreeMap::from([(3, 0.5)]);
+        let slack = |_: usize| 0.02;
+        assert_eq!(
+            deepest_beside(&none, &own, Allowance::Tolerance, 0.01, slack),
+            Some((2, 3, 0.5, 0.5))
+        );
+        assert_eq!(
+            deepest_beside(&none, &own, Allowance::PassCut, 0.01, slack),
+            None
+        );
+        // A move that cuts deeper than the join is the one named.
+        let deeper = vec![BTreeMap::from([(3, 0.8)]), BTreeMap::new()];
+        assert_eq!(
+            deepest_beside(&deeper, &own, Allowance::Tolerance, 0.01, slack),
+            Some((0, 3, 0.8, 0.5))
+        );
+        assert_eq!(
+            deepest_beside(&deeper, &own, Allowance::PassCut, 0.01, slack),
+            Some((0, 3, 0.8, 0.5))
+        );
+        // Within the tolerance and the slack: nothing.
+        let shallow = BTreeMap::from([(3, 0.02)]);
+        assert_eq!(
+            deepest_beside(&none, &shallow, Allowance::Tolerance, 0.01, slack),
+            None
+        );
     }
 
     /// CodeRabbit on #866 (decision record 0682): a face sampled no finer
