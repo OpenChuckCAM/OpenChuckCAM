@@ -783,6 +783,22 @@ const SAMPLE_STEPS: u32 = 6;
 
 /// The most of `|f|` at points spread over the triangle `t`
 /// ([`SAMPLE_STEPS`] along each side).
+/// The least and most of `f` at the sample points of [`sampled`].
+fn sampled_range(t: &[Point3; 3], f: impl Fn(Point3) -> f64) -> (f64, f64) {
+    let n = SAMPLE_STEPS;
+    let (mut lo, mut hi) = (0.0_f64, 0.0_f64);
+    for i in 0..=n {
+        for j in 0..=(n - i) {
+            let (a, b) = (f64::from(i) / f64::from(n), f64::from(j) / f64::from(n));
+            let p = t[0] + (t[1] - t[0]) * a + (t[2] - t[0]) * b;
+            let v = f(p);
+            lo = lo.min(v);
+            hi = hi.max(v);
+        }
+    }
+    (lo, hi)
+}
+
 fn sampled(t: &[Point3; 3], f: impl Fn(Point3) -> f64) -> f64 {
     let n = SAMPLE_STEPS;
     let mut most = 0.0_f64;
@@ -1240,6 +1256,140 @@ impl ExactFace {
     /// and a B-spline face it is measured at points across the triangle and
     /// multiplied by [`SAMPLED_SAFETY`]: a measurement, not a proof.
     pub(crate) fn triangle_error(&self, t: &[Point3; 3]) -> f64 {
+        self.triangle_band(t).most()
+    }
+
+    /// How far this face lies outside and inside the triangle `t`, whose
+    /// corners lie on it, along its outward normal (the project owner's
+    /// answer of 27 Nov 2026: the error taken one way): a convex face bulges
+    /// past its chords and lies outside them only, a concave one inside.
+    /// The wider side is [`Self::triangle_error`]. From the signed distance
+    /// of the triangle's points from the face, positive outside the
+    /// material: exact for a plane, a sphere, a cylinder and a cone, whose
+    /// signed distance is a sign times the same convex function the error
+    /// bounds; measured for a torus and a B-spline face (times
+    /// [`SAMPLED_SAFETY`]). With no outward side to be found, both ways are
+    /// the error.
+    pub(crate) fn triangle_band(&self, t: &[Point3; 3]) -> crate::gap::Band {
+        match self.signed_extent(t) {
+            Some((lo, hi)) if lo.is_finite() && hi.is_finite() => crate::gap::Band {
+                above: (-lo).max(0.0),
+                below: hi.max(0.0),
+            },
+            _ => crate::gap::Band::even(self.unsigned_error(t)),
+        }
+    }
+
+    /// The least and most signed distance from this face of a point of the
+    /// triangle `t`, positive outside the material (see
+    /// [`Self::triangle_band`]); `None` where the outward side is not found.
+    fn signed_extent(&self, t: &[Point3; 3]) -> Option<(f64, f64)> {
+        let centre = Point3::new(
+            (t[0].x + t[1].x + t[2].x) / 3.0,
+            (t[0].y + t[1].y + t[2].y) / 3.0,
+            (t[0].z + t[1].z + t[2].z) / 3.0,
+        );
+        let near = self.closest_within(centre, f64::MAX)?;
+        let out = near.point.normal.get();
+        let foot = near.point.point;
+        // The sign that makes an implicit value `g` (zero on the surface)
+        // positive outside: the way `g` grows along the outward normal.
+        let side = |g: &dyn Fn(Point3) -> f64| {
+            let step = 1e-6 * (1.0 + foot.distance(Point3::ORIGIN));
+            let grows = g(foot + out * step) - g(foot + out * (-step));
+            if grows > 0.0 {
+                Some(1.0)
+            } else if grows < 0.0 {
+                Some(-1.0)
+            } else {
+                None
+            }
+        };
+        let signed = |sign: f64, lo: f64, hi: f64| {
+            if sign > 0.0 { (lo, hi) } else { (-hi, -lo) }
+        };
+        if let Geometry::Quad(a) = &self.geometry {
+            let ax = &a.ax;
+            // The least and most distance from `centre` of a point of `tri`:
+            // the distance from a point is convex, so its most is at a
+            // corner.
+            let reach = |centre: Point3, tri: &[Point3; 3]| {
+                let near = distance_to_triangle(centre, tri);
+                let far = tri.iter().map(|p| p.distance(centre)).fold(0.0, f64::max);
+                (near, far)
+            };
+            match a.quad {
+                Quad::Plane => {
+                    let g = |p: Point3| (p - ax.o).dot(ax.z);
+                    let sign = side(&g)?;
+                    let values = t.map(g);
+                    let lo = values.iter().copied().fold(f64::INFINITY, f64::min);
+                    let hi = values.iter().copied().fold(f64::NEG_INFINITY, f64::max);
+                    return Some(signed(sign, lo, hi));
+                }
+                Quad::Sphere { r } => {
+                    let sign = side(&|p: Point3| p.distance(ax.o) - r)?;
+                    let (near, far) = reach(ax.o, t);
+                    return Some(signed(sign, near - r, far - r));
+                }
+                Quad::Cylinder { r } => {
+                    let flat = |p: Point3| {
+                        let d = p - ax.o;
+                        p + ax.z * (-d.dot(ax.z))
+                    };
+                    let sign = side(&|p: Point3| flat(p).distance(ax.o) - r)?;
+                    let (near, far) = reach(ax.o, &t.map(flat));
+                    return Some(signed(sign, near - r, far - r));
+                }
+                Quad::Cone { r, a: half } => {
+                    // As in `unsigned_error`: g is convex, its most at a
+                    // corner and its least by nested golden-section searches;
+                    // a point's distance from the cone is |g| cos a.
+                    let tan = half.tan();
+                    let g = |p: Point3| {
+                        let d = p - ax.o;
+                        let h = d.dot(ax.z);
+                        (d - ax.z * h).length() - (r + h * tan)
+                    };
+                    let sign = side(&g)?;
+                    let most = t.iter().map(|p| g(*p)).fold(f64::NEG_INFINITY, f64::max);
+                    let at = |s: f64, u: f64| {
+                        let (a, b) = (s * (1.0 - u), s * u);
+                        g(t[0] + (t[1] - t[0]) * a + (t[2] - t[0]) * b)
+                    };
+                    let inner = |s: f64| golden_least(|u| at(s, u), 0.0, 1.0);
+                    let least = golden_least(inner, 0.0, 1.0).min(most);
+                    let c = half.cos();
+                    return Some(signed(sign, least * c, most * c));
+                }
+                Quad::Torus { major, minor } => {
+                    let g = |p: Point3| {
+                        let d = p - ax.o;
+                        let h = d.dot(ax.z);
+                        ((d - ax.z * h).length() - major).hypot(h) - minor
+                    };
+                    let sign = side(&g)?;
+                    let (lo, hi) = sampled_range(t, g);
+                    return Some(signed(sign, lo * SAMPLED_SAFETY, hi * SAMPLED_SAFETY));
+                }
+            }
+        }
+        // A B-spline face: each sample's distance from its closest point,
+        // signed by the side of the face it is on.
+        let seed = near.uv;
+        let (lo, hi) = sampled_range(t, |p| {
+            self.closest_from(p, seed, f64::MAX).map_or(0.0, |c| {
+                let s = (p - c.point.point).dot(c.point.normal.get());
+                if s < 0.0 { -c.distance } else { c.distance }
+            })
+        });
+        Some((lo * SAMPLED_SAFETY, hi * SAMPLED_SAFETY))
+    }
+
+    /// The largest distance of a point of the triangle from the face, with
+    /// no side: what a triangle whose outward side is not found is taken to
+    /// be off its face both ways.
+    fn unsigned_error(&self, t: &[Point3; 3]) -> f64 {
         if let Geometry::Quad(a) = &self.geometry {
             let ax = &a.ax;
             let spread = |centre: Point3, tri: &[Point3; 3], r: f64| {

@@ -112,6 +112,34 @@ fn polytope_lowest(planes: &[(Vec3, f64)], m: Vec3) -> Option<(f64, Point3)> {
     least
 }
 
+/// How far the exact surface lies from one of the triangles standing for
+/// it, each way along the triangle's outward normal (OI-9974; the project
+/// owner's answer of 27 Nov 2026, the error taken one way): `above` outside
+/// the triangle, where it reads the tool deeper than the triangle does,
+/// `below` inside it. A mesh is its own surface: both are zero.
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
+pub(crate) struct Band {
+    /// How far the surface may lie outside the triangle.
+    pub(crate) above: f64,
+    /// How far the surface may lie inside the triangle.
+    pub(crate) below: f64,
+}
+
+impl Band {
+    /// The same distance both ways: what an error with no side is.
+    pub(crate) fn even(error: f64) -> Self {
+        Self {
+            above: error,
+            below: error,
+        }
+    }
+
+    /// The larger of the two ways: the triangle's error.
+    pub(crate) fn most(self) -> f64 {
+        self.above.max(self.below)
+    }
+}
+
 /// Multipliers for `count` constraints, zero but for the `(index, value)`
 /// pairs given.
 fn multipliers_at(count: usize, set: &[(usize, f64)]) -> Vec<f64> {

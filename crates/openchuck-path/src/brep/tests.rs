@@ -463,3 +463,75 @@ fn req_op_12_the_outline_bound_is_never_below_a_lift_in_its_box() {
         assert!(close > 40, "{close}");
     }
 }
+
+/// The signed distances from the exact face of points across triangle `t`,
+/// positive outside the material, on a dense grid of its own (not the
+/// sample grid of the error): their least and most.
+fn signed_range(face: &super::ExactFace, t: &[Point3; 3]) -> (f64, f64) {
+    let n = 40;
+    let (mut lo, mut hi) = (f64::INFINITY, f64::NEG_INFINITY);
+    for i in 0..=n {
+        for j in 0..=(n - i) {
+            let (a, b) = (f64::from(i) / f64::from(n), f64::from(j) / f64::from(n));
+            let p = t[0] + (t[1] - t[0]) * a + (t[2] - t[0]) * b;
+            let c = face.closest_within(p, f64::MAX).unwrap();
+            let s = (p - c.point.point).dot(c.point.normal.get());
+            lo = lo.min(s);
+            hi = hi.max(s);
+        }
+    }
+    (lo, hi)
+}
+
+#[test]
+fn req_op_12_a_triangle_s_band_holds_its_face_on_the_side_it_bends() {
+    // A blank with a hole through it: the blank's round face is convex,
+    // so it bulges out past its chords and lies above its triangles only;
+    // the hole's wall is concave and lies below its triangles only (the
+    // owner's answer of 27 Nov 2026: the error taken one way). Every
+    // triangle's band holds the face's signed distances measured densely
+    // across it, and its wider side is the triangle's error.
+    use openchuck_testkit::brep::{HoleSpec, drilled_blank};
+    // And a shaft with a fillet (a torus, measured, not bounded).
+    let (blank, _) = drilled_blank(10.0, 30.0, &[HoleSpec::through(15.0, [0.0, 1.0, 0.0], 6.0)]);
+    let shaft = openchuck_testkit::brep::shouldered_shaft(4);
+    let (mut convex, mut concave) = (0, 0);
+    for model in [blank, shaft] {
+        let faces: Vec<super::ExactFace> = model
+            .faces
+            .iter()
+            .map(|f| super::ExactFace::new(f).unwrap())
+            .collect();
+        let (mesh, face_of) = model.joined_tessellation();
+        for (i, f) in face_of.iter().enumerate() {
+            let t = mesh.triangle(i).unwrap();
+            let face = faces.iter().find(|x| x.number() == f.0).unwrap();
+            let band = face.triangle_band(&t);
+            let error = face.triangle_error(&t);
+            assert!(
+                (band.above.max(band.below) - error).abs() <= 1e-12 * (1.0 + error),
+                "triangle {i}: {band:?} against {error}"
+            );
+            let (lo, hi) = signed_range(face, &t);
+            // A point inside the material (negative) has the face above it.
+            assert!(
+                -lo <= band.above + 1e-9,
+                "triangle {i}: {lo} beyond {band:?}"
+            );
+            assert!(
+                hi <= band.below + 1e-9,
+                "triangle {i}: {hi} beyond {band:?}"
+            );
+            if band.above > 1e-6 && band.below <= 1e-12 {
+                convex += 1;
+            }
+            if band.below > 1e-6 && band.above <= 1e-12 {
+                concave += 1;
+            }
+        }
+    }
+    assert!(
+        convex > 0 && concave > 0,
+        "{convex} convex, {concave} concave"
+    );
+}
