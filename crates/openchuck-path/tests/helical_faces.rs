@@ -37,7 +37,7 @@ use openchuck_path::{
 use openchuck_testkit::gouge::{Outline, Pose};
 use openchuck_testkit::parts::{Cone, RadialPart, revolve};
 use openchuck_types::geometry::{Point3, Vec3};
-use openchuck_types::ir::MoveKind;
+use openchuck_types::ir::{MoveKind, ToolPose};
 use openchuck_types::machine::Clearance;
 use openchuck_types::mesh::TriangleMesh;
 use openchuck_types::tool::{
@@ -294,13 +294,25 @@ impl Job {
         extra: &[(&str, f64)],
         words: &[(&str, &str)],
     ) -> GeneratedPath {
+        self.path_kept(strategy, extra, words, &[])
+    }
+
+    /// [`Self::path_with`] beside the held regions' keep-out intervals `keep`.
+    fn path_kept(
+        &self,
+        strategy: &dyn Strategy,
+        extra: &[(&str, f64)],
+        words: &[(&str, &str)],
+        keep: &[(f64, f64)],
+    ) -> GeneratedPath {
         let tag = tags();
-        let input = input_for(
+        let mut input = input_for(
             self.surface.as_ref(),
             self.stock.as_ref(),
             &self.profile,
             &tag,
         );
+        input.keep_out = keep;
         let mut values: BTreeMap<String, ParameterValue> = [
             (names::STEPOVER, STEPOVER),
             (names::FEED, 600.0),
@@ -1907,4 +1919,864 @@ fn req_op_04_a_free_end_flush_with_the_stock_says_there_is_nothing_past_it() {
         );
         assert!(!text.contains("at X 0.000: there is no stock"), "{text}");
     }
+}
+
+/// A pin: a cylinder of radius 7.5 whose centre line is 10 mm from the
+/// rotary axis at `angle` degrees from +Y towards +Z, from X 0 to X 20, so
+/// its end faces lie 2.5 to 17.5 mm from the axis and do not reach round it
+/// (issue #834; the crankshaft's ends are such circles).
+fn pin_at(angle: f64) -> TriangleMesh {
+    let (s, c) = angle.to_radians().sin_cos();
+    let mut mesh = revolve(&[(0.0, 7.5), (20.0, 7.5)], 720);
+    for v in &mut mesh.vertices {
+        v.y += 10.0 * c;
+        v.z += 10.0 * s;
+    }
+    mesh
+}
+
+/// Two pins at once, at `a` and `b` degrees: an end in two pieces (lugs).
+fn pins_at(a: f64, b: f64) -> TriangleMesh {
+    let (mut one, two) = (pin_at(a), pin_at(b));
+    let n = one.vertices.len() as u32;
+    one.vertices.extend(two.vertices);
+    one.triangles
+        .extend(two.triangles.iter().map(|t| [t[0] + n, t[1] + n, t[2] + n]));
+    one
+}
+
+/// `mesh` in stock left by earlier operations that carries on past its
+/// start end to X -5 (and past its far end to X 25 when `both`), cut with a
+/// flat end of 25 mm of flute.
+fn off_axis_job(mesh: &TriangleMesh, both: bool) -> Job {
+    let mut cutter = tool(ToolShape::FlatEnd, DIAMETER);
+    cutter.flute_length = Millimetres(25.0);
+    Job {
+        surface: Box::new(MeshSurface::new(mesh).unwrap()),
+        stock: Box::new(Carried(AnalyticStock::Cylinder {
+            radius: 18.5,
+            x_start: -5.0,
+            x_end: if both { 25.0 } else { 20.0 },
+        })),
+        profile: cutter.profile().unwrap(),
+    }
+}
+
+/// The pin at 90 degrees with a tab on the axis of radius `r` past its start
+/// end (X -5 to 0), in stock carried on past it, left by earlier
+/// operations.
+fn off_axis_end_with_tab(r: f64) -> Job {
+    with_tabs(&pin_at(90.0), false, &[(-5.0, r)])
+}
+
+/// `mesh` as [`off_axis_job`] makes it, with a tab on the axis of radius `r`
+/// and 5 mm long from each X of `tabs`.
+fn with_tabs(mesh: &TriangleMesh, both: bool, tabs: &[(f64, f64)]) -> Job {
+    let mut job = off_axis_job(mesh, both);
+    let along = openchuck_types::geometry::UnitVec3::new(Vec3::new(1.0, 0.0, 0.0)).unwrap();
+    let model: std::sync::Arc<dyn SurfaceSource> =
+        std::sync::Arc::new(MeshSurface::new(mesh).unwrap());
+    job.surface = Box::new(CompositeSurface::new(
+        model,
+        tabs.iter()
+            .map(|&(x, r)| Solid::cylinder(Point3::new(x, 0.0, 0.0), along, 5.0, r).unwrap())
+            .collect(),
+    ));
+    job
+}
+
+/// A tube on the rotary axis from X `x0` to `x1`, `inner` to `outer` in
+/// radius, with `around` vertices per ring: an end with a hole in it.
+fn tube(inner: f64, outer: f64, (x0, x1): (f64, f64), around: u32) -> TriangleMesh {
+    let mut vertices = Vec::new();
+    for &(x, r) in &[(x0, outer), (x1, outer), (x1, inner), (x0, inner)] {
+        for j in 0..around {
+            let t = std::f64::consts::TAU * f64::from(j) / f64::from(around);
+            vertices.push(Point3::new(x, r * t.cos(), r * t.sin()));
+        }
+    }
+    let at = |i: u32, j: u32| i * around + j % around;
+    let mut triangles = Vec::new();
+    for i in 0..4 {
+        let k = (i + 1) % 4;
+        for j in 0..around {
+            triangles.push([at(i, j), at(k, j + 1), at(k, j)]);
+            triangles.push([at(i, j), at(i, j + 1), at(k, j + 1)]);
+        }
+    }
+    TriangleMesh {
+        vertices,
+        triangles,
+    }
+}
+
+/// The Part cut free warnings of `path` that say a tab does not meet its
+/// end, and how many of them are to acknowledge.
+fn tab_misses(path: &GeneratedPath) -> (usize, usize) {
+    let found: Vec<_> = path
+        .notices
+        .iter()
+        .filter(|n| n.topic.as_deref() == Some("Part cut free") && n.text.contains("does not meet"))
+        .collect();
+    (
+        found.len(),
+        found.iter().filter(|n| n.acknowledgement.is_some()).count(),
+    )
+}
+
+/// Points on a pin's end face at `x`, its centre at `angle` degrees, `step`
+/// mm apart.
+fn pin_face(x: f64, angle: f64, step: f64) -> Vec<Point3> {
+    let (s, c) = angle.to_radians().sin_cos();
+    let (cy, cz) = (10.0 * c, 10.0 * s);
+    let mut out = vec![Point3::new(x, cy, cz)];
+    let nr = (7.5 / step).ceil() as u32;
+    for i in 1..=nr {
+        let r = 7.5 * f64::from(i) / f64::from(nr);
+        let na = (std::f64::consts::TAU * r / step).ceil() as u32;
+        for j in 0..na {
+            let t = std::f64::consts::TAU * f64::from(j) / f64::from(na);
+            out.push(Point3::new(x, cy + r * t.cos(), cz + r * t.sin()));
+        }
+    }
+    out
+}
+
+/// X of the tool's axis beside a start end face at X 0, as Face free ends
+/// stands it (a tenth of the tolerance clear).
+const NEAR_END: f64 = -(0.5 * DIAMETER) - 0.1 * TOLERANCE;
+/// The same beside a far end face at X 20.
+const FAR_END: f64 = 20.0 + 0.5 * DIAMETER + 0.1 * TOLERANCE;
+
+/// The cutting moves of `path` whose tool stands at X `x` from start to end
+/// (the arcs and turns that face an end there), as (from, to) poses.
+fn moves_at(path: &GeneratedPath, x: f64) -> Vec<(ToolPose, ToolPose)> {
+    let mut out = Vec::new();
+    let mut from = path.group.start;
+    for s in &path.group.segments {
+        if s.kind == MoveKind::Cutting
+            && (from.tip.x - x).abs() < 1e-6
+            && (s.end.tip.x - x).abs() < 1e-6
+        {
+            out.push((from, s.end));
+        }
+        from = s.end;
+    }
+    out
+}
+
+/// The arcs and turns of `path` at X `x`, each the run of cutting moves
+/// there with nothing between them, in path order.
+fn arcs_at(path: &GeneratedPath, x: f64) -> Vec<Vec<(ToolPose, ToolPose)>> {
+    let mut out: Vec<Vec<(ToolPose, ToolPose)>> = Vec::new();
+    let mut open = false;
+    let mut from = path.group.start;
+    for s in &path.group.segments {
+        let here = s.kind == MoveKind::Cutting
+            && (from.tip.x - x).abs() < 1e-6
+            && (s.end.tip.x - x).abs() < 1e-6;
+        if here {
+            if !open {
+                out.push(Vec::new());
+            }
+            if let Some(arc) = out.last_mut() {
+                arc.push((from, s.end));
+            }
+        }
+        open = here;
+        from = s.end;
+    }
+    out
+}
+
+/// The tip's distance from the rotary axis along the tool axis.
+fn height_of(p: &ToolPose) -> f64 {
+    let rotary = RotaryMapping::of_profile(&machine());
+    rotary.to_axis(p.tip, p.a).height
+}
+
+#[test]
+fn req_op_04_req_op_09_an_end_that_does_not_reach_round_the_axis_is_faced_to_its_lowest_radius() {
+    // Issue #834, decision record 0700 (the owner's improved B): an end
+    // with nothing past it whose face does not reach round the rotary axis
+    // (here 2.5 to 17.5 mm from it) is faced in layers of the Stepdown down
+    // to its lowest radius, not to the axis, each layer an arc over the
+    // angles where the face is, not a whole turn. The face keeps only the
+    // stock to leave and is never cut into. Before, nothing was cut there
+    // and nothing said so.
+    let job = off_axis_job(&pin_at(90.0), false);
+    for strategy in [
+        &HelicalFinishing as &dyn Strategy,
+        &AxialFinishing,
+        &RestMachining,
+    ] {
+        let path = job.path(strategy, &[("stepdown", 2.0)]);
+        let left = &job.left(&path, &[pin_face(0.0, 90.0, 0.25)], 3.0)[0];
+        let (w, d) = (worst(left), deepest(left));
+        assert!(w <= TOLERANCE, "{}: {w:.4} mm left", strategy.name());
+        assert!(d >= -TOLERANCE, "{}: cut to {d:.4}", strategy.name());
+        let moves = moves_at(&path, NEAR_END);
+        assert!(!moves.is_empty(), "{}: no arc", strategy.name());
+        // The last layer is the first whole Stepdown at or below the lowest
+        // radius (2.5): 2 mm, never the axis.
+        let lowest = moves
+            .iter()
+            .map(|(_, b)| height_of(b))
+            .fold(f64::INFINITY, f64::min);
+        assert!((lowest - 2.0).abs() < 1e-6, "{}: {lowest}", strategy.name());
+        // Arcs, not whole turns.
+        assert!(
+            turns_in_place(&path)
+                .iter()
+                .all(|x| (x - NEAR_END).abs() > 1e-6),
+            "{}: a whole turn at the end",
+            strategy.name()
+        );
+    }
+}
+
+#[test]
+fn req_op_04_an_off_axis_end_that_the_first_line_of_a_misses_is_found() {
+    // Issue #834: the search began only from the gaps on the first line of
+    // A, so an end that line does not cross was never considered. The pin
+    // is placed at several angles round the axis.
+    for angle in [0.0, 45.0, 180.0, 300.0] {
+        let job = off_axis_job(&pin_at(angle), false);
+        let path = job.path(&HelicalFinishing, &[("stepdown", 2.0)]);
+        let left = &job.left(&path, &[pin_face(0.0, angle, 0.25)], 3.0)[0];
+        assert!(worst(left) <= TOLERANCE, "{angle}: {:.4}", worst(left));
+        assert!(deepest(left) >= -TOLERANCE, "{angle}: {:.4}", deepest(left));
+    }
+}
+
+#[test]
+fn req_op_04_req_set_09_an_off_axis_end_is_named_and_its_cut_free_warnings_given() {
+    // Decision 0700: the end is named in the Free ends note with its lowest
+    // radius, and since the arcs part the stock past the end from the part,
+    // decision 0344's Part cut free warnings are given, the part's own one
+    // to acknowledge.
+    let job = off_axis_job(&pin_at(90.0), false);
+    let path = job.path(&HelicalFinishing, &[("stepdown", 2.0)]);
+    let text = messages(&path);
+    assert!(
+        text.contains("the end face at X 0.000 has nothing beyond it")
+            && text.contains("does not reach round the rotary axis")
+            && text.contains("2.500 mm"),
+        "{text}"
+    );
+    let cut_free: Vec<_> = path
+        .notices
+        .iter()
+        .filter(|n| n.topic.as_deref() == Some("Part cut free"))
+        .collect();
+    assert_eq!(cut_free.len(), 2, "{text}");
+    assert!(
+        cut_free.iter().any(|n| n.acknowledgement.is_some()),
+        "{text}"
+    );
+}
+
+#[test]
+fn req_op_25_the_arcs_follow_the_cutting_direction() {
+    // Decision 0700 (the owner's J1): Cutting direction acts on the arcs.
+    // Climb (the default) puts the end face on the tool's right looking
+    // along the feed from the spindle (M3, decision 0213), so the A sense
+    // differs at a start and a far end; conventional the opposite; meander
+    // alternates arc by arc.
+    let job = off_axis_job(&pin_at(90.0), true);
+    let right_of = |p: &GeneratedPath, x: f64, toward: f64| -> Vec<bool> {
+        moves_at(p, x)
+            .iter()
+            .filter(|(a, b)| (b.a.0 - a.a.0).abs() > 1e-9)
+            .map(|(a, b)| {
+                let feed = b.tip - a.tip;
+                let right = feed.cross(b.axis.get());
+                right.x * toward > 0.0
+            })
+            .collect()
+    };
+    for (word, expect) in [
+        ("climb", Some(true)),
+        ("conventional", Some(false)),
+        ("meander", None),
+    ] {
+        let path = job.path_with(
+            &HelicalFinishing,
+            &[("stepdown", 2.0)],
+            &[("free_end_direction", word)],
+        );
+        for (x, toward) in [(NEAR_END, 1.0), (FAR_END, -1.0)] {
+            let sides = right_of(&path, x, toward);
+            assert!(!sides.is_empty(), "{word} at {x}");
+            match expect {
+                Some(e) => assert!(sides.iter().all(|s| *s == e), "{word} at {x}: {sides:?}"),
+                None => {
+                    // Meander alternates arc by arc (CodeRabbit on #968):
+                    // each arc cuts one way throughout, and each arc the
+                    // other way from the one before it.
+                    let per_arc: Vec<bool> = arcs_at(&path, x)
+                        .iter()
+                        .filter_map(|arc| {
+                            let sides: Vec<bool> = arc
+                                .iter()
+                                .filter(|(a, b)| (b.a.0 - a.a.0).abs() > 1e-9)
+                                .map(|(a, b)| (b.tip - a.tip).cross(b.axis.get()).x * toward > 0.0)
+                                .collect();
+                            let first = *sides.first()?;
+                            assert!(sides.iter().all(|s| *s == first), "{word} at {x}");
+                            Some(first)
+                        })
+                        .collect();
+                    assert!(per_arc.len() >= 3, "{word} at {x}: {per_arc:?}");
+                    assert!(
+                        per_arc.windows(2).all(|w| w[0] != w[1]),
+                        "{word} at {x}: {per_arc:?}"
+                    );
+                }
+            }
+        }
+    }
+    // Climb is the default: a saved operation without the setting reads it.
+    let plain = job.path(&HelicalFinishing, &[("stepdown", 2.0)]);
+    let climb = job.path_with(
+        &HelicalFinishing,
+        &[("stepdown", 2.0)],
+        &[("free_end_direction", "climb")],
+    );
+    assert_eq!(plain.group.segments, climb.group.segments);
+}
+
+#[test]
+fn req_op_04_each_layer_s_arc_lies_within_the_arc_above_it() {
+    // Decision 0700: the arcs are nested, so no layer goes down into stock
+    // the layer above it left: every angle a layer cuts is cut by the layer
+    // above it too, round the circle (A taken modulo a turn) and arc by arc
+    // where an end is in two pieces (CodeRabbit on #968: containment, not
+    // only a narrower width).
+    for mesh in [pin_at(90.0), pins_at(90.0, 270.0)] {
+        let job = off_axis_job(&mesh, false);
+        let path = job.path(&HelicalFinishing, &[("stepdown", 2.0)]);
+        // Each layer's arcs, as (start, sweep) in degrees, start in [0, 360).
+        let mut layers: BTreeMap<i64, Vec<(f64, f64)>> = BTreeMap::new();
+        for arc in arcs_at(&path, NEAR_END) {
+            let (Some(first), Some(last)) = (arc.first(), arc.last()) else {
+                continue;
+            };
+            let h = (height_of(&first.1) * 1e6).round() as i64;
+            let (a0, a1) = (first.0.a.0, last.1.a.0);
+            let sweep = (a1 - a0).abs();
+            layers
+                .entry(h)
+                .or_default()
+                .push((a0.min(a1).rem_euclid(360.0), sweep));
+        }
+        let covers = |arcs: &[(f64, f64)], a: f64| {
+            arcs.iter().any(|&(start, sweep)| {
+                sweep >= 360.0 - 1e-6 || (a - start).rem_euclid(360.0) <= sweep + 1e-6
+            })
+        };
+        let list: Vec<(i64, Vec<(f64, f64)>)> = layers.into_iter().collect();
+        assert!(list.len() >= 5, "{list:?}");
+        for w in list.windows(2) {
+            let ((_, lower), (_, upper)) = (&w[0], &w[1]);
+            for &(start, sweep) in lower {
+                let steps = (sweep / 0.5).ceil().max(1.0) as usize;
+                for i in 0..=steps {
+                    let a = (start + sweep * i as f64 / steps as f64).rem_euclid(360.0);
+                    assert!(covers(upper, a), "{a} not cut above: {list:?}");
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn req_op_04_an_end_in_two_pieces_takes_an_arc_over_each() {
+    // Decision 0700: lugs at one X give one arc each per layer, and both
+    // faces are faced.
+    let job = off_axis_job(&pins_at(90.0, 270.0), false);
+    let path = job.path(&HelicalFinishing, &[("stepdown", 2.0)]);
+    let left = job.left(
+        &path,
+        &[pin_face(0.0, 90.0, 0.25), pin_face(0.0, 270.0, 0.25)],
+        3.0,
+    );
+    for l in &left {
+        assert!(worst(l) <= TOLERANCE, "{:.4}", worst(l));
+        assert!(deepest(l) >= -TOLERANCE, "{:.4}", deepest(l));
+    }
+    // Each lug stops 2.5 mm from the axis, so the last layer is at 2 mm: the
+    // lug opposite is not taken for material at the axis (CodeRabbit on
+    // #968).
+    let lowest = moves_at(&path, NEAR_END)
+        .iter()
+        .map(|(_, b)| height_of(b))
+        .fold(f64::INFINITY, f64::min);
+    assert!((lowest - 2.0).abs() < 1e-6, "{lowest}");
+    assert!(
+        turns_in_place(&path)
+            .iter()
+            .all(|x| (x - NEAR_END).abs() > 1e-6)
+    );
+}
+
+#[test]
+fn req_nfr_06_req_gc_07_off_axis_end_arcs_are_identical_at_1_2_and_n_threads() {
+    let job = off_axis_job(&pin_at(90.0), true);
+    let at = |threads: usize| {
+        rayon::ThreadPoolBuilder::new()
+            .num_threads(threads)
+            .build()
+            .unwrap()
+            .install(|| {
+                job.path(&HelicalFinishing, &[("stepdown", 2.0)])
+                    .group
+                    .segments
+            })
+    };
+    let one = at(1);
+    assert_eq!(one, at(2));
+    assert_eq!(one, at(8));
+}
+
+/// The pin at 90 degrees with its start end not square to the axis: the
+/// end plane leans by `lean` mm of X per mm of Y across the pin.
+fn leaning_pin(lean: f64) -> TriangleMesh {
+    let mut mesh = pin_at(90.0);
+    for v in &mut mesh.vertices {
+        if v.x < 1e-9 {
+            v.x = lean * v.y;
+        }
+    }
+    mesh
+}
+
+#[test]
+fn req_op_04_req_nfr_12_an_end_that_cannot_be_faced_is_warned_and_named_with_facing() {
+    // Decision 0700 (the owner's answer A to Q3 on #834): an end with
+    // nothing past it that Face free ends cannot face (here its face leans
+    // by 4.5 mm across the pin, more than a tool radius) is warned of, never
+    // left in silence, naming Facing; Shape End where it is the end opposite
+    // the setup's sole held end.
+    let job = off_axis_job(&leaning_pin(0.3), false);
+    let path = job.path(&HelicalFinishing, &[("stepdown", 2.0)]);
+    let said: Vec<_> = path
+        .warnings()
+        .into_iter()
+        .filter(|n| n.text.contains("is not square to the rotary axis"))
+        .collect();
+    assert_eq!(said.len(), 1, "{}", messages(&path));
+    assert!(
+        said[0].text.contains("Face it with a Facing operation,"),
+        "{}",
+        said[0].text
+    );
+    assert!(!said[0].text.contains("Shape End"), "{}", said[0].text);
+    let held = job.path_kept(
+        &HelicalFinishing,
+        &[("stepdown", 2.0)],
+        &[],
+        &[(18.0, 25.0)],
+    );
+    let text = messages(&held);
+    assert!(
+        text.contains("Face it with a Facing operation, Shape End"),
+        "{text}"
+    );
+}
+
+/// Helical finishing's passes that stand at the start end's X alone: the
+/// arcs that face an off-axis end, without the main passes, which on a part
+/// to one side of the axis start near it and take their own entries.
+#[derive(Debug)]
+struct EndArcs;
+
+impl Strategy for EndArcs {
+    fn name(&self) -> &str {
+        "test_end_arcs"
+    }
+    fn label(&self) -> &str {
+        "End arcs (test)"
+    }
+    fn description(&self) -> &str {
+        "A strategy for tests."
+    }
+    fn schema(&self) -> openchuck_path::ParameterSchema {
+        HelicalFinishing.schema()
+    }
+    fn passes(
+        &self,
+        input: &StrategyInput<'_>,
+        parameters: &openchuck_path::Parameters,
+        context: &openchuck_types::job::JobContext<'_>,
+    ) -> openchuck_path::Result<Vec<openchuck_path::Pass>> {
+        let mut passes = HelicalFinishing.passes(input, parameters, context)?;
+        passes.retain(|p| p.points.iter().all(|c| (c.tip.x - NEAR_END).abs() < 1e-6));
+        Ok(passes)
+    }
+}
+
+#[test]
+fn req_op_11_the_arcs_take_the_operations_entry_as_whole_turns_do() {
+    // Decision 0700: each arc is its own pass, so the operation's Entry
+    // applies at its start as at any pass: Plunge, Lead and Ramp enter the
+    // arcs and the face is left at the stock to leave, never cut into; Helix
+    // is refused there, as at a whole turn at an end round the axis (the
+    // helix has no room beside the face).
+    let job = off_axis_job(&pin_at(90.0), false);
+    let tag = tags();
+    let input = input_for(job.surface.as_ref(), job.stock.as_ref(), &job.profile, &tag);
+    for entry in ["plunge", "lead", "ramp", "helix"] {
+        let values: BTreeMap<String, ParameterValue> = [
+            (names::STEPOVER, ParameterValue::Number(STEPOVER)),
+            (names::FEED, ParameterValue::Number(600.0)),
+            (names::PLUNGE_FEED, ParameterValue::Number(150.0)),
+            (names::TOLERANCE, ParameterValue::Number(TOLERANCE)),
+            ("stepdown", ParameterValue::Number(2.0)),
+            (names::ENTRY, ParameterValue::Text(entry.into())),
+        ]
+        .into_iter()
+        .map(|(k, v)| (k.to_owned(), v))
+        .collect();
+        let made = run(|ctx| generate(&EndArcs, &input, &values, ctx));
+        if entry == "helix" {
+            let text = made.unwrap_err().to_string();
+            assert!(text.contains("Helix entry"), "{text}");
+            continue;
+        }
+        let path = made.unwrap();
+        let left = &job.left(&path, &[pin_face(0.0, 90.0, 0.25)], 3.0)[0];
+        assert!(worst(left) <= TOLERANCE, "{entry}: {:.4}", worst(left));
+        assert!(deepest(left) >= -TOLERANCE, "{entry}: {:.4}", deepest(left));
+    }
+}
+
+#[test]
+fn req_nfr_12_an_off_axis_end_on_the_setups_own_stock_is_faced_and_said() {
+    // As for an end round the axis (OI-1394): with no earlier operation the
+    // setup's own stock is what is faced, and a warning says the real blank
+    // must match it.
+    let mut job = off_axis_job(&pin_at(90.0), false);
+    job.stock = Box::new(AnalyticStock::Cylinder {
+        radius: 18.5,
+        x_start: -5.0,
+        x_end: 20.0,
+    });
+    let path = job.path(&HelicalFinishing, &[("stepdown", 2.0)]);
+    let left = &job.left(&path, &[pin_face(0.0, 90.0, 0.25)], 3.0)[0];
+    assert!(worst(left) <= TOLERANCE, "{:.4}", worst(left));
+    assert!(messages(&path).contains("the real blank must match it"));
+}
+
+#[test]
+fn req_set_09_an_off_axis_end_with_the_part_held_beyond_it_keeps_only_the_stock_warning() {
+    // Decision 0344's two warnings hold for the arcs: with the part held at
+    // its other end, only the stock past the end is said to be loose, and
+    // nothing is to acknowledge.
+    let job = off_axis_job(&pin_at(90.0), false);
+    let path = job.path_kept(
+        &HelicalFinishing,
+        &[("stepdown", 2.0)],
+        &[],
+        &[(18.0, 25.0)],
+    );
+    let cut_free: Vec<_> = path
+        .notices
+        .iter()
+        .filter(|n| n.topic.as_deref() == Some("Part cut free"))
+        .collect();
+    assert_eq!(cut_free.len(), 1, "{}", messages(&path));
+    assert!(
+        cut_free[0].text.contains("the stock past the arcs"),
+        "{}",
+        cut_free[0].text
+    );
+    assert!(cut_free[0].acknowledgement.is_none());
+}
+
+/// Points on the crankshaft's two end faces (X 0 and X 40), `step` mm apart.
+fn crankshaft_ends(step: f64) -> Vec<Vec<Point3>> {
+    let mesh = crankshaft();
+    let mut ends = vec![Vec::new(), Vec::new()];
+    for t in &mesh.triangles {
+        let [a, b, c] = t.map(|i| mesh.vertices[i as usize]);
+        let n = (b - a).cross(c - a);
+        if n.length() < 1e-12 || (n.x / n.length()).abs() < 0.999 {
+            continue;
+        }
+        let side = if a.x < 0.5 {
+            0
+        } else if a.x > 39.5 {
+            1
+        } else {
+            continue;
+        };
+        let e = (b - a).length().max((c - a).length()).max((c - b).length());
+        let k = (e / step).ceil().max(1.0) as u32;
+        for i in 0..=k {
+            for j in 0..=(k - i) {
+                let (u, v) = (f64::from(i) / f64::from(k), f64::from(j) / f64::from(k));
+                ends[side].push(a + (b - a) * u + (c - a) * v);
+            }
+        }
+    }
+    ends
+}
+
+#[test]
+fn req_op_04_the_crankshafts_ends_are_faced() {
+    // Issue #834: the crankshaft's ends do not reach round the rotary axis,
+    // and Face free ends left them without a word. Now each is faced to its
+    // nearest point to the axis and never cut into.
+    let job = Job::crankshaft();
+    let path = job.path(&HelicalFinishing, &[("stepdown", 2.0)]);
+    let ends = crankshaft_ends(0.25);
+    assert!(ends.iter().all(|e| !e.is_empty()));
+    for (k, left) in job.left(&path, &ends, 3.0).iter().enumerate() {
+        assert!(worst(left) <= TOLERANCE, "end {k}: {:.4}", worst(left));
+        assert!(deepest(left) >= -TOLERANCE, "end {k}: {:.4}", deepest(left));
+    }
+}
+
+/// Points on the pin's start end face (X 0) at least `beyond` mm from the
+/// rotary axis, `step` mm apart: the face outside a tab on the axis.
+fn pin_face_outside(beyond: f64, step: f64) -> Vec<Point3> {
+    pin_face(0.0, 90.0, step)
+        .into_iter()
+        .filter(|p| p.y.hypot(p.z) >= beyond)
+        .collect()
+}
+
+/// Points on the tab on the axis of radius `r` (X -5 to 0): its round side
+/// and its end at the part, `step` mm apart.
+fn axis_tab_surface(r: f64, step: f64) -> Vec<Point3> {
+    let mut out = Vec::new();
+    let na = ((std::f64::consts::TAU * r / step).ceil() as u32).max(4);
+    let nx = (5.0 / step).ceil() as u32;
+    for i in 0..=nx {
+        let x = -5.0 + 5.0 * f64::from(i) / f64::from(nx);
+        for j in 0..na {
+            let t = std::f64::consts::TAU * f64::from(j) / f64::from(na);
+            out.push(Point3::new(x, r * t.cos(), r * t.sin()));
+        }
+    }
+    out
+}
+
+#[test]
+fn req_op_21_an_off_axis_end_whose_tab_meets_it_is_faced_down_to_the_tab_as_before() {
+    // Decision 0700 (the owner's answer on Q2, as decision 0297 already
+    // builds it): an end that a tab meets is faced down to the tab by the
+    // turn at the face across the axis, with its shoulder note and nothing
+    // more; the tab is never cut (OP-21).
+    let job = off_axis_end_with_tab(4.0);
+    let path = job.path(&HelicalFinishing, &[("stepdown", 2.0)]);
+    let left = &job.left(&path, &[pin_face_outside(4.25, 0.25)], 3.0)[0];
+    assert!(worst(left) <= TOLERANCE, "{:.4}", worst(left));
+    assert!(deepest(left) >= -TOLERANCE, "{:.4}", deepest(left));
+    let cut = deepest(&job.left(&path, &[axis_tab_surface(4.0, 0.25)], 3.0)[0]);
+    assert!(cut >= -TOLERANCE, "the tab is cut into by {cut:.4} mm");
+    let text = messages(&path);
+    assert!(
+        !text.contains("does not reach round the rotary axis"),
+        "{text}"
+    );
+    assert!(!text.contains("does not meet"), "{text}");
+    assert!(
+        path.notices
+            .iter()
+            .all(|n| n.topic.as_deref() != Some("Part cut free")),
+        "{text}"
+    );
+}
+
+#[test]
+fn req_set_09_req_op_21_an_end_whose_tab_misses_it_is_warned_as_cut_free() {
+    // Decision 0700 (the owner's rule: tabbed only where a tab meets the
+    // face): a tab on the axis narrower than the end's nearest point holds
+    // nothing, so the turn down to the tab cuts the part free of it. The
+    // face is faced as before, and decision 0344's Part cut free warnings
+    // are given, the part's own one to acknowledge.
+    let job = off_axis_end_with_tab(2.0);
+    let path = job.path(&HelicalFinishing, &[("stepdown", 2.0)]);
+    let left = &job.left(&path, &[pin_face_outside(2.5, 0.25)], 3.0)[0];
+    assert!(worst(left) <= TOLERANCE, "{:.4}", worst(left));
+    let cut_free: Vec<_> = path
+        .notices
+        .iter()
+        .filter(|n| n.topic.as_deref() == Some("Part cut free"))
+        .collect();
+    let text = messages(&path);
+    assert_eq!(cut_free.len(), 2, "{text}");
+    assert!(
+        cut_free.iter().all(|n| n.text.contains("does not meet")),
+        "{text}"
+    );
+    assert!(
+        cut_free.iter().any(|n| n.acknowledgement.is_some()),
+        "{text}"
+    );
+}
+
+#[test]
+fn req_set_09_req_op_21_a_tab_inside_the_hole_of_an_end_does_not_meet_it() {
+    // CodeRabbit on #968: a tube's end (radius 4 to 8) with a tab of
+    // radius 2 on the axis inside its hole. The turn down to the tab cuts
+    // the tube free of it, so the Part cut free warnings are given: the
+    // span between the outermost material is not all material.
+    let job = with_tabs(&tube(4.0, 8.0, (0.0, 20.0), 720), false, &[(-5.0, 2.0)]);
+    let path = job.path(&HelicalFinishing, &[("stepdown", 2.0)]);
+    assert_eq!(tab_misses(&path), (2, 1), "{}", messages(&path));
+    // A tab that fills the hole and meets the end is not warned of.
+    let job = with_tabs(&tube(4.0, 8.0, (0.0, 20.0), 720), false, &[(-5.0, 5.0)]);
+    let path = job.path(&HelicalFinishing, &[("stepdown", 2.0)]);
+    assert_eq!(tab_misses(&path), (0, 0), "{}", messages(&path));
+}
+
+#[test]
+fn req_set_09_req_op_21_a_tab_is_checked_against_the_end_at_its_face() {
+    // CodeRabbit on #968: the pin comes 2.5 mm from the axis at its end
+    // face and 1.5 mm from it 1 mm inside. A tab of radius 2 does not meet
+    // the face, however near the part comes further in.
+    let mut mesh = revolve(&[(0.0, 7.5), (1.0, 7.5), (1.0, 8.5), (20.0, 8.5)], 720);
+    for v in &mut mesh.vertices {
+        v.z += 10.0;
+    }
+    let job = with_tabs(&mesh, false, &[(-5.0, 2.0)]);
+    let path = job.path(&HelicalFinishing, &[("stepdown", 2.0)]);
+    assert_eq!(tab_misses(&path), (2, 1), "{}", messages(&path));
+}
+
+#[test]
+fn req_set_09_a_held_region_past_another_cut_does_not_hold_the_part() {
+    // CodeRabbit on #968: tabs that miss both ends of the pin, each with a
+    // held region past it. Each turn cuts the part free of its tab, so
+    // neither held region holds the part: both of the part's warnings are
+    // to acknowledge.
+    let job = with_tabs(&pin_at(90.0), true, &[(-5.0, 2.0), (20.0, 2.0)]);
+    let path = job.path_kept(
+        &HelicalFinishing,
+        &[("stepdown", 2.0)],
+        &[],
+        &[(-5.0, -4.0), (24.0, 25.0)],
+    );
+    assert_eq!(tab_misses(&path).1, 2, "{}", messages(&path));
+    // With the part held directly past its other end and no cut between,
+    // the held region holds it: only the stock's warning is given.
+    let job = with_tabs(&pin_at(90.0), true, &[(-5.0, 2.0)]);
+    let path = job.path_kept(
+        &HelicalFinishing,
+        &[("stepdown", 2.0)],
+        &[],
+        &[(15.0, 25.0)],
+    );
+    assert_eq!(tab_misses(&path), (1, 0), "{}", messages(&path));
+}
+
+#[test]
+fn req_op_04_req_nfr_07_a_small_end_between_coarse_angle_steps_is_faced() {
+    // CodeRabbit on #968: with the largest angle step at 45 degrees, a pin
+    // 6 mm across centred at 22.5 degrees lies between the steps. The face
+    // search finds it; the arcs find it too, so it is not skipped silently.
+    let mut mesh = revolve(&[(0.0, 3.0), (20.0, 3.0)], 720);
+    let (s, c) = 22.5f64.to_radians().sin_cos();
+    for v in &mut mesh.vertices {
+        v.y += 10.0 * c;
+        v.z += 10.0 * s;
+    }
+    let job = off_axis_job(&mesh, false);
+    let path = job.path(
+        &HelicalFinishing,
+        &[("stepdown", 2.0), ("max_angle_step", 45.0)],
+    );
+    let text = messages(&path);
+    assert!(
+        text.contains("does not reach round the rotary axis"),
+        "{text}"
+    );
+    assert!(!moves_at(&path, NEAR_END).is_empty(), "{text}");
+}
+
+#[test]
+fn req_nfr_07_a_stepdown_that_would_make_too_many_points_is_refused() {
+    // CodeRabbit on #968: a tiny Stepdown would make millions of layers
+    // beside an end. It is refused, naming the Stepdown, before any layer
+    // is made: for an end that does not reach round the axis and for one
+    // that does.
+    for (mesh, name) in [(pin_at(90.0), "off the axis"), (pin_at_axis(), "round")] {
+        let job = off_axis_job(&mesh, false);
+        let tag = tags();
+        let input = input_for(job.surface.as_ref(), job.stock.as_ref(), &job.profile, &tag);
+        let values: BTreeMap<String, ParameterValue> = [
+            (names::STEPOVER, STEPOVER),
+            (names::FEED, 600.0),
+            (names::PLUNGE_FEED, 150.0),
+            (names::TOLERANCE, TOLERANCE),
+            ("stepdown", 1.0e-5),
+        ]
+        .into_iter()
+        .map(|(k, x)| (k.to_owned(), ParameterValue::Number(x)))
+        .collect();
+        let started = std::time::Instant::now();
+        let made = run(|ctx| generate(&HelicalFinishing, &input, &values, ctx));
+        let text = made.map(|_| ()).unwrap_err().to_string();
+        assert!(
+            text.contains("Stepdown") && text.contains("too many points"),
+            "{name}: {text}"
+        );
+        assert!(started.elapsed().as_secs() < 60, "{name}");
+    }
+}
+
+/// A pin 15 mm across on the rotary axis from X 0 to 20: a round end.
+fn pin_at_axis() -> TriangleMesh {
+    revolve(&[(0.0, 7.5), (20.0, 7.5)], 720)
+}
+
+#[test]
+fn req_op_04_an_end_on_a_diagonal_is_faced_to_its_nearest_point() {
+    // CodeRabbit on #968 (re-review): the pin at 45 degrees reaches 17.5 mm
+    // from the axis along its own line, past its largest Y or Z (14.6 mm),
+    // so the ray that reads the material along that line must start outside
+    // the part there. The last layer is at 2 mm, as at 90 degrees, not the
+    // axis.
+    let job = off_axis_job(&pin_at(45.0), false);
+    let path = job.path(&HelicalFinishing, &[("stepdown", 2.0)]);
+    let lowest = moves_at(&path, NEAR_END)
+        .iter()
+        .map(|(_, b)| height_of(b))
+        .fold(f64::INFINITY, f64::min);
+    assert!((lowest - 2.0).abs() < 1e-6, "{lowest}");
+}
+
+#[test]
+fn req_nfr_07_the_point_limit_beside_an_end_counts_the_arcs_own_work() {
+    // CodeRabbit on #968 (re-review): at a coarse largest angle step a turn
+    // has few points, but the arcs beside an end that does not reach round
+    // the axis walk every sampled angle (a degree apart) in each layer and
+    // add points at each arc's ends. A Stepdown whose layers would be too
+    // much of that work is refused, naming the Stepdown, before any layer is
+    // made: here about 50,000 layers at 45 degrees.
+    let job = off_axis_job(&pin_at(90.0), false);
+    let tag = tags();
+    let input = input_for(job.surface.as_ref(), job.stock.as_ref(), &job.profile, &tag);
+    let values: BTreeMap<String, ParameterValue> = [
+        (names::STEPOVER, STEPOVER),
+        (names::FEED, 600.0),
+        (names::PLUNGE_FEED, 150.0),
+        (names::TOLERANCE, TOLERANCE),
+        ("stepdown", 0.0004),
+        ("max_angle_step", 45.0),
+    ]
+    .into_iter()
+    .map(|(k, x)| (k.to_owned(), ParameterValue::Number(x)))
+    .collect();
+    let started = std::time::Instant::now();
+    let made = run(|ctx| generate(&HelicalFinishing, &input, &values, ctx));
+    let text = made.map(|_| ()).unwrap_err().to_string();
+    assert!(
+        text.contains("Stepdown") && text.contains("too many points"),
+        "{text}"
+    );
+    assert!(started.elapsed().as_secs() < 60);
 }

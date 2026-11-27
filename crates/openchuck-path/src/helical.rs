@@ -687,7 +687,7 @@ fn passes(
         let free = crate::finishing::free_ends(
             input,
             &grown,
-            &found.free,
+            (&found.free, &found.unfaced, &found.loose),
             parameters,
             (start, sign, step),
         )?;

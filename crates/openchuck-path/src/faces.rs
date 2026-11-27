@@ -131,6 +131,10 @@ pub(crate) struct Faces {
     /// The part's free ends: end faces with nothing of the target past them
     /// within the tool's reach, outside the keep-out (decision record 0344).
     pub(crate) free: Vec<FreeEnd>,
+    /// The ends Face free ends cannot face (decision record 0700).
+    pub(crate) unfaced: Vec<UnfacedEnd>,
+    /// The ends beside a tab that does not meet them (decision record 0700).
+    pub(crate) loose: Vec<LooseEnd>,
 }
 
 /// Where along a line of A the drop finds nothing to stand on: the sample
@@ -153,6 +157,38 @@ pub(crate) struct FreeEnd {
     /// still finds the part: where a finish that follows the part down past
     /// a point ends (decision record 0695, Q2).
     pub(crate) edge: f64,
+    /// Whether the face reaches round the rotary axis: every line of A finds
+    /// it. One that some lines miss altogether (its face lies to one side
+    /// of the axis) is faced in arcs over the angles where it is (decision
+    /// record 0700; issue #834).
+    pub(crate) round: bool,
+}
+
+/// An end of the part beside a tab that does not meet it: the turn at the
+/// face across the axis there cuts down to the tab, all round, and so parts
+/// the part from the tab and the stock past it (decision record 0700: an end
+/// counts as tabbed only where a tab meets its face, the owner's rule).
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub(crate) struct LooseEnd {
+    /// The X of the face.
+    pub(crate) face: f64,
+    /// Whether the face looks along +X.
+    pub(crate) far: bool,
+    /// The X span the turn cuts, low to high.
+    pub(crate) span: (f64, f64),
+}
+
+/// An end of the part with nothing past it on the lines of A that find it,
+/// that Face free ends cannot face: on another line its edge lies elsewhere
+/// along X (a face not square to the rotary axis), and no turn at a face
+/// across the axis stands beside it (decision record 0700, the owner's
+/// answer A to Q3 on #834). Said, never left in silence.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub(crate) struct UnfacedEnd {
+    /// The X of the face, as far out as the lines that find it reach.
+    pub(crate) face: f64,
+    /// Whether the face looks along +X.
+    pub(crate) far: bool,
 }
 
 /// As [`turns`], for a finishing helix over the target's own range: the
@@ -186,6 +222,8 @@ fn find(
             turns: Vec::new(),
             held: Vec::new(),
             free: Vec::new(),
+            unfaced: Vec::new(),
+            loose: Vec::new(),
         });
     }
     let bounds = input.surface.bounds();
@@ -197,6 +235,8 @@ fn find(
             turns: Vec::new(),
             held: Vec::new(),
             free: Vec::new(),
+            unfaced: Vec::new(),
+            loose: Vec::new(),
         });
     }
     // X samples no further apart than half the tool's radius (and 0.5 mm):
@@ -398,29 +438,114 @@ fn find(
             ),
         ));
     }
-    // The free ends, for a finishing search only: where on every line of A
-    // the drop finds the target on one side of an X and nothing on the
-    // other, the end of a body with nothing past it within the tool's reach.
-    // The edge is narrowed on each line by bisection to `WIDTH`; the face is
-    // one grown tool radius inside the outermost edge over the lines. One
-    // inside a keep-out interval is the held region's own end, or within its
-    // reach: it is left out.
+    // The free ends, for a finishing search only: where on the lines of A
+    // that find the part the drop finds the target on one side of an X and
+    // nothing on the other, and every other line finds nothing there at all
+    // (its face lies to one side of the axis, decision record 0700; issue
+    // #834), the end of a body with nothing past it within the tool's reach.
+    // The edge is narrowed on each line that finds it by bisection to
+    // `WIDTH`; the face is one grown tool radius inside the outermost edge
+    // over those lines. One inside a keep-out interval is the held region's
+    // own end, or within its reach: it is left out. Candidates come from
+    // every line's gaps, not the first line's alone.
     let mut free = Vec::new();
+    let mut unfaced = Vec::new();
     if extra > 0 {
         let clear = CLEAR * tolerance;
-        let first_line = gaps.first().cloned().unwrap_or_default();
-        for &(i, starts) in &first_line {
-            // The same change on every line, within one sample.
-            let on_lines: Option<Vec<(usize, usize)>> = gaps
+        // Every line's gaps, as candidates in order of X (the order the
+        // first line gave them before). On a line that only grazes a face to
+        // one side of the axis the tool finds the part up to its radius
+        // later, so gaps within a tool radius (in samples) of one another
+        // are one candidate.
+        let mut candidates: Vec<Gap> = gaps.iter().flatten().copied().collect();
+        candidates.sort_by_key(|&(i, s)| (i, s));
+        candidates.dedup();
+        let mut taken: Vec<Gap> = Vec::new();
+        let near = ((radius / step).ceil() as usize).max(1) + 1;
+        // Samples inside an edge within a tool's diameter of it.
+        let within = ((2.0 * radius / step).ceil() as usize).max(1);
+        for &(c, starts) in &candidates {
+            if taken
                 .iter()
-                .enumerate()
-                .map(|(k, g)| {
+                .any(|&(j, s)| s == starts && j.abs_diff(c) <= near)
+            {
+                continue;
+            }
+            taken.push((c, starts));
+            // The reference is the first line's own gap there (the line at
+            // A 0 for an end round the axis, as before).
+            let Some(i) = gaps.iter().find_map(|g| {
+                g.iter()
+                    .filter(|&&(j, s)| s == starts && j.abs_diff(c) <= near)
+                    .map(|&(j, _)| j)
+                    .min_by_key(|j| j.abs_diff(c))
+            }) else {
+                continue;
+            };
+            // On each line: the same change within one sample, as an end
+            // round the axis has always been found (decision 0344).
+            let on_one: Vec<Option<usize>> = gaps
+                .iter()
+                .map(|g| {
                     g.iter()
                         .find(|&&(j, s)| s == starts && j.abs_diff(i) <= 1)
-                        .map(|&(j, _)| (k, j))
+                        .map(|&(j, _)| j)
                 })
                 .collect();
-            let Some(on_lines) = on_lines else { continue };
+            let round = on_one.iter().all(Option::is_some);
+            // Otherwise the nearest within a tool radius, or none.
+            let on: Vec<Option<usize>> = if round {
+                on_one
+            } else {
+                gaps.iter()
+                    .map(|g| {
+                        g.iter()
+                            .filter(|&&(j, s)| s == starts && j.abs_diff(i) <= near)
+                            .map(|&(j, _)| j)
+                            .min_by_key(|j| j.abs_diff(i))
+                    })
+                    .collect()
+            };
+            // A line without it must find nothing there at all (the face lies
+            // to one side of the axis). Otherwise the end is not one Face free
+            // ends faces: the target carries on past it on that line (a tab,
+            // or the part itself: a step a turn at a face across the axis
+            // cuts, decision 0297), or the part is just inside it on that
+            // line (a face not square to the axis).
+            let missing: Vec<usize> = on
+                .iter()
+                .enumerate()
+                .filter(|(_, e)| e.is_none())
+                .map(|(k, _)| k)
+                .collect();
+            let found = |k: usize, idx: usize| {
+                let a = 360.0 * k as f64 / angles as f64;
+                height(at(idx), a).is_some()
+            };
+            let carries_on = missing.iter().any(|&k| found(k, i) || found(k, i + 1));
+            let inside = |m: usize| {
+                if starts {
+                    (i + 1 + m <= samples).then_some(i + 1 + m)
+                } else {
+                    i.checked_sub(m)
+                }
+            };
+            // Every line sees it but not all within a sample: a face that
+            // leans, which was left in silence before; or a line that finds
+            // the part just inside it.
+            let other_edge = !carries_on
+                && (!round && missing.is_empty()
+                    || missing
+                        .iter()
+                        .any(|&k| (1..=within).filter_map(inside).any(|idx| found(k, idx))));
+            let on_lines: Vec<(usize, usize)> = on
+                .iter()
+                .enumerate()
+                .filter_map(|(k, j)| j.map(|j| (k, j)))
+                .collect();
+            let Some(&(k0, _)) = on_lines.first() else {
+                continue;
+            };
             // The part's own end, not a tab's or a held region's: the part
             // is under the tool just inside the edge.
             let on_part = |x: f64, a: f64| {
@@ -448,9 +573,10 @@ fn find(
                 Ok(inside)
             });
             let edges = edges.into_iter().collect::<Result<Vec<f64>>>()?;
-            // Checked on the first line, just inside its own edge.
+            // Checked on the first line that finds it, just inside its edge.
             let Some(&own) = edges.first() else { continue };
-            if !on_part(if starts { own + WIDTH } else { own - WIDTH }, 0.0) {
+            let a0 = 360.0 * k0 as f64 / angles as f64;
+            if !on_part(if starts { own + WIDTH } else { own - WIDTH }, a0) {
                 continue;
             }
             let pick = if starts { f64::min } else { f64::max };
@@ -463,18 +589,156 @@ fn find(
             } else {
                 (outer - clear, outer + radius)
             };
-            if !held_at(x) {
-                free.push(FreeEnd {
-                    x,
-                    face,
-                    far,
-                    edge: outer,
-                });
+            if held_at(x) {
+                continue;
             }
+            if carries_on {
+                // A tab or the part itself past it on some line: a step that
+                // a turn at a face across the axis cuts (decision 0297).
+                continue;
+            }
+            // An end to one side of the axis is square to it: along each
+            // line that finds it, the part begins at the same X, as a probe
+            // with no width finds it (the tool's own width finds the part
+            // later on a line that only grazes the face).
+            let leans = !round && !carries_on && !other_edge && {
+                let thin = crate::finishing::thin_probe(profile)?;
+                let edges: Vec<f64> = on_lines
+                    .iter()
+                    .filter_map(|&(k, j)| {
+                        let a = 360.0 * k as f64 / angles as f64;
+                        let probe = |x: f64| {
+                            let line = input.rotary.tool_line(
+                                Millimetres(x),
+                                Degrees(a),
+                                Millimetres(0.0),
+                            );
+                            input.surface.drop_on_part(&thin, &line).is_some()
+                        };
+                        let (mut inside, mut outside) = if starts {
+                            (at((j + 1 + near).min(samples)), at(j.saturating_sub(near)))
+                        } else {
+                            (at(j.saturating_sub(near)), at((j + 1 + near).min(samples)))
+                        };
+                        if !probe(inside) || probe(outside) {
+                            return None;
+                        }
+                        while (outside - inside).abs() > WIDTH {
+                            let m = 0.5 * (inside + outside);
+                            if probe(m) {
+                                inside = m;
+                            } else {
+                                outside = m;
+                            }
+                        }
+                        Some(inside)
+                    })
+                    .collect();
+                let lo = edges.iter().copied().fold(f64::INFINITY, f64::min);
+                let hi = edges.iter().copied().fold(f64::NEG_INFINITY, f64::max);
+                hi - lo > step
+            };
+            let other_edge = other_edge || leans;
+            if other_edge {
+                // Not square to the axis: said, unless a turn at a face
+                // across the axis stands beside it.
+                let beside = turns.iter().any(|t| (t.x - x).abs() <= 2.0 * radius);
+                // One warning an end: the lines of a leaning face give
+                // several candidates.
+                let again = unfaced
+                    .iter()
+                    .any(|u: &UnfacedEnd| u.far == far && (u.face - face).abs() <= 4.0 * radius);
+                if !beside && !again {
+                    unfaced.push(UnfacedEnd { face, far });
+                }
+                continue;
+            }
+            free.push(FreeEnd {
+                x,
+                face,
+                far,
+                edge: outer,
+                round,
+            });
         }
         context.check_cancelled()?;
     }
-    Ok(Faces { turns, held, free })
+    // The ends beside a tab that does not meet them: a turn whose face is
+    // the part's own end (the part is on one side of it and nowhere just
+    // past it), with a tab just past it whose section along no line of A
+    // overlaps the part's at the face (decision record 0700, case (c)).
+    let mut loose: Vec<LooseEnd> = Vec::new();
+    if extra > 0 && !turns.is_empty() {
+        let radial = crate::finishing::radial_reach(bounds);
+        let thin = crate::finishing::thin_probe(profile)?;
+        let along = |x: f64, a: f64, part_only: bool| {
+            let line = input
+                .rotary
+                .tool_line(Millimetres(x), Degrees(a), Millimetres(0.0));
+            let contact = if part_only {
+                input.surface.drop_on_part(&thin, &line)
+            } else {
+                input.surface.drop_tool(&thin, &line)
+            };
+            contact.map(|c| input.rotary.to_axis(c.tip, Degrees(a)).height)
+        };
+        for t in &turns {
+            context.check_cancelled()?;
+            let face = if t.up { t.x + radius } else { t.x - radius };
+            let toward = if t.up { 1.0 } else { -1.0 };
+            // The part is read just inside its face, past the turn's
+            // clearance (CodeRabbit on #968): the tab must meet the face
+            // itself, not the part further in.
+            let (x_in, x_out) = (
+                face + toward * (CLEAR * tolerance + 0.05).min(radius),
+                face - toward * radius.min(0.1),
+            );
+            if loose.iter().any(|l| (l.face - face).abs() <= radius) {
+                continue;
+            }
+            let lines: Vec<f64> = (0..angles)
+                .map(|k| 360.0 * k as f64 / angles as f64)
+                .collect();
+            // The part's own end: nothing of the part just past the face.
+            if lines.iter().any(|&a| along(x_out, a, true).is_some()) {
+                continue;
+            }
+            let mut tabbed = false;
+            let mut meets = false;
+            // The material along each line, in and out: a hole in the end,
+            // or a gap between two lugs, is not material the tab meets
+            // (CodeRabbit on #968).
+            for &a in &lines {
+                let tab = crate::finishing::occupied(input, x_out, a, radial + 1.0);
+                if tab.is_empty() {
+                    continue;
+                }
+                tabbed = true;
+                let part = crate::finishing::occupied(input, x_in, a, radial + 1.0);
+                if part.iter().any(|&(p_lo, p_hi)| {
+                    tab.iter()
+                        .any(|&(t_lo, t_hi)| p_lo.max(t_lo) < p_hi.min(t_hi) - WIDTH)
+                }) {
+                    meets = true;
+                    break;
+                }
+            }
+            if tabbed && !meets {
+                loose.push(LooseEnd {
+                    face,
+                    far: !t.up,
+                    span: (t.x - radius, t.x + radius),
+                });
+            }
+        }
+    }
+    Ok(Faces {
+        turns,
+        held,
+        free,
+        unfaced,
+        loose,
+    })
 }
 
 /// The note an operation carries when it turned at faces across the axis:
