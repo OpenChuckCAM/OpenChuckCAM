@@ -72,7 +72,7 @@ See [Simulation and deviation colours](concepts/simulation.md).
 : The recovery copies in the folder belong to the project it was copied from, so they are not offered here. They are kept aside, in a folder inside the project folder.
 
 "Recovery: recovery data was kept for a project last in ..., but it is not there now. ..."
-: A warning at each start: the program kept recovery copies for a project that is no longer in that folder. If you moved the project, click **Locate folder** and enter its new folder. If you deleted it, click **Locate folder**, then **Forget this project**: the program stops looking for it and the warning goes. Nothing else is deleted.
+: A warning at each start: the program kept recovery copies for a project that is no longer in that folder. If you moved the project, click **Locate folder** and enter its new folder. If you deleted it, click **Locate folder**, then **Forget this project**: the program stops looking for it and the warning goes. Nothing else is deleted. If the folder is still there, or the program is not allowed to look inside it, the project is not forgotten, and the message says why.
 
 ## A command fails with a dialog
 
