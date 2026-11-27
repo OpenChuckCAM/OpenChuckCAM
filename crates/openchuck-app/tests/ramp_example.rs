@@ -14,7 +14,7 @@ const ROUGH: &str = "operations/1a280b59-8da1-4ee1-97e9-1e2b40c356f5.toml";
 const FINISH: &str = "operations/34e3aa5e-36cc-4614-be6d-ec39cf22f5f8.toml";
 
 /// A copy of the example project with ramp entry at `angle` degrees,
-/// Allow single-point plunge on, and `shape` as the pass shape of both
+/// Plunge where no ramp fits on, and `shape` as the pass shape of both
 /// operations.
 fn example(shape: &str, angle: f64) -> PathBuf {
     let from = Path::new(env!("CARGO_MANIFEST_DIR"))

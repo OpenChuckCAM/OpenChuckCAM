@@ -32,6 +32,7 @@ pub mod checkpoint_schedule;
 pub mod checkpoints;
 mod command;
 mod connections;
+pub mod dropped;
 mod error;
 mod export;
 pub mod facing;

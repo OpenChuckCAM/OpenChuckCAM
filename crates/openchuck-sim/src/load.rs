@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //! The load on the tool, measured as the simulation cuts the stock (SIM-16;
-//! decision record TOOL-LOAD-1, Q2 A).
+//! decision record 0698, Q2 A).
 //!
 //! For each move the simulator adds up what its poses removed
 //! ([`MoveLoad`]): the volume, how far along the tool axis the material

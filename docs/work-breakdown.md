@@ -1257,7 +1257,7 @@ Today the workholding panel (`workholding_panel.rs`, edits a draft of the held r
 
 OP-24 (extend past the stock and Facing, P1) was added after slice 14 closed and is built by lane CUTOPTS ([decision 0212](decisions/0212-roughing-direction-and-extend-past-the-stock.md)); it is listed with slice 14, so its tests are required now.
 
-SIM-16 (the load on the tool, measured in the simulation, with its warning and the removal rate, P1) was added after slice 7 closed, with the owner's agreed text (decision record TOOL-LOAD-1, accepted 25 Nov 2026, relayed by the coordinator; issue #844) and is built by lane TOOL-LOAD (TL-1); it is listed with slice 7, so its tests are required now.
+SIM-16 (the load on the tool, measured in the simulation, with its warning and the removal rate, P1) was added after slice 7 closed, with the owner's agreed text (decision record 0698, accepted 25 Nov 2026, relayed by the coordinator; issue #844) and is built by lane TOOL-LOAD (TL-1); it is listed with slice 7, so its tests are required now.
 
 SET-10 (manage machine profiles in the application, P1) was added on 31 Oct 2026 with the owner's agreed text ([decision 0380](decisions/0380-machine-library-in-the-application.md), relayed by the coordinator) and is built by lane MACHINES; it is listed with slice 22, the user interface pass, which is not closed.
 

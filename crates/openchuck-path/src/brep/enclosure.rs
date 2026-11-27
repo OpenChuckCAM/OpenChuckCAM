@@ -309,16 +309,20 @@ impl Builder {
         edges: &BTreeMap<EdgeId, &BrepEdge>,
     ) -> Result<bool> {
         let mark = self.points.len();
-        let (analytic, spline) = (self.analytic, self.spline);
+        let (analytic, spline, full) = (self.analytic, self.spline, self.full);
         for id in &face.edges {
             let bounded = match edges.get(id) {
                 Some(edge) => self.edge(face.id.0, edge)?,
                 None => false,
             };
             if !bounded {
+                // Everything the edges did is undone, the budget marker
+                // with the points, so the parameter box is tried with the
+                // room it really has (issue #860 item 1).
                 self.points.truncate(mark);
                 self.analytic = analytic;
                 self.spline = spline;
+                self.full = full;
                 return Ok(false);
             }
         }
@@ -484,8 +488,20 @@ impl Builder {
                 "a weight of its B-spline is not positive, so its control points do not bound it",
             ));
         }
+        if p.poles.iter().zip(&p.weights).any(|(q, &w)| !scales(*q, w)) {
+            return Err(bad(n, TINY_WEIGHT));
+        }
         let (pu, pv) = (p.degree_u as usize, p.degree_v as usize);
         let (nu, nv) = (p.poles_u as usize, p.poles_v as usize);
+        // The pieces are counted from the knots before any is built, so a
+        // face that cannot fit is refused without building them (issue #860
+        // item 3).
+        let first = spans(&p.knots_u, pu, nu, uv[0], uv[1])
+            .saturating_mul(spans(&p.knots_v, pv, nv, uv[2], uv[3]))
+            .saturating_mul((pu + 1).saturating_mul(pv + 1));
+        if !self.room(first) {
+            return Ok(());
+        }
         let nets = bezier_nets(
             (pu, pv),
             (nu, nv),
@@ -508,7 +524,18 @@ impl Builder {
             heap.push(Piece { excess, order, net });
             order += 1;
         }
+        // A split adds one piece of the same size, so refining stops while
+        // the pieces still fit (issue #860 item 3); the excess stated is
+        // that of the pieces kept.
+        let size = (pu + 1) * (pv + 1);
+        let fits = |pieces: usize, here: &Self| {
+            here.points
+                .len()
+                .saturating_add(pieces.saturating_mul(size))
+                <= MAX_POINTS
+        };
         while heap.len() < SPLINE_WORK
+            && fits(heap.len() + 1, self)
             && heap.peek().is_some_and(|p| p.excess > SPLINE_TARGET)
             && let Some(Piece { net, .. }) = heap.pop()
         {
@@ -547,6 +574,9 @@ impl Builder {
                 "a weight of an edge's B-spline is not positive, so its control points do not \
                  bound it",
             ));
+        }
+        if c.poles.iter().zip(&c.weights).any(|(q, &w)| !scales(*q, w)) {
+            return Err(bad(face, TINY_WEIGHT));
         }
         let hom: Vec<Hom> = c
             .poles
@@ -648,8 +678,49 @@ impl Meridian {
     }
 }
 
+/// Why a B-spline with a weight too small to scale its pole is refused.
+const TINY_WEIGHT: &str = "a weight of its B-spline is so small that its control point is lost \
+                           when scaled by it, so its control points do not bound it";
+
+/// Whether the weight `w` scales the pole `q` without losing it: `w` and
+/// every nonzero coordinate times `w` are normal numbers, not subnormal or
+/// zero (issue #859 item 2). The weights are never adjusted.
+fn scales(q: Point3, w: f64) -> bool {
+    w.is_normal()
+        && [q.x, q.y, q.z]
+            .into_iter()
+            .all(|c| c == 0.0 || (c * w).is_normal())
+}
+
+/// How many knot spans of a B-spline of degree `p` and `n` poles lie in
+/// `(lo, hi)`: the pieces [`super::hull::pieces`] would give, counted
+/// without building them.
+fn spans(knots: &[f64], p: usize, n: usize, lo: f64, hi: f64) -> usize {
+    let (Some(&k0), Some(&k1)) = (knots.get(p), knots.get(n)) else {
+        return 0;
+    };
+    let (a, b) = (lo.max(k0), hi.min(k1));
+    if a.is_nan() || b.is_nan() || a >= b {
+        return 0;
+    }
+    let mut breaks: Vec<f64> = knots
+        .iter()
+        .map(|&x| x + 0.0)
+        .filter(|&x| x > a && x < b)
+        .collect();
+    breaks.sort_by(f64::total_cmp);
+    breaks.dedup();
+    breaks.len() + 1
+}
+
 /// The value of a Bezier curve given by homogeneous points at `t`.
 fn blend(pts: &[Hom], t: f64) -> Hom {
+    // The end is the last point exactly: `a + (b - a) * 1` can cancel when
+    // the weights are very unequal (issue #860 item 2).
+    #[allow(clippy::float_cmp)] // Exactly the end parameter, as callers pass it.
+    if t == 1.0 {
+        return pts.last().copied().unwrap_or([f64::NAN; 4]);
+    }
     let mut w = pts.to_vec();
     let n = w.len();
     for level in 1..n {
@@ -731,4 +802,114 @@ fn net_excess(net: &Net) -> f64 {
         }
     }
     worst
+}
+
+#[cfg(test)]
+mod tests {
+    #![allow(clippy::unwrap_used, clippy::indexing_slicing, clippy::float_cmp)]
+
+    use std::collections::BTreeMap;
+    use std::f64::consts::TAU;
+
+    use openchuck_types::brep::{BrepEdge, BrepFace, EdgeCurve, EdgeId, FaceId, Frame, Surface};
+    use openchuck_types::geometry::{Point3, Vec3};
+    use openchuck_types::mesh::TriangleMesh;
+
+    use super::{Builder, MAX_POINTS, blend, spans};
+
+    fn frame() -> Frame {
+        Frame {
+            origin: Point3::ORIGIN,
+            x: Vec3::new(1.0, 0.0, 0.0),
+            y: Vec3::new(0.0, 1.0, 0.0),
+            z: Vec3::new(0.0, 0.0, 1.0),
+        }
+    }
+
+    /// Issue #860 item 1: an exact edge that runs out of room, then an edge
+    /// with no exact curve. The face falls back to its parameter box, which
+    /// still fits, so the face is bounded by its box and the budget marker
+    /// an edge set is undone with the edge's points.
+    #[test]
+    fn req_nfr_07_a_flat_face_that_falls_back_to_its_box_is_not_refused_by_an_edge_it_undid() {
+        let edges = [
+            BrepEdge {
+                id: EdgeId(0),
+                faces: vec![FaceId(0)],
+                vertices: None,
+                polyline: Vec::new(),
+                // A circle of 1 m needs far more than four points at the
+                // analytic excess.
+                curve: Some(EdgeCurve::Circle {
+                    frame: frame(),
+                    radius: 1000.0,
+                    first: 0.0,
+                    last: TAU,
+                }),
+            },
+            BrepEdge {
+                id: EdgeId(1),
+                faces: vec![FaceId(0)],
+                vertices: None,
+                polyline: vec![Point3::new(0.0, 0.0, 0.0), Point3::new(1.0, 0.0, 0.0)],
+                curve: None,
+            },
+        ];
+        let map: BTreeMap<EdgeId, &BrepEdge> = edges.iter().map(|e| (e.id, e)).collect();
+        let face = BrepFace {
+            id: FaceId(0),
+            surface: openchuck_types::brep::SurfaceKind::Plane,
+            body: 0,
+            edges: vec![EdgeId(0), EdgeId(1)],
+            geometry: Surface::Plane { frame: frame() },
+            reversed: false,
+            uv_bounds: [-1.0, 1.0, -1.0, 1.0],
+            trims: Vec::new(),
+            tessellation: TriangleMesh::default(),
+        };
+        let mut b = Builder {
+            points: vec![Point3::ORIGIN; MAX_POINTS - 4],
+            ..Builder::default()
+        };
+        b.face(&face, &map).unwrap();
+        assert_eq!(
+            b.full, None,
+            "the box fits: no face is marked as over the limit"
+        );
+        assert_eq!(
+            b.points.len(),
+            MAX_POINTS,
+            "the box's four corners are kept"
+        );
+    }
+
+    /// Issue #860 item 3: the pieces are counted from the knots as the split
+    /// makes them: one per knot span inside the clip, none for a knot vector
+    /// too short for its degree or an empty clip.
+    #[test]
+    fn req_nfr_07_the_pieces_of_a_face_are_counted_from_its_knots() {
+        let k = [0.0, 0.0, 0.0, 0.25, 0.5, 0.5, 0.75, 1.0, 1.0, 1.0];
+        assert_eq!(spans(&k, 2, 7, 0.0, 1.0), 4);
+        assert_eq!(spans(&k, 2, 7, 0.3, 0.6), 2);
+        assert_eq!(spans(&k, 2, 7, -0.0, 0.1), 1);
+        assert_eq!(spans(&k, 2, 7, 0.4, 0.4), 0);
+        assert_eq!(spans(&k, 2, 7, 1.5, 2.0), 0);
+        assert_eq!(spans(&[0.0, 1.0], 3, 4, 0.0, 1.0), 0);
+    }
+
+    /// Issue #860 item 2: at `t = 1` a Bezier curve is its last point,
+    /// exactly, however unequal the weights.
+    #[test]
+    fn req_nfr_07_a_curve_with_very_unequal_weights_ends_at_its_last_point() {
+        // The large weight next to the end cancels to 0 in `a + (b - a) * 1`.
+        let w = 1e17;
+        let pts = [
+            [0.0, 0.0, 0.0, 1.0],
+            [1.0, 1.0, 0.0, 1.0],
+            [2.0 * w, w, 0.0, w],
+            [3.0, 0.5, 0.25, 1.0],
+        ];
+        assert_eq!(blend(&pts, 1.0), pts[3]);
+        assert_eq!(blend(&pts, 0.0), pts[0]);
+    }
 }

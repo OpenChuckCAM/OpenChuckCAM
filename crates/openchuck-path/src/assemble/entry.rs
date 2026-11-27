@@ -33,7 +33,7 @@ use openchuck_types::units::Degrees;
 
 use super::pass_shape::{self, Start};
 use super::ring_ramp::{self, RingRamp};
-use super::{Builder, EPS, View};
+use super::{Builder, EPS, PlungeReason, View};
 use crate::cutter::{self, ToolLine};
 use crate::error::{PathError, Result};
 use crate::helical::CHORD_FACTOR;
@@ -60,6 +60,106 @@ const MAX_SEGMENTS: usize = 100_000;
 /// A horizontal direction in the fixed frame: (along, across).
 type Dir = (f64, f64);
 
+/// What a back-and-forth ramp goes over.
+#[derive(Debug, Clone, Copy, PartialEq)]
+enum Shape {
+    /// A line at a fixed A.
+    Line,
+    /// A partial ring, or a short line followed on along the pass.
+    Arc,
+    /// A pass that starts as a spiral, its tip this far from the rotary
+    /// axis at its first point.
+    Spiral(f64),
+    /// A whole ring whose one turn round itself would take more than the
+    /// bound (decision 0695, Q9 part 3, the owner's answer A), at the
+    /// tangent its ramp round the ring was planned at: the Ramp angle, or
+    /// the steeper one near the axis.
+    Ring(f64),
+}
+
+/// What holds a back-and-forth ramp's depth per traverse (decision
+/// 0695, Q9, and its agreement with lane TOOL-LOAD): the bound
+/// [`largest_depth_per_traverse`] took.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) enum DepthBound {
+    /// The tool's cutting radius.
+    ToolRadius,
+    /// One turn of a spiral ramp at its start radius.
+    OneTurn,
+    /// The Largest depth per traverse setting, below the tool radius.
+    Setting,
+    /// The cap lane TOOL-LOAD's TL-2 gives from Limit tool load (`L / D`);
+    /// nothing passes one until TL-2 is built, so no ramp names it yet.
+    ToolLoadLimit,
+}
+
+impl DepthBound {
+    /// Its name in the ramp note.
+    pub(super) const fn words(self) -> &'static str {
+        match self {
+            Self::ToolRadius => "the tool radius",
+            Self::OneTurn => "one turn round the part",
+            Self::Setting => "the Largest depth per traverse setting",
+            Self::ToolLoadLimit => "the tool-load limit",
+        }
+    }
+}
+
+/// A back-and-forth ramp's largest depth per traverse, in mm, and the bound
+/// that sets it (decision 0695, Q8 and Q9, the owner's
+/// answers, and the agreement with lane TOOL-LOAD): the least of
+///
+/// - the tool's cutting radius;
+/// - `one_turn`, one turn of a spiral ramp at its start radius (`2 pi r
+///   tan`), for a pass that starts as a spiral only;
+/// - `setting`, the Largest depth per traverse, where it is above 0 (0
+///   means the tool radius, and more is held to it);
+/// - `cap`, the tool-load limit in mm: `None` here; lane TOOL-LOAD's TL-2
+///   passes `Some(L / D)` at the call site when Limit tool load is on.
+///
+/// A bound that is not a positive length (a NaN or a cap of 0) bounds
+/// nothing (NFR-07). Where two are equal the earlier in that list is
+/// named. It holds a whole ring too (Q9 part 3, the owner's answer A): a
+/// ring whose one turn round itself would take more is ramped back and
+/// forth over itself instead ([`Entry::ring_plan`]). A descent on the
+/// rotary axis is not held by it (an open question for the owner, OI-2239).
+fn largest_depth_per_traverse(
+    tool_radius: f64,
+    setting: f64,
+    one_turn: Option<f64>,
+    cap: Option<f64>,
+) -> (f64, DepthBound) {
+    let mut out = (tool_radius, DepthBound::ToolRadius);
+    for (value, bound) in [
+        (one_turn, DepthBound::OneTurn),
+        (Some(setting), DepthBound::Setting),
+        (cap, DepthBound::ToolLoadLimit),
+    ] {
+        if let Some(v) = value
+            && v.is_finite()
+            && v > 0.0
+            && v < out.0
+        {
+            out = (v, bound);
+        }
+    }
+    out
+}
+
+/// The entry [`Entry::ring_plan`] chooses.
+enum RingEntry {
+    /// A ramp round the ring, or a descent on the axis.
+    Ramp(RingRamp),
+    /// No ramp fits in 10 turns even at the Maximum ramp angle: plunged,
+    /// as Plunge where no ramp fits asks.
+    Plunge,
+    /// A ring whose one turn round itself would take more than the largest
+    /// depth per traverse: ramped back and forth over its own points up to
+    /// `end`, at the tangent `tan` the ramp round it was planned at
+    /// (decision 0695, Q9 part 3, the owner's answer A).
+    BackAndForth { end: usize, tan: f64 },
+}
+
 pub(super) struct Entry {
     style: EntryStyle,
     /// A single-point pass under a ramp is plunged (decision 0543 D7).
@@ -74,6 +174,8 @@ pub(super) struct Entry {
     nub_radius: Option<f64>,
     /// The tool's cutting radius.
     tool_radius: f64,
+    /// The Largest depth per traverse setting, mm: 0 means the tool radius.
+    depth_setting: f64,
     ramp_tan: f64,
     helix_radius: f64,
     lead_radius: f64,
@@ -85,10 +187,6 @@ pub(super) struct Entry {
     /// A height above all the stock (the retract height), from which the
     /// stock under a ramp's path is probed.
     probe_height: f64,
-    /// A ramp may turn A round the part before a ring or spiral pass
-    /// ([`crate::Strategy::ramps_round_the_part`]); otherwise it follows
-    /// the pass (decision record 0645).
-    round_the_part: bool,
     /// Samples of the faces next to the face set (swarf's
     /// [`RegionConstraint::neighbours`](crate::RegionConstraint::neighbours)),
     /// with each face's number, sampled as swarf samples them (decision
@@ -113,7 +211,6 @@ impl Entry {
         input: &StrategyInput<'_>,
         common: &CommonParameters,
         e: &EntryParameters,
-        round_the_part: bool,
         beside: Option<&dyn SurfaceSource>,
     ) -> Result<Self> {
         let radius = input.tool.cutting_radius();
@@ -140,6 +237,7 @@ impl Entry {
                 }
             }),
             tool_radius: radius,
+            depth_setting: e.ramp_depth_per_traverse.0,
             ramp_tan: e.ramp_angle.0.to_radians().tan(),
             helix_radius: e.helix_diameter * radius,
             lead_radius: if e.lead_radius.0 > 0.0 {
@@ -155,7 +253,6 @@ impl Entry {
                 crate::params::Retract::Clearance => input.clearance.radius.0,
                 crate::params::Retract::SafeZ => input.clearance.safe_z.0,
             },
-            round_the_part,
             beside: beside.0,
             cutter: input.tool.clone(),
             beside_slack: beside.1,
@@ -177,8 +274,22 @@ impl Entry {
         let Some(head) = points.first() else {
             return Ok(());
         };
-        if let Some(plan) = self.ring_plan(b, input, stock, common, pass, points, rapids)? {
-            return self.ring_ramp(b, input, common, pass, &plan);
+        match self.ring_plan(b, input, stock, common, pass, points, rapids)? {
+            Some(RingEntry::Ramp(plan)) => return self.ring_ramp(b, input, common, pass, &plan),
+            Some(RingEntry::BackAndForth { end, tan }) => {
+                return self.follow(b, input, stock, common, pass, points, end, Shape::Ring(tan));
+            }
+            Some(RingEntry::Plunge) => {
+                return self.fallback_plunge(
+                    b,
+                    stock,
+                    common,
+                    pass,
+                    head,
+                    PlungeReason::TooManyTurns,
+                );
+            }
+            None => {}
         }
         match self.style {
             EntryStyle::Plunge => plunge(b, stock, common, head),
@@ -371,10 +482,13 @@ impl Entry {
     }
 
     /// A ramp that follows the pass's own toolpath (decision 0543): over a
-    /// line or a partial ring, back and forth; a pass that starts as a ring
-    /// or a spiral is ramped round the axis before it reaches here
-    /// ([`Self::ring_plan`]), and comes here only when it starts above the
-    /// stock, with nothing to descend into.
+    /// line, a partial ring or a spiral, back and forth (decision
+    /// 0695, Q3: no ramp goes round the part); a pass that starts
+    /// as a whole ring, or on the rotary axis, is ramped round the ring (or
+    /// back and forth over it, held to the bound) or descended on the axis
+    /// before it reaches here ([`Self::ring_plan`]),
+    /// and comes here only when it starts above the stock, with nothing to
+    /// descend into.
     #[allow(clippy::too_many_arguments)]
     fn ramp(
         &self,
@@ -388,44 +502,43 @@ impl Entry {
         rapids: &[usize],
     ) -> Result<()> {
         let shape = pass_shape::start(&b.rotary, points, rapids, self.tolerance);
-        // A pass that turns A with its tip on the rotary axis does not move
-        // relative to the part: like a single point, it has no path to
-        // follow (decision 0543 D7).
-        let on_axis = matches!(shape, Start::FullRing { .. } | Start::Spiral { .. }) && {
-            let at = b.rotary.to_axis(head.tip, head.a);
-            at.across.hypot(at.height) <= self.tolerance
-        };
+        // The last point before the pass's first rapid, in one scan of the
+        // rapids.
+        let last = rapids
+            .iter()
+            .copied()
+            .filter(|k| (1..points.len()).contains(k))
+            .min()
+            .map_or(points.len().saturating_sub(1), |k| k - 1);
         match shape {
-            // Reached only when there is nothing to descend into
-            // (`ring_plan` plans the descent on the axis otherwise).
-            // A strategy that does not ramp round the part (decision 0645)
-            // has no descent on the axis planned: a plunge into stock there
-            // is listed for the host's check of a tool that cannot cut
-            // straight down (decision 0543 D7; #781 review).
-            _ if on_axis && !self.round_the_part => {
-                let at = [(b.rotary.to_axis(head.tip, head.a), head.a)];
-                let height = at[0].0.height;
-                if stock_top_along(b, stock, &at, 0.0, self.probe_height) > height + EPS {
-                    b.straight_plunges.push(pass);
-                }
-                plunge(b, stock, common, head)
+            Start::SinglePoint => {
+                self.fallback_plunge(b, stock, common, pass, head, PlungeReason::SinglePoint)
             }
-            _ if on_axis => plunge(b, stock, common, head),
-            Start::SinglePoint => self.single_point(b, stock, common, pass, head),
-            // A strategy whose passes turn A without cutting all round the
-            // part (swarf along a blade): back and forth over the pass's
-            // own path up to its first rapid, A reversing during the entry
-            // only, never round the part (decision record 0645; #778).
-            Start::FullRing { end, .. } if !self.round_the_part => {
-                self.follow(b, input, stock, common, pass, points, end, true)
+            // A whole ring, or a pass on the rotary axis, reaches here only
+            // when there is nothing to descend into (`ring_plan` plans its
+            // ramp or its descent on the axis otherwise).
+            Start::FullRing { .. } => plunge(b, stock, common, head),
+            Start::Spiral { .. } if self.on_axis(b, Some(head)) => plunge(b, stock, common, head),
+            // A pass that turns A while it moves along X: back and forth
+            // over its own path up to its first rapid, A reversing during
+            // the entry only, never round the part (decision
+            // 0695, Q3, amending 0543 D2 and 0645 item 1), its legs
+            // bounded by the depth per traverse of one turn of a spiral ramp
+            // at its start radius.
+            Start::Spiral { .. } => {
+                let at = b.rotary.to_axis(head.tip, head.a);
+                let radius = at.across.hypot(at.height);
+                self.follow(
+                    b,
+                    input,
+                    stock,
+                    common,
+                    pass,
+                    points,
+                    last,
+                    Shape::Spiral(radius),
+                )
             }
-            Start::Spiral { .. } if !self.round_the_part => {
-                let last = (1..points.len())
-                    .find(|k| rapids.contains(k))
-                    .map_or(points.len().saturating_sub(1), |k| k - 1);
-                self.follow(b, input, stock, common, pass, points, last, true)
-            }
-            Start::FullRing { .. } | Start::Spiral { .. } => plunge(b, stock, common, head),
             Start::Line { end } => {
                 // A line shorter than the minimum (the step before a ring,
                 // say) is followed on along the pass, up to its first rapid,
@@ -438,50 +551,69 @@ impl Entry {
                     .map(|p| (b.rotary.to_axis(p.tip, p.a), p.a))
                     .collect();
                 if travel_of(&path) < input.tool.cutting_radius() {
-                    let last = (1..points.len())
-                        .find(|k| rapids.contains(k))
-                        .map_or(points.len().saturating_sub(1), |k| k - 1);
-                    self.follow(b, input, stock, common, pass, points, last.max(end), true)
+                    self.follow(
+                        b,
+                        input,
+                        stock,
+                        common,
+                        pass,
+                        points,
+                        last.max(end),
+                        Shape::Arc,
+                    )
                 } else {
-                    self.follow(b, input, stock, common, pass, points, end, false)
+                    self.follow(b, input, stock, common, pass, points, end, Shape::Line)
                 }
             }
             Start::PartialRing { end, .. } => {
-                self.follow(b, input, stock, common, pass, points, end, true)
+                self.follow(b, input, stock, common, pass, points, end, Shape::Arc)
             }
         }
     }
 
-    /// A pass with no path to follow: refused unless Allow single-point
-    /// plunge is on, then plunged and named in a note (decision 0543 D7, the
-    /// owner's answer).
-    fn single_point(
+    /// A pass with no room for a ramp: a single point, a stretch shorter
+    /// than the shortest ramp, or a ring or spiral that would take more than
+    /// 10 turns even at the Maximum ramp angle. Refused unless Plunge where
+    /// no ramp fits is on; then plunged, listed for the host's check
+    /// of a tool that cannot cut straight down, and named in a note with its
+    /// reason and its depth, the whole descent in one move (decision 0543
+    /// D7; decision 0695, Q4, the owner's answer).
+    fn fallback_plunge(
         &self,
         b: &mut Builder<'_>,
         stock: View<'_>,
         common: &CommonParameters,
         pass: usize,
         head: &CutPoint,
+        reason: PlungeReason,
     ) -> Result<()> {
         if !self.single_point_plunge {
             return Err(PathError::refused(
                 crate::topic::RAMP_ENTRY,
                 format!(
                     "pass {} is a single point, so there is no path for the ramp to follow. Turn \
-                     on Allow single-point plunge, or set Entry to Plunge or Helix.",
+                     on Plunge where no ramp fits, or set Entry to Plunge or Helix.",
                     pass + 1
                 ),
             )
             .with_setting(crate::params::names::ALLOW_SINGLE_POINT_PLUNGE));
         }
-        b.single_point_plunges.push(pass);
+        let depth = plunge_depth(b, stock, common, head)?;
+        b.fallback_plunges.push((pass, reason, depth));
         b.straight_plunges.push(pass);
-        plunge(b, stock, common, head)
+        Ok(())
     }
 
     /// The back-and-forth ramp over the pass's own path up to `end`, from
     /// the approach distance above the highest stock under the stretch it
-    /// uses (decision 0543 D3, D4, D5).
+    /// uses (decision 0543 D3, D4, D5). On a pass that starts as a spiral
+    /// its legs are bounded so the depth per traverse is no more than one
+    /// turn of a spiral ramp at the pass's start radius and the tool radius,
+    /// and its length is held to 10 turns at that radius, steepened near
+    /// the axis as for a ring (decision 0695, Q3 and Q4). A whole ring
+    /// held to the bound goes back and forth over itself at the angle its
+    /// ramp round it was planned at, steepened or not (Q9 part 3, the
+    /// owner's answer A).
     #[allow(clippy::too_many_arguments)]
     fn follow(
         &self,
@@ -492,7 +624,7 @@ impl Entry {
         pass: usize,
         points: &[CutPoint],
         end: usize,
-        arc: bool,
+        shape: Shape,
     ) -> Result<()> {
         let path: Vec<(AxisPosition, Degrees)> = points
             .iter()
@@ -518,50 +650,184 @@ impl Entry {
         if here <= goal.height + EPS {
             return plunge(b, stock, common, &head);
         }
-        // D5: the highest stock under the stretch the ramp uses, which
-        // depends on how high it starts: a few rounds settle it.
-        let mut top = here + approach;
-        for _ in 0..8 {
-            let reach = ((top - low) / self.ramp_tan).min(total);
-            let next = stock_top_along(b, stock, &path, reach, self.probe_height) + approach;
-            if next <= top + EPS {
-                break;
-            }
-            top = next;
-        }
         // The shortest stretch a ramp goes back and forth over: ten path
         // tolerances, at most the tool radius (decision 0543 D3 as amended
         // for issue #687, accepted). The angle holds on any length (each leg
         // of length L descends L tan(angle)), so the length sets only the
         // number of legs, which `MAX_LEGS` bounds; a shorter stretch is
-        // within the path's own precision, a plunge in all but name. Over a
-        // stretch shorter than the tool radius the tool's centre may go down
-        // into stock its edge has not cut, so the pass is listed for the
-        // host's check of a tool that cannot cut straight down.
+        // within the path's own precision, a plunge in all but name, and is
+        // entered as a single point is (decision 0695, Q4
+        // (i)). Over a stretch shorter than the tool radius the tool's centre
+        // may go down into stock its edge has not cut, so the pass is listed
+        // for the host's check of a tool that cannot cut straight down.
         let radius = input.tool.cutting_radius();
         let minimum = (RAMP_MINIMUM_TOLERANCES * self.tolerance).min(radius);
+        // The longest leg at an angle, and the largest depth per traverse
+        // that holds it with its bound. A leg of length S takes `2 S tan`
+        // at its far end, so S is at most half the largest depth per
+        // traverse over `tan` (decision 0695, Q8, the owner's answer A, and
+        // Q9, B: lines and partial rings too, taking more legs instead). On
+        // a pass that starts as a spiral, one turn of a spiral ramp at the
+        // start radius descends `2 pi r tan`, and held by it S is half the
+        // turn, `pi r`, taken as that (not `2 pi r tan / 2 tan`) so the
+        // program is the one it was before the bound had a function.
+        let longest_at = |tan: f64| match shape {
+            Shape::Spiral(r) => {
+                let per_turn = std::f64::consts::TAU * r.max(EPS);
+                let (depth, bound) = largest_depth_per_traverse(
+                    radius,
+                    self.depth_setting,
+                    Some(per_turn * tan),
+                    None,
+                );
+                let longest = if bound == DepthBound::OneTurn {
+                    0.5 * per_turn
+                } else {
+                    0.5 * depth / tan
+                };
+                (longest, (bound, depth))
+            }
+            Shape::Line | Shape::Arc | Shape::Ring(_) => {
+                let (depth, bound) =
+                    largest_depth_per_traverse(radius, self.depth_setting, None, None);
+                (0.5 * depth / tan, (bound, depth))
+            }
+        };
+        // D5: the highest stock under the stretch the ramp uses. No leg goes
+        // further along the path than the longest leg at the angle (nor than
+        // the path), and the legs may be lengthened to that while the ramp is
+        // fitted, so the stock is probed that far: never less, so the ramp
+        // starts above the stock under every leg (OP-12), and no further,
+        // so taller stock past the legs neither raises the ramp's start nor
+        // refuses it (CodeRabbit on #930). Shortened legs (see
+        // `path_ramp::back_and_forth`) stay within it.
+        let top_at = |tan: f64| {
+            let reach = longest_at(tan).0.min(total);
+            here.max(stock_top_along(b, stock, &path, reach, self.probe_height)) + approach
+        };
+        let what = match shape {
+            Shape::Line => "line",
+            Shape::Arc | Shape::Spiral(_) => "stretch",
+            Shape::Ring(_) => "ring",
+        };
+        if total < minimum || path.len() < 2 {
+            if self.single_point_plunge {
+                return self.fallback_plunge(
+                    b,
+                    stock,
+                    common,
+                    pass,
+                    &head,
+                    PlungeReason::ShortStretch,
+                );
+            }
+            return Err(PathError::refused(
+                crate::topic::RAMP_ENTRY,
+                format!(
+                    "pass {} starts with a {what} of {total:.3} mm, shorter than the {minimum:.3} \
+                     mm ({why}) a ramp needs to go back and forth over. Turn on Plunge where \
+                     no ramp fits, or set Entry to Plunge or Helix.",
+                    pass + 1,
+                    why = if minimum < radius {
+                        "ten times the tolerance"
+                    } else {
+                        "the tool radius"
+                    }
+                ),
+            )
+            .with_setting(crate::params::names::ALLOW_SINGLE_POINT_PLUNGE));
+        }
+        // The angle: the Ramp angle, or for a spiral whose ramp would travel
+        // more than 10 turns at its start radius, steeper as for a ring
+        // (decision 0543 section 4, point 3), the angle fitted to the rise
+        // the stock under the ramp actually gives at that angle.
+        let (tan, top, longest, bound) = match shape {
+            Shape::Spiral(r) => {
+                let per_turn = std::f64::consts::TAU * r.max(EPS);
+                let (fitted, tan, at_max) = self.steepen(|tan| {
+                    let top = top_at(tan);
+                    let turns = (top - low.min(goal.height)) / tan / per_turn;
+                    if !turns.is_finite() || turns > ring_ramp::MAX_TURNS {
+                        Err(ring_ramp::Refusal::TooManyTurns { radius: r, turns })
+                    } else {
+                        Ok(top)
+                    }
+                });
+                match fitted {
+                    Ok(top) => {
+                        if tan > self.ramp_tan * (1.0 + 1e-12) {
+                            b.steepened_ramps.push((pass, tan.atan().to_degrees()));
+                        }
+                        let (longest, bound) = longest_at(tan);
+                        (tan, top, longest, bound)
+                    }
+                    Err(ring_ramp::Refusal::TooManyTurns { .. })
+                        if at_max && self.single_point_plunge =>
+                    {
+                        return self.fallback_plunge(
+                            b,
+                            stock,
+                            common,
+                            pass,
+                            &head,
+                            PlungeReason::TooManyTurns,
+                        );
+                    }
+                    Err(ring_ramp::Refusal::TooManyTurns { turns, .. }) => {
+                        return Err(PathError::refused(
+                            crate::topic::RAMP_ENTRY,
+                            format!(
+                                "pass {} starts by turning round the part with its tip {r:.3} \
+                                 mm from the rotary axis, so {} its ramp back and forth would \
+                                 travel {turns:.1} times the length of one turn there, more than \
+                                 the {:.0} allowed. {}",
+                                pass + 1,
+                                angle_words(tan, at_max),
+                                ring_ramp::MAX_TURNS,
+                                fix_words(at_max)
+                            ),
+                        )
+                        .with_setting(fix_setting(at_max)));
+                    }
+                    Err(ring_ramp::Refusal::NothingToDescend) => {
+                        return plunge(b, stock, common, &head);
+                    }
+                }
+            }
+            // Every back-and-forth ramp keeps its depth per traverse within
+            // its bound (see `longest_at`): lines and partial rings too.
+            Shape::Line | Shape::Arc => {
+                let (longest, bound) = longest_at(self.ramp_tan);
+                (self.ramp_tan, top_at(self.ramp_tan), longest, bound)
+            }
+            // A whole ring held to the bound: the angle its ramp round it
+            // was planned at, named in the note below when steeper.
+            Shape::Ring(tan) => {
+                let (longest, bound) = longest_at(tan);
+                (tan, top_at(tan), longest, bound)
+            }
+        };
+        if matches!(shape, Shape::Ring(_)) && tan > self.ramp_tan * (1.0 + 1e-12) {
+            b.steepened_ramps.push((pass, tan.atan().to_degrees()));
+        }
         let super::path_ramp::Ramp {
             moves,
             floors,
             leg,
+            legs,
             steep,
-        } = super::path_ramp::back_and_forth(&path, top, self.ramp_tan, minimum, radius).map_err(
+            depth: cut,
+        } = super::path_ramp::back_and_forth(&path, top, tan, minimum, radius, longest).map_err(
             |refusal| {
-                let what = if arc { "stretch" } else { "line" };
                 let (text, setting) = match refusal {
                     super::path_ramp::Refusal::TooShort { length } => (
                         format!(
                             "pass {} starts with a {what} of {length:.3} mm, shorter than the \
-                         {minimum:.3} mm ({why}) a ramp needs to go back and forth over. Set \
-                         Entry to Plunge or Helix.",
+                         {minimum:.3} mm a ramp needs to go back and forth over. Turn on \
+                         Plunge where no ramp fits, or set Entry to Plunge or Helix.",
                             pass + 1,
-                            why = if minimum < radius {
-                                "ten times the tolerance"
-                            } else {
-                                "the tool radius"
-                            }
                         ),
-                        crate::params::names::ENTRY,
+                        crate::params::names::ALLOW_SINGLE_POINT_PLUNGE,
                     ),
                     super::path_ramp::Refusal::TooManyLegs { legs } => (
                         format!(
@@ -590,14 +856,29 @@ impl Entry {
         )?;
         self.emit(b, input, common, pass, &moves, &floors, MoveKind::LeadIn)?;
         // Legs are at least the tool radius where the stretch allows, so
-        // only a stretch shorter than the radius leaves them shorter.
+        // only a stretch shorter than the radius, or a spiral's legs bounded
+        // near the axis, leave them shorter.
         if leg < radius - EPS {
             b.straight_plunges.push(pass);
         }
         if steep {
             b.steep_ramps.push(pass);
         }
-        if arc {
+        // The load figures for the note (decision 0695, Q3
+        // point 4): the angle, the legs, and the depth per traverse, the
+        // deepest drop the ramp cuts between one visit to a place and the
+        // next (`2 · leg · tan` at a leg's far end, unless the pass rises
+        // under it; CodeRabbit on #930), to the nanometre so that ramps of
+        // the same drop name the first of them as the deepest.
+        b.ramp_loads.push(super::RampLoad {
+            pass,
+            angle: tan.atan().to_degrees(),
+            legs: Some(legs),
+            turns: None,
+            depth: (cut * 1e9).round() / 1e9,
+            bound: Some(bound),
+        });
+        if !matches!(shape, Shape::Line) {
             let reversals = moves
                 .windows(3)
                 .filter(|w| match w {
@@ -749,8 +1030,16 @@ impl Entry {
     }
 
     /// The ramp round the ring the pass starts with, when the entry is a
-    /// ramp and the pass starts as a closed ring (decision 0543 section 2);
-    /// `None` otherwise.
+    /// ramp and the pass starts as a closed ring (decision 0543 section 2),
+    /// or the descent on the axis of a pass that starts there (section 4,
+    /// point 2); a plunge where neither fits in 10 turns even at the Maximum
+    /// ramp angle and Plunge where no ramp fits is on (decision
+    /// 0695, Q4); `None` otherwise. A spiral off the axis is
+    /// ramped over its own path ([`Self::ramp`]), never round the part
+    /// (decision 0695, Q3). A ring whose ramp round itself would cut more
+    /// than the largest depth per traverse in a turn is ramped back and
+    /// forth over itself instead, at the angle planned for it (Q9 part 3,
+    /// the owner's answer A); a descent on the axis is not (OI-2239).
     #[allow(clippy::too_many_arguments)]
     fn ring_plan(
         &self,
@@ -761,92 +1050,97 @@ impl Entry {
         pass: usize,
         points: &[CutPoint],
         rapids: &[usize],
-    ) -> Result<Option<RingRamp>> {
-        if self.style != EntryStyle::Ramp || !self.round_the_part {
+    ) -> Result<Option<RingEntry>> {
+        if self.style != EntryStyle::Ramp {
             return Ok(None);
         }
         let shape = pass_shape::start(&b.rotary, points, rapids, self.tolerance);
         if let (Some(head), Start::FullRing { sign, .. } | Start::Spiral { sign }) =
             (points.first(), shape)
+            && self.on_axis(b, Some(head))
         {
+            // An end-face ring: the tip descends on the axis while A
+            // turns (decision 0543 section 4, point 2, option (b)).
             let at = b.rotary.to_axis(head.tip, head.a);
-            if at.across.hypot(at.height) <= self.tolerance {
-                // An end-face ring: the tip descends on the axis while A
-                // turns (decision 0543 section 4, point 2, option (b)).
-                let radius = input.tool.cutting_radius();
-                let (planned, tan, at_max) = self.steepen(|tan| {
-                    ring_ramp::plan_on_axis(
-                        b,
-                        stock,
-                        common.approach_distance.0,
-                        tan,
-                        at,
-                        head.a.0,
-                        sign,
-                        self.probe_height,
-                        radius,
-                        self.angle_step(radius).to_degrees(),
-                    )
-                });
-                return match planned {
-                    Ok(plan) => self.in_a_range(input, pass, plan).map(Some),
-                    Err(ring_ramp::Refusal::NothingToDescend) => Ok(None),
-                    Err(ring_ramp::Refusal::TooManyTurns { turns, .. }) => Err(PathError::refused(
-                        crate::topic::RAMP_ENTRY,
-                        format!(
-                            "pass {} starts on the rotary axis, where the tool \
-                             descends while the part turns; {}, measured at the tool's radius \
-                             of {radius:.3} mm, that takes {turns:.1} turns, more than the {:.0} \
-                             allowed. {}",
-                            pass + 1,
-                            angle_words(tan, at_max),
-                            ring_ramp::MAX_TURNS,
-                            fix_words(at_max)
-                        ),
-                    )
-                    .with_setting(fix_setting(at_max))),
-                };
-            }
-        }
-        let (planned, tan, at_max) = match shape {
-            Start::FullRing { end, sign } => self.steepen(|tan| {
-                ring_ramp::plan(
+            let radius = input.tool.cutting_radius();
+            let (planned, tan, at_max) = self.steepen(|tan| {
+                ring_ramp::plan_on_axis(
                     b,
                     stock,
                     common.approach_distance.0,
                     tan,
-                    points,
-                    end,
+                    at,
+                    head.a.0,
                     sign,
                     self.probe_height,
+                    radius,
+                    self.angle_step(radius).to_degrees(),
                 )
-            }),
-            Start::Spiral { sign } => {
-                let Some(head) = points.first() else {
-                    return Ok(None);
-                };
-                let at = b.rotary.to_axis(head.tip, head.a);
-                let step = self.angle_step(at.across.hypot(at.height)).to_degrees();
-                self.steepen(|tan| {
-                    ring_ramp::plan_spiral(
-                        b,
-                        stock,
-                        common.approach_distance.0,
-                        tan,
-                        at,
-                        head.a.0,
-                        sign,
-                        self.probe_height,
-                        step,
-                        |a| self.touch_height(b, input, at, Degrees(a)),
-                    )
-                })
-            }
-            _ => return Ok(None),
+            });
+            return match planned {
+                Ok(plan) => self
+                    .in_a_range(input, pass, self.steepened(plan, tan))
+                    .map(|p| Some(RingEntry::Ramp(p))),
+                Err(ring_ramp::Refusal::NothingToDescend) => Ok(None),
+                Err(ring_ramp::Refusal::TooManyTurns { .. })
+                    if at_max && self.single_point_plunge =>
+                {
+                    Ok(Some(RingEntry::Plunge))
+                }
+                Err(ring_ramp::Refusal::TooManyTurns { turns, .. }) => Err(PathError::refused(
+                    crate::topic::RAMP_ENTRY,
+                    format!(
+                        "pass {} starts on the rotary axis, where the tool \
+                         descends while the part turns; {}, measured at the tool's radius \
+                         of {radius:.3} mm, that takes {turns:.1} turns, more than the {:.0} \
+                         allowed. {}",
+                        pass + 1,
+                        angle_words(tan, at_max),
+                        ring_ramp::MAX_TURNS,
+                        fix_words(at_max)
+                    ),
+                )
+                .with_setting(fix_setting(at_max))),
+            };
+        }
+        let Start::FullRing { end, sign } = shape else {
+            return Ok(None);
         };
+        let (planned, tan, at_max) = self.steepen(|tan| {
+            ring_ramp::plan(
+                b,
+                stock,
+                common.approach_distance.0,
+                tan,
+                points,
+                end,
+                sign,
+                self.probe_height,
+            )
+        });
         let plan = match planned {
-            Ok(plan) => plan,
+            // One turn round the ring deeper than the bound: back and forth
+            // over the ring (Q9 part 3, the owner's answer A), under the one
+            // bound function, which `follow` applies to the legs. The ring
+            // is measured as its ramp round it would cut it,
+            // `min(2 pi r tan, rise)`, the figure the note gives for it.
+            Ok(plan)
+                if plan.depth_per_traverse()
+                    > largest_depth_per_traverse(
+                        self.tool_radius,
+                        self.depth_setting,
+                        None,
+                        None,
+                    )
+                    .0 + EPS =>
+            {
+                return Ok(Some(RingEntry::BackAndForth { end, tan }));
+            }
+            Ok(plan) => self.steepened(plan, tan),
             Err(ring_ramp::Refusal::NothingToDescend) => return Ok(None),
+            Err(ring_ramp::Refusal::TooManyTurns { .. }) if at_max && self.single_point_plunge => {
+                return Ok(Some(RingEntry::Plunge));
+            }
             Err(ring_ramp::Refusal::TooManyTurns { radius, turns }) => {
                 return Err(PathError::refused(
                     crate::topic::RAMP_ENTRY,
@@ -863,7 +1157,17 @@ impl Entry {
                 .with_setting(fix_setting(at_max)));
             }
         };
-        self.in_a_range(input, pass, plan).map(Some)
+        self.in_a_range(input, pass, plan)
+            .map(|p| Some(RingEntry::Ramp(p)))
+    }
+
+    /// `plan`, marked with the angle used when it is steeper than the Ramp
+    /// angle.
+    fn steepened(&self, mut plan: RingRamp, tan: f64) -> RingRamp {
+        if tan > self.ramp_tan * (1.0 + 1e-12) {
+            plan.steepened = Some(tan.atan().to_degrees());
+        }
+        plan
     }
 
     /// The radius of the nubs plunged, or 0 when that is off.
@@ -1009,40 +1313,66 @@ impl Entry {
     }
 
     /// Plans with the Ramp angle and, when that needs more than 10 turns and
-    /// the steeper ramp near the axis is on, again at the angle that fits
-    /// 10 turns, never steeper than the maximum (decision 0543 section 4,
-    /// point 3). Gives the plan or refusal, the tangent of the angle used
-    /// last, and whether that was the maximum.
-    fn steepen(
+    /// the steeper ramp near the axis is on, again at the shallowest angle
+    /// whose plan fits 10 turns, never steeper than the maximum (decision
+    /// 0543 section 4, point 3). The turns are those actually planned, not a
+    /// proportion of the angle: a ring ramp adds a whole turn where the pass
+    /// rises before its first point, so a few proportional tries can stop
+    /// short of a maximum that fits (decision 0695, Q4
+    /// (ii)). Gives the plan or refusal, the tangent of the angle used last,
+    /// and whether the search reached the maximum: always so when it is on
+    /// and still refuses, so no refusal asks to turn on a setting that is
+    /// already on.
+    fn steepen<T>(
         &self,
-        mut attempt: impl FnMut(f64) -> std::result::Result<RingRamp, ring_ramp::Refusal>,
-    ) -> (std::result::Result<RingRamp, ring_ramp::Refusal>, f64, bool) {
+        mut attempt: impl FnMut(f64) -> std::result::Result<T, ring_ramp::Refusal>,
+    ) -> (std::result::Result<T, ring_ramp::Refusal>, f64, bool) {
         let first = attempt(self.ramp_tan);
         let Err(ring_ramp::Refusal::TooManyTurns { mut turns, .. }) = first else {
             return (first, self.ramp_tan, false);
         };
-        if !self.steeper_near_axis || self.tan_max <= self.ramp_tan {
+        if !self.steeper_near_axis {
             return (first, self.ramp_tan, false);
         }
-        // Turns fall as the tangent rises: scale it to fit 10 turns, a few
-        // times, as a steep fall of the pass may add a turn.
+        if self.tan_max <= self.ramp_tan {
+            return (first, self.ramp_tan, true);
+        }
+        // Turns fall about as the tangent rises: scale it to fit 10 turns, a
+        // few times, which settles most passes at once.
         let mut tan = self.ramp_tan;
         for _ in 0..4 {
             tan = (tan * turns / ring_ramp::MAX_TURNS * (1.0 + 1e-6)).min(self.tan_max);
             match attempt(tan) {
-                Ok(mut plan) => {
-                    plan.steepened = Some(tan.atan().to_degrees());
-                    return (Ok(plan), tan, false);
-                }
+                Ok(plan) => return (Ok(plan), tan, false),
                 Err(ring_ramp::Refusal::TooManyTurns { turns: t, .. }) => turns = t,
                 other => return (other, tan, false),
             }
             if tan >= self.tan_max {
+                return (attempt(self.tan_max), self.tan_max, true);
+            }
+        }
+        // Then by the turns actually planned: the maximum, and if that fits,
+        // the shallowest angle between that fits.
+        let (mut low, mut high) = (tan, self.tan_max);
+        let mut best = match attempt(high) {
+            Ok(plan) => plan,
+            other => return (other, high, true),
+        };
+        for _ in 0..24 {
+            let mid = 0.5 * (low + high);
+            match attempt(mid) {
+                Ok(plan) => {
+                    best = plan;
+                    high = mid;
+                }
+                Err(ring_ramp::Refusal::TooManyTurns { .. }) => low = mid,
+                other => return (other, mid, false),
+            }
+            if high - low <= 1e-6 * high {
                 break;
             }
         }
-        let at_max = tan >= self.tan_max;
-        (attempt(tan), tan, at_max)
+        (Ok(best), high, false)
     }
 
     /// Refuses `plan` when its start is outside a limited A range (decision
@@ -1093,7 +1423,10 @@ impl Entry {
         }
         Ok(self
             .ring_plan(b, input, stock, common, pass, points, rapids)?
-            .and_then(|plan| plan.start())
+            .and_then(|entry| match entry {
+                RingEntry::Ramp(plan) => plan.start(),
+                RingEntry::Plunge | RingEntry::BackAndForth { .. } => None,
+            })
             .map(|(pos, a)| {
                 let tip = b.rotary.to_model(pos, a);
                 CutPoint {
@@ -1129,6 +1462,27 @@ impl Entry {
             b.on_axis_ramps.push((pass, turns));
             b.straight_plunges.push(pass);
         }
+        // The load figures for the note (decision 0695, Q3
+        // point 4): a ring ramp descends one turn's depth per traverse; a
+        // descent on the axis, the rise over its turns at the tool's edge.
+        let (Some((_, a_first)), Some((_, a_last))) =
+            (plan.moves.first().copied(), plan.moves.last().copied())
+        else {
+            return Ok(());
+        };
+        let turns = (a_last.0 - a_first.0).abs() / 360.0;
+        let tan = plan
+            .steepened
+            .map_or(self.ramp_tan, |d| d.to_radians().tan());
+        let depth = plan.depth_per_traverse();
+        b.ramp_loads.push(super::RampLoad {
+            pass,
+            angle: tan.atan().to_degrees(),
+            legs: None,
+            turns: Some(turns),
+            depth,
+            bound: None,
+        });
         Ok(())
     }
 
@@ -1434,11 +1788,24 @@ fn plunge(
     common: &CommonParameters,
     target: &CutPoint,
 ) -> Result<()> {
+    plunge_depth(b, stock, common, target).map(|_| ())
+}
+
+/// [`plunge`], giving the depth it plunges into the stock: the whole descent
+/// below where the stock begins over the point, in one move (decision
+/// 0695, Q4: the depth per traverse of a plunge).
+fn plunge_depth(
+    b: &mut Builder<'_>,
+    stock: View<'_>,
+    common: &CommonParameters,
+    target: &CutPoint,
+) -> Result<f64> {
     let goal = b.rotary.to_axis(target.tip, target.a);
     let stop = stop_height(b, stock, common, goal.height);
     rapid_to(b, stop)?;
     let end = b.pose(target.tip, target.a);
-    b.push(MoveKind::Plunge, end, None, Some(common.plunge_feed))
+    b.push(MoveKind::Plunge, end, None, Some(common.plunge_feed))?;
+    Ok((stop - common.approach_distance.0 - goal.height).max(0.0))
 }
 
 /// The unit horizontal direction of the first move of the pass that has one.
@@ -1478,7 +1845,7 @@ fn travel_of(path: &[(AxisPosition, Degrees)]) -> f64 {
 }
 
 /// The travel of one step (see [`travel_of`]).
-fn step_length(q: AxisPosition, b: Degrees, p: AxisPosition, a: Degrees) -> f64 {
+pub(super) fn step_length(q: AxisPosition, b: Degrees, p: AxisPosition, a: Degrees) -> f64 {
     let radius = 0.5 * (p.across.hypot(p.height) + q.across.hypot(q.height));
     (p.along - q.along).hypot(p.across - q.across) + (a.0 - b.0).abs().to_radians() * radius
 }
@@ -1559,7 +1926,10 @@ fn fix_setting(at_max: bool) -> &'static str {
 
 fn fix_words(at_max: bool) -> &'static str {
     if at_max {
-        "Raise Maximum ramp angle, or set Entry to Plunge or Helix."
+        // Reached only with Plunge where no ramp fits off: on, such a pass
+        // is plunged (decision 0695, Q4).
+        "Raise Maximum ramp angle, or turn on Plunge where no ramp fits, or set Entry to \
+         Plunge or Helix."
     } else {
         "Raise Ramp angle, or turn on Steeper ramp near the axis, or set Entry to Plunge or Helix."
     }
@@ -1571,6 +1941,36 @@ mod tests {
     use super::*;
     use crate::BrepSurface;
     use openchuck_testkit::ruled::wall_plane;
+
+    /// Decision 0695, Q9 (the owner's answer B) and the
+    /// agreement with lane TOOL-LOAD: a back-and-forth ramp's largest depth
+    /// per traverse is the least of the tool radius, one turn of a spiral
+    /// ramp at its start radius, the Largest depth per traverse setting (0
+    /// the tool radius, more held to it) and the tool-load cap, and says
+    /// which held it.
+    #[test]
+    fn req_op_11_a_ramp_s_largest_depth_per_traverse_is_the_least_of_its_bounds() {
+        use DepthBound::{OneTurn, Setting, ToolLoadLimit, ToolRadius};
+        let bound = largest_depth_per_traverse;
+        assert_eq!(bound(1.5, 0.0, None, None), (1.5, ToolRadius));
+        assert_eq!(bound(1.5, 3.0, None, None), (1.5, ToolRadius));
+        assert_eq!(bound(1.5, 1.5, None, None), (1.5, ToolRadius));
+        assert_eq!(bound(1.5, 0.5, None, None), (0.5, Setting));
+        assert_eq!(bound(1.5, 0.0, Some(1.2), None), (1.2, OneTurn));
+        assert_eq!(bound(1.5, 0.0, Some(4.0), None), (1.5, ToolRadius));
+        assert_eq!(bound(1.5, 0.5, Some(1.2), None), (0.5, Setting));
+        assert_eq!(bound(1.5, 0.5, Some(0.3), None), (0.3, OneTurn));
+        assert_eq!(bound(1.5, 0.5, Some(1.2), Some(0.2)), (0.2, ToolLoadLimit));
+        assert_eq!(bound(1.5, 0.0, None, Some(2.0)), (1.5, ToolRadius));
+        // A cap that is not a positive length bounds nothing (NFR-07).
+        assert_eq!(bound(1.5, 0.0, None, Some(0.0)), (1.5, ToolRadius));
+        assert_eq!(bound(1.5, 0.0, None, Some(f64::NAN)), (1.5, ToolRadius));
+        assert_eq!(bound(1.5, f64::NAN, None, None), (1.5, ToolRadius));
+        assert_eq!(ToolRadius.words(), "the tool radius");
+        assert_eq!(OneTurn.words(), "one turn round the part");
+        assert_eq!(Setting.words(), "the Largest depth per traverse setting");
+        assert_eq!(ToolLoadLimit.words(), "the tool-load limit");
+    }
 
     /// CodeRabbit on #866 (decision record 0682): a face sampled no finer
     /// than 400 points each way is coarser than the spacing asked for when

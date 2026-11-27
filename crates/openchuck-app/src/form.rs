@@ -148,19 +148,17 @@ impl FormSection {
             | "max_tilt" | "axis_tolerance" | "max_angle_step" | "tip_end" | "tip_extension" => {
                 Self::ToolAxisAndA
             }
+            // The basic entry settings (decision 0695, Q9,
+            // A's regrouping): Entry, Ramp angle and Plunge where no ramp
+            // fits; the rest of the ramp, helix and lead settings are in
+            // Advanced, below.
             "retract"
             | "link_height"
             | "approach_distance"
             | "entry"
             | "ramp_back_and_forth"
             | "allow_single_point_plunge"
-            | "ramp_steeper_near_axis"
-            | "ramp_angle_max"
-            | "plunge_face_nubs"
-            | "face_nub_diameter"
             | "ramp_angle"
-            | "helix_diameter"
-            | "lead_radius"
             | "reentry_clearance"
             | "retract_height"
             | "chip_break_retract"
@@ -171,6 +169,15 @@ impl FormSection {
             "diameter_tolerance" | "crease_angle" | "min_length" | "min_remaining" | "min_cut"
             | "max_material_left" | "through_allowance" | "max_step" | "max_x_step"
             | "depth_reference" | "exact_contact" => Self::Advanced,
+            // The entry settings past the basic ones (decision
+            // 0695, Q9).
+            "ramp_steeper_near_axis"
+            | "ramp_angle_max"
+            | "plunge_face_nubs"
+            | "face_nub_diameter"
+            | "ramp_depth_per_traverse"
+            | "helix_diameter"
+            | "lead_radius" => Self::Advanced,
             _ => Self::PatternAndTolerance,
         }
     }
@@ -362,6 +369,7 @@ pub fn parameter_form(
                             names::RAMP_ANGLE_MAX,
                             names::PLUNGE_FACE_NUBS,
                             names::FACE_NUB_DIAMETER,
+                            names::RAMP_DEPTH_PER_TRAVERSE,
                         ]
                         .contains(&spec.name.as_str()))
                 {
@@ -394,7 +402,7 @@ pub fn parameter_form(
     })
 }
 
-/// The operation's Largest cut section (SIM-16; decision record TOOL-LOAD-1,
+/// The operation's Largest cut section (SIM-16; decision record 0698,
 /// Q3): the most material the tool should remove per millimetre of travel,
 /// above which the simulation warns. Empty, it shows the limit that applies
 /// and where it comes from, as the cutting-data fields do. `None` with no
@@ -629,6 +637,25 @@ mod section_tests {
         assert_eq!(FormSection::of("entry"), FormSection::EntryLinksAndRetract);
         assert_eq!(FormSection::of("min_length"), FormSection::Advanced);
         assert_eq!(FormSection::of("exact_contact"), FormSection::Advanced);
+        assert_eq!(
+            FormSection::of("ramp_angle"),
+            FormSection::EntryLinksAndRetract
+        );
+        assert_eq!(
+            FormSection::of("allow_single_point_plunge"),
+            FormSection::EntryLinksAndRetract
+        );
+        for name in [
+            "ramp_steeper_near_axis",
+            "ramp_angle_max",
+            "plunge_face_nubs",
+            "face_nub_diameter",
+            "ramp_depth_per_traverse",
+            "helix_diameter",
+            "lead_radius",
+        ] {
+            assert_eq!(FormSection::of(name), FormSection::Advanced, "{name}");
+        }
         assert_eq!(
             FormSection::of("stepover"),
             FormSection::PatternAndTolerance

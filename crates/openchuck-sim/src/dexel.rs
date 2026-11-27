@@ -515,7 +515,7 @@ impl DexelStock {
 
     /// [`DexelStock::cut_cancellable`] that also tells, for each pose, what
     /// it removed and where along the tool axis (SIM-16; the tool-load
-    /// measure of decision record TOOL-LOAD-1): one [`PoseTally`] per pose,
+    /// measure of decision record 0698): one [`PoseTally`] per pose,
     /// in the order of `poses`. Each column is cut by the poses in order and
     /// the rows are added up in row order, so the tallies do not depend on
     /// the thread count (NFR-06).
@@ -583,12 +583,11 @@ impl DexelStock {
             .map(|(i, row)| {
                 let x = x0 + (i as f64 + 0.5) * cx;
                 let mut removed = 0.0;
-                // Each column's own removal, for the deepest.
-                let mut by_column = if deepest {
-                    vec![0.0_f64; row.len()]
-                } else {
-                    Vec::new()
-                };
+                // Each column's own removal, for the deepest: made on the
+                // row's first change, so a row the batch does not cut costs
+                // nothing (issue #846 item 4).
+                let mut by_column: Vec<f64> = Vec::new();
+                let width = row.len();
                 let mut scratch: Vec<[f64; 2]> = Vec::new();
                 // What each pose removed from this row, in pose order.
                 let mut tallies: Vec<RowTally> = Vec::new();
@@ -637,8 +636,13 @@ impl DexelStock {
                         if scratch.as_slice() != col.as_slice() {
                             let here = before - column_length(&scratch);
                             removed += here;
-                            if let Some(slot) = by_column.get_mut(j) {
-                                *slot += here;
+                            if deepest {
+                                if by_column.is_empty() {
+                                    by_column = vec![0.0_f64; width];
+                                }
+                                if let Some(slot) = by_column.get_mut(j) {
+                                    *slot += here;
+                                }
                             }
                             if let Some((low, high)) = heights {
                                 add_row_tally(&mut tallies, n, here, low, high);

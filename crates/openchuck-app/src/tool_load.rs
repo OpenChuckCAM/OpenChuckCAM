@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //! The load on the tool, as the stock simulation measured it (SIM-16;
-//! decision record TOOL-LOAD-1, TL-1).
+//! decision record 0698, TL-1).
 //!
 //! The simulation notes what each move removed ([`openchuck_sim::ToolLoad`]);
 //! this module chooses the limit an operation is measured against and words
@@ -31,7 +31,7 @@ use openchuck_types::ir::ToolpathGroup;
 use crate::lead_in::topic;
 
 /// The operation parameter that sets the operation's own largest cut
-/// section, mm² (decision record TOOL-LOAD-1, Q3: an override in the
+/// section, mm² (decision record 0698, Q3: an override in the
 /// pattern of the cutting-data fields). The application reads it; it is not
 /// a parameter of any strategy, so it is taken out before the parameters go
 /// to the pathing library.
@@ -136,7 +136,7 @@ pub fn limit(project: &Project, operation: &Operation) -> Option<Limit> {
 
 /// Whether an operation of `strategy` is warned of a heavy cut. Radial
 /// drilling is measured but not warned: a drill cuts on its end by design,
-/// and its pecking manages that (decision record TOOL-LOAD-1, Q4).
+/// and its pecking manages that (decision record 0698, Q4).
 #[must_use]
 pub fn warns(strategy: &str) -> bool {
     strategy != openchuck_path::drill::NAME
@@ -193,7 +193,7 @@ pub fn warning(
 }
 
 /// The information line of a simulated operation: its heaviest cut, its
-/// removal rate and its limit (decision record TOOL-LOAD-1, Q2 and Q3).
+/// removal rate and its limit (decision record 0698, Q2 and Q3).
 #[must_use]
 pub fn information(summary: &LoadSummary, limit: &Limit) -> Notice {
     let heaviest = summary.heaviest.map_or_else(

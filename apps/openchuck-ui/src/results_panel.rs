@@ -329,7 +329,7 @@ pub struct OperationRow {
 }
 
 /// One operation's tool-load figures in the removal-rate block (SIM-16;
-/// decision record TOOL-LOAD-1, Q2, the owner's addition).
+/// decision record 0698, Q2, the owner's addition).
 #[derive(Debug, Clone, PartialEq)]
 pub struct LoadRow {
     /// Material removed by the fed moves, mm³.
@@ -421,7 +421,7 @@ fn rate_text(rate: Option<f64>) -> String {
     rate.map_or_else(|| "—".to_owned(), |r| format!("{r:.0}"))
 }
 
-/// What the Average figure is, for its tooltip (decision record TOOL-LOAD-1,
+/// What the Average figure is, for its tooltip (decision record 0698,
 /// agreed with lane SIM-UX: "cutting time", not the operation's Programmed
 /// time).
 fn average_tooltip(row: &LoadRow) -> String {
@@ -1171,7 +1171,7 @@ fn result_block(ui: &mut egui::Ui, r: &SetupResults, titled: bool, filter: &mut 
 }
 
 /// The removal-rate block under BY OPERATION (SIM-16; decision record
-/// TOOL-LOAD-1, the owner's addition to Q2): per operation, the average
+/// 0698, the owner's addition to Q2): per operation, the average
 /// removal rate over the cutting time, the highest over a stretch, and the
 /// heaviest cut section; then the setup's own figures. Not drawn when no
 /// operation was measured.

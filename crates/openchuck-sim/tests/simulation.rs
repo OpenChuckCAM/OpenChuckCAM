@@ -1000,6 +1000,14 @@ fn req_sim_03_req_sim_07_a_finer_cell_gives_a_finer_threshold() {
 }
 
 #[test]
+fn req_sim_03_req_sim_07_a_rapid_in_the_clear_cuts_nothing() {
+    // Issue #846 item 4: a rapid that misses the stock is no rapid cut. The
+    // deepest tally is made only for rows the rapid cuts, so this one makes
+    // none and reports nothing.
+    assert!(rapid_at(15.5, 0.2).is_empty());
+}
+
+#[test]
 fn req_sim_03_line_spans_follow_the_tool_tilt() {
     // A cross-check of the span solver against the closed form for a ball
     // whose axis is tilted: a line through the ball's centre crosses it over

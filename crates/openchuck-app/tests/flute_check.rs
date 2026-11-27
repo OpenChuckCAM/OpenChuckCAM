@@ -340,7 +340,7 @@ fn req_tl_04_req_nfr_12_a_finish_with_flutes_past_the_stock_in_reach_is_not_warn
 }
 
 /// The tool-load warnings among the run's paths (SIM-16; decision record
-/// TOOL-LOAD-1, TL-1).
+/// 0698, TL-1).
 fn tool_load_warnings(run: &openchuck_app::Regeneration) -> Vec<String> {
     run.groups
         .iter()

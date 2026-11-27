@@ -399,6 +399,24 @@ pub fn pass_over(ctx: &egui::Context, id: egui::Id, region: Region) {
     ctx.request_discard("Tab passed over a splitter");
 }
 
+/// A tooltip for information drawn inside a row that is itself the Tab stop:
+/// it opens on hover over `response` (the information), and at once while
+/// `holder` (the row) has the keyboard. The information takes no Tab stop of
+/// its own, and is still reached from the keyboard through the row (UI-14;
+/// decision 0677 item 3 met through the row; decision record 0690, the
+/// owner's answer T2, the project panel's tool chip).
+pub fn tip_through(
+    response: &egui::Response,
+    holder: &egui::Response,
+    contents: impl FnOnce(&mut egui::Ui),
+) {
+    if holder.has_focus() {
+        response.show_tooltip_ui(contents);
+    } else {
+        response.clone().on_hover_ui(contents);
+    }
+}
+
 /// Draws the focus ring round a widget that draws itself, while it has the
 /// keyboard.
 pub fn focus_ring(ui: &egui::Ui, response: &egui::Response) {
