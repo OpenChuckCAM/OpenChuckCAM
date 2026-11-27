@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased (MOPUP-1, PR M10; issue #892; a non-breaking addition, no version change)
+
+- **Changed:** pencil clean-up's `min_length` (Shortest cut) is a `ParameterKind::LengthOrTool`: a length in millimetres or `tool_diameter`, the operation's tool's diameter when the path is made, as face flow's Shortest cut is (decision 0686). Its default stays 0 mm, so a call that does not give it keeps every stretch; a number gives the same path as before. No API change: the parameter's name and the `ParameterKind` variant already exist.
+
 ## 0.74.0 (PATH-QUALITY; issue #834; decision 0700, proposed; not breaking, output change)
 
 - **Changed output (Face free ends, ends that do not reach round the rotary axis):** such an end (the end of a pin off the axis, a crankshaft's web) was not found and was skipped with no word. It is now faced in nested, layered arcs over the angles where the face is, down to its nearest point to the axis, with a whole turn where the arcs cover nearly a turn, a note, and decision 0344's two Part cut free warnings worded for the arcs. An end found on every line of A is faced as before, byte for byte.

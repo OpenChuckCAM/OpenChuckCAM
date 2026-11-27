@@ -1817,6 +1817,66 @@ fn req_op_11_a_new_ring_operation_blends_its_steps() {
 }
 
 #[test]
+fn req_op_09_a_new_pencil_operation_starts_its_shortest_cut_at_tool_diameter() {
+    // Issue #892 (the owner's answer A): a new pencil clean-up is written
+    // with Shortest cut Tool diameter, which follows the operation's tool;
+    // a number the user sets is kept, and other strategies get no value.
+    use openchuck_path::pencil::pencil_parameter::MIN_LENGTH;
+    let (dir, mut app, op) = project("pencil-shortest-cut");
+    let setup = app.project().operation(op).unwrap().setup;
+    let tool = app.project().operation(op).unwrap().tool;
+    let value = |app: &Application, id, name: &str| {
+        app.project()
+            .operation(id)
+            .unwrap()
+            .parameters
+            .get(name)
+            .cloned()
+    };
+    let added = app
+        .add_operation("pencil", openchuck_path::pencil::NAME, setup, tool)
+        .unwrap();
+    let word = ParameterValue::Text(openchuck_path::params::TOOL_DIAMETER.into());
+    assert_eq!(value(&app, added, MIN_LENGTH), Some(word.clone()));
+    // The form offers it as a length or Tool diameter, with the tool's
+    // diameter to show beside it.
+    let diameter = app
+        .project()
+        .tools()
+        .iter()
+        .find(|t| Some(t.id) == tool)
+        .map(|t| t.tool.diameter.0)
+        .unwrap();
+    let form = app.parameter_form(added).unwrap();
+    let field = form.fields.iter().find(|f| f.name == MIN_LENGTH).unwrap();
+    assert_eq!(field.label, "Shortest cut");
+    match &field.kind {
+        openchuck_app::form::FieldKind::LengthOrTool {
+            min, tool_diameter, ..
+        } => {
+            assert_eq!(*min, Some(0.0));
+            assert!((tool_diameter.unwrap() - diameter).abs() < 1e-9);
+        }
+        other => panic!("{other:?}"),
+    }
+    // A number is kept as it is, and the word can be chosen again.
+    app.set_parameter(added, MIN_LENGTH, Some(ParameterValue::Number(2.5)))
+        .unwrap();
+    assert_eq!(
+        value(&app, added, MIN_LENGTH),
+        Some(ParameterValue::Number(2.5))
+    );
+    app.set_parameter(added, MIN_LENGTH, Some(word.clone()))
+        .unwrap();
+    assert_eq!(value(&app, added, MIN_LENGTH), Some(word));
+    let helical = app
+        .add_operation("helical_finishing", "helical_finishing", setup, tool)
+        .unwrap();
+    assert_eq!(value(&app, helical, MIN_LENGTH), None);
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+#[test]
 fn req_op_28_a_new_face_flow_operation_stays_down_blends_its_ring_steps_and_sets_its_shortest_cut()
 {
     // Issue #854 (the owner's answers of 23 Nov 2026, Q2 and the ring

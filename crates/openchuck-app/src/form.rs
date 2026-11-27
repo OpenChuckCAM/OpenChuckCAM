@@ -339,7 +339,17 @@ pub fn parameter_form(
                         max: *max,
                         tool_diameter,
                     },
-                    Some(from_path(&default.stored())),
+                    // Where the application's default is the tool's own size
+                    // (pencil's Shortest cut, decision 0684 item 3), it is
+                    // shown as Tool diameter: it follows the tool (issue
+                    // #892).
+                    Some(
+                        if crate::operation::default_override(project, op, &spec.name).is_some() {
+                            ParameterValue::Text(openchuck_path::params::TOOL_DIAMETER.to_owned())
+                        } else {
+                            from_path(&default.stored())
+                        },
+                    ),
                 ),
                 // A kind added to the library later shows as text.
                 _ => (

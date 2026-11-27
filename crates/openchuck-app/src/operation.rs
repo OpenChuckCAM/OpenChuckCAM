@@ -253,11 +253,11 @@ pub fn parameter_values(
     // corner.
     if operation.strategy == pencil::NAME
         && !values.contains_key(pencil::pencil_parameter::MIN_LENGTH)
-        && let Some(snapshot) = snapshot
+        && snapshot.is_some()
     {
         values.insert(
             pencil::pencil_parameter::MIN_LENGTH.to_owned(),
-            ParameterValue::Number(snapshot.tool.diameter.0),
+            ParameterValue::Text(openchuck_path::params::TOOL_DIAMETER.to_owned()),
         );
     }
     // A required value that neither the operation nor the cutting data gives:
@@ -4138,14 +4138,28 @@ mod tests {
             .unwrap();
         assert_eq!(field.label, "Shortest cut");
         assert_eq!(field.section, crate::form::FormSection::Advanced);
-        assert_eq!(field.value, Some(Value::Number(BALL)));
+        // Issue #892: shown and given to the library as Tool diameter, which
+        // the library reads as the tool's diameter (BALL here) and which
+        // follows a change of tool.
+        let word = openchuck_path::params::TOOL_DIAMETER.to_owned();
+        assert_eq!(field.value, Some(Value::Text(word.clone())));
         assert_eq!(field.source, crate::form::Source::Default);
         let op = f.project.operation(f.operation).unwrap();
         let resolved = parameter_values(&f.project, op, &registry).unwrap();
         assert_eq!(
             resolved.values.get(pencil::pencil_parameter::MIN_LENGTH),
-            Some(&openchuck_path::ParameterValue::Number(BALL))
+            Some(&openchuck_path::ParameterValue::Text(word))
         );
+        let params = registry
+            .get(pencil::NAME)
+            .unwrap()
+            .schema()
+            .resolve(&resolved.values)
+            .unwrap();
+        let shortest = params
+            .length_or_tool(pencil::pencil_parameter::MIN_LENGTH, BALL)
+            .unwrap();
+        assert!((shortest - BALL).abs() < 1e-12, "{shortest}");
         let mut set = op.clone();
         set.parameters.insert(
             pencil::pencil_parameter::MIN_LENGTH.to_owned(),
