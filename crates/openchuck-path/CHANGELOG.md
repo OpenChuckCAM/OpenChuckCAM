@@ -4,7 +4,7 @@
 
 - **New refusal (Entry Lead and Helix, every strategy but swarf, an operation limited to a selection):** a lead or helix is measured against the part's faces outside the selection (`RegionConstraint::outside`) that it comes near: the faces whose box meets the box the tool's cutting part sweeps over the entry, sampled lazily as swarf samples its faces next to the face set. One that would cut such a face deeper than the tolerance and the sampling slack is refused, naming the face. Where the pass itself cuts the face where the move meets it, the refusal says so. Plunge and Ramp, swarf (decision 0682, unchanged) and faces with no exact form (a mesh) are not measured.
 - **Fixed (CodeRabbit on #972):** the measure reaches the tool on up its axis past the top of the flutes, as far as any face goes, so a swarf entry keeps decision 0682's refusals there; each face's box is read from its whole untrimmed surface, so no part of a trim a coarse grid misses is left out of the measure; for the faces outside a selection the point where the move meets the pass is measured too.
-- No public API change.
+- **Added (not breaking):** `ParametricFace::bounds`, a default method (`None`) that a face may answer with a box holding all of it; `BrepSurface`'s exact faces give their own box (the control hull of a B-spline, a speed-bound margin for an analytic face). The measure beside a selection uses it for each face's box, so a face that curves between grid points is not left out.
 
 ## Unreleased (MOPUP-1, PR M10; issue #892; a non-breaking addition, no version change)
 

@@ -211,12 +211,18 @@ impl<'a> Beside<'a> {
     }
 }
 
-/// A box that holds all of `face`: its untrimmed surface over the whole
+/// A box that holds all of `face`: the face's own box where it gives one
+/// ([`ParametricFace::bounds`], every exact face), else its untrimmed surface over the whole
 /// parameter box on a [`BOX_GRID`] grid, grown by the longest step between
 /// neighbouring grid points. The trim is not read, so no part of it a grid
 /// misses (a narrow band, a part of a trim) is left out of the box
 /// (CodeRabbit on #972). `None` where the surface has no point at all.
 fn surface_box(face: &dyn ParametricFace) -> Option<Aabb> {
+    // The face's own box, where it has one, holds it however it curves
+    // between grid points (CodeRabbit on #972); the grid is the fallback.
+    if let Some(b) = face.bounds() {
+        return Some(b);
+    }
     let (lo, hi) = face.uv_bounds();
     let n = BOX_GRID - 1;
     let at = |i: usize, j: usize| {
@@ -487,5 +493,68 @@ mod tests {
             |i| beside.slack(i),
         );
         assert!(matches!(found, Some((0, 0, d, _)) if d > 1.0), "{found:?}");
+    }
+
+    /// A plane at Z 0 over X and Y 0 to 200 with a peak 20 mm high and
+    /// 0.3 mm across at (100.8, 100.8), between the points of a 65 by 65
+    /// grid, and a box that holds it, as an exact face gives one.
+    #[derive(Debug)]
+    struct Peak;
+
+    impl Peak {
+        fn z(u: f64, v: f64) -> f64 {
+            let d = (u - 100.8).hypot(v - 100.8);
+            if d < 0.15 {
+                20.0 * (1.0 - d / 0.15)
+            } else {
+                0.0
+            }
+        }
+    }
+
+    impl ParametricFace for Peak {
+        fn uv_bounds(&self) -> (Uv, Uv) {
+            (Uv { u: 0.0, v: 0.0 }, Uv { u: 200.0, v: 200.0 })
+        }
+        fn point_normal(&self, uv: Uv) -> Option<SurfacePoint> {
+            Some(SurfacePoint {
+                point: Point3::new(uv.u, uv.v, Self::z(uv.u, uv.v)),
+                normal: up(),
+                position: None,
+            })
+        }
+        fn closest(&self, _: Point3) -> Option<FaceClosest> {
+            None
+        }
+        fn ray_hits(&self, _: Point3, _: UnitVec3, _: f64) -> Vec<RayHit> {
+            Vec::new()
+        }
+        fn contains(&self, _: Uv) -> bool {
+            true
+        }
+        fn bounds(&self) -> Option<Aabb> {
+            Some(Aabb {
+                min: Point3::new(0.0, 0.0, 0.0),
+                max: Point3::new(200.0, 200.0, 20.0),
+            })
+        }
+    }
+
+    /// CodeRabbit on #972: a grid's longest step does not bound a surface
+    /// between its points (a narrow peak); where the face gives a box that
+    /// holds all of it, as an exact face does (its control hull, or its
+    /// speed bound), that box is used, so an entry near the peak keeps it.
+    #[test]
+    fn req_op_12_a_face_s_own_box_is_used_where_it_has_one() {
+        let faces = vec![FaceRef {
+            number: 9,
+            face: &Peak,
+        }];
+        let beside = Beside::from_faces(faces, 3.0, Allowance::Tolerance).unwrap();
+        let near_peak = Aabb {
+            min: Point3::new(100.0, 100.0, 14.0),
+            max: Point3::new(101.5, 101.5, 16.0),
+        };
+        assert_eq!(beside.near(&near_peak), vec![0]);
     }
 }
