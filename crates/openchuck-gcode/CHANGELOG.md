@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.76.0
+
+- **Family release (0.76.0; PATH-QUALITY; issues #967 and #971):** `openchuck-path` faces an end with a lip down to the lip, reads whether a tab meets an end against the part alone, and counts indexed finishing's run-outs and the steps between rings past a point towards the most points; no change to this crate.
+
 ## 0.74.0
 
 - **Family release (0.74.0; PATH-QUALITY; issue #834):** `openchuck-path` faces the ends that do not reach round the rotary axis in arcs, with a new Cutting direction setting, and warns where a tab misses an end; no change to this crate.

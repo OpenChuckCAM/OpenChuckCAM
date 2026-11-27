@@ -778,3 +778,26 @@ fn req_nfr_07_req_op_04_the_stretch_past_a_point_counts_towards_the_most_points(
         "{text}"
     );
 }
+
+#[test]
+fn req_nfr_07_req_op_04_indexed_run_outs_count_towards_the_most_points() {
+    // Issue #967, item 1 (CodeRabbit on #961): indexed finishing runs each
+    // pass on past both ends of the part by the tool's radius, and those
+    // run-outs are points too, held to the same limit (5,000,000) and
+    // refused before any is fitted, with Finish to a point on or off. The
+    // part is 0.8 mm long and each run-out about 1.59 mm, so at this step
+    // the 4 passes over the part alone (320,000 points each) are within the
+    // limit and the run-outs take them over it.
+    let f = short_point();
+    for point in [true, false] {
+        let mut v = values(&IndexedFinishing, point);
+        v.insert("count".into(), ParameterValue::Integer(4));
+        v.insert("max_x_step".into(), ParameterValue::Number(2.5e-6));
+        let err = run(|ctx| generate(&IndexedFinishing, &f.input(), &v, ctx)).unwrap_err();
+        let text = err.to_string();
+        assert!(
+            text.contains("too many") && text.contains("4 passes"),
+            "{point}: {text}"
+        );
+    }
+}

@@ -446,15 +446,33 @@ impl<'a> AlongX<'a> {
         self.grown.cutting_radius()
     }
 
+    /// The seeds of each run-out past an end (indexed finishing's `beyond`,
+    /// decision record 0343), at the passes' own spacing along X.
+    fn run_out_seeds(&self) -> usize {
+        let h = (self.x1 - self.x0) / self.seeds as f64;
+        ((self.beyond / h).ceil() as usize).max(1)
+    }
+
+    /// The points of a pass over the target with its run-outs past both
+    /// ends, if any: the run-outs count towards the same limit as the pass
+    /// (CodeRabbit on #961, issue #967).
+    fn pass_points(&self) -> f64 {
+        if self.beyond > 0.0 {
+            self.seeds as f64 + 2.0 * self.run_out_seeds() as f64
+        } else {
+            self.seeds as f64
+        }
+    }
+
     /// Refuses a job of `count` passes that would make too many points.
     pub(crate) fn check_passes(&self, count: usize) -> Result<()> {
-        if self.candidates.is_none() && self.seeds as f64 * count as f64 > MAX_SEEDS {
+        let each = self.pass_points();
+        if self.candidates.is_none() && each * count as f64 > MAX_SEEDS {
             return Err(PathError::Parameter {
                 name: parameter::MAX_X_STEP.to_owned(),
                 reason: format!(
-                    "{count} passes of {} points each is too many; increase the stepover \
-                     or the largest step",
-                    self.seeds
+                    "{count} passes of {each:.0} points each is too many; increase the \
+                     stepover or the largest step"
                 ),
             });
         }
@@ -473,8 +491,7 @@ impl<'a> AlongX<'a> {
             // The pass over the target is fitted as before, so its points do
             // not move; the stretches past each end are fitted on their own
             // and joined to it where they meet (decision record 0343).
-            let h = (x1 - x0) / self.seeds as f64;
-            let seeds = ((self.beyond / h).ceil() as usize).max(1);
+            let seeds = self.run_out_seeds();
             let (lo, hi) = (x0 - self.beyond, x1 + self.beyond);
             let pieces = if backwards {
                 [(hi, x1, seeds), (x1, x0, self.seeds), (x0, lo, seeds)]
@@ -555,7 +572,7 @@ impl<'a> AlongX<'a> {
         if past == 0.0 {
             return Ok(());
         }
-        let per_pass = self.seeds as f64 + past;
+        let per_pass = self.pass_points() + past;
         let total = if self.candidates.is_none() {
             per_pass * count as f64
         } else {
@@ -565,10 +582,10 @@ impl<'a> AlongX<'a> {
             return Err(PathError::Parameter {
                 name: parameter::MAX_X_STEP.to_owned(),
                 reason: format!(
-                    "{} of {} each, with {past:.0} more past the point, is too many; \
-                     increase the stepover or the largest step",
+                    "{} of {:.0} points each, with {past:.0} more past the point, is too \
+                     many; increase the stepover or the largest step",
                     crate::counted(count, "pass", "passes"),
-                    crate::counted(self.seeds, "point", "points")
+                    self.pass_points()
                 ),
             });
         }

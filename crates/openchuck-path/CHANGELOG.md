@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.76.0 (PATH-QUALITY; issues #967 and #971; review findings of 0.73.0 and 0.74.0; not breaking, output change in rare cases; version provisional)
+
+- **Changed output (Face free ends, ends that do not reach round the rotary axis):** the end's nearest point to the axis is read at planes from just inside the face to a tool radius in, the nearest taken, not only a tool radius in, so an end that comes nearer the axis at its face (a lip) is faced down to it. Ends of one section along X are faced as before.
+- **Changed warning (tabs):** whether a tab meets an end face is read against the part alone, so a hand-placed tab that overlaps the part along X no longer hides the Part cut free warnings. The arcs read the part alone too.
+- **New refusals (the most points, 5,000,000):** indexed finishing counts each pass's run-outs past both ends (`beyond`, decision 0343), with or without Finish to a point; helical finishing in Rings counts the steps between the rings past a point, sharp or blended. A job over the limit is refused before any point is fitted.
+- **Faster, same output:** a ring ramp finds its height between moves by a binary search.
+- **Added (not breaking):** `SurfaceSource::cast_ray_on_part`, the ray analogue of `drop_on_part`, with a default that is `cast_ray`; `CompositeSurface` answers it from the part alone.
+
 ## 0.74.0 (PATH-QUALITY; issue #834; decision 0700, proposed; not breaking, output change)
 
 - **Changed output (Face free ends, ends that do not reach round the rotary axis):** such an end (the end of a pin off the axis, a crankshaft's web) was not found and was skipped with no word. It is now faced in nested, layered arcs over the angles where the face is, down to its nearest point to the axis, with a whole turn where the arcs cover nearly a turn, a note, and decision 0344's two Part cut free warnings worded for the arcs. An end found on every line of A is faced as before, byte for byte.

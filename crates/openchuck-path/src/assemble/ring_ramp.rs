@@ -86,9 +86,12 @@ impl RingRamp {
             .iter()
             .map(|(_, a)| (a.0 - a_last.0).abs())
             .collect();
-        // The ramp's height `phi` degrees back, between its moves.
+        // The ramp's height `phi` degrees back, between its moves. `back`
+        // falls along the ramp, so the first move no further back than
+        // `phi` is found by a binary search (CodeRabbit on #961, issue
+        // #967); none past the last.
         let height_at = |phi: f64| -> Option<f64> {
-            let k = back.iter().position(|&o| o <= phi + 1e-12)?;
+            let k = back.partition_point(|&o| o > phi + 1e-12);
             let (&(p1, _), &o1) = (self.moves.get(k)?, back.get(k)?);
             let Some(j) = k.checked_sub(1) else {
                 return Some(p1.height);
@@ -224,11 +227,12 @@ fn round(
     // Where the ring is at an offset `phi` back from its first point.
     let at = |phi: f64| -> AxisPosition {
         let phi = phi.rem_euclid(whole);
-        // The ring's points by offset: back[k] falls as k rises.
+        // The ring's points by offset: back[k] falls as k rises, so the
+        // first no further back than `phi` is found by a binary search
+        // (issue #967); the last where none is.
         let k = back
-            .iter()
-            .position(|&o| o <= phi + 1e-12)
-            .unwrap_or(back.len().saturating_sub(1));
+            .partition_point(|&o| o > phi + 1e-12)
+            .min(back.len().saturating_sub(1));
         let (Some(&(p1, _)), Some(&o1)) = (ring.get(k), back.get(k)) else {
             return head;
         };
@@ -381,7 +385,7 @@ pub(super) fn plan_on_axis(
 
 #[cfg(test)]
 mod tests {
-    #![allow(clippy::unwrap_used)]
+    #![allow(clippy::unwrap_used, clippy::indexing_slicing)]
     use super::*;
 
     /// A ring ramp at the tip's radius 10 whose moves are every 90 degrees,
@@ -410,6 +414,60 @@ mod tests {
             on_axis: None,
             steepened: None,
         }
+    }
+
+    /// Issue #967, item 3 (CodeRabbit on #961): the ramp's height between
+    /// its moves is found by a binary search, with the same results as the
+    /// scan it replaces, on a fine uneven ramp of more than three turns at
+    /// a degree a move, with runs of moves at one angle.
+    #[test]
+    fn req_op_11_a_fine_ring_ramp_s_depth_per_traverse_is_as_the_scan_finds_it() {
+        let n = 1261_usize;
+        let mut fine = ramp(&vec![0.0; n]);
+        for (k, (p, a)) in fine.moves.iter_mut().enumerate() {
+            let t = k as f64 / (n - 1) as f64;
+            p.height = 10.0 + 2.0 * (1.0 - t) + 0.3 * (7.0 * t).sin() * (1.0 - t);
+            // A degree a move, with every tenth move repeating the angle
+            // of the one before it.
+            let steps = k - k / 10;
+            *a = Degrees(-((n - 1 - n / 10) as f64) + steps as f64);
+        }
+        let back: Vec<f64> = fine
+            .moves
+            .iter()
+            .map(|(_, a)| (a.0 - fine.moves[n - 1].1.0).abs())
+            .collect();
+        // The scan, as it was.
+        let height_at = |phi: f64| -> Option<f64> {
+            let k = back.iter().position(|&o| o <= phi + 1e-12)?;
+            let (&(p1, _), &o1) = (fine.moves.get(k)?, back.get(k)?);
+            let Some(j) = k.checked_sub(1) else {
+                return Some(p1.height);
+            };
+            let (&(p0, _), &o0) = (fine.moves.get(j)?, back.get(j)?);
+            let f = if o0 - o1 > 1e-12 {
+                (phi - o1) / (o0 - o1)
+            } else {
+                0.0
+            };
+            Some(p1.height + f * (p0.height - p1.height))
+        };
+        let scanned = fine
+            .moves
+            .iter()
+            .zip(&back)
+            .zip(&fine.floors)
+            .map(|((&(p, _), &phi), &floor)| {
+                let next = if phi - 360.0 > 1e-9 {
+                    height_at(phi - 360.0).unwrap_or(floor)
+                } else {
+                    floor
+                };
+                p.height - next
+            })
+            .fold(0.0, f64::max);
+        assert!(scanned > 0.0);
+        assert_eq!(fine.depth_per_traverse().to_bits(), scanned.to_bits());
     }
 
     /// Issue #951, item 3 (CodeRabbit on #930): a ring ramp's depth per

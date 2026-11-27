@@ -2027,12 +2027,18 @@ fn tab_misses(path: &GeneratedPath) -> (usize, usize) {
 /// Points on a pin's end face at `x`, its centre at `angle` degrees, `step`
 /// mm apart.
 fn pin_face(x: f64, angle: f64, step: f64) -> Vec<Point3> {
+    disc_face(x, angle, 7.5, step)
+}
+
+/// Points on a disc of radius `radius` at `x` whose centre is 10 mm from
+/// the rotary axis at `angle` degrees, `step` mm apart.
+fn disc_face(x: f64, angle: f64, radius: f64, step: f64) -> Vec<Point3> {
     let (s, c) = angle.to_radians().sin_cos();
     let (cy, cz) = (10.0 * c, 10.0 * s);
     let mut out = vec![Point3::new(x, cy, cz)];
-    let nr = (7.5 / step).ceil() as u32;
+    let nr = (radius / step).ceil() as u32;
     for i in 1..=nr {
-        let r = 7.5 * f64::from(i) / f64::from(nr);
+        let r = radius * f64::from(i) / f64::from(nr);
         let na = (std::f64::consts::TAU * r / step).ceil() as u32;
         for j in 0..na {
             let t = std::f64::consts::TAU * f64::from(j) / f64::from(na);
@@ -2645,6 +2651,42 @@ fn req_set_09_req_op_21_a_tab_is_checked_against_the_end_at_its_face() {
     let job = with_tabs(&mesh, false, &[(-5.0, 2.0)]);
     let path = job.path(&HelicalFinishing, &[("stepdown", 2.0)]);
     assert_eq!(tab_misses(&path), (2, 1), "{}", messages(&path));
+}
+
+#[test]
+fn req_set_09_req_op_21_a_hand_placed_tab_overlapping_the_part_is_still_checked_against_its_end() {
+    // CodeRabbit on #968 (issue #971, item 2): a hand-placed tab of radius
+    // 2 on the axis from X -4.5 to 0.5 overlaps the pin's end (2.5 mm from
+    // the axis at its nearest) along X. It still does not meet the end
+    // face, so the turn down to it cuts the part free of it: the part is
+    // read alone just inside its face, not with the tab's material in it.
+    let job = with_tabs(&pin_at(90.0), false, &[(-4.5, 2.0)]);
+    let path = job.path(&HelicalFinishing, &[("stepdown", 2.0)]);
+    assert_eq!(tab_misses(&path), (2, 1), "{}", messages(&path));
+}
+
+#[test]
+fn req_op_04_req_op_09_an_end_with_a_lip_is_faced_down_to_the_lip() {
+    // CodeRabbit on #968 (issue #971, item 1): the pin's end has a lip
+    // 0.5 mm long of radius 8, so it comes 2 mm from the rotary axis at its
+    // face, and 2.5 mm from it a tool radius in. The end's nearest point is
+    // read from just inside the face to a tool radius in, so the last layer
+    // reaches the lip and no stock is left beside the face unwarned.
+    let mut mesh = revolve(&[(0.0, 8.0), (0.5, 8.0), (0.5, 7.5), (20.0, 7.5)], 720);
+    for v in &mut mesh.vertices {
+        v.z += 10.0;
+    }
+    let job = off_axis_job(&mesh, false);
+    let path = job.path(&HelicalFinishing, &[("stepdown", 0.5)]);
+    let lowest = moves_at(&path, NEAR_END)
+        .iter()
+        .map(|(_, b)| height_of(b))
+        .fold(f64::INFINITY, f64::min);
+    assert!((lowest - 2.0).abs() < 1e-6, "{lowest}");
+    let left = &job.left(&path, &[disc_face(0.0, 90.0, 8.0, 0.25)], 3.0)[0];
+    let (w, d) = (worst(left), deepest(left));
+    assert!(w <= TOLERANCE, "{w:.4} mm left");
+    assert!(d >= -TOLERANCE, "cut to {d:.4}");
 }
 
 #[test]

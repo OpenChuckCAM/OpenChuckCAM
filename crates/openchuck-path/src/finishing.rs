@@ -197,6 +197,11 @@ const AROUND: usize = 72;
 /// does not reach round the rotary axis lies (decision record 0700).
 const SAMPLES_A_TURN: usize = 360;
 
+/// How far inside an end's face its nearest point is first read, mm: clear
+/// of the face itself, so the reading is of the part's material at the
+/// face (issue #971).
+const FACE_INSET: f64 = 0.05;
+
 /// The most points the layers beside the free ends may have, the same limit
 /// as the passes over the part (CodeRabbit on #968).
 const MOST_LAYER_POINTS: f64 = 5.0e6;
@@ -813,13 +818,6 @@ struct Arcs {
     nearest: f64,
 }
 
-/// Where the surface is solid along the line through the rotary axis at X
-/// `x` and A `a`: the heights along the tool axis, from `reach` on the side
-/// of `a` down to `reach` on the other side, as (low, high) intervals,
-/// highest first. A ray down the line meets the surface where it goes in
-/// and where it comes out, so a hole or a gap between two lugs is kept
-/// (decision record 0700; CodeRabbit on #968), where a drop from each side
-/// gives only the outermost material.
 /// How far from the rotary axis anything in `bounds` can be: the radial
 /// extent of the box across the axis, not its largest Y or Z, so a ray
 /// started that far out along any line of A starts outside the part
@@ -830,7 +828,23 @@ pub(crate) fn radial_reach(bounds: openchuck_types::geometry::Aabb) -> f64 {
     y.hypot(z)
 }
 
-pub(crate) fn occupied(input: &StrategyInput<'_>, x: f64, a: f64, reach: f64) -> Vec<(f64, f64)> {
+/// Where the surface is solid along the line through the rotary axis at X
+/// `x` and A `a`: the heights along the tool axis, from `reach` on the side
+/// of `a` down to `reach` on the other side, as (low, high) intervals,
+/// highest first. A ray down the line meets the surface where it goes in
+/// and where it comes out, so a hole or a gap between two lugs is kept
+/// (decision record 0700; CodeRabbit on #968), where a drop from each side
+/// gives only the outermost material. With `part_only`, the part alone,
+/// without a held region or a tab joined to it: a tab placed by hand that
+/// overlaps the part along X would otherwise add its material to the part's
+/// (issue #971).
+pub(crate) fn occupied(
+    input: &StrategyInput<'_>,
+    x: f64,
+    a: f64,
+    reach: f64,
+    part_only: bool,
+) -> Vec<(f64, f64)> {
     let line = input
         .rotary
         .tool_line(Millimetres(x), Degrees(a), Millimetres(0.0));
@@ -842,7 +856,14 @@ pub(crate) fn occupied(input: &StrategyInput<'_>, x: f64, a: f64, reach: f64) ->
     // A part has few walls along one line; the bound only stops a broken
     // surface from looping (NFR-07).
     while heights.len() < 256 && from > -reach {
-        let Some(hit) = input.surface.cast_ray(line.at(from), down, from + reach) else {
+        let hit = if part_only {
+            input
+                .surface
+                .cast_ray_on_part(line.at(from), down, from + reach)
+        } else {
+            input.surface.cast_ray(line.at(from), down, from + reach)
+        };
+        let Some(hit) = hit else {
             break;
         };
         let h = from - hit.distance;
@@ -861,11 +882,13 @@ pub(crate) fn occupied(input: &StrategyInput<'_>, x: f64, a: f64, reach: f64) ->
 /// The arcs that face the free end `end`, which does not reach round the
 /// rotary axis (decision record 0700, the owner's improved B; issue #834).
 ///
-/// At each of the angles a whole turn would sample, the tool (`grown` by the
-/// stock to leave) is dropped on the part alone a tool radius inside the
-/// face, from that angle and from the opposite one: the face is there when
-/// the first finds the part on the tool's own side of the axis, and the
-/// second gives how near the axis the part comes along that line. An angle
+/// At each of the angles a whole turn would sample, the part alone is read
+/// at planes from just inside the face to a tool radius inside it: the face
+/// is there when a thin probe dropped from that angle finds the part on the
+/// tool's own side of the axis on any of them, and the material along the
+/// line gives how near the axis the part comes, the nearest over the planes,
+/// so an end that comes nearer the axis at its face than further in (a lip)
+/// is faced down to the lip (CodeRabbit on #968, issue #971). An angle
 /// is cut in every layer from the material's `top` down to the first whole
 /// Stepdown at or below where the tool's side reaches that nearest point,
 /// so each layer's arc lies within the one above it and no layer goes down
@@ -895,17 +918,28 @@ fn arcs(
     // (CodeRabbit on #968); the arcs themselves keep the step.
     let n = ((360.0 / step).ceil() as usize).max(SAMPLES_A_TURN);
     let da = 360.0 / n as f64;
-    let inside = end.face + toward * radius;
+    // The planes the end is read at: just inside the face, and on in
+    // quarters to a tool radius inside it.
+    let planes: Vec<f64> = (0..=4)
+        .map(|k| {
+            let d = if k == 0 {
+                FACE_INSET.min(radius)
+            } else {
+                radius * f64::from(k) / 4.0
+            };
+            end.face + toward * d
+        })
+        .collect();
     let bounds = input.surface.bounds();
     let reach = radial_reach(bounds) + 1.0;
     // A probe a fiftieth of a millimetre wide: how near the axis the part
     // comes along the tool's own line, not beside it (the tool's side
     // reaches a point beside the line from that point's own angle).
     let thin = thin_probe(grown)?;
-    let drop = |a: f64| {
+    let drop = |x: f64, a: f64| {
         let line = input
             .rotary
-            .tool_line(Millimetres(inside), Degrees(a), Millimetres(0.0));
+            .tool_line(Millimetres(x), Degrees(a), Millimetres(0.0));
         input
             .surface
             .drop_on_part(&thin, &line)
@@ -918,12 +952,17 @@ fn arcs(
     let samples: Vec<Option<f64>> = (0..n)
         .map(|k| {
             let a = start + da * k as f64;
-            let near = drop(a).filter(|&h| h > 0.0)?;
-            let inner = occupied(input, inside, a, reach)
-                .into_iter()
-                .find(|&(lo, hi)| hi > 0.0 && lo < near)
-                .map_or(0.0, |(lo, _)| lo);
-            Some(inner.clamp(0.0, near))
+            planes
+                .iter()
+                .filter_map(|&x| {
+                    let near = drop(x, a).filter(|&h| h > 0.0)?;
+                    let inner = occupied(input, x, a, reach, true)
+                        .into_iter()
+                        .find(|&(lo, hi)| hi > 0.0 && lo < near)
+                        .map_or(0.0, |(lo, _)| lo);
+                    Some(inner.clamp(0.0, near))
+                })
+                .reduce(f64::min)
         })
         .collect();
     let Some(nearest) = samples.iter().flatten().copied().reduce(f64::min) else {

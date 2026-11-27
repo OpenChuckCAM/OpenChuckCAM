@@ -474,7 +474,10 @@ fn passes(
         // #956, issue #959).
         let (past, past_length) = pointed.iter().fold((0.0, 0.0), |(n, l), end| {
             let length = past_length(end, (x0, x1));
-            (n + past_points(length, pitch, step, rings), l + length)
+            (
+                n + past_points(length, pitch, step, rings.then_some(blend)),
+                l + length,
+            )
         });
         if !(seeds as f64 + past).is_finite() || seeds as f64 + past > MAX_SEEDS {
             return Err(PathError::Parameter {
@@ -773,16 +776,22 @@ fn past_length(end: &crate::finishing::PointEnd, (x0, x1): (f64, f64)) -> f64 {
     }
 }
 
-/// The points `length` mm of helix (or of rings) at `pitch` and `step`
-/// degrees takes past a point, as [`point_piece`] seeds them.
-fn past_points(length: f64, pitch: f64, step: f64, rings: bool) -> f64 {
+/// The points `length` mm of helix (or of rings, `Some` with their blend)
+/// at `pitch` and `step` degrees takes past a point, as [`point_piece`] and
+/// [`ring_passes`] seed them: for rings, each ring and each step between
+/// two, sharp or blended (CodeRabbit on #961, issue #967).
+fn past_points(length: f64, pitch: f64, step: f64, rings: Option<Option<f64>>) -> f64 {
     if length <= 0.0 {
-        0.0
-    } else if rings {
-        (length / pitch).ceil().max(1.0) * (360.0 / step).ceil()
-    } else {
-        (360.0 * length / pitch / step).ceil().max(2.0)
+        return 0.0;
     }
+    let Some(blend) = rings else {
+        return (360.0 * length / pitch / step).ceil().max(2.0);
+    };
+    let gaps = (length / pitch).ceil().max(1.0);
+    let around = (360.0 / step).ceil().max(1.0);
+    let sharp = (length / gaps / CONSTRAINED_SPACING).ceil().max(1.0);
+    let each_step = blend.map_or(sharp, |phi| sharp.max((phi / step).ceil().max(1.0)));
+    gaps * around + (gaps - 1.0) * each_step
 }
 
 fn point_piece(
@@ -1491,7 +1500,26 @@ fn measured_spans(
 
 #[cfg(test)]
 mod tests {
-    use super::{Helix, measured_spans, ring_span};
+    use super::{Helix, measured_spans, past_points, ring_span};
+
+    /// Issue #967, item 2 (CodeRabbit on #961): in Rings mode the points
+    /// past a point count the steps between its rings, as `ring_passes`
+    /// seeds them: N rings of `360 / step` points, and N - 1 steps, a sharp
+    /// one of `max(1, ceil(gap / 0.1))` seeds and a blended one of the
+    /// larger of that and `ceil(blend / step)`. 1 mm past the point at a
+    /// pitch of 0.25 mm and 10 degrees: 4 rings of 36 points, and 3 steps
+    /// of 0.25 mm, 3 seeds each sharp and 9 each blended over 90 degrees.
+    /// The helix is unchanged.
+    #[test]
+    #[allow(clippy::float_cmp)] // whole numbers of points, exact in f64
+    fn req_nfr_07_the_points_past_a_point_count_the_steps_between_rings() {
+        assert_eq!(past_points(1.0, 0.25, 10.0, Some(None)), 144.0 + 9.0);
+        assert_eq!(past_points(1.0, 0.25, 10.0, Some(Some(90.0))), 144.0 + 27.0);
+        assert_eq!(past_points(1.0, 0.25, 10.0, None), 144.0);
+        // One ring: no step.
+        assert_eq!(past_points(0.2, 0.25, 10.0, Some(Some(90.0))), 36.0);
+        assert_eq!(past_points(0.0, 0.25, 10.0, Some(None)), 0.0);
+    }
 
     fn helix(x0: f64, length: f64, pitch: f64) -> Helix {
         Helix {

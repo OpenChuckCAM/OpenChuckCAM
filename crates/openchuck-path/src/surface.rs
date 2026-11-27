@@ -206,6 +206,21 @@ pub trait SurfaceSource: Send + Sync + std::fmt::Debug {
         self.drop_tool(profile, line)
     }
 
+    /// [`cast_ray`](Self::cast_ray) onto the part alone, leaving out any
+    /// held region or retaining tab joined to it (a
+    /// [`crate::CompositeSurface`]); the same as `cast_ray` for a surface
+    /// that is only the part. The ray analogue of
+    /// [`drop_on_part`](Self::drop_on_part): reads the part's own material
+    /// along a line where a tab placed by hand overlaps it (issue #971).
+    fn cast_ray_on_part(
+        &self,
+        origin: Point3,
+        direction: UnitVec3,
+        max_distance: f64,
+    ) -> Option<RayHit> {
+        self.cast_ray(origin, direction, max_distance)
+    }
+
     /// The round holes of the selected surfaces, found from their cylindrical
     /// faces (OP-10; decision record 0051). Only an exact (B-rep) surface has
     /// any: a mesh answers with none.

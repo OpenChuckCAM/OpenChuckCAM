@@ -136,3 +136,38 @@ This is the lane's second push on #968, made because the finding is a correctnes
 Since a push was made anyway, the three test findings of ticket #970 ride it: the Meander test checks that each arc cuts one way and consecutive arcs alternate; the nesting test checks that every angle a layer cuts is cut by the layer above, modulo a turn and arc by arc, for one pin and for two lugs; and the app test owns its temporary folder before any setup.
 
 Not done: no air or wood cut. Generated G-code remains the user's to verify before it is run on a machine (NFR-12).
+
+## Verification (review findings of #968, issue #971)
+
+Two sev3 findings from CodeRabbit's second review of #968 (lane PATH-QUALITY), both edge cases with no gouge, fixed in the lane's small pull request with #967. No new decision number was needed (coordinator, 27 Nov 2026).
+
+**What changed:**
+- **A lip near the face** (`finishing.rs`, `arcs`). The end's nearest point to the axis is read at five planes, from 0.05 mm inside the face to a tool radius in, in quarters, and the nearest is taken. Before, it was read only a tool radius in.
+  - So an end that comes nearer the axis at its face than further in (a lip) is faced down to the lip, where its last layer stopped short and left stock beside the face with no word.
+  - The angles where the face is are the union over the planes.
+  - The tool stands beside the face, so reading further in can only add depth outside the part.
+  - Ends of one section along X are faced as before.
+- **A hand-placed tab that overlaps the part** (`faces.rs`, the loose-end check). Whether a tab meets an end is read against the part alone, through a new `SurfaceSource::cast_ray_on_part`, the ray analogue of `drop_on_part`.
+  - Its default is `cast_ray`; `CompositeSurface` answers it from the part.
+  - A tab that overlaps the part along X no longer adds its material to the part's section, so the Part cut free warnings, the part's one a possible collision to acknowledge, are no longer lost.
+  - The arcs read the part alone too, as their drop already did.
+- **A doc comment.** The doc comment of `occupied` had slipped onto `radial_reach`; it is moved back.
+
+**How it was verified.** Tests were written first, and each failed before its fix:
+- `helical_faces::req_op_04_req_op_09_an_end_with_a_lip_is_faced_down_to_the_lip`: the pin with a lip 0.5 mm long of radius 8, 2 mm from the axis at its face, on a pin of radius 7.5 (2.5 mm), at a Stepdown of 0.5.
+  - Before the fix, the last layer was at 2.5.
+  - Now it is at 2.0, and the lip's face keeps no more than the tolerance and is not cut into.
+- `helical_faces::req_set_09_req_op_21_a_hand_placed_tab_overlapping_the_part_is_still_checked_against_its_end`: a tab of radius 2 from X −4.5 to 0.5, over the pin's end at X 0.
+  - With the composite read, no warning was given.
+  - Now both warnings are given, one to acknowledge.
+
+**Results:**
+- `cargo test --release --locked -p openchuck-path`: 155 unit, 949 integration and 1 doc test pass.
+- `-p openchuck-app`: 318 unit (1 ignored) and 636 integration tests pass. No shipped example or golden test changes.
+- These are from `main` `7947ed78`, in this lane's cloud container.
+
+**Not verified:** nothing was cut or air-cut. A lip thinner than a quarter of the tool radius, between two planes, can still be read short, by up to that plane's spacing.
+
+**Open items:** none raised or closed.
+
+Not done: no air or wood cut. Generated G-code remains the user's to verify before it is run on a machine (NFR-12).

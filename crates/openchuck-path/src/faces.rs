@@ -709,12 +709,15 @@ fn find(
             // or a gap between two lugs, is not material the tab meets
             // (CodeRabbit on #968).
             for &a in &lines {
-                let tab = crate::finishing::occupied(input, x_out, a, radial + 1.0);
+                let tab = crate::finishing::occupied(input, x_out, a, radial + 1.0, false);
                 if tab.is_empty() {
                     continue;
                 }
                 tabbed = true;
-                let part = crate::finishing::occupied(input, x_in, a, radial + 1.0);
+                // The part alone: a tab placed by hand that overlaps the part
+                // along X would otherwise "meet" the end with its own
+                // material (CodeRabbit on #968, issue #971).
+                let part = crate::finishing::occupied(input, x_in, a, radial + 1.0, true);
                 if part.iter().any(|&(p_lo, p_hi)| {
                     tab.iter()
                         .any(|&(t_lo, t_hi)| p_lo.max(t_lo) < p_hi.min(t_hi) - WIDTH)

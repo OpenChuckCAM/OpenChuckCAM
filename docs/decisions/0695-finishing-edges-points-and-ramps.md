@@ -690,3 +690,30 @@ Lane PATH-QUALITY, one pull request for the CodeRabbit Minors left from #930 (PQ
 - **Environment:** this lane's cloud container, on `main` 04e92e5b; the release head as above.
 - **Not verified:** nothing was cut or air-cut. Indexed finishing's new check was not driven past the limit by a test: its passes already run a tool radius past the end, so its stretch is tiny. It shares axial finishing's check. The output effect on a real part of items 3, 6 and 7 was not measured, because no example enters by Ramp on such a pass.
 - **Open items:** none raised or closed.
+
+## Verification (review findings of #961, issue #967)
+
+Three sev3 findings from CodeRabbit's review of #961 (lane PATH-QUALITY), fixed in the lane's small pull request with #971. No new decision number was needed (coordinator, 27 Nov 2026).
+
+**What changed:**
+- **The most points, indexed run-outs** (`axial.rs`). Indexed finishing's run-outs past both ends of the part (decision 0343) now count towards the 5,000,000-point limit. That is in `check_point_stretches`, with Finish to a point, as the finding named, and in `check_passes`, without it, which had the same gap: the coordinator agreed to close both under the same limit. A job over the limit is refused before any point is fitted. This also closes the gap left by *Not verified* above: indexed finishing's check is now driven past the limit by a test.
+- **The most points, steps between rings** (`helical.rs`, `past_points`). In Rings mode, the points past a point now count the N − 1 steps between N rings, as `ring_passes` seeds them. A sharp step is `max(1, ceil(gap / 0.1))` seeds; a blended step is the larger of that and `ceil(blend / step)`.
+- **The binary search** (`assemble/ring_ramp.rs`). `depth_per_traverse` finds the ramp's height between moves by a binary search over the angles back, which fall along the ramp by construction. `round`'s own position lookup had the same linear scan and gets the same change. The results are unchanged.
+
+**How it was verified.** Tests were written first:
+- `finish_to_a_point::req_nfr_07_req_op_04_indexed_run_outs_count_towards_the_most_points`: 4 indexed passes of 320,000 points over a 0.8 mm part, whose run-outs (about 1.59 mm at each end) take them over the limit, with Finish to a point on and off.
+  - On the old code it was not refused: it was still fitting the run-outs when stopped after 20 minutes.
+  - It is now refused in under a second.
+- `helical::tests::req_nfr_07_the_points_past_a_point_count_the_steps_between_rings` (unit): 1 mm past the point at a pitch of 0.25 mm and 10 degrees.
+  - Expected: 4 rings of 36 points and 3 steps, 153 points sharp and 171 blended over 90 degrees.
+  - The old formula gave 144 for both.
+- `assemble::ring_ramp::tests::req_op_11_a_fine_ring_ramp_s_depth_per_traverse_is_as_the_scan_finds_it` (unit): a 1,261-move uneven ramp of more than three turns, with runs of moves at one angle. It is bit-identical to the old linear scan, which the test keeps. It guards the change, so it passes on the old code too.
+
+**Results:**
+- `cargo test --release --locked -p openchuck-path`: 155 unit, 949 integration and 1 doc test pass.
+- `-p openchuck-app`: 318 unit (1 ignored) and 636 integration tests pass. No shipped example or golden test changes.
+- These are from `main` `7947ed78`, in this lane's cloud container.
+
+**Not verified:** nothing was cut or air-cut.
+
+**Open items:** none raised or closed.

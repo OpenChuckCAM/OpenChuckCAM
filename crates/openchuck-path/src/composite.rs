@@ -138,6 +138,15 @@ impl SurfaceSource for CompositeSurface {
         self.model.drop_tool(profile, line)
     }
 
+    fn cast_ray_on_part(
+        &self,
+        origin: Point3,
+        direction: UnitVec3,
+        max_distance: f64,
+    ) -> Option<RayHit> {
+        self.model.cast_ray(origin, direction, max_distance)
+    }
+
     fn drop_tool(&self, profile: &RevolvedProfile, line: &ToolLine) -> Option<Contact> {
         let mut best = self.model.drop_tool(profile, line);
         for solid in &self.solids {

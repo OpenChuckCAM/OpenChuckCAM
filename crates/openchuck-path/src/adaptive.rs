@@ -403,6 +403,16 @@ impl SurfaceSource for Counting<'_> {
         self.inner.drop_on_part(profile, line)
     }
 
+    fn cast_ray_on_part(
+        &self,
+        origin: Point3,
+        direction: UnitVec3,
+        max_distance: f64,
+    ) -> Option<RayHit> {
+        self.count.fetch_add(1, Ordering::Relaxed);
+        self.inner.cast_ray_on_part(origin, direction, max_distance)
+    }
+
     fn holes(&self) -> &[Hole] {
         self.inner.holes()
     }
