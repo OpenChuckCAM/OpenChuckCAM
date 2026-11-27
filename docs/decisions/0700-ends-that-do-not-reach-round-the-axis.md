@@ -127,4 +127,10 @@ Six Major findings were checked against the code and are valid; each is fixed in
 
 Two Minor findings (the Meander test checks only that both directions occur, not that consecutive arcs alternate; the nesting test compares arc widths, not containment) and one Trivial one (the app test's temporary folder) are answered on the pull request and ticketed to the coordinator.
 
+### CodeRabbit's re-review of `3ac848bd`, and the lane's second push
+
+The re-review raised one new finding, a Minor, and it is valid: the ray that reads the material along a line started at the largest Y or Z of the part's bounds, so along a diagonal through an off-axis end it could start inside the part, and the arcs then went down to the axis at those angles. It now starts at the radial extent of the bounds (`finishing::radial_reach`, used by the arcs and by the tab check). Test first, seen failing on `3ac848bd`: `req_op_04_an_end_on_a_diagonal_is_faced_to_its_nearest_point` (a pin at 45 degrees, its far rim 17.5 mm from the axis against a largest Y or Z of 14.6 mm, is faced to 2 mm, not the axis).
+
+This is the lane's second push on #968, made because the finding is a correctness fault in this record's own new code (a gouge, not a style point); the coordinator allowed it on that ground. Since a push was made anyway, the three test findings of ticket #970 ride it: the Meander test checks that each arc cuts one way and consecutive arcs alternate; the nesting test checks that every angle a layer cuts is cut by the layer above, modulo a turn and arc by arc, for one pin and for two lugs; and the app test owns its temporary folder before any setup.
+
 Not done: no air or wood cut. Generated G-code remains the user's to verify before it is run on a machine (NFR-12).
