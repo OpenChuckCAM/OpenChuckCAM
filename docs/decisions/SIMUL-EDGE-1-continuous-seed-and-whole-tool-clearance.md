@@ -150,6 +150,24 @@ and the warning that lists such areas reads:
 
 The existing warning for unreached hidden areas keeps its wording; an area of either kind is listed with its own reason, and the messages reference (`user-docs/src/reference/messages.md`) explains both. The depth is the overcut the move that was left out would have made, so the user sees what the program avoided, not material removed.
 
+**A tool whose profile is not convex** (a concave custom profile; the project owner's answer "Concave Q1 B" and his acceptance of the wording, 27 Nov 2026, relayed by the coordinator, decision 0049).
+
+- **The rule.** The move check and the gap query both take such a tool as the convex hull of its profile, with each hollow replaced by its chord. The hull holds the tool, so a move proven for the hull is proven for the tool. This one rule replaces the gap query's earlier cylinder of the cutting radius, so the two places agree.
+- **Wording.** For such a tool, the warning reads:
+
+  > simultaneous finishing leaves {N areas} of the part uncut, because the tool could not be proven to stay within the tolerance there: {list}. This tool's profile is concave, and the check counts the hollow of the profile as solid, so the real tool may clear some of these areas, but that could not be proven; finish them with another strategy or a convex tool, then check them in the simulation before running the program
+
+  Each area's reason reads:
+
+  > left uncut: with the hollow of the tool's concave profile counted as solid, the tool would reach about {depth} mm into the finished surface here, more than the tolerance of {tolerance} mm; the real tool may clear it, but this could not be proven
+
+- **No other note.** No information note is added to every operation with such a tool; the owner did not ask for one.
+- **API.** The unreached reason has to say that the tool was taken as its hull, so `UnreachedReason` changes. That change goes in SE-2's breaking minor bump and its changelog entry.
+- **Still to build** at the SE-2 integration:
+  - the closed-form tests, written first;
+  - the tool-gap test of a profile that is not convex, renamed for the hull;
+  - the measured result and time of the lobed test for every tool profile, flagged if over 10 minutes.
+
 *If you answer as recommended:* simultaneous finishing no longer refuses for a cut it cannot avoid; it leaves the place, marks it on the part and says so. The guide's simultaneous finishing pages and the messages reference say what the new warning means and how to finish such a place (another strategy or a smaller tool, then rest machining). The 2.5 mm at the blisk's root corner is reported as today.
 
 ### Q5: saved operations and the golden programs
