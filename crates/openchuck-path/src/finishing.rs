@@ -45,6 +45,11 @@ pub mod parameter {
     /// Carry the finish on past a part's end that comes to a point, down to
     /// the rotary axis: on or off (decision record 0695, Q2).
     pub const FINISH_TO_A_POINT: &str = "finish_to_a_point";
+    /// Which way the arcs that face an end not reaching round the rotary
+    /// axis are cut: `meander`, `climb` or `conventional`, the names and
+    /// meanings of face-flow finishing's (decision record 0700, the owner's
+    /// answer J1; decision 0213). Whole turns keep the strategy's own way.
+    pub const FREE_END_DIRECTION: &str = "free_end_direction";
 }
 
 /// The Finish to a point setting (decision record 0695, Q2 (a) A): off in the
@@ -91,6 +96,26 @@ pub(crate) fn specs(free_ends: bool, layers: bool) -> Vec<ParameterSpec> {
                           only the stock to leave."
                 .to_owned(),
             kind: ParameterKind::Flag { default: true },
+        });
+        out.push(ParameterSpec {
+            name: parameter::FREE_END_DIRECTION.to_owned(),
+            label: "Cutting direction".to_owned(),
+            description: "Which way the tool cuts the arcs that face an end that does not \
+                          reach round the rotary axis: meander alternates them; climb and \
+                          conventional cut every arc the same way relative to the end face \
+                          and the spindle. Whole turns keep the strategy's own direction."
+                .to_owned(),
+            kind: ParameterKind::Choice {
+                options: [
+                    crate::face_flow::parameter::MEANDER,
+                    crate::face_flow::parameter::CLIMB,
+                    crate::face_flow::parameter::CONVENTIONAL,
+                ]
+                .iter()
+                .map(|o| (*o).to_owned())
+                .collect(),
+                default: crate::face_flow::parameter::CLIMB.to_owned(),
+            },
         });
     }
     if layers {
@@ -196,11 +221,19 @@ pub(crate) struct FreeEnds {
 pub(crate) fn free_ends(
     input: &StrategyInput<'_>,
     grown: &RevolvedProfile,
-    ends: &[FreeEnd],
+    (ends, unfaced, loose): (
+        &[FreeEnd],
+        &[crate::faces::UnfacedEnd],
+        &[crate::faces::LooseEnd],
+    ),
     parameters: &Parameters,
     (start, sign, step): (f64, f64, f64),
 ) -> Result<FreeEnds> {
     let mut out = FreeEnds::default();
+    // An end whose tab does not meet it is cut free of the tab by the turn
+    // at its face, whether Face free ends is on or not (decision record
+    // 0700, case (c)): decision 0344's warnings say so.
+    loose_warnings(input, loose, &mut out.warnings);
     if !parameters.flag(parameter::FACE_FREE_ENDS).unwrap_or(false) {
         return Ok(out);
     }
@@ -209,6 +242,36 @@ pub(crate) fn free_ends(
     // of the stock itself is not a free end.
     let extent = stock.x_extent();
     let tolerance = 1e-3;
+    // An end Face free ends cannot face is said, with what can face it
+    // (decision record 0700, the owner's answer A to Q3 on #834): Facing,
+    // with Shape End where it is the end opposite the setup's sole held
+    // end.
+    for e in unfaced.iter().filter(|e| match extent {
+        Some((_, hi)) if e.far => hi > e.face + tolerance,
+        Some((lo, _)) => lo < e.face - tolerance,
+        None => true,
+    }) {
+        let opposite = !input.keep_out.is_empty()
+            && input
+                .keep_out
+                .iter()
+                .all(|&(a, b)| if e.far { b < e.face } else { a > e.face });
+        out.warnings.push(Notice {
+            level: Level::Warning,
+            topic: Some(topic::FREE_ENDS.to_owned()),
+            segment: None,
+            text: format!(
+                "the end face at X {:.3} has nothing beyond it but is not faced: it is not square \
+                 to the rotary axis, so the tool cannot turn beside it, and it keeps what earlier \
+                 operations left. Face it with a Facing operation{}, and check the path before \
+                 you run it",
+                e.face,
+                if opposite { ", Shape End" } else { "" }
+            ),
+            setting: Some(parameter::FACE_FREE_ENDS.to_owned()),
+            acknowledgement: None,
+        });
+    }
     // An end the stock does not carry on past has nothing to face: said, in
     // the user's words, so the end is not left in silence (issue #471, the
     // owner's note N2).
@@ -241,7 +304,7 @@ pub(crate) fn free_ends(
     let width = 2.0 * input.tool.cutting_radius();
     // The rings cut down to the axis, as (axis X, face X, far, X span), for
     // the check that the part stays held on its own side (issue #477).
-    let mut rings: Vec<(f64, f64, bool, f64, f64)> = Vec::new();
+    let mut rings: Vec<(f64, f64, bool, f64, f64, Option<f64>)> = Vec::new();
     for end in ends {
         let face = end.face;
         // Zero (none given) or NaN: no Stepdown.
@@ -347,57 +410,62 @@ pub(crate) fn free_ends(
             });
             continue;
         }
-        // Layers at whole Stepdowns above the axis, the first the highest
-        // below the material's top, the last on the axis.
-        let layers = ((top / stepdown).ceil() as usize).max(1);
-        let points = ((360.0 / step).ceil() as usize).max(4);
-        let toward = if end.far { -1.0 } else { 1.0 };
         let side = input.tool.cutting_radius();
-        for m in (0..layers).rev() {
-            let h = m as f64 * stepdown;
-            let pass: Vec<CutPoint> = (0..=points)
-                .map(|i| {
-                    let a = Degrees(start + sign * 360.0 * i as f64 / points as f64);
-                    let place = |along: f64| {
-                        input.rotary.to_model(
-                            AxisPosition {
-                                along,
-                                across: 0.0,
-                                height: h,
-                            },
-                            a,
-                        )
-                    };
-                    CutPoint {
-                        tip: place(end.x),
-                        a,
-                        contact: place(end.x + toward * side),
-                    }
-                })
-                .collect();
-            out.passes.push(Pass {
-                helical_pass_start: false,
-                low_link: false,
-                points: pass,
-                stock: None,
-                rapids: Vec::new(),
-                plunge_fed: Vec::new(),
-            });
-        }
+        // How deep the end is faced: to the axis for an end round it; for
+        // one to one side of it, to its lowest radius (decision 0700).
+        let depth = if end.round {
+            // Layers at whole Stepdowns above the axis, the first the highest
+            // below the material's top, the last on the axis.
+            let layers = ((top / stepdown).ceil() as usize).max(1);
+            let points = ((360.0 / step).ceil() as usize).max(4);
+            for m in (0..layers).rev() {
+                let h = m as f64 * stepdown;
+                out.passes
+                    .push(turn_pass(input, end, h, (start, sign), points, side));
+            }
+            // How the end is faced is information; that it is faced from the
+            // setup's own stock, which the real blank must match, is a
+            // warning of its own (decision 0536 step 2, the owner's answer to
+            // question Q-C; P50).
+            out.notes.push(
+                Notice::information(format!(
+                    "the end face at X {face:.3} has nothing beyond it: the tool goes down \
+                     beside it in {} of {stepdown} mm to the rotary axis, turning once round \
+                     the axis in each",
+                    crate::counted(layers, "layer", "layers")
+                ))
+                .about(topic::FREE_ENDS),
+            );
+            None
+        } else {
+            let Some(arcs) = arcs(
+                input,
+                grown,
+                end,
+                top,
+                stepdown,
+                (start, sign, step),
+                parameters,
+            )?
+            else {
+                continue;
+            };
+            out.passes.extend(arcs.passes);
+            out.notes.push(
+                Notice::information(format!(
+                    "the end face at X {face:.3} has nothing beyond it and does not reach round \
+                     the rotary axis (its nearest point is {:.3} mm from it): the tool goes down \
+                     beside it in {} of {stepdown} mm to {:.3} mm from the axis, in arcs over \
+                     the angles where the face is",
+                    arcs.nearest,
+                    crate::counted(arcs.layers, "layer", "layers"),
+                    arcs.last
+                ))
+                .about(topic::FREE_ENDS),
+            );
+            Some(arcs.last)
+        };
         let (from, to) = (end.x - radius, end.x + radius);
-        // How the end is faced is information; that it is faced from the
-        // setup's own stock, which the real blank must match, is a warning of
-        // its own (decision 0536 step 2, the owner's answer to question Q-C;
-        // P50).
-        out.notes.push(
-            Notice::information(format!(
-                "the end face at X {face:.3} has nothing beyond it: the tool goes down beside \
-                 it in {} of {stepdown} mm to the rotary axis, turning once round \
-                 the axis in each",
-                crate::counted(layers, "layer", "layers")
-            ))
-            .about(topic::FREE_ENDS),
-        );
         if !stock.left_by_earlier_operations() {
             out.warnings.push(
                 Notice::warning(format!(
@@ -407,7 +475,7 @@ pub(crate) fn free_ends(
                 .about(topic::FREE_ENDS),
             );
         }
-        rings.push((end.x, face, end.far, from.min(to), from.max(to)));
+        rings.push((end.x, face, end.far, from.min(to), from.max(to), depth));
         out.faced.push(face);
         // Stock past the ring that no held region past it grips: a cheap test
         // of whether there is any, not of whether it is joined to the rest
@@ -439,14 +507,17 @@ pub(crate) fn free_ends(
                     topic: Some(topic::PART_CUT_FREE.to_owned()),
                     segment: None,
                     text: format!(
-                        "the end face at X {face:.3} is faced down to the rotary axis: the tool \
-                         cuts a ring {width:.3} mm wide from X {:.3} to {:.3} down to the axis, \
-                         and the stock past the ring is not held by anything in this setup, so \
-                         it can be cut free there and thrown while the rotary axis turns. \
-                         Before running this program, check the stock and the workholding on \
-                         the machine",
+                        "the end face at X {face:.3} is faced {}: the tool cuts {} {width:.3} mm \
+                         wide from X {:.3} to {:.3} {}, and the stock past {} is not held by \
+                         anything in this setup, so it can be cut free there and thrown while \
+                         the rotary axis turns. Before running this program, check the stock and \
+                         the workholding on the machine",
+                        faced_words(depth),
+                        cut_words(depth).0,
                         from.min(to),
-                        from.max(to)
+                        from.max(to),
+                        cut_words(depth).1,
+                        cut_words(depth).2,
                     ),
                     setting: Some(parameter::FACE_FREE_ENDS.to_owned()),
                     acknowledgement: None,
@@ -460,7 +531,7 @@ pub(crate) fn free_ends(
     // other ring down to the axis between them. A tab joins the part to the
     // stock past it, but an end beside a tab is never a free end (decision
     // record 0344 item 4), so the held regions are what count here.
-    for (i, &(x, face, far, from, to)) in rings.iter().enumerate() {
+    for (i, &(x, face, far, from, to, depth)) in rings.iter().enumerate() {
         let between = |held: f64| {
             rings
                 .iter()
@@ -480,12 +551,16 @@ pub(crate) fn free_ends(
                 topic: Some(topic::PART_CUT_FREE.to_owned()),
                 segment: None,
                 text: format!(
-                    "the end face at X {face:.3} is faced down to the rotary axis: the tool cuts \
-                     a ring {width:.3} mm wide from X {from:.3} to {to:.3} down to the axis, and \
-                     nothing in this setup holds the part on the other side of the ring (no held \
-                     region at its other end, and no tab joining it to one), so the part can be \
-                     cut free there and thrown while the rotary axis turns. Before running this \
-                     program, check the stock and the workholding on the machine"
+                    "the end face at X {face:.3} is faced {}: the tool cuts {} {width:.3} mm wide \
+                     from X {from:.3} to {to:.3} {}, and nothing in this setup holds the part on \
+                     the other side of {} (no held region at its other end, and no tab joining \
+                     it to one), so the part can be cut free there and thrown while the rotary \
+                     axis turns. Before running this program, check the stock and the \
+                     workholding on the machine",
+                    faced_words(depth),
+                    cut_words(depth).0,
+                    cut_words(depth).1,
+                    cut_words(depth).2,
                 ),
                 setting: Some(parameter::FACE_FREE_ENDS.to_owned()),
                 // The part cut free can be thrown into the tool: a possible
@@ -496,6 +571,323 @@ pub(crate) fn free_ends(
         }
     }
     Ok(out)
+}
+
+/// Decision 0344's two Part cut free warnings for the ends beside a tab that
+/// does not meet them (decision record 0700, case (c)): the stock past the
+/// end, unless a held region past it grips it, and the part itself, unless
+/// a held region on its side holds it (a possible collision to
+/// acknowledge, decision 0538).
+fn loose_warnings(
+    input: &StrategyInput<'_>,
+    loose: &[crate::faces::LooseEnd],
+    warnings: &mut Vec<Notice>,
+) {
+    let extent = input.stock.x_extent();
+    for end in loose {
+        let (from, to) = end.span;
+        let face = end.face;
+        let past = match extent {
+            Some((_, hi)) if end.far => hi > to + 0.1,
+            Some((lo, _)) => lo < from - 0.1,
+            None => false,
+        };
+        let gripped = input
+            .keep_out
+            .iter()
+            .any(|&(a, b)| if end.far { a > face } else { b < face });
+        if past && !gripped {
+            warnings.push(Notice {
+                level: Level::Warning,
+                topic: Some(topic::PART_CUT_FREE.to_owned()),
+                segment: None,
+                text: format!(
+                    "the end face at X {face:.3} has a tab past it that does not meet the face: \
+                     the turn beside the face cuts down to the tab from X {from:.3} to {to:.3}, \
+                     and the stock past it is not held by anything in this setup, so it can be \
+                     cut free there and thrown while the rotary axis turns. Before running this \
+                     program, check the stock and the workholding on the machine"
+                ),
+                setting: None,
+                acknowledgement: None,
+            });
+        }
+        let held = input
+            .keep_out
+            .iter()
+            .any(|&(a, b)| if end.far { b < face } else { a > face });
+        if !held {
+            warnings.push(Notice {
+                level: Level::Warning,
+                topic: Some(topic::PART_CUT_FREE.to_owned()),
+                segment: None,
+                text: format!(
+                    "the end face at X {face:.3} has a tab past it that does not meet the face, \
+                     so the turn beside the face cuts the part free of the tab from X {from:.3} \
+                     to {to:.3}, and nothing in this setup holds the part on its other side (no \
+                     held region at its other end, and no tab joining it to one), so the part \
+                     can be cut free there and thrown while the rotary axis turns. Before \
+                     running this program, check the stock and the workholding on the machine"
+                ),
+                setting: None,
+                // The part cut free can be thrown into the tool: a possible
+                // collision, to acknowledge (decision record 0538).
+                acknowledgement: Some(Acknowledgement::PossibleCollision),
+            });
+        }
+    }
+}
+
+/// How deep an end is faced, in the Part cut free warnings: to the axis
+/// (`None`), or in arcs to a depth above it (decision record 0700).
+fn faced_words(depth: Option<f64>) -> String {
+    match depth {
+        None => "down to the rotary axis".to_owned(),
+        Some(h) => format!("in arcs down to {h:.3} mm from the rotary axis"),
+    }
+}
+
+/// What the tool cuts, how deep, and what to call it, in the Part cut free
+/// warnings.
+fn cut_words(depth: Option<f64>) -> (&'static str, String, &'static str) {
+    match depth {
+        None => ("a ring", "down to the axis".to_owned(), "the ring"),
+        Some(h) => (
+            "beside the whole face, in arcs",
+            format!("down to {h:.3} mm from the axis"),
+            "the arcs",
+        ),
+    }
+}
+
+/// One whole turn of A at the free end `end`'s X with the tip `h` along the
+/// tool axis from the rotary axis, from A `start` turning by `sign`, in
+/// `points` steps (decision record 0344).
+fn turn_pass(
+    input: &StrategyInput<'_>,
+    end: &FreeEnd,
+    h: f64,
+    (start, sign): (f64, f64),
+    points: usize,
+    side: f64,
+) -> Pass {
+    let angles: Vec<f64> = (0..=points)
+        .map(|i| start + sign * 360.0 * i as f64 / points as f64)
+        .collect();
+    arc_pass(input, end, h, &angles, side)
+}
+
+/// A pass at the free end `end`'s X, the tip `h` from the rotary axis, at
+/// the angles `angles` in order.
+fn arc_pass(input: &StrategyInput<'_>, end: &FreeEnd, h: f64, angles: &[f64], side: f64) -> Pass {
+    let toward = if end.far { -1.0 } else { 1.0 };
+    let points = angles
+        .iter()
+        .map(|&a| {
+            let a = Degrees(a);
+            let place = |along: f64| {
+                input.rotary.to_model(
+                    AxisPosition {
+                        along,
+                        across: 0.0,
+                        height: h,
+                    },
+                    a,
+                )
+            };
+            CutPoint {
+                tip: place(end.x),
+                a,
+                contact: place(end.x + toward * side),
+            }
+        })
+        .collect();
+    Pass {
+        helical_pass_start: false,
+        low_link: false,
+        points,
+        stock: None,
+        rapids: Vec::new(),
+        plunge_fed: Vec::new(),
+    }
+}
+
+/// A probe a fiftieth of a millimetre wide and as long as `profile`: where
+/// the part is along a line of A itself, not beside it (decision record
+/// 0700).
+pub(crate) fn thin_probe(profile: &RevolvedProfile) -> Result<RevolvedProfile> {
+    Ok(openchuck_types::tool::Tool {
+        shape: openchuck_types::tool::ToolShape::FlatEnd,
+        diameter: Millimetres(0.02),
+        flute_length: Millimetres(profile.top().max(1.0)),
+        overall_length: Millimetres(profile.top().max(1.0) + 1.0),
+        shank_diameter: Millimetres(0.02),
+        flute_count: 2,
+        material: None,
+        centre_cutting: None,
+        stick_out: None,
+    }
+    .profile()?)
+}
+
+/// The arcs that face an end not reaching round the rotary axis, with what
+/// the note says of them (decision record 0700).
+struct Arcs {
+    passes: Vec<Pass>,
+    /// How many layers.
+    layers: usize,
+    /// The tip's distance from the axis in the last layer, mm.
+    last: f64,
+    /// The face's nearest point to the axis, mm, as the samples found it.
+    nearest: f64,
+}
+
+/// The arcs that face the free end `end`, which does not reach round the
+/// rotary axis (decision record 0700, the owner's improved B; issue #834).
+///
+/// At each of the angles a whole turn would sample, the tool (`grown` by the
+/// stock to leave) is dropped on the part alone a tool radius inside the
+/// face, from that angle and from the opposite one: the face is there when
+/// the first finds the part on the tool's own side of the axis, and the
+/// second gives how near the axis the part comes along that line. An angle
+/// is cut in every layer from the material's `top` down to the first whole
+/// Stepdown at or below where the tool's side reaches that nearest point,
+/// so each layer's arc lies within the one above it and no layer goes down
+/// into stock the layer above left. The layers stop at the end's nearest
+/// point, not the axis. Each layer's angles make one or more arcs, widened
+/// by a sample at each end; a layer whose arcs cover the whole turn is a
+/// whole turn, cut the strategy's own way (`start`, `sign`). The arcs are cut
+/// by the Cutting direction: climb puts the end face on the tool's right
+/// looking along the feed from the spindle (M3, decision 0213),
+/// conventional on its left, and meander alternates them, arc by arc.
+/// `None` when no angle finds the face.
+fn arcs(
+    input: &StrategyInput<'_>,
+    grown: &RevolvedProfile,
+    end: &FreeEnd,
+    top: f64,
+    stepdown: f64,
+    (start, sign, step): (f64, f64, f64),
+    parameters: &Parameters,
+) -> Result<Option<Arcs>> {
+    let toward = if end.far { -1.0 } else { 1.0 };
+    let side = input.tool.cutting_radius();
+    let lift = input.tool.height_at(side).unwrap_or(0.0);
+    let radius = grown.cutting_radius();
+    let n = ((360.0 / step).ceil() as usize).max(4);
+    let da = 360.0 / n as f64;
+    let inside = end.face + toward * radius;
+    // A probe a fiftieth of a millimetre wide: how near the axis the part
+    // comes along the tool's own line, not beside it (the tool's side
+    // reaches a point beside the line from that point's own angle).
+    let thin = thin_probe(grown)?;
+    let drop = |a: f64| {
+        let line = input
+            .rotary
+            .tool_line(Millimetres(inside), Degrees(a), Millimetres(0.0));
+        input
+            .surface
+            .drop_on_part(&thin, &line)
+            .map(|c| input.rotary.to_axis(c.tip, Degrees(a)).height)
+    };
+    // At each angle, where the face is on the line: how near the axis the
+    // part comes along it (0 where the part lies on both sides of the axis).
+    let samples: Vec<Option<f64>> = (0..n)
+        .map(|k| {
+            let a = start + da * k as f64;
+            let near = drop(a).filter(|&h| h > 0.0)?;
+            Some(match drop(a + 180.0) {
+                Some(h) if h < 0.0 => (-h).min(near),
+                _ => 0.0,
+            })
+        })
+        .collect();
+    let Some(nearest) = samples.iter().flatten().copied().reduce(f64::min) else {
+        return Ok(None);
+    };
+    let layer_of = |b: f64| ((b - lift).max(0.0) / stepdown + 1e-9).floor() * stepdown;
+    let last = layer_of(nearest);
+    let first = ((top / stepdown).ceil() - 1.0).max(0.0) * stepdown;
+    let first = first.max(last);
+    let layers = ((first - last) / stepdown).round() as usize + 1;
+    let direction = parameters
+        .text(parameter::FREE_END_DIRECTION)
+        .unwrap_or(crate::face_flow::parameter::CLIMB);
+    // The A sense that is climb here: the face on the tool's right looking
+    // along the feed from the spindle.
+    let climb = {
+        let place = |a: f64| {
+            input.rotary.to_model(
+                AxisPosition {
+                    along: end.x,
+                    across: 0.0,
+                    height: 10.0,
+                },
+                Degrees(a),
+            )
+        };
+        let feed = place(start + 1.0) - place(start);
+        let right = feed.cross(input.rotary.tool_axis(Degrees(start + 1.0)).get());
+        if right.x * toward > 0.0 { 1.0 } else { -1.0 }
+    };
+    let points = n;
+    let mut passes = Vec::new();
+    let mut count = 0_usize;
+    for m in 0..layers {
+        let h = first - m as f64 * stepdown;
+        let cut: Vec<bool> = samples
+            .iter()
+            .map(|s| s.is_some_and(|b| layer_of(b) <= h + 1e-9))
+            .collect();
+        if cut.iter().all(|c| *c) {
+            passes.push(turn_pass(input, end, h, (start, sign), points, side));
+            continue;
+        }
+        // Runs of angles, round the circle from one not cut.
+        let Some(off) = cut.iter().position(|c| !*c) else {
+            continue;
+        };
+        let mut runs: Vec<(usize, usize)> = Vec::new();
+        let mut open: Option<usize> = None;
+        for j in 1..=n {
+            let k = (off + j) % n;
+            let here = cut.get(k).copied().unwrap_or(false);
+            match (here, open) {
+                (true, None) => open = Some(off + j),
+                (false, Some(o)) => {
+                    runs.push((o, off + j - 1));
+                    open = None;
+                }
+                _ => {}
+            }
+        }
+        for (lo, hi) in runs {
+            let (a0, a1) = (
+                start + da * (lo as f64 - 1.0),
+                start + da * (hi as f64 + 1.0),
+            );
+            let steps = (((a1 - a0) / step).ceil() as usize).max(1);
+            let mut angles: Vec<f64> = (0..=steps)
+                .map(|i| a0 + (a1 - a0) * i as f64 / steps as f64)
+                .collect();
+            let sense = match direction {
+                crate::face_flow::parameter::CONVENTIONAL => -climb,
+                crate::face_flow::parameter::MEANDER if count % 2 == 1 => -climb,
+                _ => climb,
+            };
+            if sense < 0.0 {
+                angles.reverse();
+            }
+            passes.push(arc_pass(input, end, h, &angles, side));
+            count += 1;
+        }
+    }
+    Ok(Some(Arcs {
+        passes,
+        layers,
+        last,
+        nearest,
+    }))
 }
 
 /// `passes`, the operation's final passes on the target, with the Finishing

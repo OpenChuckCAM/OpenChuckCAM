@@ -930,7 +930,7 @@ fn passes(
     let free = crate::finishing::free_ends(
         input,
         &along.grown,
-        &found.free,
+        (&found.free, &found.unfaced, &found.loose),
         parameters,
         (start, 1.0, TURN_STEP),
     )?;
