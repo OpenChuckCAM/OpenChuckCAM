@@ -72,7 +72,11 @@ Reading STEP files needs the OpenCASCADE geometry kernel, which is not built by 
 
 ## The first time it opens
 
-The program opens with an empty window and offers **New project...** (also **File > New project...**, <kbd>Ctrl</kbd>+<kbd>N</kbd>). A [project](../glossary.md#project) is a folder of plain text files that holds the model, the setup, the tools and the operations of one job.
+The program opens with a start card in the middle of the window: **New project...** (also **File > New project...**, <kbd>Ctrl</kbd>+<kbd>N</kbd>) and **Open project...**, then the projects you opened recently, newest first. A [project](../glossary.md#project) is a folder of plain text files that holds the model, the setup, the tools and the operations of one job.
+
+- **Recent projects.** Choose one, with the mouse or with <kbd>Tab</kbd> and <kbd>Enter</kbd>, and the **Open project** dialog opens with its folder filled in; press **OK** to open it. The same list is under **File > Open recent**. A folder that no longer exists drops off the list, and **Clear recent list** empties it. The list is kept on your computer, never in a project.
+- **Dropping a file.** Drag an STL or STEP file onto the window to start a new project with it: **New project** opens with the project named after the file, and after **OK** the import window opens on the file. With a project open, a dropped model opens the import window instead. Drag a project folder (or its `project.toml`) onto the window to open it. While you drag, the window says what the drop will do. Drop one file at a time: of several, only the first that can be used is taken, and **Messages** names the rest.
+- **On Linux with Wayland,** dropping files does not work yet: the program sees no drop. Run it in an X11 session (or under XWayland), or use the buttons and the recent list, which work everywhere.
 
 The program does not save by itself. Use **File > Save** (<kbd>Ctrl</kbd>+<kbd>S</kbd>) as you work; the window title says when there are changes you have not saved. As a safety net the program also keeps recovery copies of an open project (**File > Settings** sets how often), and offers to recover one when the project is opened again after a crash. They do not replace saving: a recovered project is kept only until you save it, and Messages warns "Recovered checkpoint" until you do. Edits in a form take effect when you press <kbd>Enter</kbd> or leave the field, and **Edit > Undo** reverses them.
 

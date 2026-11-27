@@ -28,13 +28,13 @@ def run(cap, work):
     cap.click(452, 789, 2)                     # Results
     results_end(cap)
     cap.shot("02-before")
-    cap.click(1817, 396, 1.5)                  # Cut on: add...
+    cap.click(1817, 396, 1.5)                  # Cut on: Add a set...
     cap.click(1807, 429, 2)                    # Finial ball
     cap.click(1855, 1057, GENERATE)
     results_end(cap)
     cap.shot("03-cut-on")
-    cap.click(1834, 397, 2)                    # the x on Finial ball: Cut on is empty again
-    cap.click(1817, 460, 1.5)                  # Avoid: add...
+    cap.click(1890, 428, 2)                    # the x at the end of Finial ball's line: Cut on is empty again (#759)
+    cap.click(1817, 460, 1.5)                  # Avoid: Add a set...
     cap.click(1807, 493, 2)                    # Finial ball
     cap.click(1855, 1057, GENERATE)
     results_end(cap)

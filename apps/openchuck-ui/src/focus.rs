@@ -380,6 +380,25 @@ pub fn info_sense() -> egui::Sense {
     egui::Sense::hover() | egui::Sense::FOCUSABLE
 }
 
+/// Tab passes over the control `id` (a panel's resize handle, which egui
+/// makes focusable) as it leaves `region`: when Tab gives it the keyboard,
+/// the stand-in takes it instead and the region after (or before) `region`
+/// takes it next frame, as when Tab leaves a region's last control. Without
+/// this, an inspector whose content scrolls handed the keyboard from its
+/// last control to its splitter and then back into the dock, so Tab never
+/// reached the footer (UI-14).
+pub fn pass_over(ctx: &egui::Context, id: egui::Id, region: Region) {
+    let Some(way) = tab_way(ctx) else { return };
+    if ctx.memory(egui::Memory::focused) != Some(id) {
+        return;
+    }
+    let mut router = load(ctx);
+    ctx.memory_mut(|m| m.request_focus(stand_in()));
+    router.crossing = Some((way, region));
+    store(ctx, router);
+    ctx.request_discard("Tab passed over a splitter");
+}
+
 /// A tooltip for information drawn inside a row that is itself the Tab stop:
 /// it opens on hover over `response` (the information), and at once while
 /// `holder` (the row) has the keyboard. The information takes no Tab stop of
