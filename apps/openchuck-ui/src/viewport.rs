@@ -13,6 +13,7 @@ use std::sync::Arc;
 use eframe::egui::vec2;
 use eframe::egui::{self, Color32, Modifiers, PointerButton, Rect, Sense, pos2};
 use eframe::egui_wgpu;
+use openchuck_app::facing_labels::{FacingTag, HiddenChip, ShownFacingLabels};
 use openchuck_app::pathview::DeviationBands;
 use openchuck_app::pick::{PickTolerance, SceneEdgePick, ScenePick};
 use openchuck_app::project::id::ModelId;
@@ -571,6 +572,25 @@ fn turns_with_part(role: SceneRole) -> bool {
     )
 }
 
+/// Whether a Facing label tagged `tag` is drawn: its kind is ticked in the
+/// Show menu, and, while a Facing operation is selected, it is that
+/// operation's (issue #881). A label that is not a Facing label is not
+/// affected.
+fn facing_label_shown(
+    tag: Option<FacingTag>,
+    shown: ShownFacingLabels,
+    selected: Option<openchuck_app::project::id::OperationId>,
+) -> bool {
+    let Some(tag) = tag else {
+        return true;
+    };
+    shown.shows(tag.kind)
+        && match (selected, tag.operation) {
+            (Some(selected), Some(own)) => own == selected,
+            _ => true,
+        }
+}
+
 /// Whether a label of `role` is drawn under `show`: a guide's label (A+,
 /// the A0 marks, the rotary axis, the work axes) follows the axes switch (7.1, V); any
 /// other label, such as the Facing extent and margin values, is shown with
@@ -741,6 +761,14 @@ pub struct Viewport {
     /// moves set it; the shell keeps it in the user's settings and gives it
     /// to the playback panel, which draws the lines.
     shown_moves: openchuck_app::pathview::ShownMoves,
+    /// Which kinds of Facing label are drawn (issue #881; decision record
+    /// MOPUP-1-A): the Show menu and View > Facing labels set it, and the
+    /// shell keeps it in the user's settings. Display only.
+    shown_facing_labels: ShownFacingLabels,
+    /// The operation selected in the browser. While it is a Facing operation
+    /// with labels in the view, its labels alone are drawn (the owner's
+    /// answer of 25 Nov 2026); otherwise every Facing operation's are.
+    selected_operation: Option<openchuck_app::project::id::OperationId>,
     /// The step set by the shell, or `None` to take it from what is held.
     step: Option<ViewStep>,
     /// Whether the open project holds a model: the one input of the rule that
@@ -856,6 +884,8 @@ impl Viewport {
             show: Visibility::default(),
             simulate_show: SimulateShow::default(),
             shown_moves: openchuck_app::pathview::ShownMoves::ALL,
+            shown_facing_labels: ShownFacingLabels::ALL,
+            selected_operation: None,
             step: None,
             project_has_models: false,
             draft: None,
@@ -1186,6 +1216,39 @@ impl Viewport {
     /// only: nothing the program computes reads it.
     pub fn set_shown_moves(&mut self, moves: openchuck_app::pathview::ShownMoves) {
         self.shown_moves = moves;
+    }
+
+    /// Which kinds of Facing label are drawn (issue #881).
+    pub fn shown_facing_labels(&self) -> ShownFacingLabels {
+        self.shown_facing_labels
+    }
+
+    /// Sets which kinds of Facing label are drawn (issue #881). Display
+    /// only: the outlines, the notes, the checks and the G-code do not read
+    /// it.
+    pub fn set_shown_facing_labels(&mut self, labels: ShownFacingLabels) {
+        self.shown_facing_labels = labels;
+    }
+
+    /// Sets the operation selected in the browser, or `None`. The shell
+    /// gives it the selection each frame; while it is a Facing operation
+    /// with labels in the view, only its labels are drawn.
+    pub fn set_selected_operation(
+        &mut self,
+        operation: Option<openchuck_app::project::id::OperationId>,
+    ) {
+        self.selected_operation = operation;
+    }
+
+    /// The operation the shell last said is selected.
+    #[cfg(test)]
+    pub(crate) fn selected_operation(&self) -> Option<openchuck_app::project::id::OperationId> {
+        self.selected_operation
+    }
+
+    /// What the view hides that the chip beside Show names, or `None`.
+    pub fn hidden_chip(&self) -> Option<HiddenChip> {
+        HiddenChip::of(self.shown_moves, self.shown_facing_labels)
     }
 
     /// Whether the part is drawn. On Simulate, both Show controls read the
@@ -2121,11 +2184,18 @@ impl Viewport {
     /// part.
     pub(crate) fn guide_labels(&self, rect: Rect) -> Vec<GuideLabel> {
         let mut labels: Vec<(u8, GuideLabel)> = Vec::new();
+        let selected = self.selected_operation.filter(|op| {
+            self.view
+                .labels
+                .iter()
+                .any(|l| l.facing.and_then(|t| t.operation) == Some(*op))
+        });
         for label in self
             .view
             .labels
             .iter()
             .filter(|l| label_shown(l.role, &self.show))
+            .filter(|l| facing_label_shown(l.facing, self.shown_facing_labels, selected))
         {
             let at = label_point(label.role, label.at, &self.part_transform);
             let Some(ndc) = self.camera.project(at, self.aspect) else {
@@ -2390,6 +2460,7 @@ pub(crate) mod tests {
     #[test]
     fn req_ui_03_req_nfr_15_roles_have_the_specified_colours_and_line_styles() {
         let line = |role| ScenePolyline {
+            facing: None,
             role,
             points: vec![Point3::new(0.0, 0.0, 0.0), Point3::new(1.0, 0.0, 0.0)],
         };
@@ -2441,6 +2512,7 @@ pub(crate) mod tests {
     #[test]
     fn req_ui_03_guides_are_drawn_over_the_part_and_stock_is_not() {
         let line = |role| ScenePolyline {
+            facing: None,
             role,
             points: vec![Point3::new(0.0, 0.0, 0.0), Point3::new(1.0, 0.0, 0.0)],
         };
@@ -2452,6 +2524,7 @@ pub(crate) mod tests {
                 line(SceneRole::WorkX),
             ],
             labels: vec![SceneLabel {
+                facing: None,
                 role: SceneRole::ADirection,
                 at: Point3::new(0.0, 0.0, 0.0),
                 text: "A+".to_owned(),
@@ -3059,6 +3132,7 @@ pub(crate) mod tests {
             z: 0.,
         };
         let line = |role| ScenePolyline {
+            facing: None,
             role,
             points: vec![point, Point3 { x: 1., ..point }],
         };
@@ -3130,6 +3204,7 @@ pub(crate) mod tests {
         };
         let mut view = SceneView::default();
         view.lines.push(ScenePolyline {
+            facing: None,
             role: SceneRole::AZero,
             points: vec![point, Point3 { z: 5., ..point }],
         });
@@ -3258,6 +3333,92 @@ pub(crate) mod tests {
         }
         // None is moved farther than the reach: each stays by its line.
         assert!(widest <= crate::orient::LABEL_REACH + 0.01, "{widest}");
+    }
+
+    /// Issue #881 (decision record MOPUP-1-A, the owner's answers A1 and
+    /// Q3 A): the view draws a Facing label only while its kind is ticked,
+    /// and, while a Facing operation is selected, only that operation's;
+    /// the guides' labels are not affected.
+    #[test]
+    fn req_ui_03_req_ui_14_facing_labels_follow_their_kind_and_the_selected_operation() {
+        use openchuck_app::facing_labels::FacingLabel;
+        use openchuck_app::project::id::OperationId;
+        let (first, second) = (OperationId::new(), OperationId::new());
+        let mut view = machine_scene("facing-labels");
+        let guides = view.labels.len();
+        for (operation, kind, text) in [
+            (first, FacingLabel::Face, "Face A 0°: 13.650 mm from axis"),
+            (
+                first,
+                FacingLabel::Margin,
+                "Margin: 0.500 mm past the edges",
+            ),
+            (
+                second,
+                FacingLabel::Separation,
+                "A 0° to A 180°: 27.300 mm apart",
+            ),
+            (
+                second,
+                FacingLabel::Stop,
+                "Faced from X 25.490 (held start)",
+            ),
+        ] {
+            view.labels.push(SceneLabel {
+                role: SceneRole::FacingExtent,
+                at: Point3 {
+                    x: 0.,
+                    y: 0.,
+                    z: 0.,
+                },
+                text: text.to_owned(),
+                facing: Some(FacingTag {
+                    operation: Some(operation),
+                    kind,
+                }),
+            });
+        }
+        let mut viewport = Viewport::new(true);
+        viewport.set_scene(view, true);
+        let rect = Rect::from_min_size(pos2(0.0, 0.0), vec2(1400.0, 900.0));
+        viewport.aspect = f64::from(rect.width() / rect.height());
+        let facing = |viewport: &Viewport| -> Vec<String> {
+            let labels = viewport.guide_labels(rect);
+            let mut texts: Vec<String> = labels
+                .iter()
+                .filter(|l| l.role == SceneRole::FacingExtent)
+                .map(|l| l.text.clone())
+                .collect();
+            texts.sort();
+            assert_eq!(labels.len() - texts.len(), guides, "the guides stay");
+            texts
+        };
+        assert_eq!(facing(&viewport).len(), 4);
+        let mut shown = ShownFacingLabels::ALL;
+        shown.set(FacingLabel::Margin, false);
+        viewport.set_shown_facing_labels(shown);
+        assert_eq!(facing(&viewport).len(), 3);
+        // Another kind of operation selected: every Facing operation's.
+        viewport.set_selected_operation(Some(OperationId::new()));
+        assert_eq!(facing(&viewport).len(), 3);
+        viewport.set_selected_operation(Some(second));
+        assert_eq!(
+            facing(&viewport),
+            [
+                "A 0° to A 180°: 27.300 mm apart",
+                "Faced from X 25.490 (held start)"
+            ]
+        );
+        viewport.set_selected_operation(Some(first));
+        assert_eq!(facing(&viewport), ["Face A 0°: 13.650 mm from axis"]);
+        viewport.set_shown_facing_labels(ShownFacingLabels::NONE);
+        assert!(facing(&viewport).is_empty());
+        // A label that is not a Facing label is never filtered by them.
+        assert!(facing_label_shown(
+            None,
+            ShownFacingLabels::NONE,
+            Some(first)
+        ));
     }
 
     /// The colour the scene gives the cube part with no bands.

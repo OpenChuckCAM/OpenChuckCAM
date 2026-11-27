@@ -468,6 +468,9 @@ impl Shell {
         // The kinds of move shown apply on every step (issue #789).
         self.viewport.set_shown_moves(self.settings.path_moves);
         self.play.set_shown_moves(self.settings.path_moves);
+        // The kinds of Facing label shown, likewise (issue #881).
+        self.viewport
+            .set_shown_facing_labels(self.settings.facing_labels);
         let simulate = self.settings.simulate;
         self.viewport.set_cut_part_solid(simulate.cut_part_solid);
         self.play.set_turn_part_with_a(simulate.turn_part_with_a);
@@ -496,6 +499,18 @@ impl Shell {
             self.settings.path_moves = moves;
             self.settings_touched();
         }
+        // The kinds of Facing label shown, kept for the user (issue #881),
+        // and the selected operation, whose Facing labels alone the view
+        // draws while it is a Facing operation (the owner's answer to Q3).
+        let labels = self.viewport.shown_facing_labels();
+        if labels != self.settings.facing_labels {
+            self.settings.facing_labels = labels;
+            self.settings_touched();
+        }
+        self.viewport.set_selected_operation(match self.selected {
+            Some(Selection::Operation(id)) => Some(id),
+            _ => None,
+        });
         let show = self.viewport.simulate_show();
         let now = openchuck_app::settings::SimulateSettings {
             cut_part_solid: self.viewport.cut_part_solid(),
@@ -3315,6 +3330,9 @@ mod tool_library_tests;
 
 #[cfg(test)]
 mod path_moves_tests;
+
+#[cfg(test)]
+mod facing_labels_tests;
 
 #[cfg(test)]
 mod tool_chip_tests;

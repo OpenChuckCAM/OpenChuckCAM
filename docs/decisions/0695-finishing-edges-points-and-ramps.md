@@ -307,7 +307,7 @@ The program also holds fixed bounds that no setting shows:
 2. **Three settings make a plunge, under three names.** Entry Plunge, Allow single-point plunge and Plunge to remove face nubs each plunge in different places. "Single-point" no longer describes what the setting covers, since PQ-2 added a short stretch and a ring with too many turns.
 3. **Two settings for one exception that goes against the load goal.** Steeper ramp near the axis and Maximum ramp angle make the ramp steeper, which is more load per mm, so as to avoid either a plunge or a refusal. That trade only makes sense in comparison with a plunge, but the settings do not say so.
 4. **One angle for Ramp and Helix.** A helix's depth per turn is `π · d_helix · tan θ`, so the same angle loads the tool differently on a helix than on a back-and-forth ramp.
-5. **The overlap with lane TOOL-LOAD.** TOOL-LOAD-1 (#927) proposes **Limit tool load**: a cut-section limit for the cutting moves, measured in the simulation. Its Q6 A measures entry moves like any other and names the Ramp angle setting when the heaviest stretch is in an entry. A second load setting on the ramp would give the user two limits for one tool.
+5. **The overlap with lane TOOL-LOAD.** [Decision 0698](0698-managing-tool-load.md) (#927, proposed as TOOL-LOAD-1) proposes **Limit tool load**: a cut-section limit for the cutting moves, measured in the simulation. Its Q6 A measures entry moves like any other and names the Ramp angle setting when the heaviest stretch is in an entry. A second load setting on the ramp would give the user two limits for one tool.
 
 #### Every downside of each option
 
@@ -423,12 +423,12 @@ Recommended: **leave the axis outside the bound**, because the plunge it would f
 
 **The owner's answer on the axis (26 Nov 2026, relayed by the coordinator): A.** Descents on the rotary axis stay outside the depth limit, as built. The ramp note gives their depth per turn, and the user guide says that descents on the axis are outside the limit. No code changes. OI-2239 closes.
 
-**Agreed with lane TOOL-LOAD (25 Nov 2026, in writing, at the owner's request; recorded in TOOL-LOAD-1 Q6 too).**
+**Agreed with lane TOOL-LOAD (25 Nov 2026, in writing, at the owner's request; recorded in decision 0698 Q6 too).**
 1. **One function.** A single crate-private function in `assemble/entry.rs`, owned by PQ-2, gives a ramp's largest depth per traverse: the minimum of the tool radius, one turn of a spiral ramp at its start radius (spirals only), the Largest depth per traverse setting, and an optional cap in mm. PQ-2 passes no cap.
    - TL-2 edits only the call site, to supply `L ÷ D` when Limit tool load is on.
    - PQ-2 owns `path_ramp::back_and_forth`, the follow and ring-ramp code and the ramp note, including its wording "the tool-load limit", which TL-2 only selects.
 2. **Merge order.** PQ-2 (#930) merges first, and TL-2 rebases on it. TL-1 is unaffected.
-3. **Terms.** Both lanes use TOOL-LOAD-1's glossary: Ramp angle, Depth per traverse and Cut section.
+3. **Terms.** Both lanes use decision 0698's glossary: Ramp angle, Depth per traverse and Cut section.
 4. **Tests.** PQ-2 tests the ramp's geometry. TL-2 adds one test: with Limit tool load on and `L ÷ D` below the radius, the deepest ramp step is at most `L ÷ D` and the note names the tool-load limit. Neither lane re-tests the other's figure; TL-1 measures ramp moves like any other fed move.
 5. **Settings.** Limit tool load adds no ramp setting, under any answer.
 
@@ -444,7 +444,7 @@ These belong in TOOL-LOAD:
 
 Neither lane adds a second load limit.
 
-**Saved projects, under every option.** A saved operation keeps its settings. The labels and grouping (A) change no program. Q8 A changes the program of a saved operation with Entry Ramp on a line or partial ring whose legs are longer than `R / (2 · tan θ)`; the measurement above lists those that change. B adds no change beyond Q8. C would change programs only through TL-2's own rule for saved operations (TOOL-LOAD-1 Q7).
+**Saved projects, under every option.** A saved operation keeps its settings. The labels and grouping (A) change no program. Q8 A changes the program of a saved operation with Entry Ramp on a line or partial ring whose legs are longer than `R / (2 · tan θ)`; the measurement above lists those that change. B adds no change beyond Q8. C would change programs only through TL-2's own rule for saved operations (decision 0698 Q7).
 
 ## Effort, risk and how the work would be split
 
@@ -654,7 +654,7 @@ Updated in place: OI-318 and OI-337 (the blisk now generates and cuts its blade 
 
 ## Verification (follow-ups, issues #951 and #959)
 
-Lane PATH-QUALITY, one pull request for the CodeRabbit Minors left from #930 (PQ-2, ticket #951) and #956 (PQ-3, ticket #959). No new decision is taken; each item refines how this record's answers were built. Library family 0.72.0 (provisional, the coordinator's slot by merge order).
+Lane PATH-QUALITY, one pull request for the CodeRabbit Minors left from #930 (PQ-2, ticket #951) and #956 (PQ-3, ticket #959). No new decision is taken; each item refines how this record's answers were built. Library family 0.73.0, by merge order (#947 took 0.72.0).
 
 - **What changed, by item:**
   - **#951 item 1, the plunge's depth.** The depth a fallback plunge names (Q4) is measured from where the stock begins, also when the tool is already less than the approach distance above the stock. The old formula took it from the rapid's stop, so it under-reported by up to that distance. The arithmetic is a small function, `depth_into_stock`. Its unit test gives 3.0 mm for a tool 0.5 mm above stock that begins at 10, with a goal of 7; the old formula gave 2.5.
