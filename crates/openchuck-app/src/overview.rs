@@ -441,6 +441,10 @@ pub enum MessageAction {
     /// Undo the last command, for a change the message warns of (changed
     /// tool numbers; decision record 0536 section 8).
     Undo,
+    /// Add a rotary roughing operation just before this one, which is the
+    /// first to cut in its setup and is warned of its tool load (SIM-16;
+    /// decision record 0698, TL-3). One undoable step.
+    AddRoughingBefore(OperationId),
 }
 
 /// The words of "Show in view N" for the areas a warning offers it for.
@@ -472,6 +476,7 @@ impl MessageAction {
                 .unwrap_or("Show in view"),
             Self::Save => "Save",
             Self::Undo => "Undo",
+            Self::AddRoughingBefore(_) => "Add roughing before this operation",
         }
     }
 }
@@ -2209,6 +2214,12 @@ fn build(app: &Application, checks: Option<&Checks>, jobs: &JobLog) -> Overview 
                             area,
                         })
                         .collect()
+                } else if warning.topic.as_deref() == Some(crate::lead_in::topic::TOOL_LOAD)
+                    && crate::tool_load::roughing_tool(project, o).is_ok()
+                {
+                    // A warned operation that is the first to cut in its
+                    // setup is offered roughing first (decision 0698, TL-3).
+                    vec![MessageAction::AddRoughingBefore(o.id)]
                 } else {
                     Vec::new()
                 };

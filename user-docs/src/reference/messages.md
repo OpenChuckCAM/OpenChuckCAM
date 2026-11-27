@@ -30,7 +30,7 @@ The first words name the check ("Flute length", "Held region", "Feed limit"), th
 Clearance (setup 'Setup 1'): the safe cylinder (radius 15.000 mm) does not enclose the stock (radius 200.000 mm).
 Model file (model 'part.stl'): the file has changed since it was added. The toolpaths will use the file as it is now.
 Rapid cut (operation 'Rough'): move 9 is a rapid that goes 0.250 mm into the stock, deeper than the simulation's cell of 0.100 mm, and removes 0.123 mm³ of material.
-Tool load (operation 'Finish', tool 'Z1 ball 3.175x22'): 4292 stretches of the path remove more than 6.35 mm² per millimetre of travel, …
+Tool load (operation 'Finish', tool 'Z1 ball 3.175x22'): 4292 stretches of the path have a cut section (the material removed per millimetre of travel) above 6.35 mm², …
 ```
 
 An operation that cannot be generated reads the same way, by the check that refused it: "End facing (operation 'Face'): …", "Stepover (operation 'Rough'): must be above 0 mm." (a setting is named as the operation shows it), "Tool (operation 'Finish'): it has no tool."

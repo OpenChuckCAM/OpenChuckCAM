@@ -161,7 +161,7 @@ The warning and the inspector's tooltip say which applied ("the tool's largest c
 
 **Compatibility.** A tool library or project from before the field has no value in any entry: rules 3 and 4 apply, and nothing else changes. The field is a new member of `CuttingData` in `openchuck-types`, whose fields are public and which refuses unknown fields, so: (a) it is a breaking change of the library family's public API, which bumps the workspace minor and adds a changelog entry (decision 0048; the coordinator assigns the version in merge order); (b) an older version of the program refuses a tool file that holds it. Lane MOPUP-1's fix for issue #864 (an older version opens a library with stick-out tools partially instead of refusing it cleanly) is what makes that refusal clean for the whole library; this field relies on it and follows it in merge order.
 
-**Schema.** It changes what tool library files and project tool snapshots hold, so it takes the next project schema number, with a migration step that changes only the number and refuses an older-schema tool file that already holds the field, as schemas 8 (`centre_cutting`) and 29 (`stick_out`) did. A standalone tool-library file that holds the field declares library schema 3, after lane MOPUP-1's library schema 2 (decision 0703: each file declares the lowest library schema that holds its fields, so a file without the field keeps its lower number and released builds still read it). **Claimed provisionally as the next free after `main`'s 29 and lane MOPUP-1's #864 claim** (row added to the work breakdown's schema table, marked provisional); the coordinator assigns the number. The built-in libraries' files are written at that schema with the nominal values below.
+**Schema.** It changes what tool library files and project tool snapshots hold, so it takes the next project schema number, with a migration step that changes only the number and refuses an older-schema tool file that already holds the field, as schemas 8 (`centre_cutting`) and 29 (`stick_out`) did. A standalone tool-library file that holds the field declares library schema 3, after Library 2 (decision 0703: each file declares the lowest library schema that holds its fields, so a file without the field keeps its lower number and released builds still read it). **Claimed provisionally as the next free after `main`'s 29 and lane MOPUP-1's #864 claim** (row added to the work breakdown's schema table, marked provisional); the coordinator assigns the number. The built-in libraries' files are written at that schema with the nominal values below.
 
 #### The nominal values (the owner's first requirement)
 
@@ -461,13 +461,47 @@ Built by lane TOOL-LOAD in pull request [#934](https://github.com/OpenChuckCAM/O
 - **Environment:** a Linux cloud container, 4 cores; the public `testdata/stl/crankshaft.stl` only, no owner project.
 - **Not verified:** coverage was checked locally only on `openchuck-sim`'s new tests (`load.rs` 100 %); `openchuck-app` and `openchuck-ui` are left to the nightly run. Nothing was cut or air-cut; the limit's values are not confirmed for the Makera Z1 (OI-2269).
 
+## As built (TL-3 and #935)
+
+Built by lane TOOL-LOAD on branch `claude/lane-tool-load-tl3` (pull request to come), from `main` `f906fa5`. It closes OI-2264 and issue #935.
+
+- **Add roughing before this operation** (Q4, B). It is a second link on an operation's Tool load warning in Messages. It is offered only where all of these hold:
+  - the operation's strategy is warned;
+  - it is not rotary roughing itself, whose remedy is a smaller Stepdown;
+  - it is the first enabled operation in its setup;
+  - the project has a flat end with cutting data for the operation's material (the operation's own tool first, then the first in the project's order).
+
+  Taking it adds, as one undoable step (UI-08), a rotary roughing operation named "Roughing for <name>" in the same setup, just before the operation, with that tool and the operation's material. The operation is selected. Its Stepdown and Stepover come from the tool's cutting data, as for any new roughing. Asked for anywhere else, the action is refused with the reason (NFR-07).
+- **Stock to leave.** It is the default of decision 0205 (a tenth of the diameter), raised to the operation's own Stock to leave where that is larger, so the roughing never cuts below the operation's target. This is the lane's reading of "leaving the finish's own allowance".
+- **Go to** (Q2, #935). An operation's Highest and Load figures in the removal-rate block can be chosen, by mouse or Enter, and move playback to the start of their stretch, paused. Their tooltip says so. They stay figures rather than separate links, so the block keeps its width at 280 pixels. This setup's figures and an operation with no stretch offer none.
+- **Two Minor review findings of #934** (issue #960, items 2 and 3).
+  - The warning and information line now give the cut section as an area ("a cut section (the material removed per millimetre of travel) above 12.70 mm²").
+  - A radial drilling row counts no stretch past its limit, so its Load figure is not in the warning colour and its tooltip names no warning.
+  - Item 1, the window maximum, is for TL-2a.
+- No library-family change, no project schema change, and no toolpath or G-code change. `openchuck-app` gains `Application::add_roughing_before`, `tool_load::roughing_tool`, `MessageAction::AddRoughingBefore` and `OperationSimulation::id`.
+
+## Verification (TL-3 and #935)
+
+- **Tests, by name:**
+  - `openchuck-app`:
+    - `flute_check::req_sim_16_req_ui_08_the_tool_load_warning_offers_roughing_first_and_undo_restores_it`: the link is offered; taking it adds rotary roughing before the finish with its tool; the finish is not warned after it; undo restores the project exactly.
+    - `flute_check::req_sim_16_roughing_first_is_offered_only_to_the_first_operation_in_its_setup`: a warned second operation and a warned roughing are offered nothing, and refused.
+    - `flute_check::req_sim_16_req_nfr_07_no_roughing_is_offered_without_a_flat_end_for_the_material`.
+    - The `tool_load` unit tests, with the new wording.
+  - `openchuck-ui`:
+    - `shell::simulate_tests::req_sim_16_go_to_on_load_and_highest_moves_playback_to_the_start_of_the_stretch`, at 1920 × 1080. It fails with the shell's wiring removed.
+    - `shell::simulate_tests::req_sim_16_req_nfr_07_add_roughing_with_no_flat_end_says_why`.
+    - `results_panel::tests::req_sim_16_a_drilling_row_past_its_limit_is_not_shown_as_a_warning`.
+- **Results:** see the pull request. Each new test was timed with `cargo nextest`, uninstrumented: the three crankshaft tests take 2.5 to 33 s and the UI tests under 2 s.
+- **Not verified:** nothing was cut or air-cut; only the public crankshaft STL and the synthetic cube were used.
+
 ## Open items
 
 Added:
 
 - **OI-2262:** the owner's answers to Q1 to Q7 and acceptance of this record. Closed: all answered and the record accepted on 25 Nov 2026, relayed (decision 0049).
 - **OI-2263:** build TL-1: the tool-load measure in the simulation, its warning and Results line, and the average and highest removal rate in the Simulate inspector (SIM-16). Closed: built in pull request #934 (main `f7085ea`, 0.71.0); see *As built (TL-1)*.
-- **OI-2264:** build TL-3: "Add roughing before this operation" from the tool-load warning.
+- **OI-2264:** build TL-3: "Add roughing before this operation" from the tool-load warning. Closed: built with #935; see *As built (TL-3 and #935)*.
 - **OI-2265:** build TL-2: Limit tool load in rotary roughing and helical, axial, indexed and simultaneous finishing (OP-29), meeting Q4's smoothness rules and criteria (zones, hysteresis, a minimum extent, blended layers, no retracts inside a zone, short blocks not increased), after lane SIMUL-EDGE; and whether swarf, face flow, pencil, rest and edge following should relieve the load themselves later.
 - **OI-2266:** later uses of the measure, not proposed now: feed adjusted by engagement (SIM-10, P3; SUG-09), the path coloured by load in the viewport, and constant-engagement roughing (OP-17, P2).
 - **OI-2268:** build TL-1b: Largest cut section in the tool library (Q3 C), with the nominal values, the migration and the library-family minor bump, after lane MOPUP-1's #864 fix.

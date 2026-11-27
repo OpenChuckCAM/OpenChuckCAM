@@ -2134,3 +2134,67 @@ fn req_sim_05_the_faced_end_over_a_bore_is_violet_only_over_the_bore() {
         "{violet} against {disc}"
     );
 }
+
+#[test]
+fn req_sim_16_go_to_on_load_and_highest_moves_playback_to_the_start_of_the_stretch() {
+    // At the design size, choosing the Load figure (by mouse, or Enter on
+    // it) moves playback to the start of the heaviest stretch, and Highest
+    // to the start of the fastest (issue #935; decision record 0698, Q2).
+    let mut rig = simulated("sim-go-to");
+    rig.size = egui::vec2(1920.0, 1080.0);
+    for _ in 0..3 {
+        rig.frame(Vec::new());
+    }
+    let run = rig.shell.run.last().unwrap().clone();
+    let summary = crate::results_panel::summarise(&run);
+    let row = &summary[0].operations[0];
+    let load = row.load.as_ref().unwrap();
+    let start = rig.shell.play.first_move_of(row.id).unwrap();
+    for (text, first) in [
+        (
+            format!("{:.2} mm²", load.heaviest.unwrap()),
+            load.heaviest_first.unwrap(),
+        ),
+        (
+            format!("{:.0}", load.highest.unwrap()),
+            load.highest_first.unwrap(),
+        ),
+    ] {
+        let at = rig
+            .visible_text_rects()
+            .iter()
+            .find(|(s, _)| *s == text)
+            .map(|(_, rect)| rect.center())
+            .unwrap_or_else(|| panic!("missing {text}: {:?}", rig.texts()));
+        rig.click(at);
+        for _ in 0..2 {
+            rig.frame(Vec::new());
+        }
+        assert_eq!(rig.shell.play.moves_done(), start + first, "{text}");
+    }
+}
+
+#[test]
+fn req_sim_16_req_nfr_07_add_roughing_with_no_flat_end_says_why() {
+    // The cube's only tool is a ball end: the Add roughing link, if taken,
+    // changes nothing and says why in a dialog (decision record 0698, TL-3).
+    let mut rig = simulated("sim-rough-refused");
+    let op = rig.shell.app.as_ref().unwrap().project().operations()[0].id;
+    rig.shell
+        .message_action(openchuck_app::overview::MessageAction::AddRoughingBefore(
+            op,
+        ));
+    for _ in 0..3 {
+        rig.frame(Vec::new());
+    }
+    assert!(rig.shows("Add roughing"), "{:?}", rig.texts());
+    assert!(
+        rig.texts().iter().any(|t| t.0.contains("no flat end")),
+        "{:?}",
+        rig.texts()
+    );
+    assert_eq!(
+        rig.shell.app.as_ref().unwrap().project().operations().len(),
+        1
+    );
+}

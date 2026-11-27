@@ -1548,6 +1548,18 @@ impl Shell {
                 self.save();
             }
             MessageAction::Undo => self.undo(),
+            // Rotary roughing before a warned first operation, selected so
+            // the user sees and can change it before generating (decision
+            // record 0698, TL-3; UI-08: one undoable step).
+            MessageAction::AddRoughingBefore(operation) => {
+                let Some(app) = &mut self.app else { return };
+                match app.add_roughing_before(operation) {
+                    Ok(added) => self.show_item(ItemRef::Operation(added)),
+                    Err(e) => {
+                        self.dialog = Some(Dialog::Error(Failure::new("Add roughing", e)));
+                    }
+                }
+            }
             MessageAction::OpenRecovery(_) | MessageAction::LocateRecovery(_) => {
                 self.recovery_action(action);
             }

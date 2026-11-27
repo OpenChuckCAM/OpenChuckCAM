@@ -32,6 +32,9 @@ use crate::AppError;
 /// What simulating one operation did.
 #[derive(Debug, Clone, PartialEq)]
 pub struct OperationSimulation {
+    /// The operation's id, so its figures can lead to its moves in playback
+    /// (issue #935).
+    pub id: OperationId,
     /// The operation's name.
     pub operation: String,
     /// Moves simulated.
@@ -354,6 +357,7 @@ impl SetupState {
         let result = self.simulator.run_group(group, tool, context)?;
         self.operation_ids.push(id);
         self.operations.push(OperationSimulation {
+            id,
             operation: operation.to_owned(),
             moves: result.moves,
             poses: result.poses,

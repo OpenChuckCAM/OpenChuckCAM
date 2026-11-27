@@ -316,6 +316,8 @@ pub const SOME_HIDDEN: &str = "Some bands are hidden";
 /// One operation's row of the table.
 #[derive(Debug, Clone, PartialEq)]
 pub struct OperationRow {
+    /// The operation's id.
+    pub id: openchuck_app::project::id::OperationId,
     /// The operation's name.
     pub name: String,
     /// Moves simulated.
@@ -342,10 +344,16 @@ pub struct LoadRow {
     pub highest: Option<f64>,
     /// The move that stretch ends at (counted from 1).
     pub highest_move: Option<usize>,
+    /// The index of that stretch's first move in the operation's moves,
+    /// where Go to takes playback (issue #935).
+    pub highest_first: Option<usize>,
     /// The heaviest cut section, mm².
     pub heaviest: Option<f64>,
     /// The move the heaviest stretch ends at (counted from 1).
     pub heaviest_move: Option<usize>,
+    /// The index of the heaviest stretch's first move in the operation's
+    /// moves, where Go to takes playback (issue #935).
+    pub heaviest_first: Option<usize>,
     /// The limit the operation was measured against, mm²; `None` on a
     /// setup's total, whose stretches are each counted against their own operation's limit.
     pub limit: Option<f64>,
@@ -354,19 +362,24 @@ pub struct LoadRow {
 }
 
 impl LoadRow {
-    /// From the simulation's summary of one operation.
+    /// From the simulation's summary of one operation. An operation whose
+    /// strategy is measured but not warned (radial drilling) counts no
+    /// stretch past its limit, so its Load is not shown as a warning (SIM-16;
+    /// decision record 0698, Q4).
     #[must_use]
-    pub fn of(s: &openchuck_app::sim::LoadSummary) -> Self {
+    pub fn of(s: &openchuck_app::sim::LoadSummary, warned: bool) -> Self {
         Self {
             removed: s.removed,
             cutting_time: s.cutting_time,
             total_time: s.total_time,
             highest: s.fastest.and_then(|f| f.rate),
             highest_move: s.fastest.map(|f| f.last + 1),
+            highest_first: s.fastest.map(|f| f.first),
             heaviest: s.heaviest.map(|h| h.section),
             heaviest_move: s.heaviest.map(|h| h.last + 1),
+            heaviest_first: s.heaviest.map(|h| h.first),
             limit: Some(s.limit),
-            over: s.over,
+            over: if warned { s.over } else { 0 },
         }
     }
 
@@ -395,8 +408,10 @@ impl LoadRow {
                 total_time: 0.0,
                 highest: None,
                 highest_move: None,
+                highest_first: None,
                 heaviest: None,
                 heaviest_move: None,
+                heaviest_first: None,
                 limit: None,
                 over: 0,
             });
@@ -466,8 +481,8 @@ fn load_tooltip(row: &LoadRow) -> String {
         String::new()
     };
     format!(
-        "The heaviest cut: the most material removed per millimetre of travel over a \
-         stretch of one tool diameter, mm².{at}{over} A figure from the simulation, not a \
+        "The heaviest cut section: the material removed per millimetre of travel over a \
+         stretch of one tool diameter, in mm².{at}{over} A figure from the simulation, not a \
          statement that the cut is acceptable for your tool and machine."
     )
 }
@@ -741,11 +756,18 @@ pub fn summarise(run: &Regeneration) -> Vec<SetupResults> {
                     .operations
                     .iter()
                     .map(|o| OperationRow {
+                        id: o.id,
                         name: o.operation.clone(),
                         moves: o.moves,
                         removed: o.removed_volume,
                         rapid_cuts: o.rapid_cuts.iter().filter(|c| c.deeper_than_cell()).count(),
-                        load: o.load.as_ref().map(LoadRow::of),
+                        load: o.load.as_ref().map(|l| {
+                            let warned = run
+                                .project
+                                .operation(o.id)
+                                .is_some_and(|op| openchuck_app::tool_load::warns(&op.strategy));
+                            LoadRow::of(l, warned)
+                        }),
                     })
                     .collect(),
             )
@@ -792,6 +814,20 @@ pub struct ResultsPanel {
     summary: Option<(Arc<Regeneration>, Vec<SetupResults>)>,
     /// Why the cell size was refused.
     pub(crate) error: Option<String>,
+    /// The operation and the index of its move that a Go to on Highest or
+    /// Load asked playback to move to, taken by the shell (issue #935).
+    go_to: Option<GoTo>,
+}
+
+/// Where a Go to on the removal-rate block moves playback: the start of a
+/// stretch, as the operation and the index of its first move in the
+/// operation's own moves (issue #935; decision record 0698, Q2).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct GoTo {
+    /// The operation whose stretch it is.
+    pub operation: openchuck_app::project::id::OperationId,
+    /// The stretch's first move, counted from 0 in the operation's moves.
+    pub first: usize,
 }
 
 fn tint(band: DeviationBand) -> Color32 {
@@ -799,6 +835,11 @@ fn tint(band: DeviationBand) -> Color32 {
 }
 
 impl ResultsPanel {
+    /// The Go to the last frame asked for, once (issue #935).
+    pub fn take_go_to(&mut self) -> Option<GoTo> {
+        self.go_to.take()
+    }
+
     /// Draws the inspector for the latest run. `stale` is true while the run
     /// no longer matches the project: its numbers are then dimmed, under the
     /// shell's out-of-date banner (issue 260). Returns true when the colour
@@ -866,7 +907,13 @@ impl ResultsPanel {
                         ui.multiply_opacity(opacity);
                     }
                     for result in &results {
-                        result_block(ui, result, results.len() > 1, &mut self.filter);
+                        result_block(
+                            ui,
+                            result,
+                            results.len() > 1,
+                            &mut self.filter,
+                            &mut self.go_to,
+                        );
                     }
                     self.range(ui);
                 });
@@ -1093,7 +1140,13 @@ pub fn overcut_spread(r: &SetupResults) -> String {
     format!("{} in {places}", r.overcut_samples)
 }
 
-fn result_block(ui: &mut egui::Ui, r: &SetupResults, titled: bool, filter: &mut BandFilter) {
+fn result_block(
+    ui: &mut egui::Ui,
+    r: &SetupResults,
+    titled: bool,
+    filter: &mut BandFilter,
+    go_to: &mut Option<GoTo>,
+) {
     if titled {
         ui.label(RichText::new(&r.setup).strong());
     }
@@ -1172,7 +1225,7 @@ fn result_block(ui: &mut egui::Ui, r: &SetupResults, titled: bool, filter: &mut 
                 ui.end_row();
             }
         });
-    removal_rate_block(ui, r);
+    removal_rate_block(ui, r, go_to);
 }
 
 /// The removal-rate block under BY OPERATION (SIM-16; decision record
@@ -1180,11 +1233,11 @@ fn result_block(ui: &mut egui::Ui, r: &SetupResults, titled: bool, filter: &mut 
 /// removal rate over the cutting time, the highest over a stretch, and the
 /// heaviest cut section; then the setup's own figures. Not drawn when no
 /// operation was measured.
-fn removal_rate_block(ui: &mut egui::Ui, r: &SetupResults) {
-    let rows: Vec<(&str, &LoadRow)> = r
+fn removal_rate_block(ui: &mut egui::Ui, r: &SetupResults, go_to: &mut Option<GoTo>) {
+    let rows: Vec<(&OperationRow, &LoadRow)> = r
         .operations
         .iter()
-        .filter_map(|o| o.load.as_ref().map(|l| (o.name.as_str(), l)))
+        .filter_map(|o| o.load.as_ref().map(|l| (o, l)))
         .collect();
     let Some(total) = LoadRow::total(rows.iter().map(|(_, l)| *l)) else {
         return;
@@ -1203,24 +1256,50 @@ fn removal_rate_block(ui: &mut egui::Ui, r: &SetupResults) {
                 ui.label(RichText::new(h).small().color(DARK.muted));
             }
             ui.end_row();
-            let row = |ui: &mut egui::Ui, name: &str, l: &LoadRow, strong: bool| {
+            let mut row = |ui: &mut egui::Ui,
+                           name: &str,
+                           operation: Option<openchuck_app::project::id::OperationId>,
+                           l: &LoadRow,
+                           strong: bool| {
                 let name = RichText::new(name);
                 ui.label(if strong { name.strong() } else { name });
                 // Each figure is a Tab stop whose tooltip opens on focus as
-                // well as hover (UI-14).
-                let figure = |ui: &mut egui::Ui, text: RichText, tip: String| {
-                    ui.add(egui::Label::new(text).sense(crate::focus::info_sense()))
-                        .tip(tip);
+                // well as hover (UI-14). Highest and Load of an operation
+                // also take playback to the start of their stretch when
+                // chosen, by mouse or Enter (Go to, issue #935).
+                let mut figure = |ui: &mut egui::Ui,
+                                  text: RichText,
+                                  tip: String,
+                                  first: Option<usize>| {
+                    let target = operation.zip(first);
+                    let sense = if target.is_some() {
+                        egui::Sense::click()
+                    } else {
+                        crate::focus::info_sense()
+                    };
+                    let tip = if target.is_some() {
+                        format!("{tip} Choose it to go to the start of that stretch in playback.")
+                    } else {
+                        tip
+                    };
+                    let response = ui.add(egui::Label::new(text).sense(sense)).tip(tip);
+                    if let Some((operation, first)) = target
+                        && response.clicked()
+                    {
+                        *go_to = Some(GoTo { operation, first });
+                    }
                 };
                 figure(
                     ui,
                     RichText::new(rate_text(l.average())).monospace(),
                     average_tooltip(l),
+                    None,
                 );
                 figure(
                     ui,
                     RichText::new(rate_text(l.highest)).monospace(),
                     highest_tooltip(l),
+                    l.highest_first,
                 );
                 let load = l
                     .heaviest
@@ -1234,13 +1313,14 @@ fn removal_rate_block(ui: &mut egui::Ui, r: &SetupResults) {
                         text
                     },
                     load_tooltip(l),
+                    l.heaviest_first,
                 );
                 ui.end_row();
             };
-            for (name, l) in &rows {
-                row(ui, name, l, false);
+            for (o, l) in &rows {
+                row(ui, &o.name, Some(o.id), l, false);
             }
-            row(ui, "This setup", &total, true);
+            row(ui, "This setup", None, &total, true);
         });
     ui.label(
         RichText::new("Average over the cutting time; rapids left out.")
@@ -1386,6 +1466,43 @@ mod tests {
     use super::*;
 
     #[test]
+    fn req_sim_16_a_drilling_row_past_its_limit_is_not_shown_as_a_warning() {
+        // Radial drilling is measured but not warned (decision record 0698,
+        // Q4), so its row counts no stretch past the limit and its Load
+        // figure and tooltip do not point to a warning it never gets.
+        let stretch = openchuck_app::sim::Stretch {
+            first: 2,
+            last: 5,
+            section: 9.0,
+            rate: Some(600.0),
+            engaged: 4.0,
+        };
+        let summary = openchuck_app::sim::LoadSummary {
+            limit: 6.35,
+            stretches: 4,
+            over: 3,
+            heaviest: Some(stretch),
+            fastest: Some(stretch),
+            longest_engaged: Some((4.0, 5)),
+            removed: 100.0,
+            cutting_time: 10.0,
+            total_time: 20.0,
+        };
+        let drilled = LoadRow::of(&summary, false);
+        assert_eq!(drilled.over, 0);
+        assert!(
+            !load_tooltip(&drilled).contains("warning"),
+            "{}",
+            load_tooltip(&drilled)
+        );
+        assert_eq!(drilled.heaviest, Some(9.0));
+        assert_eq!(drilled.heaviest_first, Some(2));
+        let milled = LoadRow::of(&summary, true);
+        assert_eq!(milled.over, 3);
+        assert!(load_tooltip(&milled).contains("Tool load warning"));
+    }
+
+    #[test]
     fn req_sim_16_the_setup_total_counts_stretches_against_each_operations_limit() {
         let row = |limit, over| LoadRow {
             removed: 10.0,
@@ -1393,8 +1510,10 @@ mod tests {
             total_time: 2.0,
             highest: Some(600.0),
             highest_move: Some(3),
+            highest_first: Some(0),
             heaviest: Some(8.0),
             heaviest_move: Some(3),
+            heaviest_first: Some(0),
             limit: Some(limit),
             over,
         };
@@ -1770,7 +1889,7 @@ mod tests {
         let mut output = ctx.run_ui(input, |ui| {
             egui::CentralPanel::default().show(ui, |ui| {
                 room = ui.max_rect().width();
-                result_block(ui, &r, true, &mut BandFilter::default());
+                result_block(ui, &r, true, &mut BandFilter::default(), &mut None);
                 used = ui.min_rect().width();
             });
         });

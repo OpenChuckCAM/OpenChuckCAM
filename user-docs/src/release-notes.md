@@ -169,6 +169,10 @@ The *latest* version of this guide describes the nightly build, the [development
 ### Simulation
 
 - **Tool load.** The simulation now measures how much material the tool removes per millimetre it travels, how much of its cutting edge is in the material, and the removal rate. An operation whose cuts are much heavier than its tool's cutting data describes gets a **Tool load** warning with the figures and where the heaviest cut is; for example, a finish run on the bar without roughing first. A new **Largest cut section** setting on each operation sets the limit. The Simulate step's results list each operation's average and highest removal rate and its heaviest cut, and the **Results** tab gives the same for the whole job (#844). See [Simulation and deviation colours](concepts/simulation.md#tool-load-and-removal-rate).
+- **Add roughing before an operation.** When the first operation in a setup gets a **Tool load** warning, **Messages** offers **Add roughing before this operation**: it adds a rotary roughing operation, with a flat end from the project that has cutting data for the material, just before it. You can change it before you generate, and **Undo** takes it away again (#844).
+- **Go to the heaviest cut.** In the Simulate step's removal-rate results, choose an operation's **Highest** or **Load** figure to move playback to the start of that stretch (#935).
+- **Fixed: the cut section's unit.** The **Tool load** warning and the Results line gave the cut section as "mm² per millimetre of travel"; they now give it as a cut section in mm², with what it means.
+- **Fixed: drilling's Load figure.** A radial drilling operation past its limit no longer shows its **Load** figure in the warning colour, since drilling is measured but not warned of.
 
 ### G-code generation and posts
 

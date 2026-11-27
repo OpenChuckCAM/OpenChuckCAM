@@ -156,6 +156,94 @@ impl Application {
         cut_on: Option<openchuck_project::id::SelectionSetId>,
         material: Option<&str>,
     ) -> Result<OperationId, AppError> {
+        self.add_operation_placed(
+            name,
+            strategy,
+            setup,
+            tool,
+            cut_on,
+            material,
+            Placement::End,
+            BTreeMap::new(),
+        )
+    }
+
+    /// A rotary roughing operation added just before `operation`, in the same
+    /// setup, with the tool [`crate::tool_load::roughing_tool`] chooses and
+    /// the operation's material: the "Add roughing before this operation"
+    /// link of its tool-load warning (SIM-16; decision record 0698, TL-3).
+    /// Its stock to leave is the default of decision record 0205, and never
+    /// less than the operation itself leaves, so it does not cut below the
+    /// operation's own target. One undoable step.
+    ///
+    /// # Errors
+    ///
+    /// Refused, saying why, for an operation that is not the first to cut
+    /// in its setup, whose strategy is not warned, or with no flat end that
+    /// has cutting data for its material.
+    pub fn add_roughing_before(&mut self, operation: OperationId) -> Result<OperationId, AppError> {
+        let project = &self.document.project;
+        let (index, op) = project
+            .operations()
+            .iter()
+            .enumerate()
+            .find(|(_, o)| o.id == operation)
+            .ok_or_else(|| AppError::UnknownOperation(operation.to_string()))?;
+        let tool = crate::tool_load::roughing_tool(project, op).map_err(|reason| {
+            AppError::refused(
+                crate::lead_in::topic::TOOL_LOAD,
+                &op.name,
+                format!("no roughing can be added before it: {reason}"),
+            )
+        })?;
+        let name = format!("Roughing for {}", op.name);
+        let setup = op.setup;
+        let material = op.material.clone();
+        let own_leave = match op
+            .parameters
+            .get(openchuck_path::params::names::STOCK_TO_LEAVE)
+        {
+            Some(openchuck_project::ParameterValue::Number(v)) if v.is_finite() => *v,
+            _ => 0.0,
+        };
+        let diameter = project
+            .tools()
+            .iter()
+            .find(|t| t.id == tool)
+            .map_or(0.0, |t| t.tool.diameter.0);
+        let mut extra = BTreeMap::new();
+        if own_leave > default_roughing_stock_to_leave(diameter) {
+            extra.insert(
+                openchuck_path::params::names::STOCK_TO_LEAVE.to_owned(),
+                openchuck_project::ParameterValue::Number(own_leave),
+            );
+        }
+        self.add_operation_placed(
+            &name,
+            openchuck_path::roughing::NAME,
+            setup,
+            Some(tool),
+            None,
+            material.as_deref(),
+            Placement::Index(index),
+            extra,
+        )
+    }
+
+    /// [`Application::add_operation_on`] at `placement`, with `extra`
+    /// parameters written over the defaults.
+    #[allow(clippy::too_many_arguments)]
+    fn add_operation_placed(
+        &mut self,
+        name: &str,
+        strategy: &str,
+        setup: SetupId,
+        tool: Option<ToolId>,
+        cut_on: Option<openchuck_project::id::SelectionSetId>,
+        material: Option<&str>,
+        placement: Placement,
+        extra: BTreeMap<String, openchuck_project::ParameterValue>,
+    ) -> Result<OperationId, AppError> {
         let name = name.trim();
         if name.is_empty() {
             return Err(AppError::refused(
@@ -402,6 +490,7 @@ impl Application {
                 ),
             );
         }
+        parameters.extend(extra);
         let id = OperationId::new();
         self.execute(Command::Add {
             item: Item::Operation(Operation {
@@ -421,7 +510,7 @@ impl Application {
                 parameters,
                 enabled: true,
             }),
-            placement: Placement::End,
+            placement,
         })?;
         Ok(id)
     }

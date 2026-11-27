@@ -23,6 +23,16 @@ use openchuck_types::units::{FeedRate, SpindleSpeed};
 /// A project of the CrankShaft model in 35 x 35 mm box stock with a 3.175
 /// mm flat end mill of `flute` mm and the operations given, in order.
 fn crankshaft(name: &str, flute: f64, operations: &[(&str, Vec<(&str, f64)>)]) -> Application {
+    crankshaft_with(name, flute, operations, ToolShape::FlatEnd)
+}
+
+/// [`crankshaft`] with the tool's shape given.
+fn crankshaft_with(
+    name: &str,
+    flute: f64,
+    operations: &[(&str, Vec<(&str, f64)>)],
+    shape: ToolShape,
+) -> Application {
     let dir = std::env::temp_dir().join(format!("openchuck-flutes-{name}-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
     let mut app = Application::create(&dir, name, Threads::Exactly(2)).unwrap();
@@ -61,7 +71,7 @@ fn crankshaft(name: &str, flute: f64, operations: &[(&str, Vec<(&str, f64)>)]) -
         order: OrderKey::default(),
         name: "3.175 mm flat".into(),
         tool: Tool {
-            shape: ToolShape::FlatEnd,
+            shape,
             diameter: Millimetres(3.175),
             flute_length: Millimetres(flute),
             overall_length: Millimetres(flute + 13.0),
@@ -361,11 +371,11 @@ fn req_sim_16_req_nfr_12_finishing_the_crankshaft_blank_is_warned_of_its_tool_lo
     let warnings = tool_load_warnings(&run);
     assert_eq!(warnings.len(), 1, "{warnings:?}");
     assert!(
-        warnings[0].contains("mm² per millimetre of travel"),
+        warnings[0].contains("the material removed per millimetre of travel"),
         "{warnings:?}"
     );
     // Twice a full-width slot at the tool's 2 mm stepdown in oak.
-    assert!(warnings[0].contains("more than 12.70 mm²"), "{warnings:?}");
+    assert!(warnings[0].contains("above 12.70 mm²"), "{warnings:?}");
     let messages: Vec<_> = app
         .overview(None, &openchuck_app::JobLog::default())
         .messages
@@ -462,4 +472,106 @@ fn req_sim_16_the_operations_own_largest_cut_section_sets_the_limit() {
         Some(ParameterValue::Number(0.0)),
     );
     assert!(refused.is_err());
+}
+
+/// The tool-load warnings of one operation's paths.
+fn tool_load_warnings_of(run: &openchuck_app::Regeneration, operation: OperationId) -> Vec<String> {
+    run.groups
+        .iter()
+        .filter(|g| g.operation == operation)
+        .flat_map(|g| g.warnings.iter())
+        .filter(|w| w.topic.as_deref() == Some(openchuck_app::lead_in::topic::TOOL_LOAD))
+        .map(|w| w.text.clone())
+        .collect()
+}
+
+/// The links Messages offers on the operation's tool-load warning.
+fn tool_load_links(app: &Application) -> Vec<openchuck_app::overview::MessageAction> {
+    app.overview(None, &openchuck_app::JobLog::default())
+        .messages
+        .into_iter()
+        .filter(|m| m.text.starts_with("Tool load"))
+        .flat_map(|m| m.views)
+        .collect()
+}
+
+#[test]
+fn req_sim_16_req_ui_08_the_tool_load_warning_offers_roughing_first_and_undo_restores_it() {
+    // The finish is the first to cut in its setup and is warned: Messages
+    // offers "Add roughing before this operation" (decision 0698, TL-3).
+    // Taking it adds rotary roughing with the finish's tool just before it,
+    // in one undoable step; the finish is then within its limit.
+    let mut app = crankshaft("load-rough-first", 25.0, &[finish()]);
+    app.simulate().unwrap_or_else(|e| panic!("{e}"));
+    let finish_id = app.project().operations()[0].id;
+    let tool = app.project().operations()[0].tool;
+    let action = openchuck_app::overview::MessageAction::AddRoughingBefore(finish_id);
+    assert_eq!(tool_load_links(&app), vec![action.clone()]);
+    assert_eq!(action.label(), "Add roughing before this operation");
+    let before = app.project().clone();
+    let rough = app
+        .add_roughing_before(finish_id)
+        .unwrap_or_else(|e| panic!("{e}"));
+    let ops = app.project().operations();
+    assert_eq!(ops.len(), 2);
+    assert_eq!(ops[0].id, rough);
+    assert_eq!(ops[1].id, finish_id);
+    assert_eq!(ops[0].strategy, "rotary_roughing");
+    assert_eq!(ops[0].tool, tool);
+    assert_eq!(ops[0].setup, ops[1].setup);
+    assert!(ops[0].name.contains("Op 1"), "{}", ops[0].name);
+    assert!(
+        tool_load_links(&app).is_empty(),
+        "the finish is no longer first"
+    );
+    // Regenerated with the guide's coarser roughing steps, to keep the test
+    // short; the finish after it is within its limit.
+    for (name, value) in [("stepdown", 4.0), ("stepover", 2.5)] {
+        app.set_parameter(rough, name, Some(ParameterValue::Number(value)))
+            .unwrap();
+    }
+    let run = app.simulate().unwrap_or_else(|e| panic!("{e}"));
+    assert_eq!(tool_load_warnings_of(&run, finish_id), Vec::<String>::new());
+    assert!(app.undo().unwrap());
+    assert!(app.undo().unwrap());
+    assert!(app.undo().unwrap());
+    assert_eq!(app.project(), &before);
+}
+
+#[test]
+fn req_sim_16_roughing_first_is_offered_only_to_the_first_operation_in_its_setup() {
+    // A warned finish after another operation is not offered roughing
+    // first: the stock it meets is already the earlier operation's.
+    let (strategy, mut parameters) = rough();
+    for p in &mut parameters {
+        if p.0 == "stock_to_leave" {
+            p.1 = 8.0;
+        }
+    }
+    let mut app = crankshaft("load-not-first", 25.0, &[(strategy, parameters), finish()]);
+    let run = app.simulate().unwrap_or_else(|e| panic!("{e}"));
+    let second = app.project().operations()[1].id;
+    assert_eq!(tool_load_warnings_of(&run, second).len(), 1);
+    // The roughing before it is first, but roughing is not offered
+    // roughing before itself (its remedy is a smaller Stepdown).
+    assert!(
+        tool_load_links(&app).is_empty(),
+        "{:?}",
+        tool_load_links(&app)
+    );
+    let first = app.project().operations()[0].id;
+    assert!(app.add_roughing_before(first).is_err());
+    assert!(app.add_roughing_before(second).is_err());
+}
+
+#[test]
+fn req_sim_16_req_nfr_07_no_roughing_is_offered_without_a_flat_end_for_the_material() {
+    // With only a ball end in the project there is no tool to rough with:
+    // no link, and asking anyway is refused with the reason.
+    let mut app = crankshaft_with("load-no-flat", 25.0, &[finish()], ToolShape::BallEnd);
+    app.simulate().unwrap_or_else(|e| panic!("{e}"));
+    assert!(tool_load_links(&app).is_empty());
+    let id = app.project().operations()[0].id;
+    let refused = app.add_roughing_before(id).unwrap_err().to_string();
+    assert!(refused.contains("flat end"), "{refused}");
 }

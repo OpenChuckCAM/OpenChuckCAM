@@ -1486,12 +1486,62 @@ impl PlaybackPanel {
         self.data_job.is_some()
     }
 
+    /// Moves the play head to the start of move `first` (counted from 0) of
+    /// `operation`'s moves and pauses: Go to on the removal-rate block
+    /// (issue #935; decision record 0698, Q2). False, with nothing moved,
+    /// while the playback is not ready or the operation is not in it.
+    pub fn go_to(
+        &mut self,
+        operation: openchuck_app::project::id::OperationId,
+        first: usize,
+    ) -> bool {
+        let Some(data) = self.data.clone() else {
+            return false;
+        };
+        let timeline = &data.timeline;
+        let Some(group) =
+            (0..timeline.group_count()).find(|&g| timeline.operation(g) == Some(operation))
+        else {
+            return false;
+        };
+        let Some(start) = timeline.first_move(group) else {
+            return false;
+        };
+        // "Just after move N" is where the machine stands when move N is
+        // done (SIM-04), so the start of move `first` is just after the one
+        // before it; the operation's first move starts where its group does.
+        match first.checked_sub(1) {
+            Some(before) => self.playback.jump_to_move(timeline, start + before),
+            None => self.playback.jump_to_group(timeline, group),
+        }
+        true
+    }
+
     /// Moves the play head to `fraction` of the program (tests).
     #[cfg(test)]
     pub fn seek_to(&mut self, fraction: f64) {
         if let Some(data) = self.data.clone() {
             self.playback.seek(&data.timeline, fraction);
         }
+    }
+
+    /// The moves done at the play head (tests).
+    #[cfg(test)]
+    pub fn moves_done(&self) -> usize {
+        self.playback.cursor().done
+    }
+
+    /// The index across all moves of `operation`'s first move (tests).
+    #[cfg(test)]
+    pub fn first_move_of(
+        &self,
+        operation: openchuck_app::project::id::OperationId,
+    ) -> Option<usize> {
+        let data = self.data.as_ref()?;
+        let t = &data.timeline;
+        (0..t.group_count())
+            .find(|&g| t.operation(g) == Some(operation))
+            .and_then(|g| t.first_move(g))
     }
 
     /// Whether the playback is running.

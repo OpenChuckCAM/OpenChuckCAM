@@ -204,6 +204,10 @@ impl Shell {
             self.play
                 .set_band_filter(&self.results.filter, &mut self.viewport);
         }
+        // Go to on Highest or Load (issue #935).
+        if let Some(go_to) = self.results.take_go_to() {
+            self.play.go_to(go_to.operation, go_to.first);
+        }
     }
 
     /// The header: the name in an editable field (when the item has a name of

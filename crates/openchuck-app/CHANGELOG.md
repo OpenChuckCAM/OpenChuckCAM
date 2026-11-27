@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased (TOOL-LOAD, TL-3; issues #844 and #935; decision 0698, accepted)
+
+- **Added:** `Application::add_roughing_before`: rotary roughing just before an operation that is the first to cut in its setup, with the tool `tool_load::roughing_tool` chooses (a flat end with cutting data for its material, the operation's own first) and a stock to leave never below the operation's own, as one undoable step; refused, saying why, otherwise. `overview::MessageAction::AddRoughingBefore`, offered on such an operation's Tool load warning. `OperationSimulation::id`, the simulated operation's id.
+- **Changed:** the Tool load warning and information line give the cut section as an area ("a cut section … above 12.70 mm²", "the heaviest cut section is 5.30 mm²"), not "mm² per millimetre of travel". No toolpath or G-code changes.
+
 ## Unreleased (MOPUP-1, PR M10; issue #892)
 
 - **Changed:** a new pencil clean-up operation is written with Shortest cut `tool_diameter`, which follows the operation's tool. An operation saved without it is shown, and given to the library, as Tool diameter too (it took the tool's diameter before, as a number); a number the user set is kept. The program is unchanged in every case. A rollback consequence (CodeRabbit on #969): an operation saved with `tool_diameter` is refused by an earlier build, whose pencil `min_length` is a number only ("expected a number"); there is no conversion back.

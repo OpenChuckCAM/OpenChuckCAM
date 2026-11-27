@@ -24,6 +24,7 @@
 //! statement that the load is acceptable.
 
 use openchuck_path::Notice;
+use openchuck_project::id::ToolId;
 use openchuck_project::{Operation, Project};
 use openchuck_sim::LoadSummary;
 use openchuck_types::ir::ToolpathGroup;
@@ -170,8 +171,9 @@ pub fn warning(
     let heaviest = summary.heaviest?;
     let stretches = openchuck_path::counted(summary.over, "stretch", "stretches");
     let text = format!(
-        "{stretches} of the path remove more than {:.2} mm² per millimetre of travel, \
-         the limit from {}. The heaviest removes {:.2} mm² per millimetre{}, with \
+        "{stretches} of the path have a cut section (the material removed per \
+         millimetre of travel) above {:.2} mm², the limit from {}. The heaviest has a \
+         cut section of {:.2} mm²{}, with \
          {:.2} mm of the {:.2} mm flute in the material. A cut like this can be far \
          heavier than the tool and the machine are meant to take. Rough the setup \
          first, use Finishing layers where the operation has them, take a smaller \
@@ -200,7 +202,7 @@ pub fn information(summary: &LoadSummary, limit: &Limit) -> Notice {
         || "removes no material over a stretch of one tool diameter".to_owned(),
         |h| {
             format!(
-                "the heaviest cut removes {:.2} mm² per millimetre of travel (limit {:.2})",
+                "the heaviest cut section is {:.2} mm² (limit {:.2})",
                 h.section, limit.value
             )
         },
@@ -218,6 +220,53 @@ pub fn information(summary: &LoadSummary, limit: &Limit) -> Notice {
         format!("; removal rate {average:.0} mm³/min on average over the cutting time{highest}")
     });
     Notice::information(format!("{heaviest}{engaged}{rates}")).about(topic::TOOL_LOAD)
+}
+
+/// The tool a rotary roughing operation added before `operation` would cut
+/// with (decision record 0698, TL-3), or why there is none: the operation is
+/// warned of its tool load only where its strategy warns, it is not rotary
+/// roughing itself (whose remedy is a smaller Stepdown), it must be the
+/// first enabled operation to cut in its setup (otherwise the stock it meets
+/// is already an earlier operation's), and the tool is a flat end with
+/// cutting data for the operation's material: the operation's own tool where
+/// it is one, else the first in the project's order.
+///
+/// # Errors
+///
+/// The reason, in words for a refusal, when no roughing can be offered.
+pub fn roughing_tool(project: &Project, operation: &Operation) -> Result<ToolId, String> {
+    if !warns(&operation.strategy) {
+        return Err("its strategy is not warned of its tool load".to_owned());
+    }
+    if operation.strategy == openchuck_path::roughing::NAME {
+        return Err("it is rotary roughing itself; take a smaller Stepdown instead".to_owned());
+    }
+    let first = project
+        .operations()
+        .iter()
+        .filter(|o| o.enabled && o.setup == operation.setup)
+        .map(|o| o.id)
+        .next();
+    if first != Some(operation.id) {
+        return Err(
+            "it is not the first operation to cut in its setup, so the stock it meets is an earlier operation's"
+                .to_owned(),
+        );
+    }
+    let material = crate::preset::material_of(project, operation)
+        .ok_or_else(|| "its setup has no stock material".to_owned())?;
+    let fits = |t: &&openchuck_project::ToolSnapshot| {
+        matches!(t.tool.shape, openchuck_types::tool::ToolShape::FlatEnd)
+            && openchuck_types::tool::find_cutting_data(&t.cutting_data, material).is_some()
+    };
+    let tools = project.tools();
+    operation
+        .tool
+        .and_then(|id| tools.iter().find(|t| t.id == id))
+        .filter(fits)
+        .or_else(|| tools.iter().find(fits))
+        .map(|t| t.id)
+        .ok_or_else(|| format!("the project has no flat end with cutting data for {material}"))
 }
 
 /// The run's line for the whole job, in the one form of messages, over every simulated operation: the
@@ -343,7 +392,7 @@ mod tests {
             "4757 stretches",
             "6.35 mm²",
             "twice a full-width slot at this tool's 1.00 mm stepdown in Hardwood",
-            "185.70 mm² per millimetre at X 20.000, A 132.0 (move 1)",
+            "a cut section of 185.70 mm² at X 20.000, A 132.0 (move 1)",
             "21.50 mm of the 22.00 mm flute",
             "Rough the setup first",
             "Largest cut section",
@@ -377,7 +426,7 @@ mod tests {
         assert!(!n.is_warning());
         assert!(
             n.text
-                .contains("5.30 mm² per millimetre of travel (limit 6.35)"),
+                .contains("the heaviest cut section is 5.30 mm² (limit 6.35)"),
             "{}",
             n.text
         );
