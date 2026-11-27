@@ -657,6 +657,9 @@ impl PlaybackPanel {
             playback_memory: self.playback_memory,
             colour_by: self.colour_by,
             band_filter: self.band_filter.clone(),
+            // The kinds of move shown are the user's setting, not the run's
+            // (issue #938; decision record 0693).
+            moves: self.moves,
             reset_layers: true,
             ..Self::default()
         };
@@ -674,6 +677,9 @@ impl PlaybackPanel {
             budget: self.budget,
             colour_by: self.colour_by,
             band_filter: self.band_filter.clone(),
+            // The kinds of move the user hid stay hidden in the new run's
+            // first path (issue #938; decision record 0693).
+            moves: self.moves,
             reset_layers: true,
             run: Some(Arc::clone(&run)),
             data_job: Some(app.start_playback_data(run)),
@@ -2191,6 +2197,44 @@ mod tests {
         let (drawn, full, tolerance) = panel.detail.unwrap();
         assert_eq!(drawn, full, "a small job is drawn in full");
         assert!(tolerance.abs() < 1e-12);
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// Issue #938 (decision record 0693): a new run keeps the kinds of move
+    /// the user hid, so its first path is drawn without them, before the
+    /// shell sets the choice again.
+    #[test]
+    fn req_sim_01_new_run_keeps_hidden_kinds_of_move() {
+        let (app, mut panel, mut viewport, dir) = prepared("panel-new-run-moves");
+        let rapid = class_colour(PathClass::Rapid);
+        let has_rapid = |viewport: &Viewport| {
+            viewport
+                .layer(Layer::Paths)
+                .unwrap()
+                .lines
+                .iter()
+                .any(|l| l.colour == rapid)
+        };
+        assert!(has_rapid(&viewport), "the cube's path has rapid moves");
+        let mut shown = ShownMoves::ALL;
+        shown.set(openchuck_app::playback::MoveKind::Rapid, false);
+        panel.set_shown_moves(shown);
+        let run = panel.run.clone().unwrap();
+        // A run dropped and taken in again (an operation turned off, then
+        // the turn-off undone) keeps the choice as well.
+        panel.clear();
+        assert_eq!(panel.shown_moves(), shown, "clearing keeps the choice");
+        panel.set_run(&app, run);
+        assert_eq!(panel.shown_moves(), shown, "the new run keeps the choice");
+        let started = Instant::now();
+        while panel.frame(&app, &mut viewport, 0.0) {
+            assert!(started.elapsed() < Duration::from_secs(120));
+            std::thread::sleep(Duration::from_millis(5));
+        }
+        assert!(
+            !has_rapid(&viewport),
+            "the new run's first path leaves the hidden rapid moves out"
+        );
         let _ = std::fs::remove_dir_all(dir);
     }
 

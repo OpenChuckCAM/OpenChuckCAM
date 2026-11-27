@@ -733,8 +733,12 @@ fn share_left_side(b: &mut Boxes, legend_open: bool) {
     if !legend.intersects(scale) {
         return;
     }
-    let button = Rect::from_min_size(legend.min, vec2(84.0, 26.0));
-    b.legend_button = Some(button);
+    // Where the general layout has already collapsed the legend to its
+    // button, that button stays put, so a second click at the same place
+    // closes the legend again (issue #946).
+    let button = *b
+        .legend_button
+        .get_or_insert_with(|| Rect::from_min_size(legend.min, vec2(84.0, 26.0)));
     if legend_open {
         b.legend = Some(Rect::from_min_size(
             pos2(legend.left(), button.bottom() + 4.0),
@@ -1742,6 +1746,67 @@ mod tests {
         share_left_side(&mut apart, false);
         assert_eq!(apart.legend, Some(legend));
         assert_eq!(apart.legend_button, None);
+    }
+
+    /// Issue #946: in a view so small that the general layout has already
+    /// collapsed the legend to its button, opening it to meet the scale must
+    /// not move the button, so a second click at the same place closes it.
+    #[test]
+    fn req_ui_16_legend_button_stays_put_in_a_small_view() {
+        let ctx = egui::Context::default();
+        let mut viewport = Viewport::new(true);
+        viewport.set_step(Some(ViewStep::Simulate));
+        let mut show = viewport.simulate_show();
+        show.toolpath = true;
+        viewport.set_simulate_show(show);
+        viewport.set_bands(Some((
+            openchuck_app::project::id::ModelId::new(),
+            openchuck_app::pathview::DeviationBands {
+                tolerance: 0.05,
+                bands: Vec::new(),
+                values: std::sync::Arc::from(Vec::new()),
+                pieces: None,
+            },
+        )));
+        viewport.set_part_changed(true);
+        let screen = Rect::from_min_size(pos2(0.0, 0.0), vec2(600.0, 330.0));
+        let button = |viewport: &Viewport| {
+            let mut button = None;
+            let input = egui::RawInput {
+                screen_rect: Some(screen),
+                ..Default::default()
+            };
+            let mut output = egui::Context::default().run_ui(input, |ui| {
+                button = boxes(ui, viewport, screen).legend_button;
+            });
+            output.textures_delta.clear();
+            button.expect("the legend is a button in this view")
+        };
+        let click = |ctx: &egui::Context, viewport: &mut Viewport, at: egui::Pos2| {
+            let press = |pressed| egui::Event::PointerButton {
+                pos: at,
+                button: egui::PointerButton::Primary,
+                pressed,
+                modifiers: egui::Modifiers::NONE,
+            };
+            legend_frame_in(
+                ctx,
+                viewport,
+                screen,
+                vec![egui::Event::PointerMoved(at), press(true)],
+            );
+            legend_frame_in(ctx, viewport, screen, vec![press(false)]);
+        };
+        assert!(!viewport.legend_open);
+        let closed = button(&viewport);
+        click(&ctx, &mut viewport, closed.center());
+        assert!(viewport.legend_open, "the first click opens the legend");
+        assert_eq!(button(&viewport), closed, "the button stays where it was");
+        click(&ctx, &mut viewport, closed.center());
+        assert!(
+            !viewport.legend_open,
+            "a second click at the same place closes the legend"
+        );
     }
 
     fn legend_frame_in(

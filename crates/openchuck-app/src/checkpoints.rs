@@ -484,6 +484,17 @@ pub fn locate(config: &Path, missing: &Candidate, folder: &Path) -> Result<Candi
 /// discard it. Such a project's line offers Open, not Locate, so the refusal
 /// only guards against a folder put back meanwhile.
 pub fn forget(config: &Path, missing: &Candidate) -> Result<(), String> {
+    // `Catalog::read` takes a recovery folder it cannot see for one that is
+    // not there; a project folder that cannot be searched may still hold
+    // this project's recovery data, so keep the line that leads to it
+    // (issue #932).
+    let recovery = missing.folder.join(openchuck_project::recovery::DIRECTORY);
+    if let Err(e) = recovery.try_exists() {
+        return Err(format!(
+            "'{}' cannot be checked ({e}), so this project is not forgotten.",
+            missing.folder.display()
+        ));
+    }
     match Catalog::read(&missing.folder) {
         Ok(catalog) if catalog.project_id.as_deref() == Some(missing.project_id.as_str()) => {
             return Err(format!(
@@ -662,6 +673,47 @@ mod forget_tests {
             .expect("the project is listed");
         let refused = forget(&config, line).unwrap_err();
         assert!(refused.contains("cannot be read"), "{refused}");
+        assert_eq!(discover(&config).projects.len(), 1, "the note stays");
+        std::fs::remove_dir_all(&root).unwrap();
+    }
+
+    /// Issue #932: a project folder that is still there but cannot be
+    /// searched (here, mode 000) is not read as "no recovery data", so its
+    /// note is kept. Root can search any folder, so there the case cannot be
+    /// made and the test says so and stops.
+    #[cfg(unix)]
+    #[test]
+    fn req_prj_08_req_nfr_07_a_folder_that_cannot_be_searched_is_not_forgotten() {
+        use std::os::unix::fs::PermissionsExt;
+        let root =
+            std::env::temp_dir().join(format!("openchuck-unsearchable-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        let config = root.join("config");
+        let folder = root.join("project");
+        std::fs::create_dir_all(&folder).unwrap();
+        let id = Store::open(&folder)
+            .unwrap()
+            .metadata(openchuck_project::recovery::Kind::Periodic, 0, 0)
+            .project_id;
+        register(&config, &folder, &id).unwrap();
+        let line = discover(&config)
+            .projects
+            .into_iter()
+            .find(|c| c.project_id == id)
+            .expect("the project is listed");
+        std::fs::set_permissions(&folder, std::fs::Permissions::from_mode(0o000)).unwrap();
+        let recovery = folder.join(openchuck_project::recovery::DIRECTORY);
+        let searchable = recovery.try_exists().is_ok();
+        let refused = (!searchable).then(|| forget(&config, &line));
+        std::fs::set_permissions(&folder, std::fs::Permissions::from_mode(0o755)).unwrap();
+        let Some(refused) = refused else {
+            eprintln!("skipped: this user can search a mode-000 folder (running as root)");
+            std::fs::remove_dir_all(&root).unwrap();
+            return;
+        };
+        let refused = refused.unwrap_err();
+        assert!(refused.contains("cannot be checked"), "{refused}");
+        assert!(refused.contains("not forgotten"), "{refused}");
         assert_eq!(discover(&config).projects.len(), 1, "the note stays");
         std::fs::remove_dir_all(&root).unwrap();
     }
