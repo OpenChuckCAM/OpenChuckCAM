@@ -495,6 +495,7 @@ With [decision 0390](decisions/0390-helical-finishing-in-rings.md), accepted 31 
 - **Adaptive spacing over the point.** With it on, passes are added past the point and the material there is confirmed (indexed finishing at 8 positions).
 - **The tutorial's baluster** (`openchuck-app` `adaptive_example.rs`): with adaptive spacing and Finish to a point on, the path is complete and the finish leaves no material on the axis side past the finial's point (the swept radius left at 0.25 to 1.25 mm past it is 0, against 0.73 to 0.04 mm with the setting off).
 - **Determinism.** The same path at 1, 2 and 8 threads, with adaptive spacing on.
+- **Limits** (issue #959). On a part shorter than the stretch past its point, at a step where the passes over the part alone are within the 5,000,000-point limit, helical and axial finishing refuse before fitting, naming the step. A saved operation without the setting gives the same program as with it off, and a different one with it on (`openchuck-app` `operation.rs`).
 
 **Tool sizes and template namespaces** ([decision 0679](decisions/0679-tool-size-limit-and-template-namespace-cycles.md), accepted 23 Nov 2026, relayed; issues #628, #794, #582). TL-02, TL-03, TL-04, GC-03, NFR-07.
 

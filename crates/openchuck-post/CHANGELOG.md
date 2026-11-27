@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.73.0
+
+- **Family release (0.73.0; PATH-QUALITY; issues #951 and #959):** `openchuck-path` refines how ramps are measured and fitted, measures a plunge's depth from where the stock begins, and refuses a stretch past a point that would make too many points; no change to this crate.
+
 ## 0.72.0
 
 - **Family release (0.72.0; MOPUP-1, PR M4; issue #896):** `openchuck-path` spaces face flow's Follow the outline with a scallop height for the face's largest principal curvature (changed output on faces that curve most between their parameter directions). No change to this crate.

@@ -156,7 +156,9 @@ impl Strategy for HelicalFinishing {
                     name: parameter::MAX_ANGLE_STEP.to_owned(),
                     label: "Largest angle step".to_owned(),
                     description: "The most A may turn between two points of the path; points are \
-                              added where the surface needs them."
+                              added where the surface needs them. With Finish to a point, the \
+                              turns down to the rotary axis past a point have at most 3600 \
+                              points a turn (0.1 degrees apart), however small this is."
                         .to_owned(),
                     kind: ParameterKind::Number {
                         unit: Unit::Degrees,
@@ -467,6 +469,24 @@ fn passes(
         // measures over it with the rest (Q2 (c) B).
         let pointed =
             crate::finishing::point_ends(input, &grown, &found.free, (region, zones), parameters);
+        // The points past the point count towards the same limit as the
+        // passes over the part, refused before any is fitted (CodeRabbit on
+        // #956, issue #959).
+        let (past, past_length) = pointed.iter().fold((0.0, 0.0), |(n, l), end| {
+            let length = past_length(end, (x0, x1));
+            (n + past_points(length, pitch, step, rings), l + length)
+        });
+        if !(seeds as f64 + past).is_finite() || seeds as f64 + past > MAX_SEEDS {
+            return Err(PathError::Parameter {
+                name: names::STEPOVER.to_owned(),
+                reason: format!(
+                    "{pitch} mm over {length:.1} mm of part and {past_length:.1} mm past the \
+                     point at {step} degrees is too many points ({:.0} in all); increase the \
+                     stepover or the largest angle step",
+                    seeds as f64 + past
+                ),
+            });
+        }
         let mut pieces = Vec::with_capacity(pointed.len());
         for end in &pointed {
             pieces.push(point_piece(
@@ -738,6 +758,33 @@ struct PointPiece {
 /// past `end` from the part's end to the end's last drop, no more than
 /// `step` degrees between seeds; or, with `rings` (the ring blend), rings no
 /// more than `pitch` apart up to a ring at the last drop.
+/// How far past the part `x0..x1` the finish carries on to `end`'s last
+/// drop (Finish to a point), mm; 0 where it does not.
+fn past_length(end: &crate::finishing::PointEnd, (x0, x1): (f64, f64)) -> f64 {
+    let length = if end.far {
+        end.edge - x1
+    } else {
+        x0 - end.edge
+    };
+    if length.is_finite() {
+        length.max(0.0)
+    } else {
+        0.0
+    }
+}
+
+/// The points `length` mm of helix (or of rings) at `pitch` and `step`
+/// degrees takes past a point, as [`point_piece`] seeds them.
+fn past_points(length: f64, pitch: f64, step: f64, rings: bool) -> f64 {
+    if length <= 0.0 {
+        0.0
+    } else if rings {
+        (length / pitch).ceil().max(1.0) * (360.0 / step).ceil()
+    } else {
+        (360.0 * length / pitch / step).ceil().max(2.0)
+    }
+}
+
 fn point_piece(
     fit: &Fit<'_>,
     end: &crate::finishing::PointEnd,
