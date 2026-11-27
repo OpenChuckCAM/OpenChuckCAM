@@ -1017,7 +1017,10 @@ mod tests {
         let deadline = Instant::now() + Duration::from_secs(60);
         while rig.shell.recovery.write_failed.is_none() {
             rig.frame(Vec::new());
-            assert!(Instant::now() < deadline);
+            assert!(
+                Instant::now() < deadline,
+                "no write_failed state within 60 s: the recovered project's failing writer was never reported"
+            );
             std::thread::sleep(Duration::from_millis(1));
         }
         let notices = rig.shell.recovery.notices();
@@ -1065,7 +1068,10 @@ mod tests {
             .is_none_or(|s| !s.is_ready())
         {
             rig.frame(Vec::new());
-            assert!(Instant::now() < deadline);
+            assert!(
+                Instant::now() < deadline,
+                "the recovery session was not ready within 60 s"
+            );
             std::thread::sleep(Duration::from_millis(1));
         }
         let mut baseline = Duration::ZERO;
@@ -1094,7 +1100,10 @@ mod tests {
             if !Catalog::read(&folder).unwrap().snapshots.is_empty() {
                 break;
             }
-            assert!(Instant::now() < deadline);
+            assert!(
+                Instant::now() < deadline,
+                "no checkpoint was published within 60 s"
+            );
             std::thread::sleep(Duration::from_millis(1));
         }
         writeln!(std::io::stdout(),"checkpoint_headless_baseline_max_ms={:.3},during_max_ms={:.3},frames={frames},operations=201",baseline.as_secs_f64()*1000.0,during.as_secs_f64()*1000.0).unwrap();
@@ -1156,7 +1165,10 @@ mod tests {
             .is_none_or(|s| !s.is_ready())
         {
             rig.frame(Vec::new());
-            assert!(Instant::now() < deadline);
+            assert!(
+                Instant::now() < deadline,
+                "the recovery session was not ready within 60 s"
+            );
             std::thread::sleep(Duration::from_millis(1));
         }
         rig.shell
@@ -1189,7 +1201,10 @@ mod tests {
             {
                 break;
             }
-            assert!(Instant::now() < deadline);
+            assert!(
+                Instant::now() < deadline,
+                "the first checkpoint (revision 1) was not published within 60 s"
+            );
             std::thread::sleep(Duration::from_millis(1));
         }
         let old_session = Catalog::read(&folder).unwrap().snapshots[0]
@@ -1199,7 +1214,10 @@ mod tests {
         assert!(rig.shell.save());
         while !Catalog::read(&folder).unwrap().snapshots[0].retired {
             rig.frame(Vec::new());
-            assert!(Instant::now() < deadline);
+            assert!(
+                Instant::now() < deadline,
+                "the saved checkpoint was not retired within 60 s"
+            );
             std::thread::sleep(Duration::from_millis(1));
         }
         rig.shell.open(folder.clone());

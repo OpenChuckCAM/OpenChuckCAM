@@ -664,7 +664,7 @@ fn facing_labels(
 }
 
 /// Issue #881 (the owner's answers of 25 Nov 2026, decision record
-/// MOPUP-1-A): each Facing label in the view is at most 32 characters and
+/// 0702): each Facing label in the view is at most 32 characters and
 /// says what its number is measured from. On the Baluster set-up, Box
 /// facing of all four sides gives one label per face, its finished plane's
 /// distance from the rotary axis; one per pair of opposite faces, the

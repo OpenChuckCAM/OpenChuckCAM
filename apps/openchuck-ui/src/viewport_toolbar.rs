@@ -138,7 +138,7 @@ pub fn show(ui: &mut egui::Ui, viewport: &mut Viewport, strip: egui::Rect) {
             // controls, else they move into the "Show" menu, so none is cut off (OI-529).
             // The chip's long form while it fits after Show, else its
             // short form; Simulate's inline Show choices give way first, so
-            // the chip is never cut (decision record MOPUP-1-A).
+            // the chip is never cut (decision 0702).
             let after_show =
                 ui.available_width() - text_width(ui, "Show \u{23f7}") - button_extra(ui);
             let chip = viewport
@@ -262,7 +262,7 @@ pub fn move_ticks(ui: &mut egui::Ui, moves: &mut ShownMoves) {
 }
 
 /// The tick boxes of the kinds of Facing label (issue #881; decision record
-/// MOPUP-1-A, the owner's answer A1): a "Facing labels" box that is ticked,
+/// 0702, the owner's answer A1): a "Facing labels" box that is ticked,
 /// partly ticked or empty, with Faces, Margin, Opposite faces and Stops
 /// beside a grip under it, as the owner's mock-up shows; two presses of the
 /// group's box show all four from any state. Shared by the Show menu (V)
@@ -289,7 +289,7 @@ pub fn facing_label_ticks(ui: &mut egui::Ui, labels: &mut ShownFacingLabels) {
 }
 
 /// The chip's words for the room after Show: the long form when it fits
-/// there, else the short form (decision record MOPUP-1-A's length rule).
+/// there, else the short form (decision 0702's length rule).
 fn chip_text(ui: &egui::Ui, chip: &HiddenChip, room: f32) -> String {
     let long = chip.long();
     if chip_width(ui, &long) <= room {
@@ -306,7 +306,7 @@ fn chip_width(ui: &egui::Ui, text: &str) -> f32 {
 
 /// The chip beside "Show" while anything is hidden in the view (issue #789,
 /// decision record 0693 as the owner amended it on 25 Nov 2026; issue #881,
-/// decision record MOPUP-1-A), so nothing hidden is forgotten: the hidden
+/// decision 0702), so nothing hidden is forgotten: the hidden
 /// kinds of move, then of Facing label, "Hidden: Rapid, Facing margin". It
 /// is a plain label, not a control: no button styling, no tooltip, no Tab
 /// stop, and a click does nothing. Its outline and warning colour mark it

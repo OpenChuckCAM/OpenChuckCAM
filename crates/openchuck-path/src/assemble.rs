@@ -37,6 +37,8 @@
 //!    programmed and an information [`Notice`] says so. Moves without a contact
 //!    (rapids, plunges, retracts) use the tool tip for the length.
 
+mod beside;
+pub(crate) use beside::Allowance;
 mod entry;
 mod pass_shape;
 mod path_ramp;
@@ -519,10 +521,12 @@ pub fn assemble_with_entry(
 /// [`assemble_with_entry`], with every cutting move inside a pass that goes
 /// down along the tool axis slowed, where needed, so its tip goes down no
 /// faster than `descent_limit` (the plunge feed; decision record 0548).
-/// `beside` is the faces next to the face set
-/// ([`RegionConstraint::neighbours`](crate::RegionConstraint::neighbours)),
-/// which the entry and exit moves are checked against as well as the
-/// finished surface (decision record 0682).
+/// `beside` is the faces a lead or helix is checked against as well as the
+/// finished surface, with their allowance: swarf's faces next to the face set
+/// ([`RegionConstraint::neighbours`](crate::RegionConstraint::neighbours),
+/// decision record 0682), or every other strategy's faces outside the
+/// selection ([`RegionConstraint::outside`](crate::RegionConstraint::outside),
+/// decision record 0701).
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn assemble_limited(
     passes: &[Pass],
@@ -530,7 +534,7 @@ pub(crate) fn assemble_limited(
     common: &CommonParameters,
     entry: &EntryParameters,
     descent_limit: Option<FeedRate>,
-    beside: Option<&dyn SurfaceSource>,
+    beside: Option<(&dyn SurfaceSource, beside::Allowance)>,
     context: &JobContext<'_>,
 ) -> Result<GeneratedPath> {
     let rotary = input.rotary;
@@ -1557,7 +1561,7 @@ fn view<'a>(stocks: &'a [Option<PassStock>], i: usize, input: &'a StrategyInput<
 fn split_nubs(
     b: &Builder<'_>,
     input: &StrategyInput<'_>,
-    entry: &entry::Entry,
+    entry: &entry::Entry<'_>,
     placed: &mut Vec<Vec<CutPoint>>,
     stocks: &mut Vec<Option<PassStock>>,
     rapids: &mut Vec<Vec<usize>>,

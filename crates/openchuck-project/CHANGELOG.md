@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased (MOPUP-1, PR B7; issue #864; decision record MOPUP-1-B, proposed)
+## Unreleased (MOPUP-1, PR B7; issue #864; decision 0703, accepted)
 
 - **Changed:** the standalone tool library has its own schema, now 2 (`tools::LIBRARY_SCHEMA`, the newest read). A tool file declares the lowest schema that holds it: 2 when its tool has a `stick_out`, else 1; tool set files declare 1. Schema 1 files read as before, and nothing is rewritten on reading.
 - **Added:** `ProjectError::LibrarySchemaTooNew` (a tool library file of a newer schema; "open the tool library with a newer OpenChuckCAM", not "project schema") and `ProjectError::WrittenByNewer` (a tool library file holding a field this build does not read, named). The enum is `non_exhaustive`.
