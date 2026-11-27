@@ -32,6 +32,7 @@ use openchuck_types::geometry::Point3;
 use openchuck_types::mesh::TriangleMesh;
 
 use crate::brep::ExactFace;
+use crate::gap::Band;
 
 /// The most rounds of splitting: each round at least halves the longest
 /// side of every triangle it splits, and an error shrinks with its side's
@@ -52,26 +53,26 @@ const MAX_TRIANGLES: usize = 4_000_000;
 /// in turn.
 const BOUNDARY_STEPS: u32 = 50;
 
-/// The refined tessellation: its triangles, the face of each, each one's
-/// measured error against its face, and the largest of them.
+/// The refined tessellation: its triangles, the face of each, how far each
+/// one's face lies outside and inside it, and the largest of those.
 #[derive(Debug, Clone)]
 pub(crate) struct Refined {
     pub(crate) mesh: TriangleMesh,
     pub(crate) faces: Vec<FaceId>,
-    pub(crate) errors: Vec<f64>,
+    pub(crate) bands: Vec<Band>,
     pub(crate) largest: f64,
 }
 
-/// The tessellation `mesh` (each triangle on the face `face_of[i]`, with its
-/// measured error `errors[i]`) refined until every triangle's error is at
-/// most `target`, as far as [`MAX_ROUNDS`], [`MAX_TRIANGLES`] and
-/// [`MIN_SIDE`] allow.
-/// `fallback` is the error of a triangle with no face.
+/// The tessellation `mesh` (each triangle on the face `face_of[i]`, its face
+/// lying within `bands[i]` of it) refined until every triangle's error (the
+/// wider side of its band) is at most `target`, as far as [`MAX_ROUNDS`],
+/// [`MAX_TRIANGLES`] and [`MIN_SIDE`] allow.
+/// `fallback` is the error, both ways, of a triangle with no face.
 pub(crate) fn refine(
     faces: &[ExactFace],
     mesh: &TriangleMesh,
     face_of: &[FaceId],
-    errors: &[f64],
+    bands: &[Band],
     target: f64,
     fallback: f64,
 ) -> Refined {
@@ -80,7 +81,7 @@ pub(crate) fn refine(
         .enumerate()
         .map(|(i, f)| (f.number(), i))
         .collect();
-    let mut work = Work::new(mesh, face_of, errors, &index);
+    let mut work = Work::new(mesh, face_of, bands, &index);
     for _ in 0..MAX_ROUNDS {
         let todo: Vec<usize> = (0..work.tri.len())
             .filter(|&t| work.error(t) > target)
@@ -109,8 +110,11 @@ struct Work<'a> {
     tri: Vec<[u32; 3]>,
     /// The index into the faces of each triangle's face, if it has one.
     face: Vec<Option<usize>>,
-    /// Each triangle's error; NaN until a new triangle is measured.
+    /// Each triangle's error, the wider side of its band; NaN until a new
+    /// triangle is measured.
     err: Vec<f64>,
+    /// How far each triangle's face lies outside and inside it.
+    band: Vec<Band>,
     /// The triangles on each side, by its two vertices in order.
     sides: BTreeMap<(u32, u32), Vec<usize>>,
     index: &'a BTreeMap<u32, usize>,
@@ -126,7 +130,7 @@ impl<'a> Work<'a> {
     fn new(
         mesh: &TriangleMesh,
         face_of: &[FaceId],
-        errors: &[f64],
+        bands: &[Band],
         index: &'a BTreeMap<u32, usize>,
     ) -> Self {
         // Merge the vertices the faces repeat at their boundaries.
@@ -150,6 +154,7 @@ impl<'a> Work<'a> {
             tri: Vec::new(),
             face: Vec::new(),
             err: Vec::new(),
+            band: Vec::new(),
             sides: BTreeMap::new(),
             index,
         };
@@ -162,8 +167,8 @@ impl<'a> Work<'a> {
                 continue;
             }
             let face = face_of.get(i).and_then(|f| index.get(&f.0)).copied();
-            let err = errors.get(i).copied().unwrap_or(f64::NAN);
-            work.add([a, b, c], face, err);
+            let band = bands.get(i).copied();
+            work.add([a, b, c], face, band);
         }
         work
     }
@@ -181,11 +186,12 @@ impl<'a> Work<'a> {
     }
 
     /// Adds a triangle and its sides.
-    fn add(&mut self, t: [u32; 3], face: Option<usize>, err: f64) -> usize {
+    fn add(&mut self, t: [u32; 3], face: Option<usize>, band: Option<Band>) -> usize {
         let id = self.tri.len();
         self.tri.push(t);
         self.face.push(face);
-        self.err.push(err);
+        self.err.push(band.map_or(f64::NAN, Band::most));
+        self.band.push(band.unwrap_or_default());
         for (a, b) in sides_of(t) {
             self.sides.entry(Self::key(a, b)).or_default().push(id);
         }
@@ -326,7 +332,7 @@ impl<'a> Work<'a> {
             };
             let face = self.face.get(t).copied().flatten();
             self.replace(t, [p, m, r]);
-            self.add([m, q, r], face, f64::NAN);
+            self.add([m, q, r], face, None);
         }
     }
 
@@ -341,14 +347,18 @@ impl<'a> Work<'a> {
                 let [a, b, c] = *v;
                 Some([self.point(a)?, self.point(b)?, self.point(c)?])
             });
+            let even = Band::even(fallback);
             match (corners, self.face.get(t).copied().flatten()) {
-                (Some(c), Some(k)) => faces.get(k).map_or(fallback, |f| f.triangle_error(&c)),
-                _ => fallback,
+                (Some(c), Some(k)) => faces.get(k).map_or(even, |f| f.triangle_band(&c)),
+                _ => even,
             }
         });
-        for (t, e) in new.into_iter().zip(errs) {
+        for (t, b) in new.into_iter().zip(errs) {
             if let Some(slot) = self.err.get_mut(t) {
-                *slot = e;
+                *slot = b.most();
+            }
+            if let Some(slot) = self.band.get_mut(t) {
+                *slot = b;
             }
         }
     }
@@ -372,7 +382,7 @@ impl<'a> Work<'a> {
                 triangles: self.tri,
             },
             faces,
-            errors: self.err,
+            bands: self.band,
             largest,
         }
     }
@@ -384,20 +394,20 @@ mod tests {
 
     fn setup(
         model: &openchuck_types::brep::BrepModel,
-    ) -> (Vec<ExactFace>, TriangleMesh, Vec<FaceId>, Vec<f64>) {
+    ) -> (Vec<ExactFace>, TriangleMesh, Vec<FaceId>, Vec<Band>) {
         let faces: Vec<ExactFace> = model
             .faces
             .iter()
             .map(|f| ExactFace::new(f).unwrap())
             .collect();
         let (mesh, face_of) = model.joined_tessellation();
-        let errors = (0..mesh.triangles.len())
+        let bands = (0..mesh.triangles.len())
             .map(|i| {
                 let f = faces.iter().find(|f| f.number() == face_of[i].0).unwrap();
-                f.triangle_error(&mesh.triangle(i).unwrap())
+                f.triangle_band(&mesh.triangle(i).unwrap())
             })
             .collect();
-        (faces, mesh, face_of, errors)
+        (faces, mesh, face_of, bands)
     }
 
     /// The sides used by one triangle only, with their total length.
@@ -441,7 +451,7 @@ mod tests {
         let (faces, mesh, face_of, errors) = setup(&model);
         let target = 0.0025;
         assert!(
-            errors.iter().any(|e| *e > target),
+            errors.iter().any(|e| e.most() > target),
             "the fixture needs refining"
         );
         let r = refine(&faces, &mesh, &face_of, &errors, target, 0.0);
@@ -488,8 +498,14 @@ mod tests {
             .install(|| refine(&faces, &mesh, &face_of, &errors, 0.0025, 0.0));
         assert_eq!(a.mesh, b.mesh);
         assert_eq!(
-            a.errors.iter().map(|e| e.to_bits()).collect::<Vec<_>>(),
-            b.errors.iter().map(|e| e.to_bits()).collect::<Vec<_>>()
+            a.bands
+                .iter()
+                .map(|e| (e.above.to_bits(), e.below.to_bits()))
+                .collect::<Vec<_>>(),
+            b.bands
+                .iter()
+                .map(|e| (e.above.to_bits(), e.below.to_bits()))
+                .collect::<Vec<_>>()
         );
     }
 }

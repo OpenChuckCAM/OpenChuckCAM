@@ -1255,6 +1255,7 @@ impl ExactFace {
     /// and a cone (see below). For a torus (its own closed-form distance)
     /// and a B-spline face it is measured at points across the triangle and
     /// multiplied by [`SAMPLED_SAFETY`]: a measurement, not a proof.
+    #[cfg(test)]
     pub(crate) fn triangle_error(&self, t: &[Point3; 3]) -> f64 {
         self.triangle_band(t).most()
     }
@@ -2472,7 +2473,7 @@ pub struct BrepSurface {
     deflection: f64,
     /// Each tessellation triangle's measured error against its face
     /// ([`ExactFace::triangle_error`]), and the largest of them.
-    triangle_errors: Vec<f64>,
+    triangle_bands: Vec<crate::gap::Band>,
     largest_error: f64,
     /// The tessellation refined for a target error, kept per target (the
     /// bits of the target): built on the first gap query that needs it.
@@ -2578,7 +2579,7 @@ impl BrepSurface {
             holes,
             exact_drops: false,
             deflection: 0.0,
-            triangle_errors: Vec::new(),
+            triangle_bands: Vec::new(),
             largest_error: 0.0,
             refined: std::sync::Mutex::new(Vec::new()),
         })
@@ -2600,7 +2601,7 @@ impl BrepSurface {
             &self.faces,
             &self.mesh,
             &self.face_of_triangle,
-            &self.triangle_errors,
+            &self.triangle_bands,
             target,
             self.deflection,
         );
@@ -2620,18 +2621,22 @@ impl BrepSurface {
             .collect();
         // Each triangle alone, in input order (NFR-06).
         let indices: Vec<usize> = (0..self.mesh.triangles.len()).collect();
-        self.triangle_errors = crate::parallel::map_in_order(&indices, |&i| {
+        self.triangle_bands = crate::parallel::map_in_order(&indices, |&i| {
             let face = self
                 .face_of_triangle
                 .get(i)
                 .and_then(|id| by_number.get(&id.0))
                 .and_then(|&k| self.faces.get(k));
             match (face, self.mesh.triangle(i)) {
-                (Some(f), Some(t)) => f.triangle_error(&t),
-                _ => self.deflection,
+                (Some(f), Some(t)) => f.triangle_band(&t),
+                _ => crate::gap::Band::even(self.deflection),
             }
         });
-        self.largest_error = self.triangle_errors.iter().copied().fold(0.0, f64::max);
+        self.largest_error = self
+            .triangle_bands
+            .iter()
+            .map(|b| b.most())
+            .fold(0.0, f64::max);
         self
     }
 
@@ -3178,16 +3183,26 @@ impl SurfaceSource for BrepSurface {
                 profile,
                 line,
                 query,
-                &|i| r.errors.get(i as usize).copied().unwrap_or(self.deflection),
+                &|i| {
+                    r.bands
+                        .get(i as usize)
+                        .copied()
+                        .unwrap_or(crate::gap::Band::even(self.deflection))
+                },
                 r.largest,
             );
         }
-        let errors = &self.triangle_errors;
+        let bands = &self.triangle_bands;
         self.fallback.as_ref()?.tool_gap_with(
             profile,
             line,
             query,
-            &|i| errors.get(i as usize).copied().unwrap_or(self.deflection),
+            &|i| {
+                bands
+                    .get(i as usize)
+                    .copied()
+                    .unwrap_or(crate::gap::Band::even(self.deflection))
+            },
             self.largest_error,
         )
     }

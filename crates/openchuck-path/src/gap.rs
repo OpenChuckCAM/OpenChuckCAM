@@ -1748,7 +1748,7 @@ pub(crate) fn search(
     triangles: impl IntoIterator<Item = (u32, [Point3; 3])>,
     limit: f64,
     accept: Option<f64>,
-    error: &dyn Fn(u32) -> f64,
+    error: &dyn Fn(u32) -> Band,
     neighbours: &dyn Fn(u32) -> Vec<(Vec3, f64, bool)>,
 ) -> Option<ToolGap> {
     let accept = accept.filter(|a| a.is_finite()).unwrap_or(f64::INFINITY);
@@ -1853,8 +1853,9 @@ pub(crate) fn search(
             );
         }
     };
-    // The best was kept less its triangle's error, as the bounds are; the
-    // exact face's value is at most the triangle's plus that error.
+    // The best was kept less how far its triangle's surface may lie outside
+    // it, as the bounds are; the exact surface's value there is at most the
+    // triangle's plus how far it may lie inside.
     // A search that ran out of pieces with nothing found has not shown the
     // tool clear: it answers its bound, with no real value above it.
     if state.best.is_none() && pieces >= MAX_PIECES && lower <= limit {
@@ -1864,10 +1865,10 @@ pub(crate) fn search(
             at: body.tip,
         });
     }
-    let (found, at, e) = state.best?;
+    let (found, at, band) = state.best?;
     (lower <= limit).then_some(ToolGap {
         lower: lower.min(found),
-        upper: found + 2.0 * e,
+        upper: found + band.above + band.below,
         at,
     })
 }
@@ -1877,15 +1878,15 @@ struct Search<'a, 'b> {
     body: &'a Body<'b>,
     queue: BinaryHeap<Piece>,
     order: u64,
-    /// The best value found less its triangle's error, its point and that
-    /// error.
-    best: Option<(f64, Point3, f64)>,
+    /// The best value found less how far its triangle's surface may lie
+    /// outside it, its point, and the triangle's band.
+    best: Option<(f64, Point3, Band)>,
     limit: f64,
-    /// Each triangle's largest distance from the exact surface it stands
-    /// for (zero for a mesh, which is its own surface): taken off every
-    /// bound and value over the triangle, so the answer holds the exact
-    /// surface's gap.
-    error: &'a dyn Fn(u32) -> f64,
+    /// How far the exact surface each triangle stands for lies outside and
+    /// inside it (zero for a mesh, which is its own surface): the outside
+    /// is taken off every bound and value over the triangle, so the answer
+    /// holds the exact surface's gap.
+    error: &'a dyn Fn(u32) -> Band,
     /// The planes of the faces meeting each triangle at a corner, and
     /// whether each meets it at a convex edge or corner (see [`Face`]).
     neighbours: &'a dyn Fn(u32) -> Vec<(Vec3, f64, bool)>,
@@ -1949,7 +1950,7 @@ impl Search<'_, '_> {
     /// lowest the tool reaches below the face's plane anywhere.
     fn push(&mut self, corners: [Point3; 3], m: Vec3, triangle: u32, span: (f64, f64), hint: f64) {
         let (s0, s1) = span;
-        let e = (self.error)(triangle);
+        let e = (self.error)(triangle).most();
         let centre = centroid(&corners);
         let far = self
             .body
@@ -2001,7 +2002,8 @@ impl Search<'_, '_> {
             clips: Vec::new(),
             ..clipped.clone()
         };
-        let e = (self.error)(piece.triangle);
+        let band = (self.error)(piece.triangle);
+        let e = band.above;
         let empty = Piece {
             lower: f64::INFINITY,
             measured: true,
@@ -2112,7 +2114,7 @@ impl Search<'_, '_> {
         if let Some((h, at)) = value
             && self.best.is_none_or(|(b, _, _)| h - e < b)
         {
-            self.best = Some((h - e, at, e));
+            self.best = Some((h - e, at, band));
         }
         Piece {
             lower: piece.lower.max(bound.max(-self.limit) - e),
@@ -2138,7 +2140,8 @@ impl Search<'_, '_> {
         };
         let (s0, s1) = piece.span;
         let fm = 0.5 * (s0 + s1);
-        let e = (self.error)(piece.triangle);
+        let band = (self.error)(piece.triangle);
+        let e = band.above;
         let mut hint = piece.hint;
         let mut poses = vec![s0, fm, s1];
         if !self.body.turns() && self.body.sweep.length() <= 0.0 {
@@ -2264,7 +2267,7 @@ impl Search<'_, '_> {
         if let Some((h, at, f)) = value {
             hint = f;
             if self.best.is_none_or(|(b, _, _)| h - e < b) {
-                self.best = Some((h - e, at, e));
+                self.best = Some((h - e, at, band));
             }
         }
         Piece {
@@ -2339,7 +2342,7 @@ pub(crate) fn on_mesh(
     profile: &RevolvedProfile,
     line: &ToolLine,
     query: &GapQuery,
-    error: &dyn Fn(u32) -> f64,
+    error: &dyn Fn(u32) -> Band,
     largest: f64,
 ) -> Option<ToolGap> {
     if !line.origin.is_finite() || !query.limit.is_finite() {

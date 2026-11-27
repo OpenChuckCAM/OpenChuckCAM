@@ -230,7 +230,14 @@ pub trait SurfaceSource: Send + Sync + std::fmt::Debug {
         line: &ToolLine,
         query: &GapQuery,
     ) -> Option<ToolGap> {
-        crate::gap::on_mesh(self.tessellation(), profile, line, query, &|_| 0.0, 0.0)
+        crate::gap::on_mesh(
+            self.tessellation(),
+            profile,
+            line,
+            query,
+            &|_| crate::gap::Band::default(),
+            0.0,
+        )
     }
 
     /// The largest distance, in millimetres, of a triangle
@@ -517,7 +524,7 @@ impl SurfaceSource for MeshSurface {
         line: &ToolLine,
         query: &GapQuery,
     ) -> Option<ToolGap> {
-        self.tool_gap_with(profile, line, query, &|_| 0.0, 0.0)
+        self.tool_gap_with(profile, line, query, &|_| crate::gap::Band::default(), 0.0)
     }
 }
 
@@ -574,16 +581,17 @@ impl MeshSurface {
         })
     }
 
-    /// The tool gap over this mesh standing for a surface each triangle
-    /// lies within `error` of (by its index), `largest` the most of them:
-    /// each triangle's bounds and values are taken that much lower, so the
-    /// answer holds the surface's gap ([`SurfaceSource::tool_gap`]).
+    /// The tool gap over this mesh standing for a surface that lies within
+    /// `error` (by triangle index) outside and inside each triangle,
+    /// `largest` the most of them: each triangle's bounds and values are
+    /// taken lower by how far its surface may lie outside it, so the answer
+    /// holds the surface's gap ([`SurfaceSource::tool_gap`]).
     pub(crate) fn tool_gap_with(
         &self,
         profile: &RevolvedProfile,
         line: &ToolLine,
         query: &GapQuery,
-        error: &dyn Fn(u32) -> f64,
+        error: &dyn Fn(u32) -> crate::gap::Band,
         largest: f64,
     ) -> Option<ToolGap> {
         if !line.origin.is_finite() || !query.limit.is_finite() {

@@ -166,7 +166,14 @@ impl SurfaceSource for CompositeSurface {
     ) -> Option<ToolGap> {
         let model = self.model.tool_gap(profile, line, query);
         let chord = self.solid_accuracy;
-        let solids = crate::gap::on_mesh(&self.solid_mesh, profile, line, query, &|_| chord, chord);
+        let solids = crate::gap::on_mesh(
+            &self.solid_mesh,
+            profile,
+            line,
+            query,
+            &|_| crate::gap::Band::even(chord),
+            chord,
+        );
         match (model, solids) {
             (Some(m), Some(s)) => Some(m.min(s)),
             (m, s) => m.or(s),

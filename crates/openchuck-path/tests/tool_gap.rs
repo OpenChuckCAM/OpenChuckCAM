@@ -681,6 +681,63 @@ fn req_op_12_tool_gap_of_an_exact_part_states_its_tessellation() {
 }
 
 #[test]
+fn req_op_12_tool_gap_of_an_exact_part_takes_its_error_one_way() {
+    // The project owner's answer of 27 Nov 2026: a triangle's error is taken
+    // only the way the face lies from it. A convex cylinder bulges out past
+    // its facets, so a tool above it may be closer than a facet says, never
+    // farther; the answer's interval is then one sagitta wide (plus the
+    // search's own accuracy), not two.
+    let model = openchuck_testkit::brep::banded_cylinder(10.0, 20.0, &[]);
+    let surface = BrepSurface::new(&model).unwrap();
+    let sagitta = 10.0 * (1.0 - (std::f64::consts::PI / 96.0).cos());
+    for (y, z) in [(0.0, 10.5), (0.7, 10.3), (-1.1, 10.05)] {
+        let g = gap(
+            &surface,
+            &ball(1.0),
+            &line(Point3::new(10.0, y, z), UP),
+            Vec3::ZERO,
+        );
+        // The exact gap: the ball's centre's distance from the axis, less
+        // the ball's radius and the cylinder's.
+        let exact = Point3::new(10.0, y, z + 1.0).distance(Point3::new(10.0, 0.0, 0.0)) - 11.0;
+        assert!(
+            g.lower <= exact + 1e-9 && g.upper >= exact - 1e-9,
+            "{g:?} does not hold {exact}"
+        );
+        assert!(
+            g.upper - g.lower <= GAP_ACCURACY + sagitta + 1e-9,
+            "{g:?}: wider than one sagitta {sagitta}"
+        );
+    }
+    // A ball resting against the wall of a hole, a concave face that lies
+    // inside its facets: the same, the other way.
+    use openchuck_testkit::brep::{HoleSpec, drilled_blank};
+    let (blank, _) = drilled_blank(10.0, 30.0, &[HoleSpec::through(15.0, [0.0, 1.0, 0.0], 6.0)]);
+    let surface = BrepSurface::new(&blank).unwrap();
+    let error = surface.tool_gap_accuracy();
+    assert!(error > 1e-6, "the hole's facets lie off its wall");
+    // Counted half a millimetre below each face: the blank's round face is
+    // over 2 mm beyond the tool's top.
+    let g = gap_within(
+        &surface,
+        &ball(1.0),
+        &line(Point3::new(15.0, -1.0, 1.9), Vec3::new(0.0, 1.0, 0.0)),
+        Vec3::ZERO,
+        0.5,
+    );
+    // The ball's centre is 1.9 from the hole's axis, its surface 0.1 short
+    // of the wall of radius 3 (the shank above it, as far out, the same).
+    assert!(
+        g.lower <= 0.1 + 1e-9 && g.upper >= 0.1 - 1e-9,
+        "{g:?} does not hold 0.1"
+    );
+    assert!(
+        g.upper - g.lower <= GAP_ACCURACY + error + 1e-9,
+        "{g:?}: wider than one error {error}"
+    );
+}
+
+#[test]
 fn req_gc_07_req_nfr_06_tool_gap_is_the_same_on_every_thread() {
     let surface = Arc::new(mesh(&ridge(5.0)));
     let ask = |s: &MeshSurface| {
