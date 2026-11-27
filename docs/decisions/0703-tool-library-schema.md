@@ -1,12 +1,12 @@
-# MOPUP-1-B: Tool-library files have their own schema number, and a file a build cannot read says it needs a newer version (TL-01, PRJ-04, NFR-07; issue #864; lane MOPUP-1)
+# 0703: Tool-library files have their own schema number, and a file a build cannot read says it needs a newer version (TL-01, PRJ-04, NFR-07; issue #864; lane MOPUP-1)
 
-- **Status:** Proposed by lane MOPUP-1 on 26 Nov 2026; not yet accepted (OI-9921). The project owner chose option A on issue #864 on 26 Nov 2026, relayed by the coordinator (decision 0049): library files get their own schema number, raised when a field is added; builds from then on refuse a newer library file cleanly and name a file that fails only on an unknown field as written by a newer version; nothing is ever dropped. The owner confirmed A again after the corrected facts below (26 Nov 2026, relayed). The owner has not read this record's text.
+- **Status:** Accepted by the project owner on 27 Nov 2026 ("Accept as written"), the owner's instruction given in the coordinator's session and relayed by the coordinator (decision 0049) (OI-9921 closed). Proposed by lane MOPUP-1 on 26 Nov 2026. The project owner chose option A on issue #864 on 26 Nov 2026, relayed by the coordinator (decision 0049): library files get their own schema number, raised when a field is added; builds from then on refuse a newer library file cleanly and name a file that fails only on an unknown field as written by a newer version; nothing is ever dropped. The owner confirmed A again after the corrected facts below (26 Nov 2026, relayed).
 - **Date:** 26 Nov 2026.
 - **Requirements:** TL-01 (the tool library), PRJ-04 (files written by another version), NFR-07 (a clear error, never a crash).
 - **Builds on:** [decision 0014](0014-slice-4-tool-library.md) (the library folder, one file per tool), [decision 0033](0033-slice-14-rotary-roughing.md) (`centre_cutting` added without a schema step), [decision 0673](0673-check-the-bottom-of-the-z-travel-for-each-tool.md) (`stick_out`, also without one), [decision 0008](0008-slice-1-project-model.md) item 12 (the project schema's rule).
-- **Open items:** adds OI-9921 (the owner's acceptance of this record).
+- **Open items:** adds OI-9921 (the owner's acceptance of this record, closed by the acceptance on 27 Nov 2026).
 
-Numbering: provisional; the coordinator assigns the record and OI numbers at release. Tool-library schema 2 is claimed in the work breakdown's schema table, confirmed by the coordinator on 26 Nov 2026; the project schema is unchanged (29). `openchuck-project` changes; no library-family crate changes, so there is no library version bump.
+Numbering: decision 0703, assigned by the coordinator on 27 Nov 2026 in order of acceptance (filed as MOPUP-1-B until then); OI-9921 keeps its number. Tool-library schema 2 is claimed in the work breakdown's schema table, confirmed by the coordinator on 26 Nov 2026; the project schema is unchanged (29). `openchuck-project` changes; no library-family crate changes, so there is no library version bump.
 
 ## Context
 
@@ -61,3 +61,9 @@ Results before the push:
 
 Not verified here:
 - A released 0.55 build was not run on a schema-2 file; its behaviour is read from its code at the tag (the schema check comes before the fields are read).
+
+Acceptance and numbering (27 Nov 2026, lane MOPUP-1, B3's first commit, on `main` at `7947ed78`):
+- The text was not changed by the acceptance: only the Status, Open items and Numbering lines, and this note.
+- The number: no decision record numbered above 0700 was on `main` or on any unmerged remote branch (`git ls-tree` of each branch's `docs/decisions/`); 0701 is held for lane PATH-QUALITY's #957, so decision 0702 went to MOPUP-1-A (accepted first) and 0703 to this record, as the coordinator assigned.
+- Every reference to both records was renamed (the file names, the three figures of 0702, the decision index, the open-items register, the work breakdown's schema table, the interface specification, the crate changelogs and the code comments), and `git grep MOPUP-1-` finds no reference to the old names outside the two Numbering lines and this note.
+- `cargo xtask records` and `cargo xtask trace`: ok.

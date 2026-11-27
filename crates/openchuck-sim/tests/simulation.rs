@@ -1293,3 +1293,20 @@ fn req_sim_16_req_nfr_06_the_tool_load_does_not_depend_on_the_thread_count() {
     let four = measure(4);
     assert_eq!(one, four);
 }
+
+#[test]
+fn req_sim_03_req_sim_07_a_rapid_exactly_one_cell_deep_is_within_the_resolution() {
+    // Issue #855 (decision record 0661, option C): the check is `depth >
+    // cell`, so a rapid exactly one cell deep is within what the simulation
+    // resolves (a note), and the next depth up is deeper (a warning).
+    let cut = |depth: f64| openchuck_sim::RapidCut {
+        segment: 1,
+        volume: 0.0004,
+        end: openchuck_types::geometry::Point3::ORIGIN,
+        depth,
+        cell: 0.2,
+    };
+    assert!(!cut(0.2).deeper_than_cell());
+    assert!(cut(0.2_f64.next_up()).deeper_than_cell());
+    assert!(!cut(0.2_f64.next_down()).deeper_than_cell());
+}

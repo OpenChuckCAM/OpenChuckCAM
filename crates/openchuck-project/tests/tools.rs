@@ -296,7 +296,7 @@ fn declared_schema(text: &str) -> i64 {
     table["schema"].as_integer().unwrap()
 }
 
-/// Issue #864 (record MOPUP-1-B, the owner's answer A): a tool file declares
+/// Issue #864 (decision 0703, the owner's answer A): a tool file declares
 /// the lowest tool-library schema that can hold it. A tool with a stick-out
 /// is schema 2, so a build that reads only schema 1 (the released 0.55
 /// builds) refuses it by its number, with a clear message; a tool without

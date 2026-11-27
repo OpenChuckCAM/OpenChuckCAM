@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //! Showing and hiding the Facing overlay's labels (issue #881; decision
-//! record MOPUP-1-A, the owner's answers A1 and B1 and the chip length rule
+//! decision 0702, the owner's answers A1 and B1 and the chip length rule
 //! of 25 and 26 Nov 2026): a "Facing labels" group in the Show menu (V) and
 //! under View > Facing labels, one chip with the toolpath moves that names
 //! what is hidden, "Show everything" in the Show menu, and a per-user

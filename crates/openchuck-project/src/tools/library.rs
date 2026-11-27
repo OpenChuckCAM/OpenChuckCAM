@@ -17,7 +17,7 @@ use crate::model::ToolSnapshot;
 
 /// The newest tool library schema this build reads, for tool files and tool
 /// set files. The library has its own schema number, raised when a field is
-/// added (issue #864; decision record MOPUP-1-B, the owner's answer A). A
+/// added (issue #864; decision 0703, the owner's answer A). A
 /// file declares the lowest schema that can hold it, so an older build reads
 /// every file it can, and refuses the rest by their number.
 ///
