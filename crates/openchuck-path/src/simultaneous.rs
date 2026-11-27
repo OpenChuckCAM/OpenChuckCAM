@@ -162,6 +162,72 @@ const EDGE_STEPS: u32 = 12;
 /// is well over the query's own accuracy at the smallest tolerance.
 const LAYER: f64 = 1.25;
 
+/// The move check over a move (decision record SIMUL-EDGE-1, Q3, the method
+/// the owner confirmed on 27 Nov 2026): `pose(f)` is the tool's line at the
+/// fraction `f` of the move, and no tool point moves more than `travel`
+/// over the whole of it. Samples are checked one pose at a time with the
+/// tool grown by the furthest a point moves between a sample and the
+/// midpoints to its neighbours (`checks`, coarsest first, each with its
+/// growth), so every pose between lies inside the grown tool, and the
+/// measure reads no shallower for a larger tool: a move whose every sample
+/// passes is proven. A sample the grown tool fails is checked again with
+/// finer samples and the tool grown less; at the finest a failure is the
+/// move's: its answer, the grown tool's line there and its profile. `None`
+/// when proven. Samples are taken in order (NFR-06).
+fn check_motion<'p>(
+    surface: &dyn crate::surface::SurfaceSource,
+    checks: &'p [(f64, RevolvedProfile)],
+    allowed: f64,
+    travel: f64,
+    pose: &dyn Fn(f64) -> ToolLine,
+) -> Option<(crate::gap::ToolGap, ToolLine, &'p RevolvedProfile)> {
+    let mut stack: Vec<(f64, f64, usize)> = vec![(0.0, 1.0, 0)];
+    while let Some((f0, f1, level)) = stack.pop() {
+        let Some((grow, profile)) = checks.get(level) else {
+            continue;
+        };
+        let n = ((f1 - f0) * travel / (2.0 * grow)).ceil().max(1.0);
+        if std::env::var("GSTAT").is_ok() {
+            use std::sync::atomic::{AtomicU64, Ordering::Relaxed};
+            static C: [AtomicU64; 3] = [const { AtomicU64::new(0) }; 3];
+            C[0].fetch_add(1, Relaxed);
+            C[1].fetch_add(n as u64, Relaxed);
+            C[2].fetch_add(level as u64, Relaxed);
+            let k = C[0].load(Relaxed);
+            if k % 100 == 0 {
+                eprintln!("CSTAT checks {k} samples/check {:.1} travel {travel:.4} level-sum {}", C[1].load(Relaxed) as f64 / k as f64, C[2].load(Relaxed));
+            }
+        }
+        let count = n.min(f64::from(u32::MAX)) as u32;
+        let step = (f1 - f0) / f64::from(count);
+        // Pushed last first, so they are taken in order.
+        let mut finer = Vec::new();
+        for k in 0..count {
+            let (s0, s1) = (f0 + step * f64::from(k), f0 + step * f64::from(k + 1));
+            let line = pose(0.5 * (s0 + s1));
+            // The grown tool's tip is `grow` below the tool's.
+            let grown = ToolLine {
+                origin: line.origin + line.axis.get() * (-grow),
+                axis: line.axis,
+            };
+            let query = move_query(Vec3::ZERO, allowed);
+            let Some(g) = surface.tool_gap(profile, &grown, &query) else {
+                continue;
+            };
+            if proven(&g, allowed) {
+                continue;
+            }
+            if level + 1 < checks.len() {
+                finer.push((s0, s1, level + 1));
+                continue;
+            }
+            return Some((g, grown, profile));
+        }
+        stack.extend(finer.into_iter().rev());
+    }
+    None
+}
+
 /// The move check's question for the tool swept along `sweep`: counted to
 /// the layer below each face, and answered once the move is proven no
 /// deeper than `allowed` (decision record SIMUL-EDGE-1, Q3 and Terms).
@@ -174,20 +240,21 @@ fn proven(g: &crate::gap::ToolGap, allowed: f64) -> bool {
     g.lower >= -allowed
 }
 
+/// The most a tool point may move between a sample of the move check and
+/// the midpoints to its neighbours, as a share of the allowance: each sample
+/// is checked with the tool grown by that much (decision record
+/// SIMUL-EDGE-1, Q3), reading at most that much deeper than the tool.
+const CHECK_GROWTH: f64 = 0.1;
+
+/// How many times a sample the grown tool fails is checked again, with
+/// finer samples and the tool grown a quarter as much.
+const CHECK_LEVELS: usize = 4;
+
 /// How many times one move may be split because its proof failed, over all
 /// its halvings: a move that still cannot be proven after that is left out
 /// and marked, so a region the check cannot prove costs a bounded number
 /// of queries instead of doubling at every level.
 const GOUGE_SPLITS: u32 = 32;
-
-/// The most a move's part turns in one proof (decision record
-/// SIMUL-EDGE-1, Q3), radians (2 degrees): a part turning less sweeps a
-/// smaller region, which the search bounds more closely.
-const MOVE_TURN: f64 = 2.0 * std::f64::consts::PI / 180.0;
-
-/// How many times a part of a move whose proof is not decided is halved
-/// before the move is taken as failing.
-const MOVE_SPLITS: u32 = 8;
 
 /// Most drive samples one run may make (NFR-07).
 const MAX_SAMPLES: f64 = 5.0e6;
@@ -544,6 +611,9 @@ struct Plan<'a> {
     /// on: the tolerance less the source's stated accuracy (decision record
     /// SIMUL-EDGE-1, Q2 and Q3).
     allowed: f64,
+    /// The tool grown for the move check's samples, each with how much,
+    /// coarsest first ([`CHECK_LEVELS`]).
+    checks: &'a [(f64, RevolvedProfile)],
     /// Radius from which drive rays start.
     outside: f64,
     /// The X zones and the centres their drive rays aim at (OP-26).
@@ -788,6 +858,14 @@ fn run(
 
     let grown = cutter::grow_profile(input.tool, leave)?;
     let body = hidden::body(&grown, input.shank, leave);
+    // The move check's grown tools: a tenth of the allowance, then each a
+    // quarter of the last (decision record SIMUL-EDGE-1, Q3).
+    let checks = (0..CHECK_LEVELS)
+        .map(|l| {
+            let d = CHECK_GROWTH * tolerance / 4_f64.powi(l as i32);
+            cutter::grow_profile(&grown, d).map(|p| (d, p))
+        })
+        .collect::<Result<Vec<_>>>()?;
     let mut plan = Plan {
         input,
         region,
@@ -807,6 +885,7 @@ fn run(
         // surface off its answer (OI-9974), so the whole tolerance is the
         // check's.
         allowed: tolerance,
+        checks: &checks,
         outside: radius + 1.0,
         sense,
         zones: &zones,
@@ -1819,6 +1898,7 @@ fn adaptive_passes(
             tolerance: plan.tolerance,
             chord: plan.chord,
             allowed: plan.allowed,
+            checks: plan.checks,
             outside: plan.outside,
             zones: plan.zones,
             sense: plan.sense,
@@ -2947,46 +3027,46 @@ impl Plan<'_> {
             }
             (line, query)
         };
-        // Parts turning at most MOVE_TURN each, then halved where an answer
-        // is not decided (the bound short of the allowance while no pose
-        // found cuts that deep), up to MOVE_SPLITS more times.
-        let first = (angle.abs() / MOVE_TURN).ceil().max(1.0);
-        let count = first.min(f64::from(1_u32 << MOVE_SPLITS)) as u32;
-        let mut pieces: Vec<(f64, f64, u32)> = (0..count)
-            .rev()
-            .map(|i| {
-                let n = f64::from(count);
-                (f64::from(i) / n, f64::from(i + 1) / n, 0)
-            })
-            .collect();
-        while let Some((f0, f1, level)) = pieces.pop() {
-            let (line, query) = part(f0, f1);
-            let Some(g) = self
-                .input
-                .surface
-                .tool_gap(self.drop_profile, &line, &query)
-            else {
-                continue;
+        // How far any tool point moves over the whole move, at most: the
+        // shift, and the turn of the point furthest from the line turned
+        // about (the tool reaches no further than its top and radius from
+        // the tip).
+        let tool_reach = self.drop_profile.top() + self.drop_profile.cutting_radius();
+        let furthest = rotation.map_or(0.0, |r| {
+            let n = r.axis.get();
+            let off = |p: Point3| {
+                let d = p - r.point;
+                (d - n * d.dot(n)).length()
             };
-            if proven(&g, self.allowed) {
-                continue;
+            // A turn keeps each point's distance from the line, and only
+            // points within the part's own reach of it, plus the layer, the
+            // largest growth and the shift, can come near a face: the turn
+            // of points further out does not matter.
+            let b = self.input.surface.bounds();
+            let mut part = 0.0_f64;
+            for x in [b.min.x, b.max.x] {
+                for y in [b.min.y, b.max.y] {
+                    for z in [b.min.z, b.max.z] {
+                        part = part.max(off(Point3::new(x, y, z)));
+                    }
+                }
             }
-            if g.upper >= -self.allowed && level < MOVE_SPLITS {
-                let fm = 0.5 * (f0 + f1);
-                pieces.push((fm, f1, level + 1));
-                pieces.push((f0, fm, level + 1));
-                continue;
-            }
-            let thin = self.thin_wall(&line, &query, &g);
-            if std::env::var("GSTAT").is_ok() {
-                eprintln!(
-                    "FAILMOVE lower {:.4} upper {:.4} at {:?} thin {thin:?} f {f0}-{f1} level {level}",
-                    g.lower, g.upper, g.at
-                );
-            }
-            return Some((-g.upper, g.at, thin));
+            let near = part
+                + LAYER * self.allowed
+                + self.checks.first().map_or(0.0, |c| c.0)
+                + sweep.length();
+            (off(t0).max(off(t0 + sweep)) + tool_reach).min(near)
+        });
+        let travel = sweep.length() + angle.abs() * furthest;
+        if std::env::var("NOCHECK").is_ok() {
+            return None;
         }
-        None
+        let pose = |f: f64| part(f, f).0;
+        let (g, grown, profile) =
+            check_motion(self.input.surface, self.checks, self.allowed, travel, &pose)?;
+        let query = move_query(Vec3::ZERO, self.allowed);
+        let thin = self.thin_wall(&grown, &query, &g, profile);
+        Some((-g.upper.min(g.lower.max(-self.allowed)), g.at, thin))
     }
 
     /// Whether a move part the check failed (`g`, from `query` on `line`)
@@ -3003,6 +3083,7 @@ impl Plan<'_> {
         line: &ToolLine,
         query: &GapQuery,
         g: &crate::gap::ToolGap,
+        profile: &RevolvedProfile,
     ) -> Option<(f64, Option<u32>)> {
         let surface = self.input.surface;
         let layer = LAYER * self.allowed;
@@ -3019,7 +3100,7 @@ impl Plan<'_> {
             return None;
         }
         let rest = surface.tool_gap(
-            self.drop_profile,
+            profile,
             line,
             &query.skip_walls_thinner_than(layer),
         );
@@ -3437,6 +3518,206 @@ mod tests {
             axis: UnitVec3::new(Vec3::new(0.0, 0.0, 1.0)).unwrap(),
         };
         (profile, line)
+    }
+
+    /// A ball end of radius `r` with flutes to 22 mm.
+    fn ball_of(r: f64) -> RevolvedProfile {
+        use openchuck_types::tool::{ProfilePoint, ProfileSegment, ToolProfile};
+        ToolProfile {
+            segments: vec![
+                ProfileSegment::Arc {
+                    to: ProfilePoint::new(r, r),
+                    centre: ProfilePoint::new(0.0, r),
+                },
+                ProfileSegment::Line {
+                    to: ProfilePoint::new(r, 22.0),
+                },
+            ],
+        }
+        .validate()
+        .unwrap()
+    }
+
+    /// The move check's grown tools for `tolerance`, as the plan makes them.
+    fn checks_for(profile: &RevolvedProfile, tolerance: f64) -> Vec<(f64, RevolvedProfile)> {
+        (0..CHECK_LEVELS)
+            .map(|l| {
+                let d = CHECK_GROWTH * tolerance / 4_f64.powi(l as i32);
+                (d, cutter::grow_profile(profile, d).unwrap())
+            })
+            .collect()
+    }
+
+    /// The line at fraction `f` of a move from `line`: shifted by `f` times
+    /// `sweep`, then turned by `f` times `angle` about the X axis through
+    /// `centre` (the rotary axis), and the most any point of a tool `reach`
+    /// long moves over the move.
+    fn moving(
+        line: ToolLine,
+        sweep: Vec3,
+        centre: Point3,
+        angle: f64,
+        reach: f64,
+    ) -> (impl Fn(f64) -> ToolLine, f64) {
+        let turn = move |v: Vec3, a: f64| {
+            let (s, c) = a.sin_cos();
+            Vec3::new(v.x, v.y * c - v.z * s, v.y * s + v.z * c)
+        };
+        let off = |p: Point3| (p.y - centre.y).hypot(p.z - centre.z);
+        let travel = sweep.length()
+            + angle.abs() * (off(line.origin).max(off(line.origin + sweep)) + reach);
+        (
+            move |f: f64| ToolLine {
+                origin: centre + turn(line.origin + sweep * f - centre, f * angle),
+                axis: UnitVec3::new(turn(line.axis.get(), f * angle)).unwrap(),
+            },
+            travel,
+        )
+    }
+
+    #[test]
+    fn req_op_12_a_moving_tool_grazing_a_face_is_proven_clear_at_once() {
+        // A 3.175 mm ball lying on its side along a face's edge, 0.128 mm
+        // above its plane, the face beginning where the tool's side is
+        // upright (a ball's flutes running beside a crank web), turning
+        // about a rotary axis 9.6 mm away by a thousandth of a radian: its
+        // points move about 0.009 mm, nearly the tolerance. Checked one
+        // grown pose at a time (decision record SIMUL-EDGE-1, Q3, as
+        // confirmed on 27 Nov 2026) it is proven at once.
+        let r = 1.5875;
+        let strip = TriangleMesh {
+            vertices: vec![
+                Point3::new(r, -6.0, 0.0),
+                Point3::new(6.0, -6.0, 0.0),
+                Point3::new(6.0, 6.0, 0.0),
+                Point3::new(r, 6.0, 0.0),
+            ],
+            triangles: vec![[0, 1, 2], [0, 2, 3]],
+        };
+        let surface = crate::MeshSurface::new(&strip).unwrap();
+        let profile = ball_of(r);
+        let line = ToolLine {
+            origin: Point3::new(0.0, -5.0 - r, 0.128),
+            axis: UnitVec3::new(Vec3::new(0.0, 1.0, 0.0)).unwrap(),
+        };
+        let (pose, travel) = moving(
+            line,
+            Vec3::new(0.0, 0.0002, 0.0),
+            Point3::new(0.0, 0.0, -9.6),
+            -0.00097,
+            profile.top() + r,
+        );
+        assert!(travel > 0.009);
+        let checks = checks_for(&profile, 0.01);
+        let started = std::time::Instant::now();
+        assert!(check_motion(&surface, &checks, 0.01, travel, &pose).is_none());
+        assert!(started.elapsed().as_secs_f64() < 1.0, "{:?}", started.elapsed());
+    }
+
+    #[test]
+    fn req_op_12_the_crankshaft_pin_root_move_is_proven_clear() {
+        // The move that stalled the exact motion bound on the public
+        // crankshaft (27 Nov 2026): the 3.175 mm ball at the pin's root
+        // against the web at X 30, touching the web's edge (the independent
+        // checker reads its gap 0 there), turning 0.00097 rad about X.
+        let bytes = std::fs::read(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../testdata/stl/crankshaft.stl"
+        ))
+        .unwrap();
+        let count = u32::from_le_bytes(bytes[80..84].try_into().unwrap()) as usize;
+        let mut mesh = TriangleMesh::default();
+        for t in 0..count {
+            let base = 84 + 50 * t + 12;
+            let mut ids = [0_u32; 3];
+            for (k, id) in ids.iter_mut().enumerate() {
+                let at = |o: usize| {
+                    let i = base + 12 * k + o;
+                    f64::from(f32::from_le_bytes(bytes[i..i + 4].try_into().unwrap()))
+                };
+                mesh.vertices.push(Point3::new(at(0), at(4), at(8)));
+                *id = u32::try_from(mesh.vertices.len() - 1).unwrap();
+            }
+            mesh.triangles.push(ids);
+        }
+        let surface = crate::MeshSurface::new(&mesh).unwrap();
+        let profile = ball_of(1.5875);
+        let line = ToolLine {
+            origin: Point3::new(30.12811112067591, 4.371648036338245, 1.5876255946573061),
+            axis: UnitVec3::new(Vec3::new(0.0, 0.4476688135066719, -0.8941994371579131))
+                .unwrap(),
+        };
+        let (pose, travel) = moving(
+            line,
+            Vec3::new(1.2299508757251942e-5, -0.00016018000323825277, -0.0022255155355228595),
+            Point3::ORIGIN,
+            -0.0009743024932623805,
+            profile.top() + profile.cutting_radius(),
+        );
+        let checks = checks_for(&profile, 0.01);
+        let started = std::time::Instant::now();
+        let answer = check_motion(&surface, &checks, 0.01, travel, &pose);
+        assert!(answer.is_none(), "{:?}", answer.map(|a| a.0));
+        assert!(started.elapsed().as_secs_f64() < 2.0, "{:?}", started.elapsed());
+    }
+
+    proptest::proptest! {
+        #![proptest_config(proptest::prelude::ProptestConfig::with_cases(48))]
+
+        /// A move proven by the check cuts no deeper than the allowance at
+        /// any pose along it, as the independent checker measures each pose
+        /// (decision record SIMUL-EDGE-1, Q3, the method confirmed on 27 Nov
+        /// 2026), over an uneven part with convex and concave edges.
+        #[test]
+        fn req_op_12_a_move_the_check_proves_cuts_no_deeper_at_any_pose(
+            seed in proptest::array::uniform4(0.0_f64..1.0),
+            tip in (-2.0_f64..2.0, -2.0_f64..2.0, -0.3_f64..1.0),
+            lean in (-0.6_f64..0.6, -0.6_f64..0.6),
+            sweep in (-1.0_f64..1.0, -1.0_f64..1.0, -0.2_f64..0.2),
+            angle in -0.02_f64..0.02,
+            r in 0.5_f64..2.0,
+        ) {
+            use openchuck_testkit::contact::{ConvexTool, Geometry, Settings};
+            let [a, b, c, d] = seed;
+            let v = |x: f64, y: f64, z: f64| Point3::new(x, y, z);
+            let part = TriangleMesh {
+                vertices: vec![
+                    v(-4.0, -4.0, -2.0 + a),
+                    v(0.3 * b, -4.0, 0.0),
+                    v(4.0, -4.0, -1.0 + c),
+                    v(-4.0, 4.0, -2.0 + d),
+                    v(-0.3 * b, 4.0, 0.2 * a),
+                    v(4.0, 4.0, -1.5 + 0.5 * c),
+                ],
+                triangles: vec![[0, 1, 4], [0, 4, 3], [1, 2, 5], [1, 5, 4]],
+            };
+            let surface = crate::MeshSurface::new(&part).unwrap();
+            let geometry = Geometry::of_mesh(&part).unwrap();
+            let profile = ball_of(r);
+            let tool = ConvexTool::new(&profile).unwrap();
+            let line = ToolLine {
+                origin: Point3::new(tip.0, tip.1, tip.2),
+                axis: UnitVec3::new(Vec3::new(lean.0, lean.1, 1.0)).unwrap(),
+            };
+            let (pose, travel) = moving(
+                line,
+                Vec3::new(sweep.0, sweep.1, sweep.2),
+                Point3::new(0.0, 0.0, -6.0),
+                angle,
+                profile.top() + r,
+            );
+            let allowed = 0.01;
+            let checks = checks_for(&profile, allowed);
+            if check_motion(&surface, &checks, allowed, travel, &pose).is_none() {
+                let settings = Settings { margin: 5.0, tolerance: 1e-4, budget: 20_000 };
+                for k in 0..=32 {
+                    let at = pose(f64::from(k) / 32.0);
+                    if let Ok(b) = geometry.face_gap(&tool, at.origin, at.axis.get(), LAYER * allowed, allowed, &settings) {
+                        proptest::prop_assert!(b.upper >= -allowed - 1e-6, "{b:?} at {k}");
+                    }
+                }
+            }
+        }
     }
 
     #[test]
