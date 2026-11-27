@@ -118,6 +118,9 @@ fn polytope_lowest(planes: &[(Vec3, f64)], m: Vec3) -> Option<(f64, Point3)> {
 /// [`Body::lower_surface`].
 const LEAN_STEPS: u32 = 40;
 
+/// The same over a part of a move ([`Body::cheap_planes`]).
+const MOVING_LEAN_STEPS: u32 = 14;
+
 /// The angles, in radians, a separating plane leans from a side of the
 /// prism towards the layer's floor ([`Body::below_layer`]).
 const LEANS: [f64; 8] = [0.0, 0.05, 0.15, 0.3, 0.5, 0.75, 1.05, 1.35];
@@ -179,7 +182,8 @@ pub struct GapQuery {
     /// (mm; negative for an overcut depth a caller accepts), with whatever
     /// interval it has: for a caller that needs only to know whether the
     /// gap is above a limit. When not set, the interval is narrowed to
-    /// [`GAP_ACCURACY`].
+    /// [`GAP_ACCURACY`]. An answer accepted from the faces' own bounds
+    /// has no real value: its `upper` is infinite.
     pub accept: Option<f64>,
     /// When set, the faces that stand in front of material thinner than
     /// this (mm) are left out: a face backed, along its inward normal, by
@@ -188,6 +192,16 @@ pub struct GapQuery {
     /// (decision record SIMUL-EDGE-1, Terms: *Thin wall*). A source that
     /// cannot tell answers as if it were not set.
     pub skip_walls_thinner_than: Option<f64>,
+    /// When set, the most pieces the search may split before it answers
+    /// with the interval it has reached, in place of its own cap: for a
+    /// caller that asks first whether a whole part of a move is proven at
+    /// little cost, and has another way to settle it when it is not
+    /// (decision record SIMUL-EDGE-1, Q3: bounding a stretch of a move
+    /// before sampling it). With [`accept`](Self::accept) set and no
+    /// pieces allowed, the answer is from each face's own bounds alone.
+    /// An answer cut short so is proven as far as its `lower` says and no
+    /// further: never a pass.
+    pub pieces: Option<usize>,
 }
 
 impl GapQuery {
@@ -199,6 +213,7 @@ impl GapQuery {
             limit,
             accept: None,
             skip_walls_thinner_than: None,
+            pieces: None,
         }
     }
 
@@ -210,6 +225,7 @@ impl GapQuery {
             limit,
             accept: None,
             skip_walls_thinner_than: None,
+            pieces: None,
         }
     }
 
@@ -229,6 +245,16 @@ impl GapQuery {
     pub fn skip_walls_thinner_than(self, wall: f64) -> Self {
         Self {
             skip_walls_thinner_than: Some(wall),
+            ..self
+        }
+    }
+
+    /// This query, splitting at most `pieces` pieces before it answers with
+    /// what it has (see [`pieces`](Self::pieces)).
+    #[must_use]
+    pub fn within_pieces(self, pieces: usize) -> Self {
+        Self {
+            pieces: Some(pieces),
             ..self
         }
     }
@@ -255,7 +281,9 @@ pub struct ToolGap {
     pub lower: f64,
     /// Found: the height above a face, at one pose, of a real tool point
     /// over the face point [`at`](Self::at). The true gap lies between
-    /// `lower` and this.
+    /// `lower` and this. Infinite where no real value was looked for or
+    /// found: an answer a caller accepted from the bounds alone
+    /// ([`GapQuery::accept`]), or a search cut short ([`GapQuery::pieces`]).
     pub upper: f64,
     /// The face point under the tool point where `upper` was found.
     pub at: Point3,
@@ -607,6 +635,11 @@ impl<'a> Body<'a> {
         self.angle != 0.0
     }
 
+    /// Whether the tool moves at all: shifts or turns.
+    fn moves(&self) -> bool {
+        self.turns() || self.sweep.length() > 0.0
+    }
+
     /// The point `p` turned about the line by `a` radians.
     fn turned(&self, p: Point3, a: f64) -> Point3 {
         if a == 0.0 {
@@ -792,6 +825,16 @@ impl<'a> Body<'a> {
         }
     }
 
+    /// A direction `n` of the tool's frame at the fraction `f` as it is
+    /// fixed to the surface: the inverse of [`direction`](Self::direction).
+    fn undirection(&self, n: Vec3, f: f64) -> Vec3 {
+        if self.turns() {
+            turn_vector(n, self.pivot.1, f * self.angle)
+        } else {
+            n
+        }
+    }
+
     /// The tool's support along `v` measured from its tip, at its first
     /// pose: never negative, the tip being part of the tool.
     fn reach_along(&self, v: Vec3) -> f64 {
@@ -924,7 +967,7 @@ impl<'a> Body<'a> {
                 continue;
             }
             let x = at.corners[k];
-            if let Some((_, y)) = self.column_first(&at, x) {
+            if let Some((_, y)) = self.column_first(at.m, x) {
                 let normal = self.at_first(y).1;
                 if let Some(l) = corner_multipliers(-normal, at.m, at.sides[i].0, at.sides[j].0) {
                     let mut lam = vec![0.0; count];
@@ -938,10 +981,10 @@ impl<'a> Body<'a> {
     }
 
     /// The lowest point of the tool at its first pose on the line through
-    /// the point `x` along the face's normal (both in the tool's frame), and
-    /// its height: as [`column`](Self::column) without the layer.
-    fn column_first(&self, at: &Face, x: Point3) -> Option<(f64, Point3)> {
-        let m = at.m;
+    /// the point `x` along the direction `m` (a face's normal; both in the
+    /// tool's frame), and its height: as [`column`](Self::column) without
+    /// the layer.
+    fn column_first(&self, m: Vec3, x: Point3) -> Option<(f64, Point3)> {
         let sd = |t: f64| self.at_first(x + m * t).0;
         let reach = x.distance(self.tip) + self.outline.top.abs() + self.outline.radius + 1.0;
         let golden = 0.5 * (5.0_f64.sqrt() - 1.0);
@@ -990,12 +1033,29 @@ impl<'a> Body<'a> {
     }
 
     /// A proven least of `min over the tool of w . y`, less `c`, over the
-    /// fractions `s0` to `s1`, `w` fixed to the surface. Seen from the
-    /// tool, `w` turns: the tool's support along it over the part is at
-    /// most the larger at its ends times `sec(α / 2)`, plus `sec(α / 2) - 1`
-    /// times its support along the part of `w` on the turn's axis, `α` the
-    /// part's turn (the turned direction is a blend of the two ends' with
-    /// weights summing to at least 1 and at most `sec(α / 2)`).
+    /// fractions `s0` to `s1`, `w` fixed to the surface.
+    ///
+    /// At the fraction `f` a tool point `y` (in the tool's frame) is seen
+    /// from the surface at the line's point plus `y + f Δ` less that point,
+    /// turned by `f θ`; so with `w_f` the direction `w` as the tool sees it
+    /// and `P` a point of the tool on its axis (a ball end's centre), the
+    /// least over the tool is
+    /// `w . c + w_f . (P - c) + f (w_f . Δ)` less the tool's support from
+    /// `P` along `-w_f`. The first two terms are bounded together: the turn
+    /// lifting the tool and the shift lowering it, as they do where the
+    /// machine follows a surface that is not round about the rotary axis,
+    /// are counted as one motion, not as their two worst cases (lane
+    /// SE-PERF). `w_f . Δ` is its middle value over the part, give or take
+    /// half its range, so their sum is at least the exact least of a
+    /// cosine in `f θ` plus a line in `f` ([`least`]), less that half range
+    /// times the largest `|f|`. Seen from the tool, `w` turns: the tool's
+    /// support from `P` along it over the part is at most the larger at its
+    /// ends times `sec(α / 2)`, plus `sec(α / 2) - 1` times its support
+    /// along the part of `w` on the turn's axis, `α` the part's turn (the
+    /// turned direction is a blend of the two ends' with weights summing
+    /// to at least 1 and at most `sec(α / 2)`, and the support from a point
+    /// of the tool is never negative). From a ball end's centre the support
+    /// is the ball's radius whichever way `w` turns under it.
     fn dual_over(&self, w: Vec3, c: f64, s0: f64, s1: f64) -> f64 {
         if !self.turns() {
             let k = w.dot(self.sweep);
@@ -1007,19 +1067,28 @@ impl<'a> Body<'a> {
         }
         let (cl, n) = self.pivot;
         let span = (s0, s1);
-        let (k0, x, y) = self.seen(w, self.tip - cl);
-        let first = least(k0, x, y, self.angle, 0.0, span);
+        let p = self.spine.0;
         let (k0, x, y) = self.seen(w, self.sweep);
         let lo = least(k0, x, y, self.angle, 0.0, span);
         let hi = -least(-k0, -x, -y, self.angle, 0.0, span);
-        let shift = (s0 * lo).min(s0 * hi).min(s1 * lo).min(s1 * hi);
+        let (middle, half) = (0.5 * (lo + hi), 0.5 * (hi - lo));
+        let (k0, x, y) = self.seen(w, p - cl);
+        let moved =
+            least(k0, x, y, self.angle, -middle, span) - s0.abs().max(s1.abs()) * half.abs();
+        let height = (p - self.tip).dot(self.axis);
+        let reach = |v: Vec3| {
+            let along = self.axis.dot(v);
+            (self
+                .outline
+                .support((v - self.axis * along).length(), along)
+                - along * height)
+                .max(0.0)
+        };
         let sec = 1.0 / (0.5 * alpha).cos();
-        let ends = self
-            .reach_along(self.direction(-w, s0))
-            .max(self.reach_along(self.direction(-w, s1)));
+        let ends = reach(self.direction(-w, s0)).max(reach(self.direction(-w, s1)));
         let on_axis = n * w.dot(n);
-        let axial = self.reach_along(on_axis).max(self.reach_along(-on_axis));
-        w.dot(cl - Point3::ORIGIN) + first + shift - sec * ends - (sec - 1.0) * axial - c
+        let axial = reach(on_axis).max(reach(-on_axis));
+        w.dot(cl - Point3::ORIGIN) + moved - sec * ends - (sec - 1.0) * axial - c
     }
 
     /// A proven most of the tool's height above the face's plane over the
@@ -1197,21 +1266,76 @@ impl<'a> Body<'a> {
         Some((height, x))
     }
 
-    /// Planes touching the tool from below at a single pose, each `(n, k)`
-    /// with the tool where `n . y >= k` and `n . m > 0`: tangent where the
-    /// columns through the piece's centre and corners first meet the tool,
-    /// and leaning from the face's normal towards the piece from under the
-    /// tool, towards the tool's nearest point and across each side, each at
-    /// the angle a golden-section search finds best at the piece's corners.
-    fn cheap_planes(&self, face: &Face) -> Vec<(Vec3, f64)> {
+    /// Planes the tool stays above, each `(n, k)` with the tool where
+    /// `n . y >= k` at every pose from `s0` to `s1`: tangent where the
+    /// columns through the piece's centre and corners first meet the tool
+    /// (at the middle pose), and leaning from the face's normal towards the
+    /// piece from under the tool, towards the tool's nearest point and
+    /// across each side, each at the angle a golden-section search finds
+    /// best at the piece's corners. At a single pose a plane touches the
+    /// tool; over a part of a move its direction is fixed to the surface
+    /// and its constant is the least the tool reaches along it at any pose
+    /// ([`Body::dual_over`]), so what the planes bound at one pose they
+    /// bound over the whole part. `enough` is asked after each plane, and
+    /// ends the list early when it answers true (every plane is a proven
+    /// bound of its own, so a caller that has what it needs may stop).
+    fn cheap_planes(
+        &self,
+        face: &Face,
+        s0: f64,
+        s1: f64,
+        enough: &mut dyn FnMut(&(Vec3, f64)) -> bool,
+    ) -> Vec<(Vec3, f64)> {
         let m = face.m;
+        let moving = self.moves();
+        let fm = 0.5 * (s0 + s1);
+        // The least of `w . y` over the tool at every pose of the part.
+        let reach = |w: Vec3| {
+            if moving {
+                self.dual_over(w, 0.0, s0, s1)
+            } else {
+                self.lowest_first(w)
+            }
+        };
         let mut planes = Vec::new();
         let centre = centroid(&face.corners);
-        for x in std::iter::once(centre).chain(face.corners) {
-            if let Some((_, y)) = self.column_first(face, x) {
-                let n = -self.at_first(y).1;
+        // The tool's normal, turned back to the surface, where the column
+        // through `x` first meets it at the fraction `f`.
+        let tangent = |x: Point3, f: f64| {
+            self.column_first(self.direction(m, f), self.frame(x, f))
+                .map(|(_, y)| self.undirection(-self.at_first(y).1, f))
+        };
+        if moving {
+            // Over a part of a move, first the planes that cost least to
+            // find: square to the tool's surface at its nearest point to
+            // the piece's centre at the middle and ends of the part, and
+            // to its corners at the middle.
+            let nearest =
+                |x: Point3, f: f64| self.undirection(-self.at_first(self.frame(x, f)).1, f);
+            let first = [(centre, fm), (centre, s0), (centre, s1)]
+                .into_iter()
+                .chain(face.corners.map(|x| (x, fm)));
+            for (x, f) in first {
+                let n = nearest(x, f);
                 if n.dot(m) > 1e-9 {
-                    planes.push((n, n.dot(y - Point3::ORIGIN)));
+                    let plane = (n, reach(n));
+                    planes.push(plane);
+                    if enough(&plane) {
+                        return planes;
+                    }
+                }
+            }
+        } else {
+            for x in std::iter::once(centre).chain(face.corners) {
+                let plane = self.column_first(m, x).map(|(_, y)| {
+                    let n = -self.at_first(y).1;
+                    (n, n.dot(y - Point3::ORIGIN))
+                });
+                if let Some(plane) = plane.filter(|(n, _)| n.dot(m) > 1e-9) {
+                    planes.push(plane);
+                    if enough(&plane) {
+                        return planes;
+                    }
                 }
             }
         }
@@ -1230,7 +1354,7 @@ impl<'a> Body<'a> {
         for e in leans {
             let plane = |t: f64| {
                 let w = m * t.cos() + e * t.sin();
-                (w, self.lowest_first(w))
+                (w, reach(w))
             };
             let score = |t: f64| {
                 let (n, k) = plane(t);
@@ -1240,18 +1364,57 @@ impl<'a> Body<'a> {
                     .fold(f64::INFINITY, f64::min)
             };
             let (mut lo, mut hi) = (0.0_f64, std::f64::consts::FRAC_PI_2 - 1e-6);
-            for _ in 0..LEAN_STEPS {
-                let (c, d) = (hi - golden * (hi - lo), lo + golden * (hi - lo));
-                if score(c) >= score(d) {
-                    hi = d;
-                } else {
-                    lo = c;
+            if moving {
+                // Any angle gives a proven plane; over a part of a move
+                // each costs more, so the search keeps the value it has.
+                let (mut c, mut d) = (hi - golden * (hi - lo), lo + golden * (hi - lo));
+                let (mut at_c, mut at_d) = (score(c), score(d));
+                for _ in 0..MOVING_LEAN_STEPS {
+                    if at_c >= at_d {
+                        hi = d;
+                        d = c;
+                        at_d = at_c;
+                        c = hi - golden * (hi - lo);
+                        at_c = score(c);
+                    } else {
+                        lo = c;
+                        c = d;
+                        at_c = at_d;
+                        d = lo + golden * (hi - lo);
+                        at_d = score(d);
+                    }
+                }
+            } else {
+                for _ in 0..LEAN_STEPS {
+                    let (c, d) = (hi - golden * (hi - lo), lo + golden * (hi - lo));
+                    if score(c) >= score(d) {
+                        hi = d;
+                    } else {
+                        lo = c;
+                    }
                 }
             }
-            planes.push(plane(0.5 * (lo + hi)));
+            let leaning = plane(0.5 * (lo + hi));
+            planes.push(leaning);
+            if enough(&leaning) {
+                return planes;
+            }
             // Square to the face: a tool lying beside it.
-            let side = (e, self.lowest_first(e));
+            let side = (e, reach(e));
             planes.push(side);
+        }
+        if moving {
+            // Last, tangent where the columns through the piece's centre
+            // and corners first meet the tool at the middle pose.
+            for x in std::iter::once(centre).chain(face.corners) {
+                if let Some(n) = tangent(x, fm).filter(|n| n.dot(m) > 1e-9) {
+                    let plane = (n, reach(n));
+                    planes.push(plane);
+                    if enough(&plane) {
+                        return planes;
+                    }
+                }
+            }
         }
         planes
     }
@@ -1317,7 +1480,7 @@ impl<'a> Body<'a> {
         let mut best = f64::NEG_INFINITY;
         let centre = centroid(&face.corners);
         for x in std::iter::once(centre).chain(face.corners) {
-            if let Some((_, y)) = self.column_first(face, x) {
+            if let Some((_, y)) = self.column_first(face.m, x) {
                 // The tool's outward normal there, turned to face into it.
                 let n = -self.at_first(y).1;
                 best = best.max(least(n, n.dot(y - Point3::ORIGIN)));
@@ -1704,6 +1867,7 @@ pub(crate) fn search(
     triangles: impl IntoIterator<Item = (u32, [Point3; 3])>,
     limit: f64,
     accept: Option<f64>,
+    budget: Option<usize>,
     error: &dyn Fn(u32) -> f64,
     neighbours: &dyn Fn(u32) -> Vec<(Vec3, f64, bool)>,
 ) -> Option<ToolGap> {
@@ -1732,7 +1896,26 @@ pub(crate) fn search(
             state.push(t, m.get(), i, (0.0, 1.0), f64::NAN);
         }
     }
-    let moving = body.sweep.length() > 0.0 || body.turns();
+    let cap = budget.map_or(MAX_PIECES, |b| b.min(MAX_PIECES));
+    // A caller that only asks whether the gap is above its acceptance is
+    // answered from each face's own bounds where they prove it, with no
+    // piece split and no real value looked for (lane SE-PERF). The target
+    // is the accuracy above the acceptance: the search below, whose first
+    // bound of each face is the same or better, then proves every face
+    // above the acceptance too, before any real value could end it short,
+    // so what is proven here is proven there and the two never disagree.
+    // Given no pieces to split, the bounds are the whole answer.
+    if accept.is_finite() {
+        let (proven, least) = state.prove(accept + GAP_ACCURACY);
+        if proven || cap == 0 {
+            return (least <= limit).then_some(ToolGap {
+                lower: least,
+                upper: f64::INFINITY,
+                at: body.tip,
+            });
+        }
+    }
+    let moving = body.moves();
     let mut pieces = 0_usize;
     let lower = loop {
         let found = state.best.map_or(f64::INFINITY, |b| b.0);
@@ -1771,7 +1954,7 @@ pub(crate) fn search(
             } else {
                 travel >= len
             };
-        if (len < MIN_PIECE && !split_move) || pieces >= MAX_PIECES {
+        if (len < MIN_PIECE && !split_move) || pieces >= cap {
             break piece.lower.min(found);
         }
         pieces += 2;
@@ -1813,7 +1996,7 @@ pub(crate) fn search(
     // exact face's value is at most the triangle's plus that error.
     // A search that ran out of pieces with nothing found has not shown the
     // tool clear: it answers its bound, with no real value above it.
-    if state.best.is_none() && pieces >= MAX_PIECES && lower <= limit {
+    if state.best.is_none() && pieces >= cap && lower <= limit {
         return Some(ToolGap {
             lower,
             upper: f64::INFINITY,
@@ -1826,6 +2009,29 @@ pub(crate) fn search(
         upper: found + 2.0 * e,
         at,
     })
+}
+
+/// What a piece's bounds gave ([`Search::bound`]).
+enum Bound {
+    /// No tool point counts over the piece.
+    Empty,
+    /// The open region's bound, which reached the caller's target before
+    /// the rest was worked out: the piece's bound is at least this.
+    Reached(f64),
+    /// Every bound.
+    Full(Box<Bounds>),
+}
+
+/// Every bound of a piece ([`Search::bound`]): the piece's region without
+/// and with its clips, the open region's bound, the piece's bound, and the
+/// places the polytopes were lowest (with whether each is the clipped
+/// region's), where a real value may be looked for.
+struct Bounds {
+    open: Face,
+    clipped: Face,
+    open_lower: f64,
+    bound: f64,
+    probes: Vec<(bool, Point3)>,
 }
 
 /// The state of one search: the queue of pieces and the best value found.
@@ -1929,40 +2135,40 @@ impl Search<'_, '_> {
         });
     }
 
-    /// Measures a piece at the ends and middle of its part of the move
-    /// (and its hint): the best multipliers at each pose give a proven
-    /// bound over the whole part, the best of which is kept, and the lowest
-    /// Measures a piece at a single pose (no shift or turn) by the tool's
-    /// lower surface along the face's normal and its columns, without the
-    /// dual (the owner's confirmation of 27 Nov 2026: at the move check's
-    /// single poses the dual's multipliers grow without end where the tool
-    /// runs along a face's edge or lies beside it). The bound is the best
-    /// of planes touching the tool from below, each at the piece's corners
+    /// The bounds of a piece over its part of the move, or at a single
+    /// pose, without the dual and without looking for a real value (lane
+    /// SE-PERF; the bounds are those of [`Self::measure_single`], which
+    /// this is the first half of). The bound is the best of planes the
+    /// tool stays above, each at the piece's corners
     /// ([`Body::cheap_planes`]), and where that is short of what the caller
     /// accepts, over the corners of the polytope of the region and the
-    /// plane, which may show it empty; real values are the columns through
-    /// the piece's centre and corners. The open and clipped regions are
-    /// counted as in [`Self::measure`].
-    fn measure_single(&mut self, piece: Piece) -> Piece {
+    /// plane, which may show it empty. The open and clipped regions are
+    /// counted as in [`Self::measure`]. Over a part of a move every plane
+    /// holds the tool at every pose of it, so the bound is the least over
+    /// the poses.
+    ///
+    /// With a finite `target` the work ends as soon as the piece's lower
+    /// bound is proven at least `target` ([`Bound::Reached`]): every plane
+    /// is a proven bound alone, so the planes left out could only raise it.
+    fn bound(&mut self, piece: &Piece, target: f64) -> Bound {
         let clipped = self.face(piece.corners, piece.normal, piece.triangle);
         let open = Face {
             clips: Vec::new(),
             ..clipped.clone()
         };
         let e = (self.error)(piece.triangle);
-        let empty = Piece {
-            lower: f64::INFINITY,
-            measured: true,
-            ..piece
+        let (s0, s1) = if self.body.moves() {
+            piece.span
+        } else {
+            (0.0, 0.0)
         };
-        if self.body.beside(&open, 0.0, 0.0) {
-            return empty;
+        if self.body.beside(&open, s0, s1) {
+            return Bound::Empty;
         }
-        let top = self.body.top_over(&open, 0.0, 0.0);
+        let top = self.body.top_over(&open, s0, s1);
         if top < -self.limit {
-            return empty;
+            return Bound::Empty;
         }
-        let planes = self.body.cheap_planes(&open);
         // At the corners only a plane facing along the face's normal bounds
         // the height; one square to it (a tool beside the piece) counts in
         // the polytope's bound, where it is a side.
@@ -1976,10 +2182,19 @@ impl Search<'_, '_> {
                 .map(|x| (k - n.dot(*x - Point3::ORIGIN)) / along)
                 .fold(f64::INFINITY, f64::min)
         };
-        let mut open_lower = planes
-            .iter()
-            .map(at_corners)
-            .fold(self.body.dual_over(open.m, open.d, 0.0, 0.0), f64::max);
+        let flat = self.body.dual_over(open.m, open.d, s0, s1);
+        // An open bound that reaches the target is the piece's bound: the
+        // target is never below what the clipped region is asked for.
+        let reaches = |lower: f64| lower - e >= target && lower >= -self.inside;
+        let mut so_far = flat;
+        let planes = self.body.cheap_planes(&open, s0, s1, &mut |plane| {
+            so_far = so_far.max(at_corners(plane));
+            reaches(so_far)
+        });
+        let mut open_lower = planes.iter().map(at_corners).fold(flat, f64::max);
+        if reaches(open_lower) {
+            return Bound::Reached(open_lower);
+        }
         // The foot of a polytope's lowest corner: a place for a real value.
         let foot =
             |face: &Face, y: Point3| y + face.m * (-(face.m.dot(y - Point3::ORIGIN) - face.d));
@@ -1990,11 +2205,101 @@ impl Search<'_, '_> {
                 self.body
                     .polytope_bound(&open, &region, &planes, self.limit, top.max(0.0));
             if v == f64::INFINITY {
-                return empty;
+                return Bound::Empty;
             }
             open_lower = open_lower.max(v);
             probes.extend(at.map(|y| (false, foot(&open, y))));
         }
+        let mut bound = open_lower;
+        if !clipped.clips.is_empty() && open_lower < 0.0 {
+            // Below the face only the clipped region counts; its value is
+            // at most zero where the open region's is below the face.
+            let clipped_lower = if open_lower >= -self.inside {
+                0.0_f64.min(open_lower.max(-self.inside))
+            } else if self.body.beside(&clipped, s0, s1) {
+                f64::INFINITY
+            } else {
+                let region: Vec<(Vec3, f64)> = clipped.constraints().copied().collect();
+                let cplanes = self.body.cheap_planes(&clipped, s0, s1, &mut |_| false);
+                let (v, at) = self
+                    .body
+                    .polytope_bound(&clipped, &region, &cplanes, self.limit, 0.0);
+                probes.extend(at.map(|y| (true, foot(&clipped, y))));
+                v.max(open_lower)
+            };
+            bound = clipped_lower.min(0.0).max(open_lower);
+        }
+        Bound::Full(Box::new(Bounds {
+            open,
+            clipped,
+            open_lower,
+            bound,
+            probes,
+        }))
+    }
+
+    /// Whether every piece queued is proven at least `target` above its
+    /// face by its own bounds ([`Self::bound`]), with no piece split and no
+    /// real value looked for, and a proven least over them all (lane
+    /// SE-PERF). The pieces are taken least bound first and the first one
+    /// short of the target ends it: the least is then of the bounds found
+    /// so far and the bounds the rest were queued with.
+    fn prove(&mut self, target: f64) -> (bool, f64) {
+        // Sorted by the queue's order: the least bound comes out last.
+        let pieces = self.queue.clone().into_sorted_vec();
+        let mut least = f64::INFINITY;
+        for (taken, piece) in pieces.iter().rev().enumerate() {
+            let lower = if piece.lower >= target {
+                piece.lower
+            } else {
+                let e = (self.error)(piece.triangle);
+                match self.bound(piece, target) {
+                    Bound::Empty => f64::INFINITY,
+                    Bound::Reached(b) => piece.lower.max(b.max(-self.limit) - e),
+                    Bound::Full(all) => piece.lower.max(all.bound.max(-self.limit) - e),
+                }
+            };
+            least = least.min(lower);
+            if lower < target {
+                let rest = pieces
+                    .iter()
+                    .rev()
+                    .skip(taken + 1)
+                    .map(|p| p.lower)
+                    .fold(f64::INFINITY, f64::min);
+                return (false, least.min(rest));
+            }
+        }
+        (true, least)
+    }
+
+    /// Measures a piece at a single pose (no shift or turn) by the tool's
+    /// lower surface along the face's normal and its columns, without the
+    /// dual (the owner's confirmation of 27 Nov 2026: at the move check's
+    /// single poses the dual's multipliers grow without end where the tool
+    /// runs along a face's edge or lies beside it). The bound is
+    /// [`Self::bound`]'s; real values are the columns through the piece's
+    /// centre and corners. The open and clipped regions are counted as in
+    /// [`Self::measure`].
+    fn measure_single(&mut self, piece: Piece) -> Piece {
+        let e = (self.error)(piece.triangle);
+        let empty = Piece {
+            lower: f64::INFINITY,
+            measured: true,
+            ..piece
+        };
+        let Bounds {
+            open,
+            clipped,
+            open_lower,
+            bound,
+            probes,
+        } = match self.bound(&piece, f64::INFINITY) {
+            Bound::Empty => return empty,
+            // Not reached: no bound is at least an infinite target.
+            Bound::Reached(_) => return piece,
+            Bound::Full(all) => *all,
+        };
         let centre = centroid(&open.corners);
         let columns = |face: &Face| {
             std::iter::once(centre)
@@ -2008,8 +2313,9 @@ impl Search<'_, '_> {
         // And the tool's own lowest point along the face's normal, with the
         // column nearest its foot.
         let free = self.body.found(&open, &[0.0; 3], 0.0, self.limit);
-        let probe = |face: &Face, list: &[(bool, Point3)], clipped: bool| {
-            list.iter()
+        let probe = |face: &Face, clipped: bool| {
+            probes
+                .iter()
                 .filter(|(c, _)| *c == clipped)
                 .filter_map(|(_, x)| self.body.column(face, *x, 0.0, self.limit))
                 .fold(None, |best: Option<(f64, Point3)>, c| match best {
@@ -2021,40 +2327,21 @@ impl Search<'_, '_> {
             (Some(a), Some(b)) => Some(if b.0 < a.0 { b } else { a }),
             (a, b) => a.or(b),
         };
-        let near = match (lowest(columns(&open), probe(&open, &probes, false)), free) {
+        let near = match (lowest(columns(&open), probe(&open, false)), free) {
             (Some(a), Some(b)) => Some(if b.0 < a.0 { b } else { a }),
             (a, b) => a.or(b),
         };
-        let has_clips = !clipped.clips.is_empty();
-        let mut bound = open_lower;
         let mut value = near;
-        if has_clips && open_lower < 0.0 {
-            // Below the face only the clipped region counts; its value is
-            // at most zero where the open region's is below the face.
-            let clipped_lower = if open_lower >= -self.inside {
-                0.0_f64.min(open_lower.max(-self.inside))
-            } else if self.body.beside(&clipped, 0.0, 0.0) {
-                f64::INFINITY
-            } else {
-                let region: Vec<(Vec3, f64)> = clipped.constraints().copied().collect();
-                let cplanes = self.body.cheap_planes(&clipped);
-                let (v, at) = self
-                    .body
-                    .polytope_bound(&clipped, &region, &cplanes, self.limit, 0.0);
-                probes.extend(at.map(|y| (true, foot(&clipped, y))));
-                v.max(open_lower)
-            };
-            bound = clipped_lower.min(0.0).max(open_lower);
+        if !clipped.clips.is_empty() && open_lower < 0.0 {
             value = match near {
                 Some((h, at)) if h >= 0.0 => Some((h, at)),
-                Some((_, at)) => Some(
-                    match lowest(columns(&clipped), probe(&clipped, &probes, true)) {
-                        Some((hc, atc)) if hc < 0.0 => (hc, atc),
-                        _ => (0.0, at),
-                    },
-                ),
-                None => lowest(columns(&clipped), probe(&clipped, &probes, true))
-                    .map(|(h, at)| (h.min(0.0), at)),
+                Some((_, at)) => Some(match lowest(columns(&clipped), probe(&clipped, true)) {
+                    Some((hc, atc)) if hc < 0.0 => (hc, atc),
+                    _ => (0.0, at),
+                }),
+                None => {
+                    lowest(columns(&clipped), probe(&clipped, true)).map(|(h, at)| (h.min(0.0), at))
+                }
             };
         }
         if let Some((h, at)) = value
@@ -2069,6 +2356,9 @@ impl Search<'_, '_> {
         }
     }
 
+    /// Measures a piece at the ends and middle of its part of the move
+    /// (and its hint): the best multipliers at each pose give a proven
+    /// bound over the whole part, the best of which is kept, and the lowest
     /// tool point on the face there a real value.
     fn measure(&mut self, piece: Piece) -> Piece {
         // The face's region without its clips, which counts the tool above
@@ -2305,9 +2595,15 @@ pub(crate) fn on_mesh(
             .then_some((index, t))
     });
     let neighbours = convex_neighbours(mesh);
-    search(&body, triangles, query.limit, query.accept, error, &|i| {
-        neighbours.get(i as usize).cloned().unwrap_or_default()
-    })
+    search(
+        &body,
+        triangles,
+        query.limit,
+        query.accept,
+        query.pieces,
+        error,
+        &|i| neighbours.get(i as usize).cloned().unwrap_or_default(),
+    )
 }
 
 /// The planes `(n, d)` (`n . y = d`, `n` the outward unit normal) of the

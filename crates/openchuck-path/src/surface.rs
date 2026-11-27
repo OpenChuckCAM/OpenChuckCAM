@@ -620,9 +620,15 @@ impl MeshSurface {
         let neighbours = self
             .neighbours
             .get_or_init(|| crate::gap::convex_neighbours(&self.mesh));
-        crate::gap::search(&body, triangles, query.limit, query.accept, error, &|i| {
-            neighbours.get(i as usize).cloned().unwrap_or_default()
-        })
+        crate::gap::search(
+            &body,
+            triangles,
+            query.limit,
+            query.accept,
+            query.pieces,
+            error,
+            &|i| neighbours.get(i as usize).cloned().unwrap_or_default(),
+        )
     }
 }
 

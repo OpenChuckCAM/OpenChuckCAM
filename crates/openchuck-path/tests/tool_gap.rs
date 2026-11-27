@@ -924,3 +924,90 @@ proptest! {
         }
     }
 }
+
+#[test]
+fn req_op_12_tool_gap_within_no_pieces_is_from_the_bounds_alone() {
+    // A query given no pieces to split (lane SE-PERF: a stretch of a move
+    // bounded before it is sampled) answers from each face's own bounds:
+    // a ball 0.002 above a plane, sliding 3 mm along it and turning 0.02
+    // rad about a line 10 mm below, dips 0.0002 into it, and is proven no
+    // deeper than 0.01 as it stands; started 0.02 into the plane it is not,
+    // and the interval it gives still holds the true depth.
+    let surface = mesh(&plane(5.0, 10));
+    let tool = ball(1.0);
+    let rotation = Rotation {
+        point: Point3::new(0.0, 0.0, -10.0),
+        axis: UnitVec3::new(Vec3::new(1.0, 0.0, 0.0)).unwrap(),
+        angle: 0.02,
+    };
+    let query = GapQuery::swept(Vec3::new(3.0, 0.0, 0.0), 0.0125)
+        .rotating(rotation)
+        .accept_above(-0.01)
+        .within_pieces(0);
+    let above = line(Point3::new(-1.5, 0.0, 0.002), UP);
+    let g = surface.tool_gap(&tool, &above, &query).unwrap();
+    assert!(g.lower >= -0.01 && g.lower <= -0.0002 + 1e-6, "{g:?}");
+    let cutting = line(Point3::new(-1.5, 0.0, -0.02), UP);
+    let g = surface.tool_gap(&tool, &cutting, &query).unwrap();
+    assert!(g.lower < -0.01 && g.upper >= -0.0125, "{g:?}");
+    // Without an acceptance there is nothing to prove from the bounds: the
+    // interval is whatever the first bounds give, and holds the true gap.
+    let open = GapQuery::pose(5.0).within_pieces(0);
+    let g = surface.tool_gap(&tool, &above, &open).unwrap();
+    assert!(g.lower <= 0.002 + 1e-9 && g.upper >= 0.002 - 1e-9, "{g:?}");
+}
+
+proptest! {
+    #![proptest_config(ProptestConfig::with_cases(96))]
+
+    /// A stretch of a move proven from the bounds alone (a query within no
+    /// pieces, lane SE-PERF) cuts no deeper than the acceptance at any pose
+    /// along it, as the independent checker measures each pose: for ball,
+    /// flat and bull ends resting near an uneven part, shifting and turning
+    /// about a line along X.
+    #[test]
+    fn req_op_12_a_stretch_proven_within_no_pieces_cuts_no_deeper_at_any_pose(
+        seed in prop::array::uniform4(0.0_f64..1.0),
+        profile in profiles(),
+        tip in (-2.0_f64..2.0, -2.0_f64..2.0),
+        lean in (-0.5_f64..0.5, -0.5_f64..0.5),
+        height in -0.004_f64..0.03,
+        sweep in (-1.0_f64..1.0, -1.0_f64..1.0, -0.02_f64..0.02),
+        turn in (-0.5_f64..0.5, -0.03_f64..0.03),
+    ) {
+        let allowed = 0.01;
+        let m = uneven(seed);
+        let surface = mesh(&m);
+        let geometry = Geometry::of_mesh(&m).unwrap();
+        let tool = ConvexTool::new(&profile).unwrap();
+        let axis = Vec3::new(lean.0, lean.1, 1.0);
+        let unit = UnitVec3::new(axis).unwrap().get();
+        // Rested near the part: lowered by its gap from above, then set
+        // `height` from there.
+        let start = Point3::new(tip.0, tip.1, 3.0);
+        let Some(g0) = surface.tool_gap(&profile, &line(start, axis), &GapQuery::pose(8.0)) else {
+            return Ok(());
+        };
+        let tip = start + UP * (height - g0.upper);
+        let v = Vec3::new(sweep.0, sweep.1, sweep.2);
+        let x = Vec3::new(1.0, 0.0, 0.0);
+        let centre = Point3::new(0.0, 3.0 * turn.0, -6.0 + turn.0);
+        let rotation = Rotation { point: centre, axis: UnitVec3::new(x).unwrap(), angle: turn.1 };
+        let query = GapQuery::swept(v, 1.25 * allowed)
+            .rotating(rotation)
+            .accept_above(-allowed)
+            .within_pieces(0);
+        let ours = surface.tool_gap(&profile, &line(tip, axis), &query);
+        if ours.is_none_or(|g| g.lower >= -allowed) {
+            let settings = Settings { margin: 5.0, tolerance: 1e-4, budget: 20_000 };
+            for k in 0..=24 {
+                let s = f64::from(k) / 24.0;
+                let a = s * turn.1;
+                let at_tip = centre + turn_vector(tip + v * s - centre, x, a);
+                let at_axis = turn_vector(unit, x, a);
+                let at = interval(geometry.face_gap(&tool, at_tip, at_axis, 1.25 * allowed, allowed, &settings));
+                prop_assert!(at.upper >= -allowed - 1e-6, "{ours:?} above {at:?} at {s}");
+            }
+        }
+    }
+}
