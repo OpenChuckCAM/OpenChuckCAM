@@ -3614,12 +3614,8 @@ mod tests {
         assert!(started.elapsed().as_secs_f64() < 1.0, "{:?}", started.elapsed());
     }
 
-    #[test]
-    fn req_op_12_the_crankshaft_pin_root_move_is_proven_clear() {
-        // The move that stalled the exact motion bound on the public
-        // crankshaft (27 Nov 2026): the 3.175 mm ball at the pin's root
-        // against the web at X 30, touching the web's edge (the independent
-        // checker reads its gap 0 there), turning 0.00097 rad about X.
+    /// The public crankshaft, `testdata/stl/crankshaft.stl`.
+    fn crankshaft() -> TriangleMesh {
         let bytes = std::fs::read(concat!(
             env!("CARGO_MANIFEST_DIR"),
             "/../../testdata/stl/crankshaft.stl"
@@ -3640,7 +3636,16 @@ mod tests {
             }
             mesh.triangles.push(ids);
         }
-        let surface = crate::MeshSurface::new(&mesh).unwrap();
+        mesh
+    }
+
+    #[test]
+    fn req_op_12_the_crankshaft_pin_root_move_is_proven_clear() {
+        // The move that stalled the exact motion bound on the public
+        // crankshaft (27 Nov 2026): the 3.175 mm ball at the pin's root
+        // against the web at X 30, touching the web's edge (the independent
+        // checker reads its gap 0 there), turning 0.00097 rad about X.
+        let surface = crate::MeshSurface::new(&crankshaft()).unwrap();
         let profile = ball_of(1.5875);
         let line = ToolLine {
             origin: Point3::new(30.12811112067591, 4.371648036338245, 1.5876255946573061),
@@ -3659,6 +3664,92 @@ mod tests {
         let answer = check_motion(&surface, &checks, 0.01, travel, &pose);
         assert!(answer.is_none(), "{:?}", answer.map(|a| a.0));
         assert!(started.elapsed().as_secs_f64() < 2.0, "{:?}", started.elapsed());
+    }
+
+    #[test]
+    fn req_op_12_a_grown_tool_grazing_the_crankshaft_web_is_settled_at_once() {
+        // One sample of the move check on the public crankshaft (27 Nov
+        // 2026): the 3.175 mm ball grown by a tenth of the tolerance at the
+        // pin's root, its flutes running along the edge of a web face at
+        // X 30. A single pose (no motion in the query): the bound from the
+        // tool's lower surface along the face's normal settles it, where the
+        // dual's multipliers alone ran out of pieces; the independent checker
+        // finds no cut deeper than the tolerance there either.
+        use openchuck_testkit::contact::{ConvexTool, Geometry, Settings};
+        let mesh = crankshaft();
+        let surface = crate::MeshSurface::new(&mesh).unwrap();
+        let profile = cutter::grow_profile(&ball_of(1.5875), 0.001).unwrap();
+        let line = ToolLine {
+            origin: Point3::new(30.1281298926032, 5.027586765226726, 0.26685493010008204),
+            axis: UnitVec3::new(Vec3::new(0.0, 0.4463386324178039, -0.8948641378507715)).unwrap(),
+        };
+        let started = std::time::Instant::now();
+        let g = surface
+            .tool_gap(&profile, &line, &move_query(Vec3::ZERO, 0.01))
+            .unwrap();
+        let took = started.elapsed().as_secs_f64();
+        assert!(proven(&g, 0.01), "{g:?}");
+        assert!(took < 0.5, "{took} s");
+        let geometry = Geometry::of_mesh(&mesh).unwrap();
+        let settings = Settings { margin: 5.0, tolerance: 1e-4, budget: 200_000 };
+        let theirs = geometry
+            .face_gap(&ConvexTool::new(&profile).unwrap(), line.origin, line.axis.get(), LAYER * 0.01, 0.01, &settings)
+            .unwrap();
+        assert!(theirs.upper >= -0.01, "{theirs:?}");
+    }
+
+    #[test]
+    fn req_op_12_a_sample_the_coarse_growth_fails_is_proven_finer() {
+        // A ball resting 0.0095 mm into a plate, within the tolerance of
+        // 0.01: grown by a tenth of the tolerance it reads 0.0105, so the
+        // sample is checked again with the tool grown a quarter as much, and
+        // proven. 0.0105 mm into the plate it fails at every growth.
+        let plate = TriangleMesh {
+            vertices: vec![
+                Point3::new(-5.0, -5.0, 0.0),
+                Point3::new(5.0, -5.0, 0.0),
+                Point3::new(5.0, 5.0, 0.0),
+                Point3::new(-5.0, 5.0, 0.0),
+            ],
+            triangles: vec![[0, 1, 2], [0, 2, 3]],
+        };
+        let surface = crate::MeshSurface::new(&plate).unwrap();
+        let profile = ball_of(1.0);
+        let checks = checks_for(&profile, 0.01);
+        let at = |depth: f64| {
+            move |_: f64| ToolLine {
+                origin: Point3::new(0.2, 0.1, -depth),
+                axis: UnitVec3::new(Vec3::new(0.0, 0.0, 1.0)).unwrap(),
+            }
+        };
+        assert!(check_motion(&surface, &checks, 0.01, 0.0, &at(0.0095)).is_none());
+        assert!(check_motion(&surface, &checks, 0.01, 0.0, &at(0.0105)).is_some());
+    }
+
+    #[test]
+    fn req_op_12_a_move_that_dips_between_its_ends_is_found() {
+        // A move clear of a plate at both ends that dips 0.05 mm into it at
+        // its middle: the samples between find the cut.
+        let plate = TriangleMesh {
+            vertices: vec![
+                Point3::new(-5.0, -5.0, 0.0),
+                Point3::new(5.0, -5.0, 0.0),
+                Point3::new(5.0, 5.0, 0.0),
+                Point3::new(-5.0, 5.0, 0.0),
+            ],
+            triangles: vec![[0, 1, 2], [0, 2, 3]],
+        };
+        let surface = crate::MeshSurface::new(&plate).unwrap();
+        let profile = ball_of(1.0);
+        let checks = checks_for(&profile, 0.01);
+        let pose = |f: f64| ToolLine {
+            origin: Point3::new(-1.0 + 2.0 * f, 0.0, 0.02 - 0.07 * (std::f64::consts::PI * f).sin()),
+            axis: UnitVec3::new(Vec3::new(0.0, 0.0, 1.0)).unwrap(),
+        };
+        // No point moves more than the path's length, about 2.01 mm.
+        let found = check_motion(&surface, &checks, 0.01, 2.1, &pose);
+        assert!(found.is_some_and(|(g, ..)| g.upper < -0.01), "{:?}", found.map(|f| f.0));
+        assert!(check_motion(&surface, &checks, 0.01, 2.1, &|f| pose(if f < 0.5 { 0.0 } else { 1.0 })).is_none());
     }
 
     proptest::proptest! {

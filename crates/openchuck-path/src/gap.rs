@@ -79,6 +79,38 @@ const MIN_SPAN: f64 = 1e-9;
 /// [`GAP_ACCURACY`].
 pub const SIDE_MARGIN: f64 = 1e-7;
 
+/// The least of `m . y` over the corners of the polytope where
+/// `n . y <= b` for every `(n, b)` of `planes`, by intersecting each three
+/// of them; `None` when none lies within all (the polytope is empty: it is
+/// bounded by the face's prism, floor and plane).
+fn polytope_least(planes: &[(Vec3, f64)], m: Vec3) -> Option<f64> {
+    let scale = planes.iter().map(|p| p.1.abs()).fold(1.0, f64::max);
+    let mut least: Option<f64> = None;
+    let count = planes.len();
+    for i in 0..count {
+        for j in i + 1..count {
+            for k in j + 1..count {
+                let (p, q, r) = (planes[i], planes[j], planes[k]);
+                let det = p.0.dot(q.0.cross(r.0));
+                if det.abs() < 1e-14 {
+                    continue;
+                }
+                let y = (q.0.cross(r.0) * p.1 + r.0.cross(p.0) * q.1 + p.0.cross(q.0) * r.1)
+                    * (1.0 / det);
+                if planes.iter().all(|(n, b)| n.dot(y) <= b + 1e-10 * scale) {
+                    let v = m.dot(y);
+                    least = Some(least.map_or(v, |l: f64| l.min(v)));
+                }
+            }
+        }
+    }
+    least
+}
+
+/// The golden-section steps of the search for a leaning plane's angle in
+/// [`Body::lower_surface`].
+const LEAN_STEPS: u32 = 40;
+
 /// The angles, in radians, a separating plane leans from a side of the
 /// prism towards the layer's floor ([`Body::below_layer`]).
 const LEANS: [f64; 8] = [0.0, 0.05, 0.15, 0.3, 0.5, 0.75, 1.05, 1.35];
@@ -1144,6 +1176,101 @@ impl<'a> Body<'a> {
         Some((height, x))
     }
 
+    /// Planes touching the tool from below at a single pose (no shift or
+    /// turn), each `(n, k)` with the tool where `n . y >= k` and `n . m > 0`
+    /// (the owner's answer of 27 Nov 2026: the tool's lower surface along
+    /// the face's normal): tangent where the column through the piece's
+    /// centre or a corner first meets the tool, and leaning from the face's
+    /// normal by a searched angle, towards the piece from under the tool and
+    /// across each side. Where the tool runs along the edge of the face's
+    /// region, the dual's multipliers grow without end; these do not.
+    fn lower_planes(&self, face: &Face) -> Vec<(Vec3, f64)> {
+        let m = face.m;
+        let mut planes = Vec::new();
+        let centre = centroid(&face.corners);
+        for x in std::iter::once(centre).chain(face.corners) {
+            if let Some((_, y)) = self.column_first(face, x) {
+                // The tool's outward normal there, turned to face into it.
+                let n = -self.at_first(y).1;
+                if n.dot(m) > 1e-9 {
+                    planes.push((n, n.dot(y - Point3::ORIGIN)));
+                }
+            }
+        }
+        let (a, b) = self.spine;
+        let middle = Point3::new(0.5 * (a.x + b.x), 0.5 * (a.y + b.y), 0.5 * (a.z + b.z));
+        let to = centre - middle;
+        let e0 = UnitVec3::new(to - m * to.dot(m)).ok().map(UnitVec3::get);
+        let leans: Vec<Vec3> = e0
+            .into_iter()
+            .chain(face.sides.iter().map(|(n, _)| *n))
+            .chain(face.around.iter().copied())
+            .filter(|e| e.length() > 0.0)
+            .collect();
+        let golden = 0.5 * (5.0_f64.sqrt() - 1.0);
+        let plane = |e: Vec3, t: f64| {
+            let w = m * t.cos() + e * t.sin();
+            (w, self.lowest_first(w))
+        };
+        let corner_bound = |(n, k): (Vec3, f64)| {
+            face.corners
+                .iter()
+                .map(|x| (k - n.dot(*x - Point3::ORIGIN)) / n.dot(m))
+                .fold(f64::INFINITY, f64::min)
+        };
+        for e in leans {
+            let (mut lo, mut hi) = (0.0_f64, std::f64::consts::FRAC_PI_2 - 1e-6);
+            for _ in 0..LEAN_STEPS {
+                let (c, d) = (hi - golden * (hi - lo), lo + golden * (hi - lo));
+                if corner_bound(plane(e, c)) >= corner_bound(plane(e, d)) {
+                    hi = d;
+                } else {
+                    lo = c;
+                }
+            }
+            planes.push(plane(e, 0.0));
+            planes.push(plane(e, 0.5 * (lo + hi)));
+        }
+        planes
+    }
+
+    /// The best bound the planes of [`Self::lower_planes`] give on the least
+    /// height above the face of a tool point over its prism: each at the
+    /// prism's corners.
+    fn lower_surface(&self, face: &Face) -> Option<f64> {
+        let m = face.m;
+        self.lower_planes(face)
+            .into_iter()
+            .map(|(n, k)| {
+                face.corners
+                    .iter()
+                    .map(|x| (k - n.dot(*x - Point3::ORIGIN)) / n.dot(m))
+                    .fold(f64::INFINITY, f64::min)
+            })
+            .filter(|v| v.is_finite())
+            .reduce(f64::max)
+    }
+
+    /// The same over the face's clipped region below it (see [`Face`]):
+    /// the least height over the polytope of the prism, the clips, the
+    /// layer's floor, the face's plane and one of the planes, found at its
+    /// corners; `INFINITY` where for some plane it is empty (no tool point
+    /// counts below the face).
+    fn lower_surface_clipped(&self, face: &Face, limit: f64) -> Option<f64> {
+        let m = face.m;
+        let mut region: Vec<(Vec3, f64)> = face.constraints().copied().collect();
+        region.push((-m, limit - face.d));
+        region.push((m, face.d));
+        self.lower_planes(face)
+            .into_iter()
+            .map(|(n, k)| {
+                let mut with = region.clone();
+                with.push((-n, -k));
+                polytope_least(&with, m).map_or(f64::INFINITY, |v| v - face.d)
+            })
+            .reduce(f64::max)
+    }
+
     /// The turn over the fractions `s0` to `s1`, radians.
     fn turn_over(&self, s0: f64, s1: f64) -> f64 {
         self.angle.abs() * (s1 - s0)
@@ -1620,6 +1747,16 @@ pub(crate) fn search(
                     p.normal,
                     p.corners
                 );
+                let f = Face::new(p.corners, p.normal);
+                let c = centroid(&p.corners);
+                eprintln!(
+                    "     lower_surface {:?} column centre {:?} beside {} below {} top {}",
+                    body.lower_surface(&f),
+                    body.column_first(&f, c),
+                    body.beside(&f, 0.0, 1.0),
+                    body.below_layer(&f, limit, 0.0, 1.0),
+                    body.top_over(&f, 0.0, 1.0)
+                );
             }
             let mut tris: Vec<u32> = ps.iter().map(|p| p.triangle).collect();
             tris.sort();
@@ -1830,6 +1967,13 @@ impl Search<'_, '_> {
                 near = Some((h, at, f));
             }
         }
+        // At a single pose, where the dual leaves the piece short, the
+        // tool's lower surface may bound it better.
+        if !self.body.turns() && self.body.sweep.length() <= 0.0 && open_lower < -self.inside {
+            if let Some(v) = self.body.lower_surface(&open) {
+                open_lower = open_lower.max(v);
+            }
+        }
         // Below the face only the clipped region counts. Its bound is only
         // ever higher than the open region's, so it is needed only where
         // that is short of what the caller accepts.
@@ -1844,6 +1988,12 @@ impl Search<'_, '_> {
         let clipped_beside = has_clips && short && self.body.beside(&clipped, s0, s1);
         if clipped_beside {
             clipped_lower = f64::INFINITY;
+        }
+        let single = !self.body.turns() && self.body.sweep.length() <= 0.0;
+        if has_clips && wanted && !clipped_beside && single {
+            if let Some(v) = self.body.lower_surface_clipped(&clipped, self.limit) {
+                clipped_lower = clipped_lower.max(v);
+            }
         }
         if has_clips && wanted && !clipped_beside {
             for &f in &poses {
