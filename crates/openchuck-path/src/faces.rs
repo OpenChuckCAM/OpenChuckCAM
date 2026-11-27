@@ -149,6 +149,10 @@ pub(crate) struct FreeEnd {
     pub(crate) face: f64,
     /// Whether the face looks along +X (the part's far end) rather than -X.
     pub(crate) far: bool,
+    /// The last X of the tool's axis, over every line of A, where the drop
+    /// still finds the part: where a finish that follows the part down past
+    /// a point ends (decision record 0695, Q2).
+    pub(crate) edge: f64,
 }
 
 /// As [`turns`], for a finishing helix over the target's own range: the
@@ -460,7 +464,12 @@ fn find(
                 (outer - clear, outer + radius)
             };
             if !held_at(x) {
-                free.push(FreeEnd { x, face, far });
+                free.push(FreeEnd {
+                    x,
+                    face,
+                    far,
+                    edge: outer,
+                });
             }
         }
         context.check_cancelled()?;

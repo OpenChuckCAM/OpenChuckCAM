@@ -5,3 +5,6 @@ captured_at = "4dc41a5e3758df6e0149e41412831b37fadc0f32"
 captured_on = "2026-11-25"
 renderer = "Mesa lavapipe (software Vulkan) on Xvfb"
 window = "1920x1080"
+# Reviewed for #759 (lane UI-BUGS, PR 3): no tutorial screen shows an operation's Geometry
+# section or a selection set, which is all that commit changes on screen.
+reviewed_at = "54a2d6a0fa4d86d64c47cd75f6ec9b0e4f72ee0b"

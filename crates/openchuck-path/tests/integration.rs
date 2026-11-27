@@ -12,6 +12,8 @@
 
 #[path = "adaptive.rs"]
 mod adaptive;
+#[path = "adaptive_held_steps.rs"]
+mod adaptive_held_steps;
 #[path = "axial.rs"]
 mod axial;
 #[path = "axial_links.rs"]
@@ -84,6 +86,8 @@ mod facing_selection;
 mod facing_validation;
 #[path = "field.rs"]
 mod field;
+#[path = "finish_to_a_point.rs"]
+mod finish_to_a_point;
 #[path = "finishing.rs"]
 mod finishing;
 #[path = "finishing_links.rs"]

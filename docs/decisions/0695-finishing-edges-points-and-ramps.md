@@ -272,7 +272,7 @@ PQ-2 bounds the depth per traverse only on passes that start as a spiral, as Q3 
 - **Refusals and plunges:** no operation now refuses (too many legs or moves), and none newly falls back to a plunge.
 - **Raw output:** the logs and helper scripts were kept only in the session's scratch space. They were noise for the archive and were not committed.
 
-**One thing Q8 does not cover.** A whole ring still ramps round itself (Q3), and each turn takes `2πr · tan θ`, which grows with the radius. On the baluster's forced rough at 6°, a ring ramp reaches a depth per traverse of 4.700 mm against the 1.5875 mm radius, and Q8's bound does not touch it. Bounding it the same way would mean ramping a large ring back and forth, or limiting the angle by the radius. That is left to Q9's answer (OI-2239) rather than built silently.
+**One thing Q8 does not cover.** A whole ring still ramps round itself (Q3), and each turn takes `2πr · tan θ`, which grows with the radius. On the baluster's forced rough at 6°, a ring ramp reaches a depth per traverse of 4.700 mm against the 1.5875 mm radius, and Q8's bound does not touch it. Bounding it the same way would mean ramping a large ring back and forth, or limiting the angle by the radius. That is left to Q9's answer (OI-2239) rather than built silently. *(Answered: Q9 part 3, A (V1), below; built in PQ-2b.)*
 
 ### Q9: the settings that configure a ramp
 
@@ -307,7 +307,7 @@ The program also holds fixed bounds that no setting shows:
 2. **Three settings make a plunge, under three names.** Entry Plunge, Allow single-point plunge and Plunge to remove face nubs each plunge in different places. "Single-point" no longer describes what the setting covers, since PQ-2 added a short stretch and a ring with too many turns.
 3. **Two settings for one exception that goes against the load goal.** Steeper ramp near the axis and Maximum ramp angle make the ramp steeper, which is more load per mm, so as to avoid either a plunge or a refusal. That trade only makes sense in comparison with a plunge, but the settings do not say so.
 4. **One angle for Ramp and Helix.** A helix's depth per turn is `π · d_helix · tan θ`, so the same angle loads the tool differently on a helix than on a back-and-forth ramp.
-5. **The overlap with lane TOOL-LOAD.** TOOL-LOAD-1 (#927) proposes **Limit tool load**: a cut-section limit for the cutting moves, measured in the simulation. Its Q6 A measures entry moves like any other and names the Ramp angle setting when the heaviest stretch is in an entry. A second load setting on the ramp would give the user two limits for one tool.
+5. **The overlap with lane TOOL-LOAD.** [Decision 0698](0698-managing-tool-load.md) (#927, proposed as TOOL-LOAD-1) proposes **Limit tool load**: a cut-section limit for the cutting moves, measured in the simulation. Its Q6 A measures entry moves like any other and names the Ramp angle setting when the heaviest stretch is in an entry. A second load setting on the ramp would give the user two limits for one tool.
 
 #### Every downside of each option
 
@@ -379,12 +379,56 @@ Under the owner's standing rule, the effort figures in this list are information
 2. A new setting, **Largest depth per traverse** (mm), with 0 meaning the tool radius. At its default nothing changes beyond Q8, so saved operations keep their programs.
 3. **Whole rings are measured before anything is built for them.** The measure covers back and forth over the ring (V1) and a shallower angle round it (V2), and their effect on saved ramp programs, the steeper ramp near the axis, refusals and plunges, length and time. The numbers go to the owner, and the ring-holding behaviour is built only once the owner confirms them (OI-2239 stays open for that part).
 
-**Agreed with lane TOOL-LOAD (25 Nov 2026, in writing, at the owner's request; recorded in TOOL-LOAD-1 Q6 too).**
+#### Whole rings: the measured impact (Q9, part 3)
+
+**Measured on 26 Nov 2026** with a throwaway prototype on PQ-2's Q8 head `ec7d7400`, in a Linux container, using release builds. Nothing was committed. A ring counts as over the bound when its depth per traverse, `min(2πr · tan θ, rise)`, exceeds the bound (the tool radius by default). Two ways to hold such a ring were measured:
+
+- **V1, back and forth over the ring.** The ring is first planned as today, including any steepening. If it is over the bound, it is ramped back and forth over its own points at the same angle, with legs of at most `R / (2 tan θ)`, as a partial ring is.
+- **V2, a shallower angle round the ring.** The angle is capped at `R / (2πr)`, so each turn takes at most the bound. Steeper ramp near the axis may only steepen up to that cap.
+
+**Results:**
+- **No golden, stored program or saved operation changes.** None of the 17 operation files in the repository's examples and test data uses Entry Ramp, and the app suite (goldens, posting, `ramp_example`) passes under both variants.
+- **Two path tests change under both variants:**
+  - the descent on the axis (the axis case below; the prototype capped it, which the build does not);
+  - the steeper-ramp test's ring of radius 0.75 mm with a 0.5 mm tool radius. V1 takes 66 legs there; V2 refuses it at 32.8 turns.
+
+| Case | Before | V1 | V2 |
+| --- | --- | --- | --- |
+| Baluster, Ramp forced on, 6° (flat end, R 1.5875) | deepest 4.700 mm; program 3332.2 s | 1.587 mm; 12 of 16 rings changed, 4 to 8 legs each, 46 more A reversals; **+0.78%** | 1.588 mm; angles down to 1.31°; ring ramps 644 → 1505 mm; **+5.80%** |
+| Baluster, 3° | 2.987 mm; 3837.0 s | 1.587 mm; 9 rings; **+0.92%** | 1.588 mm; **+2.48%** |
+| Crankshaft example, rotary roughing in rings, 3° (2 of 450 passes start as whole rings) | 2.202 mm; 30961.8 s | 1.587 mm; **+0.02%** | 1.165 to 1.587 mm; **+0.17%** |
+| The six blisk and crankshaft cases of OI-2232 | no whole-ring starts | unchanged | unchanged |
+| Stress case: the baluster's finish on a 44 mm stock, 3°, Steeper ramp near the axis on | 5.598 mm; plunges pass 23; 4608.3 s | 1.5875 mm; plunges 23 and 24 (24 is the axis case, capped in the prototype); **−2.6%** (it keeps the steepened angle on its legs) | 1.5875 mm; **plunges 18 to 24, up to about 21 mm deep**; **+4.4%** |
+
+- **Overcut:** the deepest overcut is the same in every case and variant (0.0427 to 0.0485 mm, within one 0.1 mm cell).
+- **Cut section** at the deepest step, estimated from the engaged tool's section:
+  - flat end: 14.9 → 5.0 mm² (baluster 6°) and 9.5 → 5.0 mm² (3°);
+  - ball, stress case: 16.7 → 4.0 mm².
+
+**What the numbers show:**
+- V1 holds every ring to the bound with no new refusal or plunge away from the axis, keeps the Ramp angle, and puts rings under the same rule as partial rings and spirals. Its cost in the output is that A reverses during the entry on rings that went one way round.
+- V2 ignores the Ramp angle on large rings (the angle comes from the radius alone).
+- V2 can make a ring need `rise / R` turns, so any ring entry deeper than 10 tool radii is refused, or plunged. That is a heavier load than the ramp it replaces. In the stress case, five rings that ramp today became plunges of up to about 21 mm.
+- V2 sometimes cuts shallower than needed, because whole turns are rounded up.
+
+**Recommendation: V1.** It meets the bound everywhere with the least change to the output: the same angle, no new plunges, and the shortest programs. V2's plunges defeat the purpose of the bound.
+
+**The axis, a further question for the owner, still open.** A descent on the rotary axis (decision 0543 point 2) cannot go back and forth. Holding it to the bound would mean capping its angle at `tan θ = 1 / (2π)`, about 9.04°, so a deep descent at the end face needs more turns. Past 10 turns it is plunged: in the stress case, a 22.8 mm descent that today fits in 10 turns at 12.87° became a plunge in the prototype. The two choices:
+- **Leave descents on the axis outside the bound.** The note gives their depth per turn, up to 2.28 mm in the stress case.
+- **Bound them too**, and accept the plunges.
+
+Recommended: **leave the axis outside the bound**, because the plunge it would force is the heavier load. Until the owner answers, descents on the axis are left as they are (OI-2239).
+
+**The owner's answer (26 Nov 2026, relayed by the coordinator): A (V1).** A whole ring whose depth per traverse would exceed the bound is ramped back and forth over its own ring at the same Ramp angle, with the same rule and the same bound function as lines and spirals; A reverses during the entry. It is built in PQ-2b (see *Verification (PQ-2b)*).
+
+**The owner's answer on the axis (26 Nov 2026, relayed by the coordinator): A.** Descents on the rotary axis stay outside the depth limit, as built. The ramp note gives their depth per turn, and the user guide says that descents on the axis are outside the limit. No code changes. OI-2239 closes.
+
+**Agreed with lane TOOL-LOAD (25 Nov 2026, in writing, at the owner's request; recorded in decision 0698 Q6 too).**
 1. **One function.** A single crate-private function in `assemble/entry.rs`, owned by PQ-2, gives a ramp's largest depth per traverse: the minimum of the tool radius, one turn of a spiral ramp at its start radius (spirals only), the Largest depth per traverse setting, and an optional cap in mm. PQ-2 passes no cap.
    - TL-2 edits only the call site, to supply `L ÷ D` when Limit tool load is on.
    - PQ-2 owns `path_ramp::back_and_forth`, the follow and ring-ramp code and the ramp note, including its wording "the tool-load limit", which TL-2 only selects.
 2. **Merge order.** PQ-2 (#930) merges first, and TL-2 rebases on it. TL-1 is unaffected.
-3. **Terms.** Both lanes use TOOL-LOAD-1's glossary: Ramp angle, Depth per traverse and Cut section.
+3. **Terms.** Both lanes use decision 0698's glossary: Ramp angle, Depth per traverse and Cut section.
 4. **Tests.** PQ-2 tests the ramp's geometry. TL-2 adds one test: with Limit tool load on and `L ÷ D` below the radius, the deepest ramp step is at most `L ÷ D` and the note names the tool-load limit. Neither lane re-tests the other's figure; TL-1 measures ramp moves like any other fed move.
 5. **Settings.** Limit tool load adds no ramp setting, under any answer.
 
@@ -400,7 +444,7 @@ These belong in TOOL-LOAD:
 
 Neither lane adds a second load limit.
 
-**Saved projects, under every option.** A saved operation keeps its settings. The labels and grouping (A) change no program. Q8 A changes the program of a saved operation with Entry Ramp on a line or partial ring whose legs are longer than `R / (2 · tan θ)`; the measurement above lists those that change. B adds no change beyond Q8. C would change programs only through TL-2's own rule for saved operations (TOOL-LOAD-1 Q7).
+**Saved projects, under every option.** A saved operation keeps its settings. The labels and grouping (A) change no program. Q8 A changes the program of a saved operation with Entry Ramp on a line or partial ring whose legs are longer than `R / (2 · tan θ)`; the measurement above lists those that change. B adds no change beyond Q8. C would change programs only through TL-2's own rule for saved operations (decision 0698 Q7).
 
 ## Effort, risk and how the work would be split
 
@@ -412,7 +456,7 @@ Neither lane adds a second load limit.
 | PQ-4 | OI-2198 Q6 A | 3 to 4 days | low to medium | none | none | yes; before PQ-3 |
 | — | #421 Q7 A | close with this record | — | — | — | — |
 
-Lane SIMUL-EDGE works in `simultaneous.rs` and `simultaneous/hidden.rs`, and in `surface.rs` with the `SurfaceSource` implementations if it adds a clearance query. This lane's PQ-2 is in `assemble/entry.rs`, `strategy.rs` and `swarf.rs`, PQ-3 in `extend.rs` and `helical.rs` (and the finishing schemas), PQ-4 in `helical.rs` (the adaptive measure). PQ-3 and PQ-4 share `helical.rs`, so they are merged one after the other. In this lane only PQ-2 needs the workspace minor bump. Lane SIMUL-EDGE's clearance query, if added to the public `SurfaceSource` trait, is a second breaking change; the two do not collide in what they change (PQ-2 removes `Strategy::ramps_round_the_part` and the spiral ramp's drop on the surface; SIMUL-EDGE adds to `SurfaceSource`), and they meet only in test files that implement `SurfaceSource` (for example `crates/openchuck-path/tests/swarf.rs`), a textual merge. Each takes its own minor bump in merge order (decision 0048), as the coordinator set. Each changes the user guide's text for what it changes, and each adds a *Development version* line to the release notes and an entry to `crates/openchuck-path/CHANGELOG.md`. Total for this lane, without #710: about 17 to 21 days (PQ-2 6 to 7 with the tool-load bound, notes and tests; PQ-4 3 to 4; PQ-3 8 to 10 with the adaptive stepover over the tip), so about three and a half to four weeks with the answers so far. Order: PQ-2 is independent; PQ-4 comes before PQ-3, because adaptive spacing over the tip needs PQ-4's span and query fixes, and both change `helical.rs`: PQ-3 is branched from PQ-4 (or rebased on it once it is merged) and merged after it, so they never conflict.
+Lane SIMUL-EDGE works in `simultaneous.rs` and `simultaneous/hidden.rs`, and in `surface.rs` with the `SurfaceSource` implementations if it adds a clearance query. This lane's PQ-2 is in `assemble/entry.rs`, `strategy.rs` and `swarf.rs`, PQ-3 in `extend.rs` and `helical.rs` (and the finishing schemas), PQ-4 in `helical.rs` (the adaptive measure). PQ-3 and PQ-4 share `helical.rs`, so they are merged one after the other. In this lane only PQ-2 needs the workspace minor bump for an API change; PQ-2b (Q9 part 3) changes output only and takes its own minor bump under decision 0048 (0.70.0, in merge order). Lane SIMUL-EDGE's clearance query, if added to the public `SurfaceSource` trait, is a second breaking change; the two do not collide in what they change (PQ-2 removes `Strategy::ramps_round_the_part` and the spiral ramp's drop on the surface; SIMUL-EDGE adds to `SurfaceSource`), and they meet only in test files that implement `SurfaceSource` (for example `crates/openchuck-path/tests/swarf.rs`), a textual merge. Each takes its own minor bump in merge order (decision 0048), as the coordinator set. Each changes the user guide's text for what it changes, and each adds a *Development version* line to the release notes and an entry to `crates/openchuck-path/CHANGELOG.md`. Total for this lane, without #710: about 17 to 21 days (PQ-2 6 to 7 with the tool-load bound, notes and tests; PQ-4 3 to 4; PQ-3 8 to 10 with the adaptive stepover over the tip), so about three and a half to four weeks with the answers so far. Order: PQ-2 is independent; PQ-4 comes before PQ-3, because adaptive spacing over the tip needs PQ-4's span and query fixes, and both change `helical.rs`: PQ-3 is branched from PQ-4 (or rebased on it once it is merged) and merged after it, so they never conflict.
 
 Nothing here needs the owner's hand test before it is built. After PQ-3 (and lane SIMUL-EDGE's build), an optional air cut or a cut in wood of the baluster's tip and a blisk region would be routed through lane OWNERCHECKS-PACKS with public example projects.
 
@@ -445,7 +489,7 @@ Added (provisional numbers):
 Added by the addendum (provisional numbers):
 
 - **OI-2238:** build Q8 A in PQ-2 (#930): the tool-radius bound on the depth per traverse of every back-and-forth ramp, once the owner has seen the measured impact.
-- **OI-2239:** the owner's answer to Q9, the settings that configure a ramp (A, B, C or D), including whether a whole ring's depth per traverse is bounded too.
+- **OI-2239:** the owner's answer to Q9, the settings that configure a ramp (A, B, C or D), including whether a whole ring's depth per traverse is bounded too. Q9 answered B (built in #930); its whole-ring part answered A (V1, 26 Nov 2026, relayed) and built in PQ-2b; the descent on the axis answered A (26 Nov 2026, relayed): left outside the limit, as built. Closed.
 
 Updated in place: OI-318 and OI-337 (the blisk now generates and cuts its blade tips; this record), OI-2198 (the causes found).
 
@@ -497,3 +541,113 @@ Updated in place: OI-318 and OI-337 (the blisk now generates and cuts its blade 
     - a whole ring's depth per traverse is reported as the mean per turn;
     - two test precisions.
 - **Open items:** OI-2232 and OI-2238 close with this pull request. OI-2239 (whole rings and the axis) stays open for the owner.
+
+## Verification (PQ-4, pull request #928)
+
+- **What was built (Q6 A):** helical finishing as a spiral, with adaptive spacing on, now measures the gaps between its wraps only where the whole gap is outside the held regions' keep-out bands and more than the tool's reach from each face turn (decision 0297). It no longer spends its query budget inside the held region or across a step wall, where a flat end's height jumps from one wrap to the next and no spacing removes it. Rings, and every operation with adaptive spacing off, are unchanged. No API change.
+- **Built differently from the record:** Q6 A's third item, naming the frame ("setup X") in the message, was not built. No other message, the Results or the guide names a frame for X, and the places that misled are no longer reported. It is raised as OI-2237.
+- **How:** tests first.
+  - `adaptive_held_steps::req_op_04_req_set_09_adaptive_spacing_beside_a_held_step_confirms_a_flat_end` and `adaptive_held_steps::req_op_04_adaptive_spacing_at_step_walls_confirms_a_flat_end` use a synthetic stepped cylinder of r 10/8/6 with a 3.175 mm flat end. Both failed on `main` `aadf3cc8` with "at 36 places, the first near X 21.585", and both pass. Together they take 0.26 s.
+  - The unit test `helical::tests::req_op_04_req_set_09_the_helix_is_measured_only_outside_bands_and_face_turns`.
+- **Results (OI-2198's case, the stepped first-cut part with the flat end, `openchuck-cli regenerate` and `simulate`):**
+  - With adaptive spacing on: no partial path, and no passes added, in 8 s, against 44 s and 23 unconfirmed places before.
+  - With adaptive spacing off: the program is byte-identical.
+  - The simulations of the two programs are the same: Finish removes 363.4 mm³, the most material left is 0.5018 mm at X 115.990 beside the held region, and the deepest overcut is 0.0457 mm.
+  - No golden changes.
+- **Coverage:** 51 of the 52 changed lines in `helical.rs` are run. The one not run is the branch for a helix with nothing left to measure.
+- **Not verified:** nothing was cut or air-cut.
+- **Open items:** OI-2198 closes; OI-2237 is open.
+
+## Verification (PQ-2b, Q9 part 3)
+
+- **What was built** (the owner's answer A (V1) to Q9 part 3, 26 Nov 2026, relayed by the coordinator; issue #786):
+  - `Entry::ring_plan` plans a whole ring's ramp round itself as before, the steeper search near the axis included. Where the depth per traverse that ramp would cut, `min(2πr · tan θ, rise)` (`RingRamp::depth_per_traverse`, the figure the note already gave), is above the bound from the one function `largest_depth_per_traverse` (the tool radius, the Largest depth per traverse setting and, later, TOOL-LOAD's cap), the ring is ramped back and forth over its own points by `follow` and `path_ramp::back_and_forth`, at the angle the ring was planned at, under the same bound, the same measured drop and the same D4 rule as lines and spirals.
+  - The note names the bound that held it, and the note on reversals lists the pass. A ring planned steeper near the axis keeps that angle on its legs and is named in the steeper-ramp note.
+  - Unchanged: a ring within the bound (byte-identical moves and notes to `f7d88837` on three synthetic rings, compared by a throwaway dump test that was not kept); the descent on the rotary axis, not held to the bound (the owner's answer A of 26 Nov 2026: outside the limit); refusals and plunges of rings past 10 turns even at the Maximum ramp angle, decided before the ring is held. No public API change; the workspace takes its own minor bump for the output change (decision 0048), 0.70.0, in merge order.
+- **Tests, written first and named by requirement** (`crates/openchuck-path/tests/ramp_load.rs`):
+  - `req_op_11_a_whole_ring_deeper_per_turn_than_the_bound_is_ramped_back_and_forth_over_itself` (a ring 12 mm from the axis, a 2 mm flat end, 3°: one turn 3.95 mm against 1 mm; within the angle, depth per traverse at most 1 mm, length at least `5 / tan 3°`, every pose over the ring raised along the tool axis, A reversing in the entry only);
+  - `req_op_11_a_whole_ring_within_the_bound_still_ramps_round_itself`;
+  - `req_op_11_the_largest_depth_per_traverse_setting_holds_a_whole_ring`, which replaces `req_op_11_a_ramp_round_a_whole_ring_ignores_the_largest_depth_per_traverse`: the owner's answer reverses that contract;
+  - `req_op_11_the_note_names_the_bound_that_holds_a_whole_ring_ramped_back_and_forth`;
+  - `req_gc_07_whole_rings_held_back_and_forth_are_the_same_at_one_two_and_many_threads`;
+  - `req_op_11_req_nfr_07_the_steeper_ramp_reaches_the_maximum_before_it_refuses`, re-derived: the steeper search still settles at 21.14°, the shallowest angle that fits, short of the 45° maximum, and the ring (0.6 to 1.5 mm from the axis, a 1 mm ball) is then held back and forth, in 66 legs. Its own 0.9 mm rise in its first 10 degrees is a step no leg can soften, so there the ramp follows the pass's drop (0.829 mm) and the note says "more than the tool radius (0.500 mm), as it follows its pass's own steep drop" (decision 0543 D4, OI-2240).
+  - The descent on the axis is covered by `ramp_follows::req_op_11_req_op_15_a_ring_on_the_axis_descends_there_while_a_turns`, unchanged and passing (at 10° its 3.32 mm per turn is above the ball's 3 mm radius and is not held).
+  - On `f7d88837` the first, third and fourth failed; the second and fifth passed, as they describe behaviour that does not change. Each new test takes under 0.2 s uninstrumented (release).
+  - `openchuck-app` `operation::req_op_11_req_ui_07_the_basic_entry_settings_stay_in_entry_and_the_rest_are_in_advanced` checks the new description of Largest depth per traverse.
+- **Results** (Linux container, release builds, worktree of `f7d88837`):
+  - `cargo test --release -p openchuck-path`: 146 unit, 895 integration and 1 doc test pass. `-p openchuck-app`: 298 unit (1 ignored) and 625 integration tests pass. No golden changed (none uses Entry Ramp).
+  - `cargo fmt --all`, `cargo clippy --workspace --all-targets` (clean), and `cargo xtask deps`, `licences`, `records` and `trace` pass.
+- **Measured on the cases of the prototype** (release `openchuck-cli` of `f7d88837` and of this change, `regenerate --post makera-z1` and `simulate` at 0.1 mm cells; the crankshaft with the STEP worker):
+
+  | Case | Deepest depth per traverse | Program time | Deepest overcut | Refusals and plunges |
+  | --- | --- | --- | --- | --- |
+  | Baluster, Ramp forced on, 6° | 4.700 → 1.587 mm (Rough); Finish 1.625 → 1.587 mm | 3332.2 → 3358.2 s (+0.78%) | 0.0481 mm, the same | the same 26 single-point plunges; none new |
+  | Baluster, 3° | 2.987 → 1.587 mm; Finish 1.625 → 1.587 mm | 3836.9 → 3872.2 s (+0.92%) | 0.0481 mm, the same | none new |
+  | Crankshaft, rotary roughing in rings, 3° | 2.202 → 1.587 mm | 30225.2 → 30230.3 s (+0.02%) | 0.0427 mm, the same | none new |
+  | Stress case (baluster finish, 44 mm stock, 3°, Steeper ramp near the axis on) | rings 5.598 → 1.587 mm; the deepest is now the descent on the axis, pass 24, 2.279 mm, not held | 4608.3 → 4711.8 s (+2.25%) | 0.0481 mm, the same | pass 23 plunged, as before; none new |
+
+  - The prototype measured the stress case at −2.6%, because it also capped the axis and so plunged pass 24; the build leaves the axis alone, so pass 24 still descends on the axis and the time rises instead.
+  - The "before" figures differ slightly from the prototype's on the crankshaft (30961.8 s there), because the prototype's base was PQ-2's earlier head `ec7d7400`.
+  - Raw output was kept only in the session's scratch space and is not archived.
+- **Not verified:** no air or wood cut; the six blisk and crankshaft cases of OI-2232 were not re-run (the prototype found no whole-ring start in them); coverage was not run.
+- **Open items:** OI-2239 closes. Its ring part is settled here, and its axis part by the owner's answer A of 26 Nov 2026: descents on the axis stay outside the limit, as built.
+
+## Verification (PQ-3)
+
+- **What was built (Q2 (a) A, (b) A, (c) B):**
+  - **The setting.** A new setting, **Finish to a point** (`finishing::parameter::FINISH_TO_A_POINT`), on helical, axial and indexed finishing.
+    - It is off in the schema, so a saved operation keeps its program.
+    - `openchuck-app` writes it on for a new operation, in decision 0545 D3's pattern.
+  - **Finding the point.** A point is a free end of decision 0344 that the stock carries on past, where the tool at its last drop touches the part nearer the rotary axis than its own cutting radius at every angle.
+  - **The path past the point.**
+    - The finish carries on past the end, following the part down to the end's last drop: the helix (or the rings) at its pitch, or each pass along X.
+    - Whole turns then take the tool down by the Stepdown to the axis. The last turn puts the tool's end at its cutting radius on the axis: a ball's centre on the axis at the point's X + R.
+    - The stretch is fitted on its own, so the passes over the part are unchanged.
+    - Where Face free ends also acts, its turns are cut first.
+  - **Warnings.** Decision 0344's two Part cut free warnings are given on the new setting, unless Face free ends already faced that end down to the axis.
+  - **Adaptive spacing** measures past the point and adds passes there.
+- **Built differently from the record's wording:**
+  - **The run-out.** The run-out of Extend past the stock is unchanged. The record said decisions 0212 part B item 3 and 0546 item 3 are amended for this setting. As built, the setting adds its own stretch past the point, which follows the drop, and it does not turn the run-out into a descent. A run-out that followed the drop to the axis would cut through all the stock past the point at the axis. That would be a full-width slot, not a finish, and it would be cut free anyway.
+  - **Query accounting.** The queries spent past the end are read as the difference in the figure adaptive spacing already reports, as the record says. No separate counter was added.
+- **How:** tests first, in `crates/openchuck-path/tests/finish_to_a_point.rs` (new, 21 tests):
+  - Written before the code and seen failing first:
+    - the schema test;
+    - the reach-the-axis tests for the three strategies (for example, helical's nearest centre past the point stood at 1.587 mm from the axis);
+    - the adaptive test, which failed for axial finishing until its measure covered the point.
+  - The "off is as before" test was written first as a guard, and passed before and after.
+  - The gouge, warning, held-region, off-axis-end, GC-07, point-at-the-start and rings tests were written with the code or after it, and were not seen failing. The last two were added after the coverage check found the rings branch and the start end not reached.
+  - In `openchuck-app`, these were also written after the code:
+    - `operation::req_op_04_finish_to_a_point_is_on_for_a_new_operation_and_off_for_a_saved_one`;
+    - `adaptive_example::req_op_04_req_nfr_12_the_tutorial_piece_is_finished_to_a_point`, which was seen failing with the setting off (0.734, 0.432, 0.240, 0.113 and 0.037 mm left at 0.25 to 1.25 mm past the point, matching the record's table);
+    - `playback::req_ui_06_...`, updated for the new default.
+- **Results, the time budget** (median of five runs each, release CLI at all threads, `openchuck-cli regenerate`, on the PQ-3 head in this lane's container). Finish time is the total less a run with Rough only.
+
+  | Case | Adaptive spacing on | With Finish to a point | Change | Queries |
+  | --- | --- | --- | --- | --- |
+  | Public baluster, Finish | 17.86 s | 18.50 s | +3.6 % (budget 25 %) | 461,871 → 491,159: +29,288, 2.9 % of the 1,000,000 limit (budget 10 %) |
+  | Stepped first-cut part, Finish (no point) | 3.74 s | 3.76 s | +0.4 % | no passes added in either case; the LinuxCNC program is byte-identical |
+
+- **Results, the cut:**
+  - **The baluster tip.** With adaptive spacing and Finish to a point on, the path is complete, and 80 passes are added against 73.
+  - **What the finish leaves.** The radius the finish's swept ball leaves on the axis side past the finial's point is 0 at every sample from 0.25 to 1.25 mm past it.
+  - **Simulation.** `simulate` at 0.1 mm gives the same most-material-left (0.9239 mm) and deepest overcut (0.0502 mm) with and without the setting, and Finish removes 2168.3 against 2153.9 mm³.
+  - **Synthetic part.** On the synthetic pointed part, the generation time with adaptive spacing on grows by 3 to 4 times. The tip is a large share of that short part.
+- **Indexed finishing with 4 positions.** On the synthetic part, with adaptive spacing on, indexed finishing at 4 positions cannot confirm the material just past the point: another pass would need to be closer than the Smallest spacing. The partial-path warning names the places, as anywhere else. At 8 and 16 positions it is confirmed. Helical and axial finishing confirm it. This is noted, not changed.
+- **Checks:**
+  - `cargo test --release -p openchuck-path` and `-p openchuck-app` pass.
+  - fmt, clippy, and `cargo xtask records`, `trace`, `deps`, `licences` and `changelog check-pr` pass.
+  - No golden or shipped example changes, because their operations were saved without the setting.
+- **Coverage** (`openchuck-path`, the 12 tests run instrumented, before the last two were added): every added line in `faces.rs` is run, 175 of 177 in `finishing.rs`, 79 of 83 in `axial.rs`, 32 of 33 in `indexed.rs` and 104 of 142 in `helical.rs`. The helical lines not run were the rings branch and its adaptive spacing; the axial ones were a point at the start of the part; the Stepdown loop in `finishing.rs` was not run either. The two tests added then, and the Stepdown check added to the off-axis test, reach them. Left: the branch for a stock of no known length, as decision 0344's free ends have it.
+- **CodeRabbit on #956** (review of `7f9459a5`): four Major findings were confirmed and fixed in the release push, each with a test written first and seen failing.
+  - **Stock-to-leave zones.** A point under a part of the surface with its own stock to leave is not finished to, so its allowance is kept: `req_op_04_a_point_under_a_zone_with_more_stock_to_leave_is_not_finished_to`.
+  - **Two cut rings.** With a point at each end, a held region beyond the other ring no longer suppresses the part's own warning: `req_nfr_12_a_held_region_past_another_cut_does_not_hold_the_part`.
+  - **Finishing layers.** With Finishing layers on, helical finishing's run past the point is cut in the same layers: `req_op_04_the_run_past_a_point_is_cut_in_finishing_layers`. Axial and indexed finishing were already layered.
+  - **Rings with a point at the start.** Rings past a point at the start are measured round their whole turn; the rings no longer take the helix's shifted start angle: `req_op_04_rings_past_a_point_at_the_start_are_measured`.
+  - **A Minor, also fixed:** a Stepdown too small to resolve no longer loops without end; the turns down to the axis are at most 1000 (`req_nfr_07_a_tiny_stepdown_does_not_hang_the_turns_to_the_axis`; not run before the fix, as it would hang).
+  - **CodeRabbit's second review** (of the release head `2abbf77e`) raised two more Majors. Both were confirmed, and the coordinator allowed one fix push for them; each test failed first:
+    - **The selected region.** A point end is kept only where the selected region allows the tool all round at the end's last drop, so no turn goes down to the axis at an unselected point: `req_op_02_a_point_outside_the_selected_region_is_not_finished_to`.
+    - **Points per turn.** Each turn down to the axis has at most 3600 points, a tenth of a degree apart, and the turns check for cancellation. At a 0.01 degree step the final turn had 36,001 points before the fix: `req_nfr_07_a_tiny_angle_step_does_not_flood_the_turns_to_the_axis`.
+    - **Not changed:** its follow-up on the Stepdown cap. The cap widens the spacing only where more than 1000 turns would be needed, that is, below about 0.002 mm over a descent of at most the tool radius. That is answered on its thread.
+  - **A Minor not fixed here**, for the lane's ticket: an app test of a saved helical, axial or indexed operation without the setting. The schema default (off) is tested in `openchuck-path`.
+- **Not verified:** nothing was cut or air-cut.
+- **Open items:** OI-2236 closes.

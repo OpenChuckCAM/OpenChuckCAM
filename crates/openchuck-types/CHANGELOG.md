@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.72.0
+
+- **Family release (0.72.0; MOPUP-1, PR M4; issue #896):** `openchuck-path` spaces face flow's Follow the outline with a scallop height for the face's largest principal curvature (changed output on faces that curve most between their parameter directions). No change to this crate.
+
+## 0.71.0
+
+- **Family release (0.71.0; PATH-QUALITY, PQ-3; issue #779; decision 0695, Q2, accepted):** `openchuck-path` adds the parameter Finish to a point (helical, axial and indexed finishing; off for saved operations) and changes output only where it is on; no change to this crate.
+
+## 0.70.0
+
+- **Family release (0.70.0; PATH-QUALITY, PQ-2b; issue #786; decision 0695, Q9 part 3, accepted):** `openchuck-path` changes ramp output (a whole ring whose one turn would descend more than the largest depth per traverse is ramped back and forth over itself). No change in this crate.
+
+## 0.69.0
+
+- **Family release (0.69.0; PATH-QUALITY, PQ-4; issue #826, OI-2198; decision 0695, Q6, accepted):** `openchuck-path` changes output only for helical finishing as a spiral with adaptive spacing on (it measures the helix only outside the held regions' bands and the face turns); no API change; no change to this crate.
+
 ## 0.68.0
 
 - **Family release (0.68.0; PATH-QUALITY, PQ-2; issue #786; decision 0695, accepted):** `openchuck-path` breaks its API (`Strategy::ramps_round_the_part` is removed, and `params::EntryParameters` gains the public field `ramp_depth_per_traverse`) and changes ramp output; no change to this crate.
@@ -124,13 +140,11 @@
 
 - GC-17 (accepted decision 0222): minimum block-time profile/post fields and deterministic Report mode. The built-in Z1 uses the gate-4 measured 7 ms with window 32. Existing project copies remain Off, and Report leaves G-code unchanged. No Slow down or Merge.
 
-
 All notable changes to `openchuck-types` are recorded here.
 
 ## Unreleased
 
 - **Breaking family release (0.25.0, FACING, decision 0252):** `StrategyInput::facing` adds the optional whole-setup context. Host struct literals supply the new field; use `None` for other strategies and legacy whole-stock Facing. All family crates advance together under 0048. No project-schema migration.
-
 
 - Breaking (0.24.0): `ShortBlockMode` adds `SlowDown`; the profile window uses `usize` and is bounded to 4096. Confirmation lists omit disabled timing settings and the software mode policy.
 

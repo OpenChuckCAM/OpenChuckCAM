@@ -1997,6 +1997,7 @@ mod tests {
         );
         let mut view = SceneView::default();
         view.lines.push(openchuck_app::scene::ScenePolyline {
+            facing: None,
             role: SceneRole::FacingSweep,
             points: Vec::new(),
         });
