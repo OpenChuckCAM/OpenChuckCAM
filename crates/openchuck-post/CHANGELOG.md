@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.72.0
+
+- **Family release (0.72.0; MOPUP-1, PR M4; issue #896):** `openchuck-path` spaces face flow's Follow the outline with a scallop height for the face's largest principal curvature (changed output on faces that curve most between their parameter directions). No change to this crate.
+
 ## 0.71.0
 
 - **Family release (0.71.0; PATH-QUALITY, PQ-3; issue #779; decision 0695, Q2, accepted):** `openchuck-path` adds the parameter Finish to a point (helical, axial and indexed finishing; off for saved operations) and changes output only where it is on; no change to this crate.

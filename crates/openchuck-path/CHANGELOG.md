@@ -1,8 +1,9 @@
 # Changelog
 
-## Unreleased (MOPUP-1, PR M4; issue #896; not breaking)
+## 0.72.0 (MOPUP-1, PR M4; issue #896; not breaking, output change)
 
 - **Fixed, changed output (#896 item 6):** face flow's Follow the outline with a scallop height spaces its loops for the face's largest curvature away from the tool in any direction (its largest principal curvature, from the first and second fundamental forms over the sample grid), not only along the two parameter directions. A face curving most between them was spaced too wide: on `P(u, v) = (u + v, v - u, -(u + v)^2 / 20)` a 3 mm ball at 0.01 mm left a 0.0113 mm ridge. Flat faces, cylinders and faces curving most along a parameter are spaced as before. No API change.
+- **Fixed (CodeRabbit on #947):** a face trimmed narrower than one curvature sample across still reads the radius it curves with along the other direction, so Follow the outline is not spaced as on a flat face there.
 - **Tests only (#896 items 2, 3, 4, 5, 7 and 8):** Climb and Conventional rings on a trimmed face that closes round, where the first places the direction is read are off the face; a cylinder just short of a whole turn is open; the outline stays on a face whose boundary curves into it; Tool diameter visibly changes the runs kept; the scallop ridges are checked finite; a pass with one run left out by Shortest cut and one kept still counts as cutting.
 
 ## 0.71.0 (PATH-QUALITY, PQ-3; issue #779; decision 0695, Q2, accepted; not breaking, output change only with the new setting on)

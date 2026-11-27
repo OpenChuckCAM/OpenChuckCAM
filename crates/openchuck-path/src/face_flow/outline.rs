@@ -789,15 +789,39 @@ fn convex_radius(face: &ExactFace) -> Option<f64> {
         .flat_map(|j| (0..n).map(move |i| (i, j)))
         .map(|(i, j)| at(i, j))
         .collect();
+    radius_from_samples(&samples, n)
+}
+
+/// The smallest radius with which a face curves away from the tool, from a
+/// grid of `n` by `n` samples (row by row along u, `None` off the face), or
+/// `None` where it nowhere does.
+fn radius_from_samples(samples: &[Option<SurfacePoint>], n: usize) -> Option<f64> {
     let mut most: f64 = 0.0;
     for j in 0..n {
         for i in 0..n {
             let get = |k: Option<usize>| k.and_then(|k| samples.get(k).copied().flatten());
-            let (Some(p), Some(qu), Some(qv)) = (
-                get(Some(j * n + i)),
+            let Some(p) = get(Some(j * n + i)) else {
+                continue;
+            };
+            let (qu, qv) = (
                 get((i + 1 < n).then(|| j * n + i + 1)),
                 get((j + 1 < n).then(|| (j + 1) * n + i)),
-            ) else {
+            );
+            // Along each step the cell has, the normal's turn per length:
+            // 1/R on a circle. A face trimmed narrower than one step across
+            // still curves along the other (CodeRabbit on #947), so this is
+            // read even where a cell lacks one of its two steps.
+            for q in [qu, qv].into_iter().flatten() {
+                let d = q.point - p.point;
+                let d2 = d.dot(d);
+                if d2 > 1e-18 {
+                    let k = (q.normal.get() - p.normal.get()).dot(d) / d2;
+                    if k.is_finite() {
+                        most = most.max(k);
+                    }
+                }
+            }
+            let (Some(qu), Some(qv)) = (qu, qv) else {
                 continue;
             };
             // The first and second fundamental forms from the cell's two
@@ -1182,8 +1206,10 @@ mod tests {
     use openchuck_types::geometry::Point3;
     use openchuck_types::mesh::TriangleMesh;
 
-    use super::{convex_radius, scallop_spacing};
+    use super::{CURVATURE_SAMPLES, convex_radius, radius_from_samples, scallop_spacing};
     use crate::brep::ExactFace;
+    use crate::surface::SurfacePoint;
+    use openchuck_types::geometry::{UnitVec3, Vec3};
 
     /// The biquadratic Bezier face over `[0, 1]^2` whose point at (s, t) is
     /// `f(s, t)`, a polynomial of degree at most two in each: its control
@@ -1263,5 +1289,41 @@ mod tests {
         // flat, not as curving without limit at the point.
         let fan = biquadratic(|s, t| Point3::new(10.0 * s, 10.0 * s * t, 0.0));
         assert_eq!(convex_radius(&fan), None);
+    }
+
+    /// CodeRabbit on #947: a trimmed face narrower than one sample step in
+    /// one direction has no cell with both forward neighbours, but it still
+    /// curves along the other. Its radius is still read, from the normal's
+    /// turn along that direction, so the outline is not spaced as on a flat
+    /// face (which would leave a ridge above the height asked for). Here a
+    /// cylinder of radius 5 mm, round its axis along u, has samples only in
+    /// one column (a strip along v) or only in one row (a strip along u,
+    /// which is straight, so it reads as flat).
+    #[test]
+    fn req_op_28_a_narrow_trim_still_reads_the_radius_it_curves_with() {
+        let n = CURVATURE_SAMPLES;
+        let sample = |i: usize, j: usize| {
+            let x = i as f64 * 0.5;
+            let a = j as f64 * 0.05;
+            SurfacePoint {
+                point: Point3::new(x, 5.0 * a.cos(), 5.0 * a.sin()),
+                normal: UnitVec3::new(Vec3::new(0.0, a.cos(), a.sin())).unwrap(),
+                position: None,
+            }
+        };
+        let grid = |keep: &dyn Fn(usize, usize) -> bool| -> Vec<Option<SurfacePoint>> {
+            (0..n)
+                .flat_map(|j| (0..n).map(move |i| (i, j)))
+                .map(|(i, j)| keep(i, j).then(|| sample(i, j)))
+                .collect()
+        };
+        let column = radius_from_samples(&grid(&|i, _| i == 7), n).unwrap();
+        assert!(
+            (column - 5.0).abs() < 0.05,
+            "a strip along v read {column} mm"
+        );
+        assert_eq!(radius_from_samples(&grid(&|_, j| j == 7), n), None);
+        let whole = radius_from_samples(&grid(&|_, _| true), n).unwrap();
+        assert!((whole - 5.0).abs() < 0.05, "{whole}");
     }
 }
