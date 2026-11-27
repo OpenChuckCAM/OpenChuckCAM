@@ -1237,7 +1237,7 @@ Today the workholding panel (`workholding_panel.rs`, edits a draft of the held r
 | 4 | TL-01, TL-02, TL-03, TL-04, TL-05, TL-06, TL-07, TL-11 | SP-13 |
 | 5 | OP-01, OP-11, OP-13, OP-14, OP-15, OP-16 | SP-3, SP-4, SP-7, SP-9, SP-13 |
 | 6 | GC-02, GC-03, GC-04, GC-07, GC-09, GC-10, GC-11, GC-14, GC-17 | SP-3, SP-5, SP-10, SP-12 |
-| 7 | SIM-03, SIM-05, SIM-06, SIM-07 | SP-6, SP-13 |
+| 7 | SIM-03, SIM-05, SIM-06, SIM-07, SIM-16 | SP-6, SP-13 |
 | 8 | UI-01, UI-02, UI-03, UI-06, UI-07, UI-10, UI-11, UI-12, UI-13, UI-14, UI-15, UI-16, NFR-02, NFR-03, NFR-15 | SP-2 |
 | 9 | SIM-01, SIM-02, SIM-04, UI-09, NFR-04 | – |
 | 10 | UI-04, UI-05, PRJ-06, OP-02 | – |
@@ -1256,6 +1256,8 @@ Today the workholding panel (`workholding_panel.rs`, edits a draft of the held r
 | 23 | TL-12 | – |
 
 OP-24 (extend past the stock and Facing, P1) was added after slice 14 closed and is built by lane CUTOPTS ([decision 0212](decisions/0212-roughing-direction-and-extend-past-the-stock.md)); it is listed with slice 14, so its tests are required now.
+
+SIM-16 (the load on the tool, measured in the simulation, with its warning and the removal rate, P1) was added after slice 7 closed, with the owner's agreed text (decision record 0698, accepted 25 Nov 2026, relayed by the coordinator; issue #844) and is built by lane TOOL-LOAD (TL-1); it is listed with slice 7, so its tests are required now.
 
 SET-10 (manage machine profiles in the application, P1) was added on 31 Oct 2026 with the owner's agreed text ([decision 0380](decisions/0380-machine-library-in-the-application.md), relayed by the coordinator) and is built by lane MACHINES; it is listed with slice 22, the user interface pass, which is not closed.
 

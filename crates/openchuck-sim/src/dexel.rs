@@ -494,7 +494,7 @@ impl DexelStock {
     /// because span endpoints depend only on the pose and the column, not on
     /// the order. Returns the volume removed.
     pub fn cut(&mut self, tool: &ToolSolid, poses: &[Pose]) -> f64 {
-        self.cut_watching(tool, poses, None, false).0
+        self.cut_watching(tool, poses, None, false, false).removed
     }
 
     /// [`DexelStock::cut`] that gives up soon after `cancel` is cancelled and
@@ -508,9 +508,26 @@ impl DexelStock {
         poses: &[Pose],
         cancel: &CancelToken,
     ) -> Result<f64> {
-        let (removed, _) = self.cut_watching(tool, poses, Some(cancel), false);
+        let out = self.cut_watching(tool, poses, Some(cancel), false, false);
         cancel.check()?;
-        Ok(removed)
+        Ok(out.removed)
+    }
+
+    /// [`DexelStock::cut_cancellable`] that also tells, for each pose, what
+    /// it removed and where along the tool axis (SIM-16; the tool-load
+    /// measure of decision record 0698): one [`PoseTally`] per pose,
+    /// in the order of `poses`. Each column is cut by the poses in order and
+    /// the rows are added up in row order, so the tallies do not depend on
+    /// the thread count (NFR-06).
+    pub(crate) fn cut_tallied(
+        &mut self,
+        tool: &ToolSolid,
+        poses: &[Pose],
+        cancel: &CancelToken,
+    ) -> Result<(f64, Vec<PoseTally>)> {
+        let out = self.cut_watching(tool, poses, Some(cancel), false, true);
+        cancel.check()?;
+        Ok((out.removed, out.tallies))
     }
 
     /// [`DexelStock::cut_cancellable`] that also gives the most material
@@ -523,34 +540,43 @@ impl DexelStock {
         poses: &[Pose],
         cancel: &CancelToken,
     ) -> Result<(f64, f64)> {
-        let out = self.cut_watching(tool, poses, Some(cancel), true);
+        let out = self.cut_watching(tool, poses, Some(cancel), true, false);
         cancel.check()?;
-        Ok(out)
+        Ok((out.removed, out.deepest))
     }
 
-    /// The volume removed and, with `deepest`, the most removed from one
-    /// column (0 without: the per-column tally costs a row's worth of memory
-    /// each, so only a rapid's own batch keeps it).
+    /// The volume removed; with `deepest`, the most removed from one column
+    /// (0 without: the per-column tally costs a row's worth of memory each,
+    /// so only a rapid's own batch keeps it); with `tally`, one
+    /// [`PoseTally`] per pose (empty without).
     fn cut_watching(
         &mut self,
         tool: &ToolSolid,
         poses: &[Pose],
         cancel: Option<&CancelToken>,
         deepest: bool,
-    ) -> (f64, f64) {
+        tally: bool,
+    ) -> Cut {
         if poses.is_empty() {
-            return (0.0, 0.0);
+            return Cut {
+                removed: 0.0,
+                deepest: 0.0,
+                tallies: Vec::new(),
+            };
         }
         // The extent is worked out again from the columns as they are cut.
         self.z_range = ZRange::default();
         let reach = self.reach();
-        let prepared: Vec<Prepared> = poses
+        // Each prepared pose with the index of the pose it came from, for
+        // the tallies: a pose that cannot meet material is left out.
+        let (from, prepared): (Vec<usize>, Vec<Prepared>) = poses
             .iter()
-            .filter_map(|p| Prepared::new(p, tool, reach))
-            .collect();
+            .enumerate()
+            .filter_map(|(k, p)| Prepared::new(p, tool, reach).map(|q| (k, q)))
+            .unzip();
         let (x0, y0, cx, cy, ny) = (self.x0, self.y0, self.cx, self.cy, self.ny);
         let march = cx.min(cy);
-        let removed: Vec<(f64, f64)> = self
+        let removed: Vec<(f64, f64, Vec<RowTally>)> = self
             .cols
             .par_chunks_mut(ny.max(1))
             .enumerate()
@@ -563,6 +589,8 @@ impl DexelStock {
                 let mut by_column: Vec<f64> = Vec::new();
                 let width = row.len();
                 let mut scratch: Vec<[f64; 2]> = Vec::new();
+                // What each pose removed from this row, in pose order.
+                let mut tallies: Vec<RowTally> = Vec::new();
                 for (n, p) in prepared.iter().enumerate() {
                     // A relaxed load every few poses: cheap beside the cut.
                     if n % WATCH_EVERY == 0 && cancel.is_some_and(CancelToken::is_cancelled) {
@@ -597,6 +625,12 @@ impl DexelStock {
                             continue;
                         }
                         let before = column_length(col);
+                        // Where along the tool axis the material removed
+                        // lies: the spans that meet material, measured from
+                        // the tip (the column line is `o + s d` in the tool
+                        // frame, so its height along the axis is linear in s
+                        // and its ends bound it).
+                        let heights = tally.then(|| removed_heights(&spans, col, o, d)).flatten();
                         scratch.clear();
                         subtract(col, spans.as_slice(), &mut scratch);
                         if scratch.as_slice() != col.as_slice() {
@@ -610,17 +644,36 @@ impl DexelStock {
                                     *slot += here;
                                 }
                             }
+                            if let Some((low, high)) = heights {
+                                add_row_tally(&mut tallies, n, here, low, high);
+                            }
                             col.clone_from(&scratch);
                         }
                     }
                 }
-                (removed, by_column.into_iter().fold(0.0, f64::max))
+                (removed, by_column.into_iter().fold(0.0, f64::max), tallies)
             })
             .collect();
-        (
-            removed.iter().map(|r| r.0).sum::<f64>() * cx * cy,
-            removed.iter().map(|r| r.1).fold(0.0, f64::max),
-        )
+        let mut tallies = Vec::new();
+        if tally {
+            tallies = vec![PoseTally::default(); poses.len()];
+            // Row by row, in row order, so the sums do not depend on which
+            // thread cut which row (NFR-06).
+            for (_, _, rows) in &removed {
+                for t in rows {
+                    if let Some(&k) = from.get(t.pose)
+                        && let Some(slot) = tallies.get_mut(k)
+                    {
+                        slot.add(t.length * cx * cy, t.low, t.high);
+                    }
+                }
+            }
+        }
+        Cut {
+            removed: removed.iter().map(|r| r.0).sum::<f64>() * cx * cy,
+            deepest: removed.iter().map(|r| r.1).fold(0.0, f64::max),
+            tallies,
+        }
     }
 
     /// True when the tool at `pose` would touch material: the cut test
@@ -820,6 +873,109 @@ fn column_gap(col: &[[f64; 2]], z: f64, material: bool) -> Option<f64> {
                 .map_or(0.0, |iv| (z - iv[0]).min(iv[1] - z)),
         )
     }
+}
+
+/// What one batch of poses did to the stock.
+struct Cut {
+    removed: f64,
+    deepest: f64,
+    tallies: Vec<PoseTally>,
+}
+
+/// What one pose removed from one row of columns.
+struct RowTally {
+    /// The index of the pose among the prepared ones.
+    pose: usize,
+    /// Column length removed, mm (times the cell's area, a volume).
+    length: f64,
+    /// The lowest and highest point of the material removed, along the tool
+    /// axis from the tip, mm.
+    low: f64,
+    high: f64,
+}
+
+/// Adds what pose `pose` removed from one column to the row's tallies. The
+/// poses come in order, so a pose's entries are together at the end.
+fn add_row_tally(tallies: &mut Vec<RowTally>, pose: usize, length: f64, low: f64, high: f64) {
+    if let Some(last) = tallies.last_mut()
+        && last.pose == pose
+    {
+        last.length += length;
+        last.low = last.low.min(low);
+        last.high = last.high.max(high);
+        return;
+    }
+    tallies.push(RowTally {
+        pose,
+        length,
+        low,
+        high,
+    });
+}
+
+/// What one pose removed from the stock (SIM-16): the volume, and the lowest
+/// and highest point of the material removed along the tool axis, measured
+/// from the tip. A pose that removed nothing has zero volume and no heights.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct PoseTally {
+    /// Volume removed, mm³.
+    pub volume: f64,
+    /// The lowest point removed along the tool axis from the tip, mm.
+    pub low: f64,
+    /// The highest point removed along the tool axis from the tip, mm.
+    pub high: f64,
+}
+
+impl Default for PoseTally {
+    fn default() -> Self {
+        Self {
+            volume: 0.0,
+            low: f64::INFINITY,
+            high: f64::NEG_INFINITY,
+        }
+    }
+}
+
+impl PoseTally {
+    fn add(&mut self, volume: f64, low: f64, high: f64) {
+        self.volume += volume;
+        self.low = self.low.min(low);
+        self.high = self.high.max(high);
+    }
+
+    /// Whether the pose removed anything.
+    #[must_use]
+    pub fn removed(&self) -> bool {
+        self.volume > 0.0 && self.high >= self.low
+    }
+}
+
+/// The lowest and highest point, along the tool axis from the tip, of the
+/// parts of `spans` that meet the material of column `col` (before the cut).
+/// The column line is `o + s d` in the tool frame, so the height along the
+/// axis is `o[2] + s d[2]`, linear in `s`: the ends of each overlap bound it.
+fn removed_heights(
+    spans: &crate::span::Spans,
+    col: &[[f64; 2]],
+    o: [f64; 3],
+    d: [f64; 3],
+) -> Option<(f64, f64)> {
+    let mut low = f64::INFINITY;
+    let mut high = f64::NEG_INFINITY;
+    for span in spans.as_slice() {
+        for m in col {
+            let a = span.0.max(m[0]);
+            let b = span.1.min(m[1]);
+            if b > a {
+                for s in [a, b] {
+                    let h = o[2] + s * d[2];
+                    low = low.min(h);
+                    high = high.max(h);
+                }
+            }
+        }
+    }
+    (high >= low).then_some((low, high))
 }
 
 fn column_length(c: &[[f64; 2]]) -> f64 {

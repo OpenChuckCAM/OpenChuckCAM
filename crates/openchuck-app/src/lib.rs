@@ -76,6 +76,7 @@ pub mod stockplay;
 mod test_project;
 pub mod tool_edit;
 pub mod tool_library;
+pub mod tool_load;
 pub mod tools;
 pub mod unreached;
 pub mod workholding;

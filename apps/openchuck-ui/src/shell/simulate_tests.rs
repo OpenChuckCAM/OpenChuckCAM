@@ -572,7 +572,16 @@ fn req_nfr_12_req_nfr_04_skipped_stock_progress_does_not_claim_to_simulate() {
 #[test]
 fn req_sim_05_req_sim_07_the_results_inspector_shows_the_numbers_and_the_resolution() {
     let mut rig = simulated("sim-results");
+    // At the design size (1920 × 1080) the whole inspector is on screen; a
+    // smaller window scrolls it (the removal-rate block, SIM-16, made it
+    // taller than 900 pixels).
+    rig.size = egui::vec2(1920.0, 1080.0);
+    for _ in 0..3 {
+        rig.frame(Vec::new());
+    }
     for text in [
+        "REMOVAL RATE, MM³/MIN",
+        "This setup",
         "SIMULATION RESULTS",
         "Colour by",
         "Deviation",

@@ -173,6 +173,9 @@ pub mod topic {
     pub const PROJECT_CHECKS: &str = "Project checks";
     /// A rapid move the stock simulation found removing material.
     pub const RAPID_CUT: &str = "Rapid cut";
+    /// The load on the tool as the stock simulation measured it: the cut
+    /// section, the engaged length and the removal rate (SIM-16).
+    pub const TOOL_LOAD: &str = "Tool load";
     /// Moves shorter than the controller can run at their feed.
     pub const SHORT_BLOCKS: &str = "Short blocks";
     /// An operation itself: its name, strategy or whether it is turned on.
@@ -220,6 +223,7 @@ pub mod topic {
         IMPORT,
         PROJECT_CHECKS,
         RAPID_CUT,
+        TOOL_LOAD,
         SHORT_BLOCKS,
         OPERATION,
         SETUP,
@@ -234,6 +238,7 @@ pub mod topic {
 /// flutes or number matter to them (decision record 0536 section 3).
 pub const TOOL_TOPICS: &[&str] = &[
     openchuck_path::topic::FLUTE_LENGTH,
+    topic::TOOL_LOAD,
     topic::TAB_LENGTH,
     topic::TAB_CLEARANCE,
 ];

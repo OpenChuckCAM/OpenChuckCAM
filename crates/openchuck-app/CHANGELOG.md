@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased (TOOL-LOAD, TL-1; issue #844; decision 0698, accepted)
+
+- **Added:** the tool load through the application (SIM-16): `tool_load` (the limit, `LARGEST_CUT_SECTION`, the warning, the information line and the job's line), `OperationSimulation::load`, `Regeneration::tool_loads`, the topic `lead_in::topic::TOOL_LOAD` (it names the tool), and `form::Source::Derived` for the form's Largest cut section field in Tool and feeds. The operation's `largest_cut_section` parameter belongs to the application and is not passed to the strategy. A simulated operation whose stretches pass its limit gets a Tool load warning (radial drilling is measured but not warned). No toolpath or G-code changes.
+
 ## 0.68.0 (PATH-QUALITY, PQ-2; issue #786; decision 0695, accepted)
 
 - **Changed:** a new operation whose Entry offers Ramp is written with Plunge where no ramp fits (`allow_single_point_plunge`, formerly labelled Allow single-point plunge) and Steeper ramp near the axis on, so with Entry Ramp only the passes with no room for a ramp are plunged, each named in a note with its reason and depth, instead of refusing the operation. An operation saved without them keeps them off and keeps its program.
