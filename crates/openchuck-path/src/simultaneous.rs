@@ -191,10 +191,10 @@ type Failed<'p> = (crate::gap::ToolGap, ToolLine, &'p RevolvedProfile);
 /// pieces. The faces' own bounds, each holding at every pose of the
 /// stretch, then prove the grown tool no deeper than `allowed` at every
 /// pose, so at each of its samples, or leave the stretch undecided. An
-/// undecided stretch is halved, down to [`STRETCH_MIN`] samples; one whose
-/// middle pose alone is not proven is also asked with the growth of each
-/// finer level, which proves the tool itself at every pose as that level's
-/// samples would; and what is left is sampled as before.
+/// undecided stretch is asked once more with the finest level's growth,
+/// which proves the tool itself at every pose as that level's samples
+/// would; still undecided, it is halved, down to one sample; and what is
+/// left is sampled as before.
 ///
 /// The move is taken in order, each failed sample checked finer before
 /// the next (NFR-06), so the first place it fails ends the check.
@@ -231,7 +231,7 @@ impl<'p> MoveCheck<'_, 'p> {
     /// Checks the move from the fraction `f0` to `f1` with the grown tool
     /// of `level`: the first failure at the finest level, or `None` when
     /// it is proven. `asked` says the whole of it was already asked as a
-    /// stretch at this level, and left undecided.
+    /// stretch with the finest growth, and left undecided.
     fn span(&self, f0: f64, f1: f64, level: usize, asked: bool) -> Option<Failed<'p>> {
         let (grow, profile) = self.checks.get(level)?;
         let n = ((f1 - f0) * self.travel / (2.0 * grow)).ceil().max(1.0);
@@ -245,26 +245,17 @@ impl<'p> MoveCheck<'_, 'p> {
             let (a, b) = (f0 + step * f64::from(lo), f0 + step * f64::from(hi));
             if let Some(motion) = motion {
                 let whole = (lo, hi) == (0, count);
-                if hi - lo >= STRETCH_MIN && !(asked && whole) && self.bounded(motion, level, a, b)
-                {
+                if hi - lo >= STRETCH_MIN && self.bounded(motion, level, a, b) {
                     continue;
                 }
-                // The pose at the run's middle alone, from its bounds. A
-                // run of one sample is that sample. Where it is proven, the
-                // run was only too long for the bounds, and is halved;
-                // where it is not, the tool cuts deeper there than this
-                // level's growth leaves room for, and no stretch at this
-                // level will be proven, however short: the run is asked
-                // with the finer levels' growths, each of which proves the
-                // tool itself at every pose as that level's samples would.
-                let middle = self
-                    .sample(level, 0.5 * (a + b), Some(0))
-                    .is_none_or(|(g, _)| proven(&g, self.allowed));
-                if middle && hi - lo == 1 {
-                    continue;
-                }
-                if !middle && (level + 1..self.checks.len()).any(|l| self.bounded(motion, l, a, b))
-                {
+                // Where the tool cuts deeper than this level's growth
+                // leaves room for, no stretch at this level is proven,
+                // however short: the run is asked once more with the
+                // finest growth, which proves the tool itself at every
+                // pose of it, as the finest samples would, and is enough
+                // whatever the levels between would say.
+                let finest = self.checks.len() - 1;
+                if level < finest && !(asked && whole) && self.bounded(motion, finest, a, b) {
                     continue;
                 }
                 if hi - lo >= STRETCH_MIN {
@@ -292,7 +283,7 @@ impl<'p> MoveCheck<'_, 'p> {
                     return Some((g, line, profile));
                 }
                 // With its motion known, the sample's part of the move was
-                // asked as a stretch at every finer level above.
+                // asked as a stretch with the finest growth above.
                 if let Some(failed) = self.span(s0, s1, level + 1, motion.is_some()) {
                     return Some(failed);
                 }
