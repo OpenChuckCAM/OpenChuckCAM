@@ -289,9 +289,9 @@ pub struct MeshSurface {
     /// The material behind each triangle, measured when first asked
     /// ([`MeshSurface::wall_at`]).
     walls: std::sync::OnceLock<Vec<f64>>,
-    /// The planes of each triangle's convex neighbours, found when first
-    /// asked ([`crate::gap::convex_neighbours`]).
-    neighbours: std::sync::OnceLock<Vec<Vec<(Vec3, f64)>>>,
+    /// The planes of the faces meeting each triangle at a corner, found
+    /// when first asked ([`crate::gap::convex_neighbours`]).
+    neighbours: std::sync::OnceLock<Vec<Vec<(Vec3, f64, bool)>>>,
 }
 
 /// The fraction of the mesh's size within which two distances from a point

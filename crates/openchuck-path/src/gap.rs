@@ -69,6 +69,16 @@ const MIN_PIECE: f64 = 1e-9;
 /// A part of a move shorter than this (as a fraction) is not split again.
 const MIN_SPAN: f64 = 1e-9;
 
+/// How far inside a side of a face's prism (or above the layer's floor) a
+/// tool point may lie and still be taken as off the face, mm. A tool that
+/// only touches a side (finishing against a wall, the drop puts it exactly
+/// there) is then separated at once, where the bound would otherwise need
+/// ever smaller pieces. A point that near a side is as near the face across
+/// it, which counts it; at the edge of the mesh there is nothing beyond to
+/// cut. It changes a reading by no more than its own size, far under
+/// [`GAP_ACCURACY`].
+pub const SIDE_MARGIN: f64 = 1e-7;
+
 /// The angles, in radians, a separating plane leans from a side of the
 /// prism towards the layer's floor ([`Body::below_layer`]).
 const LEANS: [f64; 8] = [0.0, 0.05, 0.15, 0.3, 0.5, 0.75, 1.05, 1.35];
@@ -988,7 +998,17 @@ impl<'a> Body<'a> {
     /// them at once.
     fn beside(&self, face: &Face, s0: f64, s1: f64) -> bool {
         face.constraints()
-            .any(|(n, b)| n.length() > 0.0 && self.dual_over(*n, *b, s0, s1) > 0.0)
+            .any(|(n, b)| n.length() > 0.0 && self.dual_over(*n, *b, s0, s1) > -SIDE_MARGIN)
+            || face.around.iter().any(|u| {
+                // u is square to the face's normal: over the prism u . y is
+                // at most its most at a corner.
+                let c = face
+                    .corners
+                    .iter()
+                    .map(|p| u.dot(*p - Point3::ORIGIN))
+                    .fold(f64::NEG_INFINITY, f64::max);
+                self.dual_over(*u, c, s0, s1) > -SIDE_MARGIN
+            })
     }
 
     /// Whether no tool point with its foot on the face lies above the
@@ -1017,6 +1037,7 @@ impl<'a> Body<'a> {
             .sides
             .iter()
             .map(|(n, _)| *n)
+            .chain(face.around.iter().copied())
             .chain(across)
             .filter(|n| n.length() > 0.0)
             .collect();
@@ -1029,7 +1050,7 @@ impl<'a> Body<'a> {
                     .iter()
                     .map(|p| w.dot(*p - Point3::ORIGIN))
                     .fold(f64::NEG_INFINITY, f64::max);
-                self.dual_over(w, c, s0, s1) > 0.0
+                self.dual_over(w, c, s0, s1) > -SIDE_MARGIN
             })
         })
     }
@@ -1158,6 +1179,11 @@ struct Face {
     d: f64,
     sides: [(Vec3, f64); 3],
     clips: Vec<(Vec3, f64)>,
+    /// Unit directions square to `m` from the normals of every face meeting
+    /// this one at a corner: places to look for a plane parting the tool
+    /// from the prism (a tool against a wall that meets the face only at a
+    /// corner is parted from it by the wall's plane, not by a side).
+    around: Vec<Vec3>,
 }
 
 impl Face {
@@ -1173,12 +1199,23 @@ impl Face {
             d: m.dot(corners[0] - Point3::ORIGIN),
             sides: [side(0), side(1), side(2)],
             clips: Vec::new(),
+            around: Vec::new(),
         }
     }
 
     /// This face with the planes of its convex neighbours as more sides.
     fn with_clips(self, clips: Vec<(Vec3, f64)>) -> Self {
         Self { clips, ..self }
+    }
+
+    /// This face with directions to part the tool from it (see `around`).
+    fn with_around(self, normals: &[Vec3]) -> Self {
+        let m = self.m;
+        let around = normals
+            .iter()
+            .filter_map(|n| UnitVec3::new(*n - m * n.dot(m)).ok().map(UnitVec3::get))
+            .collect();
+        Self { around, ..self }
     }
 
     /// Every side of the face's region: the triangle's three, then its
@@ -1425,14 +1462,16 @@ impl PartialOrd for Piece {
 }
 
 impl Ord for Piece {
-    // A max-heap: the smallest bound comes out first, then the lowest
-    // triangle, then the earliest made.
+    // A max-heap: the smallest bound comes out first, then the earliest
+    // made (so among pieces held at the layer every triangle's turn comes,
+    // where by triangle one whose pieces never settle would keep it), then
+    // the lowest triangle.
     fn cmp(&self, other: &Self) -> Ordering {
         other
             .lower
             .total_cmp(&self.lower)
-            .then_with(|| other.triangle.cmp(&self.triangle))
             .then_with(|| other.order.cmp(&self.order))
+            .then_with(|| other.triangle.cmp(&self.triangle))
     }
 }
 
@@ -1447,7 +1486,7 @@ pub(crate) fn search(
     limit: f64,
     accept: Option<f64>,
     error: &dyn Fn(u32) -> f64,
-    neighbours: &dyn Fn(u32) -> Vec<(Vec3, f64)>,
+    neighbours: &dyn Fn(u32) -> Vec<(Vec3, f64, bool)>,
 ) -> Option<ToolGap> {
     let accept = accept.filter(|a| a.is_finite()).unwrap_or(f64::INFINITY);
     let inside = if accept.is_finite() {
@@ -1503,9 +1542,16 @@ pub(crate) fn search(
         let travel = (s1 - s0)
             * (body.sweep.length()
                 + body.angle.abs() * (centre.distance(body.pivot.0) + body.outline.top.abs()));
+        // With nothing found yet there is no deficit to measure against:
+        // the larger of the move's travel over the piece and the piece is
+        // halved, so neither is halved for ever while the other stays whole.
         let split_move = moving
             && s1 - s0 > MIN_SPAN
-            && (!found.is_finite() || 10.0 * travel >= found - piece.lower);
+            && if found.is_finite() {
+                10.0 * travel >= found - piece.lower
+            } else {
+                travel >= len
+            };
         if (len < MIN_PIECE && !split_move) || pieces >= MAX_PIECES {
             break piece.lower.min(found);
         }
@@ -1544,8 +1590,39 @@ pub(crate) fn search(
             );
         }
     };
+    if std::env::var("GSTAT").is_ok() {
+        use std::sync::atomic::{AtomicU64, Ordering::Relaxed};
+        static Q: AtomicU64 = AtomicU64::new(0);
+        static P: AtomicU64 = AtomicU64::new(0);
+        static CAP: AtomicU64 = AtomicU64::new(0);
+        let q = Q.fetch_add(1, Relaxed) + 1;
+        P.fetch_add(pieces as u64, Relaxed);
+        if pieces >= MAX_PIECES {
+            CAP.fetch_add(1, Relaxed);
+            let mut ps: Vec<&Piece> = state.queue.iter().collect();
+            ps.sort_by(|a, b| a.lower.total_cmp(&b.lower));
+            eprintln!("CAPPED lower {lower} found {:?} accept {accept} tip {:?} axis {:?} sweep {:?} angle {} queue {}", state.best.map(|b| b.0), body.tip, body.axis, body.sweep, body.angle, ps.len());
+            for p in ps.iter().take(4) {
+                eprintln!("   piece lower {} tri {} span {:?} size {:.2e} normal {:?} corners {:?}", p.lower, p.triangle, p.span, longest_side(&p.corners).3, p.normal, p.corners);
+            }
+            let mut tris: Vec<u32> = ps.iter().map(|p| p.triangle).collect(); tris.sort(); tris.dedup();
+            eprintln!("   triangles {} : {:?}", tris.len(), tris.iter().take(12).collect::<Vec<_>>());
+        }
+        if q % 500 == 0 {
+            eprintln!("GSTAT queries {q} pieces/q {:.1} capped {}", P.load(Relaxed) as f64 / q as f64, CAP.load(Relaxed));
+        }
+    }
     // The best was kept less its triangle's error, as the bounds are; the
     // exact face's value is at most the triangle's plus that error.
+    // A search that ran out of pieces with nothing found has not shown the
+    // tool clear: it answers its bound, with no real value above it.
+    if state.best.is_none() && pieces >= MAX_PIECES && lower <= limit {
+        return Some(ToolGap {
+            lower,
+            upper: f64::INFINITY,
+            at: body.tip,
+        });
+    }
     let (found, at, e) = state.best?;
     (lower <= limit).then_some(ToolGap {
         lower: lower.min(found),
@@ -1568,13 +1645,15 @@ struct Search<'a, 'b> {
     /// bound and value over the triangle, so the answer holds the exact
     /// surface's gap.
     error: &'a dyn Fn(u32) -> f64,
-    /// The planes of each triangle's convex neighbours (see [`Face`]).
-    neighbours: &'a dyn Fn(u32) -> Vec<(Vec3, f64)>,
+    /// The planes of the faces meeting each triangle at a corner, and
+    /// whether each meets it at a convex edge or corner (see [`Face`]).
+    neighbours: &'a dyn Fn(u32) -> Vec<(Vec3, f64, bool)>,
     /// How far below a convex neighbour's plane a point must be for a face
     /// to count it: the query's acceptance, at least [`GAP_ACCURACY`].
     inside: f64,
-    /// Each triangle's clips, the neighbours' planes moved in by `inside`.
-    clips: std::collections::HashMap<u32, Vec<(Vec3, f64)>>,
+    /// Each triangle's clips, its convex neighbours' planes moved in by
+    /// `inside`, and every neighbour's normal.
+    clips: std::collections::HashMap<u32, (Vec<(Vec3, f64)>, Vec<Vec3>)>,
 }
 
 impl Search<'_, '_> {
@@ -1585,11 +1664,15 @@ impl Search<'_, '_> {
     /// [`Search::measure`]), so it is left out.
     fn face(&mut self, corners: [Point3; 3], m: Vec3, triangle: u32) -> Face {
         let (neighbours, inside, limit) = (self.neighbours, self.inside, self.limit);
-        let clips = self.clips.entry(triangle).or_insert_with(|| {
-            neighbours(triangle)
-                .into_iter()
-                .map(|(n, d)| (n, d - inside))
-                .collect()
+        let (clips, around) = self.clips.entry(triangle).or_insert_with(|| {
+            let all = neighbours(triangle);
+            (
+                all.iter()
+                    .filter(|(_, _, convex)| *convex)
+                    .map(|(n, d, _)| (*n, d - inside))
+                    .collect(),
+                all.iter().map(|(n, _, _)| *n).collect(),
+            )
         });
         let floor = corners.map(|p| p + m * (-limit));
         let slack = 1e-9 * (1.0 + (corners[0] - Point3::ORIGIN).length());
@@ -1603,7 +1686,9 @@ impl Search<'_, '_> {
             })
             .copied()
             .collect();
-        Face::new(corners, m).with_clips(relevant)
+        Face::new(corners, m)
+            .with_clips(relevant)
+            .with_around(around)
     }
 
     /// Bounds a piece and queues it, unless it cannot count. A tool point
@@ -1626,7 +1711,10 @@ impl Search<'_, '_> {
         }
         // The open region: a tool beyond a clip may still be above the face
         // (see [`Search::measure`]).
-        let face = Face::new(corners, m);
+        let face = Face {
+            clips: Vec::new(),
+            ..self.face(corners, m, triangle)
+        };
         if self.body.top_over(&face, s0, s1) < -self.limit || self.body.beside(&face, s0, s1) {
             return;
         }
@@ -1655,7 +1743,10 @@ impl Search<'_, '_> {
         // [`Face`]): over the piece the gap is the open region's where that
         // is not below the face, else the clipped region's, or zero.
         let clipped = self.face(piece.corners, piece.normal, piece.triangle);
-        let open = Face::new(piece.corners, piece.normal);
+        let open = Face {
+            clips: Vec::new(),
+            ..clipped.clone()
+        };
         let (s0, s1) = piece.span;
         let fm = 0.5 * (s0 + s1);
         let e = (self.error)(piece.triangle);
@@ -1716,12 +1807,15 @@ impl Search<'_, '_> {
         // Below the face only the clipped region counts. Its bound is only
         // ever higher than the open region's, so it is needed only where
         // that is short of what the caller accepts.
-        // And only where a real point below that is found: where the open
+        // And only where a real point below the face is found: where the open
         // bound is short only because it is loose (the piece is large, or
         // its part of the move long), halving settles it, and the clipped
         // bound is no better.
-        let wanted = open_lower < -self.inside && near.is_some_and(|(h, _, _)| h < -self.inside);
-        let clipped_beside = has_clips && wanted && self.body.beside(&clipped, s0, s1);
+        let short = open_lower < -self.inside;
+        let wanted = short && near.is_some_and(|(h, _, _)| h < 0.0);
+        // Whether the clipped region is empty is cheap to ask: ask it
+        // wherever the open bound is short.
+        let clipped_beside = has_clips && short && self.body.beside(&clipped, s0, s1);
         if clipped_beside {
             clipped_lower = f64::INFINITY;
         }
@@ -1742,7 +1836,7 @@ impl Search<'_, '_> {
                 }
             }
         }
-        let bound = if !has_clips || open_lower >= 0.0 || !wanted {
+        let bound = if !has_clips || open_lower >= 0.0 || !(wanted || clipped_beside) {
             open_lower
         } else {
             clipped_lower.min(0.0).max(open_lower)
@@ -1861,13 +1955,13 @@ pub(crate) fn on_mesh(
 }
 
 /// The planes `(n, d)` (`n . y = d`, `n` the outward unit normal) of the
-/// faces that meet each triangle of `mesh` at a convex edge or corner (see
-/// [`Face`]): those sharing a corner with it, not in its plane, each lying
-/// on or below the other's plane. Corners are shared where their
+/// faces that meet each triangle of `mesh` at a corner, not in its plane,
+/// each with whether it meets it at a convex edge or corner (see [`Face`]):
+/// each lying on or below the other's plane. Corners are shared where their
 /// coordinates are the same. In each triangle's list the neighbours are in
-/// index order (NFR-06). A mesh with cracks there finds fewer, and so
-/// counts more: never less.
-pub(crate) fn convex_neighbours(mesh: &TriangleMesh) -> Vec<Vec<(Vec3, f64)>> {
+/// index order (NFR-06). A mesh with cracks there finds fewer convex ones,
+/// and so counts more: never less.
+pub(crate) fn convex_neighbours(mesh: &TriangleMesh) -> Vec<Vec<(Vec3, f64, bool)>> {
     let key = |p: Point3| {
         [
             (p.x + 0.0).to_bits(),
@@ -1926,7 +2020,7 @@ pub(crate) fn convex_neighbours(mesh: &TriangleMesh) -> Vec<Vec<(Vec3, f64)>> {
                     let below = |pts: &[Point3; 3], n: Vec3, d: f64| {
                         pts.iter().all(|p| n.dot(*p - Point3::ORIGIN) - d <= eps)
                     };
-                    (below(q, *n, *d) && below(pts, *m, *e)).then_some((*m, *e))
+                    Some((*m, *e, below(q, *n, *d) && below(pts, *m, *e)))
                 })
                 .collect()
         })

@@ -2978,6 +2978,9 @@ impl Plan<'_> {
                 continue;
             }
             let thin = self.thin_wall(&line, &query, &g);
+            if std::env::var("GSTAT").is_ok() {
+                eprintln!("FAILMOVE lower {:.4} upper {:.4} at {:?} thin {thin:?} f {f0}-{f1} level {level}", g.lower, g.upper, g.at);
+            }
             return Some((-g.upper, g.at, thin));
         }
         None
