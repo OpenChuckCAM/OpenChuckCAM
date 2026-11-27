@@ -15,3 +15,4 @@ A task's verification and validation notes live in its decision record's Verific
 | [0260-exact-face-queries/](0260-exact-face-queries/) | [0260](../decisions/0260-exact-face-and-trim-queries.md) | Benchmark evidence |
 | [0248-rampbudget/](0248-rampbudget/) | [0248](../decisions/0248-ramp-clearance-budget.md) | Baseline, red/green, coverage and released-integration logs |
 | [0682-swarf-entries-and-exits/](0682-swarf-entries-and-exits/) | [0682](../decisions/0682-swarf-entries-and-exits-meet-the-faces-next-to-the-face-set.md) | The blisk entry measurement helper and its two outputs (issue #572) |
+| [SIMUL-EDGE-1-se2-handover/](SIMUL-EDGE-1-se2-handover/) | SIMUL-EDGE-1 (draft, on `docs/decision-SIMUL-EDGE-1-continuous-seed-and-clearance`) | The SE-2 hand-over note, the timing script and the timing cases' project files |

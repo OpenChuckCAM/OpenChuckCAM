@@ -187,21 +187,6 @@ fn check_motion<'p>(
             continue;
         };
         let n = ((f1 - f0) * travel / (2.0 * grow)).ceil().max(1.0);
-        if std::env::var("GSTAT").is_ok() {
-            use std::sync::atomic::{AtomicU64, Ordering::Relaxed};
-            static C: [AtomicU64; 3] = [const { AtomicU64::new(0) }; 3];
-            C[0].fetch_add(1, Relaxed);
-            C[1].fetch_add(n as u64, Relaxed);
-            C[2].fetch_add(level as u64, Relaxed);
-            let k = C[0].load(Relaxed);
-            if k % 100 == 0 {
-                eprintln!(
-                    "CSTAT checks {k} samples/check {:.1} travel {travel:.4} level-sum {}",
-                    C[1].load(Relaxed) as f64 / k as f64,
-                    C[2].load(Relaxed)
-                );
-            }
-        }
         let count = n.min(f64::from(u32::MAX)) as u32;
         let step = (f1 - f0) / f64::from(count);
         // Pushed last first, so they are taken in order.
@@ -1238,13 +1223,6 @@ fn places(mut breaks: Vec<crate::assemble::ShankBreak>) -> Vec<crate::assemble::
 /// of A.
 const BREAK_NEAR: f64 = 1.0;
 
-/// The areas left uncut because following the surface would gouge it
-/// (decision record SIMUL-EDGE-1, Q4): the moves left out, joined where
-/// their X ranges come within [`BREAK_NEAR`] mm and their A ranges within as
-/// many degrees of each other (the halvings round one edge find it several
-/// times), largest first. Each move's area is its length times the tool's
-/// width; its points are the contacts at its ends and the deepest point
-
 /// The turn about the rotary axis, seen from the part, that takes the tool
 /// from angle `a0` to `a1` with the machine at the fixed position `at`: the
 /// axis line from two of its points, and the signed angle that carries the
@@ -1289,6 +1267,12 @@ fn axis_turn(
     Some(crate::gap::Rotation { point, axis, angle })
 }
 
+/// The areas left uncut because following the surface would gouge it
+/// (decision record SIMUL-EDGE-1, Q4): the moves left out, joined where
+/// their X ranges come within [`BREAK_NEAR`] mm and their A ranges within as
+/// many degrees of each other (the halvings round one edge find it several
+/// times), largest first. Each move's area is its length times the tool's
+/// width; its points are the contacts at its ends and the deepest point
 /// found.
 fn gouge_areas(mut gouges: Vec<Gouge>, tolerance: f64) -> Vec<crate::assemble::Unreached> {
     use crate::assemble::{MAX_UNREACHED_POINTS, Unreached, UnreachedReason};
@@ -3064,9 +3048,6 @@ impl Plan<'_> {
             (off(t0).max(off(t0 + sweep)) + tool_reach).min(near)
         });
         let travel = sweep.length() + angle.abs() * furthest;
-        if std::env::var("NOCHECK").is_ok() {
-            return None;
-        }
         let pose = |f: f64| part(f, f).0;
         let (g, grown, profile) =
             check_motion(self.input.surface, self.checks, self.allowed, travel, &pose)?;

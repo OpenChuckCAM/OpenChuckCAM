@@ -1,0 +1,8 @@
+schema = 29
+name = "crank"
+
+[[models]]
+id = "69b0ace8-59e2-448b-ba89-51be9613fd7b"
+path = "models/1e3aad73c0dd8ea5cbc114b6b2ae1cf6.stl"
+hash = "blake3:1e3aad73c0dd8ea5cbc114b6b2ae1cf6c35b717a1230c67778573799726d1cec"
+name = "crankshaft.stl"

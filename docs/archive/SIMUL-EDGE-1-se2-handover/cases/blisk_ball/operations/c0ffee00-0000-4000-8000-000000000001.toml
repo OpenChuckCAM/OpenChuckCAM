@@ -1,0 +1,10 @@
+schema = 27
+id = "c0ffee00-0000-4000-8000-000000000001"
+order = "V"
+name = "Simultaneous"
+setup = "4596107e-cefc-486c-9cd9-adde5aecebd4"
+strategy = "simultaneous_finishing"
+tool = "b1150000-0000-4000-8000-000000000102"
+selections = []
+
+[parameters]

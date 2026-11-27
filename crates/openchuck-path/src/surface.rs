@@ -620,20 +620,9 @@ impl MeshSurface {
         let neighbours = self
             .neighbours
             .get_or_init(|| crate::gap::convex_neighbours(&self.mesh));
-        let t0 = std::time::Instant::now();
-        let r = crate::gap::search(&body, triangles, query.limit, query.accept, error, &|i| {
+        crate::gap::search(&body, triangles, query.limit, query.accept, error, &|i| {
             neighbours.get(i as usize).cloned().unwrap_or_default()
-        });
-        if std::env::var("GSTAT").is_ok() && t0.elapsed().as_secs_f64() > 3.0 {
-            eprintln!(
-                "SLOWQ {:.1} s line {:?} query {:?} profile {:?} answer {r:?}",
-                t0.elapsed().as_secs_f64(),
-                line,
-                query,
-                profile
-            );
-        }
-        r
+        })
     }
 }
 

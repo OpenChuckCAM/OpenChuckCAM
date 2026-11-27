@@ -1809,64 +1809,6 @@ pub(crate) fn search(
             );
         }
     };
-    if std::env::var("GSTAT").is_ok() {
-        use std::sync::atomic::{AtomicU64, Ordering::Relaxed};
-        static Q: AtomicU64 = AtomicU64::new(0);
-        static P: AtomicU64 = AtomicU64::new(0);
-        static CAP: AtomicU64 = AtomicU64::new(0);
-        let q = Q.fetch_add(1, Relaxed) + 1;
-        P.fetch_add(pieces as u64, Relaxed);
-        if pieces >= MAX_PIECES {
-            CAP.fetch_add(1, Relaxed);
-            let mut ps: Vec<&Piece> = state.queue.iter().collect();
-            ps.sort_by(|a, b| a.lower.total_cmp(&b.lower));
-            eprintln!(
-                "CAPPED lower {lower} found {:?} accept {accept} tip {:?} axis {:?} sweep {:?} angle {} queue {}",
-                state.best.map(|b| b.0),
-                body.tip,
-                body.axis,
-                body.sweep,
-                body.angle,
-                ps.len()
-            );
-            for p in ps.iter().take(4) {
-                eprintln!(
-                    "   piece lower {} tri {} span {:?} size {:.2e} normal {:?} corners {:?}",
-                    p.lower,
-                    p.triangle,
-                    p.span,
-                    longest_side(&p.corners).3,
-                    p.normal,
-                    p.corners
-                );
-                let f = Face::new(p.corners, p.normal);
-                let c = centroid(&p.corners);
-                eprintln!(
-                    "     lower_surface {:?} column centre {:?} beside {} below {} top {}",
-                    body.lower_surface(&f, &f.sides, limit, 1.0),
-                    body.column_first(&f, c),
-                    body.beside(&f, 0.0, 1.0),
-                    body.below_layer(&f, limit, 0.0, 1.0),
-                    body.top_over(&f, 0.0, 1.0)
-                );
-            }
-            let mut tris: Vec<u32> = ps.iter().map(|p| p.triangle).collect();
-            tris.sort();
-            tris.dedup();
-            eprintln!(
-                "   triangles {} : {:?}",
-                tris.len(),
-                tris.iter().take(12).collect::<Vec<_>>()
-            );
-        }
-        if q % 500 == 0 {
-            eprintln!(
-                "GSTAT queries {q} pieces/q {:.1} capped {}",
-                P.load(Relaxed) as f64 / q as f64,
-                CAP.load(Relaxed)
-            );
-        }
-    }
     // The best was kept less its triangle's error, as the bounds are; the
     // exact face's value is at most the triangle's plus that error.
     // A search that ran out of pieces with nothing found has not shown the
@@ -2119,14 +2061,6 @@ impl Search<'_, '_> {
             && self.best.is_none_or(|(b, _, _)| h - e < b)
         {
             self.best = Some((h - e, at, e));
-        }
-        if std::env::var("MDBG").is_ok() {
-            eprintln!(
-                "MS tri {} size {:.3} open_lower {open_lower} bound {bound} near {near:?} value {value:?} planes {} top {top}",
-                piece.triangle,
-                longest_side(&piece.corners).3,
-                planes.len()
-            );
         }
         Piece {
             lower: piece.lower.max(bound.max(-self.limit) - e),
