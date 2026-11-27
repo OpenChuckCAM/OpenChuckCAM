@@ -93,6 +93,227 @@ pub struct SetupReach {
     pub classified: bool,
     /// The material left that is enclosed, when any is.
     pub enclosed: Option<EnclosedSummary>,
+    /// The closed pockets too small to measure, when there are any (issue
+    /// 849).
+    pub too_small: Option<TooSmallSummary>,
+}
+
+/// The closed pockets thinner than two grid pitches (a hairline slit or fold
+/// the model closes), from the samples alone: not measured, so kept out of
+/// the results, and always reported (decision 0513 item 3, amended; issue
+/// 849).
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct TooSmallSummary {
+    /// How many separate places: samples within a few cells of each other
+    /// are one place.
+    pub places: usize,
+    /// The share of the counted surface left out, 0 to 1.
+    pub share: f64,
+    /// The surface they stand for, square millimetres.
+    pub area: f64,
+    /// The lowest and highest X among them, in the setup's frame.
+    pub x: (f64, f64),
+    /// Where they start and end along the part, as shares of its length from
+    /// its start, 0 to 1.
+    pub from: f64,
+    /// See `from`.
+    pub to: f64,
+}
+
+/// The share of the counted surface at which what was left out of the
+/// results is a warning, not a note (issue 849).
+pub const TOO_SMALL_WARNING_SHARE: f64 = 0.01;
+
+impl TooSmallSummary {
+    /// The summary of the samples classed too small, `None` when there are
+    /// none. `areas` are each sample's share of the surface.
+    fn new(
+        deviation: &Deviation,
+        classes: &[ReachClass],
+        areas: &[f64],
+        pitch: f64,
+    ) -> Option<Self> {
+        let counted = || {
+            deviation
+                .points
+                .iter()
+                .zip(classes)
+                .zip(areas.iter().copied().chain(std::iter::repeat(0.0)))
+                .filter(|((p, _), _)| p.counts())
+        };
+        let total = counted().count();
+        let total_area: f64 = counted().map(|(_, a)| a).sum();
+        let (x0, x1) = counted()
+            .filter(|((p, _), _)| p.on == openchuck_sim::SampleOn::Part)
+            .fold((f64::INFINITY, f64::NEG_INFINITY), |(a, b), ((p, _), _)| {
+                (a.min(p.point.x), b.max(p.point.x))
+            });
+        let length = (x1 - x0).max(f64::MIN_POSITIVE);
+        let small: Vec<_> = counted()
+            .filter(|((_, c), _)| **c == ReachClass::TooSmall)
+            .collect();
+        if small.is_empty() || total == 0 {
+            return None;
+        }
+        let area: f64 = small.iter().map(|(_, a)| *a).sum();
+        let (lo, hi) = small
+            .iter()
+            .fold((f64::INFINITY, f64::NEG_INFINITY), |(a, b), ((p, _), _)| {
+                (a.min(p.point.x), b.max(p.point.x))
+            });
+        let points: Vec<_> = small.iter().map(|((p, _), _)| p.point).collect();
+        Some(Self {
+            places: places(&points, 4.0 * pitch),
+            // Of the surface, by area: samples are denser where the model's
+            // triangles are small.
+            share: if total_area > 0.0 {
+                (area / total_area).clamp(0.0, 1.0)
+            } else {
+                small.len() as f64 / total as f64
+            },
+            area,
+            x: (lo, hi),
+            from: ((lo - x0) / length).clamp(0.0, 1.0),
+            to: ((hi - x0) / length).clamp(0.0, 1.0),
+        })
+    }
+
+    /// Whether the left-out share is a warning (at least one percent of the
+    /// counted surface) rather than a note.
+    #[must_use]
+    pub fn is_warning(&self) -> bool {
+        self.share >= TOO_SMALL_WARNING_SHARE
+    }
+
+    /// The message for setup `setup`, whose work zero is at setup X
+    /// `work_zero`: how many places, how much surface, where (X from the
+    /// work zero and shares of the part's length) and what to do.
+    #[must_use]
+    pub fn message(&self, setup: &str, work_zero: f64) -> String {
+        let x = |v: f64| {
+            let text = format!("{:.3}", v - work_zero);
+            if text == "-0.000" {
+                "0.000".to_owned()
+            } else {
+                text
+            }
+        };
+        let place = openchuck_path::counted(self.places, "place", "places");
+        let at = if x(self.x.0) == x(self.x.1) {
+            format!("at X {}", x(self.x.0))
+        } else {
+            format!("from X {} to X {}", x(self.x.0), x(self.x.1))
+        };
+        let left_out = if self.is_warning() {
+            "This is a noticeable part of the surface, so check the results with care. "
+        } else {
+            ""
+        };
+        let text = format!(
+            "{place} too narrow to measure in the part's surface (about {} of it, {}), {at} \
+             ({:.0}% to {:.0}% of the part's length). The simulation cannot tell how much \
+             material is left in a closed gap this narrow, so it is not counted in the results \
+             and is drawn as not measured. {left_out}A hairline slit or fold in the model is \
+             the usual cause: fix it in the model.",
+            area_text(self.area),
+            share_text(self.share),
+            self.from * 100.0,
+            self.to * 100.0,
+        );
+        crate::lead_in::in_form(
+            crate::lead_in::topic::MESH_CHECK,
+            &crate::lead_in::Context::setup(setup),
+            &text,
+        )
+    }
+}
+
+/// An area for a message: "about 0.4 mm²" readings never say "0 mm²".
+fn area_text(area: f64) -> String {
+    if area < 0.05 {
+        "less than 0.1 mm²".to_owned()
+    } else if area < 10.0 {
+        format!("{area:.1} mm²")
+    } else {
+        format!("{area:.0} mm²")
+    }
+}
+
+/// A share for a message: never "0.0%" beside a nonzero count.
+fn share_text(share: f64) -> String {
+    if share < 0.0005 {
+        "less than 0.1% of the surface".to_owned()
+    } else {
+        format!("{:.1}% of the surface", share * 100.0)
+    }
+}
+
+/// How many separate places `points` fall in: points within `reach` of each
+/// other (in a chain) are one place. Deterministic: the result depends only
+/// on the set of points.
+fn places(points: &[openchuck_types::geometry::Point3], reach: f64) -> usize {
+    use std::collections::BTreeMap;
+    if points.is_empty() || !(reach.is_finite() && reach > 0.0) {
+        return usize::from(!points.is_empty());
+    }
+    let key = |p: &openchuck_types::geometry::Point3| {
+        (
+            (p.x / reach).floor() as i64,
+            (p.y / reach).floor() as i64,
+            (p.z / reach).floor() as i64,
+        )
+    };
+    // Union-find over the voxels of side `reach` holding a point, joined
+    // when neighbours (including diagonally).
+    let mut ids: BTreeMap<(i64, i64, i64), usize> = BTreeMap::new();
+    for p in points {
+        let next = ids.len();
+        ids.entry(key(p)).or_insert(next);
+    }
+    let mut parent: Vec<usize> = (0..ids.len()).collect();
+    fn find(parent: &mut [usize], mut i: usize) -> usize {
+        while let Some(&p) = parent.get(i) {
+            if p == i {
+                break;
+            }
+            let g = parent.get(p).copied().unwrap_or(p);
+            if let Some(slot) = parent.get_mut(i) {
+                *slot = g;
+            }
+            i = g;
+        }
+        i
+    }
+    for (&(a, b, c), &i) in &ids {
+        for (da, db, dc) in [
+            (1, 0, 0),
+            (0, 1, 0),
+            (0, 0, 1),
+            (1, 1, 0),
+            (1, -1, 0),
+            (1, 0, 1),
+            (1, 0, -1),
+            (0, 1, 1),
+            (0, 1, -1),
+            (1, 1, 1),
+            (1, 1, -1),
+            (1, -1, 1),
+            (1, -1, -1),
+        ] {
+            if let Some(&j) = ids.get(&(a + da, b + db, c + dc)) {
+                let (ri, rj) = (find(&mut parent, i), find(&mut parent, j));
+                if ri != rj {
+                    let (low, high) = (ri.min(rj), ri.max(rj));
+                    if let Some(slot) = parent.get_mut(high) {
+                        *slot = low;
+                    }
+                }
+            }
+        }
+    }
+    (0..parent.len())
+        .filter(|&i| find(&mut parent, i) == i)
+        .count()
 }
 
 /// Where and how much of the material left is enclosed, from the samples
@@ -431,11 +652,13 @@ impl SetupState {
         )?;
         let areas = sample_areas(&deviation, &target.mesh, options.spacing)?;
         let enclosed = EnclosedSummary::new(&deviation, &reach.classes, &areas);
+        let too_small = TooSmallSummary::new(&deviation, &reach.classes, &areas, reach.pitch);
         let reach = SetupReach {
             classes: reach.classes,
             pitch: reach.pitch,
             classified: reach.classified,
             enclosed,
+            too_small,
         };
         Ok((Some((deviation, reach)), true))
     }
@@ -549,5 +772,81 @@ mod tests {
         // decided.
         assert_eq!(smallest_tool([&tool(6.0, 6.0), &tool(4.0, 3.0)]), None);
         assert_eq!(smallest_tool(std::iter::empty()), None);
+    }
+
+    fn too_small(share: f64, area: f64, places: usize) -> TooSmallSummary {
+        TooSmallSummary {
+            places,
+            share,
+            area,
+            x: (20.0, 24.0),
+            from: 0.2,
+            to: 0.4,
+        }
+    }
+
+    #[test]
+    fn req_sim_05_req_nfr_12_the_too_small_note_gives_its_count_area_and_place_in_plain_words() {
+        // Issue 849: the count agrees with its noun, the area is in readable
+        // digits, X is from the work zero, and it says what to do.
+        let one = too_small(0.004, 0.42, 1).message("Setup 1", 17.99);
+        for words in [
+            "Mesh check (setup 'Setup 1'): ",
+            "1 place too narrow to measure",
+            "(about 0.4 mm² of it, 0.4% of the surface)",
+            "from X 2.010 to X 6.010 (20% to 40% of the part's length)",
+            "fix it in the model",
+        ] {
+            assert!(one.contains(words), "{words:?} not in {one:?}");
+        }
+        assert!(!one.contains("check the results with care"), "{one}");
+        let many = too_small(0.02, 12.0, 3).message("Setup 1", 0.0);
+        assert!(many.contains("3 places too narrow to measure"), "{many}");
+        assert!(many.contains("12 mm²") && many.contains("2.0% of the surface"));
+        assert!(many.contains("check the results with care"), "{many}");
+    }
+
+    #[test]
+    fn req_sim_05_req_nfr_12_a_tiny_area_never_reads_zero() {
+        let text = too_small(0.00001, 0.01, 1).message("Setup 1", 0.0);
+        assert!(text.contains("less than 0.1 mm²"), "{text}");
+        assert!(text.contains("less than 0.1% of the surface"), "{text}");
+        assert!(!text.contains("0.0%") && !text.contains("0 mm²"), "{text}");
+        // And a place at one X is one position, not a range.
+        let mut at = too_small(0.004, 0.42, 1);
+        at.x = (20.0, 20.0004);
+        assert!(
+            at.message("S", 0.0).contains("at X 20.000 ("),
+            "{}",
+            at.message("S", 0.0)
+        );
+    }
+
+    #[test]
+    fn req_sim_05_the_warning_threshold_is_one_percent_of_the_surface() {
+        assert!(!too_small(0.0099, 1.0, 1).is_warning());
+        assert!(too_small(0.01, 1.0, 1).is_warning());
+    }
+
+    #[test]
+    fn req_sim_05_places_are_clusters_of_samples_and_do_not_depend_on_their_order() {
+        use openchuck_types::geometry::Point3;
+        let a = [
+            Point3::new(0.0, 0.0, 0.0),
+            Point3::new(0.1, 0.0, 0.0),
+            Point3::new(0.2, 0.1, 0.0),
+        ];
+        let b = [Point3::new(10.0, 0.0, 0.0), Point3::new(10.1, 0.1, 0.0)];
+        let mut all: Vec<Point3> = a.iter().chain(&b).copied().collect();
+        assert_eq!(places(&all, 0.4), 2);
+        all.reverse();
+        assert_eq!(places(&all, 0.4), 2);
+        assert_eq!(places(&a, 0.4), 1);
+        assert_eq!(places(&[], 0.4), 0);
+        assert_eq!(
+            places(&a, 0.0),
+            1,
+            "a bad reach is one place, never a crash"
+        );
     }
 }

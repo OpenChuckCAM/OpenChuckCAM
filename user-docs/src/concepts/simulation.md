@@ -24,7 +24,7 @@ On the Simulate step, tick **Deviation colours** in the Inspector. The cut part 
 | Sky blue | 0.25 to 1 mm left |
 | Strong blue | More than 1 mm left |
 | Violet, cross-hatched | Unreachable (enclosed): material no tool on this machine can reach |
-| Dark slate, hatched | Not measured |
+| Dark slate, hatched | Not measured: nothing was sampled there, or it is a closed gap too narrow to read (see below) |
 
 The scale on the view shows the bands from **Overcut** through **On** to **Left > 1 mm**. **Colour by** chooses **Deviation** (both), **Remaining** (only material left) or **Overcut** (only overcut). Hold the mouse still over the part to read the value at that point.
 
@@ -51,6 +51,8 @@ Unreachable (enclosed)
 
 Left, not classified
 : Material left that is not shown to be unreachable.
+
+A hairline slit or fold the model closes (a gap under about two simulation cells thick, 0.2 mm at the default cell) is not enclosed material: the simulation cannot say how much is left in it. It is left out of all the numbers above and the distribution, drawn as **Not measured**, and a note in **Messages** (topic **Mesh check**) says how many places, how much surface and where, as X from the work zero and a share of the part's length. The note is a warning when they are one percent or more of the surface. Fix it in the model: a real cavity two cells or more across still counts as enclosed.
 
 **DEVIATION DISTRIBUTION** splits the surface into bands, with how many points fall in each; untick a band to hide it on the part, or type a range in **Show only from** and **to**. **BY OPERATION** lists each operation's moves and the volume it removed, and says **Clean**, or how many rapid moves cut deeper than one cell into the stock: such a rapid move is a fault in the toolpath.
 

@@ -508,7 +508,24 @@ impl Application {
                 let target =
                     crate::workholding::setup_deviation_target(setup_ref, mesh.clone())?.mesh;
                 let options = DeviationOptions::for_cell(report.settings.cell.0);
-                let mut worst = triangle_worst(deviation, &target, options.spacing)?;
+                // Pockets too small to measure have no value: the worst of a
+                // triangle is of its other samples, and one with none is
+                // drawn as not measured (issue 849).
+                let without_small;
+                let measured = match result.reach.as_ref() {
+                    Some(r) if r.classes.contains(&ReachClass::TooSmall) => {
+                        let mut copy = deviation.clone();
+                        for (p, c) in copy.points.iter_mut().zip(&r.classes) {
+                            if *c == ReachClass::TooSmall {
+                                p.on = openchuck_sim::SampleOn::Inside;
+                            }
+                        }
+                        without_small = copy;
+                        &without_small
+                    }
+                    _ => deviation,
+                };
+                let mut worst = triangle_worst(measured, &target, options.spacing)?;
                 worst.truncate(model_triangles);
                 let values: Vec<_> = worst
                     .iter()
@@ -536,9 +553,12 @@ impl Application {
                 let classes = result.reach.as_ref().map(|r| r.classes.as_slice());
                 let enclosed =
                     |i: usize| classes.and_then(|c| c.get(i)) == Some(&ReachClass::Enclosed);
+                let too_small =
+                    |i: usize| classes.and_then(|c| c.get(i)) == Some(&ReachClass::TooSmall);
                 let band_of_sample = |i: usize| {
                     deviation.points.get(i).map(|p| {
-                        crate::pathview::band_of(Some((p.value, p.at_least)), enclosed(i), cell)
+                        let value = (!too_small(i)).then_some((p.value, p.at_least));
+                        crate::pathview::band_of(value, enclosed(i), cell)
                     })
                 };
                 let counted = |t: usize| {
@@ -570,7 +590,10 @@ impl Application {
                                     .then(i.cmp(j))
                             })
                             .map_or((None, false), |(i, p)| {
-                                (Some((p.value, p.at_least)), enclosed(i))
+                                (
+                                    (!too_small(i)).then_some((p.value, p.at_least)),
+                                    enclosed(i),
+                                )
                             })
                     },
                     // Exactly, from the parent's own samples within a cell of

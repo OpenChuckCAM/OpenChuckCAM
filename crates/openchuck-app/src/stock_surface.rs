@@ -352,10 +352,18 @@ impl SurfaceSamples {
             .filter(|(_, p)| p.point.is_finite() && p.value.is_finite())
             .filter_map(|(id, _)| u32::try_from(id).ok())
             .collect();
+        // A pocket too small to measure has no value to show (issue 849).
+        let too_small = |id: u32| {
+            classes
+                .and_then(|c| c.get(id as usize))
+                .is_some_and(|c| *c == ReachClass::TooSmall)
+        };
         let counted_ids: Vec<u32> = finite
             .iter()
             .copied()
-            .filter(|id| points.get(*id as usize).is_some_and(DeviationPoint::counts))
+            .filter(|id| {
+                points.get(*id as usize).is_some_and(DeviationPoint::counts) && !too_small(*id)
+            })
             .collect();
         let counted = Tree::new(points, counted_ids);
         let values = counted
@@ -1011,6 +1019,37 @@ mod tests {
         // Within the search, the nearest counted sample, as before.
         assert_eq!(bands.values[5], Some((3.0, true)));
         assert_eq!(band_of(5), Some(DeviationBand::Thick));
+    }
+
+    #[test]
+    fn req_sim_05_a_stock_face_over_a_pocket_too_small_to_measure_shows_no_value() {
+        // Issue 849: the sample of a hairline gap has no value to give; the
+        // face over it is not measured, never that sample's 5 mm.
+        let mut points = vec![sample(0.0, 5.0, false, SampleOn::Part)];
+        points[0].point.y = 6.0;
+        let classes = [ReachClass::TooSmall];
+        let samples = SurfaceSamples::with_reach(&points, Some(&classes), 0.1);
+        let mesh = TriangleMesh {
+            vertices: vec![
+                Point3::new(0.0, 5.99, -0.01),
+                Point3::new(0.0, 6.01, -0.01),
+                Point3::new(0.0, 6.0, 0.01),
+            ],
+            triangles: vec![[0, 1, 2]],
+        };
+        let cancel = CancelToken::new();
+        let bands = samples
+            .bands(&mesh, true, &JobContext::new(&cancel, &NoProgress))
+            .unwrap();
+        assert_eq!(bands.values[0], None);
+        assert!(
+            bands
+                .bands
+                .iter()
+                .any(|(b, set)| *b == DeviationBand::Unmeasured && set.contains(&0)),
+            "{:?}",
+            bands.bands
+        );
     }
 
     #[test]
