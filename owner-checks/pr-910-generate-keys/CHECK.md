@@ -31,7 +31,7 @@ Use a build of PR #910 (`85188a60` or later), or a nightly after it merges, on W
 3. Click **1 Rough**. In the Inspector change **Stepover** (for example to `2.5`) and press Enter: both operations are stale. **Click the 3D view.** Press **G**. **Expect:** both generate, "Generated 2", as **Generate stale** does (screenshot 2).
 4. With **1 Rough** still selected, press **Ctrl Z** (both stale again). Click the view and press **Shift G**. **Expect:** only Rough: "…; stopped after operation 1, so later operations stay stale", and the footer button reads **Generate stale (1)** (screenshot 3).
 5. Repeat steps 3 and 4 with **F5** and **Shift F5**. **Expect** the same results (screenshot 5: the two newest lines are Shift F5, then F5).
-6. **No operation selected.** Clicking an empty part of the project panel does not clear the selection on this build (see "Findings"). Click the model, **baluster.stl**, in the project panel instead: no operation is selected. Make an operation stale (Ctrl Z or a change) and press **Shift G**. **Expect:** every stale operation generates, as with G (screenshot 4).
+6. **No operation selected.** To deselect, **click the model, baluster.stl, in the project panel**: no operation is then selected. Until #925 lands, clicking an empty part of the project panel does not clear the selection (see "Findings"), so use the model. Make an operation stale (Ctrl Z or a change) and press **Shift G**. **Expect:** every stale operation generates, as with G (screenshot 4).
 7. Open the **Project** menu: "Generate selected Shift+G" and "Generate stale G" (screenshot 6). Open **Help > Keyboard shortcuts**: "G or F5 Generate every stale operation" and "Shift G or Shift F5 Generate the selected operation, and the ones before it" (screenshot 7).
 
 ## Pass and fail
@@ -55,7 +55,7 @@ Result: PASS / FAIL
 
 ## Findings when this was run here (for the lane)
 
-1. **The record's step 5, "Click an empty part of the tree so nothing is selected", does not clear the selection** on `85188a60`: 1 Rough stays selected after clicks below the operations list, below the panel's key, on the view background, with Esc and with Ctrl+click. This pack uses "click the model" instead (step 6). Either the record's step or the tree should change.
+1. **The record's step 5, "Click an empty part of the tree so nothing is selected", does not clear the selection** on `85188a60`: 1 Rough stays selected after clicks below the operations list, below the panel's key, on the view background, with Esc and with Ctrl+click. This pack uses "click the model" instead (step 6) until #925 lands.
 2. **The record's step 6 names an "Operations" menu.** The commands are in the **Project** menu (screenshot 6).
 3. Step 3 needs a click on the view after typing a value, so the field gives up the keyboard. The record does not say so.
 

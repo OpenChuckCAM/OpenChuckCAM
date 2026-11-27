@@ -35,7 +35,13 @@ Pull request #898 (lane PROJECT-UX-A, record PROJUX-A-2; release head `366c969`)
 The whole path is 92,382 moves on Simulate's timeline. It takes about 60 s to generate on 4 threads.
 
 > [!IMPORTANT]
-> **A step in PR #898's own check fails as written.** Its step 2 sets Rough's **Entry** to **Ramp** on the baluster. That alone is refused: "Ramp entry (operation 'Rough'): pass 33 is a single point, so there is no path for the ramp to follow…". With **Allow single-point plunge** on, it is refused again: "pass 85 turns round the part … a ramp round it would take 17.6 turns, more than the 10 allowed". This project turns both on, so the ramp entry generates. Ramps are then entered steeper near the axis, up to 5.26°, and 23 single-point passes are plunged.
+> **Do not change Rough's Entry.** This project already has Rough on **Ramp** with **Allow single-point plunge** and **Steeper ramp near the axis** both on, which is what the baluster needs for a ramp entry to generate. PR #898's own step 2 sets **Entry** to **Ramp** and nothing else. If you do that, this is what you see:
+>
+> - **Ramp alone:** Generate refuses Rough. Rough gets a red mark, and Results says "Ramp entry (operation 'Rough'): pass 33 is a single point, so there is no path for the ramp to follow…".
+> - **Ramp with Allow single-point plunge only:** Generate refuses Rough again, this time with "pass 85 turns round the part … a ramp round it would take 17.6 turns, more than the 10 allowed".
+> - **Ramp with both options on** (this project): Rough generates. Ramps are entered steeper near the axis, up to 5.26°, and 23 single-point passes are plunged.
+>
+> Those refusals are the program working as designed on this part, not a fault of #789.
 
 <details><summary>How the project was made (to regenerate it)</summary>
 
@@ -58,7 +64,7 @@ openchuck-cli resave $P
 
 Use a build of PR #898: the branch `claude/lane-project-ux-a-path-kinds`, at `366c969` or later (its release push), or a nightly after it merges. The screenshots below are from `4664c82` and `366c969` (see "As captured here"). Use a 1920 × 1080 window for steps 1 to 9.
 
-1. Copy [`project/`](project/) somewhere and open it with **File > Open project**. Click **3 Operations**, then **Generate stale (3)**, and wait for **Ready** (about a minute).
+1. Copy [`project/`](project/) somewhere and open it with **File > Open project**. Leave each operation's settings as they are. Click **3 Operations**, then **Generate stale (3)**, and wait for **Ready** (about a minute). **Expect** all three operations to generate with no refusal.
 2. The legend at the top left lists **Cut, Link, Rapid, Entry and exit** (with **Plunge, Lead-in and ramp, Lead-out**), each ticked (screenshot 2). Before this change the rows were labels only (screenshot 1).
 3. Untick **Rapid**. The dotted grey rapids go at once, and the chip "Hidden: Rapid" appears beside **Show**.
 4. Untick **Lead-out**. **Entry and exit** shows a bar, and the chip reads "Hidden: Rapid, Lead-out" (screenshot 3). Click the chip: nothing happens. Press Tab through the toolbar: the chip is not a stop. It has no tooltip.

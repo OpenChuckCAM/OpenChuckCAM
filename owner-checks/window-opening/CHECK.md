@@ -2,6 +2,9 @@
 
 **For:** the project owner, on Windows. **Time:** about 10 minutes. **Machine:** none.
 
+> [!IMPORTANT]
+> **You run this on Windows.** A maximised start (steps 1 and 3) could not be shown here: the Linux test setup (openbox on Xvfb) does not honour a request to open maximised, with or without this change. Only Windows shows whether the window opens maximised; see "What could and could not be shown here" at the end.
+
 This one has no GitHub issue: the owner reported it in conversation. The fix is pull request #906 (lane DISPLAY-TARGET, branch `claude/lane-display-target-a`, head `19643a8b`). Its record is DISPLAY-TARGET-A, item 6, on #905. It adds the specification's section 3 bullet "Opening the window".
 
 ## What was wrong, and what to check
