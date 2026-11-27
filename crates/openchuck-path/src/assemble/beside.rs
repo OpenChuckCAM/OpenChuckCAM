@@ -17,9 +17,10 @@
 //!   else; where the pass itself cuts one, the refusal says so.
 //!
 //! Only the faces an entry comes near are sampled (the owner's per-entry
-//! proximity): each face's box, from a coarse sampling grown by its own
-//! spacing, is compared with the box the tool's cutting part sweeps over the
-//! entry's positions, grown by the stock to leave and the tolerance. A face
+//! proximity): each face's box, read from its whole untrimmed surface so it
+//! holds every part of the trim, is compared with the box the tool's cutting
+//! part sweeps over the entry's positions (on up its axis past the flutes),
+//! grown by the stock to leave and the tolerance. A face
 //! outside that box cannot meet the cutting part during the entry. A face
 //! inside it is sampled once, at swarf's spacing (decision 0532 item 1), the
 //! first time it is needed; the samples do not depend on which thread asks
@@ -57,8 +58,9 @@ pub(crate) struct Beside<'a> {
 struct Face<'a> {
     number: u32,
     face: &'a dyn ParametricFace,
-    /// A box that holds the whole face: its coarse samples, grown by their
-    /// spacing.
+    /// A box that holds the whole face: its untrimmed surface over its
+    /// parameter box, on a coarse grid grown by the grid's spacing, so every
+    /// part of any trim is in it.
     bounds: Aabb,
     /// The face's samples at `spacing`, and how much deeper a cut can be
     /// between them than at the nearest one (`s / sqrt 2` for samples `s`
@@ -66,8 +68,8 @@ struct Face<'a> {
     samples: OnceLock<(Vec<Point3>, f64)>,
 }
 
-/// The spacing of the coarse grid a face's box is read from, mm.
-const COARSE: f64 = 2.0;
+/// The lines each way of the grid a face's box is read from.
+const BOX_GRID: usize = 65;
 
 impl<'a> Beside<'a> {
     /// The exact faces of `source`, in face-number order, for a tool of
@@ -93,28 +95,11 @@ impl<'a> Beside<'a> {
         let faces: Vec<Face<'a>> = list
             .into_iter()
             .filter_map(|f| {
-                let samples = OnceLock::new();
-                let mut coarse = crate::swarf::face_samples(f.face, COARSE);
-                let mut least = COARSE;
-                if coarse.is_empty() {
-                    // A narrow trim the coarse grid misses is not an empty
-                    // face: its box is read from the measure's own samples,
-                    // which are kept (CodeRabbit on #972). A face with none
-                    // even then has nothing to measure.
-                    coarse = crate::swarf::face_samples(f.face, spacing);
-                    least = spacing;
-                    let _ = samples.set(sampled(&coarse, spacing));
-                }
-                let apart = coarse
-                    .iter()
-                    .map(|(_, _, apart)| *apart)
-                    .fold(least, f64::max);
-                let bounds = bounding(coarse.iter().map(|(p, _, _)| *p))?;
                 Some(Face {
                     number: f.number,
                     face: f.face,
-                    bounds: widen(bounds, apart),
-                    samples,
+                    bounds: surface_box(f.face)?,
+                    samples: OnceLock::new(),
                 })
             })
             .collect();
@@ -226,6 +211,39 @@ impl<'a> Beside<'a> {
     }
 }
 
+/// A box that holds all of `face`: its untrimmed surface over the whole
+/// parameter box on a [`BOX_GRID`] grid, grown by the longest step between
+/// neighbouring grid points. The trim is not read, so no part of it a grid
+/// misses (a narrow band, a part of a trim) is left out of the box
+/// (CodeRabbit on #972). `None` where the surface has no point at all.
+fn surface_box(face: &dyn ParametricFace) -> Option<Aabb> {
+    let (lo, hi) = face.uv_bounds();
+    let n = BOX_GRID - 1;
+    let at = |i: usize, j: usize| {
+        face.point_normal(crate::surface::Uv {
+            u: lo.u + (hi.u - lo.u) * i as f64 / n as f64,
+            v: lo.v + (hi.v - lo.v) * j as f64 / n as f64,
+        })
+        .map(|p| p.point)
+    };
+    let grid: Vec<Vec<Option<Point3>>> = (0..=n)
+        .map(|i| (0..=n).map(|j| at(i, j)).collect())
+        .collect();
+    let point = |i: usize, j: usize| grid.get(i).and_then(|r| r.get(j)).copied().flatten();
+    let mut step = 0.0_f64;
+    for i in 0..=n {
+        for j in 0..=n {
+            if let Some(p) = point(i, j) {
+                for q in [point(i + 1, j), point(i, j + 1)].into_iter().flatten() {
+                    step = step.max(p.distance(q));
+                }
+            }
+        }
+    }
+    let b = bounding(grid.iter().flatten().flatten().copied())?;
+    Some(widen(b, step))
+}
+
 /// A face's samples at `spacing` as the measure keeps them: the points, and
 /// how much deeper a cut can be between them than at the nearest one.
 fn sampled(
@@ -291,6 +309,8 @@ mod tests {
         z: f64,
         lo: f64,
         hi: f64,
+        /// Also the square where X and Y are both 10 or less.
+        square: bool,
     }
 
     impl ParametricFace for Band {
@@ -312,7 +332,7 @@ mod tests {
         }
         fn contains(&self, uv: Uv) -> bool {
             let d = uv.u - uv.v;
-            d > self.lo && d < self.hi
+            (d > self.lo && d < self.hi) || (self.square && uv.u <= 10.0 && uv.v <= 10.0)
         }
     }
 
@@ -320,18 +340,19 @@ mod tests {
         UnitVec3::new(openchuck_types::geometry::Vec3::new(0.0, 0.0, 1.0)).unwrap()
     }
 
-    /// CodeRabbit on #972: a face whose trim the coarse grid the face's box
-    /// is read from misses is kept and sampled at the measure's own spacing,
-    /// as before decision 0701 every face was, not taken for an empty face.
+    /// CodeRabbit on #972: a face whose trim a coarse grid misses is kept
+    /// and sampled at the measure's own spacing, as before decision 0701
+    /// every face was, not taken for an empty face.
     #[test]
     fn req_op_12_a_face_the_coarse_grid_misses_is_still_measured() {
         let band = Band {
             z: 0.0,
             lo: 0.5,
             hi: 1.5,
+            square: false,
         };
         // The premise: the coarse grid finds nothing on the band.
-        assert!(crate::swarf::face_samples(&band, COARSE).is_empty());
+        assert!(crate::swarf::face_samples(&band, 2.0).is_empty());
         let faces = vec![FaceRef {
             number: 7,
             face: &band,
@@ -359,6 +380,7 @@ mod tests {
             z: 30.0,
             lo: -200.0,
             hi: 200.0,
+            square: false,
         };
         let faces = vec![FaceRef {
             number: 2,
@@ -376,6 +398,7 @@ mod tests {
             z: -30.0,
             lo: -200.0,
             hi: 200.0,
+            square: false,
         };
         let faces = vec![FaceRef {
             number: 2,
@@ -386,5 +409,83 @@ mod tests {
             .reach(&[(Point3::new(50.0, 50.0, 0.0), up())], 10.0, 3.0)
             .unwrap();
         assert!(beside.near(&reach).is_empty(), "{reach:?}");
+    }
+
+    /// CodeRabbit on #972: a face the coarse grid sees only in part (a
+    /// square near the origin) and misses elsewhere (the band along the
+    /// diagonal) is still near an entry beside the part it misses: its box
+    /// holds the whole face.
+    #[test]
+    fn req_op_12_a_face_the_coarse_grid_sees_only_in_part_is_near_all_of_it() {
+        let band = Band {
+            z: 0.0,
+            lo: 0.5,
+            hi: 1.5,
+            square: true,
+        };
+        // The premise: the coarse grid sees the square, and nothing of the
+        // band past it.
+        let coarse = crate::swarf::face_samples(&band, 2.0);
+        assert!(!coarse.is_empty());
+        assert!(coarse.iter().all(|(p, _, _)| p.x <= 12.0 && p.y <= 12.0));
+        let faces = vec![FaceRef {
+            number: 4,
+            face: &band,
+        }];
+        let beside = Beside::from_faces(faces, 3.0, Allowance::Tolerance).unwrap();
+        let near_band = Aabb {
+            min: Point3::new(99.0, 98.0, -1.0),
+            max: Point3::new(101.0, 100.0, 1.0),
+        };
+        assert_eq!(beside.near(&near_band), vec![0]);
+    }
+
+    /// CodeRabbit on #972: beside swarf's face set, a face the tool meets
+    /// above the top of its flutes, within its cutting radius, is cut there
+    /// and refused, as decision 0682 refused it before the reach was
+    /// bounded: the measure counts the tool on up its axis at the cutting
+    /// radius.
+    #[test]
+    fn req_op_11_req_op_12_a_face_above_the_flutes_is_refused_beside_swarf() {
+        let band = Band {
+            z: 30.0,
+            lo: -200.0,
+            hi: 200.0,
+            square: false,
+        };
+        let faces = vec![FaceRef {
+            number: 2,
+            face: &band,
+        }];
+        let beside = Beside::from_faces(faces, 3.0, Allowance::PassCut).unwrap();
+        let cutter = openchuck_types::tool::Tool {
+            shape: openchuck_types::tool::ToolShape::FlatEnd,
+            diameter: openchuck_types::units::Millimetres(6.0),
+            flute_length: openchuck_types::units::Millimetres(10.0),
+            overall_length: openchuck_types::units::Millimetres(60.0),
+            shank_diameter: openchuck_types::units::Millimetres(6.0),
+            flute_count: 2,
+            material: None,
+            centre_cutting: None,
+            stick_out: None,
+        }
+        .profile()
+        .unwrap();
+        let tip = (Point3::new(50.0, 50.0, 0.0), up());
+        let reach = beside.reach(&[tip], cutter.top(), 3.0).unwrap();
+        let near = beside.near(&reach);
+        assert_eq!(near, vec![0]);
+        let cuts = beside.cuts(&near, &cutter, 3.0, tip);
+        let depth = cuts.get(&0).copied().unwrap_or(0.0);
+        assert!(depth > 1.0, "{depth}");
+        // The pass itself does not cut the face: the move is refused.
+        let found = super::super::entry::deepest_beside(
+            &[cuts],
+            &BTreeMap::new(),
+            Allowance::PassCut,
+            0.01,
+            |i| beside.slack(i),
+        );
+        assert!(matches!(found, Some((0, 0, d, _)) if d > 1.0), "{found:?}");
     }
 }

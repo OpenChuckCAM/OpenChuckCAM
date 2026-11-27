@@ -3,7 +3,7 @@
 ## 0.75.0 (PATH-QUALITY; issue #957; decision 0701, proposed; not breaking, output change: new refusals)
 
 - **New refusal (Entry Lead and Helix, every strategy but swarf, an operation limited to a selection):** a lead or helix is measured against the part's faces outside the selection (`RegionConstraint::outside`) that it comes near: the faces whose box meets the box the tool's cutting part sweeps over the entry, sampled lazily as swarf samples its faces next to the face set. One that would cut such a face deeper than the tolerance and the sampling slack is refused, naming the face. Where the pass itself cuts the face where the move meets it, the refusal says so. Plunge and Ramp, swarf (decision 0682, unchanged) and faces with no exact form (a mesh) are not measured.
-- **Fixed (CodeRabbit on #972):** the measure reaches the tool on up its axis past the top of the flutes, as far as any face goes, so a swarf entry keeps decision 0682's refusals there; a face whose trim the coarse 2 mm grid misses is kept, its box from its own samples; for the faces outside a selection the point where the move meets the pass is measured too.
+- **Fixed (CodeRabbit on #972):** the measure reaches the tool on up its axis past the top of the flutes, as far as any face goes, so a swarf entry keeps decision 0682's refusals there; each face's box is read from its whole untrimmed surface, so no part of a trim a coarse grid misses is left out of the measure; for the faces outside a selection the point where the move meets the pass is measured too.
 - No public API change.
 
 ## Unreleased (MOPUP-1, PR M10; issue #892; a non-breaking addition, no version change)

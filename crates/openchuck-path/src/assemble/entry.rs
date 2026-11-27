@@ -1715,7 +1715,7 @@ pub(super) struct Gouge {
 /// the faces outside a selection the join is a position the tool is sent to
 /// like the others, after them, with only the tolerance and the slack
 /// allowed (decision 0701, the owner's Q3 answer; CodeRabbit on #972).
-fn deepest_beside(
+pub(super) fn deepest_beside(
     cuts: &[BTreeMap<usize, f64>],
     own: &BTreeMap<usize, f64>,
     allowance: Allowance,
