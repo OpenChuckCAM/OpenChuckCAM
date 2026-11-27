@@ -50,6 +50,8 @@ mod edge_following;
 mod entry;
 #[path = "entry_link_stock.rs"]
 mod entry_link_stock;
+#[path = "entry_proximity.rs"]
+mod entry_proximity;
 #[path = "exact_contact.rs"]
 mod exact_contact;
 #[path = "exact_faces.rs"]

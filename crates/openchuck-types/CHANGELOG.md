@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.75.0
+
+- **Family release (0.75.0; PATH-QUALITY; issue #957):** `openchuck-path` measures a lead or helix entry of an operation limited to a selection against the part's faces outside the selection that it comes near, and refuses one that would cut them; no change to this crate.
+
 ## 0.74.0
 
 - **Family release (0.74.0; PATH-QUALITY; issue #834):** `openchuck-path` faces the ends that do not reach round the rotary axis in arcs, with a new Cutting direction setting, and warns where a tab misses an end; no change to this crate.

@@ -31,6 +31,7 @@ use openchuck_types::ir::MoveKind;
 use openchuck_types::tool::profile::RevolvedProfile;
 use openchuck_types::units::Degrees;
 
+use super::beside::{Allowance, Beside, bounding, widen};
 use super::pass_shape::{self, Start};
 use super::ring_ramp::{self, RingRamp};
 use super::{Builder, EPS, PlungeReason, View};
@@ -42,7 +43,6 @@ use crate::params::{CommonParameters, EntryParameters, EntryStyle};
 use crate::rotary::AxisPosition;
 use crate::strategy::{CutPoint, StrategyInput};
 use crate::surface::SurfaceSource;
-use openchuck_types::geometry::{Point3, UnitVec3};
 
 // The lead on a pass that turns A (decision 0544); a child module, so it
 // shares this module's checks.
@@ -160,7 +160,7 @@ enum RingEntry {
     BackAndForth { end: usize, tan: f64 },
 }
 
-pub(super) struct Entry {
+pub(super) struct Entry<'a> {
     style: EntryStyle,
     /// A single-point pass under a ramp is plunged (decision 0543 D7).
     single_point_plunge: bool,
@@ -187,37 +187,31 @@ pub(super) struct Entry {
     /// A height above all the stock (the retract height), from which the
     /// stock under a ramp's path is probed.
     probe_height: f64,
-    /// Samples of the faces next to the face set (swarf's
-    /// [`RegionConstraint::neighbours`](crate::RegionConstraint::neighbours)),
-    /// with each face's number, sampled as swarf samples them (decision
-    /// record 0532): a lead or helix may cut them no deeper than the pass
-    /// itself cuts them where the move meets it, plus the tolerance
-    /// (decision record 0682; issue #572). Empty for every other strategy.
-    beside: Vec<(Point3, u32)>,
-    /// The tool's profile, which the faces next to the face set are
-    /// measured against, without the stock to leave, as swarf measures them.
+    /// The faces beside the operation's surface a lead or helix is also
+    /// measured against, with their allowance: swarf's faces next to the
+    /// face set (decision record 0682; issue #572), or every other
+    /// strategy's faces outside the selection (decision record 0701; issue
+    /// #957). `None` for a plain plunge or ramp, or with neither.
+    beside: Option<Beside<'a>>,
+    /// The tool's profile, which those faces are measured against, without
+    /// the stock to leave, as swarf measures them.
     cutter: RevolvedProfile,
-    /// For each of those faces, by number, how much deeper the tool can cut
-    /// it between its samples than at the nearest one: the clearance changes
-    /// no faster than the distance, and a sample is at most `s / sqrt 2`
-    /// from any point of the face, for the face's samples `s` apart, which
-    /// on a large face is coarser than the spacing asked for (OI-2078 is the
-    /// same limit for the pass; CodeRabbit on #866).
-    beside_slack: BTreeMap<u32, f64>,
 }
 
-impl Entry {
+impl<'a> Entry<'a> {
     pub(super) fn new(
         input: &StrategyInput<'_>,
         common: &CommonParameters,
         e: &EntryParameters,
-        beside: Option<&dyn SurfaceSource>,
+        beside: Option<(&'a dyn SurfaceSource, Allowance)>,
     ) -> Result<Self> {
         let radius = input.tool.cutting_radius();
         let leave = common.stock_to_leave.0;
         let beside = match (beside, e.style) {
-            (Some(faces), EntryStyle::Lead | EntryStyle::Helix) => beside_samples(faces, radius),
-            _ => (Vec::new(), BTreeMap::new()),
+            (Some((faces, allowance)), EntryStyle::Lead | EntryStyle::Helix) => {
+                Beside::new(faces, radius, allowance)
+            }
+            _ => None,
         };
         let grown = match e.style {
             EntryStyle::Plunge => None,
@@ -253,9 +247,8 @@ impl Entry {
                 crate::params::Retract::Clearance => input.clearance.radius.0,
                 crate::params::Retract::SafeZ => input.clearance.safe_z.0,
             },
-            beside: beside.0,
+            beside,
             cutter: input.tool.clone(),
-            beside_slack: beside.1,
         })
     }
 
@@ -1596,54 +1589,56 @@ impl Entry {
         if worst.is_some() {
             return worst;
         }
-        if self.beside.is_empty() {
+        let beside = self.beside.as_ref()?;
+        let at = |(pos, a): (AxisPosition, Degrees)| (rotary.to_model(pos, a), rotary.tool_axis(a));
+        // Only the faces the tool's cutting part comes near over these
+        // moves and where they meet the pass (decision 0701, per-entry
+        // proximity): the box of its tip and its top along its axis at each,
+        // grown by its radius, the stock to leave and the tolerance.
+        let reach = bounding(moves.iter().chain(std::iter::once(&join)).flat_map(|m| {
+            let (tip, axis) = at(*m);
+            [tip, tip + axis.get() * self.cutter.top()]
+        }))
+        .map(|b| widen(b, self.tool_radius + leave + self.tolerance))?;
+        let near = beside.near(&reach);
+        if near.is_empty() {
             return None;
         }
-        let at = |(pos, a): (AxisPosition, Degrees)| (rotary.to_model(pos, a), rotary.tool_axis(a));
         // Face by face: the pass's own cut into that face where the move
-        // meets it, the tolerance, and how much deeper a cut can be between
+        // meets it, which the faces next to swarf's face set allow (0682)
+        // and the faces outside a selection do not (0701, the owner's Q3
+        // answer); the tolerance; and how much deeper a cut can be between
         // that face's samples than at them. A face the pass cuts (a floor
         // under a ball) excuses nothing on another face (CodeRabbit on #866).
-        let own = self.beside_cuts(at(join));
-        let cuts: Vec<BTreeMap<u32, f64>> =
-            parallel::map_in_order(moves, |m| self.beside_cuts(at(*m)));
+        let own = beside.cuts(&near, &self.cutter, self.tool_radius, at(join));
+        let cuts: Vec<BTreeMap<usize, f64>> = parallel::map_in_order(moves, |m| {
+            beside.cuts(&near, &self.cutter, self.tool_radius, at(*m))
+        });
         let mut deepest: Option<Gouge> = None;
         for (i, cut) in cuts.into_iter().enumerate() {
             for (face, d) in cut {
-                let allowed = own.get(&face).copied().unwrap_or(0.0)
-                    + self.tolerance
-                    + self.beside_slack.get(&face).copied().unwrap_or(0.0);
+                let pass_cut = own.get(&face).copied().unwrap_or(0.0);
+                let allowed = match beside.allowance {
+                    Allowance::PassCut => pass_cut,
+                    Allowance::Tolerance => 0.0,
+                } + self.tolerance
+                    + beside.slack(face);
                 if d > allowed && deepest.is_none_or(|w| d > w.depth) {
                     deepest = Some(Gouge {
                         depth: d,
                         position: i,
                         x: x(i),
-                        face: Some(face),
+                        face: Some(Struck {
+                            number: beside.number(face),
+                            allowance: beside.allowance,
+                            pass_cut: (pass_cut > self.tolerance + beside.slack(face))
+                                .then_some(pass_cut),
+                        }),
                     });
                 }
             }
         }
         deepest
-    }
-
-    /// The deepest cut into each face next to the face set by the tool with
-    /// its tip at `tip` along `axis`, by face number; a face it does not cut
-    /// is left out. A map in face-number order, so the same on any thread
-    /// (NFR-06).
-    fn beside_cuts(&self, (tip, axis): (Point3, UnitVec3)) -> BTreeMap<u32, f64> {
-        let mut cuts: BTreeMap<u32, f64> = BTreeMap::new();
-        for (p, face) in &self.beside {
-            // Outside the tool's radius or below its tip: not in the tool.
-            if cutter::bound_at(self.tool_radius, tip, axis, *p) >= 0.0 {
-                continue;
-            }
-            let d = -cutter::clearance_at(&self.cutter, tip, axis, *p);
-            if d > 0.0 {
-                let deepest = cuts.entry(*face).or_insert(0.0);
-                *deepest = deepest.max(d);
-            }
-        }
-        cuts
     }
 
     /// The refusal of an entry or exit that would cut into the finished
@@ -1674,12 +1669,19 @@ impl Entry {
             )
             .with_setting(crate::params::names::ENTRY);
         }
+        if let Some(text) = found.pass_cut_refusal(pass, name, self.tolerance) {
+            return PathError::refused(topic, text).with_setting(crate::params::names::ENTRY);
+        }
+        let advice = if found.outside() {
+            "set Entry to Plunge or Ramp, or use a smaller size"
+        } else {
+            "try another entry style, a smaller size or a steeper angle"
+        };
         PathError::refused(
             topic,
             format!(
                 "pass {}: the {name} needs {size}, and the tool would cut {:.3} mm into {} at \
-             position {} of its path (the tolerance is {:.3} mm); try another entry style, a \
-             smaller size or a steeper angle",
+             position {} of its path (the tolerance is {:.3} mm); {advice}",
                 pass + 1,
                 found.depth,
                 found.what(),
@@ -1700,9 +1702,20 @@ pub(super) struct Gouge {
     position: usize,
     /// The model X of the tool's tip there (NaN when not known).
     x: f64,
-    /// The number of the face next to the face set it cuts, deeper than the
-    /// pass does (decision record 0682); `None` for the finished surface.
-    face: Option<u32>,
+    /// The face beside the operation's surface it cuts, deeper than its
+    /// allowance; `None` for the finished surface.
+    face: Option<Struck>,
+}
+
+/// A face beside the operation's surface that an entry or exit would cut.
+#[derive(Debug, Clone, Copy)]
+pub(super) struct Struck {
+    number: u32,
+    allowance: Allowance,
+    /// How deep the pass itself cuts the face where the move meets it, when
+    /// that is more than the tolerance (and the slack) allow: the faces
+    /// outside a selection allow none of it (decision 0701).
+    pass_cut: Option<f64>,
 }
 
 impl Gouge {
@@ -1711,11 +1724,67 @@ impl Gouge {
     fn what(&self) -> String {
         match self.face {
             None => "the finished surface".to_owned(),
-            Some(n) => format!(
+            Some(Struck {
+                number: n,
+                allowance: Allowance::PassCut,
+                ..
+            }) => format!(
                 "face {n}, which shares an edge with the face set, deeper than the pass itself \
                  cuts it"
             ),
+            Some(Struck { number: n, .. }) => {
+                format!("face {n}, outside the operation's selection,")
+            }
         }
+    }
+
+    /// The pass's own cut into a face outside the selection where the move
+    /// meets it, when it is more than allowed (decision 0701): the refusal
+    /// then says so, as no lead or helix there can keep clear of the face.
+    fn pass_cut(&self) -> Option<(u32, f64)> {
+        match self.face {
+            Some(Struck {
+                number,
+                allowance: Allowance::Tolerance,
+                pass_cut: Some(d),
+            }) => Some((number, d)),
+            _ => None,
+        }
+    }
+
+    /// The refusal where the pass itself cuts a face outside the selection
+    /// where the move `name` of pass `pass` meets it (decision 0701, the
+    /// owner's Q3 answer): no lead or helix there can keep clear of the
+    /// face, so the message says so and what to do, honestly naming the
+    /// pass's own cut, which nothing else measures.
+    pub(super) fn pass_cut_refusal(
+        &self,
+        pass: usize,
+        name: &str,
+        tolerance: f64,
+    ) -> Option<String> {
+        let (n, own) = self.pass_cut()?;
+        Some(format!(
+            "pass {}: the pass itself cuts {own:.3} mm into face {n}, outside the operation's \
+             selection, where the {name} meets it, so the {name} would cut it too ({:.3} mm at \
+             position {} of its path; the tolerance is {tolerance:.3} mm). Set Entry to Plunge \
+             or Ramp, or change the selection or the stock to leave so that the pass keeps \
+             clear of face {n}",
+            pass + 1,
+            self.depth,
+            self.position + 1,
+        ))
+    }
+
+    /// Whether the face cut is outside the operation's selection.
+    pub(super) fn outside(&self) -> bool {
+        matches!(
+            self.face,
+            Some(Struck {
+                allowance: Allowance::Tolerance,
+                ..
+            })
+        )
     }
 }
 
@@ -1728,33 +1797,6 @@ impl Default for Gouge {
             face: None,
         }
     }
-}
-
-/// Samples of every exact face of `faces`, in face-number order, each with
-/// its number, as swarf samples the faces next to a face (decision record
-/// 0532 item 1) for a tool of cutting radius `radius`; and, for each face,
-/// the most its cut can be deeper between its samples than at them, from
-/// the spacing its samples actually have.
-fn beside_samples(
-    faces: &dyn SurfaceSource,
-    radius: f64,
-) -> (Vec<(Point3, u32)>, BTreeMap<u32, f64>) {
-    let spacing = crate::swarf::guard_spacing(radius);
-    let mut list = faces.exact_faces();
-    list.sort_by_key(|f| f.number);
-    list.dedup_by_key(|f| f.number);
-    let mut points = Vec::new();
-    let mut slack = BTreeMap::new();
-    for f in list {
-        let samples = crate::swarf::face_samples(f.face, spacing);
-        let apart = samples
-            .iter()
-            .map(|(_, _, apart)| *apart)
-            .fold(spacing, f64::max);
-        slack.insert(f.number, apart * std::f64::consts::FRAC_1_SQRT_2);
-        points.extend(samples.into_iter().map(|(p, _, _)| (p, f.number)));
-    }
-    (points, slack)
 }
 
 /// The height a rapid descent over the line the tool is on stops at: the
@@ -2048,10 +2090,9 @@ mod tests {
         let asked = crate::swarf::guard_spacing(radius);
         let slack = |x1: f64| {
             let surface = BrepSurface::new(&wall_plane(8.0, 0.0, x1, 0.0, 10.0)).unwrap();
-            let (points, slack) = beside_samples(&surface, radius);
-            assert!(!points.is_empty());
-            assert_eq!(slack.len(), 1);
-            slack.values().copied().next().expect("one face")
+            let beside = Beside::new(&surface, radius, Allowance::Tolerance).expect("one face");
+            assert_eq!(beside.near(&beside_all()), vec![0]);
+            beside.slack(0)
         };
         let small = slack(10.0);
         assert!(
@@ -2061,5 +2102,14 @@ mod tests {
         // 1000 mm on at most 400 samples: about 2.5 mm apart.
         let large = slack(1000.0);
         assert!(large > 2.4 * std::f64::consts::FRAC_1_SQRT_2, "{large}");
+    }
+
+    /// A box that holds everything.
+    fn beside_all() -> openchuck_types::geometry::Aabb {
+        let far = 1.0e6;
+        openchuck_types::geometry::Aabb {
+            min: openchuck_types::geometry::Point3::new(-far, -far, -far),
+            max: openchuck_types::geometry::Point3::new(far, far, far),
+        }
     }
 }

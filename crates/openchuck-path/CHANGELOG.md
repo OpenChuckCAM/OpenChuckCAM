@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.75.0 (PATH-QUALITY; issue #957; decision 0701, proposed; not breaking, output change: new refusals)
+
+- **New refusal (Entry Lead and Helix, every strategy but swarf, an operation limited to a selection):** a lead or helix is measured against the part's faces outside the selection (`RegionConstraint::outside`) that it comes near: the faces whose box meets the box the tool's cutting part sweeps over the entry, sampled lazily as swarf samples its faces next to the face set. One that would cut such a face deeper than the tolerance and the sampling slack is refused, naming the face. Where the pass itself cuts the face where the move meets it, the refusal says so. Plunge and Ramp, swarf (decision 0682, unchanged) and faces with no exact form (a mesh) are not measured.
+- No public API change.
+
 ## 0.74.0 (PATH-QUALITY; issue #834; decision 0700, proposed; not breaking, output change)
 
 - **Changed output (Face free ends, ends that do not reach round the rotary axis):** such an end (the end of a pin off the axis, a crankshaft's web) was not found and was skipped with no word. It is now faced in nested, layered arcs over the angles where the face is, down to its nearest point to the axis, with a whole turn where the arcs cover nearly a turn, a note, and decision 0344's two Part cut free warnings worded for the arcs. An end found on every line of A is faced as before, byte for byte.
