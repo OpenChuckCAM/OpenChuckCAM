@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.74.0
+
+- **Family release (0.74.0; PATH-QUALITY; issue #834):** `openchuck-path` faces the ends that do not reach round the rotary axis in arcs, with a new Cutting direction setting, and warns where a tab misses an end; no change to this crate.
+
 ## 0.73.0
 
 - **Family release (0.73.0; PATH-QUALITY; issues #951 and #959):** `openchuck-path` refines how ramps are measured and fitted, measures a plunge's depth from where the stock begins, and refuses a stretch past a point that would make too many points; no change to this crate.

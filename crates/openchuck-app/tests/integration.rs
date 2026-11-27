@@ -50,6 +50,8 @@ mod model;
 mod model_copy;
 #[path = "new_setup.rs"]
 mod new_setup;
+#[path = "off_axis_ends.rs"]
+mod off_axis_ends;
 #[path = "operation.rs"]
 mod operation;
 #[path = "output_options.rs"]

@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.74.0 (PATH-QUALITY; issue #834; decision 0700, proposed; not breaking, output change)
+
+- **Changed output (Face free ends, ends that do not reach round the rotary axis):** such an end (the end of a pin off the axis, a crankshaft's web) was not found and was skipped with no word. It is now faced in nested, layered arcs over the angles where the face is, down to its nearest point to the axis, with a whole turn where the arcs cover nearly a turn, a note, and decision 0344's two Part cut free warnings worded for the arcs. An end found on every line of A is faced as before, byte for byte.
+- **New parameter (helical finishing, axial finishing, rest machining):** `free_end_direction`, "Cutting direction": `meander`, `climb` (the default) or `conventional`. It acts only on the arcs; whole turns keep the strategy's own direction.
+- **New warning:** an end that has nothing past it on some lines of A but leans (is not square to the rotary axis) is not faced, and a warning names a Facing operation (with Shape End where it is the end opposite the setup's only held end).
+- **New warnings (tabs):** where a tab past an end does not meet the end face, the turn at the face across the axis (decision 0297, unchanged) cuts the part free of the tab. The Part cut free warnings now say so, the part's one as a possible collision to acknowledge, whether or not Face free ends is on. A project with such a tab now asks for acknowledgement before writing.
+- **New refusal:** a Stepdown that would make more than 5,000,000 points in the layers beside a free end (round or not) is refused, naming the Stepdown.
+- No public API change.
+
 ## 0.73.0 (PATH-QUALITY; issues #951 and #959; decision 0695 follow-ups; not breaking, output change in rare cases)
 
 - **Changed output (Entry Ramp, whole rings):** a ring ramp's depth per traverse is now the deepest drop between one visit to a place and the next a turn later (the ring itself after the ramp's last turn), not the mean over its turns. On an uneven ring, where the floor binds or a steep drop is followed, the ramp note gives the deepest turn, and a ring whose deepest turn exceeds the largest depth per traverse is held back and forth over itself, as decision 0695's Q9 part 3 answer asks, where the mean alone kept it ramping round. An even ramp is unchanged.
