@@ -1105,9 +1105,12 @@ impl<'a> Body<'a> {
     /// multipliers grow without end; this settles the empty prisms among
     /// them at once.
     fn beside(&self, face: &Face, s0: f64, s1: f64) -> bool {
+        if face.clips.is_empty() && self.over(face, 0.5 * (s0 + s1)) {
+            return false;
+        }
         face.constraints()
             .any(|(n, b)| n.length() > 0.0 && self.dual_over(*n, *b, s0, s1) > -SIDE_MARGIN)
-            || face.around.iter().chain(self.toward(face).iter()).any(|u| {
+            || self.toward(face).iter().chain(face.around.iter()).any(|u| {
                 // u is square to the face's normal: over the prism u . y is
                 // at most its most at a corner.
                 let c = face
@@ -1117,6 +1120,29 @@ impl<'a> Body<'a> {
                     .fold(f64::NEG_INFINITY, f64::max);
                 self.dual_over(*u, c, s0, s1) > -SIDE_MARGIN
             })
+    }
+
+    /// Whether a real point of the tool at the fraction `f` has its foot on
+    /// the face, clear of every side by more than the side margin: the
+    /// tool's lowest point along the face's normal, or its nearest point to
+    /// the face's centre. Then no plane square to the face parts the tool
+    /// from its prism, and [`beside`](Self::beside), each of whose tests is
+    /// a bound from below on what that point reaches, is false without
+    /// asking them (lane SE-PERF).
+    fn over(&self, face: &Face, f: f64) -> bool {
+        const CLEAR: f64 = SIDE_MARGIN + 1e-9;
+        let lowest = self.support_point(-self.direction(face.m, f));
+        let centre = self.frame(centroid(&face.corners), f);
+        let (distance, normal) = self.at_first(centre);
+        let nearest = centre + normal * (-distance);
+        [lowest, nearest].into_iter().any(|y| {
+            let y = self.unframe(y, f);
+            y.is_finite()
+                && face
+                    .sides
+                    .iter()
+                    .all(|(n, b)| n.length() > 0.0 && n.dot(y - Point3::ORIGIN) - b <= -CLEAR)
+        })
     }
 
     /// The direction across the face's normal from the piece towards the
@@ -2129,9 +2155,9 @@ impl Search<'_, '_> {
     /// the face counts is as far from the face as its height, so a piece
     /// the tool is proven farther than `limit` from (by the capsule holding
     /// the tool, or the plane facing it from the tool's spine) has no gap
-    /// within `limit`; nor has one the whole tool is deeper than `limit`
-    /// below. Otherwise the bound is the dual's with no multipliers: the
-    /// lowest the tool reaches below the face's plane anywhere.
+    /// within `limit`. Otherwise the bound is the dual's with no
+    /// multipliers: the lowest the tool reaches below the face's plane
+    /// anywhere.
     fn push(&mut self, corners: [Point3; 3], m: Vec3, triangle: u32, span: (f64, f64), hint: f64) {
         let (s0, s1) = span;
         let e = (self.error)(triangle);
@@ -2143,16 +2169,11 @@ impl Search<'_, '_> {
         if far - e > self.limit {
             return;
         }
-        // The open region: a tool beyond a clip may still be above the face
-        // (see [`Search::measure`]).
-        let face = Face {
-            clips: Vec::new(),
-            ..self.face(corners, m, triangle)
-        };
-        if self.body.top_over(&face, s0, s1) < -self.limit || self.body.beside(&face, s0, s1) {
-            return;
-        }
-        let lower = self.body.dual_over(face.m, face.d, s0, s1).max(-self.limit) - e;
+        // Whether the tool lies beside the piece, or wholly below its
+        // layer, is asked when the piece is measured, and only then: a
+        // piece whose bound here already ends the search needs neither.
+        let d = m.dot(corners[0] - Point3::ORIGIN);
+        let lower = self.body.dual_over(m, d, s0, s1).max(-self.limit) - e;
         self.order += 1;
         self.queue.push(Piece {
             lower,
