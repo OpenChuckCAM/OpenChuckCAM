@@ -4233,6 +4233,28 @@ mod tests {
     }
 
     #[test]
+    fn req_op_12_a_flat_end_whose_corner_passes_a_face_below_its_layer_is_settled_at_once() {
+        // A sample of the move check on the public blisk at the finest
+        // growth (lane SE-PERF, 27 Nov 2026): the corner of a 3 mm flat end
+        // passes a small place of a face a few micrometres clear, at the
+        // depth of the layer's floor, its side beside the place above and
+        // its bottom over it below. Nothing counts there (the independent
+        // checker reads 0.0082 mm, within the tolerance), but the plane
+        // that parts them is the one along the tool's side, found from a
+        // point of the place above the floor; without it the search ran to
+        // its cap of pieces, 17 to 30 s, and the move was left out.
+        sample_agrees(
+            &blisk(),
+            &cutter::grow_profile(&flat_3mm(), 0.005 / 64.0).unwrap(),
+            ToolLine {
+                origin: Point3::new(32.135088242599764, 13.028077435040666, 14.808769655743358),
+                axis: UnitVec3::new(Vec3::new(0.0, 0.43921578773187847, 0.8983815958750856))
+                    .unwrap(),
+            },
+        );
+    }
+
+    #[test]
     fn req_op_12_a_flat_end_overhanging_the_blisk_rim_is_settled_at_once() {
         // One sample of the move check on the public blisk (27 Nov 2026): a
         // 3 mm flat end grown by a tenth of the tolerance, its bottom resting

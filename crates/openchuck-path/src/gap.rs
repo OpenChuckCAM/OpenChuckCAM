@@ -1206,6 +1206,7 @@ impl<'a> Body<'a> {
     /// Whether no tool point with its foot on the face lies above the
     /// layer, `limit` below it, at any pose from `s0` to `s1`, shown by the
     /// plane square to the direction from the layer's floor under the piece
+    /// (or from a point of the column through its centre above the floor)
     /// to the tool's nearest point (at the middle pose): the whole tool
     /// beyond it at every pose, and, the direction not rising along the
     /// face's normal, the prism above the floor behind it at its floor
@@ -1217,21 +1218,31 @@ impl<'a> Body<'a> {
     fn under(&self, face: &Face, limit: f64, s0: f64, s1: f64) -> bool {
         let fm = 0.5 * (s0 + s1);
         let floor = face.corners.map(|p| p + face.m * (-limit));
-        std::iter::once(centroid(&floor)).chain(floor).any(|q| {
-            let (distance, normal) = self.at_first(self.frame(q, fm));
-            if distance <= 0.0 {
-                return false;
-            }
-            let w = self.undirection(-normal, fm);
-            if w.dot(face.m) > 0.0 {
-                return false;
-            }
-            let c = floor
-                .iter()
-                .map(|p| w.dot(*p - Point3::ORIGIN))
-                .fold(f64::NEG_INFINITY, f64::max);
-            self.dual_over(w, c, s0, s1) > -SIDE_MARGIN
-        })
+        // From the floor under the piece's centre and corners, and from
+        // the column through its centre at the face and half way down and
+        // as far above: a flat end's corner passing the piece at the floor
+        // has its side beside the piece above and its bottom over it
+        // below, and the plane that parts them is the one along its side.
+        let centre = centroid(&face.corners);
+        let column = [-0.5 * limit, 0.0, limit].map(|h| centre + face.m * h);
+        std::iter::once(centroid(&floor))
+            .chain(floor)
+            .chain(column)
+            .any(|q| {
+                let (distance, normal) = self.at_first(self.frame(q, fm));
+                if distance <= 0.0 {
+                    return false;
+                }
+                let w = self.undirection(-normal, fm);
+                if w.dot(face.m) > 0.0 {
+                    return false;
+                }
+                let c = floor
+                    .iter()
+                    .map(|p| w.dot(*p - Point3::ORIGIN))
+                    .fold(f64::NEG_INFINITY, f64::max);
+                self.dual_over(w, c, s0, s1) > -SIDE_MARGIN
+            })
     }
 
     /// The lowest tool point at the fraction `f` with its foot on the face
