@@ -5,7 +5,8 @@ Run with `python3 user-docs/tools/capture_example.py rest`. The click positions 
 layout of the build they were taken with, at 1920 x 1080; change them and the page together.
 """
 
-GENERATE = 100  # seconds; the rest operation alone, from the setup's stock, takes about 45 s here
+# Generate waits, bounded, until the status bar reads Ready again (issue 629): the rest operation
+# alone, from the setup's stock, takes about 45 s here.
 
 
 def crop_height(cap, name, height):
@@ -27,7 +28,7 @@ def run(cap, work):
     cap.fill(868, 327, "Rest")                 # Name
     cap.shot("01-add-rest")
     cap.click(707, 785, 3)                     # Add
-    cap.click(1855, 1057, GENERATE)            # Generate: Rough, Finish and Rest
+    cap.generate(at=(1855, 1057))              # Generate: Rough, Finish and Rest
     cap.click(1640, 695, 1)                    # fold TOOL AND FEEDS: its feed-limit note is under review (#600)
     cap.click(452, 789, 2)                     # Results
     cap.click(813, 831, 1)                     # Information off: warnings only (the feed-limit lines, #600)
@@ -37,7 +38,7 @@ def run(cap, work):
     cap.shot("03-rest-results")
     cap.click(57, 550, 1)                      # untick 1 Rough
     cap.click(57, 578, 1)                      # untick 2 Finish
-    cap.click(1855, 1057, GENERATE)            # Generate: Rest alone
+    cap.generate(at=(1855, 1057))              # Generate: Rest alone
     cap.scroll(900, 950, 10, down=False)
     cap.click(813, 831, 1)                     # Information off: warnings only (#600)
     cap.shot("04-no-earlier-operation")
