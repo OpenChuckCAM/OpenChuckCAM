@@ -1,4 +1,4 @@
-# MOPUP-1-A: The Facing overlay's labels are short and say what they measure, and each kind can be shown or hidden in the view (UI-03, OP-24, UI-14, UI-15, SIM-01; issues #881 and #895 item 1; lane MOPUP-1)
+# 0702: The Facing overlay's labels are short and say what they measure, and each kind can be shown or hidden in the view (UI-03, OP-24, UI-14, UI-15, SIM-01; issues #881 and #895 item 1; lane MOPUP-1)
 
 - **Status:** Accepted by the project owner on 26 Nov 2026, relayed by the coordinator (decision 0049), with the answers A to the three notes below (OI-9922 closed). Proposed by lane MOPUP-1 on 26 Nov 2026. It records the project owner's answers of 25 and 26 Nov 2026 to the lane's questions on issue #881, relayed by the coordinator (decision 0049), given on the lane's mock-up page:
   - Face label, option A: "Face A 0°: 13.650 mm from axis".
@@ -18,7 +18,7 @@
 - **Builds on:** [decision 0252](0252-facing-ends-sides-and-extents.md) (the Facing extent diagram), [decision 0685](0685-facing-beside-a-grip.md) (where a face stops beside a held region), [decision 0693](0693-show-or-hide-kinds-of-move.md) (the Show menu's kinds of move, the chip and the per-user setting), [decision 0677](0677-keyboard-focus-tooltips-and-tool-windows.md) (tooltips open on keyboard focus).
 - **Open items:** adds OI-9922 (the owner's acceptance of this record, closed by the acceptance on 26 Nov 2026). Issue #895 item 1 (the generated stop marker) is settled here.
 
-Numbering: provisional. The coordinator assigns the record and OI numbers at release, in merge order. No project schema number: the choice is a per-user setting (`facing_labels` in the user's `settings.toml`), never in the project. No library-family API change: `openchuck-app` and `openchuck-ui` change, and neither is in the library family.
+Numbering: decision 0702, assigned by the coordinator on 27 Nov 2026 in order of acceptance (filed as MOPUP-1-A until then); OI-9922 keeps its number. No project schema number: the choice is a per-user setting (`facing_labels` in the user's `settings.toml`), never in the project. No library-family API change: `openchuck-app` and `openchuck-ui` change, and neither is in the library family.
 
 ## Context
 
@@ -33,7 +33,7 @@ What `main` (`e2161c3`) did:
 
 ## Decision
 
-![The proposed labels on the Baluster with four Box faces (a mock-up, not a capture)](MOPUP-1-A-labels.svg)
+![The proposed labels on the Baluster with four Box faces (a mock-up, not a capture)](0702-labels.svg)
 
 1. **Short labels that say what they measure** (the owner's answers on the face and the stop). Each label is 32 characters or fewer:
    - a face: "Face A 0°: 13.650 mm from axis";
@@ -47,7 +47,7 @@ What `main` (`e2161c3`) did:
 3. **Only the selected Facing operation's labels** (the owner's answer on several operations). While a Facing operation is selected in the project panel, the view draws only its labels. Every Facing operation's outlines stay. With nothing selected, or another kind of operation selected, every Facing operation's labels are drawn.
 4. **Four kinds, shown or hidden in the Show menu and View menu** (A1).
 
-   ![The Show menu with the Facing labels group, partly ticked (a mock-up, not a capture)](MOPUP-1-A-show-menu.svg)
+   ![The Show menu with the Facing labels group, partly ticked (a mock-up, not a capture)](0702-show-menu.svg)
 
    - Under the kinds of move, a "Facing labels" box with Faces, Margin, Opposite faces and Stops beside a grip under it. End and Round facing's labels count as Faces.
    - The box is ticked, partly ticked or empty by its four kinds. A press hides all four while any is shown and shows all four when none is, as Entry and exit's box does (decision 0693).
@@ -57,7 +57,7 @@ What `main` (`e2161c3`) did:
    - The choice is kept per user (`facing_labels` in the `[interface]` table of `settings.toml`), never in the project. A file without it, or without one of its kinds, shows that kind.
 5. **One chip, with a length rule** (B1 and the owner's rule).
 
-   ![The chip with room, without room, and the full list in Show everything's tooltip (a mock-up, not a capture)](MOPUP-1-A-chip-rule.svg)
+   ![The chip with room, without room, and the full list in Show everything's tooltip (a mock-up, not a capture)](0702-chip-rule.svg)
 
    - The chip beside Show names the hidden kinds of move, then the hidden kinds of Facing label, in menu order. A group hidden whole reads as one name ("Entry and exit", "Facing labels"). The Facing kinds read "Facing faces", "Facing margin", "Facing separations" and "Facing stops".
    - The long form names at most two, then "+N more": "Hidden: Rapid, Lead-in and ramp +2 more".

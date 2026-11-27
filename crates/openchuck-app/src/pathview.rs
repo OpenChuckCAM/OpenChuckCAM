@@ -177,7 +177,7 @@ impl ShownMoves {
 
     /// The names of the kinds hidden, in legend order; Entry and exit hidden
     /// whole reads as one name. The chip shared with the Facing labels
-    /// (decision record MOPUP-1-A) takes them from here.
+    /// (decision 0702) takes them from here.
     pub fn hidden_names(self) -> Vec<&'static str> {
         let hidden = self.hidden();
         let whole_entry = Self::ENTRY.iter().all(|k| hidden.contains(k));

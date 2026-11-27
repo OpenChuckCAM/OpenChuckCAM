@@ -216,7 +216,7 @@ pub struct UserSettings {
     /// projects. A file written before the field existed shows every kind.
     pub path_moves: crate::pathview::ShownMoves,
     /// Which kinds of Facing label the view draws (issue #881; decision
-    /// record MOPUP-1-A), remembered across projects. A file written before
+    /// decision 0702), remembered across projects. A file written before
     /// the field existed shows every kind.
     pub facing_labels: crate::facing_labels::ShownFacingLabels,
 }
