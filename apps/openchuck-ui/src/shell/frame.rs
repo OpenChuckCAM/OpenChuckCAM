@@ -698,6 +698,44 @@ impl Shell {
         });
     }
 
+    /// The footer's "mm | in" switch (UI-18; specification section 10):
+    /// how lengths and feeds are shown and typed, remembered per user.
+    /// Values are stored in millimetres either way (NFR-05). A box holding
+    /// unconfirmed text is resolved first, as Undo is (decision 0233), so a
+    /// typed number is never read in the other unit.
+    fn units_switch(&mut self, ui: &mut egui::Ui) {
+        let current = crate::units::Display::from_setting(&self.settings.units);
+        let options = [
+            crate::units::Display::Millimetres,
+            crate::units::Display::Inches,
+        ];
+        let chosen = ui
+            .scope(|ui| {
+                crate::field_row::segmented(
+                    ui,
+                    &["mm", "in"],
+                    options.iter().position(|o| *o == current),
+                    true,
+                )
+            })
+            .inner;
+        if let Some(index) = chosen
+            && let Some(display) = options.get(index).copied()
+            && display != current
+        {
+            self.set_units(display);
+        }
+    }
+
+    /// Shows and reads lengths and feeds in `display`'s unit from now on.
+    pub(super) fn set_units(&mut self, display: crate::units::Display) {
+        if self.defer(move |s| s.set_units(display)) {
+            return;
+        }
+        display.setting().clone_into(&mut self.settings.units);
+        self.settings_touched();
+    }
+
     /// The File menu's "Open recent" submenu (issue 381; UI-15): the recent
     /// project folders, newest first, each by its folder name with the full
     /// path on hover, then "Clear recent list". A folder that is gone is
@@ -1295,9 +1333,16 @@ impl Shell {
                     .max_rect(right_box)
                     .layout(egui::Layout::left_to_right(egui::Align::Center)),
                 |ui| {
-                    ui.label("mm · deg").tip("Display units");
+                    self.units_switch(ui);
                     if let Some(tolerance) = self.footer_tolerance() {
-                        ui.monospace(format!("Tol {tolerance:.3} mm"));
+                        let display = crate::units::Display::from_setting(&self.settings.units);
+                        let unit = crate::units::shown_unit("mm", display);
+                        let text = crate::units::shown_text(
+                            &crate::field_row::number(tolerance, Some(3)),
+                            "mm",
+                            display,
+                        );
+                        ui.monospace(format!("Tol {text} {unit}"));
                     }
                     let warnings = self.overview.machine_warnings.clone();
                     let text = match warnings.as_slice() {

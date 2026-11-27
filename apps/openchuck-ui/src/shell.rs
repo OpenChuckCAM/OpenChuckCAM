@@ -79,6 +79,8 @@ mod recent_tests;
 mod reminder_tests;
 #[cfg(test)]
 mod start_page_tests;
+#[cfg(test)]
+mod units_tests;
 
 use dock::DockTab;
 pub(crate) use frame::{chip, primary_button};
@@ -3025,6 +3027,11 @@ impl Shell {
     fn draw(&mut self, ui: &mut egui::Ui) {
         let ctx = ui.ctx().clone();
         crate::focus::begin_frame(&ctx);
+        // Every number box of the frame reads the user's units (UI-18).
+        crate::units::set_display(
+            &ctx,
+            crate::units::Display::from_setting(&self.settings.units),
+        );
         self.edit_context = Some(ctx.clone());
         if self.recovery.is_closing() {
             ctx.send_viewport_cmd(egui::ViewportCommand::CancelClose);

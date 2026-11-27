@@ -44,6 +44,13 @@ pub struct FieldState {
     /// Fields whose conflict is gone, with the typed text kept for Enter to
     /// apply (issue #870).
     forgiven: std::collections::BTreeSet<String>,
+    /// What the last entry typed with a unit stored, said under its field
+    /// until the field is typed in again (UI-18): "Stored as 0.127 mm".
+    stored: BTreeMap<String, String>,
+    /// The last text a number box gave its caller, in the stored unit, with
+    /// the text the box showed for it: a caller that refuses the value keeps
+    /// the stored text, and the box shows what was typed (UI-18).
+    committed: BTreeMap<String, (String, String)>,
 }
 
 impl FieldState {
@@ -54,6 +61,7 @@ impl FieldState {
         self.conflicts.clear();
         self.forgiven.clear();
         self.unreadable.clear();
+        self.stored.clear();
         self.shown = None;
     }
 
@@ -117,7 +125,11 @@ impl FieldState {
 
     /// Marks `key` refused with `reason`, keeping `typed` in the field.
     pub fn refuse(&mut self, key: &str, typed: &str, reason: String) {
-        self.text.insert(key.to_owned(), typed.to_owned());
+        let typed = match self.committed.get(key) {
+            Some((stored, shown)) if stored == typed => shown.clone(),
+            _ => typed.to_owned(),
+        };
+        self.text.insert(key.to_owned(), typed);
         self.errors.insert(key.to_owned(), reason);
         self.conflicts.remove(key);
         self.forgiven.remove(key);
@@ -504,6 +516,39 @@ pub fn text_row(ui: &mut egui::Ui, state: &mut FieldState, row: &TextRow<'_>) ->
             .filter(|text| !text.is_empty())
     });
     let warned = warned_text.is_some() && !marked;
+    // Lengths and feeds are shown and read in the user's unit; the row's
+    // `applied` and what it gives back stay in its stored unit (UI-18).
+    let display = crate::units::display(ui.ctx());
+    let shown_unit = if row.number {
+        crate::units::shown_unit(row.unit, display)
+    } else {
+        row.unit
+    };
+    let shown_applied = if row.number {
+        crate::units::shown_text(&row.applied, row.unit, display)
+    } else {
+        row.applied.clone()
+    };
+    let hint = row.hint.as_deref().map(|h| {
+        if row.number {
+            crate::units::shown_hint(h, row.unit, display)
+        } else {
+            h.to_owned()
+        }
+    });
+    // What an entry stores, in the row's stored unit. The text the box shows
+    // for the applied value gives the applied value back exactly, so a value
+    // shown rounded in inches is never stored again (UI-18).
+    let read = |text: &str| -> Result<crate::units::Read, String> {
+        if text.trim() == shown_applied.trim() {
+            Ok(crate::units::Read {
+                stored: row.applied.clone(),
+                typed_unit: None,
+            })
+        } else {
+            crate::units::read(text, row.unit, display)
+        }
+    };
     if row.scroll_to || shown.as_ref().is_some_and(|(_, scroll)| *scroll) {
         ui.scroll_to_cursor(Some(egui::Align::Center));
     }
@@ -513,7 +558,7 @@ pub fn text_row(ui: &mut egui::Ui, state: &mut FieldState, row: &TextRow<'_>) ->
         }
         let mut typed = state
             .typed(row.key)
-            .map_or_else(|| row.applied.clone(), str::to_owned);
+            .map_or_else(|| shown_applied.clone(), str::to_owned);
         // The box takes the rest of the row as one fixed rectangle, so what is
         // typed in it cannot change its size or the size of the pane around
         // it (a row that grew with its content made the inspector widen).
@@ -521,7 +566,7 @@ pub fn text_row(ui: &mut egui::Ui, state: &mut FieldState, row: &TextRow<'_>) ->
         let box_height = ui.text_style_height(&egui::TextStyle::Monospace) + 2.0 * margin.y;
         let (frame_rect, _) = ui.allocate_exact_size(
             egui::vec2(
-                if row.number || row.compact || !row.unit.is_empty() {
+                if row.number || row.compact || !shown_unit.is_empty() {
                     number_width(ui.available_width())
                 } else {
                     ui.available_width().max(60.0)
@@ -544,9 +589,9 @@ pub fn text_row(ui: &mut egui::Ui, state: &mut FieldState, row: &TextRow<'_>) ->
             // The row draws the box; the edit inside it is only its text. egui
             // 0.37 raises an edit to the height of a button.
             ui.spacing_mut().interact_size.y = 0.0;
-            let unit = (!row.unit.is_empty()).then(|| {
+            let unit = (!shown_unit.is_empty()).then(|| {
                 ui.painter().layout_no_wrap(
-                    row.unit.to_owned(),
+                    shown_unit.to_owned(),
                     egui::TextStyle::Body.resolve(ui.style()),
                     DARK.muted,
                 )
@@ -560,7 +605,7 @@ pub fn text_row(ui: &mut egui::Ui, state: &mut FieldState, row: &TextRow<'_>) ->
                 .font(egui::TextStyle::Monospace)
                 .desired_width((ui.available_width() - unit_width).max(0.0))
                 .interactive(row.enabled);
-            if let Some(hint) = &row.hint {
+            if let Some(hint) = &hint {
                 edit = edit.hint_text(RichText::new(hint).color(DARK.muted));
             }
             let response = ui.add(edit);
@@ -606,7 +651,7 @@ pub fn text_row(ui: &mut egui::Ui, state: &mut FieldState, row: &TextRow<'_>) ->
             tooltip.push(row.description.to_owned());
         }
         if row.applied.trim().is_empty()
-            && let Some(hint) = &row.hint
+            && let Some(hint) = &hint
         {
             tooltip.push(hint.clone());
         }
@@ -627,16 +672,17 @@ pub fn text_row(ui: &mut egui::Ui, state: &mut FieldState, row: &TextRow<'_>) ->
             state.unreadable.remove(row.key);
             state.conflicts.remove(row.key);
             state.forgiven.remove(row.key);
+            state.stored.remove(row.key);
         }
         if crate::pending_edits::take_discard(ui.ctx(), response.id) {
             state.text.remove(row.key);
             state.errors.remove(row.key);
             state.unreadable.remove(row.key);
-            typed = row.applied.clone();
+            typed = shown_applied.clone();
         }
         if let Some(reason) = crate::pending_edits::take_refusal(ui.ctx(), response.id) {
             state.refuse(row.key, &typed, reason);
-            if row.number && arith::entry_text(&typed, places(row.unit)).is_err() {
+            if row.number && read(&typed).is_err() {
                 state
                     .unreadable
                     .insert(row.key.to_owned(), row.label.to_owned());
@@ -662,7 +708,15 @@ pub fn text_row(ui: &mut egui::Ui, state: &mut FieldState, row: &TextRow<'_>) ->
                 // only the number (UI-26); an entry that cannot be read is
                 // refused and the last good value stays (NFR-07).
                 let entry = if row.number && !typed.trim().is_empty() {
-                    arith::entry_text(&typed, places(row.unit))
+                    read(&typed).map(|r| {
+                        if r.typed_unit.is_some() {
+                            state.stored.insert(
+                                row.key.to_owned(),
+                                crate::units::stored_note(&r.stored, row.unit, display),
+                            );
+                        }
+                        r.stored
+                    })
                 } else {
                     Ok(typed.clone())
                 };
@@ -678,7 +732,18 @@ pub fn text_row(ui: &mut egui::Ui, state: &mut FieldState, row: &TextRow<'_>) ->
                         if text.trim() == row.applied.trim() && error.is_none() {
                             state.text.remove(row.key);
                         } else {
-                            state.text.insert(row.key.to_owned(), text.clone());
+                            // Kept as the box shows it until the new value
+                            // comes back as `applied`.
+                            let shown = if row.number {
+                                crate::units::shown_text(&text, row.unit, display)
+                            } else {
+                                text.clone()
+                            };
+                            state.text.insert(row.key.to_owned(), shown);
+                            // A refusal shows the entry as it was typed.
+                            state
+                                .committed
+                                .insert(row.key.to_owned(), (text.clone(), typed.clone()));
                             outcome = Outcome::Commit(text);
                         }
                     }
@@ -687,13 +752,13 @@ pub fn text_row(ui: &mut egui::Ui, state: &mut FieldState, row: &TextRow<'_>) ->
         }
         let pending = state
             .typed(row.key)
-            .filter(|text| text.trim() != row.applied.trim())
+            .filter(|text| text.trim() != shown_applied.trim())
             .map(|text| {
                 if let Some(reason) = state.error(row.key) {
                     return Err(reason.to_owned());
                 }
                 let checked = if row.number && !text.trim().is_empty() {
-                    arith::entry_text(text, places(row.unit))
+                    read(text).map(|r| r.stored)
                 } else {
                     Ok(text.to_owned())
                 };
@@ -720,6 +785,8 @@ pub fn text_row(ui: &mut egui::Ui, state: &mut FieldState, row: &TextRow<'_>) ->
         warning_line(ui, text);
     } else if let Some(text) = warned_text.as_deref() {
         warning_line(ui, text);
+    } else if let Some(note) = state.stored.get(row.key) {
+        note_line(ui, note, DARK.muted);
     }
     // A value committed to the field "Show setting" opened answers it.
     if shown.is_some() && matches!(outcome, Outcome::Commit(_)) {

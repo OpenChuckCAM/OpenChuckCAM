@@ -176,8 +176,9 @@ pub struct UserSettings {
     pub scale: f32,
     /// The theme.
     pub theme: ThemeChoice,
-    /// The display units. Only millimetres and degrees exist in P1 (inch
-    /// display is UI-18, P2), so this is "mm".
+    /// How lengths and feeds are shown and typed: "mm" or "in" (UI-18;
+    /// decision PROJUX-B-2). Values are stored in millimetres whatever this
+    /// says (NFR-05); anything else reads as "mm".
     pub units: String,
     /// The window's size in logical pixels, when it has been opened before.
     pub window: Option<[f32; 2]>,
@@ -254,7 +255,11 @@ impl UserSettings {
         } else {
             d.scale
         };
-        self.units = "mm".to_owned();
+        self.units = if self.units.trim().eq_ignore_ascii_case("in") {
+            "in".to_owned()
+        } else {
+            "mm".to_owned()
+        };
         self.checkpoint_minutes = self.checkpoint_minutes.clamp(1, 15);
         let range = |r: (f32, f32, f32)| (r.1, r.2);
         self.project_panel = self

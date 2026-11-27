@@ -36,7 +36,7 @@ pub(super) fn generated(name: &str) -> Rig {
     rig
 }
 
-fn field(rig: &Rig, label: &str) -> egui::Pos2 {
+pub(super) fn field(rig: &Rig, label: &str) -> egui::Pos2 {
     let row = rig
         .visible_text_rects()
         .into_iter()
