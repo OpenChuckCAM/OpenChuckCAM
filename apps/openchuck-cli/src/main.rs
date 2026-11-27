@@ -1205,8 +1205,31 @@ fn run(cli: Cli) -> Result<()> {
                 // options are applied (the held regions fix the zones).
                 let probe = edited.clone();
                 app.execute(Command::Replace(Item::Setup(probe)))?;
-                let added = app.start_default_tabs(id).wait()?;
-                edited.workholding.tabs.extend(added);
+                // Each end that has a default tab gets it; an end that has none
+                // is said, with why, and the command goes on (issue #676).
+                let report = app.start_default_tabs_report(id).wait()?;
+                for (end, tab) in &report.created {
+                    let end_x = tab.x_start.0 + tab.length.0;
+                    println!(
+                        "Workholding (setup '{}'): added a default tab at the {}, X {:.3} to {:.3} mm",
+                        edited.name,
+                        end.name(),
+                        tab.x_start.0,
+                        end_x
+                    );
+                }
+                for (end, why) in &report.skipped {
+                    eprintln!(
+                        "warning: Workholding (setup '{}'): no default tab at the {}. {}. Add the tab by hand with --tab",
+                        edited.name,
+                        end.name(),
+                        capitalised(why)
+                    );
+                }
+                edited
+                    .workholding
+                    .tabs
+                    .extend(report.created.into_iter().map(|(_, tab)| tab));
                 refuse_findings(&app, &edited)?;
             }
             let command = if new.is_some() {
@@ -1483,6 +1506,20 @@ fn print_simulation(
                 openchuck_app::path::counted(op.poses, "pose", "poses"),
                 op.removed_volume
             );
+            // The load on the tool as the simulation measured it (SIM-16).
+            if let Some(load) = &op.load {
+                let rate = |r: Option<f64>| r.map_or_else(|| "-".to_owned(), |r| format!("{r:.0}"));
+                println!(
+                    "      tool load: heaviest cut section {} mm2 (limit {:.2}, {} past it); \
+                     removal rate {} mm3/min on average over the cutting time, {} at most",
+                    load.heaviest
+                        .map_or_else(|| "-".to_owned(), |h| format!("{:.2}", h.section)),
+                    load.limit,
+                    openchuck_app::path::counted(load.over, "stretch", "stretches"),
+                    rate(load.average_rate()),
+                    rate(load.fastest.and_then(|f| f.rate)),
+                );
+            }
             // Deeper into the stock than one cell, a rapid fails the run; no
             // deeper, it is within what the simulation resolves and is
             // listed only (decision record 0661, option C).
@@ -2425,6 +2462,14 @@ fn confirm_tool_numbers(app: &mut Application, choice: Option<NumberChoice>) -> 
         }
     }
     Ok(())
+}
+
+/// `text` with its first letter in capitals, for the start of a sentence.
+fn capitalised(text: &str) -> String {
+    let mut chars = text.chars();
+    chars.next().map_or_else(String::new, |first| {
+        first.to_uppercase().chain(chars).collect()
+    })
 }
 
 #[cfg(test)]

@@ -405,16 +405,14 @@ impl Shell {
                             ));
                         }
                         SetupPart::PartPosition => {
-                            if let Some(e) = rows(
+                            edited.extend(rows(
                                 ui,
                                 &mut self.form,
                                 &setup,
                                 copy.as_ref(),
                                 &setup_form::part_position_rows(&setup),
                                 &[],
-                            ) {
-                                edited.push(e);
-                            }
+                            ));
                             // The part as this setup places it, once the
                             // checks have read it (decision record 0201).
                             let extent = setup
@@ -475,30 +473,41 @@ impl Shell {
                 self.settings_touched();
             }
         }
+        // Every value committed in this frame is in the last setup, each
+        // edit made from the one before: it is stored as one undoable step,
+        // so values Keep confirms together are one step (the owner's answer
+        // A to Q8 of issue #870).
+        let keys: Vec<String> = edited.iter().filter_map(|(_, k)| k.clone()).collect();
         let mut commands: Vec<_> = edited
+            .pop()
+            .map(|(setup, _)| (Command::Replace(Item::Setup(setup)), keys))
             .into_iter()
-            .map(|(setup, key)| (Command::Replace(Item::Setup(setup)), key))
             .collect();
-        commands.extend(command.map(|command| (command, self.pending_field.take())));
+        commands.extend(
+            command.map(|command| (command, self.pending_field.take().into_iter().collect())),
+        );
         if manage_machines {
             self.open_machine_library();
         }
         let mut changed = false;
-        for (command, key) in commands {
+        for (command, keys) in commands {
             let Some(app) = &mut self.app else { return };
             match app.execute(command) {
                 Ok(()) => {
-                    if let Some(key) = key {
-                        self.form.result(&key, Ok(()));
+                    for key in &keys {
+                        self.form.result(key, Ok(()));
                     }
                     changed = true;
                 }
-                Err(e) => match key {
-                    Some(key) => self
-                        .form
-                        .result(&key, Err(form_panel::refusal(&e.to_string()))),
-                    None => self.dialog = Some(Dialog::Error(Failure::new("Change setting", e))),
-                },
+                Err(e) if keys.is_empty() => {
+                    self.dialog = Some(Dialog::Error(Failure::new("Change setting", e)));
+                }
+                Err(e) => {
+                    for key in &keys {
+                        self.form
+                            .result(key, Err(form_panel::refusal(&e.to_string())));
+                    }
+                }
             }
         }
         if changed {
@@ -1277,8 +1286,7 @@ const ON_BREAK: [(OnBreak, &str, &str); 3] = [
     (
         OnBreak::Ignore,
         "Ignore",
-        "The set limits nothing: the tool is not kept clear of it. The operation warns that it \
-         limits nothing.",
+        "The set limits nothing: the tool is not kept clear of it. Results says so in a note.",
     ),
 ];
 
@@ -1319,11 +1327,13 @@ fn cut_short_tip(
     }
 }
 
-/// The options of the sets in `role` that the strategy takes (decision
-/// records 0176 item 3 and 0229), under its row: the boundary's two limits,
-/// or each avoid or check set's choice. A set whose options leave it
-/// limiting nothing says so.
-fn set_options(
+/// The options of the role itself that the strategy takes, under the role's
+/// sets: the boundary's two limits (decision record 0176 item 3), with a
+/// warning when both are off; for avoid and check, Warn only's sampling
+/// note, once for the role when any of its sets is on Warn only (decision
+/// 0696 item 5). Each avoid or check set's own choice is under its
+/// name ([`set_choice`]).
+fn role_options(
     ui: &mut egui::Ui,
     operation: &openchuck_app::project::Operation,
     role: SelectionRole,
@@ -1334,18 +1344,11 @@ fn set_options(
     let mut edit = None;
     let indent = crate::field_row::label_column(ui) + ui.spacing().item_spacing.x;
     let options = &operation.restriction_options;
-    let name = |id: &SelectionSetId| {
-        summaries
-            .iter()
-            .find(|s| s.id == *id)
-            .map_or_else(|| "(missing set)".to_owned(), |s| s.name.clone())
-    };
     match role {
         SelectionRole::Boundary if shown.boundary => {
             let id = sets.first()?;
             let mut boundary = options.boundary;
-            ui.horizontal_wrapped(|ui| {
-                ui.add_space(indent);
+            indented_wrapped(ui, indent, |ui| {
                 let pass = ui
                     .checkbox(&mut boundary.limits_pass, "Limits the pass")
                     .tip(
@@ -1362,64 +1365,213 @@ fn set_options(
                 }
             });
             if options.boundary.limits_nothing() {
-                limits_nothing(ui, indent, &name(id));
+                let set = summaries
+                    .iter()
+                    .find(|s| s.id == *id)
+                    .map_or_else(|| "(missing set)".to_owned(), |s| s.name.clone());
+                indented_wrapped(ui, indent, |ui| {
+                    marks::mark_beside(ui, ItemState::Warning, "Warning");
+                    ui.label(
+                        RichText::new(format!("The set '{set}' limits nothing."))
+                            .color(DARK.warning),
+                    );
+                });
             }
         }
-        SelectionRole::Avoid | SelectionRole::Check if shown.avoid_and_check => {
-            for id in sets {
-                let current = if role == SelectionRole::Avoid {
-                    options.avoid(*id)
-                } else {
-                    options.check(*id)
-                }
-                .on_break;
-                let set = name(id);
-                ui.horizontal_wrapped(|ui| {
-                    ui.add_space(indent);
-                    ui.label(RichText::new(&set).color(DARK.muted));
-                    for (choice, label, tip) in ON_BREAK {
-                        let tip = cut_short_tip(choice, role, shown).unwrap_or(tip);
-                        if ui
-                            .selectable_label(current == choice, label)
-                            .tip(tip)
-                            .clicked()
-                            && current != choice
-                        {
-                            edit = Some(GeometryEdit::OnBreak(role, *id, choice));
-                        }
-                    }
-                });
-                if current == OnBreak::Ignore {
-                    limits_nothing(ui, indent, &set);
-                } else if current == OnBreak::Warn && !shown.boundary {
-                    // These strategies use the shared sampled measurement
-                    // (OI-970). Explain its limitation even without a hit.
-                    ui.horizontal_wrapped(|ui| {
-                        ui.add_space(indent);
-                        marks::mark_beside(ui, ItemState::Warning, "Warning");
-                        ui.label(
-                            RichText::new(
-                                "Warn only samples the path and can miss a narrow set. No warning \
-                                 does not establish clearance; verify the cut before running G-code.",
-                            )
-                            .color(DARK.warning),
-                        );
-                    });
-                }
-            }
+        SelectionRole::Avoid | SelectionRole::Check
+            if shown.avoid_and_check
+                && !shown.boundary
+                && sets
+                    .iter()
+                    .any(|id| on_break(operation, role, *id) == OnBreak::Warn) =>
+        {
+            // These strategies use the shared sampled measurement (OI-970).
+            // Explain its limitation even without a hit, once for the role.
+            indented_wrapped(ui, indent, |ui| {
+                marks::mark_beside(ui, ItemState::Warning, "Warning");
+                ui.label(
+                    RichText::new(
+                        "Warn only samples the path and can miss a narrow set. No warning \
+                         does not establish clearance; verify the cut before running G-code.",
+                    )
+                    .color(DARK.warning),
+                );
+            });
         }
         _ => {}
     }
     edit
 }
 
-/// The warning under a set whose options leave it limiting nothing.
-fn limits_nothing(ui: &mut egui::Ui, indent: f32, set: &str) {
-    ui.horizontal_wrapped(|ui| {
-        ui.add_space(indent);
-        marks::mark_beside(ui, ItemState::Warning, "Warning");
-        ui.label(RichText::new(format!("The set '{set}' limits nothing.")).color(DARK.warning));
+/// The choice of avoid or check set `id` in `role`.
+fn on_break(
+    operation: &openchuck_app::project::Operation,
+    role: SelectionRole,
+    id: SelectionSetId,
+) -> OnBreak {
+    let options = &operation.restriction_options;
+    if role == SelectionRole::Avoid {
+        options.avoid(id)
+    } else {
+        options.check(id)
+    }
+    .on_break
+}
+
+/// An avoid or check set's choice, Cut short, Warn only or Ignore, just
+/// under its name in the value column (decision records 0176 item 3 and
+/// 0229; decision 0696 item 3).
+fn set_choice(
+    ui: &mut egui::Ui,
+    role: SelectionRole,
+    id: SelectionSetId,
+    current: OnBreak,
+    shown: SetOptionsShown,
+) -> Option<GeometryEdit> {
+    let indent = crate::field_row::label_column(ui) + ui.spacing().item_spacing.x;
+    let mut edit = None;
+    indented_wrapped(ui, indent, |ui| {
+        for (choice, label, tip) in ON_BREAK {
+            let tip = cut_short_tip(choice, role, shown).unwrap_or(tip);
+            if ui
+                .selectable_label(current == choice, label)
+                .tip(tip)
+                .clicked()
+                && current != choice
+            {
+                edit = Some(GeometryEdit::OnBreak(role, id, choice));
+            }
+        }
     });
+    edit
+}
+
+/// What a set's line in the Geometry section says of it (decision
+/// 0696 items 2, 4 and 7).
+struct SetLine<'a> {
+    name: &'a str,
+    /// The colour the view draws the set in (decision 0216).
+    colour: egui::Color32,
+    /// Why the set cannot be used: missing, or elements not found.
+    problem: Option<String>,
+    /// How many of its elements were not found, for the line.
+    not_found: Option<String>,
+    /// The set is on Ignore: greyed and struck through.
+    ignored: bool,
+}
+
+/// The tooltip and accessible state of a set on Ignore (decision 0696
+/// items 4 and 7).
+const IGNORED: &str = "Ignored: this set limits nothing";
+
+/// One set's line, under its role in the value column: its colour, its
+/// name, and × at the right end to take it out of the role. A set with a
+/// problem keeps its red border and reason; a set on Ignore is greyed and
+/// struck through, says so in its tooltip and its accessible name, and has
+/// no warning line (decision 0696 items 2, 4 and 7). True when × is
+/// pressed.
+fn set_line(ui: &mut egui::Ui, line: &SetLine<'_>) -> bool {
+    let indent = crate::field_row::label_column(ui) + ui.spacing().item_spacing.x;
+    let mut remove = false;
+    ui.horizontal(|ui| {
+        ui.add_space(indent);
+        // The name first, then ×, so Tab follows the line from left to
+        // right (decision 0696 item 7; reading order, decision 0677). ×'s
+        // place at the right end is kept, so a long name is cut short
+        // before it.
+        let gap = ui.spacing().item_spacing.x;
+        let cross_size = egui::vec2(ui.spacing().interact_size.y, ui.spacing().interact_size.y);
+        let name_width = (ui.available_width() - cross_size.x - 2.0 * gap).max(0.0);
+        ui.allocate_ui_with_layout(
+            egui::vec2(name_width, cross_size.y),
+            egui::Layout::left_to_right(egui::Align::Center),
+            |ui| {
+                ui.set_width(name_width);
+                let (dot, _) = ui.allocate_exact_size(egui::vec2(10.0, 10.0), egui::Sense::hover());
+                let colour = if line.ignored {
+                    DARK.muted
+                } else {
+                    line.colour
+                };
+                ui.painter().circle_filled(dot.center(), 5.0, colour);
+                let text = match &line.not_found {
+                    Some(count) => format!("{} \u{b7} {count} not found", line.name),
+                    None => line.name.to_owned(),
+                };
+                let mut rich = RichText::new(text);
+                if line.problem.is_some() {
+                    rich = rich.color(DARK.error);
+                } else if line.ignored {
+                    rich = rich.strikethrough().color(DARK.muted);
+                }
+                let tip = if line.ignored {
+                    Some(IGNORED.to_owned())
+                } else {
+                    line.problem
+                        .as_ref()
+                        .map(|p| form_panel::refusal(p).replace(" Not applied.", ""))
+                };
+                let mut label = egui::Label::new(rich).truncate().selectable(false);
+                if tip.is_some() {
+                    // A Tab stop, so the tooltip opens on keyboard focus too
+                    // (decision 0677 item 3).
+                    label = label.sense(crate::focus::info_sense());
+                }
+                let response = ui.add(label);
+                let spoken = if line.ignored {
+                    format!("{}, ignored: this set limits nothing", line.name)
+                } else {
+                    line.name.to_owned()
+                };
+                response
+                    .widget_info(|| egui::WidgetInfo::labeled(egui::Role::Label, true, &spoken));
+                if let Some(tip) = tip {
+                    crate::focus::focus_ring(ui, &response);
+                    response.tip(tip);
+                }
+            },
+        );
+        let mut cross =
+            egui::Button::new(RichText::new("\u{d7}").color(if line.problem.is_some() {
+                DARK.error
+            } else {
+                DARK.text
+            }))
+            .small();
+        if line.problem.is_some() {
+            cross = cross.stroke(Stroke::new(1.0, DARK.error));
+        }
+        let response = ui.add_sized(cross_size, cross);
+        let name = line.name.to_owned();
+        response.widget_info(|| {
+            egui::WidgetInfo::labeled(
+                egui::Role::Button,
+                true,
+                format!("Take {name} out of this role"),
+            )
+        });
+        let tip = line.problem.as_ref().map_or_else(
+            || "Take it out of this role".to_owned(),
+            |p| {
+                format!(
+                    "{}\nClick to take it out of this role.",
+                    form_panel::refusal(p).replace(" Not applied.", "")
+                )
+            },
+        );
+        remove = field_row::tip(response, &tip).clicked();
+    });
+    remove
+}
+
+/// A row that starts `indent` in, at the value column, and whose wrapped
+/// lines start there too, never left of it (issue #609; decision 0440).
+fn indented_wrapped<R>(ui: &mut egui::Ui, indent: f32, add: impl FnOnce(&mut egui::Ui) -> R) -> R {
+    ui.horizontal(|ui| {
+        ui.add_space(indent);
+        ui.horizontal_wrapped(add).inner
+    })
+    .inner
 }
 
 /// What the Geometry section says under the role that holds a set.
@@ -1520,7 +1672,9 @@ fn geometry(
                 sets: row_sets,
                 kinds,
             } = row;
-            ui.horizontal_wrapped(|ui| {
+            // The role's line: its name in the label column and its list
+            // (decision 0696 item 1).
+            ui.horizontal(|ui| {
                 let (rect, _) = ui.allocate_exact_size(
                     egui::vec2(
                         crate::field_row::label_column(ui),
@@ -1537,47 +1691,13 @@ fn geometry(
                 );
                 crate::focus::focus_ring(ui, &label);
                 label.tip(row_description);
-                for id in &row_sets {
-                    let summary = summaries.iter().find(|s| s.id == *id);
-                    let name = summary.map_or("(missing set)", |s| s.name.as_str());
-                    let problem = summary.and_then(|s| s.problem.clone());
-                    let text = match (&problem, summary) {
-                        (Some(_), Some(s)) => {
-                            format!("{name} \u{b7} {} not found \u{d7}", s.counted())
-                        }
-                        _ => format!("{name} \u{d7}"),
-                    };
-                    let mut button =
-                        egui::Button::new(RichText::new(text).color(if problem.is_some() {
-                            DARK.error
-                        } else {
-                            DARK.text
-                        }))
-                        .small();
-                    if problem.is_some() {
-                        button = button.stroke(Stroke::new(1.0, DARK.error));
-                    }
-                    let response = ui.add(button);
-                    let tip = problem.map_or_else(
-                        || "Take it out of this role".to_owned(),
-                        |p| {
-                            format!(
-                                "{}\nClick to take it out of this role.",
-                                form_panel::refusal(&p).replace(" Not applied.", "")
-                            )
-                        },
-                    );
-                    if field_row::tip(response, &tip).clicked() {
-                        edit = Some(GeometryEdit::Role(role, *id, false));
-                    }
-                }
                 let free: Vec<&SelectionSummary> = summaries
                     .iter()
                     .filter(|s| !sets.contains(&s.id) && kinds.is_none_or(|k| k.contains(&s.kind)))
                     .collect();
                 if !free.is_empty() {
                     egui::ComboBox::from_id_salt(("role", row_label))
-                        .selected_text("add…")
+                        .selected_text("Add a set\u{2026}")
                         .show_ui(ui, |ui| {
                             for s in free {
                                 if ui.selectable_label(false, &s.name).clicked() {
@@ -1587,43 +1707,78 @@ fn geometry(
                         });
                 }
             });
+            // Each set on its own line under the role, its choice under its
+            // name, then its own notes (decision 0696 items 2 to 4).
+            let choices = matches!(role, SelectionRole::Avoid | SelectionRole::Check)
+                && with_options.avoid_and_check;
+            for id in &row_sets {
+                let place = summaries.iter().position(|s| s.id == *id);
+                let summary = place.and_then(|i| summaries.get(i));
+                let current = choices.then(|| on_break(operation, role, *id));
+                let [r, g, b] = crate::selection_panel::set_rgb(
+                    summary.and_then(|s| s.colour.as_deref()),
+                    place.unwrap_or_default(),
+                );
+                let line = SetLine {
+                    name: summary.map_or("(missing set)", |s| s.name.as_str()),
+                    colour: egui::Color32::from_rgb(r, g, b),
+                    problem: summary.and_then(|s| s.problem.clone()),
+                    not_found: summary
+                        .filter(|s| s.problem.is_some())
+                        .map(SelectionSummary::counted),
+                    ignored: current == Some(OnBreak::Ignore),
+                };
+                if set_line(ui, &line) {
+                    edit = Some(GeometryEdit::Role(role, *id, false));
+                }
+                if let Some(current) = current
+                    && let Some(e) = set_choice(ui, role, *id, current, with_options)
+                {
+                    edit = Some(e);
+                }
+                // The set's warning of reaching a held region or a tab
+                // (11.7), once under it.
+                let Some(s) = summary else {
+                    continue;
+                };
+                let quoted = format!("'{}'", s.name);
+                for note in reach.iter().filter(|n| n.contains(&quoted)) {
+                    indented_wrapped(
+                        ui,
+                        crate::field_row::label_column(ui) + ui.spacing().item_spacing.x,
+                        |ui| {
+                            marks::mark_beside(ui, ItemState::Warning, "Warning");
+                            ui.label(RichText::new(note).color(DARK.warning));
+                            if ui.link("Show in view").clicked() {
+                                action = Some(ReachAction::Show(
+                                    *id,
+                                    crate::workholding_panel::reached_item(note),
+                                ));
+                            }
+                            if ui.link("Edit workholding").clicked() {
+                                action = Some(ReachAction::EditWorkholding);
+                            }
+                        },
+                    );
+                }
+            }
         }
-        // The sets' options, for a strategy that takes them (decision
+        // The role's own options, for a strategy that takes them (decision
         // record 0176).
-        if let Some(e) = set_options(ui, operation, role, &sets, summaries, with_options) {
+        if let Some(e) = role_options(ui, operation, role, &sets, summaries, with_options) {
             edit = Some(e);
         }
         // A set the strategy cannot use here, under the role that holds it
         // (decision record 0209 item 10).
         for refusal in notes.refusals.iter().filter(|r| r.role == role) {
-            ui.horizontal_wrapped(|ui| {
-                ui.add_space(crate::field_row::label_column(ui) + ui.spacing().item_spacing.x);
-                marks::mark_beside(ui, ItemState::Warning, "Warning");
-                ui.label(RichText::new(&refusal.text).color(DARK.warning));
-            });
-        }
-        // The selection warning under the role that holds the set (11.7).
-        for id in &sets {
-            let Some(s) = summaries.iter().find(|s| s.id == *id) else {
-                continue;
-            };
-            let quoted = format!("'{}'", s.name);
-            for note in reach.iter().filter(|n| n.contains(&quoted)) {
-                ui.horizontal_wrapped(|ui| {
-                    ui.add_space(crate::field_row::label_column(ui) + ui.spacing().item_spacing.x);
+            indented_wrapped(
+                ui,
+                crate::field_row::label_column(ui) + ui.spacing().item_spacing.x,
+                |ui| {
                     marks::mark_beside(ui, ItemState::Warning, "Warning");
-                    ui.label(RichText::new(note).color(DARK.warning));
-                    if ui.link("Show in view").clicked() {
-                        action = Some(ReachAction::Show(
-                            *id,
-                            crate::workholding_panel::reached_item(note),
-                        ));
-                    }
-                    if ui.link("Edit workholding").clicked() {
-                        action = Some(ReachAction::EditWorkholding);
-                    }
-                });
-            }
+                    ui.label(RichText::new(&refusal.text).color(DARK.warning));
+                },
+            );
         }
     }
     (edit, action)
@@ -1653,9 +1808,13 @@ pub(super) fn setup_field_section(field: openchuck_app::setup_form::SetupField) 
     }
 }
 
-/// Draws setup rows. Returns the edited setup and the key of the row it came
-/// from, when a value was committed and passed its checks; a refused value
-/// stays in its field with the reason (section 8).
+/// Draws setup rows. Returns each setup a committed value made, in order,
+/// each from the one before, with the key of the row it came from: a value
+/// is committed only when the setup with it passes the checks storing it
+/// makes, tabs and held regions included. A refused value stays in its field
+/// with the reason (section 8); one refused because the tabs or held regions
+/// would no longer fit is checked again each frame, and once they allow it
+/// the field says Enter applies it (issue #870, the owner's answer A).
 fn rows(
     ui: &mut egui::Ui,
     state: &mut field_row::FieldState,
@@ -1663,17 +1822,50 @@ fn rows(
     machine: Option<&openchuck_app::setup::MachineProfile>,
     rows: &[SetupRow],
     known_materials: &[String],
-) -> Option<(Setup, Option<String>)> {
-    let mut edited = None;
+) -> Vec<(Setup, Option<String>)> {
+    let mut edited: Vec<(Setup, Option<String>)> = Vec::new();
     for row in rows {
         let key = setup_key(row);
+        let current = edited.last().map_or(setup, |(s, _)| s).clone();
+        let whole = |text: &str| {
+            let s = setup_form::apply(&current, machine, row.field, text)?;
+            openchuck_app::project::check_setup_values(&s)
+                .map(|()| s.clone())
+                .map_err(|e| setup_form::refusal(&s, row.label, &e))
+        };
+        // A value refused for the tabs or held regions, or allowed since and
+        // still waiting for its Enter, is checked again against the setup
+        // as it is now: refused again if it no longer fits.
+        let waiting = state.in_conflict(&key).map(str::to_owned).or_else(|| {
+            state
+                .is_forgiven(&key)
+                .then(|| state.typed(&key).map(str::to_owned))
+                .flatten()
+        });
+        if let Some(typed) = waiting {
+            match whole(&typed) {
+                Ok(_) => state.forgive(&key),
+                Err(reason) => state.refuse_conflict(&key, &typed, reason),
+            }
+        }
+        let ready = state.is_forgiven(&key).then_some(());
         let validate = |text: &str| setup_form::apply(setup, machine, row.field, text).map(|_| ());
         let field = row.field;
+        let label = row.label;
         let machine_copy = machine.cloned();
-        let preflight = crate::pending_edits::preflight(
+        // The setup as it would be stored is checked once every pending
+        // field is in it, with the same checks the change makes, tabs and
+        // held regions included: Keep refuses before it applies any value
+        // (decision record 0233 item 4; issue #870), and applies the values
+        // kept together as one step (the owner's answer A to Q8).
+        let preflight = crate::pending_edits::preflight_whole(
             egui::Id::unique(("setup fields", setup.id)),
             setup.clone(),
             move |setup, text| setup_form::apply(setup, machine_copy.as_ref(), field, text),
+            move |setup| {
+                openchuck_app::project::check_setup_values(setup)
+                    .map_err(|e| setup_form::refusal(setup, label, &e))
+            },
         );
         let outcome = field_row::text_row(
             ui,
@@ -1690,7 +1882,7 @@ fn rows(
                 reset: false,
                 enabled: true,
                 focus: false,
-                warned: None,
+                warned: ready.map(|()| READY),
                 needs: None,
                 scroll_to: false,
                 number: !row.unit.is_empty(),
@@ -1708,14 +1900,29 @@ fn rows(
             } else {
                 typed
             };
-            match setup_form::apply(setup, machine, row.field, &typed) {
-                Ok(s) => edited = Some((s, Some(key))),
+            // Keep has already checked the setup with all the values it
+            // confirms together; an in-between setup is not checked, so a
+            // pair valid only together is kept (Q8).
+            let kept = matches!(
+                crate::pending_edits::mode(ui.ctx()),
+                crate::pending_edits::Mode::Keep(_)
+            );
+            match setup_form::apply(&current, machine, row.field, &typed) {
+                Ok(s) if kept => edited.push((s, Some(key))),
+                Ok(_) => match whole(&typed) {
+                    Ok(s) => edited.push((s, Some(key))),
+                    Err(reason) => state.refuse_conflict(&key, &typed, reason),
+                },
                 Err(reason) => state.refuse(&key, &typed, format!("{reason} Not applied.")),
             }
         }
     }
     edited
 }
+
+/// What a value refused for the tabs or held regions says once they allow
+/// it (issue #870).
+const READY: &str = "The tabs and held regions now allow this value. Press Enter to apply it.";
 
 /// The Tool section's Material preset row (issue 197; decision record
 /// 0230): the list of the setup's material and the tool's other materials, a

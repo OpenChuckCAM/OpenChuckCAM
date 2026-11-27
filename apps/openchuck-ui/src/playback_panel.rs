@@ -16,7 +16,7 @@ use std::sync::Arc;
 
 use eframe::egui::{self, Color32, RichText};
 use openchuck_app::pathview::{
-    DeviationBand, DeviationBands, PathClass, PathLines, PlaybackData, zoom_level,
+    DeviationBand, DeviationBands, PathClass, PathLines, PlaybackData, ShownMoves, zoom_level,
 };
 use openchuck_app::playback::{
     Cursor, MoveWindow, Playback, PoseSample, ToolMeshes, ViewFrame, continuous_a_text,
@@ -337,6 +337,10 @@ impl PreparationProgress {
     }
 }
 
+/// What a set of path lines was made for: the groups drawn and the kinds of
+/// move shown.
+type Drawn = (Vec<bool>, ShownMoves);
+
 /// The toolpath display and playback controls.
 pub struct PlaybackPanel {
     /// Whether the panel is shown.
@@ -348,6 +352,9 @@ pub struct PlaybackPanel {
     /// Which groups' paths are drawn, as the project says (issue 213), as
     /// last given to the path jobs.
     visible: Vec<bool>,
+    /// Which kinds of move are drawn: the user's choice (issue #789;
+    /// decision record 0693), as last given to the path jobs.
+    moves: ShownMoves,
     view: ViewFrame,
     show_tool: bool,
     /// "Hide path outside window" (issue 205).
@@ -357,11 +364,14 @@ pub struct PlaybackPanel {
     playback_memory: usize,
     /// The window as drawn last, to tell when the path must be made again.
     drawn_window: Option<MoveWindow>,
-    /// The faint trace of the whole path, made once per path and visible
-    /// groups, and whether it is on screen.
-    trace_job: Option<(Vec<bool>, JobHandle<PathLines>)>,
-    trace: Option<(Vec<bool>, Arc<PathLines>)>,
-    trace_shown: bool,
+    /// The faint trace of the whole path, made once per path, visible
+    /// groups and kinds of move shown, and whether it is on screen.
+    trace_job: Option<(Drawn, JobHandle<PathLines>)>,
+    trace: Option<(Drawn, Arc<PathLines>)>,
+    /// What the trace layer on screen was made for, or `None` when it is
+    /// empty. Kept apart from the job and its result, so a job that ends on
+    /// the frame the window is lifted never leaves its predecessor on screen.
+    trace_shown: Option<Drawn>,
     /// What the trace costs: (points drawn, points of the path).
     trace_cost: Option<(usize, usize)>,
     /// The window's ends as the number fields hold them, counted from 1.
@@ -413,6 +423,7 @@ impl Default for PlaybackPanel {
             data: None,
             playback: Playback::new(),
             visible: Vec::new(),
+            moves: ShownMoves::ALL,
             // "Turn part with A" is on unless the user turned it off (issue
             // 203); the shell gives the user's choice.
             view: ViewFrame::Machine,
@@ -422,7 +433,7 @@ impl Default for PlaybackPanel {
             drawn_window: None,
             trace_job: None,
             trace: None,
-            trace_shown: false,
+            trace_shown: None,
             trace_cost: None,
             window_from: 1,
             window_to: 1,
@@ -726,6 +737,22 @@ impl PlaybackPanel {
         self.hide_outside
     }
 
+    /// Which kinds of move are drawn (issue #789).
+    #[cfg(test)]
+    pub fn shown_moves(&self) -> ShownMoves {
+        self.moves
+    }
+
+    /// Sets which kinds of move are drawn: the user's choice (issue #789;
+    /// decision record 0693). The path, the window and the trace are
+    /// made again for it; playback, the tool and the cut part do not change.
+    pub fn set_shown_moves(&mut self, moves: ShownMoves) {
+        if moves != self.moves {
+            self.moves = moves;
+            self.lines_dirty = true;
+        }
+    }
+
     /// Sets "Hide path outside window".
     pub fn set_hide_outside_window(&mut self, hide: bool) {
         self.hide_outside = hide;
@@ -937,7 +964,6 @@ impl PlaybackPanel {
                         Ok(lines) => {
                             self.trace_cost = Some((lines.points, lines.full_points));
                             self.trace = Some((for_visible, Arc::new(lines)));
-                            self.trace_shown = false;
                         }
                         Err(e) if e.is_cancelled() => {}
                         Err(e) => self.error = Some(e.to_string()),
@@ -946,15 +972,13 @@ impl PlaybackPanel {
             }
         }
         let wanted = self.playback.window().is_some() && !self.hide_outside;
-        let current = self
-            .trace
-            .as_ref()
-            .filter(|(visible, _)| *visible == self.visible);
+        let drawn = (self.visible.clone(), self.moves);
+        let current = self.trace.as_ref().filter(|(made, _)| *made == drawn);
         match (wanted, current) {
-            (true, Some((_, lines))) => {
-                if !self.trace_shown {
+            (true, Some((made, lines))) => {
+                if self.trace_shown.as_ref() != Some(made) {
                     viewport.set_layer(Layer::Trace, trace_scene(lines));
-                    self.trace_shown = true;
+                    self.trace_shown = Some(made.clone());
                 }
             }
             (true, None) => {
@@ -962,10 +986,11 @@ impl PlaybackPanel {
                     && self.trace_job.is_none()
                 {
                     self.trace_job = Some((
-                        self.visible.clone(),
+                        drawn,
                         app.start_trace_lines(
                             Arc::clone(&data.display),
                             self.visible.clone(),
+                            self.moves,
                             self.budget,
                         ),
                     ));
@@ -973,9 +998,8 @@ impl PlaybackPanel {
                 }
             }
             (false, _) => {
-                if self.trace_shown {
+                if self.trace_shown.take().is_some() {
                     viewport.set_layer(Layer::Trace, Scene::default());
-                    self.trace_shown = false;
                 }
             }
         }
@@ -1024,6 +1048,7 @@ impl PlaybackPanel {
                 Some(window) => app.start_window_lines(
                     Arc::clone(&data.display),
                     visible,
+                    self.moves,
                     window.moves(),
                     self.budget,
                     self.zoom_level,
@@ -1031,6 +1056,7 @@ impl PlaybackPanel {
                 None => app.start_path_lines(
                     Arc::clone(&data.display),
                     visible,
+                    self.moves,
                     self.budget,
                     self.zoom_level,
                 ),
@@ -3310,6 +3336,39 @@ mod tests {
 
     fn points(scene: &Scene) -> usize {
         scene.lines.iter().map(|l| l.segments.len()).sum()
+    }
+
+    /// CodeRabbit's finding on #898: a trace job that ends on the same frame
+    /// as the playback window is lifted must not leave the old trace on
+    /// screen. The kinds shown change (a new trace is asked for), the window
+    /// is lifted while that job runs, and the job ends before the next frame.
+    #[test]
+    fn req_sim_01_lifting_the_window_while_a_trace_is_made_leaves_no_trace() {
+        let (app, mut panel, mut viewport, dir) = prepared("panel-trace-race");
+        settle_panel(&app, &mut panel, &mut viewport);
+        let moves = panel.data.as_ref().unwrap().timeline.move_count();
+        panel.set_window(Some(MoveWindow {
+            first: moves / 3,
+            last: moves / 2,
+        }));
+        settle_panel(&app, &mut panel, &mut viewport);
+        assert_eq!(viewport.layer(Layer::Trace).unwrap().lines.len(), 1);
+        // Hide the rapids: the trace is made again, as a job.
+        let mut shown = ShownMoves::ALL;
+        shown.set(openchuck_app::playback::MoveKind::Rapid, false);
+        panel.set_shown_moves(shown);
+        panel.frame(&app, &mut viewport, 0.0);
+        assert!(panel.trace_job.is_some(), "a new trace is being made");
+        // The window is lifted, and the job ends before the next frame.
+        panel.reset_window();
+        std::thread::sleep(Duration::from_secs(2));
+        settle_panel(&app, &mut panel, &mut viewport);
+        assert_eq!(panel.window(), None);
+        assert!(
+            viewport.layer(Layer::Trace).unwrap().lines.is_empty(),
+            "no trace is left on screen without a window"
+        );
+        let _ = std::fs::remove_dir_all(dir);
     }
 
     #[test]

@@ -53,6 +53,8 @@ Under the files, the program's notice asks you to verify the program. Depending 
 
 Then press **Write G-code**. If it is greyed out, the line above it says why. If a file already exists, the program lists them and asks whether to **Replace files**; **Cancel** writes nothing.
 
+**Close** closes the dialog without writing. The post, the output folder and the file names you chose are kept for the next time you open it.
+
 ## The result
 
 The **Export result** window lists the files **Written**, any that **Failed** with the reason, and any **Not attempted**, with **Copy paths**. You can open it again later from Messages with **Show result**.

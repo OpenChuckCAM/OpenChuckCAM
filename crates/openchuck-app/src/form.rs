@@ -84,6 +84,9 @@ pub enum Source {
     Default,
     /// Nothing gives it, and it is required.
     Missing,
+    /// Worked out by the application from other values, said in these
+    /// words (the tool-load limit from the tool's stepdown, SIM-16).
+    Derived(&'static str),
 }
 
 /// The section of the operation inspector a field is shown in (interface
@@ -145,19 +148,17 @@ impl FormSection {
             | "max_tilt" | "axis_tolerance" | "max_angle_step" | "tip_end" | "tip_extension" => {
                 Self::ToolAxisAndA
             }
+            // The basic entry settings (decision 0695, Q9,
+            // A's regrouping): Entry, Ramp angle and Plunge where no ramp
+            // fits; the rest of the ramp, helix and lead settings are in
+            // Advanced, below.
             "retract"
             | "link_height"
             | "approach_distance"
             | "entry"
             | "ramp_back_and_forth"
             | "allow_single_point_plunge"
-            | "ramp_steeper_near_axis"
-            | "ramp_angle_max"
-            | "plunge_face_nubs"
-            | "face_nub_diameter"
             | "ramp_angle"
-            | "helix_diameter"
-            | "lead_radius"
             | "reentry_clearance"
             | "retract_height"
             | "chip_break_retract"
@@ -168,6 +169,15 @@ impl FormSection {
             "diameter_tolerance" | "crease_angle" | "min_length" | "min_remaining" | "min_cut"
             | "max_material_left" | "through_allowance" | "max_step" | "max_x_step"
             | "depth_reference" | "exact_contact" => Self::Advanced,
+            // The entry settings past the basic ones (decision
+            // 0695, Q9).
+            "ramp_steeper_near_axis"
+            | "ramp_angle_max"
+            | "plunge_face_nubs"
+            | "face_nub_diameter"
+            | "ramp_depth_per_traverse"
+            | "helix_diameter"
+            | "lead_radius" => Self::Advanced,
             _ => Self::PatternAndTolerance,
         }
     }
@@ -359,6 +369,7 @@ pub fn parameter_form(
                             names::RAMP_ANGLE_MAX,
                             names::PLUNGE_FACE_NUBS,
                             names::FACE_NUB_DIAMETER,
+                            names::RAMP_DEPTH_PER_TRAVERSE,
                         ]
                         .contains(&spec.name.as_str()))
                 {
@@ -378,12 +389,56 @@ pub fn parameter_form(
                 },
             }
         })
-        .collect();
+        .collect::<Vec<_>>();
+    let mut fields = fields;
+    if let Some(field) = tool_load_field(project, op) {
+        fields.push(field);
+    }
     Ok(ParameterForm {
         operation,
         strategy: op.strategy.clone(),
         fields,
         notes,
+    })
+}
+
+/// The operation's Largest cut section (SIM-16; decision record 0698,
+/// Q3): the most material the tool should remove per millimetre of travel,
+/// above which the simulation warns. Empty, it shows the limit that applies
+/// and where it comes from, as the cutting-data fields do. `None` with no
+/// tool, as there is nothing to measure against.
+fn tool_load_field(project: &Project, op: &Operation) -> Option<Field> {
+    use crate::tool_load::{LARGEST_CUT_SECTION, LimitSource};
+    let limit = crate::tool_load::limit(project, op)?;
+    let set = op.parameters.get(LARGEST_CUT_SECTION).cloned();
+    let source = match (&set, &limit.source) {
+        (Some(_), _) | (None, LimitSource::Operation) => Source::Operation,
+        (None, other) => Source::Derived(match other {
+            LimitSource::TwiceTheSlot { .. } => "twice the slot at the tool's stepdown",
+            _ => "the tool's diameter squared",
+        }),
+    };
+    Some(Field {
+        name: LARGEST_CUT_SECTION.to_owned(),
+        label: "Largest cut section".to_owned(),
+        description: "The most material this tool should remove per millimetre it travels: \
+                      about the depth of cut times the width of cut. The simulation warns \
+                      where a cut removes more. Empty, it is twice a full-width slot at the \
+                      stepdown of the tool's cutting data for the stock material. A nominal \
+                      value: a heavier cut is not said to be unacceptable, nor a lighter one \
+                      to be acceptable, for your tool and machine."
+            .to_owned(),
+        kind: FieldKind::Number {
+            unit: "mm²",
+            min: Some(0.0),
+            min_exclusive: true,
+            max: None,
+        },
+        value: Some(set.clone().unwrap_or(ParameterValue::Number(limit.value))),
+        set,
+        source,
+        section: FormSection::ToolAndFeeds,
+        problem: None,
     })
 }
 
@@ -452,6 +507,22 @@ pub(crate) fn check_parameter(
     let op = project
         .operation(operation)
         .ok_or_else(|| AppError::UnknownOperation(operation.to_string()))?;
+    // The application's own Largest cut section (SIM-16): a number above
+    // zero, checked here, as no strategy takes it.
+    if name == crate::tool_load::LARGEST_CUT_SECTION {
+        return match value {
+            None => Ok(()),
+            Some(ParameterValue::Number(v)) if v.is_finite() && *v > 0.0 => Ok(()),
+            #[allow(clippy::cast_precision_loss)]
+            Some(ParameterValue::Integer(v)) if *v > 0 => Ok(()),
+            Some(_) => Err(AppError::refused(
+                openchuck_path::topic::SETTING,
+                &op.name,
+                "parameter largest_cut_section: the largest cut section must be a number \
+                 of mm² greater than 0",
+            )),
+        };
+    }
     let strategy = registry.get(&op.strategy)?;
     let schema = strategy.schema();
     let mut proposed = crate::operation::stored_values(op);
@@ -486,6 +557,73 @@ pub(crate) fn check_parameter(
     Ok(())
 }
 
+/// The words the inspector shows for the stored word `value` of the choice
+/// `name`, or `None` when there is none (issue 613).
+#[must_use]
+pub fn choice_label(name: &str, value: &str) -> Option<&'static str> {
+    Some(match (name, value) {
+        ("shape", "flat") => "Flat along stock",
+        ("shape", "round") => "Round",
+        ("shape", "end") => "Unheld end",
+        ("shape", "box") => "Box sides",
+        ("extent", "whole_stock") => "Whole stock",
+        ("extent", "part") => "Part only",
+        ("extent", "part_plus_tabs") => "Part plus tabs",
+        ("layer_distribution", "full") => "Full stepdown, shorter final pass",
+        ("layer_distribution", "equal") => "Equal stepdowns",
+        ("pass_shape", "helix") => "Spiral",
+        ("pass_shape", "rings") => "Rings",
+        ("link_height", "retract") => "Retract to the clearance",
+        ("link_height", "low") => "Stay low where clear",
+        ("ring_step", "sharp") => "Sharp",
+        ("ring_step", "blended") => "Blended",
+        ("retract", "clearance") => "Safe cylinder",
+        ("retract", "safe_z") => "Safe Z",
+        ("entry", "plunge") => "Plunge",
+        ("entry", "lead") => "Tangent arc",
+        ("entry", "ramp") => "Straight ramp",
+        ("entry", "helix") => "Descending helix",
+        ("direction", "zigzag") => "Zig-zag",
+        ("direction", "climb") => "Climb",
+        ("direction", "conventional") => "Conventional",
+        ("direction", "meander") => "Meander",
+        ("direction", "forward") => "Forward",
+        ("direction", "reverse") => "Reverse",
+        ("direction", "usual for the form") => "Usual for the form",
+        ("direction", "along the length of the part") => "Along the length of the part",
+        ("direction", "around the part") => "Around the part",
+        ("extend", "no") => "Neither end",
+        ("extend", "both ends") => "Both ends",
+        ("extend", "start end") => "Start end",
+        ("extend", "far end") => "Far end",
+        ("mode", "engrave") => "Engrave",
+        ("mode", "carve") => "Carve",
+        ("start", "first") => "As stored",
+        ("start", "reversed") => "Reversed",
+        ("start", "low_x") => "Lowest X",
+        ("start", "high_x") => "Highest X",
+        ("start", "angle") => "Nearest the start angle",
+        ("rotation", "positive") => "Positive",
+        ("rotation", "negative") => "Negative",
+        ("pass_order", "by_region") => "By region",
+        ("pass_order", "after_main") => "After main passes",
+        ("peck_mode", "full_retract") => "Full retract",
+        ("peck_mode", "chip_break") => "Chip break",
+        ("depth_reference", "full_diameter") => "Full diameter",
+        ("depth_reference", "tip") => "Tool tip",
+        ("form", "continuous") => "Continuous",
+        ("form", "indexed") => "Indexed",
+        ("pattern", "spiral") => "Spiral",
+        ("pattern", "axial") => "Axial",
+        ("pattern", "automatic") => "Automatic",
+        ("pattern", "along_guide") => "Along the guide",
+        ("pattern", "outline") => "Follow the outline",
+        ("tip_end", "auto") => "Automatic",
+        ("tip_end", "reversed") => "Reversed",
+        _ => return None,
+    })
+}
+
 #[cfg(test)]
 mod section_tests {
     use super::FormSection;
@@ -499,6 +637,25 @@ mod section_tests {
         assert_eq!(FormSection::of("entry"), FormSection::EntryLinksAndRetract);
         assert_eq!(FormSection::of("min_length"), FormSection::Advanced);
         assert_eq!(FormSection::of("exact_contact"), FormSection::Advanced);
+        assert_eq!(
+            FormSection::of("ramp_angle"),
+            FormSection::EntryLinksAndRetract
+        );
+        assert_eq!(
+            FormSection::of("allow_single_point_plunge"),
+            FormSection::EntryLinksAndRetract
+        );
+        for name in [
+            "ramp_steeper_near_axis",
+            "ramp_angle_max",
+            "plunge_face_nubs",
+            "face_nub_diameter",
+            "ramp_depth_per_traverse",
+            "helix_diameter",
+            "lead_radius",
+        ] {
+            assert_eq!(FormSection::of(name), FormSection::Advanced, "{name}");
+        }
         assert_eq!(
             FormSection::of("stepover"),
             FormSection::PatternAndTolerance
@@ -520,5 +677,88 @@ mod section_tests {
         );
         let keys: Vec<&str> = FormSection::ALL.iter().map(|s| s.key()).collect();
         assert_eq!(keys, ["tool", "pattern", "axis", "links", "advanced"]);
+    }
+}
+
+#[cfg(test)]
+mod choice_label_tests {
+    #![allow(clippy::unwrap_used)]
+
+    use openchuck_path::{ParameterKind, Registry};
+
+    use super::choice_label;
+
+    /// Every option of every choice of every built-in strategy, as
+    /// `(strategy, setting, option)`.
+    fn every_choice() -> Vec<(String, String, String)> {
+        let registry = Registry::builtin();
+        let mut found = Vec::new();
+        for strategy in registry.iter() {
+            for spec in strategy.schema().parameters {
+                if let ParameterKind::Choice { options, .. } = &spec.kind {
+                    for option in options {
+                        found.push((
+                            strategy.name().to_owned(),
+                            spec.name.clone(),
+                            option.clone(),
+                        ));
+                    }
+                }
+            }
+        }
+        found
+    }
+
+    /// The inspector never shows a stored word: each option of each choice has
+    /// a label written in plain words, so a new option cannot be added
+    /// without one (issue 613).
+    #[test]
+    fn req_ui_12_every_choice_of_every_strategy_has_a_label() {
+        let missing: Vec<String> = every_choice()
+            .into_iter()
+            .filter(|(_, setting, option)| choice_label(setting, option).is_none())
+            .map(|(strategy, setting, option)| format!("{strategy}: {setting} = {option}"))
+            .collect();
+        assert!(missing.is_empty(), "no label for:\n{}", missing.join("\n"));
+    }
+
+    /// A label is words: it starts with a capital, has no underscore, and two
+    /// options of one setting never share one.
+    #[test]
+    fn req_ui_12_choice_labels_are_plain_words_and_differ() {
+        let mut seen = std::collections::BTreeMap::<(String, String), String>::new();
+        for (strategy, setting, option) in every_choice() {
+            let Some(label) = choice_label(&setting, &option) else {
+                continue;
+            };
+            assert!(
+                !label.contains('_'),
+                "{strategy}: {setting} = {option}: {label}"
+            );
+            assert!(
+                label.chars().next().is_some_and(char::is_uppercase),
+                "{strategy}: {setting} = {option}: {label}"
+            );
+            let key = (strategy.clone(), setting.clone());
+            let clash = seen.insert(
+                (strategy.clone(), format!("{setting}\u{0}{label}")),
+                option.clone(),
+            );
+            assert!(
+                clash.is_none() || clash.as_deref() == Some(option.as_str()),
+                "{key:?} {label}"
+            );
+        }
+    }
+
+    /// The pass order of rest machining and the other strategies with extra
+    /// passes reads in words (issue 613); the stored words are unchanged.
+    #[test]
+    fn req_op_14_the_pass_order_choice_reads_in_words() {
+        assert_eq!(choice_label("pass_order", "by_region"), Some("By region"));
+        assert_eq!(
+            choice_label("pass_order", "after_main"),
+            Some("After main passes")
+        );
     }
 }

@@ -4,9 +4,10 @@
 //! 0040).
 //!
 //! **Toolpaths (SIM-01).** [`ToolpathDisplay`] cuts a regeneration into runs of
-//! moves of one [`PathClass`] (rapid, link, entry or cut) in the part's frame,
-//! so the viewport can colour the classes apart and show an operation or hide
-//! it. A move that turns A a long way is drawn as the arc the tool tip takes
+//! moves of one kind (cut, link, rapid, plunge, lead-in, lead-out) in the
+//! part's frame, so the viewport can colour the classes apart ([`PathClass`]),
+//! show an operation or hide it, and show or hide each kind of move
+//! ([`ShownMoves`]; issue #789, decision record 0693). A move that turns A a long way is drawn as the arc the tool tip takes
 //! (the controller moves X, Y, Z and A together), not as a chord.
 //!
 //! **Level of detail (item 8).** A path of millions of moves cannot all be
@@ -27,6 +28,7 @@ use std::sync::OnceLock;
 use openchuck_geom::select::TriangleSet;
 use openchuck_types::geometry::Point3;
 use openchuck_types::ir::MoveKind;
+use serde::{Deserialize, Serialize};
 
 use crate::playback::{Timeline, between};
 
@@ -76,13 +78,146 @@ impl PathClass {
     }
 }
 
-/// Consecutive moves of one class in one group, as a polyline.
+/// Which kinds of move the view draws (issue #789; decision record
+/// 0693, the owner's answers P1 B and P3 A): the path's own six kinds,
+/// each shown or hidden. Display only: the G-code, the simulation, the checks
+/// and playback never read it. Kept per user on the computer (UI-15), never
+/// in the project. A settings file without it, or without one of its kinds,
+/// shows that kind.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(default)]
+pub struct ShownMoves {
+    /// Cutting moves.
+    pub cut: bool,
+    /// Links between passes, at feed.
+    pub link: bool,
+    /// Rapid moves.
+    pub rapid: bool,
+    /// Plunges.
+    pub plunge: bool,
+    /// Lead-ins, ramps among them.
+    pub lead_in: bool,
+    /// Lead-outs.
+    pub lead_out: bool,
+}
+
+impl Default for ShownMoves {
+    fn default() -> Self {
+        Self::ALL
+    }
+}
+
+impl ShownMoves {
+    /// Every kind shown: the view as it was before kinds could be hidden.
+    pub const ALL: Self = Self {
+        cut: true,
+        link: true,
+        rapid: true,
+        plunge: true,
+        lead_in: true,
+        lead_out: true,
+    };
+
+    /// The kinds in the order the legend and the menus list them: Cut, Link,
+    /// Rapid, then the three kinds of Entry and exit.
+    pub const ORDER: [MoveKind; 6] = [
+        MoveKind::Cutting,
+        MoveKind::Linking,
+        MoveKind::Rapid,
+        MoveKind::Plunge,
+        MoveKind::LeadIn,
+        MoveKind::LeadOut,
+    ];
+
+    /// The kinds that make up Entry and exit ([`PathClass::Entry`]).
+    pub const ENTRY: [MoveKind; 3] = [MoveKind::Plunge, MoveKind::LeadIn, MoveKind::LeadOut];
+
+    fn field(&mut self, kind: MoveKind) -> &mut bool {
+        match kind {
+            MoveKind::Cutting => &mut self.cut,
+            MoveKind::Linking => &mut self.link,
+            MoveKind::Rapid => &mut self.rapid,
+            MoveKind::Plunge => &mut self.plunge,
+            MoveKind::LeadIn => &mut self.lead_in,
+            MoveKind::LeadOut => &mut self.lead_out,
+        }
+    }
+
+    /// Whether moves of `kind` are drawn.
+    pub fn shows(self, kind: MoveKind) -> bool {
+        let mut copy = self;
+        *copy.field(kind)
+    }
+
+    /// Shows or hides moves of `kind`.
+    pub fn set(&mut self, kind: MoveKind, shown: bool) {
+        *self.field(kind) = shown;
+    }
+
+    /// Whether every kind is shown.
+    pub fn all_shown(self) -> bool {
+        self == Self::ALL
+    }
+
+    /// The kinds hidden, in legend order.
+    pub fn hidden(self) -> Vec<MoveKind> {
+        Self::ORDER
+            .into_iter()
+            .filter(|k| !self.shows(*k))
+            .collect()
+    }
+
+    /// The chip that says what is hidden, "Hidden: Rapid, Lead-out", or
+    /// `None` when every kind is shown. Entry and exit hidden whole reads as
+    /// one name.
+    pub fn hidden_text(self) -> Option<String> {
+        let names = self.hidden_names();
+        (!names.is_empty()).then(|| format!("Hidden: {}", names.join(", ")))
+    }
+
+    /// The names of the kinds hidden, in legend order; Entry and exit hidden
+    /// whole reads as one name. The chip shared with the Facing labels
+    /// (decision record MOPUP-1-A) takes them from here.
+    pub fn hidden_names(self) -> Vec<&'static str> {
+        let hidden = self.hidden();
+        let whole_entry = Self::ENTRY.iter().all(|k| hidden.contains(k));
+        let mut names: Vec<&'static str> = hidden
+            .iter()
+            .filter(|k| !(whole_entry && Self::ENTRY.contains(k)))
+            .map(|k| move_name(*k))
+            .collect();
+        if whole_entry {
+            names.push(ENTRY_NAME);
+        }
+        names
+    }
+}
+
+/// The name of the three kinds of entry and exit together, in the legend
+/// and the menus.
+pub const ENTRY_NAME: &str = "Entry and exit";
+
+/// A kind of move's name in the legend and the menus.
+pub const fn move_name(kind: MoveKind) -> &'static str {
+    match kind {
+        MoveKind::Cutting => "Cut",
+        MoveKind::Linking => "Link",
+        MoveKind::Rapid => "Rapid",
+        MoveKind::Plunge => "Plunge",
+        MoveKind::LeadIn => "Lead-in and ramp",
+        MoveKind::LeadOut => "Lead-out",
+    }
+}
+
+/// Consecutive moves of one kind in one group, as a polyline.
 #[derive(Debug, Clone, PartialEq)]
 pub struct PathRun {
     /// The group (operation) it belongs to.
     pub group: usize,
-    /// What the moves are for.
+    /// What the moves are for, as the legend colours them.
     pub class: PathClass,
+    /// The moves' kind.
+    pub kind: MoveKind,
     /// The points, in the part's frame.
     pub points: Vec<Point3>,
 }
@@ -92,8 +227,10 @@ pub struct PathRun {
 pub struct PathLine {
     /// The group it belongs to.
     pub group: usize,
-    /// What it is for.
+    /// What it is for, as the legend colours it.
     pub class: PathClass,
+    /// The moves' kind.
+    pub kind: MoveKind,
     /// The points.
     pub points: Vec<Point3>,
 }
@@ -152,9 +289,9 @@ impl ToolpathDisplay {
             let mut here = group.start;
             let mut open: Option<(PathRun, RunMoves)> = None;
             for segment in &group.segments {
-                let class = PathClass::of(segment.kind);
+                let kind = segment.kind;
                 let (mut run, mut marks) = match open.take() {
-                    Some((run, marks)) if run.class == class => (run, marks),
+                    Some((run, marks)) if run.kind == kind => (run, marks),
                     other => {
                         if let Some((run, marks)) = other {
                             runs.push(run);
@@ -163,7 +300,8 @@ impl ToolpathDisplay {
                         (
                             PathRun {
                                 group: g,
-                                class,
+                                class: PathClass::of(kind),
+                                kind,
                                 points: vec![here.tip],
                             },
                             RunMoves {
@@ -216,10 +354,10 @@ impl ToolpathDisplay {
     }
 
     /// Points in the runs of the visible groups at full detail.
-    pub fn full_points(&self, visible: &dyn Fn(usize) -> bool) -> usize {
+    pub fn full_points(&self, visible: &dyn Fn(usize, MoveKind) -> bool) -> usize {
         self.runs
             .iter()
-            .filter(|r| visible(r.group))
+            .filter(|r| visible(r.group, r.kind))
             .map(|r| r.points.len())
             .sum()
     }
@@ -238,7 +376,7 @@ impl ToolpathDisplay {
 
     /// The lines of the groups `visible` says to draw, at the finest level of
     /// detail whose points fit `max_points` (the coarsest if none does).
-    pub fn lines(&self, visible: &dyn Fn(usize) -> bool, max_points: usize) -> PathLines {
+    pub fn lines(&self, visible: &dyn Fn(usize, MoveKind) -> bool, max_points: usize) -> PathLines {
         self.lines_for(visible, max_points, 0)
     }
 
@@ -248,7 +386,7 @@ impl ToolpathDisplay {
     /// A level past the coarsest is the coarsest.
     pub fn lines_for(
         &self,
-        visible: &dyn Fn(usize) -> bool,
+        visible: &dyn Fn(usize, MoveKind) -> bool,
         max_points: usize,
         min_level: usize,
     ) -> PathLines {
@@ -262,10 +400,11 @@ impl ToolpathDisplay {
             .runs
             .iter()
             .zip(runs.into_iter().flatten())
-            .filter(|(r, _)| visible(r.group))
+            .filter(|(r, _)| visible(r.group, r.kind))
             .map(|(r, points)| PathLine {
                 group: r.group,
                 class: r.class,
+                kind: r.kind,
                 points: points.clone(),
             })
             .collect();
@@ -280,7 +419,7 @@ impl ToolpathDisplay {
 
     /// The finest level whose visible points fit `max_points`, or the
     /// coarsest if none does.
-    fn budget_level(&self, visible: &dyn Fn(usize) -> bool, max_points: usize) -> usize {
+    fn budget_level(&self, visible: &dyn Fn(usize, MoveKind) -> bool, max_points: usize) -> usize {
         let mut chosen = 0;
         for level in 0..LEVEL_TOLERANCES.len() {
             chosen = level;
@@ -289,7 +428,7 @@ impl ToolpathDisplay {
                     .runs
                     .iter()
                     .zip(runs)
-                    .filter(|(r, _)| visible(r.group))
+                    .filter(|(r, _)| visible(r.group, r.kind))
                     .map(|(_, p)| p.len())
                     .sum(),
                 None => usize::MAX,
@@ -346,14 +485,14 @@ impl ToolpathDisplay {
     /// slice.
     fn window_slices<'a>(
         &'a self,
-        visible: &'a dyn Fn(usize) -> bool,
+        visible: &'a dyn Fn(usize, MoveKind) -> bool,
         window: std::ops::Range<usize>,
     ) -> impl Iterator<Item = (usize, &'a [Point3])> + 'a {
         self.runs
             .iter()
             .zip(&self.moves)
             .enumerate()
-            .filter(move |(_, (r, _))| visible(r.group))
+            .filter(move |(_, (r, _))| visible(r.group, r.kind))
             .filter_map(move |(i, (run, marks))| {
                 let end = marks.first + marks.ends.len();
                 let (from, to) = (window.start.max(marks.first), window.end.min(end));
@@ -379,7 +518,7 @@ impl ToolpathDisplay {
     /// the drawing starts and stops where the play head can.
     pub fn window_lines(
         &self,
-        visible: &dyn Fn(usize) -> bool,
+        visible: &dyn Fn(usize, MoveKind) -> bool,
         window: std::ops::Range<usize>,
         max_points: usize,
         min_level: usize,
@@ -402,6 +541,7 @@ impl ToolpathDisplay {
                 Some(PathLine {
                     group: run.group,
                     class: run.class,
+                    kind: run.kind,
                     points: simplify(points, tolerance),
                 })
             })
@@ -420,7 +560,11 @@ impl ToolpathDisplay {
     /// or coarser when the budget needs it. It is made from the cached level
     /// and depends only on the path and the visible groups, so moving or
     /// resizing the window never makes it again.
-    pub fn trace_lines(&self, visible: &dyn Fn(usize) -> bool, max_points: usize) -> PathLines {
+    pub fn trace_lines(
+        &self,
+        visible: &dyn Fn(usize, MoveKind) -> bool,
+        max_points: usize,
+    ) -> PathLines {
         let chosen = self
             .level_for_budget(visible, max_points)
             .max(TRACE_LEVEL)
@@ -430,10 +574,11 @@ impl ToolpathDisplay {
             .runs
             .iter()
             .zip(self.level(chosen).into_iter().flatten())
-            .filter(|(r, _)| visible(r.group))
+            .filter(|(r, _)| visible(r.group, r.kind))
             .map(|(r, points)| PathLine {
                 group: r.group,
                 class: r.class,
+                kind: r.kind,
                 points: points.clone(),
             })
             .collect();
@@ -448,14 +593,18 @@ impl ToolpathDisplay {
 
     /// The finest level whose visible points fit `max_points`, or the
     /// coarsest if none does.
-    fn level_for_budget(&self, visible: &dyn Fn(usize) -> bool, max_points: usize) -> usize {
+    fn level_for_budget(
+        &self,
+        visible: &dyn Fn(usize, MoveKind) -> bool,
+        max_points: usize,
+    ) -> usize {
         (0..LEVEL_TOLERANCES.len())
             .find(|&level| {
                 self.level(level).is_some_and(|runs| {
                     self.runs
                         .iter()
                         .zip(runs)
-                        .filter(|(r, _)| visible(r.group))
+                        .filter(|(r, _)| visible(r.group, r.kind))
                         .map(|(_, p)| p.len())
                         .sum::<usize>()
                         <= max_points
@@ -761,6 +910,7 @@ impl crate::Application {
         &self,
         display: std::sync::Arc<ToolpathDisplay>,
         visible: Vec<bool>,
+        moves: ShownMoves,
         window: std::ops::Range<usize>,
         max_points: usize,
         min_level: usize,
@@ -771,7 +921,9 @@ impl crate::Application {
             move |context| {
                 context.check_cancelled()?;
                 Ok(display.window_lines(
-                    &|group| visible.get(group).copied().unwrap_or(false),
+                    &|group, kind| {
+                        moves.shows(kind) && visible.get(group).copied().unwrap_or(false)
+                    },
                     window,
                     max_points,
                     min_level,
@@ -786,20 +938,23 @@ impl crate::Application {
         &self,
         display: std::sync::Arc<ToolpathDisplay>,
         visible: Vec<bool>,
+        moves: ShownMoves,
         max_points: usize,
     ) -> crate::JobHandle<PathLines> {
         self.jobs
             .submit("draw path trace", self.events_tx.clone(), move |context| {
                 context.check_cancelled()?;
                 Ok(display.trace_lines(
-                    &|group| visible.get(group).copied().unwrap_or(false),
+                    &|group, kind| {
+                        moves.shows(kind) && visible.get(group).copied().unwrap_or(false)
+                    },
                     max_points,
                 ))
             })
     }
 
-    /// Chooses the lines of the toolpath to draw, as a job: the groups with
-    /// `visible[group]` true, at the finest level of detail that fits
+    /// Chooses the lines of the toolpath to draw, as a job: the moves of the
+    /// kinds `moves` shows in the groups with `visible[group]` true, at the finest level of detail that fits
     /// `max_points` (item 8), or at `min_level` (the zoom's level,
     /// [`zoom_level`]) when that is coarser. Making a level the first time
     /// simplifies every run, which takes a while on a path of millions of
@@ -808,6 +963,7 @@ impl crate::Application {
         &self,
         display: std::sync::Arc<ToolpathDisplay>,
         visible: Vec<bool>,
+        moves: ShownMoves,
         max_points: usize,
         min_level: usize,
     ) -> crate::JobHandle<PathLines> {
@@ -817,7 +973,9 @@ impl crate::Application {
             move |context| {
                 context.check_cancelled()?;
                 let lines = display.lines_for(
-                    &|group| visible.get(group).copied().unwrap_or(false),
+                    &|group, kind| {
+                        moves.shows(kind) && visible.get(group).copied().unwrap_or(false)
+                    },
                     max_points,
                     min_level,
                 );

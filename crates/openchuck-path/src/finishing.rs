@@ -18,8 +18,9 @@ use crate::notice::{Acknowledgement, Level, Notice, topic};
 use std::collections::BTreeMap;
 
 use openchuck_types::geometry::{Point3, UnitVec3, Vec3};
+use openchuck_types::job::JobContext;
 use openchuck_types::tool::profile::RevolvedProfile;
-use openchuck_types::units::Degrees;
+use openchuck_types::units::{Degrees, Millimetres};
 
 use crate::error::{PathError, Result};
 use crate::faces::FreeEnd;
@@ -41,6 +42,25 @@ pub mod parameter {
     /// What the final pass alone takes, mm along the tool axis, with
     /// Finishing layers on: the layers stop this far above the target.
     pub const FINISH_ALLOWANCE: &str = "finish_allowance";
+    /// Carry the finish on past a part's end that comes to a point, down to
+    /// the rotary axis: on or off (decision record 0695, Q2).
+    pub const FINISH_TO_A_POINT: &str = "finish_to_a_point";
+}
+
+/// The Finish to a point setting (decision record 0695, Q2 (a) A): off in the
+/// schema, so an operation saved without it keeps its program; a new
+/// operation gets it on (decision record 0545 D3's pattern).
+pub(crate) fn point_spec() -> ParameterSpec {
+    ParameterSpec {
+        name: parameter::FINISH_TO_A_POINT.to_owned(),
+        label: "Finish to a point".to_owned(),
+        description: "Where the part ends in a point inside the stock, carry the finish on past \
+                      the end, the tool following the part down until its centre is on the \
+                      rotary axis, so the point is cut instead of left as a nub. This cuts the \
+                      part free of the stock past the point."
+            .to_owned(),
+        kind: ParameterKind::Flag { default: false },
+    }
 }
 
 /// The Finish allowance when the operation sets none, mm (decision record
@@ -155,6 +175,9 @@ pub(crate) struct FreeEnds {
     pub(crate) passes: Vec<Pass>,
     pub(crate) notes: Vec<Notice>,
     pub(crate) warnings: Vec<Notice>,
+    /// The X of each end face faced down to the rotary axis, whose warnings
+    /// say what that cuts free.
+    pub(crate) faced: Vec<f64>,
 }
 
 /// The turns at the part's free ends `ends` (decision record 0344): with
@@ -385,6 +408,7 @@ pub(crate) fn free_ends(
             );
         }
         rings.push((end.x, face, end.far, from.min(to), from.max(to)));
+        out.faced.push(face);
         // Stock past the ring that no held region past it grips: a cheap test
         // of whether there is any, not of whether it is joined to the rest
         // (OI-1393).
@@ -642,4 +666,292 @@ pub(crate) fn across_axis_warning(
         ))
         .about(topic::FACES_ACROSS_THE_AXIS)
     })
+}
+
+/// The most whole turns that take the tool down to the axis past a point.
+const MOST_TURNS: usize = 1000;
+
+/// The most points in one of those turns: a tenth of a degree apart.
+const MOST_POINTS: usize = 3600;
+
+/// A free end of the part that comes to a point, past which Finish to a
+/// point carries the finish on (decision record 0695, Q2 (a) A).
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub(crate) struct PointEnd {
+    /// The X of the end itself.
+    pub(crate) face: f64,
+    /// The last X of the tool's axis where the drop still finds the part:
+    /// the finish follows the part down to here.
+    pub(crate) edge: f64,
+    /// Whether the end looks along +X (the part's far end).
+    pub(crate) far: bool,
+}
+
+/// Whether the stock carries on past the end face at `face`: only such an
+/// end has anything past it to cut (decision record 0344).
+fn stock_past(input: &StrategyInput<'_>, face: f64, far: bool) -> bool {
+    let tolerance = 1e-3;
+    match input.stock.x_extent() {
+        Some((_, hi)) if far => hi > face + tolerance,
+        Some((lo, _)) => lo < face - tolerance,
+        None => true,
+    }
+}
+
+/// The free ends `ends` that come to a point, with Finish to a point on
+/// (decision record 0695, Q2): an end the stock carries on past, where the
+/// tool (`grown` by the stock to leave) at the end's last drop touches the
+/// part nearer the rotary axis than its own cutting radius at every angle,
+/// so the part there is narrower than the tool. A wider end is an end face,
+/// which Face free ends turns at (decision record 0344). An end under a part
+/// of the surface with its own stock to leave (`zones`) is left out: going
+/// down to the axis there would cut its allowance away (CodeRabbit on #956).
+/// With a selected `region`, an end is kept only where the region allows the
+/// tool at its last drop all round (OP-02; CodeRabbit on #956).
+pub(crate) fn point_ends(
+    input: &StrategyInput<'_>,
+    grown: &RevolvedProfile,
+    ends: &[FreeEnd],
+    (region, zones): (
+        Option<&crate::region::RegionConstraint<'_>>,
+        &[crate::strategy::LeaveZone<'_>],
+    ),
+    parameters: &Parameters,
+) -> Vec<PointEnd> {
+    if !parameters
+        .flag(parameter::FINISH_TO_A_POINT)
+        .unwrap_or(false)
+    {
+        return Vec::new();
+    }
+    let radius = grown.cutting_radius();
+    ends.iter()
+        .filter(|e| stock_past(input, e.face, e.far))
+        .filter(|e| {
+            let Some(region) = region.filter(|r| !r.is_empty()) else {
+                return true;
+            };
+            (0..AROUND).all(|k| {
+                let a = Degrees(360.0 * k as f64 / AROUND as f64);
+                let line = input
+                    .rotary
+                    .tool_line(Millimetres(e.edge), a, Millimetres(0.0));
+                input
+                    .surface
+                    .drop_on_part(grown, &line)
+                    .is_some_and(|c| region.allows(c.contact, c.tip, grown, &line))
+            })
+        })
+        .filter(|e| {
+            // No zone's surface under the tool at the end's last drop.
+            !zones.iter().any(|z| {
+                (0..AROUND).any(|k| {
+                    let a = Degrees(360.0 * k as f64 / AROUND as f64);
+                    let line = input
+                        .rotary
+                        .tool_line(Millimetres(e.edge), a, Millimetres(0.0));
+                    z.surface.drop_tool(grown, &line).is_some()
+                })
+            })
+        })
+        .filter(|e| {
+            (0..AROUND).all(|k| {
+                let a = Degrees(360.0 * k as f64 / AROUND as f64);
+                let line = input
+                    .rotary
+                    .tool_line(Millimetres(e.edge), a, Millimetres(0.0));
+                input
+                    .surface
+                    .drop_on_part(grown, &line)
+                    .is_some_and(|c| c.contact.y.hypot(c.contact.z) < radius)
+            })
+        })
+        .map(|e| PointEnd {
+            face: e.face,
+            edge: e.edge,
+            far: e.far,
+        })
+        .collect()
+}
+
+/// Whole turns of A at `x`, the tool's tip stepping down by `stepdown` from
+/// `from` (mm along the tool axis from the rotary axis), the last with the
+/// tool's end at its cutting radius on the axis, as the drop onto a point on
+/// the axis puts it: a ball's centre on the axis (decision record 0695, Q2
+/// (b) A). Starting at A `start`, turning by `sign`, no more than `step`
+/// degrees between points; each turn its own pass, as Face free ends cuts
+/// them (decision record 0344). With no Stepdown, one turn.
+pub(crate) fn turns_to_the_axis(
+    input: &StrategyInput<'_>,
+    end: &PointEnd,
+    from: f64,
+    stepdown: f64,
+    (start, sign, step): (f64, f64, f64),
+    context: &JobContext<'_>,
+) -> Result<Vec<Pass>> {
+    let side = input.tool.cutting_radius();
+    let last = -input.tool.height_at(side).unwrap_or(0.0);
+    let toward = if end.far { -1.0 } else { 1.0 };
+    // At most `MOST_POINTS` points a turn, whatever the largest angle step
+    // (CodeRabbit on #956).
+    let points = (360.0 / step).ceil();
+    let points = if points.is_finite() && points >= 4.0 {
+        (points as usize).min(MOST_POINTS)
+    } else if points.is_finite() {
+        4
+    } else {
+        MOST_POINTS
+    };
+    let mut heights = Vec::new();
+    if stepdown.is_finite() && stepdown > 0.0 && from > last {
+        // Whole Stepdowns above the last turn, at most `MOST_TURNS` of them:
+        // a Stepdown too small for that is widened to fit (CodeRabbit on
+        // #956), so the loop always ends.
+        let steps = ((from - last) / stepdown).ceil();
+        let (count, step) = if steps.is_finite() && steps <= MOST_TURNS as f64 {
+            (steps as usize, stepdown)
+        } else {
+            (MOST_TURNS, (from - last) / MOST_TURNS as f64)
+        };
+        heights.extend(
+            (1..count)
+                .map(|k| from - k as f64 * step)
+                .filter(|&h| h > last + 1e-9),
+        );
+    }
+    heights.push(last);
+    // Checked for cancellation before each turn (CodeRabbit on #956).
+    let mut out = Vec::with_capacity(heights.len());
+    for h in heights {
+        context.check_cancelled()?;
+        out.push(Pass {
+            helical_pass_start: false,
+            low_link: false,
+            points: (0..=points)
+                .map(|i| {
+                    let a = Degrees(start + sign * 360.0 * i as f64 / points as f64);
+                    let place = |along: f64| {
+                        input.rotary.to_model(
+                            AxisPosition {
+                                along,
+                                across: 0.0,
+                                height: h,
+                            },
+                            a,
+                        )
+                    };
+                    CutPoint {
+                        tip: place(end.edge),
+                        a,
+                        contact: place(end.edge + toward * side),
+                    }
+                })
+                .collect(),
+            stock: None,
+            rapids: Vec::new(),
+            plunge_fed: Vec::new(),
+        });
+    }
+    Ok(out)
+}
+
+/// The tool's tip at `end`'s last drop, mm along the tool axis from the
+/// rotary axis: the highest round the axis, for the tool `grown` by `leave`.
+pub(crate) fn top_at_edge(
+    input: &StrategyInput<'_>,
+    grown: &RevolvedProfile,
+    leave: f64,
+    end: &PointEnd,
+) -> f64 {
+    let top = (0..AROUND)
+        .filter_map(|k| {
+            let a = Degrees(360.0 * k as f64 / AROUND as f64);
+            let line = input
+                .rotary
+                .tool_line(Millimetres(end.edge), a, Millimetres(0.0));
+            input.surface.drop_tool(grown, &line)
+        })
+        .map(|c| c.offset + leave)
+        .fold(f64::NEG_INFINITY, f64::max);
+    if top.is_finite() { top } else { 0.0 }
+}
+
+/// What finishing to the points `ends` cuts free (decision record 0695, Q2
+/// (b) A, with decision record 0344's warnings): the tool goes down to the
+/// rotary axis past each point, so the stock past it is cut free unless a
+/// held region past it grips it, and the part is cut free unless a held
+/// region on its own side holds it. An end already in `faced` (Face free
+/// ends faced it down to the axis) has those warnings already.
+pub(crate) fn point_warnings(
+    input: &StrategyInput<'_>,
+    ends: &[PointEnd],
+    faced: &[f64],
+) -> Vec<Notice> {
+    let radius = input.tool.cutting_radius();
+    let width = 2.0 * radius;
+    let mut out = Vec::new();
+    for end in ends {
+        if faced.iter().any(|&f| (f - end.face).abs() <= 1e-6) {
+            continue;
+        }
+        let (from, to) = (end.edge - radius, end.edge + radius);
+        let face = end.face;
+        let gripped = input
+            .keep_out
+            .iter()
+            .any(|&(a, b)| if end.far { a > end.edge } else { b < end.edge });
+        if !gripped {
+            out.push(Notice {
+                level: Level::Warning,
+                topic: Some(topic::PART_CUT_FREE.to_owned()),
+                segment: None,
+                text: format!(
+                    "the point at X {face:.3} is finished down to the rotary axis: the tool cuts \
+                     a ring {width:.3} mm wide from X {from:.3} to {to:.3} down to the axis, and \
+                     the stock past the point is not held by anything in this setup, so it can \
+                     be cut free there and thrown while the rotary axis turns. Before running \
+                     this program, check the stock and the workholding on the machine"
+                ),
+                setting: Some(parameter::FINISH_TO_A_POINT.to_owned()),
+                acknowledgement: None,
+            });
+        }
+        // A held region holds the part only with no other ring down to the
+        // axis between them: another point's, or a face Face free ends
+        // faced (as `free_ends` checks; CodeRabbit on #956).
+        let rings: Vec<f64> = ends
+            .iter()
+            .filter(|o| !std::ptr::eq(*o, end))
+            .map(|o| o.edge)
+            .chain(faced.iter().copied())
+            .collect();
+        let between = |held: f64| rings.iter().any(|&r| (r - end.edge) * (held - r) > 0.0);
+        let held = input.keep_out.iter().any(|&(a, b)| {
+            if end.far {
+                b < end.edge && !between(b)
+            } else {
+                a > end.edge && !between(a)
+            }
+        });
+        if !held {
+            out.push(Notice {
+                level: Level::Warning,
+                topic: Some(topic::PART_CUT_FREE.to_owned()),
+                segment: None,
+                text: format!(
+                    "the point at X {face:.3} is finished down to the rotary axis: the tool cuts \
+                     a ring {width:.3} mm wide from X {from:.3} to {to:.3} down to the axis, and \
+                     nothing in this setup holds the part on the other side of the ring (no held \
+                     region at its other end, and no tab joining it to one), so the part can be \
+                     cut free there and thrown while the rotary axis turns. Before running this \
+                     program, check the stock and the workholding on the machine"
+                ),
+                setting: Some(parameter::FINISH_TO_A_POINT.to_owned()),
+                // As decision record 0538 has it for a free end: a possible
+                // collision, to acknowledge.
+                acknowledgement: Some(Acknowledgement::PossibleCollision),
+            });
+        }
+    }
+    out
 }
