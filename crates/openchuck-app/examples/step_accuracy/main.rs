@@ -1341,6 +1341,21 @@ impl SurfaceSource for Timed<'_> {
         self.exact.fetch_add(1, Ordering::Relaxed);
         self.inner.cast_ray(origin, direction, max_distance)
     }
+    // Not counted: the move check's gap queries are neither drops nor
+    // rays, and the default would answer them over every triangle.
+    fn tool_gap(
+        &self,
+        profile: &RevolvedProfile,
+        line: &ToolLine,
+        query: &openchuck_path::GapQuery,
+    ) -> Option<openchuck_path::ToolGap> {
+        self.inner.tool_gap(profile, line, query)
+    }
+
+    fn tool_gap_accuracy(&self) -> f64 {
+        self.inner.tool_gap_accuracy()
+    }
+
     fn tessellation(&self) -> &TriangleMesh {
         self.inner.tessellation()
     }

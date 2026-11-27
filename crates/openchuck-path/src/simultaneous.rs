@@ -1378,11 +1378,7 @@ fn gouge_warning(
     if areas.is_empty() {
         return None;
     }
-    let count = if areas.len() == 1 {
-        "1 area".to_owned()
-    } else {
-        format!("{} areas", areas.len())
-    };
+    let count = crate::words::counted(areas.len(), "area", "areas");
     Some(Notice {
         level: Level::Warning,
         topic: Some(topic::UNREACHED_AREAS.to_owned()),
@@ -1417,11 +1413,7 @@ fn thin_wall_warning(areas: &[crate::assemble::Unreached], tolerance: f64) -> Op
     if walls.is_empty() {
         return None;
     }
-    let count = if walls.len() == 1 {
-        "1 area".to_owned()
-    } else {
-        format!("{} areas", walls.len())
-    };
+    let count = crate::words::counted(walls.len(), "area", "areas");
     let mut list: Vec<String> = walls
         .iter()
         .take(LISTED)

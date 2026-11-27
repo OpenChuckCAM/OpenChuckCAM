@@ -1824,6 +1824,12 @@ struct Shard {
 }
 
 impl Shard {
+    /// The shard's sides, each from a corner to the next.
+    fn sides(&self) -> [(Point3, Point3); 3] {
+        let [a, b, c] = self.p;
+        [(a, b), (b, c), (c, a)]
+    }
+
     fn centre(&self) -> Point3 {
         centroid(&self.p)
     }
@@ -1904,8 +1910,7 @@ impl Shard {
                 return empty;
             }
         }
-        for i in 0..3 {
-            let (a, b) = (self.p[i], self.p[(i + 1) % 3]);
+        for (a, b) in self.sides() {
             let n = (b - a).cross(m);
             let len = n.length();
             if len > 0.0 {
@@ -1969,9 +1974,10 @@ impl Shard {
             // best height found so far (anything higher cannot lower it),
             // and inside each probe's tangent plane: the least height over
             // its corners bounds them.
-            let mut region: Vec<(Vec3, f64)> = (0..3)
-                .filter_map(|i| {
-                    let (a, b) = (self.p[i], self.p[(i + 1) % 3]);
+            let mut region: Vec<(Vec3, f64)> = self
+                .sides()
+                .into_iter()
+                .filter_map(|(a, b)| {
                     let n = (b - a).cross(m);
                     let len = n.length();
                     (len > 0.0).then(|| {
@@ -2087,8 +2093,8 @@ impl Shard {
                 e0 * turn.cos() + e1 * turn.sin()
             })
             .collect();
-        for i in 0..3 {
-            let side = (self.p[(i + 1) % 3] - self.p[i]).cross(m);
+        for (a, b) in self.sides() {
+            let side = (b - a).cross(m);
             if side.length() > 0.0 {
                 leans.push(side * (1.0 / side.length()));
             }
@@ -2150,10 +2156,9 @@ impl Ord for ShardEntry {
 fn corners_least(planes: &[(Vec3, f64)], m: Vec3) -> Option<f64> {
     let scale = planes.iter().map(|p| p.1.abs()).fold(1.0, f64::max);
     let mut least: Option<f64> = None;
-    for i in 0..planes.len() {
-        for j in i + 1..planes.len() {
-            for k in j + 1..planes.len() {
-                let (a, b, c) = (planes[i], planes[j], planes[k]);
+    for (i, &a) in planes.iter().enumerate() {
+        for (j, &b) in planes.iter().enumerate().skip(i + 1) {
+            for &c in planes.iter().skip(j + 1) {
                 let det = a.0.dot(b.0.cross(c.0));
                 if det.abs() < 1e-12 {
                     continue;

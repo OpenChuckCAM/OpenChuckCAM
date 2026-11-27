@@ -844,10 +844,10 @@ fn distance_to_triangle(p: Point3, t: &[Point3; 3]) -> f64 {
     let n = n * (1.0 / area);
     let h = (p - t[0]).dot(n);
     let q = p + n * (-h);
-    let inside = (0..3).all(|i| {
-        let (a, b) = (t[i], t[(i + 1) % 3]);
-        (b - a).cross(q - a).dot(n) >= 0.0
-    });
+    let [t0, t1, t2] = *t;
+    let inside = [(t0, t1), (t1, t2), (t2, t0)]
+        .iter()
+        .all(|&(a, b)| (b - a).cross(q - a).dot(n) >= 0.0);
     if inside { h.abs() } else { edges }
 }
 
@@ -2326,8 +2326,11 @@ pub struct BrepSurface {
     largest_error: f64,
     /// The tessellation refined for a target error, kept per target (the
     /// bits of the target): built on the first gap query that needs it.
-    refined: std::sync::Mutex<Vec<(u64, std::sync::Arc<(crate::refine::Refined, MeshSurface)>)>>,
+    refined: std::sync::Mutex<Vec<(u64, RefinedSurface)>>,
 }
+
+/// A refined tessellation and the mesh surface over it, shared by queries.
+type RefinedSurface = std::sync::Arc<(crate::refine::Refined, MeshSurface)>;
 
 impl BrepSurface {
     /// All faces of `model`. Fails when there are none or one is invalid.
@@ -3015,17 +3018,19 @@ impl SurfaceSource for BrepSurface {
         // triangle may be from its face (OI-9974, the owner's answer of 26
         // Nov 2026): a tessellation further than that is refined first.
         let target = 0.25 * query.limit;
-        if target.is_finite() && target > 0.0 && self.largest_error > target {
-            if let Some(refined) = self.refined_for(target) {
-                let (r, surface) = &*refined;
-                return surface.tool_gap_with(
-                    profile,
-                    line,
-                    query,
-                    &|i| r.errors.get(i as usize).copied().unwrap_or(self.deflection),
-                    r.largest,
-                );
-            }
+        if target.is_finite()
+            && target > 0.0
+            && self.largest_error > target
+            && let Some(refined) = self.refined_for(target)
+        {
+            let (r, surface) = &*refined;
+            return surface.tool_gap_with(
+                profile,
+                line,
+                query,
+                &|i| r.errors.get(i as usize).copied().unwrap_or(self.deflection),
+                r.largest,
+            );
         }
         let errors = &self.triangle_errors;
         self.fallback.as_ref()?.tool_gap_with(

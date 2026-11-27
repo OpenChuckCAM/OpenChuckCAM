@@ -91,11 +91,9 @@ fn polytope_least(planes: &[(Vec3, f64)], m: Vec3) -> Option<f64> {
 fn polytope_lowest(planes: &[(Vec3, f64)], m: Vec3) -> Option<(f64, Point3)> {
     let scale = planes.iter().map(|p| p.1.abs()).fold(1.0, f64::max);
     let mut least: Option<(f64, Point3)> = None;
-    let count = planes.len();
-    for i in 0..count {
-        for j in i + 1..count {
-            for k in j + 1..count {
-                let (p, q, r) = (planes[i], planes[j], planes[k]);
+    for (i, &p) in planes.iter().enumerate() {
+        for (j, &q) in planes.iter().enumerate().skip(i + 1) {
+            for &r in planes.iter().skip(j + 1) {
                 let det = p.0.dot(q.0.cross(r.0));
                 if det.abs() < 1e-14 {
                     continue;
@@ -112,6 +110,18 @@ fn polytope_lowest(planes: &[(Vec3, f64)], m: Vec3) -> Option<(f64, Point3)> {
         }
     }
     least
+}
+
+/// Multipliers for `count` constraints, zero but for the `(index, value)`
+/// pairs given.
+fn multipliers_at(count: usize, set: &[(usize, f64)]) -> Vec<f64> {
+    let mut lam = vec![0.0; count];
+    for &(i, l) in set {
+        if let Some(slot) = lam.get_mut(i) {
+            *slot = l;
+        }
+    }
+    lam
 }
 
 /// The golden-section steps of the search for a leaning plane's angle in
@@ -902,9 +912,7 @@ impl<'a> Body<'a> {
             // The dual is flat across the kink where the lowest point
             // jumps; either end of the last bracket may be the better.
             for l in [lo, hi] {
-                let mut lam = vec![0.0; count];
-                lam[i] = l;
-                consider(lam, &mut best);
+                consider(multipliers_at(count, &[(i, l)]), &mut best);
             }
         }
         // The best so far is exact when its dual's lowest point has its
@@ -918,19 +926,23 @@ impl<'a> Body<'a> {
         if !crossed.iter().any(|c| *c) {
             return best.0;
         }
-        for k in 0..3 {
-            let (i, j) = ((k + 2) % 3, k);
-            if !(crossed[i] || crossed[j]) {
+        // Each corner with the side before it and the side from it.
+        let [c0, c1, c2] = at.corners;
+        let [s0, s1, s2] = at.sides.map(|s| s.0);
+        let [x0, x1, x2] = crossed;
+        let corners = [
+            (c0, (2, s2, x2), (0, s0, x0)),
+            (c1, (0, s0, x0), (1, s1, x1)),
+            (c2, (1, s1, x1), (2, s2, x2)),
+        ];
+        for (x, (i, si, xi), (j, sj, xj)) in corners {
+            if !(xi || xj) {
                 continue;
             }
-            let x = at.corners[k];
             if let Some((_, y)) = self.column_first(&at, x) {
                 let normal = self.at_first(y).1;
-                if let Some(l) = corner_multipliers(-normal, at.m, at.sides[i].0, at.sides[j].0) {
-                    let mut lam = vec![0.0; count];
-                    lam[i] = l.0;
-                    lam[j] = l.1;
-                    consider(lam, &mut best);
+                if let Some(l) = corner_multipliers(-normal, at.m, si, sj) {
+                    consider(multipliers_at(count, &[(i, l.0), (j, l.1)]), &mut best);
                 }
             }
         }
@@ -1407,16 +1419,16 @@ struct Face {
 
 impl Face {
     fn new(corners: [Point3; 3], m: Vec3) -> Self {
-        let side = |i: usize| {
-            let (a, b) = (corners[i], corners[(i + 1) % 3]);
+        let side = |a: Point3, b: Point3| {
             let n = UnitVec3::new((b - a).cross(m)).map_or(Vec3::ZERO, UnitVec3::get);
             (n, n.dot(a - Point3::ORIGIN))
         };
+        let [c0, c1, c2] = corners;
         Self {
             corners,
             m,
-            d: m.dot(corners[0] - Point3::ORIGIN),
-            sides: [side(0), side(1), side(2)],
+            d: m.dot(c0 - Point3::ORIGIN),
+            sides: [side(c0, c1), side(c1, c2), side(c2, c0)],
             clips: Vec::new(),
             around: Vec::new(),
         }
@@ -1450,11 +1462,11 @@ impl Face {
 
     /// The side `i` of the region.
     fn constraint(&self, i: usize) -> (Vec3, f64) {
-        if i < 3 {
-            self.sides[i]
-        } else {
-            self.clips.get(i - 3).copied().unwrap_or((Vec3::ZERO, 0.0))
-        }
+        self.sides
+            .get(i)
+            .or_else(|| self.clips.get(i - 3))
+            .copied()
+            .unwrap_or((Vec3::ZERO, 0.0))
     }
 
     /// The dual direction and constant for the multipliers `lam`.
@@ -1584,7 +1596,11 @@ fn segment_to_triangle(a: Point3, b: Point3, t: &[Point3; 3]) -> f64 {
     let normal = (t[1] - t[0]).cross(t[2] - t[0]);
     let (da, db) = (normal.dot(a - t[0]), normal.dot(b - t[0]));
     if (da <= 0.0) != (db <= 0.0) || (da == 0.0 && db == 0.0) {
-        let f = if da == db { 0.0 } else { da / (da - db) };
+        let f = if (da - db).abs() > 0.0 {
+            da / (da - db)
+        } else {
+            0.0
+        };
         let x = a + (b - a) * f;
         // Inside the triangle when the closest point of it is the point (a
         // hair outside counts as inside, the safe side).
@@ -1722,7 +1738,7 @@ pub(crate) fn search(
         error,
         neighbours,
         inside,
-        clips: std::collections::HashMap::new(),
+        clips: std::collections::BTreeMap::new(),
     };
     for (i, t) in triangles {
         if !t.iter().all(|p| p.is_finite()) {
@@ -1850,8 +1866,16 @@ struct Search<'a, 'b> {
     inside: f64,
     /// Each triangle's clips, its convex neighbours' planes moved in by
     /// `inside`, and every neighbour's normal.
-    clips: std::collections::HashMap<u32, (Vec<(Vec3, f64)>, Vec<Vec3>)>,
+    clips: std::collections::BTreeMap<u32, FaceClips>,
 }
+
+/// A triangle's clips (the planes of its convex neighbours, each less the
+/// acceptance) and every neighbour's normal.
+type FaceClips = (Vec<(Vec3, f64)>, Vec<Vec3>);
+
+/// A triangle as [`convex_neighbours`] keeps it: its vertex numbers, its
+/// corners, its unit normal and its plane's offset.
+type Indexed = ([usize; 3], [Point3; 3], Vec3, f64);
 
 impl Search<'_, '_> {
     /// The face of `corners` on triangle `triangle`, with the clips that
@@ -2325,8 +2349,8 @@ pub(crate) fn convex_neighbours(mesh: &TriangleMesh) -> Vec<Vec<(Vec3, f64, bool
             (p.z + 0.0).to_bits(),
         ]
     };
-    let mut ids: std::collections::HashMap<[u64; 3], usize> = std::collections::HashMap::new();
-    let tris: Vec<Option<([usize; 3], [Point3; 3], Vec3, f64)>> = (0..mesh.triangles.len())
+    let mut ids: std::collections::BTreeMap<[u64; 3], usize> = std::collections::BTreeMap::new();
+    let tris: Vec<Option<Indexed>> = (0..mesh.triangles.len())
         .map(|i| {
             let t = mesh.triangle(i)?;
             let n = UnitVec3::new((t[1] - t[0]).cross(t[2] - t[0])).ok()?.get();
@@ -2337,7 +2361,7 @@ pub(crate) fn convex_neighbours(mesh: &TriangleMesh) -> Vec<Vec<(Vec3, f64, bool
             Some((v, t, n, n.dot(t[0] - Point3::ORIGIN)))
         })
         .collect();
-    let mut at: std::collections::HashMap<usize, Vec<usize>> = std::collections::HashMap::new();
+    let mut at: std::collections::BTreeMap<usize, Vec<usize>> = std::collections::BTreeMap::new();
     for (i, t) in tris.iter().enumerate() {
         if let Some((v, ..)) = t {
             for k in v {

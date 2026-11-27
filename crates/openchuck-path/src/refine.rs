@@ -25,7 +25,7 @@
 //! order; only the measuring of new triangles runs in parallel, each alone
 //! and in order ([`crate::parallel::map_in_order`]).
 
-use std::collections::{BTreeMap, HashMap};
+use std::collections::BTreeMap;
 
 use openchuck_types::brep::FaceId;
 use openchuck_types::geometry::Point3;
@@ -83,7 +83,7 @@ pub(crate) fn refine(
     let mut work = Work::new(mesh, face_of, errors, &index);
     for _ in 0..MAX_ROUNDS {
         let todo: Vec<usize> = (0..work.tri.len())
-            .filter(|&t| work.err[t] > target)
+            .filter(|&t| work.error(t) > target)
             .collect();
         if todo.is_empty() {
             break;
@@ -94,7 +94,7 @@ pub(crate) fn refine(
             }
             // An earlier split this round may have made it a new triangle,
             // measured next round.
-            if work.err[t] > target {
+            if work.error(t) > target {
                 work.refine(t, faces);
             }
         }
@@ -112,8 +112,14 @@ struct Work<'a> {
     /// Each triangle's error; NaN until a new triangle is measured.
     err: Vec<f64>,
     /// The triangles on each side, by its two vertices in order.
-    sides: HashMap<(u32, u32), Vec<usize>>,
+    sides: BTreeMap<(u32, u32), Vec<usize>>,
     index: &'a BTreeMap<u32, usize>,
+}
+
+/// The sides of a triangle, each from a corner to the next.
+fn sides_of(t: [u32; 3]) -> [(u32, u32); 3] {
+    let [a, b, c] = t;
+    [(a, b), (b, c), (c, a)]
 }
 
 impl<'a> Work<'a> {
@@ -124,7 +130,7 @@ impl<'a> Work<'a> {
         index: &'a BTreeMap<u32, usize>,
     ) -> Self {
         // Merge the vertices the faces repeat at their boundaries.
-        let mut seen: HashMap<[u64; 3], u32> = HashMap::new();
+        let mut seen: BTreeMap<[u64; 3], u32> = BTreeMap::new();
         let mut pos = Vec::new();
         let mut remap = Vec::with_capacity(mesh.vertices.len());
         for p in &mesh.vertices {
@@ -144,24 +150,20 @@ impl<'a> Work<'a> {
             tri: Vec::new(),
             face: Vec::new(),
             err: Vec::new(),
-            sides: HashMap::new(),
+            sides: BTreeMap::new(),
             index,
         };
         for (i, t) in mesh.triangles.iter().enumerate() {
-            let Some(t) = t
-                .iter()
-                .map(|v| remap.get(*v as usize).copied())
-                .collect::<Option<Vec<u32>>>()
-            else {
+            let at = |k: usize| t.get(k).and_then(|v| remap.get(*v as usize).copied());
+            let (Some(a), Some(b), Some(c)) = (at(0), at(1), at(2)) else {
                 continue;
             };
-            let t = [t[0], t[1], t[2]];
-            if t[0] == t[1] || t[1] == t[2] || t[2] == t[0] {
+            if a == b || b == c || c == a {
                 continue;
             }
             let face = face_of.get(i).and_then(|f| index.get(&f.0)).copied();
             let err = errors.get(i).copied().unwrap_or(f64::NAN);
-            work.add(t, face, err);
+            work.add([a, b, c], face, err);
         }
         work
     }
@@ -170,49 +172,56 @@ impl<'a> Work<'a> {
         (a.min(b), a.max(b))
     }
 
+    fn point(&self, v: u32) -> Option<Point3> {
+        self.pos.get(v as usize).copied()
+    }
+
+    fn error(&self, t: usize) -> f64 {
+        self.err.get(t).copied().unwrap_or(f64::NAN)
+    }
+
     /// Adds a triangle and its sides.
     fn add(&mut self, t: [u32; 3], face: Option<usize>, err: f64) -> usize {
         let id = self.tri.len();
         self.tri.push(t);
         self.face.push(face);
         self.err.push(err);
-        for i in 0..3 {
-            self.sides
-                .entry(Self::key(t[i], t[(i + 1) % 3]))
-                .or_default()
-                .push(id);
+        for (a, b) in sides_of(t) {
+            self.sides.entry(Self::key(a, b)).or_default().push(id);
         }
         id
     }
 
     /// Replaces triangle `id` with `t` (same face, unmeasured).
     fn replace(&mut self, id: usize, t: [u32; 3]) {
-        let old = self.tri[id];
-        for i in 0..3 {
-            if let Some(list) = self.sides.get_mut(&Self::key(old[i], old[(i + 1) % 3])) {
+        let Some(old) = self.tri.get(id).copied() else {
+            return;
+        };
+        for (a, b) in sides_of(old) {
+            if let Some(list) = self.sides.get_mut(&Self::key(a, b)) {
                 list.retain(|&x| x != id);
             }
         }
-        self.tri[id] = t;
-        self.err[id] = f64::NAN;
-        for i in 0..3 {
-            self.sides
-                .entry(Self::key(t[i], t[(i + 1) % 3]))
-                .or_default()
-                .push(id);
+        if let Some(slot) = self.tri.get_mut(id) {
+            *slot = t;
+        }
+        if let Some(slot) = self.err.get_mut(id) {
+            *slot = f64::NAN;
+        }
+        for (a, b) in sides_of(t) {
+            self.sides.entry(Self::key(a, b)).or_default().push(id);
         }
     }
 
     /// The longest side of triangle `t`, as its two vertices in order, and
-    /// its length (ties to the earlier side).
-    fn longest(&self, t: usize) -> ((u32, u32), f64) {
-        let v = self.tri[t];
-        let mut best = ((v[0], v[1]), -1.0);
-        for i in 0..3 {
-            let (a, b) = (v[i], v[(i + 1) % 3]);
-            let len = self.pos[a as usize].distance(self.pos[b as usize]);
-            if len > best.1 {
-                best = ((a, b), len);
+    /// its length (ties to the earlier side); `None` for no such triangle.
+    fn longest(&self, t: usize) -> Option<((u32, u32), f64)> {
+        let v = self.tri.get(t).copied()?;
+        let mut best: Option<((u32, u32), f64)> = None;
+        for (a, b) in sides_of(v) {
+            let len = self.point(a)?.distance(self.point(b)?);
+            if best.is_none_or(|(_, l)| len > l) {
+                best = Some(((a, b), len));
             }
         }
         best
@@ -228,7 +237,10 @@ impl<'a> Work<'a> {
             if steps > 10_000 {
                 return;
             }
-            let ((a, b), len) = self.longest(t);
+            let Some(((a, b), len)) = self.longest(t) else {
+                stack.pop();
+                continue;
+            };
             if len < MIN_SIDE {
                 stack.pop();
                 continue;
@@ -239,8 +251,8 @@ impl<'a> Work<'a> {
                 .map(|l| l.iter().copied().filter(|&x| x != t).collect())
                 .unwrap_or_default();
             if let Some(&n) = others.iter().find(|&&n| {
-                let ((p, q), _) = self.longest(n);
-                Self::key(p, q) != Self::key(a, b)
+                self.longest(n)
+                    .is_some_and(|((p, q), _)| Self::key(p, q) != Self::key(a, b))
             }) {
                 stack.push(n);
                 continue;
@@ -258,7 +270,9 @@ impl<'a> Work<'a> {
             .get(&Self::key(a, b))
             .cloned()
             .unwrap_or_default();
-        let (pa, pb) = (self.pos[a as usize], self.pos[b as usize]);
+        let (Some(pa), Some(pb)) = (self.point(a), self.point(b)) else {
+            return;
+        };
         let mid = Point3::new(
             0.5 * (pa.x + pb.x),
             0.5 * (pa.y + pb.y),
@@ -269,21 +283,27 @@ impl<'a> Work<'a> {
         // projecting onto each in turn (alternating projections converge to
         // the faces' meeting curve where they cross; a midpoint on one face
         // only would stay on the chord, off the other).
-        let mut on_faces: Vec<usize> = users.iter().filter_map(|&t| self.face[t]).collect();
-        on_faces.sort_by_key(|&k| faces[k].number());
-        on_faces.dedup();
+        let mut on_faces: Vec<&ExactFace> = users
+            .iter()
+            .filter_map(|&t| self.face.get(t).copied().flatten())
+            .filter_map(|k| faces.get(k))
+            .collect();
+        on_faces.sort_by_key(|f| f.number());
+        on_faces.dedup_by_key(|f| f.number());
         let mut on = mid;
-        for _ in 0..if on_faces.len() > 1 {
+        let rounds = if on_faces.len() > 1 {
             BOUNDARY_STEPS
         } else {
             1
-        } {
+        };
+        for _ in 0..rounds {
             let before = on;
-            for &k in &on_faces {
-                if let Some(p) = faces[k].on_surface(on) {
-                    if p.is_finite() && p.distance(mid) <= pa.distance(pb) {
-                        on = p;
-                    }
+            for f in &on_faces {
+                if let Some(p) = f.on_surface(on)
+                    && p.is_finite()
+                    && p.distance(mid) <= pa.distance(pb)
+                {
+                    on = p;
                 }
             }
             if on.distance(before) < 1e-12 {
@@ -293,14 +313,18 @@ impl<'a> Work<'a> {
         self.pos.push(on);
         let m = u32::try_from(self.pos.len() - 1).unwrap_or(u32::MAX);
         for t in users {
-            let v = self.tri[t];
+            let Some([v0, v1, v2]) = self.tri.get(t).copied() else {
+                continue;
+            };
             // The triangle as [p, q, r] with p q the side, in its winding.
-            let Some(i) = (0..3).find(|&i| Self::key(v[i], v[(i + 1) % 3]) == Self::key(a, b))
+            let turns = [(v0, v1, v2), (v1, v2, v0), (v2, v0, v1)];
+            let Some(&(p, q, r)) = turns
+                .iter()
+                .find(|(p, q, _)| Self::key(*p, *q) == Self::key(a, b))
             else {
                 continue;
             };
-            let (p, q, r) = (v[i], v[(i + 1) % 3], v[(i + 2) % 3]);
-            let face = self.face[t];
+            let face = self.face.get(t).copied().flatten();
             self.replace(t, [p, m, r]);
             self.add([m, q, r], face, f64::NAN);
         }
@@ -310,15 +334,22 @@ impl<'a> Work<'a> {
     /// each alone and in index order.
     fn measure(&mut self, faces: &[ExactFace], fallback: f64) {
         let new: Vec<usize> = (0..self.tri.len())
-            .filter(|&t| self.err[t].is_nan())
+            .filter(|&t| self.error(t).is_nan())
             .collect();
         let errs = crate::parallel::map_in_order(&new, |&t| {
-            let v = self.tri[t];
-            let corners = v.map(|i| self.pos[i as usize]);
-            self.face[t].map_or(fallback, |k| faces[k].triangle_error(&corners))
+            let corners = self.tri.get(t).and_then(|v| {
+                let [a, b, c] = *v;
+                Some([self.point(a)?, self.point(b)?, self.point(c)?])
+            });
+            match (corners, self.face.get(t).copied().flatten()) {
+                (Some(c), Some(k)) => faces.get(k).map_or(fallback, |f| f.triangle_error(&c)),
+                _ => fallback,
+            }
         });
         for (t, e) in new.into_iter().zip(errs) {
-            self.err[t] = e;
+            if let Some(slot) = self.err.get_mut(t) {
+                *slot = e;
+            }
         }
     }
 
@@ -371,7 +402,7 @@ mod tests {
 
     /// The sides used by one triangle only, with their total length.
     fn open_sides(mesh: &TriangleMesh) -> (usize, f64) {
-        let mut count: HashMap<[u64; 6], usize> = HashMap::new();
+        let mut count: BTreeMap<[u64; 6], usize> = BTreeMap::new();
         let key = |a: Point3, b: Point3| {
             let (p, q) = if (a.x, a.y, a.z) <= (b.x, b.y, b.z) {
                 (a, b)
@@ -380,7 +411,7 @@ mod tests {
             };
             [p.x, p.y, p.z, q.x, q.y, q.z].map(|v| (v + 0.0).to_bits())
         };
-        let mut length = HashMap::new();
+        let mut length = BTreeMap::new();
         for t in &mesh.triangles {
             for i in 0..3 {
                 let (a, b) = (
