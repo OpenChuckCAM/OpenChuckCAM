@@ -297,6 +297,8 @@ Limit tool load adds layers above a pass only over **zones**, never over single 
 7. **No extra retracts.** A retract is added only where the strategy already makes one, or once per zone where the zone's layers end and the final pass resumes elsewhere; never inside a zone.
 8. **No feed changes.** Layers are fed at the operation's cutting feed; Limit tool load does not change feeds (option D is not taken).
 
+**Limit tool load and Finishing layers (the owner's answer of 27 Nov 2026, relayed by the coordinator: A).** Helical, axial and indexed finishing already offer Finishing layers (decision 0345), which add layers point by point, all of one layer before the next, lifting between runs; rules 1 to 7 forbid exactly that pattern. Lane TOOL-LOAD asked which decides the layers when both apply, recommending that Limit tool load does; the owner chose that (A): **when Limit tool load is on, it decides the layers, and Finishing layers is not offered beside it** (the operation form shows one or the other). Saved operations keep their programs: nothing changes unless Limit tool load is switched on (Q7). Decision 0345 itself is not amended by this record; its option stays as it is wherever Limit tool load is off. Where the table below and option C say these strategies "use Finishing layers", read: they cut Limit tool load's own layers, under rules 1 to 8.
+
 **Acceptance criteria** (measured on the program, for each strategy that offers Limit tool load; the verification of OP-29 in TL-2's pull request):
 
 - **Depth changes:** per pass, at most two changes of layer count per zone (in and out); no zone shorter than three tool diameters; no layer count that changes and changes back within three tool diameters.
