@@ -174,12 +174,18 @@ const LAYER: f64 = 1.25;
 /// finer samples and the tool grown less; at the finest a failure is the
 /// move's: its answer, the grown tool's line there and its profile. `None`
 /// when proven. Samples are taken in order (NFR-06).
+/// The motion of a move from one fraction of it to another, for the move
+/// check: the tool's line at the first and the query for the same motion
+/// from there (see [`check_motion`]).
+type Stretch<'a> = dyn Fn(f64, f64) -> (ToolLine, GapQuery) + 'a;
+
 fn check_motion<'p>(
     surface: &dyn crate::surface::SurfaceSource,
     checks: &'p [(f64, RevolvedProfile)],
     allowed: f64,
     travel: f64,
     pose: &dyn Fn(f64) -> ToolLine,
+    stretch: Option<&Stretch<'_>>,
 ) -> Option<(crate::gap::ToolGap, ToolLine, &'p RevolvedProfile)> {
     let mut stack: Vec<(f64, f64, usize)> = vec![(0.0, 1.0, 0)];
     while let Some((f0, f1, level)) = stack.pop() {
@@ -189,9 +195,21 @@ fn check_motion<'p>(
         let n = ((f1 - f0) * travel / (2.0 * grow)).ceil().max(1.0);
         let count = n.min(f64::from(u32::MAX)) as u32;
         let step = (f1 - f0) / f64::from(count);
+        // The stretches of these samples the bounds prove whole need no
+        // sample.
+        let covered = stretch
+            .filter(|_| (STRETCH_MIN..=STRETCH_MOST).contains(&count))
+            .map(|motion| bounded(surface, profile, *grow, allowed, (f0, step, count), motion));
         // Pushed last first, so they are taken in order.
         let mut finer = Vec::new();
         for k in 0..count {
+            if covered
+                .as_ref()
+                .and_then(|c| c.get(k as usize))
+                .is_some_and(|c| *c)
+            {
+                continue;
+            }
             let (s0, s1) = (f0 + step * f64::from(k), f0 + step * f64::from(k + 1));
             let line = pose(0.5 * (s0 + s1));
             // The grown tool's tip is `grow` below the tool's.
@@ -199,7 +217,15 @@ fn check_motion<'p>(
                 origin: line.origin + line.axis.get() * (-grow),
                 axis: line.axis,
             };
+            // A sample that is checked again finer when it fails is given
+            // few pieces: cut short it is unproven, and the finer check
+            // settles it. The last check has the search's whole cap.
             let query = move_query(Vec3::ZERO, allowed);
+            let query = if level + 1 < checks.len() {
+                query.within_pieces(SAMPLE_PIECES)
+            } else {
+                query
+            };
             let Some(g) = surface.tool_gap(profile, &grown, &query) else {
                 continue;
             };
@@ -215,6 +241,67 @@ fn check_motion<'p>(
         stack.extend(finer.into_iter().rev());
     }
     None
+}
+
+/// The most pieces the search splits for a sample of the move check that
+/// is checked again finer when it fails (lane SE-PERF). On the public
+/// crankshaft and the lobed reference part no sample that was proven took
+/// more than 128; a sample the grown tool leaves exactly at the tolerance
+/// (the ball over the edge of the crankshaft's end face) ran to the
+/// search's own cap, 17 s each, to the same answer: unproven.
+const SAMPLE_PIECES: usize = 4096;
+
+/// The fewest samples a stretch of a move stands for when it is bounded
+/// whole in their place ([`bounded`]).
+const STRETCH_MIN: u32 = 2;
+
+/// The most samples of one move whose stretches are bounded whole: a move
+/// with more is sampled alone (NFR-07: the list of them is not made).
+const STRETCH_MOST: u32 = 1 << 20;
+
+/// Which of a move's `count` samples, each `step` of the move from the
+/// fraction `f0`, lie in a stretch the bounds prove whole (lane SE-PERF,
+/// the owner's method 2 of 27 Nov 2026: a whole stretch of a move is
+/// bounded before it is sampled). A stretch is asked as one query of the
+/// tool grown as its samples' is (`profile`, by `grow`), over the stretch's
+/// own motion (`motion`), within no pieces: the faces' own bounds, each
+/// holding at every pose of the stretch, prove the grown tool no deeper
+/// than `allowed` at every pose, so at each of its samples, or leave the
+/// stretch undecided. An undecided stretch is halved, down to
+/// [`STRETCH_MIN`] samples, and what is left is sampled as before. The
+/// stretches are taken in order (NFR-06).
+fn bounded(
+    surface: &dyn crate::surface::SurfaceSource,
+    profile: &RevolvedProfile,
+    grow: f64,
+    allowed: f64,
+    (f0, step, count): (f64, f64, u32),
+    motion: &Stretch<'_>,
+) -> Vec<bool> {
+    let mut covered = vec![false; count as usize];
+    let mut runs = vec![(0_u32, count)];
+    while let Some((lo, hi)) = runs.pop() {
+        if hi - lo < STRETCH_MIN {
+            continue;
+        }
+        let (line, query) = motion(f0 + step * f64::from(lo), f0 + step * f64::from(hi));
+        // The grown tool's tip is `grow` below the tool's.
+        let grown = ToolLine {
+            origin: line.origin + line.axis.get() * (-grow),
+            axis: line.axis,
+        };
+        let answer = surface.tool_gap(profile, &grown, &query.within_pieces(0));
+        if answer.is_none_or(|g| proven(&g, allowed)) {
+            for c in covered.iter_mut().take(hi as usize).skip(lo as usize) {
+                *c = true;
+            }
+        } else {
+            let mid = lo + (hi - lo) / 2;
+            runs.push((mid, hi));
+            runs.push((lo, mid));
+        }
+    }
+    covered
 }
 
 /// The move check's question for the tool swept along `sweep`: counted to
@@ -3049,8 +3136,14 @@ impl Plan<'_> {
         });
         let travel = sweep.length() + angle.abs() * furthest;
         let pose = |f: f64| part(f, f).0;
-        let (g, grown, profile) =
-            check_motion(self.input.surface, self.checks, self.allowed, travel, &pose)?;
+        let (g, grown, profile) = check_motion(
+            self.input.surface,
+            self.checks,
+            self.allowed,
+            travel,
+            &pose,
+            Some(&part),
+        )?;
         let query = move_query(Vec3::ZERO, self.allowed);
         let thin = self.thin_wall(&grown, &query, &g, profile);
         Some((-g.upper.min(g.lower.max(-self.allowed)), g.at, thin))
@@ -3558,6 +3651,187 @@ mod tests {
         )
     }
 
+    /// The same move as [`moving`] as the move check's stretches: the line
+    /// at the fraction `f0` and the query for the motion from there to `f1`.
+    fn stretches(
+        line: ToolLine,
+        sweep: Vec3,
+        centre: Point3,
+        angle: f64,
+        allowed: f64,
+    ) -> impl Fn(f64, f64) -> (ToolLine, GapQuery) {
+        let turn = move |v: Vec3, a: f64| {
+            let (s, c) = a.sin_cos();
+            Vec3::new(v.x, v.y * c - v.z * s, v.y * s + v.z * c)
+        };
+        move |f0: f64, f1: f64| {
+            let at = ToolLine {
+                origin: centre + turn(line.origin + sweep * f0 - centre, f0 * angle),
+                axis: UnitVec3::new(turn(line.axis.get(), f0 * angle)).unwrap(),
+            };
+            let query = move_query(turn(sweep * (f1 - f0), f0 * angle), allowed).rotating(
+                crate::gap::Rotation {
+                    point: centre,
+                    axis: UnitVec3::new(Vec3::new(1.0, 0.0, 0.0)).unwrap(),
+                    angle: (f1 - f0) * angle,
+                },
+            );
+            (at, query)
+        }
+    }
+
+    /// A mesh surface that counts the tool gap queries asked of it.
+    #[derive(Debug)]
+    struct Asked {
+        inner: crate::MeshSurface,
+        gaps: std::sync::atomic::AtomicU64,
+    }
+
+    impl Asked {
+        fn new(mesh: &TriangleMesh) -> Self {
+            Self {
+                inner: crate::MeshSurface::new(mesh).unwrap(),
+                gaps: std::sync::atomic::AtomicU64::new(0),
+            }
+        }
+
+        fn gaps(&self) -> u64 {
+            self.gaps.load(std::sync::atomic::Ordering::Relaxed)
+        }
+    }
+
+    impl SurfaceSource for Asked {
+        fn bounds(&self) -> openchuck_types::geometry::Aabb {
+            self.inner.bounds()
+        }
+
+        fn project(&self, point: Point3) -> Option<crate::surface::SurfacePoint> {
+            self.inner.project(point)
+        }
+
+        fn cast_ray(
+            &self,
+            origin: Point3,
+            direction: UnitVec3,
+            max_distance: f64,
+        ) -> Option<crate::surface::RayHit> {
+            self.inner.cast_ray(origin, direction, max_distance)
+        }
+
+        fn tessellation(&self) -> &TriangleMesh {
+            self.inner.tessellation()
+        }
+
+        fn drop_tool(&self, profile: &RevolvedProfile, line: &ToolLine) -> Option<cutter::Contact> {
+            self.inner.drop_tool(profile, line)
+        }
+
+        fn tool_gap(
+            &self,
+            profile: &RevolvedProfile,
+            line: &ToolLine,
+            query: &GapQuery,
+        ) -> Option<crate::gap::ToolGap> {
+            self.gaps.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+            self.inner.tool_gap(profile, line, query)
+        }
+    }
+
+    /// A plate, the plane z = 0, 5 mm either side of the origin.
+    fn plate() -> TriangleMesh {
+        TriangleMesh {
+            vertices: vec![
+                Point3::new(-5.0, -5.0, 0.0),
+                Point3::new(5.0, -5.0, 0.0),
+                Point3::new(5.0, 5.0, 0.0),
+                Point3::new(-5.0, 5.0, 0.0),
+            ],
+            triangles: vec![[0, 1, 2], [0, 2, 3]],
+        }
+    }
+
+    #[test]
+    fn req_op_12_a_move_along_a_face_is_proven_by_stretches_with_few_queries() {
+        // A 2 mm ball 0.002 mm above a plate, moving 2 mm along it while it
+        // turns a hundredth of a radian about a rotary axis 10 mm below
+        // (lane SE-PERF, method 2 of the owner's list of 27 Nov 2026: a
+        // whole stretch of a move is bounded before it is sampled). Sampled
+        // alone the move takes a grown-tool query every 0.01 mm of travel,
+        // over 200 of them; with its stretches bounded first it is proven
+        // with a small share of that, and the same move 0.02 mm into the
+        // plate is still found.
+        let profile = ball_of(1.0);
+        let checks = checks_for(&profile, 0.01);
+        let centre = Point3::new(0.0, 0.0, -10.0);
+        let (sweep, angle) = (Vec3::new(2.0, 0.0, 0.0), 0.01);
+        let at = |z: f64| ToolLine {
+            origin: Point3::new(-1.0, -0.05, z),
+            axis: UnitVec3::new(Vec3::new(0.0, 0.0, 1.0)).unwrap(),
+        };
+        let (pose, travel) = moving(at(0.002), sweep, centre, angle, profile.top() + 1.0);
+        let stretch = stretches(at(0.002), sweep, centre, angle, 0.01);
+        let sampled = Asked::new(&plate());
+        assert!(check_motion(&sampled, &checks, 0.01, travel, &pose, None).is_none());
+        assert!(sampled.gaps() > 200, "{}", sampled.gaps());
+        let bounded = Asked::new(&plate());
+        assert!(check_motion(&bounded, &checks, 0.01, travel, &pose, Some(&stretch)).is_none());
+        assert!(
+            bounded.gaps() * 10 <= sampled.gaps(),
+            "{} against {}",
+            bounded.gaps(),
+            sampled.gaps()
+        );
+        let (pose, travel) = moving(at(-0.02), sweep, centre, angle, profile.top() + 1.0);
+        let stretch = stretches(at(-0.02), sweep, centre, angle, 0.01);
+        let cut = Asked::new(&plate());
+        let found = check_motion(&cut, &checks, 0.01, travel, &pose, Some(&stretch));
+        assert!(
+            found.is_some_and(|(g, ..)| g.upper < -0.01),
+            "{:?}",
+            found.map(|f| f.0)
+        );
+    }
+
+    #[test]
+    fn req_op_12_a_stretch_within_no_pieces_is_answered_at_once() {
+        // The move that stalled the exact motion bound on the public
+        // crankshaft (see the pin root test below): asked as a stretch
+        // within no pieces, the query answers from each face's bounds alone,
+        // at once, whether or not they prove it; and an answer cut short is
+        // never read as clear when the tool is in the part.
+        let surface = crate::MeshSurface::new(&crankshaft()).unwrap();
+        let profile = ball_of(1.5875);
+        let line = ToolLine {
+            origin: Point3::new(30.12811112067591, 4.371648036338245, 1.5876255946573061),
+            axis: UnitVec3::new(Vec3::new(0.0, 0.4476688135066719, -0.8941994371579131)).unwrap(),
+        };
+        let sweep = Vec3::new(
+            1.2299508757251942e-5,
+            -0.00016018000323825277,
+            -0.0022255155355228595,
+        );
+        let stretch = stretches(line, sweep, Point3::ORIGIN, -0.0009743024932623805, 0.01);
+        let (at, query) = stretch(0.0, 1.0);
+        let started = std::time::Instant::now();
+        for _ in 0..20 {
+            let _ = surface.tool_gap(&profile, &at, &query.within_pieces(0));
+        }
+        assert!(
+            started.elapsed().as_secs_f64() < 0.5,
+            "{:?}",
+            started.elapsed()
+        );
+        // Pushed half a millimetre into the pin, no bound can prove it.
+        let deep = ToolLine {
+            origin: at.origin + at.axis.get() * (-0.5),
+            ..at
+        };
+        let g = surface
+            .tool_gap(&profile, &deep, &query.within_pieces(0))
+            .unwrap();
+        assert!(!proven(&g, 0.01), "{g:?}");
+    }
+
     #[test]
     fn req_op_12_a_moving_tool_grazing_a_face_is_proven_clear_at_once() {
         // A 3.175 mm ball lying on its side along a face's edge, 0.128 mm
@@ -3593,7 +3867,7 @@ mod tests {
         assert!(travel > 0.009);
         let checks = checks_for(&profile, 0.01);
         let started = std::time::Instant::now();
-        assert!(check_motion(&surface, &checks, 0.01, travel, &pose).is_none());
+        assert!(check_motion(&surface, &checks, 0.01, travel, &pose, None).is_none());
         assert!(
             started.elapsed().as_secs_f64() < 1.0,
             "{:?}",
@@ -3651,10 +3925,40 @@ mod tests {
         );
         let checks = checks_for(&profile, 0.01);
         let started = std::time::Instant::now();
-        let answer = check_motion(&surface, &checks, 0.01, travel, &pose);
+        let answer = check_motion(&surface, &checks, 0.01, travel, &pose, None);
         assert!(answer.is_none(), "{:?}", answer.map(|a| a.0));
         assert!(
             started.elapsed().as_secs_f64() < 2.0,
+            "{:?}",
+            started.elapsed()
+        );
+    }
+
+    #[test]
+    fn req_op_12_a_sample_the_search_cannot_settle_is_rechecked_finer_at_once() {
+        // A sample of the move check on the public crankshaft (lane
+        // SE-PERF, 27 Nov 2026): the 3.175 mm ball over the edge of the end
+        // face at X 0, where the tool grown by half the tolerance reads the
+        // tolerance itself and the search can neither prove nor refute it
+        // (it ran to its cap of pieces, 17 s, nine times in the job). A
+        // sample that is rechecked finer when it fails is given a small
+        // share of the cap: cut short it is unproven, never a pass, and the
+        // finer check proves it.
+        let surface = crate::MeshSurface::new(&crankshaft()).unwrap();
+        let profile = ball_of(1.5875);
+        let axis = UnitVec3::new(Vec3::new(0.0, 0.9503546964546309, 0.31116868564594746)).unwrap();
+        // The logged line is the grown tool's, half the tolerance below.
+        let line = ToolLine {
+            origin: Point3::new(0.09178979675036959, 7.16095577162037, 12.196193925905073)
+                + axis.get() * 0.005,
+            axis,
+        };
+        let checks = checks_for(&profile, 0.01);
+        let started = std::time::Instant::now();
+        let answer = check_motion(&surface, &checks, 0.01, 0.0, &|_| line, None);
+        assert!(answer.is_none(), "{:?}", answer.map(|a| a.0));
+        assert!(
+            started.elapsed().as_secs_f64() < 3.0,
             "{:?}",
             started.elapsed()
         );
@@ -3867,8 +4171,8 @@ mod tests {
                 axis: UnitVec3::new(Vec3::new(0.0, 0.0, 1.0)).unwrap(),
             }
         };
-        assert!(check_motion(&surface, &checks, 0.01, 0.0, &at(0.0095)).is_none());
-        assert!(check_motion(&surface, &checks, 0.01, 0.0, &at(0.0105)).is_some());
+        assert!(check_motion(&surface, &checks, 0.01, 0.0, &at(0.0095), None).is_none());
+        assert!(check_motion(&surface, &checks, 0.01, 0.0, &at(0.0105), None).is_some());
     }
 
     #[test]
@@ -3896,18 +4200,21 @@ mod tests {
             axis: UnitVec3::new(Vec3::new(0.0, 0.0, 1.0)).unwrap(),
         };
         // No point moves more than the path's length, about 2.01 mm.
-        let found = check_motion(&surface, &checks, 0.01, 2.1, &pose);
+        let found = check_motion(&surface, &checks, 0.01, 2.1, &pose, None);
         assert!(
             found.is_some_and(|(g, ..)| g.upper < -0.01),
             "{:?}",
             found.map(|f| f.0)
         );
         assert!(
-            check_motion(&surface, &checks, 0.01, 2.1, &|f| pose(if f < 0.5 {
-                0.0
-            } else {
-                1.0
-            }))
+            check_motion(
+                &surface,
+                &checks,
+                0.01,
+                2.1,
+                &|f| pose(if f < 0.5 { 0.0 } else { 1.0 }),
+                None
+            )
             .is_none()
         );
     }
@@ -3959,7 +4266,14 @@ mod tests {
             );
             let allowed = 0.01;
             let checks = checks_for(&profile, allowed);
-            if check_motion(&surface, &checks, allowed, travel, &pose).is_none() {
+            // With the stretches bounded first (lane SE-PERF) a move the
+            // samples alone prove is still proven, and whatever is proven
+            // either way holds at every pose.
+            let stretch = stretches(line, Vec3::new(sweep.0, sweep.1, sweep.2), Point3::new(0.0, 0.0, -6.0), angle, allowed);
+            let sampled = check_motion(&surface, &checks, allowed, travel, &pose, None).is_none();
+            let bounded = check_motion(&surface, &checks, allowed, travel, &pose, Some(&stretch)).is_none();
+            proptest::prop_assert!(bounded || !sampled, "the samples prove it and the stretches do not");
+            if bounded {
                 let settings = Settings { margin: 5.0, tolerance: 1e-4, budget: 20_000 };
                 for k in 0..=32 {
                     let at = pose(f64::from(k) / 32.0);
