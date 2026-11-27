@@ -1177,6 +1177,37 @@ impl<'a> Body<'a> {
         })
     }
 
+    /// Whether no tool point with its foot on the face lies above the
+    /// layer, `limit` below it, at any pose from `s0` to `s1`, shown by the
+    /// plane square to the direction from the layer's floor under the piece
+    /// to the tool's nearest point (at the middle pose): the whole tool
+    /// beyond it at every pose, and, the direction not rising along the
+    /// face's normal, the prism above the floor behind it at its floor
+    /// corners (lane SE-PERF). A tool that passes under a small piece below
+    /// the layer, clear of its prism above the floor, is parted from it
+    /// only by a plane leaning by the angle its own surface has there,
+    /// which the fixed angles of [`below_layer`](Self::below_layer) may
+    /// miss: without it such a piece is halved without end.
+    fn under(&self, face: &Face, limit: f64, s0: f64, s1: f64) -> bool {
+        let fm = 0.5 * (s0 + s1);
+        let floor = face.corners.map(|p| p + face.m * (-limit));
+        std::iter::once(centroid(&floor)).chain(floor).any(|q| {
+            let (distance, normal) = self.at_first(self.frame(q, fm));
+            if distance <= 0.0 {
+                return false;
+            }
+            let w = self.undirection(-normal, fm);
+            if w.dot(face.m) > 0.0 {
+                return false;
+            }
+            let c = floor
+                .iter()
+                .map(|p| w.dot(*p - Point3::ORIGIN))
+                .fold(f64::NEG_INFINITY, f64::max);
+            self.dual_over(w, c, s0, s1) > -SIDE_MARGIN
+        })
+    }
+
     /// The lowest tool point at the fraction `f` with its foot on the face
     /// and no deeper than `limit` below it, as found from the multipliers
     /// `lam`: its height above the face's plane and its foot. The dual's
@@ -2199,6 +2230,9 @@ impl Search<'_, '_> {
         let foot =
             |face: &Face, y: Point3| y + face.m * (-(face.m.dot(y - Point3::ORIGIN) - face.d));
         let mut probes: Vec<(bool, Point3)> = Vec::new();
+        if open_lower < -self.inside && self.body.under(&open, self.limit, s0, s1) {
+            return Bound::Empty;
+        }
         if open_lower < -self.inside {
             let region: Vec<(Vec3, f64)> = open.sides.to_vec();
             let (v, at) =
