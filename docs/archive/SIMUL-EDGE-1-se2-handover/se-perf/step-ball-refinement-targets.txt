@@ -1,0 +1,3 @@
+share 0.25: step_ball rc=0 522.9 s peakMB=225 workerMB=13 lines=95222 | REFINED target 0.003125 triangles 89198 largest 0.003123832022548045 in 77.894770667s | failed samples 791 | leaves 163 areas
+share 0.125: step_ball rc=0 543.0 s peakMB=280 workerMB=11 lines=94882 | REFINED target 0.0015625 triangles 190564 largest 0.0015620510775663894 in 181.652884943s | failed samples 451 | leaves 164 areas
+share 0.0625: step_ball rc=0 687.6 s peakMB=481 workerMB=13 lines=94941 | REFINED target 0.00078125 triangles 356700 largest 0.0007812428465740539 in 372.796762201s | failed samples 429 | leaves 165 areas
