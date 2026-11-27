@@ -62,23 +62,42 @@ fn write_stl(mesh: &TriangleMesh, path: &Path) {
     std::fs::write(path, text).unwrap();
 }
 
-struct Built {
-    dir: PathBuf,
-    app: Application,
+/// A temporary folder this test owns, made empty before anything is set up
+/// in it and removed when the test ends, also when it fails (CodeRabbit on
+/// #968).
+struct Folder(PathBuf);
+
+impl Folder {
+    fn new(name: &str) -> Self {
+        let path =
+            std::env::temp_dir().join(format!("openchuck-offaxis-{name}-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&path);
+        // Made here, not found: a folder left by another run is not reused.
+        std::fs::create_dir(&path).unwrap();
+        Self(path)
+    }
 }
 
-impl Drop for Built {
+impl Drop for Folder {
     fn drop(&mut self) {
-        let _ = std::fs::remove_dir_all(&self.dir);
+        let _ = std::fs::remove_dir_all(&self.0);
     }
+}
+
+/// The project, in its folder; the application is dropped before the folder
+/// is removed.
+struct Built {
+    app: Application,
+    dir: PathBuf,
+    _folder: Folder,
 }
 
 /// The pin in round stock 37 mm across from X -10 to 25, gripped 4 mm at
 /// its start, with the tab from X -6 to 0, and helical finishing with a
 /// 3.175 mm flat end mill; `parameters` are the operation's own.
 fn build(name: &str, parameters: &[(&str, ParameterValue)]) -> Built {
-    let dir = std::env::temp_dir().join(format!("openchuck-offaxis-{name}-{}", std::process::id()));
-    let _ = std::fs::remove_dir_all(&dir);
+    let folder = Folder::new(name);
+    let dir = folder.0.join("project");
     let mut app = Application::create(&dir, name, Threads::Exactly(2)).unwrap();
     std::fs::create_dir_all(dir.join("models")).unwrap();
     write_stl(&pin(), &dir.join("models/part.stl"));
@@ -183,7 +202,11 @@ fn build(name: &str, parameters: &[(&str, ParameterValue)]) -> Built {
         })
         .unwrap();
     }
-    Built { dir, app }
+    Built {
+        app,
+        dir,
+        _folder: folder,
+    }
 }
 
 fn post(app: &mut Application) -> openchuck_app::Regeneration {

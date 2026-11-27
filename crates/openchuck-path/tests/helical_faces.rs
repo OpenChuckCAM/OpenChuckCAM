@@ -2065,6 +2065,30 @@ fn moves_at(path: &GeneratedPath, x: f64) -> Vec<(ToolPose, ToolPose)> {
     out
 }
 
+/// The arcs and turns of `path` at X `x`, each the run of cutting moves
+/// there with nothing between them, in path order.
+fn arcs_at(path: &GeneratedPath, x: f64) -> Vec<Vec<(ToolPose, ToolPose)>> {
+    let mut out: Vec<Vec<(ToolPose, ToolPose)>> = Vec::new();
+    let mut open = false;
+    let mut from = path.group.start;
+    for s in &path.group.segments {
+        let here = s.kind == MoveKind::Cutting
+            && (from.tip.x - x).abs() < 1e-6
+            && (s.end.tip.x - x).abs() < 1e-6;
+        if here {
+            if !open {
+                out.push(Vec::new());
+            }
+            if let Some(arc) = out.last_mut() {
+                arc.push((from, s.end));
+            }
+        }
+        open = here;
+        from = s.end;
+    }
+    out
+}
+
 /// The tip's distance from the rotary axis along the tool axis.
 fn height_of(p: &ToolPose) -> f64 {
     let rotary = RotaryMapping::of_profile(&machine());
@@ -2186,10 +2210,29 @@ fn req_op_25_the_arcs_follow_the_cutting_direction() {
             assert!(!sides.is_empty(), "{word} at {x}");
             match expect {
                 Some(e) => assert!(sides.iter().all(|s| *s == e), "{word} at {x}: {sides:?}"),
-                None => assert!(
-                    sides.iter().any(|s| *s) && sides.iter().any(|s| !*s),
-                    "{word} at {x}"
-                ),
+                None => {
+                    // Meander alternates arc by arc (CodeRabbit on #968):
+                    // each arc cuts one way throughout, and each arc the
+                    // other way from the one before it.
+                    let per_arc: Vec<bool> = arcs_at(&path, x)
+                        .iter()
+                        .filter_map(|arc| {
+                            let sides: Vec<bool> = arc
+                                .iter()
+                                .filter(|(a, b)| (b.a.0 - a.a.0).abs() > 1e-9)
+                                .map(|(a, b)| (b.tip - a.tip).cross(b.axis.get()).x * toward > 0.0)
+                                .collect();
+                            let first = *sides.first()?;
+                            assert!(sides.iter().all(|s| *s == first), "{word} at {x}");
+                            Some(first)
+                        })
+                        .collect();
+                    assert!(per_arc.len() >= 3, "{word} at {x}: {per_arc:?}");
+                    assert!(
+                        per_arc.windows(2).all(|w| w[0] != w[1]),
+                        "{word} at {x}: {per_arc:?}"
+                    );
+                }
             }
         }
     }
@@ -2206,26 +2249,44 @@ fn req_op_25_the_arcs_follow_the_cutting_direction() {
 #[test]
 fn req_op_04_each_layer_s_arc_lies_within_the_arc_above_it() {
     // Decision 0700: the arcs are nested, so no layer goes down into stock
-    // the layer above it left: each layer's A span lies within the span of
-    // the layer above.
-    let job = off_axis_job(&pin_at(90.0), false);
-    let path = job.path(&HelicalFinishing, &[("stepdown", 2.0)]);
-    let mut spans: BTreeMap<i64, (f64, f64)> = BTreeMap::new();
-    for (a, b) in moves_at(&path, NEAR_END) {
-        let h = (height_of(&b) * 1e6).round() as i64;
-        let e = spans.entry(h).or_insert((f64::INFINITY, f64::NEG_INFINITY));
-        for p in [a, b] {
-            if (height_of(&p) * 1e6).round() as i64 == h {
-                e.0 = e.0.min(p.a.0);
-                e.1 = e.1.max(p.a.0);
+    // the layer above it left: every angle a layer cuts is cut by the layer
+    // above it too, round the circle (A taken modulo a turn) and arc by arc
+    // where an end is in two pieces (CodeRabbit on #968: containment, not
+    // only a narrower width).
+    for mesh in [pin_at(90.0), pins_at(90.0, 270.0)] {
+        let job = off_axis_job(&mesh, false);
+        let path = job.path(&HelicalFinishing, &[("stepdown", 2.0)]);
+        // Each layer's arcs, as (start, sweep) in degrees, start in [0, 360).
+        let mut layers: BTreeMap<i64, Vec<(f64, f64)>> = BTreeMap::new();
+        for arc in arcs_at(&path, NEAR_END) {
+            let (Some(first), Some(last)) = (arc.first(), arc.last()) else {
+                continue;
+            };
+            let h = (height_of(&first.1) * 1e6).round() as i64;
+            let (a0, a1) = (first.0.a.0, last.1.a.0);
+            let sweep = (a1 - a0).abs();
+            layers
+                .entry(h)
+                .or_default()
+                .push((a0.min(a1).rem_euclid(360.0), sweep));
+        }
+        let covers = |arcs: &[(f64, f64)], a: f64| {
+            arcs.iter().any(|&(start, sweep)| {
+                sweep >= 360.0 - 1e-6 || (a - start).rem_euclid(360.0) <= sweep + 1e-6
+            })
+        };
+        let list: Vec<(i64, Vec<(f64, f64)>)> = layers.into_iter().collect();
+        assert!(list.len() >= 5, "{list:?}");
+        for w in list.windows(2) {
+            let ((_, lower), (_, upper)) = (&w[0], &w[1]);
+            for &(start, sweep) in lower {
+                let steps = (sweep / 0.5).ceil().max(1.0) as usize;
+                for i in 0..=steps {
+                    let a = (start + sweep * i as f64 / steps as f64).rem_euclid(360.0);
+                    assert!(covers(upper, a), "{a} not cut above: {list:?}");
+                }
             }
         }
-    }
-    let list: Vec<(i64, (f64, f64))> = spans.into_iter().collect();
-    assert!(list.len() >= 5, "{list:?}");
-    for w in list.windows(2) {
-        let ((_, lo), (_, hi)) = (w[0], w[1]);
-        assert!(hi.1 - hi.0 + 1e-6 >= lo.1 - lo.0, "{list:?}");
     }
 }
 
