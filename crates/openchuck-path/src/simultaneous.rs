@@ -162,6 +162,15 @@ const EDGE_STEPS: u32 = 12;
 /// is well over the query's own accuracy at the smallest tolerance.
 const LAYER: f64 = 1.25;
 
+/// The motion of a move from one fraction of it to another, for the move
+/// check: the tool's line at the first and the query for the same motion
+/// from there (see [`check_motion`]).
+type Stretch<'a> = dyn Fn(f64, f64) -> (ToolLine, GapQuery) + 'a;
+
+/// A move the move check failed: the answer, the grown tool's line there
+/// and its profile.
+type Failed<'p> = (crate::gap::ToolGap, ToolLine, &'p RevolvedProfile);
+
 /// The move check over a move (decision record SIMUL-EDGE-1, Q3, the method
 /// the owner confirmed on 27 Nov 2026): `pose(f)` is the tool's line at the
 /// fraction `f` of the move, and no tool point moves more than `travel`
@@ -173,12 +182,20 @@ const LAYER: f64 = 1.25;
 /// passes is proven. A sample the grown tool fails is checked again with
 /// finer samples and the tool grown less; at the finest a failure is the
 /// move's: its answer, the grown tool's line there and its profile. `None`
-/// when proven. Samples are taken in order (NFR-06).
-/// The motion of a move from one fraction of it to another, for the move
-/// check: the tool's line at the first and the query for the same motion
-/// from there (see [`check_motion`]).
-type Stretch<'a> = dyn Fn(f64, f64) -> (ToolLine, GapQuery) + 'a;
-
+/// when proven.
+///
+/// With the move's motion given (`stretch`), a whole stretch of samples is
+/// first asked as one query (lane SE-PERF, the owner's method 2 of 27 Nov
+/// 2026: a stretch of a move is bounded before it is sampled): the tool
+/// grown as its samples' is, over the stretch's own motion, within no
+/// pieces. The faces' own bounds, each holding at every pose of the
+/// stretch, then prove the grown tool no deeper than `allowed` at every
+/// pose, so at each of its samples, or leave the stretch undecided. An
+/// undecided stretch is halved, down to [`STRETCH_MIN`] samples, and what
+/// is left is sampled as before.
+///
+/// The move is taken in order, each failed sample checked finer before
+/// the next (NFR-06), so the first place it fails ends the check.
 fn check_motion<'p>(
     surface: &dyn crate::surface::SurfaceSource,
     checks: &'p [(f64, RevolvedProfile)],
@@ -186,123 +203,114 @@ fn check_motion<'p>(
     travel: f64,
     pose: &dyn Fn(f64) -> ToolLine,
     stretch: Option<&Stretch<'_>>,
-) -> Option<(crate::gap::ToolGap, ToolLine, &'p RevolvedProfile)> {
-    let mut stack: Vec<(f64, f64, usize)> = vec![(0.0, 1.0, 0)];
-    while let Some((f0, f1, level)) = stack.pop() {
-        let Some((grow, profile)) = checks.get(level) else {
-            continue;
-        };
-        let n = ((f1 - f0) * travel / (2.0 * grow)).ceil().max(1.0);
+) -> Option<Failed<'p>> {
+    MoveCheck {
+        surface,
+        checks,
+        allowed,
+        travel,
+        pose,
+        stretch,
+    }
+    .span(0.0, 1.0, 0)
+}
+
+/// What [`check_motion`] checks a move with.
+struct MoveCheck<'a, 'p> {
+    surface: &'a dyn crate::surface::SurfaceSource,
+    checks: &'p [(f64, RevolvedProfile)],
+    allowed: f64,
+    travel: f64,
+    pose: &'a dyn Fn(f64) -> ToolLine,
+    stretch: Option<&'a Stretch<'a>>,
+}
+
+impl<'p> MoveCheck<'_, 'p> {
+    /// Checks the move from the fraction `f0` to `f1` with the grown tool
+    /// of `level`: the first failure at the finest level, or `None` when
+    /// it is proven.
+    fn span(&self, f0: f64, f1: f64, level: usize) -> Option<Failed<'p>> {
+        let (grow, profile) = self.checks.get(level)?;
+        let n = ((f1 - f0) * self.travel / (2.0 * grow)).ceil().max(1.0);
         let count = n.min(f64::from(u32::MAX)) as u32;
         let step = (f1 - f0) / f64::from(count);
-        // The stretches of these samples the bounds prove whole need no
-        // sample.
-        let covered = stretch
-            .filter(|_| (STRETCH_MIN..=STRETCH_MOST).contains(&count))
-            .map(|motion| bounded(surface, profile, *grow, allowed, (f0, step, count), motion));
-        // Pushed last first, so they are taken in order.
-        let mut finer = Vec::new();
-        for k in 0..count {
-            if covered
-                .as_ref()
-                .and_then(|c| c.get(k as usize))
-                .is_some_and(|c| *c)
+        let motion = self
+            .stretch
+            .filter(|_| (STRETCH_MIN..=STRETCH_MOST).contains(&count));
+        // Runs of samples, the first on top: a run the bounds prove whole
+        // needs no sample; one they leave undecided is halved.
+        let mut runs = vec![(0_u32, count)];
+        while let Some((lo, hi)) = runs.pop() {
+            if let Some(motion) = motion
+                && hi - lo >= STRETCH_MIN
             {
+                let (line, query) = motion(f0 + step * f64::from(lo), f0 + step * f64::from(hi));
+                let answer =
+                    self.surface
+                        .tool_gap(profile, &grown(&line, *grow), &query.within_pieces(0));
+                if !answer.is_none_or(|g| proven(&g, self.allowed)) {
+                    let mid = lo + (hi - lo) / 2;
+                    runs.push((mid, hi));
+                    runs.push((lo, mid));
+                }
                 continue;
             }
-            let (s0, s1) = (f0 + step * f64::from(k), f0 + step * f64::from(k + 1));
-            let line = pose(0.5 * (s0 + s1));
-            // The grown tool's tip is `grow` below the tool's.
-            let grown = ToolLine {
-                origin: line.origin + line.axis.get() * (-grow),
-                axis: line.axis,
-            };
-            // A sample that is checked again finer when it fails is given
-            // few pieces: cut short it is unproven, and the finer check
-            // settles it. The last check has the search's whole cap.
-            let query = move_query(Vec3::ZERO, allowed);
-            let query = if level + 1 < checks.len() {
-                query.within_pieces(SAMPLE_PIECES)
-            } else {
-                query
-            };
-            let Some(g) = surface.tool_gap(profile, &grown, &query) else {
-                continue;
-            };
-            if proven(&g, allowed) {
-                continue;
+            for k in lo..hi {
+                let (s0, s1) = (f0 + step * f64::from(k), f0 + step * f64::from(k + 1));
+                let line = grown(&(self.pose)(0.5 * (s0 + s1)), *grow);
+                // A sample that is checked again finer when it fails is
+                // given few pieces: cut short it is unproven, and the finer
+                // check settles it. The last check has the search's whole
+                // cap.
+                let query = move_query(Vec3::ZERO, self.allowed);
+                let query = if level + 1 < self.checks.len() {
+                    query.within_pieces(SAMPLE_PIECES)
+                } else {
+                    query
+                };
+                let Some(g) = self.surface.tool_gap(profile, &line, &query) else {
+                    continue;
+                };
+                if proven(&g, self.allowed) {
+                    continue;
+                }
+                if level + 1 == self.checks.len() {
+                    return Some((g, line, profile));
+                }
+                if let Some(failed) = self.span(s0, s1, level + 1) {
+                    return Some(failed);
+                }
             }
-            if level + 1 < checks.len() {
-                finer.push((s0, s1, level + 1));
-                continue;
-            }
-            return Some((g, grown, profile));
         }
-        stack.extend(finer.into_iter().rev());
+        None
     }
-    None
+}
+
+/// The line of the tool grown by `grow` on `line`: its tip is `grow` below
+/// the tool's.
+fn grown(line: &ToolLine, grow: f64) -> ToolLine {
+    ToolLine {
+        origin: line.origin + line.axis.get() * (-grow),
+        axis: line.axis,
+    }
 }
 
 /// The most pieces the search splits for a sample of the move check that
 /// is checked again finer when it fails (lane SE-PERF). On the public
 /// crankshaft and the lobed reference part no sample that was proven took
-/// more than 128; a sample the grown tool leaves exactly at the tolerance
-/// (the ball over the edge of the crankshaft's end face) ran to the
-/// search's own cap, 17 s each, to the same answer: unproven.
+/// more than 128, and on the public blisk none more than 1,024; a sample
+/// the grown tool leaves exactly at the tolerance (the ball over the edge
+/// of the crankshaft's end face) ran to the search's own cap, 17 s each,
+/// to the same answer: unproven.
 const SAMPLE_PIECES: usize = 4096;
 
 /// The fewest samples a stretch of a move stands for when it is bounded
-/// whole in their place ([`bounded`]).
+/// whole in their place ([`check_motion`]).
 const STRETCH_MIN: u32 = 2;
 
 /// The most samples of one move whose stretches are bounded whole: a move
-/// with more is sampled alone (NFR-07: the list of them is not made).
+/// with more is sampled alone.
 const STRETCH_MOST: u32 = 1 << 20;
-
-/// Which of a move's `count` samples, each `step` of the move from the
-/// fraction `f0`, lie in a stretch the bounds prove whole (lane SE-PERF,
-/// the owner's method 2 of 27 Nov 2026: a whole stretch of a move is
-/// bounded before it is sampled). A stretch is asked as one query of the
-/// tool grown as its samples' is (`profile`, by `grow`), over the stretch's
-/// own motion (`motion`), within no pieces: the faces' own bounds, each
-/// holding at every pose of the stretch, prove the grown tool no deeper
-/// than `allowed` at every pose, so at each of its samples, or leave the
-/// stretch undecided. An undecided stretch is halved, down to
-/// [`STRETCH_MIN`] samples, and what is left is sampled as before. The
-/// stretches are taken in order (NFR-06).
-fn bounded(
-    surface: &dyn crate::surface::SurfaceSource,
-    profile: &RevolvedProfile,
-    grow: f64,
-    allowed: f64,
-    (f0, step, count): (f64, f64, u32),
-    motion: &Stretch<'_>,
-) -> Vec<bool> {
-    let mut covered = vec![false; count as usize];
-    let mut runs = vec![(0_u32, count)];
-    while let Some((lo, hi)) = runs.pop() {
-        if hi - lo < STRETCH_MIN {
-            continue;
-        }
-        let (line, query) = motion(f0 + step * f64::from(lo), f0 + step * f64::from(hi));
-        // The grown tool's tip is `grow` below the tool's.
-        let grown = ToolLine {
-            origin: line.origin + line.axis.get() * (-grow),
-            axis: line.axis,
-        };
-        let answer = surface.tool_gap(profile, &grown, &query.within_pieces(0));
-        if answer.is_none_or(|g| proven(&g, allowed)) {
-            for c in covered.iter_mut().take(hi as usize).skip(lo as usize) {
-                *c = true;
-            }
-        } else {
-            let mid = lo + (hi - lo) / 2;
-            runs.push((mid, hi));
-            runs.push((lo, mid));
-        }
-    }
-    covered
-}
 
 /// The move check's question for the tool swept along `sweep`: counted to
 /// the layer below each face, and answered once the move is proven no
@@ -4100,6 +4108,44 @@ mod tests {
                     .unwrap(),
             },
         );
+    }
+
+    #[test]
+    fn req_op_12_a_ball_passing_under_a_face_below_its_layer_is_settled_at_once() {
+        // Three samples of the move check on the public blisk (lane
+        // SE-PERF, 27 Nov 2026): a 3 mm ball grown by half the tolerance,
+        // beside a blade. Under one small place of a face the ball passes
+        // below the layer and is clear of the face's prism above the
+        // layer's floor by a few micrometres: nothing counts there, but
+        // only a plane leaning as the ball's own surface does parts them,
+        // and without it the place was halved until the pieces ran out
+        // (about 1,400 samples in the first 7 minutes of the job, 0.7 to
+        // 1.1 s each at 4,096 pieces; 17 s each at the search's own cap).
+        let ball = cutter::grow_profile(&ball_of(1.5), 0.005).unwrap();
+        let mesh = blisk();
+        for (tip, axis) in [
+            (
+                Point3::new(26.21162319325053, 9.882742617251452, 17.365848196177094),
+                Vec3::new(0.0, 0.5211065836573098, 0.8534916100753465),
+            ),
+            (
+                Point3::new(23.469310553204792, 19.959728585920725, -0.8824015753254995),
+                Vec3::new(0.0, 0.9993647806823853, -0.03563755226791186),
+            ),
+            (
+                Point3::new(14.017279142984387, 16.793136086576144, 10.969426535797933),
+                Vec3::new(0.0, 0.6104692070959622, 0.7920399909017392),
+            ),
+        ] {
+            sample_agrees(
+                &mesh,
+                &ball,
+                ToolLine {
+                    origin: tip,
+                    axis: UnitVec3::new(axis).unwrap(),
+                },
+            );
+        }
     }
 
     #[test]
