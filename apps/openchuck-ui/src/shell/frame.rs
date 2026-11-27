@@ -466,6 +466,7 @@ impl Shell {
         } else {
             crate::focus::main_window::INSPECTOR
         };
+        let splitter = ui.scope_id().with(id).with("__resize");
         let response = builder.show(ui, |ui| {
             crate::focus::region(ui, order, |ui| {
                 self.panel_header(ui, region);
@@ -489,6 +490,10 @@ impl Shell {
                 }
             })
         });
+        // The splitter is not a Tab stop (UI-14): Tab passes over it.
+        // egui's panel registers its handle as `scope_id().with(salt)` and
+        // then `"__resize"`.
+        crate::focus::pass_over(ui.ctx(), splitter, order);
         let rect = response.response.rect;
         let edge = if left { rect.right() } else { rect.left() };
         self.remember_size(ui, region, rect.width(), |p| (p.x - edge).abs() <= 4.0);
@@ -859,6 +864,13 @@ impl Shell {
                             self.toggle_region(region);
                         }
                     }
+                });
+                // The kinds of toolpath move, as the Show menu (V) and the
+                // path legend's tick boxes (issue #789; UI-14).
+                ui.menu_button("Toolpath moves", |ui| {
+                    let mut moves = self.viewport.shown_moves();
+                    crate::viewport_toolbar::move_ticks(ui, &mut moves);
+                    self.viewport.set_shown_moves(moves);
                 });
                 let unavailable = directions_unavailable(
                     self.setup_panes().is_some(),
@@ -1490,48 +1502,177 @@ impl Shell {
     /// The empty state: a card in the view with the next things to do
     /// (specification section 11.1). Recent projects and dropping a file are
     /// UI-23 (P2).
+    /// The start card (specification 11.1; UI-23, decision record
+    /// 0697 item 1): the way to start, a drop zone, the recent
+    /// projects and the four steps. It is centred, at most 560 points wide
+    /// and as tall as its content; with a short view the recent list
+    /// scrolls inside it, so the buttons and the drop zone stay in view.
     fn empty_state(&mut self, ui: &mut egui::Ui) {
         let ctx = ui.ctx().clone();
         let rect = ui.max_rect();
         ui.painter()
             .rect_filled(rect, 0.0, DARK.bar.gamma_multiply(0.6));
-        let card = egui::Rect::from_center_size(rect.center(), egui::vec2(420.0, 300.0))
-            .intersect(rect.shrink(16.0));
-        ui.scope_builder(egui::UiBuilder::new().max_rect(card), |ui| {
-            egui::Frame::group(ui.style())
-                .corner_radius(6.0)
-                .inner_margin(16.0)
-                .show(ui, |ui| {
-                    ui.label(RichText::new("Start with a model").size(18.0).strong());
-                    ui.add_space(8.0);
-                    ui.horizontal(|ui| {
-                        if self.app.is_some() {
-                            if primary_button(ui, "Import model…", self.import.is_none()).clicked()
-                            {
-                                self.import_model();
-                            }
-                        } else if primary_button(ui, "New project…", true).clicked() {
-                            self.request(Next::New, &ctx);
-                        }
-                        if ui.button("Open project…").clicked() {
-                            self.request(Next::Open, &ctx);
-                        }
-                    });
-                    ui.add_space(12.0);
-                    for step in Step::ALL {
+        let open = self.app.is_some();
+        let recent = self.recent_projects(&ctx);
+        let room = rect.shrink(16.0);
+        let width = START_CARD_WIDTH.min(room.width());
+        // The card's height last frame, to centre it; the first frame
+        // starts at the top of the room.
+        let height_id = egui::Id::unique("start card height");
+        let last = ctx
+            .data(|d| d.get_temp::<f32>(height_id))
+            .unwrap_or(room.height());
+        let top = room.center().y - last.min(room.height()) / 2.0;
+        let card = egui::Rect::from_min_size(
+            egui::pos2(room.center().x - width / 2.0, top.max(room.top())),
+            egui::vec2(width, room.bottom() - top.max(room.top())),
+        );
+        let mut chosen = None;
+        let mut clear = false;
+        let shown = ui
+            .scope_builder(egui::UiBuilder::new().max_rect(card), |ui| {
+                egui::Frame::group(ui.style())
+                    .corner_radius(6.0)
+                    .inner_margin(16.0)
+                    .show(ui, |ui| {
+                        ui.set_width(width - 34.0);
                         ui.label(
-                            RichText::new(format!(
-                                "{}  {} — {}",
-                                step.number(),
-                                step.name(),
-                                step_purpose(step)
-                            ))
-                            .color(DARK.muted),
+                            RichText::new(if open {
+                                "Start with a model"
+                            } else {
+                                "Start a project"
+                            })
+                            .size(18.0)
+                            .strong(),
                         );
-                    }
-                });
-        });
+                        ui.add_space(8.0);
+                        ui.horizontal(|ui| {
+                            if open {
+                                if primary_button(ui, "Import model…", self.import.is_none())
+                                    .clicked()
+                                {
+                                    self.import_model();
+                                }
+                            } else if primary_button(ui, "New project…", true).clicked() {
+                                self.request(Next::New, &ctx);
+                            }
+                            if ui.button("Open project…").clicked() {
+                                self.request(Next::Open, &ctx);
+                            }
+                        });
+                        ui.add_space(10.0);
+                        drop_zone(ui, open);
+                        // The steps' height, kept below the list.
+                        let steps = 4.0 * ui.text_style_height(&egui::TextStyle::Body) + 40.0;
+                        if !recent.is_empty() {
+                            ui.add_space(12.0);
+                            ui.label(RichText::new("RECENT PROJECTS").small().color(DARK.muted));
+                            let list = (ui.available_height() - steps - 40.0).max(48.0);
+                            egui::ScrollArea::vertical()
+                                .id_salt("start recent")
+                                .max_height(list)
+                                .auto_shrink([false, true])
+                                .show_keeping_focus(ui, |ui| {
+                                    for (index, folder) in recent.iter().enumerate() {
+                                        ui.push_id(index, |ui| {
+                                            if recent_row(ui, folder).clicked() {
+                                                chosen = Some(folder.clone());
+                                            }
+                                        });
+                                    }
+                                });
+                            clear = ui.button("Clear recent list").clicked();
+                        }
+                        ui.add_space(12.0);
+                        for step in Step::ALL {
+                            ui.label(
+                                RichText::new(format!(
+                                    "{}  {} — {}",
+                                    step.number(),
+                                    step.name(),
+                                    step_purpose(step)
+                                ))
+                                .color(DARK.muted),
+                            );
+                        }
+                    })
+                    .response
+            })
+            .inner;
+        ctx.data_mut(|d| d.insert_temp(egui::Id::unique("start card"), shown.rect));
+        let height = shown.rect.height();
+        if (height - last).abs() > 0.5 {
+            ctx.data_mut(|d| d.insert_temp(height_id, height));
+            ctx.request_repaint();
+        }
+        if let Some(folder) = chosen {
+            self.recent_clicked = Some(folder.clone());
+            self.open_recent(&folder, &ctx);
+        }
+        if clear {
+            self.settings.clear_recent();
+            self.settings_touched();
+        }
     }
+}
+
+/// The start card's widest (decision record 0697 item 1).
+const START_CARD_WIDTH: f32 = 560.0;
+
+/// The start card's drop zone: a dashed box saying what a drop does. It is
+/// not a control (the buttons above do the same), so it takes no Tab stop;
+/// the whole window takes a drop.
+fn drop_zone(ui: &mut egui::Ui, open: bool) {
+    let text = if open {
+        "Drop an STL or STEP file here to import it."
+    } else {
+        "Drop an STL or STEP file here to start a project with it, or a project folder to \
+         open it."
+    };
+    let width = ui.available_width();
+    let galley = ui.painter().layout(
+        text.to_owned(),
+        egui::TextStyle::Body.resolve(ui.style()),
+        DARK.muted,
+        width - 24.0,
+    );
+    let (rect, _) = ui.allocate_exact_size(
+        egui::vec2(width, galley.size().y + 24.0),
+        egui::Sense::hover(),
+    );
+    let painter = ui.painter();
+    let corners = [
+        rect.left_top(),
+        rect.right_top(),
+        rect.right_bottom(),
+        rect.left_bottom(),
+        rect.left_top(),
+    ];
+    for pair in corners.windows(2) {
+        painter.extend(egui::Shape::dashed_line(
+            pair,
+            egui::Stroke::new(1.0, DARK.line),
+            6.0,
+            4.0,
+        ));
+    }
+    painter.galley(
+        egui::pos2(rect.center().x - galley.size().x / 2.0, rect.top() + 12.0),
+        galley,
+        DARK.muted,
+    );
+}
+
+/// One recent project on the start card: a button with the folder's name,
+/// a Tab stop in reading order, and its full path beside it, muted.
+fn recent_row(ui: &mut egui::Ui, folder: &std::path::Path) -> egui::Response {
+    ui.horizontal(|ui| {
+        let path = super::checkpoints::shown(folder);
+        let button = ui.button(recent_label(folder)).tip(path.clone());
+        ui.add(egui::Label::new(RichText::new(path).small().color(DARK.muted)).truncate());
+        button
+    })
+    .inner
 }
 
 /// What the status bar adds after the current job when others run too:

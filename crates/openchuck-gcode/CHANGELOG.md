@@ -1,5 +1,37 @@
 # Changelog
 
+## 0.71.0
+
+- **Family release (0.71.0; PATH-QUALITY, PQ-3; issue #779; decision 0695, Q2, accepted):** `openchuck-path` adds the parameter Finish to a point (helical, axial and indexed finishing; off for saved operations) and changes output only where it is on; no change to this crate.
+
+## 0.70.0
+
+- **Family release (0.70.0; PATH-QUALITY, PQ-2b; issue #786; decision 0695, Q9 part 3, accepted):** `openchuck-path` changes ramp output (a whole ring whose one turn would descend more than the largest depth per traverse is ramped back and forth over itself). No change in this crate.
+
+## 0.69.0
+
+- **Family release (0.69.0; PATH-QUALITY, PQ-4; issue #826, OI-2198; decision 0695, Q6, accepted):** `openchuck-path` changes output only for helical finishing as a spiral with adaptive spacing on (it measures the helix only outside the held regions' bands and the face turns); no API change; no change to this crate.
+
+## 0.68.0
+
+- **Family release (0.68.0; PATH-QUALITY, PQ-2; issue #786; decision 0695, accepted):** `openchuck-path` breaks its API (`Strategy::ramps_round_the_part` is removed, and `params::EntryParameters` gains the public field `ramp_depth_per_traverse`) and changes ramp output; no change to this crate.
+
+## 0.67.0
+
+- **Family release (0.67.0; SEV1-929, #948 follow-up; decision 0692 amendment 2, accepted):** `openchuck-path` changes output (on a controller that counts A in its F word, a fed turn of A with the tool tip fixed is timed for A's counted travel where an end's A is not on three decimals). No change in this crate.
+
+## 0.66.0
+
+- **Family release (0.66.0; SEV1-929 follow-up; issue #943; decision 0692 amendment 1, accepted):** `openchuck-path` changes output (a fed turn of A with the tool tip fixed is timed for the line the post may write for it, and every fed move whose change of X and Y is below the written band, none included, is timed for the lower of the linear and Z limits). No change in this crate.
+
+## 0.65.0
+
+- **Family release (0.65.0; MOPUP-1, PR M3; issues #887 and #895):** `openchuck-path` breaks its API (`swarf::Limits` gains the public field `least_lift_along_axis`) and changes the swarf face note's reach past the rulings for a tapered tool; restricted Facing refuses a host keep-out with a span the grip does not give. No change in this crate.
+
+## 0.64.0
+
+- **Family release (0.64.0; SEV1-929; issue #929; decision 0692, accepted):** `openchuck-path` changes output (a fed move whose small X or Y change can be lost when the post writes A to three decimals is timed for the lower of the linear and Z limits, and the line's written allowance grows by the shift writing A gives its end points, so the F word stays within the limit gate 1 applies). No change in this crate.
+
 ## 0.63.0
 
 - **Family release (0.63.0; lane FACEFLOW; issues #791 and #854; decisions 0675 and 0686, accepted):** `openchuck-path`'s `UnreachedReason` gains the variant `TooShort`, a breaking change; no change to this crate.
@@ -102,7 +134,6 @@
 
 - Lockstep library-family version for GC-17’s machine-profile and post API additions (accepted decision 0222, lane GATES). Existing whole-program replay behavior is unchanged.
 
-
 All notable changes to `openchuck-gcode` are recorded here.
 
 ## Unreleased
@@ -112,7 +143,6 @@ All notable changes to `openchuck-gcode` are recorded here.
 - `compare_with_moves` exposes each actual replayed move with its source group/segment, controller counter shift and programmed fed duration. Observations are provisional until the complete comparison succeeds. Existing `compare` delegates with a no-op observer and preserves its result/structural checks; no motion is silently accepted because a callback ran.
 
 - **Breaking family release (0.25.0, FACING, decision 0252):** `StrategyInput::facing` adds the optional whole-setup context. Host struct literals supply the new field; use `None` for other strategies and legacy whole-stock Facing. All family crates advance together under 0048. No project-schema migration.
-
 
 - Version 0.24.0 with the library family (GC-17, decisions 0222/0245): configurable short-block reporting and geometry-preserving slowdown; profile/post/report APIs extended. Legacy project copies retain Off.
 

@@ -48,7 +48,7 @@ The project already has the setup (a 38 mm hardwood bar, gripped for 6 mm) and t
 3. Click **Iso** above the view, then **Results** under it. The notes are listed under **Information**.
 
 <figure>
-<a href="images/simultaneous/03-finish-path.png"><img src="images/simultaneous/03-finish-path.png" width="1920" height="1080" alt="The Iso view with the finishing path drawn in orange round each of the three pins of the crankshaft; the Results tab, with Information turned off, reads 2 operations, 40284 moves, 94.9 s to generate, Errors 0, Warnings 2, Information 35, and lists the two warnings of Finish: Inside corners and Tool holder."></a>
+<a href="images/simultaneous/03-finish-path.png"><img src="images/simultaneous/03-finish-path.png" width="1920" height="1080" alt="The Iso view with the finishing path drawn in orange round each of the three pins of the crankshaft; the Results tab, with Information turned off, reads 2 operations, 40284 moves, 82.2 s to generate, Errors 0, Warnings 2, Information 35, and lists the two warnings of Finish: Inside corners and Tool holder."></a>
 <figcaption><b>Figure 3.</b> The finishing path follows each pin round its own centre, not round the rotary axis.</figcaption>
 </figure>
 
@@ -95,7 +95,7 @@ Now give the finish a lead:
 2. Click **Generate**.
 
 <figure>
-<a href="images/simultaneous/05-lead-10.png"><img src="images/simultaneous/05-lead-10.png" width="1920" height="1080" alt="The same view after generating with Lead angle 10.00; the Results tab reads 2 operations, 40183 moves, 38.9 s to generate, Errors 0, Warnings 2, Information 31, and the Tool holder warning now says the tool leans up to 12.2 degrees."></a>
+<a href="images/simultaneous/05-lead-10.png"><img src="images/simultaneous/05-lead-10.png" width="1920" height="1080" alt="The same view after generating with Lead angle 10.00; the Results tab reads 2 operations, 40183 moves, 30.9 s to generate, Errors 0, Warnings 2, Information 31, and the Tool holder warning now says the tool leans up to 12.2 degrees."></a>
 <figcaption><b>Figure 5.</b> With a 10° lead, the tool leans up to 12.2° on the hidden surfaces.</figcaption>
 </figure>
 
@@ -109,8 +109,8 @@ A can only lean the tool round the axis. Axial passes travel along the axis, so 
 2. Click **Generate**.
 
 <figure>
-<a href="images/simultaneous/06-axial-with-lead.png"><img src="images/simultaneous/06-axial-with-lead.png" width="1920" height="1080" alt="The Inspector shows This operation can't be generated: Lead angle (operation 'Finish'): axial passes travel along the rotary axis, where A cannot lean the tool; set the lead angle to 0 or use the spiral pattern; below it, Export is blocked while this operation is in error. The Results tab shows Errors 1 and the same line in red, then the earlier run's warnings under The project has changed since this run. Generate again.; the top right reads Error to fix."></a>
-<figcaption><b>Figure 6.</b> The axial pattern with a lead is refused, and the reason is given.</figcaption>
+<a href="images/simultaneous/06-axial-with-lead.png"><img src="images/simultaneous/06-axial-with-lead.png" width="1920" height="1080" alt="The Inspector shows This operation can't be generated: Lead angle (operation 'Finish'): axial passes travel along the rotary axis, where A cannot lean the tool; set the lead angle to 0 or use the spiral pattern; below it, Export is blocked while this operation is in error. The Results tab shows Errors 1 and the same line in red, and nothing of the earlier run; the top right reads Error to fix."></a>
+<figcaption><b>Figure 6.</b> The axial pattern with a lead is refused, and the reason is given. Results shows the refusal alone, not the earlier run's figures.</figcaption>
 </figure>
 
 The operation is not generated, and the export is blocked until it is fixed. Set **Lead angle** back to `0`, or click **spiral** again.

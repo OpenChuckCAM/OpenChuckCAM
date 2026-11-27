@@ -104,6 +104,16 @@ impl Shell {
             return;
         }
         let entries = edits::entries(ctx);
+        if entries.is_empty() && self.edit_guard.problem.is_none() {
+            // Every field the request found has been confirmed since, as a
+            // press on a dialog's own control confirms its field in the frame
+            // the control may ask (issue #871): there is nothing to ask
+            // about, so the action goes ahead as Keep would let it.
+            self.edit_guard.resolving = true;
+            edits::set_mode(ctx, Mode::PrepareKeep);
+            ctx.request_repaint();
+            return;
+        }
         let mut answer = None;
         egui::Modal::new(Id::unique("unconfirmed changes")).show(ctx, |ui| {
             ui.heading("Unconfirmed changes");

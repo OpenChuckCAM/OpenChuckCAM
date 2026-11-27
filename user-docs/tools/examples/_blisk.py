@@ -23,7 +23,7 @@ GUIDE_EDGE = (1100, 345)    # edge 65, where the blade wall meets the floor
 # The add operation dialog.
 STRATEGY = (958, 380)
 NAME = (868, 328)
-ADD = (707, 786)
+ADD = (1210, 784)                 # Add, bottom right of the dialog (decision 0677)
 # The strategy list, scrolled to its top (Helical, Face flow) or its bottom (Swarf).
 HELICAL_TOP = (745, 525)
 FACE_FLOW_TOP = (751, 717)

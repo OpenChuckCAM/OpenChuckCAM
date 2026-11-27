@@ -12,7 +12,7 @@ An operation cuts the whole part unless you tell it otherwise. To limit it to on
 ## Use it in an operation
 
 1. Select the operation.
-2. In its **Geometry** section, in the **Contain within** row, choose the set from **add...**.
+2. In its **Geometry** section, beside **Contain within**, choose the set from **Add a set…**.
 3. Generate the operation again.
 
 To take a set out, click it in the row. Editing a set makes every operation that uses it out of date.

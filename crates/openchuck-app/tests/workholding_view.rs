@@ -19,9 +19,10 @@ use openchuck_app::setup::{
     Workholding,
 };
 use openchuck_app::workholding_view::{
-    DefaultTabsState, Draft, End, Field, PartFacing, check_draft, default_chips,
-    default_tabs_state, end_tab, grip_warning, held_span, holding_hint, new_tab, no_tabs_warning,
-    part_facing, set_layout, set_shape, set_tab_auto, set_tab_span, to_field_places,
+    DefaultTabsState, Draft, End, Field, KEPT_CLEAR_NOTE, PartFacing, check_draft, default_chips,
+    default_tabs_state, end_tab, grip_warning, held_span, holding_hint, kept_clear, new_tab,
+    no_tabs_warning, part_facing, set_layout, set_shape, set_tab_auto, set_tab_span,
+    to_field_places,
 };
 use openchuck_app::{Application, Command, Threads};
 use openchuck_types::units::Degrees;
@@ -865,11 +866,13 @@ fn req_ui_25_a_tab_names_its_zone_and_its_length_against_the_tools() {
         SetupTool {
             tool: "T1 Ball \u{d8}3".into(),
             diameter: 3.0,
+            reach: 1.5,
             operation: "1 Rough".into(),
         },
         SetupTool {
             tool: "T2 Flat \u{d8}6".into(),
             diameter: 6.0,
+            reach: 3.0,
             operation: "2 Finish".into(),
         },
     ];
@@ -1136,4 +1139,50 @@ fn req_ui_25_apply_refuses_a_tab_outside_the_end_zones() {
     );
     assert!(found[0].refuses);
     std::fs::remove_dir_all(dir).unwrap();
+}
+
+/// Issue #774, the owner's approved design: each held region's "Kept clear"
+/// row says where the tools' tips stay clear to (from), taking the widest
+/// tool of the setup (its cutting profile or its shank) and the 0.5 mm every
+/// tool keeps from the grip; with no tool yet it says nothing of where.
+#[test]
+fn req_set_09_req_ui_25_the_held_regions_say_where_the_tools_keep_clear() {
+    use openchuck_app::workholding::SetupTool;
+    let stock = cyl(); // X -16 to 16
+    let held = Workholding {
+        start: Some(HeldRegion {
+            length: Millimetres(3.0),
+            diameter: None,
+        }),
+        end: Some(HeldRegion {
+            length: Millimetres(2.0),
+            diameter: None,
+        }),
+        tabs: Vec::new(),
+    };
+    let tool = |name: &str, reach: f64| SetupTool {
+        tool: name.into(),
+        diameter: 2.0 * reach,
+        reach,
+        operation: "1 Finish".into(),
+    };
+    // The widest reach is 3 mm: the tips keep 3.5 mm from each grip.
+    let tools = [tool("T1 Ball", 1.5), tool("T2 Flat", 3.0)];
+    assert_eq!(
+        kept_clear(&held, &stock, &tools),
+        [
+            Some("to X \u{2212}9.500 mm".to_owned()),
+            Some("from X 10.500 mm".to_owned())
+        ]
+    );
+    assert_eq!(kept_clear(&held, &stock, &[]), [None, None]);
+    let one_end = Workholding { end: None, ..held };
+    assert_eq!(
+        kept_clear(&one_end, &stock, &tools),
+        [Some("to X \u{2212}9.500 mm".to_owned()), None]
+    );
+    assert_eq!(
+        KEPT_CLEAR_NOTE,
+        "No tool comes within 0.500 mm of the grip. Corners beside the grip may keep more material."
+    );
 }
