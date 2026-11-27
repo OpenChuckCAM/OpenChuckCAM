@@ -6,6 +6,7 @@
 - **New parameter (helical finishing, axial finishing, rest machining):** `free_end_direction`, "Cutting direction": `meander`, `climb` (the default) or `conventional`. It acts only on the arcs; whole turns keep the strategy's own direction.
 - **New warning:** an end that has nothing past it on some lines of A but leans (is not square to the rotary axis) is not faced, and a warning names a Facing operation (with Shape End where it is the end opposite the setup's only held end).
 - **New warnings (tabs):** where a tab past an end does not meet the end face, the turn at the face across the axis (decision 0297, unchanged) cuts the part free of the tab. The Part cut free warnings now say so, the part's one as a possible collision to acknowledge, whether or not Face free ends is on. A project with such a tab now asks for acknowledgement before writing.
+- **New refusal:** a Stepdown that would make more than 5,000,000 points in the layers beside a free end (round or not) is refused, naming the Stepdown.
 - No public API change.
 
 ## 0.73.0 (PATH-QUALITY; issues #951 and #959; decision 0695 follow-ups; not breaking, output change in rare cases)

@@ -681,18 +681,17 @@ fn find(
             };
             contact.map(|c| input.rotary.to_axis(c.tip, Degrees(a)).height)
         };
-        // The section along the line at A `a` through the axis, as heights
-        // from the side of `a`: from the far side's top to the near side's.
-        let section = |x: f64, a: f64, part_only: bool| {
-            let near = along(x, a, part_only)?;
-            let far = along(x, a + 180.0, part_only)?;
-            Some((-far, near))
-        };
         for t in &turns {
             context.check_cancelled()?;
             let face = if t.up { t.x + radius } else { t.x - radius };
             let toward = if t.up { 1.0 } else { -1.0 };
-            let (x_in, x_out) = (face + toward * radius, face - toward * radius.min(0.1));
+            // The part is read just inside its face, past the turn's
+            // clearance (CodeRabbit on #968): the tab must meet the face
+            // itself, not the part further in.
+            let (x_in, x_out) = (
+                face + toward * (CLEAR * tolerance + 0.05).min(radius),
+                face - toward * radius.min(0.1),
+            );
             if loose.iter().any(|l| (l.face - face).abs() <= radius) {
                 continue;
             }
@@ -705,14 +704,20 @@ fn find(
             }
             let mut tabbed = false;
             let mut meets = false;
+            // The material along each line, in and out: a hole in the end,
+            // or a gap between two lugs, is not material the tab meets
+            // (CodeRabbit on #968).
             for &a in &lines {
-                let Some((t_lo, t_hi)) = section(x_out, a, false) else {
+                let tab = crate::finishing::occupied(input, x_out, a, reach + 1.0);
+                if tab.is_empty() {
                     continue;
-                };
+                }
                 tabbed = true;
-                if let Some((p_lo, p_hi)) = section(x_in, a, true)
-                    && p_lo.max(t_lo) < p_hi.min(t_hi) - WIDTH
-                {
+                let part = crate::finishing::occupied(input, x_in, a, reach + 1.0);
+                if part.iter().any(|&(p_lo, p_hi)| {
+                    tab.iter()
+                        .any(|&(t_lo, t_hi)| p_lo.max(t_lo) < p_hi.min(t_hi) - WIDTH)
+                }) {
                     meets = true;
                     break;
                 }

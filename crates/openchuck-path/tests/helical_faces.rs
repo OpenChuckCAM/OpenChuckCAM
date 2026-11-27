@@ -1966,15 +1966,62 @@ fn off_axis_job(mesh: &TriangleMesh, both: bool) -> Job {
 /// end (X -5 to 0), in stock carried on past it, left by earlier
 /// operations.
 fn off_axis_end_with_tab(r: f64) -> Job {
-    let mut job = off_axis_job(&pin_at(90.0), false);
+    with_tabs(&pin_at(90.0), false, &[(-5.0, r)])
+}
+
+/// `mesh` as [`off_axis_job`] makes it, with a tab on the axis of radius `r`
+/// and 5 mm long from each X of `tabs`.
+fn with_tabs(mesh: &TriangleMesh, both: bool, tabs: &[(f64, f64)]) -> Job {
+    let mut job = off_axis_job(mesh, both);
     let along = openchuck_types::geometry::UnitVec3::new(Vec3::new(1.0, 0.0, 0.0)).unwrap();
     let model: std::sync::Arc<dyn SurfaceSource> =
-        std::sync::Arc::new(MeshSurface::new(&pin_at(90.0)).unwrap());
+        std::sync::Arc::new(MeshSurface::new(mesh).unwrap());
     job.surface = Box::new(CompositeSurface::new(
         model,
-        vec![Solid::cylinder(Point3::new(-5.0, 0.0, 0.0), along, 5.0, r).unwrap()],
+        tabs.iter()
+            .map(|&(x, r)| Solid::cylinder(Point3::new(x, 0.0, 0.0), along, 5.0, r).unwrap())
+            .collect(),
     ));
     job
+}
+
+/// A tube on the rotary axis from X `x0` to `x1`, `inner` to `outer` in
+/// radius, with `around` vertices per ring: an end with a hole in it.
+fn tube(inner: f64, outer: f64, (x0, x1): (f64, f64), around: u32) -> TriangleMesh {
+    let mut vertices = Vec::new();
+    for &(x, r) in &[(x0, outer), (x1, outer), (x1, inner), (x0, inner)] {
+        for j in 0..around {
+            let t = std::f64::consts::TAU * f64::from(j) / f64::from(around);
+            vertices.push(Point3::new(x, r * t.cos(), r * t.sin()));
+        }
+    }
+    let at = |i: u32, j: u32| i * around + j % around;
+    let mut triangles = Vec::new();
+    for i in 0..4 {
+        let k = (i + 1) % 4;
+        for j in 0..around {
+            triangles.push([at(i, j), at(k, j + 1), at(k, j)]);
+            triangles.push([at(i, j), at(i, j + 1), at(k, j + 1)]);
+        }
+    }
+    TriangleMesh {
+        vertices,
+        triangles,
+    }
+}
+
+/// The Part cut free warnings of `path` that say a tab does not meet its
+/// end, and how many of them are to acknowledge.
+fn tab_misses(path: &GeneratedPath) -> (usize, usize) {
+    let found: Vec<_> = path
+        .notices
+        .iter()
+        .filter(|n| n.topic.as_deref() == Some("Part cut free") && n.text.contains("does not meet"))
+        .collect();
+    (
+        found.len(),
+        found.iter().filter(|n| n.acknowledgement.is_some()).count(),
+    )
 }
 
 /// Points on a pin's end face at `x`, its centre at `angle` degrees, `step`
@@ -2197,6 +2244,14 @@ fn req_op_04_an_end_in_two_pieces_takes_an_arc_over_each() {
         assert!(worst(l) <= TOLERANCE, "{:.4}", worst(l));
         assert!(deepest(l) >= -TOLERANCE, "{:.4}", deepest(l));
     }
+    // Each lug stops 2.5 mm from the axis, so the last layer is at 2 mm: the
+    // lug opposite is not taken for material at the axis (CodeRabbit on
+    // #968).
+    let lowest = moves_at(&path, NEAR_END)
+        .iter()
+        .map(|(_, b)| height_of(b))
+        .fold(f64::INFINITY, f64::min);
+    assert!((lowest - 2.0).abs() < 1e-6, "{lowest}");
     assert!(
         turns_in_place(&path)
             .iter()
@@ -2500,4 +2555,119 @@ fn req_set_09_req_op_21_an_end_whose_tab_misses_it_is_warned_as_cut_free() {
         cut_free.iter().any(|n| n.acknowledgement.is_some()),
         "{text}"
     );
+}
+
+#[test]
+fn req_set_09_req_op_21_a_tab_inside_the_hole_of_an_end_does_not_meet_it() {
+    // CodeRabbit on #968: a tube's end (radius 4 to 8) with a tab of
+    // radius 2 on the axis inside its hole. The turn down to the tab cuts
+    // the tube free of it, so the Part cut free warnings are given: the
+    // span between the outermost material is not all material.
+    let job = with_tabs(&tube(4.0, 8.0, (0.0, 20.0), 720), false, &[(-5.0, 2.0)]);
+    let path = job.path(&HelicalFinishing, &[("stepdown", 2.0)]);
+    assert_eq!(tab_misses(&path), (2, 1), "{}", messages(&path));
+    // A tab that fills the hole and meets the end is not warned of.
+    let job = with_tabs(&tube(4.0, 8.0, (0.0, 20.0), 720), false, &[(-5.0, 5.0)]);
+    let path = job.path(&HelicalFinishing, &[("stepdown", 2.0)]);
+    assert_eq!(tab_misses(&path), (0, 0), "{}", messages(&path));
+}
+
+#[test]
+fn req_set_09_req_op_21_a_tab_is_checked_against_the_end_at_its_face() {
+    // CodeRabbit on #968: the pin comes 2.5 mm from the axis at its end
+    // face and 1.5 mm from it 1 mm inside. A tab of radius 2 does not meet
+    // the face, however near the part comes further in.
+    let mut mesh = revolve(&[(0.0, 7.5), (1.0, 7.5), (1.0, 8.5), (20.0, 8.5)], 720);
+    for v in &mut mesh.vertices {
+        v.z += 10.0;
+    }
+    let job = with_tabs(&mesh, false, &[(-5.0, 2.0)]);
+    let path = job.path(&HelicalFinishing, &[("stepdown", 2.0)]);
+    assert_eq!(tab_misses(&path), (2, 1), "{}", messages(&path));
+}
+
+#[test]
+fn req_set_09_a_held_region_past_another_cut_does_not_hold_the_part() {
+    // CodeRabbit on #968: tabs that miss both ends of the pin, each with a
+    // held region past it. Each turn cuts the part free of its tab, so
+    // neither held region holds the part: both of the part's warnings are
+    // to acknowledge.
+    let job = with_tabs(&pin_at(90.0), true, &[(-5.0, 2.0), (20.0, 2.0)]);
+    let path = job.path_kept(
+        &HelicalFinishing,
+        &[("stepdown", 2.0)],
+        &[],
+        &[(-5.0, -4.0), (24.0, 25.0)],
+    );
+    assert_eq!(tab_misses(&path).1, 2, "{}", messages(&path));
+    // With the part held directly past its other end and no cut between,
+    // the held region holds it: only the stock's warning is given.
+    let job = with_tabs(&pin_at(90.0), true, &[(-5.0, 2.0)]);
+    let path = job.path_kept(
+        &HelicalFinishing,
+        &[("stepdown", 2.0)],
+        &[],
+        &[(15.0, 25.0)],
+    );
+    assert_eq!(tab_misses(&path), (1, 0), "{}", messages(&path));
+}
+
+#[test]
+fn req_op_04_req_nfr_07_a_small_end_between_coarse_angle_steps_is_faced() {
+    // CodeRabbit on #968: with the largest angle step at 45 degrees, a pin
+    // 6 mm across centred at 22.5 degrees lies between the steps. The face
+    // search finds it; the arcs find it too, so it is not skipped silently.
+    let mut mesh = revolve(&[(0.0, 3.0), (20.0, 3.0)], 720);
+    let (s, c) = 22.5f64.to_radians().sin_cos();
+    for v in &mut mesh.vertices {
+        v.y += 10.0 * c;
+        v.z += 10.0 * s;
+    }
+    let job = off_axis_job(&mesh, false);
+    let path = job.path(
+        &HelicalFinishing,
+        &[("stepdown", 2.0), ("max_angle_step", 45.0)],
+    );
+    let text = messages(&path);
+    assert!(
+        text.contains("does not reach round the rotary axis"),
+        "{text}"
+    );
+    assert!(!moves_at(&path, NEAR_END).is_empty(), "{text}");
+}
+
+#[test]
+fn req_nfr_07_a_stepdown_that_would_make_too_many_points_is_refused() {
+    // CodeRabbit on #968: a tiny Stepdown would make millions of layers
+    // beside an end. It is refused, naming the Stepdown, before any layer
+    // is made: for an end that does not reach round the axis and for one
+    // that does.
+    for (mesh, name) in [(pin_at(90.0), "off the axis"), (pin_at_axis(), "round")] {
+        let job = off_axis_job(&mesh, false);
+        let tag = tags();
+        let input = input_for(job.surface.as_ref(), job.stock.as_ref(), &job.profile, &tag);
+        let values: BTreeMap<String, ParameterValue> = [
+            (names::STEPOVER, STEPOVER),
+            (names::FEED, 600.0),
+            (names::PLUNGE_FEED, 150.0),
+            (names::TOLERANCE, TOLERANCE),
+            ("stepdown", 1.0e-5),
+        ]
+        .into_iter()
+        .map(|(k, x)| (k.to_owned(), ParameterValue::Number(x)))
+        .collect();
+        let started = std::time::Instant::now();
+        let made = run(|ctx| generate(&HelicalFinishing, &input, &values, ctx));
+        let text = made.map(|_| ()).unwrap_err().to_string();
+        assert!(
+            text.contains("Stepdown") && text.contains("too many points"),
+            "{name}: {text}"
+        );
+        assert!(started.elapsed().as_secs() < 60, "{name}");
+    }
+}
+
+/// A pin 15 mm across on the rotary axis from X 0 to 20: a round end.
+fn pin_at_axis() -> TriangleMesh {
+    revolve(&[(0.0, 7.5), (20.0, 7.5)], 720)
 }

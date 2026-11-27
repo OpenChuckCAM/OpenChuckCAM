@@ -193,6 +193,14 @@ pub(crate) fn schema_for(
 /// The angles round the axis the stock is read at for a free end.
 const AROUND: usize = 72;
 
+/// How many angles a turn is sampled at, at least, to find where an end that
+/// does not reach round the rotary axis lies (decision record 0700).
+const SAMPLES_A_TURN: usize = 360;
+
+/// The most points the layers beside the free ends may have, the same limit
+/// as the passes over the part (CodeRabbit on #968).
+const MOST_LAYER_POINTS: f64 = 5.0e6;
+
 /// What facing the free ends gives an operation: the turns, its notes and
 /// its warnings.
 #[derive(Debug, Default)]
@@ -233,8 +241,8 @@ pub(crate) fn free_ends(
     // An end whose tab does not meet it is cut free of the tab by the turn
     // at its face, whether Face free ends is on or not (decision record
     // 0700, case (c)): decision 0344's warnings say so.
-    loose_warnings(input, loose, &mut out.warnings);
     if !parameters.flag(parameter::FACE_FREE_ENDS).unwrap_or(false) {
+        loose_warnings(input, loose, &[], &mut out.warnings);
         return Ok(out);
     }
     let stock = input.stock;
@@ -410,6 +418,20 @@ pub(crate) fn free_ends(
             });
             continue;
         }
+        // A Stepdown so small that the layers would be too many points is
+        // refused before any is made (CodeRabbit on #968), as the passes
+        // over the part are.
+        let made = (top / stepdown).ceil() * (360.0 / step).ceil();
+        if !made.is_finite() || made > MOST_LAYER_POINTS {
+            return Err(PathError::parameter(
+                parameter::STEPDOWN,
+                format!(
+                    "a Stepdown of {stepdown} mm over the {top:.3} mm beside the end face at X \
+                     {face:.3} is too many points ({made:.0} at {step} degrees); increase the \
+                     Stepdown"
+                ),
+            ));
+        }
         let side = input.tool.cutting_radius();
         // How deep the end is faced: to the axis for an end round it; for
         // one to one side of it, to its lowest radius (decision 0700).
@@ -448,6 +470,21 @@ pub(crate) fn free_ends(
                 parameters,
             )?
             else {
+                // Not found again where the face search found it: said, not
+                // skipped (CodeRabbit on #968).
+                out.warnings.push(Notice {
+                    level: Level::Warning,
+                    topic: Some(topic::FREE_ENDS.to_owned()),
+                    segment: None,
+                    text: format!(
+                        "the end face at X {face:.3} has nothing beyond it but is not faced: \
+                         the tool finds no part beside it to face down to, and it keeps what \
+                         earlier operations left. Face it with a Facing operation, and check \
+                         the path before you run it"
+                    ),
+                    setting: Some(parameter::FACE_FREE_ENDS.to_owned()),
+                    acknowledgement: None,
+                });
                 continue;
             };
             out.passes.extend(arcs.passes);
@@ -532,11 +569,15 @@ pub(crate) fn free_ends(
     // stock past it, but an end beside a tab is never a free end (decision
     // record 0344 item 4), so the held regions are what count here.
     for (i, &(x, face, far, from, to, depth)) in rings.iter().enumerate() {
+        // Another cut between the ring and a held region parts them too: a
+        // ring, or the turn beside an end whose tab misses it (CodeRabbit
+        // on #968).
         let between = |held: f64| {
             rings
                 .iter()
                 .enumerate()
                 .any(|(j, &(other, ..))| j != i && (other - x) * (held - other) > 0.0)
+                || loose.iter().any(|l| (l.face - x) * (held - l.face) > 0.0)
         };
         let held = input.keep_out.iter().any(|&(a, b)| {
             if far {
@@ -570,21 +611,25 @@ pub(crate) fn free_ends(
             });
         }
     }
+    let cuts: Vec<f64> = rings.iter().map(|r| r.0).collect();
+    loose_warnings(input, loose, &cuts, &mut out.warnings);
     Ok(out)
 }
 
 /// Decision 0344's two Part cut free warnings for the ends beside a tab that
 /// does not meet them (decision record 0700, case (c)): the stock past the
 /// end, unless a held region past it grips it, and the part itself, unless
-/// a held region on its side holds it (a possible collision to
-/// acknowledge, decision 0538).
+/// a held region on its side holds it with no other cut between them (the
+/// `rings` at their X, or another such end's turn; CodeRabbit on #968) (a
+/// possible collision to acknowledge, decision 0538).
 fn loose_warnings(
     input: &StrategyInput<'_>,
     loose: &[crate::faces::LooseEnd],
+    rings: &[f64],
     warnings: &mut Vec<Notice>,
 ) {
     let extent = input.stock.x_extent();
-    for end in loose {
+    for (i, end) in loose.iter().enumerate() {
         let (from, to) = end.span;
         let face = end.face;
         let past = match extent {
@@ -612,10 +657,26 @@ fn loose_warnings(
                 acknowledgement: None,
             });
         }
-        let held = input
-            .keep_out
-            .iter()
-            .any(|&(a, b)| if end.far { b < face } else { a > face });
+        let between = |held: f64| {
+            rings
+                .iter()
+                .copied()
+                .chain(
+                    loose
+                        .iter()
+                        .enumerate()
+                        .filter(|&(j, _)| j != i)
+                        .map(|(_, l)| l.face),
+                )
+                .any(|cut| (cut - face) * (held - cut) > 0.0)
+        };
+        let held = input.keep_out.iter().any(|&(a, b)| {
+            if end.far {
+                b < face && !between(b)
+            } else {
+                a > face && !between(a)
+            }
+        });
         if !held {
             warnings.push(Notice {
                 level: Level::Warning,
@@ -742,6 +803,41 @@ struct Arcs {
     nearest: f64,
 }
 
+/// Where the surface is solid along the line through the rotary axis at X
+/// `x` and A `a`: the heights along the tool axis, from `reach` on the side
+/// of `a` down to `reach` on the other side, as (low, high) intervals,
+/// highest first. A ray down the line meets the surface where it goes in
+/// and where it comes out, so a hole or a gap between two lugs is kept
+/// (decision record 0700; CodeRabbit on #968), where a drop from each side
+/// gives only the outermost material.
+pub(crate) fn occupied(input: &StrategyInput<'_>, x: f64, a: f64, reach: f64) -> Vec<(f64, f64)> {
+    let line = input
+        .rotary
+        .tool_line(Millimetres(x), Degrees(a), Millimetres(0.0));
+    let Ok(down) = UnitVec3::new(line.axis.get() * -1.0) else {
+        return Vec::new();
+    };
+    let mut heights = Vec::new();
+    let mut from = reach;
+    // A part has few walls along one line; the bound only stops a broken
+    // surface from looping (NFR-07).
+    while heights.len() < 256 && from > -reach {
+        let Some(hit) = input.surface.cast_ray(line.at(from), down, from + reach) else {
+            break;
+        };
+        let h = from - hit.distance;
+        heights.push(h);
+        from = h - 1.0e-7;
+    }
+    heights
+        .chunks_exact(2)
+        .filter_map(|p| match p {
+            &[high, low] => Some((low, high)),
+            _ => None,
+        })
+        .collect()
+}
+
 /// The arcs that face the free end `end`, which does not reach round the
 /// rotary axis (decision record 0700, the owner's improved B; issue #834).
 ///
@@ -774,9 +870,17 @@ fn arcs(
     let side = input.tool.cutting_radius();
     let lift = input.tool.height_at(side).unwrap_or(0.0);
     let radius = grown.cutting_radius();
-    let n = ((360.0 / step).ceil() as usize).max(4);
+    // Sampled at a degree or finer, whatever the largest angle step, so an
+    // end the face search found between two steps is found here too
+    // (CodeRabbit on #968); the arcs themselves keep the step.
+    let n = ((360.0 / step).ceil() as usize).max(SAMPLES_A_TURN);
     let da = 360.0 / n as f64;
     let inside = end.face + toward * radius;
+    let bounds = input.surface.bounds();
+    let reach = [bounds.min.y, bounds.max.y, bounds.min.z, bounds.max.z]
+        .into_iter()
+        .fold(0.0_f64, |r, v| r.max(v.abs()))
+        + 1.0;
     // A probe a fiftieth of a millimetre wide: how near the axis the part
     // comes along the tool's own line, not beside it (the tool's side
     // reaches a point beside the line from that point's own angle).
@@ -791,15 +895,18 @@ fn arcs(
             .map(|c| input.rotary.to_axis(c.tip, Degrees(a)).height)
     };
     // At each angle, where the face is on the line: how near the axis the
-    // part comes along it (0 where the part lies on both sides of the axis).
+    // part comes along it, the inner edge of the material the line meets
+    // first (0 where that material goes on across the axis). A hole, or a
+    // lug on the other side, is not taken for material at the axis.
     let samples: Vec<Option<f64>> = (0..n)
         .map(|k| {
             let a = start + da * k as f64;
             let near = drop(a).filter(|&h| h > 0.0)?;
-            Some(match drop(a + 180.0) {
-                Some(h) if h < 0.0 => (-h).min(near),
-                _ => 0.0,
-            })
+            let inner = occupied(input, inside, a, reach)
+                .into_iter()
+                .find(|&(lo, hi)| hi > 0.0 && lo < near)
+                .map_or(0.0, |(lo, _)| lo);
+            Some(inner.clamp(0.0, near))
         })
         .collect();
     let Some(nearest) = samples.iter().flatten().copied().reduce(f64::min) else {

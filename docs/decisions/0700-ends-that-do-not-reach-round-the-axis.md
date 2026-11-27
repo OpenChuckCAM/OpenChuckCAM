@@ -28,7 +28,10 @@ Probes on public and synthetic parts (a pin 15 mm across with its axis 10 mm off
    - its face is square to the rotary axis: the edge measured along each line that finds it, with a thin probe, spreads by no more than one sample step. An end that leans is not faced (item 5).
    An end found on every line, within one sample as before, is a *round* end and is faced as 0344 says, byte for byte. Grazing lines see the edge of an off-axis end up to one tool radius later than square-on lines, so for an end not found on every line the lines are matched within one tool radius (plus a sample) of each other.
 2. **The arcs (B-improved; amends 0344 item 5).** An end that does not reach round the axis is faced in nested, layered arcs down to its nearest point to the axis (the owner's "a whole turn where the arcs cover nearly a turn" is item 2's last point):
-   - The nearest radius at each angle is measured with a thin probe (a flat end 0.02 mm across) one tool radius past the face, on the part alone.
+   - Where the face is at each angle is found with a thin probe (a flat end 0.02 mm across) one tool radius past the face, on the part alone, at a degree apart or finer whatever the largest angle step, so an end the face search found between two steps is found here too.
+   - The nearest radius at each angle is the inner edge of the material that line meets first, from a ray down the line: a hole in the end, or a lug on the other side of the axis, is not taken for material at the axis.
+   - An end found by the face search where no angle then finds its face is not skipped silently: a warning says it is not faced and names a Facing operation.
+   - A Stepdown so small that the layers beside an end would be more than 5,000,000 points is refused, naming the Stepdown, as the passes over the part are; this applies to the whole turns at a round end too.
    - Layers are at whole Stepdowns, as 0344's, from the highest below the stock beside the end to the last above the end's nearest point. Each angle is cut in each layer at or above its own lowest layer, so each layer's arc lies within the arc above it.
    - Each arc runs over the angles where the face is at that layer, widened by one sample at each end; an end in two pieces (two lugs) takes an arc over each.
    - Where the face is found at every sampled angle in a layer, a whole turn is cut there instead of an arc. Because each arc is widened by one sample at each end, a gap of one or two samples is cut over as well, so arcs that cover nearly a turn are cut as one.
@@ -43,6 +46,8 @@ Probes on public and synthetic parts (a pin 15 mm across with its axis 10 mm off
    - **(a) A tab meets the end face.** The end is left to 0297's existing turn, which faces it down to the tab, unchanged. No arcs and no new note.
    - **(b) No tab.** The end gets the arcs (item 2) and decision 0344's two Part cut free warnings (item 7).
    - **(c) A tab past the end that does not meet the face.** 0297's turn is unchanged; it faces the end down to the tab, which cuts the part free of the tab. Only the Part cut free warnings are added: the stock past it, where nothing grips that stock, and the part itself, where nothing in the setup holds the part on its other side. The part's warning is a possible collision to acknowledge before the files are written (decision 0538). These warnings are given whether or not Face free ends is on, as the turn is 0297's.
+   - Whether a tab meets the face is read just inside the face (past the turn's clearance), along each line, from the material a ray down the line meets: a tab inside a hole in the end, or one the part comes near only further in, does not meet it.
+   - A held region holds the part only if no other cut lies between them: another such turn, or a ring or arcs at a free end. The same applies to the rings' part-side warning.
    - **This is a visible change for saved projects** with such a tab: such a project made again gives the warning, and writing its files then waits for the acknowledgement (on the command line, `--acknowledge-collision-warnings`).
 7. **Warnings (amends 0344 item 8).** The two Part cut free warnings are given for the arcs as for the rings, with "in arcs down to … mm from the rotary axis" for "down to the rotary axis" and "beside the whole face, in arcs" for "a ring". A round end's wording is unchanged.
 8. **Notes (amends 0344 item 9).** An end faced in arcs says so: "the end face at X … has nothing beyond it and does not reach round the rotary axis (its nearest point is … mm from it): the tool goes down beside it in N layers of … mm to … mm from the axis, in arcs over the angles where the face is". There is no note for an end of case (a) or (c). A round end's note is unchanged.
@@ -108,5 +113,18 @@ Both app tests were seen failing with the case (c) warnings switched off, and pa
 - the whole turn inside `arcs` where the face is found at every sampled angle in a layer (item 2): on an end that does not reach round the axis some angles miss the face, so the synthetic and CrankShaft cases do not reach it; it is kept so that such a layer is not cut as one arc of 360° with an overlap;
 - defensive branches (NFR-07): an empty or unbounded surface, a candidate with no line near it, a line whose section is not found, no sampled angle finding the face, a stock of no known X extent, and the cancellation check.
 
+
+### CodeRabbit's review of `77621ec1` (pull request #968)
+
+Six Major findings were checked against the code and are valid; each is fixed in the release push, with a test written first and seen failing on `77621ec1`:
+
+- **A hole in the end** (`faces.rs`): the tab check took the span between the outermost material for the part's section, so a tab inside a tube's hole met it. `req_set_09_req_op_21_a_tab_inside_the_hole_of_an_end_does_not_meet_it` (a tube of radius 4 to 8, a tab of radius 2: warned; of radius 5: not).
+- **The tab checked at the face** (`faces.rs`): the part was read a tool radius inside the face. `req_set_09_req_op_21_a_tab_is_checked_against_the_end_at_its_face` (a pin 2.5 mm from the axis at its face and 1.5 mm from it 1 mm in).
+- **Opposite lugs** (`finishing.rs`, `arcs`): a lug across the axis was taken for material at the axis, so the arcs went down to it. `req_op_04_an_end_in_two_pieces_takes_an_arc_over_each` now asserts the last layer at 2 mm (it was 0).
+- **A held region past another cut** (`finishing.rs`): `req_set_09_a_held_region_past_another_cut_does_not_hold_the_part` (tabs missing both ends, held past each: both of the part's warnings to acknowledge; held directly past the other end: only the stock's).
+- **An end between coarse angle steps** (`finishing.rs`, `arcs`): `req_op_04_req_nfr_07_a_small_end_between_coarse_angle_steps_is_faced` (a pin 6 mm across at 22.5 degrees, largest angle step 45 degrees).
+- **A tiny Stepdown** (`finishing.rs`): `req_nfr_07_a_stepdown_that_would_make_too_many_points_is_refused`, for an end off the axis and a round one; both refused in under 2 s (dev profile), where it ran for over a minute before. Cancellation is not added: the free ends take no job context, and the limit bounds the work.
+
+Two Minor findings (the Meander test checks only that both directions occur, not that consecutive arcs alternate; the nesting test compares arc widths, not containment) and one Trivial one (the app test's temporary folder) are answered on the pull request and ticketed to the coordinator.
 
 Not done: no air or wood cut. Generated G-code remains the user's to verify before it is run on a machine (NFR-12).

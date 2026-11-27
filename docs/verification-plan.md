@@ -506,6 +506,7 @@ With [decision 0390](decisions/0390-helical-finishing-in-rings.md), accepted 31 
 - **Warnings and notes.** The note names the end, its nearest point and the layers; the two Part cut free warnings are given, worded for the arcs, and a held region past the end leaves only the stock's one; on the setup's own stock the note says so. A leaning end is not faced and is warned, naming a Facing operation, with Shape End where the far end is the only one held.
 - **Tabs.** A tab that meets the end is faced down to the tab as before (decision 0297); a tab that misses it gives the Part cut free warnings, the part's one to acknowledge. In a saved project opened again, the possible collision is listed and writing waits for its acknowledgement; it is given with Face free ends off too (`crates/openchuck-app/tests/off_axis_ends.rs`).
 - **Determinism.** The same arcs at 1, 2 and N threads.
+- **Sections and limits** (CodeRabbit on #968). A tab inside a tube's hole does not meet its end, and one the part comes near only inside the face does not either; a held region past another cut does not hold the part; two opposite lugs are faced to their own nearest point (2 mm), not the axis; a pin between two 45-degree angle steps is found and faced; a Stepdown that would make more than 5,000,000 points beside an end is refused, naming it.
 
 **Tool sizes and template namespaces** ([decision 0679](decisions/0679-tool-size-limit-and-template-namespace-cycles.md), accepted 23 Nov 2026, relayed; issues #628, #794, #582). TL-02, TL-03, TL-04, GC-03, NFR-07.
 
