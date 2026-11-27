@@ -745,17 +745,8 @@ fn find(
 /// how many and where, so the user knows the path differs from a plain helix
 /// there (decision record 0297). `None` with no turns.
 pub(crate) fn note(turns: &[f64]) -> Option<Notice> {
-    let (last, rest) = turns.split_last()?;
-    let at = |x: &f64| format!("{x:.3}");
-    let xs = if rest.is_empty() {
-        at(last)
-    } else {
-        format!(
-            "{} and {}",
-            rest.iter().map(at).collect::<Vec<_>>().join(", "),
-            at(last)
-        )
-    };
+    let (_, rest) = turns.split_last()?;
+    let xs = crate::words::x_list(turns);
     let (count, shoulders, at_x, each) = if rest.is_empty() {
         ("a step".to_owned(), "a shoulder", "at", "the")
     } else {
@@ -769,7 +760,7 @@ pub(crate) fn note(turns: &[f64]) -> Option<Notice> {
     Some(
         Notice::information(format!(
             "the part has {count} across the rotary axis ({shoulders} facing along X): the tool \
-             makes one extra turn round the axis, without moving along it, {at_x} X {xs}, so \
+             makes one extra turn round the axis, without moving along it, {at_x} {xs}, so \
              {each} shoulder keeps only the stock to leave"
         ))
         .about(topic::SHOULDERS),
@@ -781,17 +772,8 @@ pub(crate) fn note(turns: &[f64]) -> Option<Notice> {
 /// operations left (decision record 0343). Material is left uncut, so it is
 /// a warning (decision record 0536 step 2). `None` with none.
 pub(crate) fn held_warning(held: &[f64]) -> Option<Notice> {
-    let (last, rest) = held.split_last()?;
-    let at = |x: &f64| format!("{x:.3}");
-    let xs = if rest.is_empty() {
-        at(last)
-    } else {
-        format!(
-            "{} and {}",
-            rest.iter().map(at).collect::<Vec<_>>().join(", "),
-            at(last)
-        )
-    };
+    let (_, rest) = held.split_last()?;
+    let xs = crate::words::x_list(held);
     let (faces, keeps) = if rest.is_empty() {
         (
             "a step across the rotary axis (a shoulder facing along X)",
@@ -805,7 +787,7 @@ pub(crate) fn held_warning(held: &[f64]) -> Option<Notice> {
     };
     Some(
         Notice::warning(format!(
-            "the tool does not turn at {faces} at X {xs}: there it would reach over the gripped \
+            "the tool does not turn at {faces} at {xs}: there it would reach over the gripped \
          length of the stock, so {keeps} what earlier operations left"
         ))
         .about(topic::HELD_REGION),
@@ -826,25 +808,15 @@ pub(crate) fn face_of(x: f64, up: bool, radius: f64, tolerance: f64) -> f64 {
 /// flat end can finish (decision record 0410, issue #439). Material is left,
 /// so it is a warning (decision record 0536 step 2). `None` with none.
 pub(crate) fn corner_warning(faces: &[f64], radius: f64) -> Option<Notice> {
-    let (last, rest) = faces.split_last()?;
-    // A face at X 0 found a hair below it reads 0.000, not -0.000.
-    let at = |x: &f64| format!("{:.3}", if x.abs() < 5e-4 { 0.0 } else { *x });
-    let xs = if rest.is_empty() {
-        at(last)
-    } else {
-        format!(
-            "{} and {}",
-            rest.iter().map(at).collect::<Vec<_>>().join(", "),
-            at(last)
-        )
-    };
+    let (_, rest) = faces.split_last()?;
+    let xs = crate::words::x_list(faces);
     let (a_face, meet, it) = if rest.is_empty() {
         ("a face", "meets", "it")
     } else {
         ("faces", "meet", "them")
     };
     Some(Notice::warning(format!(
-        "at X {xs} {a_face} across the rotary axis {meet} a section that does not surround the axis \
+        "at {xs} {a_face} across the rotary axis {meet} a section that does not surround the axis \
          in an inside corner: where a corner is sharper than the tool's radius, this tool's round \
          end (radius {radius:.3} mm) leaves up to about {:.2} mm across it; a flat end can finish \
          {it}",
@@ -969,13 +941,13 @@ mod tests {
     fn req_op_04_the_note_says_where_the_tool_turns() {
         assert_eq!(note(&[]), None);
         assert_eq!(
-            note(&[8.4115]).unwrap().text,
+            crate::words::plain(&note(&[8.4115]).unwrap().text),
             "the part has a step across the rotary axis (a shoulder facing along X): the tool \
              makes one extra turn round the axis, without moving along it, at X 8.412, so the \
              shoulder keeps only the stock to leave"
         );
         assert_eq!(
-            note(&[1.0, 2.0, 3.5]).unwrap().text,
+            crate::words::plain(&note(&[1.0, 2.0, 3.5]).unwrap().text),
             "the part has 3 steps across the rotary axis (shoulders facing along X): the tool \
              makes one extra turn round the axis, without moving along it, at each of X 1.000, \
              2.000 and 3.500, so each shoulder keeps only the stock to leave"
@@ -991,13 +963,13 @@ mod tests {
         assert!(one.is_warning(), "{one:?}");
         assert_eq!(one.topic.as_deref(), Some(topic::HELD_REGION));
         assert_eq!(
-            one.text,
+            crate::words::plain(&one.text),
             "the tool does not turn at a step across the rotary axis (a shoulder facing along \
              X) at X 31.589: there it would reach over the gripped length of the stock, so that \
              shoulder keeps what earlier operations left"
         );
         assert_eq!(
-            held_warning(&[1.0, 2.5]).unwrap().text,
+            crate::words::plain(&held_warning(&[1.0, 2.5]).unwrap().text),
             "the tool does not turn at steps across the rotary axis (shoulders facing along X) \
              at X 1.000 and 2.500: there it would reach over the gripped length of the stock, \
              so those shoulders keep what earlier operations left"
@@ -1064,15 +1036,13 @@ mod tests {
         // material left makes it a warning (decision record 0536 step 2).
         assert_eq!(corner_warning(&[], 1.5875), None);
         assert!(
-            corner_warning(&[-1e-5, 40.0], 1.0)
-                .unwrap()
-                .text
+            crate::words::plain(&corner_warning(&[-1e-5, 40.0], 1.0).unwrap().text)
                 .starts_with("at X 0.000 and 40.000 ")
         );
         let one = corner_warning(&[15.0], 3.0).unwrap();
         assert!(one.is_warning(), "{one:?}");
         assert_eq!(one.topic.as_deref(), Some(topic::INSIDE_CORNERS));
-        let one = one.text;
+        let one = crate::words::plain(&one.text);
         assert!(
             one.starts_with("at X 15.000 a face across the rotary axis meets a section"),
             "{one}"
@@ -1082,7 +1052,7 @@ mod tests {
             "{one}"
         );
         assert!(one.ends_with("a flat end can finish it"), "{one}");
-        let two = corner_warning(&[10.0, 25.0], 1.5875).unwrap().text;
+        let two = crate::words::plain(&corner_warning(&[10.0, 25.0], 1.5875).unwrap().text);
         assert!(
             two.starts_with("at X 10.000 and 25.000 faces across the rotary axis meet"),
             "{two}"

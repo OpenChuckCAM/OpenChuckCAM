@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.77.0
+
+- **Family release (0.77.0; WORK-FRAME, WF-1):** `openchuck-types` writes a position in a message from the work zero and `openchuck-path` follows it; no change to this crate.
+
 ## 0.74.0
 
 - **Family release (0.74.0; PATH-QUALITY; issue #834):** `openchuck-path` faces the ends that do not reach round the rotary axis in arcs, with a new Cutting direction setting, and warns where a tab misses an end; no change to this crate.

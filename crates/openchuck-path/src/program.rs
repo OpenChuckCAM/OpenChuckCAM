@@ -221,7 +221,7 @@ fn check_boundary(
     // whole-group A limits above are required for equivalent placement.
     if !options.machine.travel.contains(xyz) {
         return Err(refuse(&format!(
-            "connection position ({:.6}, {:.6}, {:.6}) exceeds the machine's linear travel",
+            "connection position (machine X {:.6}, Y {:.6}, Z {:.6}) exceeds the machine's linear travel",
             xyz.x, xyz.y, xyz.z
         )));
     }

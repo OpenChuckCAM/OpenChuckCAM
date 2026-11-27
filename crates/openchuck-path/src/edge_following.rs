@@ -719,9 +719,11 @@ fn sites(input: &StrategyInput<'_>, points: &[Point3], on_surface: bool) -> Resu
             return Err(PathError::refused(
                 crate::topic::EDGE_FOLLOWING,
                 format!(
-                    "a chain passes within {MIN_RADIUS} mm of the rotary axis at ({:.3}, {:.3}, \
+                    "a chain passes within {MIN_RADIUS} mm of the rotary axis at ({}, {:.3}, \
                      {:.3}), where A cannot face it; edge following cannot cut it",
-                    p.x, p.y, p.z
+                    crate::words::n(p.x),
+                    p.y,
+                    p.z
                 ),
             ));
         }
@@ -742,9 +744,11 @@ fn sites(input: &StrategyInput<'_>, points: &[Point3], on_surface: bool) -> Resu
                 PathError::refused(
                     crate::topic::EDGE_FOLLOWING,
                     format!(
-                        "a point of a curve at ({:.3}, {:.3}, {:.3}) does not project onto the \
+                        "a point of a curve at ({}, {:.3}, {:.3}) does not project onto the \
                          surface along the tool axis",
-                        p.x, p.y, p.z
+                        crate::words::n(p.x),
+                        p.y,
+                        p.z
                     ),
                 )
             })?

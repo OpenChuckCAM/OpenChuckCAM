@@ -266,7 +266,13 @@ fn flat_completion(
         let grips = face
             .unfaced
             .iter()
-            .map(|u| format!("X {:.3} to {:.3}", u.held.0, u.held.1))
+            .map(|u| {
+                format!(
+                    "{xp1} to {xp2}",
+                    xp1 = crate::words::x(u.held.0),
+                    xp2 = crate::words::n(u.held.1)
+                )
+            })
             .collect::<Vec<_>>()
             .join(" and ");
         return Err(refuse(&format!(

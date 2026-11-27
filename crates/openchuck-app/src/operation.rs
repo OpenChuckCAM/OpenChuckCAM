@@ -1117,6 +1117,12 @@ fn generate_unnamed(
             (None, None) => strategy,
         },
     };
+    // The path library writes every position in what it tells the user from
+    // the setup's work zero, the origin the G-code and the viewport use
+    // (decision record 0699).
+    let framed =
+        context.with_work_frame(openchuck_types::position::WorkFrame::of_setup(&setup.frame));
+    let context = &framed;
     let path = if zones.is_empty() {
         match &constraint {
             Some(region) => generate_in_region(strategy, &input, region, &values, context)?,

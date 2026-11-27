@@ -907,14 +907,14 @@ impl FacePath {
             ),
         };
         Some(format!(
-            "Swarf on face {} cuts into the finished surface by {:.4} mm at ({:.3}, {:.3}, \
+            "Swarf on face {} cuts into the finished surface by {:.4} mm at ({}, {:.3}, \
              {:.3}), more than this operation's tolerance of {tolerance} mm.{}{}{own}{accept} To \
              cut less into the face, use a tool with a smaller tool radius or the taper named \
              here, or machine this face with another strategy. The program is made with this cut \
              in it: check the program and the simulation before running it.",
             self.number,
             self.gouge,
-            self.gouge_at.x,
+            crate::words::n(self.gouge_at.x),
             self.gouge_at.y,
             self.gouge_at.z,
             self.describe_twist(),
@@ -1003,12 +1003,12 @@ impl FacePath {
                     .to_owned()
             };
             return Some(format!(
-                "swarf on face {} would leave {:.4} mm beyond the stock to leave at ({:.3}, \
+                "swarf on face {} would leave {:.4} mm beyond the stock to leave at ({}, \
                  {:.3}, {:.3}), more than the max_material_left of {max_material_left} \
                  mm.{}{}{change}",
                 self.number,
                 self.left,
-                self.left_at.x,
+                crate::words::n(self.left_at.x),
                 self.left_at.y,
                 self.left_at.z,
                 self.describe_twist(),
@@ -1026,9 +1026,12 @@ impl FacePath {
         let fit = self.detection.fit(self.family);
         let left = if self.left > tolerance {
             format!(
-                " It leaves up to {:.4} mm beyond the stock to leave at ({:.3}, {:.3}, {:.3}), \
+                " It leaves up to {:.4} mm beyond the stock to leave at ({}, {:.3}, {:.3}), \
                  within the max_material_left of {max_material_left} mm.",
-                self.left, self.left_at.x, self.left_at.y, self.left_at.z
+                self.left,
+                crate::words::n(self.left_at.x),
+                self.left_at.y,
+                self.left_at.z
             )
         } else {
             String::new()

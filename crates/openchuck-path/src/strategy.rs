@@ -497,7 +497,31 @@ pub fn generate_in_zones(
     generate_with(strategy, input, region, zones, values, context)
 }
 
+/// Runs the strategy and writes every position in what it tells the user in
+/// the work frame of the context (decision record 0699): the strategies and
+/// the shared services work in the setup frame, and a message writes a
+/// position with [`crate::words`], which this settles once, so no message
+/// has to know the setup's work zero.
 fn generate_with(
+    strategy: &dyn Strategy,
+    input: &StrategyInput<'_>,
+    region: Option<&RegionConstraint<'_>>,
+    zones: &[LeaveZone<'_>],
+    values: &BTreeMap<String, ParameterValue>,
+    context: &JobContext<'_>,
+) -> Result<GeneratedPath> {
+    let frame = context.work_frame();
+    generate_unsettled(strategy, input, region, zones, values, context)
+        .map(|mut path| {
+            for notice in &mut path.notices {
+                notice.text = crate::words::settle(&notice.text, frame);
+            }
+            path
+        })
+        .map_err(|error| error.settled(frame))
+}
+
+fn generate_unsettled(
     strategy: &dyn Strategy,
     input: &StrategyInput<'_>,
     region: Option<&RegionConstraint<'_>>,
@@ -851,9 +875,9 @@ fn check_clear(path: &GeneratedPath, keep_out: &[(f64, f64)], mid: f64) -> Resul
             return Err(PathError::refused(
                 crate::topic::HELD_REGION,
                 format!(
-                    "a move at X {:.3} mm would reach over {names}, where the workholding grips the \
+                    "a move at {xp1} mm would reach over {names}, where the workholding grips the \
                  stock; change the entry or the link settings",
-                    to.x
+                    xp1 = crate::words::x(to.x)
                 ),
             ));
         }
@@ -1255,7 +1279,7 @@ mod tests {
         );
         let error = check_clear(&path(&[(MoveKind::LeadIn, 38.0)]), &both, MID).unwrap_err();
         assert_eq!(
-            error.to_string(),
+            error.settled(Default::default()).to_string(),
             "Held region: a move at X 38.000 mm would reach over the held region at the end of \
              the stock, where the workholding grips the stock; change the entry or the link settings"
         );
@@ -1313,7 +1337,14 @@ mod tests {
         // An entry that runs into it is not.
         let entry = path(&[(MoveKind::LeadIn, -7.0), (MoveKind::Cutting, -2.0)]);
         let error = check_clear(&entry, &KEEP_OUT, MID).unwrap_err();
-        assert!(error.to_string().contains("X -7.000"), "{error}");
+        assert!(
+            error
+                .clone()
+                .settled(Default::default())
+                .to_string()
+                .contains("X -7.000"),
+            "{error}"
+        );
         // A link at feed that crosses it is not either.
         let link = path(&[(MoveKind::Linking, -20.0)]);
         assert!(check_clear(&link, &KEEP_OUT, MID).is_err());

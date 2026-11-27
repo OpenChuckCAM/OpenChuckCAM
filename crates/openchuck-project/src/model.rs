@@ -1824,6 +1824,7 @@ pub fn check_setup_values(s: &Setup) -> Result<(), ProjectError> {
     Ok(validate_workholding(
         &s.workholding,
         s.stock.as_ref(),
+        openchuck_types::position::WorkFrame::of_setup(&s.frame),
         &field,
     )?)
 }

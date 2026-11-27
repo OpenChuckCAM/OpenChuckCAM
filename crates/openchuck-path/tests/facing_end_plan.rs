@@ -14,6 +14,7 @@ use openchuck_types::geometry::{Aabb, Point3};
 use openchuck_types::job::{CancelToken, JobContext, NoProgress};
 use openchuck_types::machine::MachineProfile;
 use openchuck_types::mesh::TriangleMesh;
+use openchuck_types::position::WorkFrame;
 use openchuck_types::stock::Stock;
 use openchuck_types::tool::{Tool, ToolShape};
 use openchuck_types::units::Millimetres;
@@ -1211,6 +1212,7 @@ fn req_nfr_07_req_op_24_an_end_deeper_than_two_sides_reach_refuses_with_remedies
     )
     .unwrap_err()
     .to_string();
+    let error = openchuck_path::settle(&error, WorkFrame::default());
     for words in [
         "X 50.200",
         "10.000 mm of flute",
@@ -1311,6 +1313,7 @@ fn req_op_24_facing_an_end_flush_with_the_stock_says_there_is_nothing_past_it() 
     let token = CancelToken::new();
     let ctx = JobContext::new(&token, &NoProgress);
     let text = plan_end(&setup, &settings(), &ctx).unwrap_err().to_string();
+    let text = openchuck_path::settle(&text, WorkFrame::default());
     assert!(
         text.contains("the stock ends at the part's end at X 50.000")
             && text.contains("there is no stock past this end to face")
@@ -1330,6 +1333,7 @@ fn req_op_24_facing_an_end_flush_with_the_stock_says_there_is_nothing_past_it() 
         ..setup
     };
     let text = plan_end(&start, &settings(), &ctx).unwrap_err().to_string();
+    let text = openchuck_path::settle(&text, WorkFrame::default());
     assert!(
         text.contains("the stock ends at the part's end at X 10.000")
             && text.contains("there is no stock past this end to face"),
@@ -1369,6 +1373,7 @@ fn req_op_24_facing_a_flush_end_with_no_stock_to_leave_says_there_is_nothing_pas
         ..settings()
     };
     let text = plan_end(&setup, &flush, &ctx).unwrap_err().to_string();
+    let text = openchuck_path::settle(&text, WorkFrame::default());
     assert!(
         text.contains("the stock ends at the part's end at X 50.000")
             && text.contains("there is no stock past this end to face"),

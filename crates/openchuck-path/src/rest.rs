@@ -761,10 +761,12 @@ fn wall_note(rings: &[f64], target: f64) -> Option<Notice> {
     };
     Some(
         Notice::information(format!(
-            "rest machining added {} between X {first:.3} and {last:.3}{apart} where its \
+            "rest machining added {} between {xp1} and {xp2}{apart} where its \
              tool's side meets a wall with material left, so that a steep wall keeps about \
              {target} mm or less between them",
-            crate::counted(rings.len(), "ring", "rings")
+            crate::counted(rings.len(), "ring", "rings"),
+            xp1 = crate::words::x(*first),
+            xp2 = crate::words::n(*last)
         ))
         .about(topic::RINGS),
     )

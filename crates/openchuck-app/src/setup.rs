@@ -583,8 +583,8 @@ mod tests {
         );
         for words in [
             "Stock (setup 'Setup 1'): ",
-            "he stock starts at X -1.000, 1.000 mm inside the headstock (X 0 is the headstock \
-             face on the Makera Z1).",
+            "he stock starts at X -1.000 from the rotary reference point, 1.000 mm inside the \
+             headstock (that point is the headstock face on the Makera Z1).",
             "set the stock's Start X (X from, for a box) to at least that",
         ] {
             assert!(text.contains(words), "{words}: {text}");
@@ -615,6 +615,7 @@ mod tests {
                 value: -263.16,
                 min: -207.0,
                 max: -1.0,
+                setup_x: Some(-64.77),
             },
             unconfirmed: Vec::new(),
         };
@@ -637,6 +638,7 @@ mod tests {
                 value: 4.0,
                 min: -207.0,
                 max: -1.0,
+                setup_x: Some(202.39),
             },
             unconfirmed: Vec::new(),
         };
@@ -660,7 +662,7 @@ mod tests {
         // the library's.
         let plain = crate::overview::setup_warning_in_form("S", &warning, None);
         assert!(
-            plain.contains("is at machine X -263.160, outside the travel"),
+            plain.contains("is at X -64.770 (machine X -263.160), outside the travel"),
             "{plain}"
         );
     }

@@ -253,6 +253,7 @@ impl Workholding {
 pub fn validate_workholding(
     workholding: &Workholding,
     stock: Option<&Stock>,
+    frame: crate::position::WorkFrame,
     field: &str,
 ) -> Result<()> {
     for (name, region) in [("start", &workholding.start), ("end", &workholding.end)] {
@@ -327,8 +328,9 @@ pub fn validate_workholding(
             return Err(Error::invalid(
                 format!("{f}.x_start"),
                 format!(
-                    "the tab (X {lo:.3} to {hi:.3}) is not inside the stock (X {:.3} to {:.3})",
-                    stock_x.0, stock_x.1
+                    "the tab ({}) is not inside the stock ({})",
+                    frame.x_span(lo, hi),
+                    frame.x_span(stock_x.0, stock_x.1)
                 ),
             ));
         }
@@ -546,6 +548,7 @@ mod tests {
     #![allow(clippy::unwrap_used, clippy::indexing_slicing)]
     use super::*;
     use crate::geometry::{Aabb, Point3};
+    use crate::position::WorkFrame;
 
     fn grip_case(start: Option<f64>, end: Option<f64>) -> Vec<SetupWarningKind> {
         // The owner's blisk: stock X 0 to 60, part X 5 to 59.175.
@@ -880,9 +883,29 @@ mod tests {
         w.tabs[0].length = Millimetres(20.0);
         w.tabs[1].x_start = Millimetres(95.0);
         w.tabs[1].length = Millimetres(30.0);
-        assert!(validate_workholding(&w, Some(&stock), "setup").is_ok());
+        assert!(validate_workholding(&w, Some(&stock), WorkFrame::default(), "setup").is_ok());
         w.tabs[0].auto = None;
-        assert!(validate_workholding(&w, Some(&stock), "setup").is_err());
+        assert!(validate_workholding(&w, Some(&stock), WorkFrame::default(), "setup").is_err());
+        // Decision record 0699: the refusal gives the positions from the work
+        // zero, as the setup's fields are typed and shown.
+        let mut out = w.clone();
+        out.tabs.remove(0);
+        out.tabs[0].auto = None;
+        let seen = |frame| {
+            validate_workholding(&out, Some(&stock), frame, "setup")
+                .unwrap_err()
+                .to_string()
+        };
+        let plain = seen(WorkFrame::default());
+        let moved = seen(WorkFrame::new(2.0));
+        assert!(
+            plain.contains("the tab (X 95.000 to 125.000) is not inside the stock"),
+            "{plain}"
+        );
+        assert!(
+            moved.contains("the tab (X 93.000 to 123.000) is not inside the stock"),
+            "{moved}"
+        );
         // The format: `auto` is written only when set.
         let text = serde_json::to_string(&w).unwrap();
         assert_eq!(text.matches("\"auto\"").count(), 1, "{text}");

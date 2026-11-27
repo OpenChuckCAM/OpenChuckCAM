@@ -618,9 +618,11 @@ fn req_gc_17_req_set_01_req_set_03_req_set_05_req_set_06_cli_sets_machine_and_se
     assert_eq!(warnings.len(), 1, "{}", out.stdout);
     assert!(
         warnings[0].contains(
-            "Stock (setup 'Setup 1'): The stock starts at X -2.000, 2.000 mm inside the headstock"
+            "Stock (setup 'Setup 1'): The stock starts at X -2.000 from the rotary reference point, \
+             2.000 mm inside the headstock"
         ) || warnings[0].contains(
-            "Stock (setup 'Setup 1'): the stock starts at X -2.000, 2.000 mm inside the headstock"
+            "Stock (setup 'Setup 1'): the stock starts at X -2.000 from the rotary reference point, \
+             2.000 mm inside the headstock"
         ),
         "{}",
         out.stdout

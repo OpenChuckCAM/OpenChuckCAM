@@ -77,6 +77,34 @@ impl PathError {
         }
     }
 
+    /// This error with every position in its text written as the work frame
+    /// reads it (decision record 0699; [`crate::words::settle`]).
+    #[must_use]
+    pub(crate) fn settled(self, frame: openchuck_types::position::WorkFrame) -> Self {
+        let settle = |text: String| crate::words::settle(&text, frame);
+        match self {
+            Self::Parameter { name, reason } => Self::Parameter {
+                name,
+                reason: settle(reason),
+            },
+            Self::UnknownStrategy(text) => Self::UnknownStrategy(settle(text)),
+            Self::Surface(text) => Self::Surface(settle(text)),
+            Self::Region(text) => Self::Region(settle(text)),
+            Self::RotaryLimit(text) => Self::RotaryLimit(settle(text)),
+            Self::Strategy(text) => Self::Strategy(settle(text)),
+            Self::Refused {
+                topic,
+                text,
+                setting,
+            } => Self::Refused {
+                topic,
+                text: settle(text),
+                setting,
+            },
+            other @ (Self::Data(_) | Self::Cancelled) => other,
+        }
+    }
+
     /// Shorthand for [`PathError::Parameter`].
     pub fn parameter(name: impl Into<String>, reason: impl Into<String>) -> Self {
         Self::Parameter {
@@ -124,5 +152,38 @@ mod tests {
         );
         // A setting names nothing on another error.
         assert_eq!(PathError::Cancelled.with_setting("x"), PathError::Cancelled);
+    }
+
+    /// Decision record 0699: a refusal that names a position writes it in
+    /// the work frame, whichever kind of error carries it; an error with no
+    /// position is returned as it is.
+    #[test]
+    fn req_ui_12_a_refusal_writes_its_positions_in_the_work_frame() {
+        use crate::words::x;
+        use openchuck_types::position::WorkFrame;
+        let frame = WorkFrame::new(5.0);
+        let at = format!("a move at {} mm would reach over the held region", x(38.0));
+        let refused = PathError::refused(crate::topic::HELD_REGION, at.clone());
+        assert_eq!(
+            refused.settled(frame).to_string(),
+            "Held region: a move at X 33.000 mm would reach over the held region"
+        );
+        for error in [
+            PathError::parameter("start", at.clone()),
+            PathError::Surface(at.clone()),
+            PathError::Region(at.clone()),
+            PathError::RotaryLimit(at.clone()),
+            PathError::Strategy(at.clone()),
+        ] {
+            assert!(
+                error
+                    .clone()
+                    .settled(frame)
+                    .to_string()
+                    .contains("X 33.000 mm"),
+                "{error:?}"
+            );
+        }
+        assert_eq!(PathError::Cancelled.settled(frame), PathError::Cancelled);
     }
 }

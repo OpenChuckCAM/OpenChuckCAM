@@ -28,6 +28,7 @@ use crate::error::{Error, Result, require_finite, require_positive};
 use crate::geometry::{Aabb, Point3};
 use crate::kinematics::RotaryFrame;
 use crate::machine::{Clearance, MachineProfile, ProfileField, RotaryAxis};
+use crate::position::WorkFrame;
 use crate::stock::Stock;
 use crate::units::Millimetres;
 
@@ -411,6 +412,11 @@ pub enum SetupWarningKind {
         min: f64,
         /// The travel on that axis.
         max: f64,
+        /// For a position along the rotary axis, where it is in the setup
+        /// frame (so a message can give it from the work zero as well as in
+        /// machine coordinates, decision record 0699); `None` for a position
+        /// across the axis.
+        setup_x: Option<f64>,
     },
     /// A retaining tab is not in the head zone (between the held region and
     /// the start of the part) or the tail zone (between the end of the part
@@ -464,8 +470,22 @@ pub enum SetupWarningKind {
     },
 }
 
-impl std::fmt::Display for SetupWarning {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl SetupWarning {
+    /// The warning in plain words, with every position along the rotary axis
+    /// written as the setup's work frame reads it (decision record 0699): the
+    /// numbers the viewport's work zero, the G-code and the simulation use.
+    #[must_use]
+    pub fn text(&self, frame: WorkFrame) -> String {
+        struct In<'a>(&'a SetupWarning, WorkFrame);
+        impl std::fmt::Display for In<'_> {
+            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                self.0.write_in(f, self.1)
+            }
+        }
+        In(self, frame).to_string()
+    }
+
+    fn write_in(&self, f: &mut std::fmt::Formatter<'_>, frame: WorkFrame) -> std::fmt::Result {
         match &self.kind {
             SetupWarningKind::NoStock => f.write_str("the setup has no stock")?,
             SetupWarningKind::StockNeedsPart => {
@@ -486,10 +506,10 @@ impl std::fmt::Display for SetupWarning {
             )?,
             SetupWarningKind::TabOutsideEndZones { tab, x } => write!(
                 f,
-                "tab {tab} (X {:.3} to {:.3}) is not at the head or the tail: a tab must lie between \
+                "tab {tab} ({}) is not at the head or the tail: a tab must lie between \
                  the held region and the start of the part, or between the end of the part and the \
                  end of the stock",
-                x.0, x.1
+                frame.x_span(x.0, x.1)
             )?,
             SetupWarningKind::AutoTabNoRoom { tab, end } => write!(
                 f,
@@ -513,9 +533,9 @@ impl std::fmt::Display for SetupWarning {
             } => write!(
                 f,
                 "tab {auto_tab} (placed automatically) overlaps tab {hand_tab} (placed by hand) \
-                 from X {:.3} to {:.3}; the part is held by both, so the G-code is not wrong, but \
+                 from {}; the part is held by both, so the G-code is not wrong, but \
                  you may want to remove one",
-                x.0, x.1
+                frame.x_span(x.0, x.1)
             )?,
             SetupWarningKind::ClearanceBelowMinimum {
                 radius,
@@ -536,9 +556,10 @@ impl std::fmt::Display for SetupWarning {
             }
             SetupWarningKind::StartsBehindReference { what, x } => write!(
                 f,
-                "{what} starts at X {x:.3}, {:.3} mm inside the headstock (X 0 is the headstock \
-                 face on the Makera Z1). Measure from the headstock face to where your chuck \
-                 grips, with your jaws fitted, and {}",
+                "{what} starts at X {x:.3} {}, {:.3} mm inside the headstock (that point is the \
+                 headstock face on the Makera Z1). Measure from the headstock face to where your \
+                 chuck grips, with your jaws fitted, and {}",
+                crate::position::label::FROM_ROTARY_REFERENCE_POINT,
                 -x,
                 if *what == "the stock" {
                     "set the stock's Start X (X from, for a box) to at least that; move the part \
@@ -550,12 +571,11 @@ impl std::fmt::Display for SetupWarning {
             )?,
             SetupWarningKind::HeldRegionCoversPart { at_end, x } => write!(
                 f,
-                "the grip at the {} of the stock covers {:.3} mm of the part (X {:.3} to {:.3}), \
+                "the grip at the {} of the stock covers {:.3} mm of the part ({}), \
                  which is never machined; shorten the grip if that length should be cut",
                 if *at_end { "end" } else { "start" },
                 x.1 - x.0,
-                x.0,
-                x.1
+                frame.x_span(x.0, x.1)
             )?,
             SetupWarningKind::OutsideTravel {
                 what,
@@ -563,10 +583,21 @@ impl std::fmt::Display for SetupWarning {
                 value,
                 min,
                 max,
-            } => write!(
-                f,
-                "{what} is at machine {axis} {value:.3}, outside the travel {min:.3} to {max:.3}"
-            )?,
+                setup_x,
+            } => {
+                // Along the rotary axis the position is given from the work
+                // zero and in machine coordinates, each labelled (decision
+                // record 0699, question 3).
+                match setup_x {
+                    Some(x) => write!(
+                        f,
+                        "{what} is at {} (machine {axis} {value:.3})",
+                        frame.x(*x)
+                    )?,
+                    None => write!(f, "{what} is at machine {axis} {value:.3}")?,
+                }
+                write!(f, ", outside the travel {min:.3} to {max:.3}")?
+            }
         }
         if !self.unconfirmed.is_empty() {
             let names: Vec<&str> = self.unconfirmed.iter().map(|p| p.name()).collect();
@@ -577,6 +608,14 @@ impl std::fmt::Display for SetupWarning {
             )?;
         }
         Ok(())
+    }
+}
+
+/// The warning as the setup frame's own numbers read, a work zero of 0; a
+/// host that knows the setup writes [`SetupWarning::text`].
+impl std::fmt::Display for SetupWarning {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.write_in(f, WorkFrame::default())
     }
 }
 
@@ -738,6 +777,7 @@ pub fn check_setup(check: &SetupCheck<'_>) -> Vec<SetupWarning> {
                     value,
                     min: along_min,
                     max: along_max,
+                    setup_x: Some(x),
                 },
                 &travel_fields,
             ));
@@ -770,6 +810,7 @@ pub fn check_setup(check: &SetupCheck<'_>) -> Vec<SetupWarning> {
                 value: across_value,
                 min: across_min,
                 max: across_max,
+                setup_x: None,
             },
             &travel_fields,
         ));
@@ -785,6 +826,7 @@ pub fn check_setup(check: &SetupCheck<'_>) -> Vec<SetupWarning> {
                 value: safe,
                 min: travel.min.z,
                 max: travel.max.z,
+                setup_x: None,
             },
             &fields,
         ));
@@ -912,8 +954,8 @@ mod tests {
         assert_eq!(found.unconfirmed, vec![ProfileField::RotaryOrigin]);
         let text = found.to_string();
         for words in [
-            "the stock starts at X -1.000, 1.000 mm inside the headstock (X 0 is the headstock \
-             face on the Makera Z1)",
+            "the stock starts at X -1.000 from the rotary reference point, 1.000 mm inside the \
+             headstock (that point is the headstock face on the Makera Z1)",
             "Measure from the headstock face to where your chuck grips, with your jaws fitted",
             "set the stock's Start X (X from, for a box) to at least that; move the part \
              (Offset along X) and the work zero (Zero at X) with it",
@@ -943,7 +985,10 @@ mod tests {
         early.bounds.min.x = -2.5;
         let found = behind(None, Some(&early)).unwrap();
         let text = found.to_string();
-        assert!(text.contains("the part starts at X -2.500"), "{text}");
+        assert!(
+            text.contains("the part starts at X -2.500 from the rotary reference point"),
+            "{text}"
+        );
         assert!(text.contains("set the part's Offset along X"), "{text}");
         assert_eq!(behind(None, Some(&part)), None);
         assert_eq!(behind(None, None), None);
@@ -1210,7 +1255,7 @@ mod tests {
         let text: Vec<String> = w.iter().map(ToString::to_string).collect();
         assert!(
             text.iter()
-                .any(|t| t.starts_with("the end of the stock is at machine X 235.000")),
+                .any(|t| t.starts_with("the end of the stock is at X 235.000 (machine X 235.000)")),
             "{text:?}"
         );
         let mut tall = profile.clone();
@@ -1574,5 +1619,94 @@ mod tests {
                 proptest::prop_assert_eq!(e.clearance, profile.clearance);
             }
         }
+    }
+
+    /// Decision record 0699: every position a setup warning gives is written
+    /// from the work zero, the origin the G-code and the viewport use, so
+    /// with a Zero at X of 17.99 a tab the setup frame reads at X 27.99 to
+    /// 37.99 is at X 10.000 to 20.000; Display, which has no setup, reads as
+    /// before. The stock's start is the one position still given from the
+    /// rotary reference point, and says so.
+    #[test]
+    fn req_ui_12_the_setup_warnings_write_their_positions_in_the_work_frame() {
+        let frame = WorkFrame::new(17.99);
+        let warn = |kind| SetupWarning {
+            kind,
+            unconfirmed: Vec::new(),
+        };
+        let outside = warn(SetupWarningKind::TabOutsideEndZones {
+            tab: 2,
+            x: (27.99, 37.99),
+        });
+        assert!(
+            outside
+                .text(frame)
+                .starts_with("tab 2 (X 10.000 to 20.000) is not at the head or the tail"),
+            "{}",
+            outside.text(frame)
+        );
+        assert!(
+            outside
+                .to_string()
+                .starts_with("tab 2 (X 27.990 to 37.990) ")
+        );
+        let overlap = warn(SetupWarningKind::TabsOverlap {
+            auto_tab: 1,
+            hand_tab: 2,
+            x: (27.99, 37.99),
+        });
+        assert!(overlap.text(frame).contains("from X 10.000 to 20.000;"));
+        let held = warn(SetupWarningKind::HeldRegionCoversPart {
+            at_end: false,
+            x: (17.99, 19.99),
+        });
+        assert!(
+            held.text(frame).contains(
+                "covers 2.000 mm of the part (X 0.000 to 2.000), which is never machined"
+            ),
+            "{}",
+            held.text(frame)
+        );
+        // Along the axis a travel message gives both, each labelled.
+        let travel = warn(SetupWarningKind::OutsideTravel {
+            what: "the end of the stock",
+            axis: "X",
+            value: 235.0,
+            min: -207.0,
+            max: -1.0,
+            setup_x: Some(235.0),
+        });
+        assert_eq!(
+            travel.text(frame),
+            "the end of the stock is at X 217.010 (machine X 235.000), outside the travel \
+             -207.000 to -1.000"
+        );
+        // Across the axis it is a machine position only.
+        let across = warn(SetupWarningKind::OutsideTravel {
+            what: "the safe Z",
+            axis: "Z",
+            value: 90.0,
+            min: -50.0,
+            max: 60.0,
+            setup_x: None,
+        });
+        assert_eq!(
+            across.text(frame),
+            "the safe Z is at machine Z 90.000, outside the travel -50.000 to 60.000"
+        );
+        // The stock's start is measured from the rotary reference point, so it
+        // is the same in every work frame, and labelled.
+        let behind = warn(SetupWarningKind::StartsBehindReference {
+            what: "the stock",
+            x: -1.0,
+        });
+        assert_eq!(behind.text(frame), behind.text(WorkFrame::default()));
+        assert!(
+            behind
+                .text(frame)
+                .contains("starts at X -1.000 from the rotary reference point, 1.000 mm"),
+            "{}",
+            behind.text(frame)
+        );
     }
 }

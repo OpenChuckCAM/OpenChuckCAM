@@ -188,6 +188,45 @@ pub fn ids_in(text: &str) -> usize {
     n
 }
 
+/// How many raw positions the string literals of `code` hold (decision record
+/// 0699).
+pub fn position_count(code: &str) -> usize {
+    string_literals(code).iter().map(|l| positions_in(l)).sum()
+}
+
+/// The raw positions in one text: the letter X, as a whole word, then one
+/// space and a format placeholder (`X {:.3}`, `X {x}`), which writes a number
+/// along the rotary axis in whatever frame the code has it in. A position in a
+/// message is written with `openchuck_types::position::WorkFrame` (or, in the
+/// path crate, `crate::words::x`), which converts it to the work frame a user
+/// reads (decision record 0699). A line continuation is read as nothing, as
+/// the compiler reads it; an escaped brace (`{{`) is no placeholder.
+pub fn positions_in(text: &str) -> usize {
+    let mut joined = String::with_capacity(text.len());
+    let mut chars = text.chars().peekable();
+    while let Some(c) = chars.next() {
+        if c == '\\' && chars.peek() == Some(&'\n') {
+            while chars.peek().is_some_and(|c| c.is_whitespace()) {
+                chars.next();
+            }
+        } else {
+            joined.push(c);
+        }
+    }
+    let is_word = |c: char| c.is_alphanumeric() || c == '_';
+    joined
+        .match_indices("X {")
+        .filter(|(at, _)| {
+            let before = joined[..*at].chars().next_back();
+            let after = joined[at + 3..].chars().next();
+            // A position in the machine's or the model's own coordinates is
+            // written with its label (decision record 0699, question 3).
+            let labelled = joined[..*at].ends_with("machine ") || joined[..*at].ends_with("model ");
+            !before.is_some_and(is_word) && after != Some('{') && !labelled
+        })
+        .count()
+}
+
 /// The part of a source file that is not test code: everything before its
 /// first `#[cfg(test)]` that opens a module.
 pub fn product_code(text: &str) -> &str {
@@ -390,6 +429,7 @@ pub fn all_counts(
     BTreeMap<String, usize>,
     BTreeMap<String, usize>,
     BTreeMap<String, usize>,
+    BTreeMap<String, usize>,
 )> {
     let mut files = Vec::new();
     for folder in SCANNED {
@@ -405,6 +445,7 @@ pub fn all_counts(
     let mut claims = BTreeMap::new();
     let mut ids = BTreeMap::new();
     let mut plurals = BTreeMap::new();
+    let mut positions = BTreeMap::new();
     for path in files {
         let text = std::fs::read_to_string(&path)
             .with_context(|| format!("cannot read {}", path.display()))?;
@@ -428,10 +469,14 @@ pub fn all_counts(
         }
         let n = plural_count(code);
         if n > 0 {
-            plurals.insert(name, n);
+            plurals.insert(name.clone(), n);
+        }
+        let n = position_count(code);
+        if n > 0 {
+            positions.insert(name, n);
         }
     }
-    Ok((built, claims, ids, plurals))
+    Ok((built, claims, ids, plurals, positions))
 }
 
 /// The findings of `found` against `allowed`: a file over its baseline, and
@@ -482,7 +527,7 @@ pub fn check(root: &Path) -> Result<Findings> {
     let text = std::fs::read_to_string(root.join(BASELINE))
         .with_context(|| format!("cannot read {BASELINE}"))?;
     let baseline: toml::Table = toml::from_str(&text).context(BASELINE)?;
-    let (built, claims, ids, plurals) = all_counts(root)?;
+    let (built, claims, ids, plurals, positions) = all_counts(root)?;
     let mut findings = compare(
         "messages built with Message::new",
         "build a message with Message::about, which writes the form `<Topic> (<context>): <text>` (decision 0536)",
@@ -506,6 +551,12 @@ pub fn check(root: &Path) -> Result<Findings> {
         "a count that can be one is written with openchuck_path::counted, so one reads \"1 layer\", not \"1 layers\" (decision 0644)",
         &plurals,
         &table(&baseline, "plural_counts")?,
+    ));
+    findings.extend(compare(
+        "raw positions (X followed by a number placeholder)",
+        "write a position along the rotary axis with openchuck_types::position::WorkFrame (in the path crate, crate::words::x), which writes it from the work zero (decision 0699)",
+        &positions,
+        &table(&baseline, "raw_positions")?,
     ));
     Ok(findings)
 }
@@ -544,7 +595,7 @@ mod tests {
     #[test]
     fn req_nfr_12_no_product_text_claims_safety() {
         let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("..");
-        let (_, claims, _, _) = all_counts(&root).unwrap();
+        let (_, claims, _, _, _) = all_counts(&root).unwrap();
         assert!(claims.is_empty(), "{claims:?}");
         let text = std::fs::read_to_string(root.join(BASELINE)).unwrap();
         let baseline: toml::Table = toml::from_str(&text).unwrap();
@@ -610,6 +661,29 @@ mod tests {
         assert_eq!(ids_in("a STOP-1 tool, T1-2, op-14, 3 decisions"), 0);
         let code = "let s = format!(\"a (OP-14) b\");\n// OP-15 in a comment\n";
         assert_eq!(id_count(code), 1);
+    }
+
+    /// Decision record 0699: a message writes a position along the rotary axis
+    /// through the work frame, never as the number the code has.
+    #[test]
+    fn req_ui_12_a_raw_position_in_a_text_is_counted() {
+        assert_eq!(positions_in("the end face at X {:.3} has nothing"), 1);
+        assert_eq!(positions_in("from X {a:.3} to {b:.3}"), 1);
+        assert_eq!(positions_in("at X {x}, and X {y}"), 2);
+        // A line continuation between the space and the placeholder is read as
+        // nothing, so this is `at X {:.3}`.
+        assert_eq!(positions_in("at X \\\n    {:.3} mm"), 1);
+        assert_eq!(positions_in("at X{x} mm"), 0);
+        // A word that ends in X, an escaped brace, and a position written
+        // with the helpers are no raw position.
+        assert_eq!(positions_in("the AlongX {x} kind"), 0);
+        assert_eq!(positions_in("X {{braces}} stay"), 0);
+        // A position with its label is another frame, said so.
+        assert_eq!(positions_in("at machine X {:.6}, Y {:.6}"), 0);
+        assert_eq!(positions_in("model X {x}"), 0);
+        assert_eq!(positions_in("the end face at {xp1} has nothing"), 0);
+        let code = "let s = format!(\"at X {:.3}\");\n// X {:.3} in a comment\n";
+        assert_eq!(position_count(code), 1);
     }
 
     #[test]

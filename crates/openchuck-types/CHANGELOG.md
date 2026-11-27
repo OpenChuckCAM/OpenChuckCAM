@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.77.0 (WORK-FRAME, WF-1; decision 0699, accepted; breaking, provisional version)
+
+- **Breaking, added:** a position along the rotary axis in a message is written from the setup's work zero (decision 0699).
+  - New module `position`: `WorkFrame` (the work zero as a setup-frame X; `x`, `number`, `x_span`, `to_work`, `to_setup`, `of_setup`), the three labels of `position::label` ("machine X", "from the rotary reference point", "model X") and `machine_x`, `model_x` and `x_and_machine_x`.
+  - `JobContext` gains a private field for the frame: `JobContext::new` is unchanged and writes a zero of 0, `with_work_frame` and `work_frame` set and read it. A `JobContext` can no longer be built with a struct literal.
+  - `SetupWarning::text(frame)` writes a setup warning from the work zero; `Display` is the same as `text` for a zero of 0. `SetupWarningKind::OutsideTravel` gains the field `setup_x` (the place along the axis, in the setup frame, `None` across it), so a travel warning along the axis reads "the end of the stock is at X 217.010 (machine X 235.000), outside the travel ...".
+  - `validate_workholding` takes the work frame (`WorkFrame`) before the field name, for the positions in its error.
+- **Changed output:** the warning for a stock or part behind the rotary reference point reads "the stock starts at X -1.000 from the rotary reference point, 1.000 mm inside the headstock (that point is the headstock face on the Makera Z1)". Nothing else changes for a work zero of 0.
+
 ## 0.74.0
 
 - **Family release (0.74.0; PATH-QUALITY; issue #834):** `openchuck-path` faces the ends that do not reach round the rotary axis in arcs, with a new Cutting direction setting, and warns where a tab misses an end; no change to this crate.

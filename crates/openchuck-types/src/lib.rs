@@ -43,6 +43,7 @@ pub mod machine;
 pub mod mesh;
 pub mod model;
 pub mod notice;
+pub mod position;
 pub mod setup;
 pub mod simulation;
 pub mod stock;

@@ -305,6 +305,20 @@ impl Job {
         words: &[(&str, &str)],
         keep: &[(f64, f64)],
     ) -> GeneratedPath {
+        self.path_framed(strategy, extra, words, keep, 0.0)
+    }
+
+    /// [`Self::path_kept`] for a setup whose work zero (Zero at X) is at
+    /// setup-frame X `zero_x`: what it tells the user is written from there
+    /// (decision record 0699).
+    fn path_framed(
+        &self,
+        strategy: &dyn Strategy,
+        extra: &[(&str, f64)],
+        words: &[(&str, &str)],
+        keep: &[(f64, f64)],
+        zero_x: f64,
+    ) -> GeneratedPath {
         let tag = tags();
         let mut input = input_for(
             self.surface.as_ref(),
@@ -331,7 +345,11 @@ impl Job {
         for (k, w) in words {
             values.insert((*k).to_owned(), ParameterValue::Text((*w).to_owned()));
         }
-        run(|ctx| generate(strategy, &input, &values, ctx)).unwrap()
+        run(|ctx| {
+            let framed = ctx.with_work_frame(openchuck_types::position::WorkFrame::new(zero_x));
+            generate(strategy, &input, &values, &framed)
+        })
+        .unwrap()
     }
 
     /// What `path` leaves on each group of points, capped at `cap` mm.
@@ -2779,4 +2797,65 @@ fn req_nfr_07_the_point_limit_beside_an_end_counts_the_arcs_own_work() {
         "{text}"
     );
     assert!(started.elapsed().as_secs() < 60);
+}
+
+/// Decision record 0699: what the path tells the user about a place along the
+/// rotary axis is written from the setup's work zero, and only the words
+/// change: the moves are the same for any Zero at X (GC-07). The end face, the
+/// held region, the free end and the shoulder notes are each run with a Zero
+/// at X of 0 and of 7.5.
+#[test]
+fn req_ui_12_req_gc_07_the_positions_in_the_notices_are_written_from_the_work_zero() {
+    let same_moves = |a: &GeneratedPath, b: &GeneratedPath| {
+        assert_eq!(
+            format!("{:?}", a.group),
+            format!("{:?}", b.group),
+            "the moves do not depend on Zero at X"
+        );
+    };
+    // The end face of an off-axis pin (the finishing end-face notes).
+    let job = off_axis_job(&pin_at(90.0), false);
+    let at_zero = job.path(&HelicalFinishing, &[("stepdown", 2.0)]);
+    let moved = job.path_framed(&HelicalFinishing, &[("stepdown", 2.0)], &[], &[], 7.5);
+    same_moves(&at_zero, &moved);
+    let (plain, work) = (messages(&at_zero), messages(&moved));
+    assert!(
+        plain.contains("the end face at X 0.000 has nothing beyond it"),
+        "{plain}"
+    );
+    assert!(
+        work.contains("the end face at X -7.500 has nothing beyond it"),
+        "{work}"
+    );
+    assert!(!work.contains("X 0.000 has nothing beyond it"), "{work}");
+
+    // A free end with no Stepdown (the free end note names the face).
+    let job = free_end(true, 12.0);
+    let at_zero = job.path(&HelicalFinishing, &[]);
+    let moved = job.path_framed(&HelicalFinishing, &[], &[], &[], 7.5);
+    same_moves(&at_zero, &moved);
+    assert!(messages(&at_zero).contains("X 0.000"));
+    assert!(
+        messages(&moved).contains("X -7.500"),
+        "{}",
+        messages(&moved)
+    );
+
+    // A face the held region keeps the tool from (the held-face warning).
+    let job = short_tabs();
+    let keep_out = [(30.5, 40.0)];
+    let at_zero = job.path_kept(&HelicalFinishing, &[], &[], &keep_out);
+    let moved = job.path_framed(&HelicalFinishing, &[], &[], &keep_out, 10.0);
+    same_moves(&at_zero, &moved);
+    assert!(
+        messages(&at_zero).contains("X 31.589"),
+        "{}",
+        messages(&at_zero)
+    );
+    assert!(
+        messages(&moved).contains("X 21.589"),
+        "{}",
+        messages(&moved)
+    );
+    assert!(!messages(&moved).contains("31.589"), "{}", messages(&moved));
 }
