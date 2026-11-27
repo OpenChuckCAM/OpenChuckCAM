@@ -1031,7 +1031,7 @@ impl<'a> Body<'a> {
     fn beside(&self, face: &Face, s0: f64, s1: f64) -> bool {
         face.constraints()
             .any(|(n, b)| n.length() > 0.0 && self.dual_over(*n, *b, s0, s1) > -SIDE_MARGIN)
-            || face.around.iter().any(|u| {
+            || face.around.iter().chain(self.toward(face).iter()).any(|u| {
                 // u is square to the face's normal: over the prism u . y is
                 // at most its most at a corner.
                 let c = face
@@ -1041,6 +1041,19 @@ impl<'a> Body<'a> {
                     .fold(f64::NEG_INFINITY, f64::max);
                 self.dual_over(*u, c, s0, s1) > -SIDE_MARGIN
             })
+    }
+
+    /// The direction across the face's normal from the piece towards the
+    /// tool's nearest point to its centre, at the first pose (the tool's
+    /// outward normal there, reversed): a place to look for a plane parting
+    /// them that the tool's axis may not give (a flat end overhanging an
+    /// edge lies beside the face across from where its axis is).
+    fn toward(&self, face: &Face) -> Option<Vec3> {
+        let c = centroid(&face.corners);
+        let n = -self.at_first(c).1;
+        UnitVec3::new(n - face.m * n.dot(face.m))
+            .ok()
+            .map(UnitVec3::get)
     }
 
     /// Whether no tool point with its foot on the face lies above the
@@ -1071,6 +1084,7 @@ impl<'a> Body<'a> {
             .map(|(n, _)| *n)
             .chain(face.around.iter().copied())
             .chain(across)
+            .chain(self.toward(face))
             .filter(|n| n.length() > 0.0)
             .collect();
         directions.iter().any(|n| {

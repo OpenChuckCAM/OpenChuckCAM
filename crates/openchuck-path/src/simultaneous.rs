@@ -195,7 +195,11 @@ fn check_motion<'p>(
             C[2].fetch_add(level as u64, Relaxed);
             let k = C[0].load(Relaxed);
             if k % 100 == 0 {
-                eprintln!("CSTAT checks {k} samples/check {:.1} travel {travel:.4} level-sum {}", C[1].load(Relaxed) as f64 / k as f64, C[2].load(Relaxed));
+                eprintln!(
+                    "CSTAT checks {k} samples/check {:.1} travel {travel:.4} level-sum {}",
+                    C[1].load(Relaxed) as f64 / k as f64,
+                    C[2].load(Relaxed)
+                );
             }
         }
         let count = n.min(f64::from(u32::MAX)) as u32;
@@ -3099,11 +3103,7 @@ impl Plan<'_> {
         if !(wall < -g.upper && wall < layer) {
             return None;
         }
-        let rest = surface.tool_gap(
-            profile,
-            line,
-            &query.skip_walls_thinner_than(layer),
-        );
+        let rest = surface.tool_gap(profile, line, &query.skip_walls_thinner_than(layer));
         rest.is_none_or(|r| proven(&r, self.allowed))
             .then(|| (wall, at.position.map(|p| p.face)))
     }
@@ -3564,8 +3564,8 @@ mod tests {
             Vec3::new(v.x, v.y * c - v.z * s, v.y * s + v.z * c)
         };
         let off = |p: Point3| (p.y - centre.y).hypot(p.z - centre.z);
-        let travel = sweep.length()
-            + angle.abs() * (off(line.origin).max(off(line.origin + sweep)) + reach);
+        let travel =
+            sweep.length() + angle.abs() * (off(line.origin).max(off(line.origin + sweep)) + reach);
         (
             move |f: f64| ToolLine {
                 origin: centre + turn(line.origin + sweep * f - centre, f * angle),
@@ -3611,7 +3611,11 @@ mod tests {
         let checks = checks_for(&profile, 0.01);
         let started = std::time::Instant::now();
         assert!(check_motion(&surface, &checks, 0.01, travel, &pose).is_none());
-        assert!(started.elapsed().as_secs_f64() < 1.0, "{:?}", started.elapsed());
+        assert!(
+            started.elapsed().as_secs_f64() < 1.0,
+            "{:?}",
+            started.elapsed()
+        );
     }
 
     /// The public crankshaft, `testdata/stl/crankshaft.stl`.
@@ -3649,12 +3653,15 @@ mod tests {
         let profile = ball_of(1.5875);
         let line = ToolLine {
             origin: Point3::new(30.12811112067591, 4.371648036338245, 1.5876255946573061),
-            axis: UnitVec3::new(Vec3::new(0.0, 0.4476688135066719, -0.8941994371579131))
-                .unwrap(),
+            axis: UnitVec3::new(Vec3::new(0.0, 0.4476688135066719, -0.8941994371579131)).unwrap(),
         };
         let (pose, travel) = moving(
             line,
-            Vec3::new(1.2299508757251942e-5, -0.00016018000323825277, -0.0022255155355228595),
+            Vec3::new(
+                1.2299508757251942e-5,
+                -0.00016018000323825277,
+                -0.0022255155355228595,
+            ),
             Point3::ORIGIN,
             -0.0009743024932623805,
             profile.top() + profile.cutting_radius(),
@@ -3663,7 +3670,11 @@ mod tests {
         let started = std::time::Instant::now();
         let answer = check_motion(&surface, &checks, 0.01, travel, &pose);
         assert!(answer.is_none(), "{:?}", answer.map(|a| a.0));
-        assert!(started.elapsed().as_secs_f64() < 2.0, "{:?}", started.elapsed());
+        assert!(
+            started.elapsed().as_secs_f64() < 2.0,
+            "{:?}",
+            started.elapsed()
+        );
     }
 
     #[test]
@@ -3691,11 +3702,99 @@ mod tests {
         assert!(proven(&g, 0.01), "{g:?}");
         assert!(took < 0.5, "{took} s");
         let geometry = Geometry::of_mesh(&mesh).unwrap();
-        let settings = Settings { margin: 5.0, tolerance: 1e-4, budget: 200_000 };
+        let settings = Settings {
+            margin: 5.0,
+            tolerance: 1e-4,
+            budget: 200_000,
+        };
         let theirs = geometry
-            .face_gap(&ConvexTool::new(&profile).unwrap(), line.origin, line.axis.get(), LAYER * 0.01, 0.01, &settings)
+            .face_gap(
+                &ConvexTool::new(&profile).unwrap(),
+                line.origin,
+                line.axis.get(),
+                LAYER * 0.01,
+                0.01,
+                &settings,
+            )
             .unwrap();
         assert!(theirs.upper >= -0.01, "{theirs:?}");
+    }
+
+    #[test]
+    fn req_op_12_a_flat_end_overhanging_the_blisk_rim_is_settled_at_once() {
+        // One sample of the move check on the public blisk (27 Nov 2026): a
+        // 3 mm flat end grown by a tenth of the tolerance, its bottom resting
+        // on the rim at the end face X 0 and overhanging it. The end face's
+        // pieces under the rim lie wholly below the tool, parted from it by
+        // a plane across the face towards the tool's nearest point; the
+        // independent checker reads the gap -0.001 there (the growth).
+        use openchuck_testkit::contact::{ConvexTool, Geometry, Settings};
+        use openchuck_types::tool::{ProfilePoint, ProfileSegment, ToolProfile};
+        let bytes = std::fs::read(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../testdata/stl/blisk.stl"
+        ))
+        .unwrap();
+        let count = u32::from_le_bytes(bytes[80..84].try_into().unwrap()) as usize;
+        let mut mesh = TriangleMesh::default();
+        for t in 0..count {
+            let base = 84 + 50 * t + 12;
+            let mut ids = [0_u32; 3];
+            for (k, id) in ids.iter_mut().enumerate() {
+                let at = |o: usize| {
+                    let i = base + 12 * k + o;
+                    f64::from(f32::from_le_bytes(bytes[i..i + 4].try_into().unwrap()))
+                };
+                mesh.vertices.push(Point3::new(at(0), at(4), at(8)));
+                *id = u32::try_from(mesh.vertices.len() - 1).unwrap();
+            }
+            mesh.triangles.push(ids);
+        }
+        let flat = ToolProfile {
+            segments: vec![
+                ProfileSegment::Line {
+                    to: ProfilePoint::new(1.5, 0.0),
+                },
+                ProfileSegment::Line {
+                    to: ProfilePoint::new(1.5, 16.0),
+                },
+            ],
+        }
+        .validate()
+        .unwrap();
+        let profile = cutter::grow_profile(&flat, 0.001).unwrap();
+        let line = ToolLine {
+            origin: Point3::new(0.006857042969743199, 0.8612806537201169, 19.97784899716719),
+            axis: UnitVec3::new(Vec3::new(0.0, 0.0245498683554625, 0.9996986065628628)).unwrap(),
+        };
+        let surface = crate::MeshSurface::new(&mesh).unwrap();
+        let started = std::time::Instant::now();
+        let g = surface
+            .tool_gap(&profile, &line, &move_query(Vec3::ZERO, 0.01))
+            .unwrap();
+        let took = started.elapsed().as_secs_f64();
+        assert!(proven(&g, 0.01), "{g:?}");
+        assert!(took < 0.5, "{took} s");
+        let geometry = Geometry::of_mesh(&mesh).unwrap();
+        let settings = Settings {
+            margin: 5.0,
+            tolerance: 1e-4,
+            budget: 400_000,
+        };
+        let theirs = geometry
+            .face_gap(
+                &ConvexTool::new(&profile).unwrap(),
+                line.origin,
+                line.axis.get(),
+                LAYER * 0.01,
+                0.01,
+                &settings,
+            )
+            .unwrap();
+        assert!(
+            theirs.lower <= g.upper + 1e-6 && g.lower <= theirs.upper + 1e-6,
+            "{g:?} against {theirs:?}"
+        );
     }
 
     #[test]
@@ -3743,13 +3842,28 @@ mod tests {
         let profile = ball_of(1.0);
         let checks = checks_for(&profile, 0.01);
         let pose = |f: f64| ToolLine {
-            origin: Point3::new(-1.0 + 2.0 * f, 0.0, 0.02 - 0.07 * (std::f64::consts::PI * f).sin()),
+            origin: Point3::new(
+                -1.0 + 2.0 * f,
+                0.0,
+                0.02 - 0.07 * (std::f64::consts::PI * f).sin(),
+            ),
             axis: UnitVec3::new(Vec3::new(0.0, 0.0, 1.0)).unwrap(),
         };
         // No point moves more than the path's length, about 2.01 mm.
         let found = check_motion(&surface, &checks, 0.01, 2.1, &pose);
-        assert!(found.is_some_and(|(g, ..)| g.upper < -0.01), "{:?}", found.map(|f| f.0));
-        assert!(check_motion(&surface, &checks, 0.01, 2.1, &|f| pose(if f < 0.5 { 0.0 } else { 1.0 })).is_none());
+        assert!(
+            found.is_some_and(|(g, ..)| g.upper < -0.01),
+            "{:?}",
+            found.map(|f| f.0)
+        );
+        assert!(
+            check_motion(&surface, &checks, 0.01, 2.1, &|f| pose(if f < 0.5 {
+                0.0
+            } else {
+                1.0
+            }))
+            .is_none()
+        );
     }
 
     proptest::proptest! {
