@@ -2882,7 +2882,7 @@ impl Strategy for OneLine {
 /// not a plunge into the stock: such a tool generates a ramp on a line or
 /// round a ring.
 #[test]
-fn req_op_11_a_tool_that_cannot_plunge_still_leads_and_ramps_where_nothing_plunges_into_stock() {
+fn req_op_11_a_tool_that_cannot_plunge_still_ramps_where_nothing_plunges_into_stock() {
     let (dir, mut app, op) = project("no-plunge-lead-ramp");
     app.register_strategy(Arc::new(OneRing)).unwrap();
     app.register_strategy(Arc::new(OneLine)).unwrap();

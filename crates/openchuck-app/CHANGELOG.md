@@ -2,13 +2,13 @@
 
 ## Unreleased (MOPUP-1, PR M10; issue #892)
 
-- **Changed:** a new pencil clean-up operation is written with Shortest cut `tool_diameter`, which follows the operation's tool. An operation saved without it is shown, and given to the library, as Tool diameter too (it took the tool's diameter before, as a number); a number the user set is kept. The program is unchanged in every case.
+- **Changed:** a new pencil clean-up operation is written with Shortest cut `tool_diameter`, which follows the operation's tool. An operation saved without it is shown, and given to the library, as Tool diameter too (it took the tool's diameter before, as a number); a number the user set is kept. The program is unchanged in every case. A rollback consequence (CodeRabbit on #969): an operation saved with `tool_diameter` is refused by an earlier build, whose pencil `min_length` is a number only ("expected a number"); there is no conversion back.
 
 ## Unreleased (MOPUP-1, issue #965)
 
 - **Fixed:** a Facing face or opposite-faces label at an arbitrary angle stays within 32 characters: the angles give up decimals too, in turn with the distance (`facing::display::face_text`, `separation_text`). A whole angle without decimals is written whole ("180", not "18").
 
-## Unreleased (MOPUP-1, PR M5; issues #881 and #895 item 1; decision record MOPUP-1-A, accepted)
+## Unreleased (MOPUP-1, PR M5; issues #881 and #895 item 1; decision 0702, accepted)
 
 - **Added:** `facing_labels`: `FacingLabel` (Face, Margin, Separation, Stop), `FacingTag` (a Facing label's or line's operation and kind), `ShownFacingLabels` (which kinds the view draws; a per-user setting) and `HiddenChip` (the one "Hidden" chip's long, short and full forms). `UserSettings::facing_labels`; a file without it shows every kind. `ShownMoves::hidden_names`.
 - **Changed:** `SceneLabel` and `ScenePolyline` gain `facing: Option<FacingTag>`, `None` for everything but the Facing overlay. The Facing overlay's labels are 32 characters or fewer and say what they measure; the draft is said once in a note; once generated, an operation's stop lines and labels are those of the generated cut (`add_generated`).
