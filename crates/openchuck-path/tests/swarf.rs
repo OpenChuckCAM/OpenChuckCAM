@@ -986,7 +986,10 @@ fn req_op_07_req_op_12_material_left_is_silent_within_the_tolerance_noted_within
     // place and the limit.
     let noted = with(0.05);
     assert!(noted.refusal(LIMIT).is_none());
-    let note = noted.note(TOL, LIMIT);
+    let note = openchuck_path::settle(
+        &noted.note(TOL, LIMIT),
+        openchuck_types::position::WorkFrame::default(),
+    );
     assert!(
         note.contains("leaves up to 0.0500 mm beyond the stock to leave at (1.000, 2.000, 3.000)"),
         "{note}"
@@ -998,7 +1001,10 @@ fn req_op_07_req_op_12_material_left_is_silent_within_the_tolerance_noted_within
     // Beyond the limit: refused, naming the amount, the place, the limit
     // and what to change.
     let refused = with(0.2);
-    let why = refused.refusal(LIMIT).unwrap();
+    let why = openchuck_path::settle(
+        &refused.refusal(LIMIT).unwrap(),
+        openchuck_types::position::WorkFrame::default(),
+    );
     assert!(
         why.contains("would leave 0.2000 mm beyond the stock to leave at (1.000, 2.000, 3.000)"),
         "{why}"

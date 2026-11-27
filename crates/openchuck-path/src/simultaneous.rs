@@ -914,8 +914,9 @@ fn run(
         notes.push(
             Notice::information(format!(
                 "the surface slopes along the rotary axis, which A cannot follow: the tool axis \
-                 is up to {:.1} degrees from the surface normal for that reason (at X {:.3})",
-                findings.slope, at.x
+                 is up to {:.1} degrees from the surface normal for that reason (at {xp1})",
+                findings.slope,
+                xp1 = crate::words::x(at.x)
             ))
             .about(topic::TOOL_TILT),
         );
@@ -946,7 +947,13 @@ fn run(
     let off: Vec<String> = zones
         .iter()
         .filter(|z| z.centres.is_some())
-        .map(|z| format!("X {:.3} to {:.3}", z.x0, z.x1))
+        .map(|z| {
+            format!(
+                "{xp1} to {xp2}",
+                xp1 = crate::words::x(z.x0),
+                xp2 = crate::words::n(z.x1)
+            )
+        })
         .collect();
     if !off.is_empty() {
         notes.push(
@@ -975,19 +982,21 @@ fn run(
         notes.push(
             Notice::information(format!(
                 "surfaces hidden from the drive (such as the walls of a slot, an undercut, or \
-                 sides of the section facing each other) between X {:.3} and {:.3} are finished \
+                 sides of the section facing each other) between {xp1} and {xp2} are finished \
                  with passes of their own after the main ones; {}; {shank}",
-                hidden_x.0,
-                hidden_x.1,
-                hidden_lean_text(&reach, lead, max_lean, findings.lean)
+                hidden_lean_text(&reach, lead, max_lean, findings.lean),
+                xp1 = crate::words::x(hidden_x.0),
+                xp2 = crate::words::n(hidden_x.1)
             ))
             .about(topic::HIDDEN_SURFACES),
         );
         hidden_warning = Some(
             Notice::warning(format!(
                 "the tool holder is not checked on the passes that finish the surfaces hidden from \
-             the drive between X {:.3} and {:.3}, where the tool leans up to {:.1} degrees",
-                hidden_x.0, hidden_x.1, findings.lean
+             the drive between {xp1} and {xp2}, where the tool leans up to {:.1} degrees",
+                findings.lean,
+                xp1 = crate::words::x(hidden_x.0),
+                xp2 = crate::words::n(hidden_x.1)
             ))
             .about(topic::TOOL_HOLDER),
         );
@@ -1073,7 +1082,13 @@ fn shank_warning(breaks: &[crate::assemble::ShankBreak]) -> Option<Notice> {
     let listed: Vec<String> = breaks
         .iter()
         .take(LISTED)
-        .map(|b| format!("X {:.3} near A {:.0}", b.x, b.a.rem_euclid(TURN)))
+        .map(|b| {
+            format!(
+                "{xp1} near A {:.0}",
+                b.a.rem_euclid(TURN),
+                xp1 = crate::words::x(b.x)
+            )
+        })
         .collect();
     let more = breaks.len().saturating_sub(LISTED);
     let more = if more > 0 {
@@ -1247,8 +1262,9 @@ fn hidden_lean_text(reach: &HiddenReach, lead: f64, max_lean: f64, along: f64) -
     let placed = match reach.lean_x {
         Some(x) if reach.off_aim >= 0.05 => format!(
             "it is on the surface normal{lead_text} where the part lets it, and elsewhere leans \
-             from the normal as little as the part lets it, up to {:.1} degrees (at X {x:.3})",
-            reach.lean
+             from the normal as little as the part lets it, up to {:.1} degrees (at {xp1})",
+            reach.lean,
+            xp1 = crate::words::x(x)
         ),
         _ => format!("it is on the surface normal{lead_text}"),
     };
@@ -2503,13 +2519,14 @@ impl Plan<'_> {
                         return Err(PathError::refused(
                             crate::topic::SIMULTANEOUS_FINISHING,
                             format!(
-                                "simultaneous finishing cannot keep the move to X {:.3}, A {:.3} \
+                                "simultaneous finishing cannot keep the move to {xp1}, A {:.3} \
                              within the tolerance: it would cut {error:.4} mm into the surface; \
                              the tool jumps between two surfaces there (a sharp edge, or a wall \
                              the drive meets), so a smaller largest tilt or angle step does not \
                              help: limit the operation to a region away from it, or finish that \
                              part with helical finishing",
-                                b.contact.tip.x, b.a.0
+                                b.a.0,
+                                xp1 = crate::words::x(b.contact.tip.x)
                             ),
                         ));
                     }
@@ -2921,7 +2938,11 @@ mod tests {
             reason: UnreachedReason::NearHeldRegion,
             points: Vec::new(),
         };
-        let text = unreached_list(&[area(10.0, 10.0), area(12.0, 14.5)], 2.0, 0.0);
+        let text = crate::words::plain(&unreached_list(
+            &[area(10.0, 10.0), area(12.0, 14.5)],
+            2.0,
+            0.0,
+        ));
         assert!(text.contains("X 10.000 all round (40.1 mm2)"), "{text}");
         assert!(!text.contains("10.000 to 10.000"), "{text}");
         assert!(text.contains("X 12.000 to 14.500 all round"), "{text}");

@@ -3567,11 +3567,11 @@ fn unreached_list(areas: &[Unreached], diameter: f64) -> String {
                 _ => "a neighbouring face is in the way of the tool".to_owned(),
             };
             format!(
-                "X {:.3} to {:.3} near A {:.0} ({:.1} mm2), {why}",
-                u.x.0,
-                u.x.1,
+                "{xp1} to {xp2} near A {:.0} ({:.1} mm2), {why}",
                 (0.5 * (u.a.0 + u.a.1)).rem_euclid(360.0),
-                u.area
+                u.area,
+                xp1 = crate::words::x(u.x.0),
+                xp2 = crate::words::n(u.x.1)
             )
         })
         .collect();

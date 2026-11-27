@@ -933,10 +933,11 @@ impl Entry {
             return Err(PathError::refused(
                 crate::topic::RAMP_ENTRY,
                 format!(
-                    "pass {} would go {depth:.3} mm below the pass itself, at X {x:.3} mm. This \
+                    "pass {} would go {depth:.3} mm below the pass itself, at {xp1} mm. This \
                      is a fault in the program: please report it, and set Entry to Plunge or \
                      Helix meanwhile.",
-                    pass + 1
+                    pass + 1,
+                    xp1 = crate::words::x(x)
                 ),
             )
             .with_setting(crate::params::names::ENTRY));
@@ -1291,11 +1292,14 @@ impl Entry {
                 return Err(PathError::refused(
                     crate::topic::FACE_NUBS,
                     format!(
-                        "the nub at X {along:.3} mm needs a whole turn of A from {:.3} \
+                        "the nub at {xp1} mm needs a whole turn of A from {:.3} \
                      degrees, outside the machine's A range of {:.3} to {:.3} degrees. Widen A \
                      range in the setup's Machine settings, or turn off Plunge to remove face \
                      nubs.",
-                        a.0, min.0, max.0
+                        a.0,
+                        min.0,
+                        max.0,
+                        xp1 = crate::words::x(along)
                     ),
                 )
                 .with_setting(crate::params::names::PLUNGE_FACE_NUBS));
@@ -1665,11 +1669,11 @@ impl Entry {
             return PathError::refused(
                 topic,
                 format!(
-                    "pass {}: the {name} needs {size}, and it would run over {held} at X \
-                 {:.3} mm, where the workholding grips the stock; use a plunge entry, or a size \
+                    "pass {}: the {name} needs {size}, and it would run over {held} at {} mm, \
+                 where the workholding grips the stock; use a plunge entry, or a size \
                  or angle that keeps it clear of the held region",
                     pass + 1,
-                    found.x
+                    crate::words::x(found.x)
                 ),
             )
             .with_setting(crate::params::names::ENTRY);

@@ -715,13 +715,13 @@ fn warning(places: &[Place], settings: &Settings, limits: &Limits, height: &str)
         text: format!(
             "adaptive spacing could not confirm that the material left between the passes \
              is within the allowed excess of {:.3} mm at {count} place{}, the first near \
-             X {:.3} A {:.1}: {}. The path made so far is kept; it is not complete. \
+             {xp1} A {:.1}: {}. The path made so far is kept; it is not complete. \
              Check the surface there before using the program",
             settings.height,
             if count == 1 { "" } else { "s" },
-            first.x,
             first.a,
-            why.join("; ")
+            why.join("; "),
+            xp1 = crate::words::x(first.x)
         ),
         setting: Some(height.to_owned()),
         acknowledgement: Some(Acknowledgement::PartialPath),

@@ -634,9 +634,10 @@ fn warn_past_flutes(
     } else if !worst.depth.is_finite() {
         format!(
             "the stock's size is not known, so the tool's {flutes:.3} mm of flute could not \
-             be checked against how deep it stands above the tool (at X {:.3}, A {:.1}). \
+             be checked against how deep it stands above the tool (at {xp1}, A {:.1}). \
              Define the setup's stock",
-            worst.x, worst.a,
+            worst.a,
+            xp1 = crate::words::x(worst.x)
         )
     } else {
         let how = if worst.exact {
@@ -651,14 +652,14 @@ fn warn_past_flutes(
              between readings: that stock is not measured exactly across the tool)"
         };
         format!(
-            "the stock {how} {:.3} mm above the tool's tip along its axis{bound} (at X {:.3}, \
+            "the stock {how} {:.3} mm above the tool's tip along its axis{bound} (at {xp1}, \
              A {:.1}), more than the tool's {flutes:.3} mm of flute, so the shank may meet \
              the stock; {}. The path was made: check it before running it. Use a tool with \
              longer flutes, or rough the part first in this setup{layers}",
             worst.depth,
-            worst.x,
             worst.a,
             stock_words(input.stock),
+            xp1 = crate::words::x(worst.x)
         )
     };
     Some(Notice {

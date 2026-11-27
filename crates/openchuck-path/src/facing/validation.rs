@@ -137,7 +137,11 @@ fn box_gap(gap: super::coverage::RasterGap) -> PathError {
     };
     PathError::refused(
         crate::topic::FACING_COMPLETION,
-        format!("{what}, from X {from:.3} to {to:.3}"),
+        format!(
+            "{what}, from {xp1} to {xp2}",
+            xp1 = crate::words::x(from),
+            xp2 = crate::words::n(to)
+        ),
     )
 }
 

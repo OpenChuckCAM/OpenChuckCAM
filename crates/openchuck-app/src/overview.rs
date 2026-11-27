@@ -1676,6 +1676,7 @@ pub(crate) fn setup_warning_text(warning: &SetupWarning, reference_x: Option<f64
                 value,
                 min,
                 max,
+                ..
             },
             Some(reference),
         ) if what.starts_with("the start of")

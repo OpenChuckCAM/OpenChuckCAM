@@ -924,7 +924,13 @@ fn short_note(left: &[CutPoint], min_length: f64) -> Option<String> {
     let places: Vec<String> = left
         .iter()
         .take(SHORT_PLACES)
-        .map(|p| format!("at X {:.3}, A {:.1}", p.tip.x, p.a.0.rem_euclid(360.0)))
+        .map(|p| {
+            format!(
+                "at {xp1}, A {:.1}",
+                p.a.0.rem_euclid(360.0),
+                xp1 = crate::words::x(p.tip.x)
+            )
+        })
         .collect();
     let more = left.len().saturating_sub(SHORT_PLACES);
     let and_more = if more > 0 {
@@ -1011,7 +1017,7 @@ mod tests {
         assert_eq!(left.len(), 2);
         let said = short_note(&left, 2.0).unwrap();
         assert_eq!(
-            said,
+            crate::words::plain(&said),
             "pencil clean-up left 2 stretches uncut, each a single point or shorter than the \
              shortest cut (2 mm): at X 1.000, A 10.0; at X 2.000, A 20.0. Lower min_length to \
              cut the longer ones"

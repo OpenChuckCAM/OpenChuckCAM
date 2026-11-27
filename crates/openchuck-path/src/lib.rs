@@ -158,4 +158,4 @@ pub use surface::{
     SurfaceSource, Uv,
 };
 pub use swarf::Swarf;
-pub use words::counted;
+pub use words::{counted, settle};

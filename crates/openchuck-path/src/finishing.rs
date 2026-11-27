@@ -269,12 +269,12 @@ pub(crate) fn free_ends(
             topic: Some(topic::FREE_ENDS.to_owned()),
             segment: None,
             text: format!(
-                "the end face at X {:.3} has nothing beyond it but is not faced: it is not square \
+                "the end face at {xp1} has nothing beyond it but is not faced: it is not square \
                  to the rotary axis, so the tool cannot turn beside it, and it keeps what earlier \
                  operations left. Face it with a Facing operation{}, and check the path before \
                  you run it",
-                e.face,
-                if opposite { ", Shape End" } else { "" }
+                if opposite { ", Shape End" } else { "" },
+                xp1 = crate::words::x(e.face)
             ),
             setting: Some(parameter::FACE_FREE_ENDS.to_owned()),
             acknowledgement: None,
@@ -292,9 +292,9 @@ pub(crate) fn free_ends(
         // owner's answer to question Q-B; P49).
         out.notes.push(
             Notice::information(format!(
-                "the stock ends at the part's end at X {:.3}: there is no stock past this end \
+                "the stock ends at the part's end at {xp1}: there is no stock past this end \
                  to face. If the real blank is longer, set the stock's length to match it",
-                e.face
+                xp1 = crate::words::x(e.face)
             ))
             .about(topic::FREE_ENDS),
         );
@@ -322,12 +322,13 @@ pub(crate) fn free_ends(
                 topic: Some(topic::FREE_ENDS.to_owned()),
                 segment: None,
                 text: format!(
-                    "the end face at X {face:.3} has nothing beyond it and is not faced: it \
+                    "the end face at {xp1} has nothing beyond it and is not faced: it \
                      keeps what earlier operations left. Set Stepdown to the depth of each \
                      layer, or add cutting data for this tool and material in the tool \
                      library and then choose Update from library in the operation's tool \
                      section: the project keeps its own copy of the tool, so a change in the \
-                     library reaches it only then."
+                     library reaches it only then.",
+                    xp1 = crate::words::x(face)
                 ),
                 setting: Some(parameter::STEPDOWN.to_owned()),
                 acknowledgement: None,
@@ -342,9 +343,10 @@ pub(crate) fn free_ends(
                 topic: Some(topic::FREE_ENDS.to_owned()),
                 segment: None,
                 text: format!(
-                    "the end face at X {face:.3} has nothing beyond it and is not faced: the \
+                    "the end face at {xp1} has nothing beyond it and is not faced: the \
                      setup's stock has no known size, so the tool would cut there blind. \
-                     Define the stock, or turn off Face free ends."
+                     Define the stock, or turn off Face free ends.",
+                    xp1 = crate::words::x(face)
                 ),
                 setting: Some(parameter::FACE_FREE_ENDS.to_owned()),
                 acknowledgement: None,
@@ -403,7 +405,7 @@ pub(crate) fn free_ends(
                 topic: Some(topic::FLUTE_LENGTH.to_owned()),
                 segment: None,
                 text: format!(
-                    "the end face at X {face:.3} has nothing beyond it and is not faced: the \
+                    "the end face at {xp1} has nothing beyond it and is not faced: the \
                      stock beside it is {up_to}{:.3} mm deep{bound}, more than the tool's \
                      {:.3} mm of flute, so no turn is cut there and the end keeps what earlier \
                      operations left; {}. Use a tool with longer flutes, or face it with a \
@@ -412,6 +414,7 @@ pub(crate) fn free_ends(
                     top.max(deepest),
                     input.tool.top(),
                     crate::flutes::stock_words(stock),
+                    xp1 = crate::words::x(face)
                 ),
                 setting: Some(parameter::FACE_FREE_ENDS.to_owned()),
                 acknowledgement: None,
@@ -436,9 +439,10 @@ pub(crate) fn free_ends(
             return Err(PathError::parameter(
                 parameter::STEPDOWN,
                 format!(
-                    "a Stepdown of {stepdown} mm over the {top:.3} mm beside the end face at X \
-                     {face:.3} is too many points ({made:.0} at {step} degrees); increase the \
-                     Stepdown"
+                    "a Stepdown of {stepdown} mm over the {top:.3} mm beside the end face at \
+                     {xface} is too many points ({made:.0} at {step} degrees); increase the \
+                     Stepdown",
+                    xface = crate::words::x(face)
                 ),
             ));
         }
@@ -461,10 +465,11 @@ pub(crate) fn free_ends(
             // question Q-C; P50).
             out.notes.push(
                 Notice::information(format!(
-                    "the end face at X {face:.3} has nothing beyond it: the tool goes down \
+                    "the end face at {xp1} has nothing beyond it: the tool goes down \
                      beside it in {} of {stepdown} mm to the rotary axis, turning once round \
                      the axis in each",
-                    crate::counted(layers, "layer", "layers")
+                    crate::counted(layers, "layer", "layers"),
+                    xp1 = crate::words::x(face)
                 ))
                 .about(topic::FREE_ENDS),
             );
@@ -487,10 +492,11 @@ pub(crate) fn free_ends(
                     topic: Some(topic::FREE_ENDS.to_owned()),
                     segment: None,
                     text: format!(
-                        "the end face at X {face:.3} has nothing beyond it but is not faced: \
+                        "the end face at {xp1} has nothing beyond it but is not faced: \
                          the tool finds no part beside it to face down to, and it keeps what \
                          earlier operations left. Face it with a Facing operation, and check \
-                         the path before you run it"
+                         the path before you run it",
+                        xp1 = crate::words::x(face)
                     ),
                     setting: Some(parameter::FACE_FREE_ENDS.to_owned()),
                     acknowledgement: None,
@@ -500,13 +506,14 @@ pub(crate) fn free_ends(
             out.passes.extend(arcs.passes);
             out.notes.push(
                 Notice::information(format!(
-                    "the end face at X {face:.3} has nothing beyond it and does not reach round \
+                    "the end face at {xp1} has nothing beyond it and does not reach round \
                      the rotary axis (its nearest point is {:.3} mm from it): the tool goes down \
                      beside it in {} of {stepdown} mm to {:.3} mm from the axis, in arcs over \
                      the angles where the face is",
                     arcs.nearest,
                     crate::counted(arcs.layers, "layer", "layers"),
-                    arcs.last
+                    arcs.last,
+                    xp1 = crate::words::x(face)
                 ))
                 .about(topic::FREE_ENDS),
             );
@@ -516,8 +523,9 @@ pub(crate) fn free_ends(
         if !stock.left_by_earlier_operations() {
             out.warnings.push(
                 Notice::warning(format!(
-                    "the end face at X {face:.3} is faced from {top:.3} mm, the top of the setup's \
-                 own stock with no earlier operation in this setup: the real blank must match it"
+                    "the end face at {xp1} is faced from {top:.3} mm, the top of the setup's \
+                 own stock with no earlier operation in this setup: the real blank must match it",
+                    xp1 = crate::words::x(face)
                 ))
                 .about(topic::FREE_ENDS),
             );
@@ -554,17 +562,18 @@ pub(crate) fn free_ends(
                     topic: Some(topic::PART_CUT_FREE.to_owned()),
                     segment: None,
                     text: format!(
-                        "the end face at X {face:.3} is faced {}: the tool cuts {} {width:.3} mm \
-                         wide from X {:.3} to {:.3} {}, and the stock past {} is not held by \
+                        "the end face at {xp1} is faced {}: the tool cuts {} {width:.3} mm \
+                         wide from {xp2} to {xp3} {}, and the stock past {} is not held by \
                          anything in this setup, so it can be cut free there and thrown while \
                          the rotary axis turns. Before running this program, check the stock and \
                          the workholding on the machine",
                         faced_words(depth),
                         cut_words(depth).0,
-                        from.min(to),
-                        from.max(to),
                         cut_words(depth).1,
                         cut_words(depth).2,
+                        xp1 = crate::words::x(face),
+                        xp2 = crate::words::x(from.min(to)),
+                        xp3 = crate::words::n(from.max(to))
                     ),
                     setting: Some(parameter::FACE_FREE_ENDS.to_owned()),
                     acknowledgement: None,
@@ -602,8 +611,8 @@ pub(crate) fn free_ends(
                 topic: Some(topic::PART_CUT_FREE.to_owned()),
                 segment: None,
                 text: format!(
-                    "the end face at X {face:.3} is faced {}: the tool cuts {} {width:.3} mm wide \
-                     from X {from:.3} to {to:.3} {}, and nothing in this setup holds the part on \
+                    "the end face at {xp1} is faced {}: the tool cuts {} {width:.3} mm wide \
+                     from {xp2} to {xp3} {}, and nothing in this setup holds the part on \
                      the other side of {} (no held region at its other end, and no tab joining \
                      it to one), so the part can be cut free there and thrown while the rotary \
                      axis turns. Before running this program, check the stock and the \
@@ -612,6 +621,9 @@ pub(crate) fn free_ends(
                     cut_words(depth).0,
                     cut_words(depth).1,
                     cut_words(depth).2,
+                    xp1 = crate::words::x(face),
+                    xp2 = crate::words::x(from),
+                    xp3 = crate::words::n(to)
                 ),
                 setting: Some(parameter::FACE_FREE_ENDS.to_owned()),
                 // The part cut free can be thrown into the tool: a possible
@@ -657,11 +669,14 @@ fn loose_warnings(
                 topic: Some(topic::PART_CUT_FREE.to_owned()),
                 segment: None,
                 text: format!(
-                    "the end face at X {face:.3} has a tab past it that does not meet the face: \
-                     the turn beside the face cuts down to the tab from X {from:.3} to {to:.3}, \
+                    "the end face at {xp1} has a tab past it that does not meet the face: \
+                     the turn beside the face cuts down to the tab from {xp2} to {xp3}, \
                      and the stock past it is not held by anything in this setup, so it can be \
                      cut free there and thrown while the rotary axis turns. Before running this \
-                     program, check the stock and the workholding on the machine"
+                     program, check the stock and the workholding on the machine",
+                    xp1 = crate::words::x(face),
+                    xp2 = crate::words::x(from),
+                    xp3 = crate::words::n(to)
                 ),
                 setting: None,
                 acknowledgement: None,
@@ -693,12 +708,14 @@ fn loose_warnings(
                 topic: Some(topic::PART_CUT_FREE.to_owned()),
                 segment: None,
                 text: format!(
-                    "the end face at X {face:.3} has a tab past it that does not meet the face, \
-                     so the turn beside the face cuts the part free of the tab from X {from:.3} \
+                    "the end face at {xp1} has a tab past it that does not meet the face, \
+                     so the turn beside the face cuts the part free of the tab from {xp2} \
                      to {to:.3}, and nothing in this setup holds the part on its other side (no \
                      held region at its other end, and no tab joining it to one), so the part \
                      can be cut free there and thrown while the rotary axis turns. Before \
-                     running this program, check the stock and the workholding on the machine"
+                     running this program, check the stock and the workholding on the machine",
+                    xp1 = crate::words::x(face),
+                    xp2 = crate::words::x(from)
                 ),
                 setting: None,
                 // The part cut free can be thrown into the tool: a possible
@@ -1426,11 +1443,14 @@ pub(crate) fn point_warnings(
                 topic: Some(topic::PART_CUT_FREE.to_owned()),
                 segment: None,
                 text: format!(
-                    "the point at X {face:.3} is finished down to the rotary axis: the tool cuts \
-                     a ring {width:.3} mm wide from X {from:.3} to {to:.3} down to the axis, and \
+                    "the point at {xp1} is finished down to the rotary axis: the tool cuts \
+                     a ring {width:.3} mm wide from {xp2} to {xp3} down to the axis, and \
                      the stock past the point is not held by anything in this setup, so it can \
                      be cut free there and thrown while the rotary axis turns. Before running \
-                     this program, check the stock and the workholding on the machine"
+                     this program, check the stock and the workholding on the machine",
+                    xp1 = crate::words::x(face),
+                    xp2 = crate::words::x(from),
+                    xp3 = crate::words::n(to)
                 ),
                 setting: Some(parameter::FINISH_TO_A_POINT.to_owned()),
                 acknowledgement: None,
@@ -1459,12 +1479,15 @@ pub(crate) fn point_warnings(
                 topic: Some(topic::PART_CUT_FREE.to_owned()),
                 segment: None,
                 text: format!(
-                    "the point at X {face:.3} is finished down to the rotary axis: the tool cuts \
-                     a ring {width:.3} mm wide from X {from:.3} to {to:.3} down to the axis, and \
+                    "the point at {xp1} is finished down to the rotary axis: the tool cuts \
+                     a ring {width:.3} mm wide from {xp2} to {xp3} down to the axis, and \
                      nothing in this setup holds the part on the other side of the ring (no held \
                      region at its other end, and no tab joining it to one), so the part can be \
                      cut free there and thrown while the rotary axis turns. Before running this \
-                     program, check the stock and the workholding on the machine"
+                     program, check the stock and the workholding on the machine",
+                    xp1 = crate::words::x(face),
+                    xp2 = crate::words::x(from),
+                    xp3 = crate::words::n(to)
                 ),
                 setting: Some(parameter::FINISH_TO_A_POINT.to_owned()),
                 // As decision record 0538 has it for a free end: a possible

@@ -826,9 +826,11 @@ pub(crate) fn assemble_limited(
         let low = b.nubs.iter().map(|n| n.0).fold(f64::INFINITY, f64::min);
         let high = b.nubs.iter().map(|n| n.1).fold(f64::NEG_INFINITY, f64::max);
         let text = format!(
-            "the nub no wider than {width:.3} mm round the rotary axis at X {low:.3} to \
-             {high:.3} mm is removed by {made} {} instead of ring layers",
-            if made == 1 { "plunge" } else { "plunges" }
+            "the nub no wider than {width:.3} mm round the rotary axis at {xp1} to \
+             {xp2} mm is removed by {made} {} instead of ring layers",
+            if made == 1 { "plunge" } else { "plunges" },
+            xp1 = crate::words::x(low),
+            xp2 = crate::words::n(high)
         );
         b.notes
             .insert(0, Notice::information(text).about(topic::FACE_NUBS));

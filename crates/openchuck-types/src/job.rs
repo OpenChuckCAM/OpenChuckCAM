@@ -9,6 +9,7 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 
 use crate::error::{Error, Result};
+use crate::position::WorkFrame;
 
 /// A shared flag that asks a running job to stop.
 ///
@@ -84,12 +85,17 @@ pub struct JobContext<'a> {
     pub cancel: &'a CancelToken,
     /// Where progress goes.
     pub progress: &'a dyn ProgressSink,
+    /// How the positions in the call's messages are written (decision
+    /// record 0699): the work zero of the setup the call is for. A context
+    /// from [`JobContext::new`] writes them as the call computed them.
+    frame: WorkFrame,
 }
 
 impl std::fmt::Debug for JobContext<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("JobContext")
             .field("cancel", self.cancel)
+            .field("frame", &self.frame)
             .finish_non_exhaustive()
     }
 }
@@ -97,7 +103,26 @@ impl std::fmt::Debug for JobContext<'_> {
 impl<'a> JobContext<'a> {
     /// A context from a token and a sink.
     pub fn new(cancel: &'a CancelToken, progress: &'a dyn ProgressSink) -> Self {
-        Self { cancel, progress }
+        Self {
+            cancel,
+            progress,
+            frame: WorkFrame::default(),
+        }
+    }
+
+    /// This context, writing the positions in the call's messages in
+    /// `frame` (decision record 0699): the setup's work frame, so a message
+    /// about a point reads as the G-code and the simulation read it.
+    #[must_use]
+    pub fn with_work_frame(mut self, frame: WorkFrame) -> Self {
+        self.frame = frame;
+        self
+    }
+
+    /// How the positions in the call's messages are written.
+    #[must_use]
+    pub fn work_frame(&self) -> WorkFrame {
+        self.frame
     }
 
     /// Returns [`Error::Cancelled`] once the job is cancelled.
@@ -144,5 +169,28 @@ impl Drop for StageTimer<'_> {
         if let Some(started) = self.started {
             self.sink.timing(self.stage, started.elapsed());
         }
+    }
+}
+
+#[cfg(test)]
+mod frame_tests {
+    use super::*;
+
+    /// Decision record 0699: a context written for a setup carries its work
+    /// frame; one from `new` has none (zero at X 0), so every caller that does
+    /// not give one writes what it computed.
+    #[test]
+    #[allow(clippy::float_cmp)] // The zero is stored and read back unchanged.
+    fn req_ui_12_a_job_context_carries_the_work_frame_of_its_setup() {
+        let cancel = CancelToken::new();
+        let context = JobContext::new(&cancel, &NoProgress);
+        assert_eq!(context.work_frame(), WorkFrame::default());
+        let framed = context.with_work_frame(WorkFrame::new(17.99));
+        assert_eq!(framed.work_frame().zero_x(), 17.99);
+        // The original is a copy: it still writes as computed.
+        assert_eq!(context.work_frame().zero_x(), 0.0);
+        // The cancellation and the progress are the same ones.
+        cancel.cancel();
+        assert!(framed.check_cancelled().is_err());
     }
 }

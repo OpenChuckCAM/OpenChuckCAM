@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.77.0 (WORK-FRAME, WF-1; decision 0699, accepted; breaking only through `openchuck-types`, provisional version)
+
+- **Changed output:** every position along the rotary axis in a warning, a note or a refusal (finishing end faces, shoulders and held faces, the unreached areas of simultaneous finishing, facing's held regions, rest machining's rings, swarf's and edge following's points, flutes, pencil) is written from the work zero of the `JobContext` it is given (`JobContext::with_work_frame`), settled once at the end of `generate`, `generate_in_region` and `generate_in_zones`. With a work zero of 0, which `JobContext::new` gives, every text is as before; the moves never depend on it. The refusal for a connection outside the machine's travel says "machine X", "Y" and "Z" before its numbers.
+- **Internal:** a message writes a position with `words::x`, `words::n`, `words::x_span` or `words::x_list`, and `cargo xtask messages` refuses a position written as `X {:.3}`.
+- This crate's API does not change; the version moves with `openchuck-types`.
+
 ## Unreleased (MOPUP-1, PR M10; issue #892; a non-breaking addition, no version change)
 
 - **Changed:** pencil clean-up's `min_length` (Shortest cut) is a `ParameterKind::LengthOrTool`: a length in millimetres or `tool_diameter`, the operation's tool's diameter when the path is made, as face flow's Shortest cut is (decision 0686). Its default stays 0 mm, so a call that does not give it keeps every stretch; a number gives the same path as before. No API change: the parameter's name and the `ParameterKind` variant already exist.

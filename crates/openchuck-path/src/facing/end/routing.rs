@@ -332,10 +332,11 @@ fn too_deep(
     crate::error::PathError::refused(
         crate::topic::END_FACING,
         format!(
-            "the end at X {target:.3} needs the tool {depth:.3} mm below the top of the \
+            "the end at {xp1} needs the tool {depth:.3} mm below the top of the \
          stock at A {:.3}, more than the tool's {flute:.3} mm of flute, {from}, so the tool cannot \
          face it. Use a tool with longer flutes, or face the stock down with Box facing first",
-            angle.0
+            angle.0,
+            xp1 = crate::words::x(target)
         ),
     )
 }

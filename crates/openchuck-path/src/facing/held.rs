@@ -124,10 +124,11 @@ pub(crate) fn crop(setup: &FacingSetup<'_>, requested: (f64, f64), counted: f64)
             .collect::<Vec<_>>()
             .join(" and ");
         return Err(refuse(format!(
-            "the requested extent (X {:.3} to {:.3}) lies within {grips} and the {HELD_CLEARANCE:.3} mm \
+            "the requested extent ({xp1} to {xp2}) lies within {grips} and the {HELD_CLEARANCE:.3} mm \
              the whole tool keeps from it, so nothing is left to face; shorten the held length or \
              face this from a setup that holds the other end",
-            requested.0, requested.1
+            xp1 = crate::words::x(requested.0),
+            xp2 = crate::words::n(requested.1)
         )));
     }
     Ok(crop)
@@ -153,8 +154,10 @@ pub(crate) fn check_host(setup: &FacingSetup<'_>, host: &[(f64, f64)]) -> Result
         });
     if let Some((lo, hi)) = unmatched {
         return Err(refuse(format!(
-            "the held region Facing keeps the tool's centre out of (X {lo:.3} to {hi:.3}) is not \
-             the one this set-up gives, so Facing cannot say where it stops beside it"
+            "the held region Facing keeps the tool's centre out of ({xp1} to {xp2}) is not \
+             the one this set-up gives, so Facing cannot say where it stops beside it",
+            xp1 = crate::words::x(*lo),
+            xp2 = crate::words::n(*hi)
         )));
     }
     Ok(())
@@ -182,24 +185,22 @@ pub(crate) fn notes(faces: &[(String, Vec<Unfaced>)], flat: bool) -> Vec<Notice>
                 [rest @ .., last] => format!("{} and {last}", rest.join(", ")),
             };
             let finished = match u.beside {
-                FacingEnd::Start => format!("finished from X {:.3}", u.x.1),
-                FacingEnd::Far => format!("finished up to X {:.3}", u.x.0),
+                FacingEnd::Start => format!("finished from {xp1}", xp1 = crate::words::x(u.x.1)),
+                FacingEnd::Far => format!("finished up to {xp1}", xp1 = crate::words::x(u.x.0)),
             };
             let why = if flat {
                 " (its passes along X end there; the tool's round ends beyond them are not counted)"
             } else {
                 ""
             };
-            Notice::information(format!(
-                "Facing {on} stops short of {}: no part of the tool comes within {HELD_CLEARANCE:.3} mm \
-                 of it, so the face is {finished}{why}, and X {:.3} to {:.3} ({:.3} mm along X) of \
+            Notice::information(format!("Facing {on} stops short of {}: no part of the tool comes within {HELD_CLEARANCE:.3} mm \
+                 of it, so the face is {finished}{why}, and {xp1} to {xp2} ({:.3} mm along X) of \
                  the requested extent is left unfaced. To face it, shorten the held length or face it \
                  in a setup that holds the other end.",
-                held_words(u.beside, u.held),
-                u.x.0,
-                u.x.1,
-                u.x.1 - u.x.0
-            ))
+held_words(u.beside, u.held),
+u.x.1 - u.x.0,
+xp1 = crate::words::x(u.x.0),
+xp2 = crate::words::n(u.x.1)))
             .about(crate::notice::topic::HELD_REGION)
         })
         .collect()
@@ -210,7 +211,11 @@ fn held_words(end: FacingEnd, (lo, hi): (f64, f64)) -> String {
         FacingEnd::Start => "start",
         FacingEnd::Far => "far end",
     };
-    format!("the held {which} (X {lo:.3} to {hi:.3})")
+    format!(
+        "the held {which} ({xp1} to {xp2})",
+        xp1 = crate::words::x(lo),
+        xp2 = crate::words::n(hi)
+    )
 }
 
 fn refuse(reason: String) -> PathError {

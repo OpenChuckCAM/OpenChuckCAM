@@ -27,6 +27,15 @@
 # the application shows under the topics Surface, Region and Rotary axis, and the
 # registry's two errors in strategy.rs, which no user sees.
 
+# [raw_positions]: a position along the rotary axis written as "X {:.3}" in a product file's
+# string literals (decision record 0699). A message writes a position through
+# `openchuck_types::position::WorkFrame` (the path crate through `crate::words::x`), which
+# writes it from the work zero; a labelled position ("machine X {}", "model X {}") is another
+# frame, said so, and is not counted. What is left: the formatter's own three lines, the
+# stock's start measured from the rotary reference point and labelled so, and the texts of the
+# application, the command line and the interface that lane WORK-FRAME's second pull request
+# (WF-2) moves to the work frame. The count only falls.
+
 [message_new]
 
 [claims]
@@ -83,3 +92,20 @@
 "crates/openchuck-path/src/wrap_fit.rs" = 1
 "crates/openchuck-project/src/model.rs" = 1
 "crates/openchuck-project/src/tools/library.rs" = 1
+
+[raw_positions]
+"apps/openchuck-cli/src/main.rs" = 9
+"apps/openchuck-ui/src/model_panel.rs" = 1
+"apps/openchuck-ui/src/run_panel.rs" = 2
+"apps/openchuck-ui/src/viewport_overlays.rs" = 1
+"apps/openchuck-ui/src/workholding_panel.rs" = 2
+"crates/openchuck-app/src/facing/display.rs" = 4
+"crates/openchuck-app/src/machine_view.rs" = 1
+"crates/openchuck-app/src/overview.rs" = 1
+"crates/openchuck-app/src/setup_form.rs" = 2
+"crates/openchuck-app/src/setup_sheet.rs" = 3
+"crates/openchuck-app/src/tool_load.rs" = 1
+"crates/openchuck-app/src/workholding.rs" = 8
+"crates/openchuck-app/src/workholding_view.rs" = 10
+"crates/openchuck-types/src/position.rs" = 3
+"crates/openchuck-types/src/setup.rs" = 1
