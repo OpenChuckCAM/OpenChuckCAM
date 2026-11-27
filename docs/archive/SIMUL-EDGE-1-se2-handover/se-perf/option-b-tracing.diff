@@ -1,0 +1,121 @@
+diff --git a/crates/openchuck-path/src/brep.rs b/crates/openchuck-path/src/brep.rs
+index a6a5f1c..c93bfc5 100644
+--- a/crates/openchuck-path/src/brep.rs
++++ b/crates/openchuck-path/src/brep.rs
+@@ -2443,6 +2443,7 @@ impl BrepSurface {
+         if let Some((_, r)) = kept.iter().find(|(k, _)| *k == key) {
+             return Some(std::sync::Arc::clone(r));
+         }
++        let refine_started = std::time::Instant::now();
+         let r = crate::refine::refine(
+             &self.faces,
+             &self.mesh,
+@@ -2451,6 +2452,36 @@ impl BrepSurface {
+             target,
+             self.deflection,
+         );
++        if std::env::var("OCC_REFINE_SHARE").is_ok() || std::env::var("OCC_DUMP_MESH").is_ok() {
++            eprintln!("REFINED target {target} triangles {} largest {} in {:?}", r.mesh.triangles.len(), r.largest, refine_started.elapsed());
++        }
++        if let Ok(path) = std::env::var("OCC_DUMP_MESH") {
++            use std::io::Write as _;
++            let mut out = Vec::new();
++            out.extend_from_slice(&[0u8; 80]);
++            out.extend_from_slice(&(r.mesh.triangles.len() as u32).to_le_bytes());
++            for i in 0..r.mesh.triangles.len() {
++                out.extend_from_slice(&[0u8; 12]);
++                if let Some(t) = r.mesh.triangle(i) {
++                    for q in t {
++                        for v in [q.x, q.y, q.z] {
++                            out.extend_from_slice(&(v as f32).to_le_bytes());
++                        }
++                    }
++                }
++                out.extend_from_slice(&[0u8; 2]);
++            }
++            let _ = std::fs::write(&path, out);
++            // exact vertices and errors as text
++            let mut text = String::new();
++            for i in 0..r.mesh.triangles.len() {
++                if let Some(t) = r.mesh.triangle(i) {
++                    text.push_str(&format!("{:?} {:?} {:?} {:?} {:?} {:?} {:?} {:?} {:?} {:?}\n", t[0].x, t[0].y, t[0].z, t[1].x, t[1].y, t[1].z, t[2].x, t[2].y, t[2].z, r.errors.get(i).copied().unwrap_or(0.0)));
++                }
++            }
++            let _ = std::fs::File::create(format!("{path}.txt")).and_then(|mut f| f.write_all(text.as_bytes()));
++            eprintln!("DUMPED target {target} triangles {} largest {}", r.mesh.triangles.len(), r.largest);
++        }
+         let surface = MeshSurface::new(&r.mesh).ok()?;
+         let made = std::sync::Arc::new((r, surface));
+         kept.push((key, std::sync::Arc::clone(&made)));
+@@ -3014,7 +3045,11 @@ impl SurfaceSource for BrepSurface {
+         // A quarter of the limit (the caller's tolerance) is what each
+         // triangle may be from its face (OI-9974, the owner's answer of 26
+         // Nov 2026): a tessellation further than that is refined first.
+-        let target = 0.25 * query.limit;
++        let share = std::env::var("OCC_REFINE_SHARE")
++            .ok()
++            .and_then(|v| v.parse::<f64>().ok())
++            .unwrap_or(0.25);
++        let target = share * query.limit;
+         if target.is_finite() && target > 0.0 && self.largest_error > target {
+             if let Some(refined) = self.refined_for(target) {
+                 let (r, surface) = &*refined;
+diff --git a/crates/openchuck-path/src/simultaneous.rs b/crates/openchuck-path/src/simultaneous.rs
+index 4e95ac2..8e41893 100644
+--- a/crates/openchuck-path/src/simultaneous.rs
++++ b/crates/openchuck-path/src/simultaneous.rs
+@@ -2855,6 +2855,22 @@ impl Plan<'_> {
+         })
+     }
+ 
++    /// MEASUREMENT ONLY (lane SE-PERF, option B): the most a kept move may
++    /// cut, the tolerance less the check's stated accuracy when the switch
++    /// is on and the source states one.
++    fn kept_within(&self) -> f64 {
++        static ON: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
++        if !*ON.get_or_init(|| std::env::var("OCC_FIT_INSIDE").is_ok()) {
++            return self.tolerance;
++        }
++        let stated = self.input.surface.tool_gap_accuracy();
++        if stated > 0.0 {
++            self.tolerance - stated.min(0.25 * LAYER * self.allowed)
++        } else {
++            self.tolerance
++        }
++    }
++
+     /// How far the tool's tip travels over the part on the straight move
+     /// from `a` to `b`: the larger of the straight distance between its ends
+     /// and the arc A turns it through at its distance from the rotary axis.
+@@ -3032,14 +3048,14 @@ impl Plan<'_> {
+                     // good as equal on the track (where the drive passes
+                     // from one surface to another): the move is kept only as
+                     // moves through the raised tool at its middle.
+-                    if (error > self.tolerance || jumps)
++                    if (error > self.kept_within() || jumps)
+                         && depth < MAX_DEPTH + RAISES
+                         && let Some(raised) = self.raised(a, b, &mid)
+                     {
+                         self.refine_from(track, axis, a, &raised, depth + 1, None, out)?;
+                         return self.refine_from(track, axis, &raised, b, depth + 1, None, out);
+                     }
+-                    if error > self.tolerance {
++                    if error > self.kept_within() {
+                         // The pass breaks where it cannot be kept within the
+                         // tolerance, on every pass (OP-20; decision record
+                         // SIMUL-EDGE-1, Q4): the move is left out and the
+@@ -3192,6 +3208,14 @@ impl Plan<'_> {
+         )?;
+         let query = move_query(Vec3::ZERO, self.allowed);
+         let thin = self.thin_wall(&grown, &query, &g, profile);
++        if std::env::var("OCC_GOUGE").is_ok() {
++            eprintln!(
++                "GOUGE tip {:?} {:?} {:?} axis {:?} {:?} {:?} top {:?} radius {:?} lower {:?} upper {:?} thin {}",
++                grown.origin.x, grown.origin.y, grown.origin.z,
++                grown.axis.get().x, grown.axis.get().y, grown.axis.get().z,
++                profile.top(), profile.cutting_radius(), g.lower, g.upper, thin.is_some()
++            );
++        }
+         Some((-g.upper.min(g.lower.max(-self.allowed)), g.at, thin))
+     }
+ 
