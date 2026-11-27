@@ -686,6 +686,7 @@ Lane PATH-QUALITY, one pull request for the CodeRabbit Minors left from #930 (PQ
   - Each new test takes under 2 s in release; the app test takes about 2 s.
   - fmt, clippy, and `cargo xtask deps` (with messages and topics), `licences`, `records` and `trace` pass.
   - `cargo-semver-checks` is not installed here; CI runs it. There is no public API change.
-- **Environment:** this lane's cloud container, on `main` 04e92e5b.
+- **Release head** (`main` 22100b00 merged, library family 0.73.0): `cargo test --release --locked -p openchuck-path` passes 153 unit, 925 integration and 1 doc test, and `-p openchuck-app` 317 unit (1 ignored) and 634 integration tests.
+- **Environment:** this lane's cloud container, on `main` 04e92e5b; the release head as above.
 - **Not verified:** nothing was cut or air-cut. Indexed finishing's new check was not driven past the limit by a test: its passes already run a tool radius past the end, so its stretch is tiny. It shares axial finishing's check. The output effect on a real part of items 3, 6 and 7 was not measured, because no example enters by Ramp on such a pass.
 - **Open items:** none raised or closed.
