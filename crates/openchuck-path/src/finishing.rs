@@ -779,8 +779,12 @@ pub(crate) fn point_ends(
 /// tool's end at its cutting radius on the axis, as the drop onto a point on
 /// the axis puts it: a ball's centre on the axis (decision record 0695, Q2
 /// (b) A). Starting at A `start`, turning by `sign`, no more than `step`
-/// degrees between points; each turn its own pass, as Face free ends cuts
-/// them (decision record 0344). With no Stepdown, one turn.
+/// degrees between points, but never more than `MOST_POINTS` (3600, a
+/// tenth of a degree apart) in a turn however small `step` is: at a radius
+/// of at most the tool radius that is a chord under 0.003 mm, and on the
+/// final turn the tool's centre is on the axis and does not move (issue
+/// #959). Each turn its own pass, as Face free ends cuts them (decision
+/// record 0344). With no Stepdown, one turn.
 pub(crate) fn turns_to_the_axis(
     input: &StrategyInput<'_>,
     end: &PointEnd,

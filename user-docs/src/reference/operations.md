@@ -204,6 +204,8 @@ For the unheld end, **Stepover** is labelled **Stepover (slice thickness along X
 
 On a STEP part, Facing takes the part's ends, outline and radius from its exact faces, not from the triangles made from them. Its bounds may lie a little outside the part, never inside it: at most 0.0005 mm for flat, cylindrical, conical, spherical and toroidal faces. A face that is a free-form surface (a B-spline) is bounded by its control points, so where the part's furthest point lies on one, Facing may stop a little short of it and leave that much more stock; the operation's notes give the figure. These figures are measured from each face's whole surface: where the part's furthest point lies on a trimmed face, or on a flat face whose edges have no exact curve, Facing may stop further short and leave more stock.
 
+**In the view.** Facing draws the faces, the extent and its margin, and where each face stops, with short labels that say what each number is measured from: "Face A 0°: 13.650 mm from axis" (the finished plane's distance from the rotary axis), "A 0° to A 180°: 27.300 mm apart" (the thickness between two opposite faces), "Margin: 0.500 mm past the edges" (only when the margin is not zero), and "Faced from X 25.490 (held start)" or "Faced up to X 85.990 (held end)" beside a grip. Until you generate, the outlines and labels are a draft, as a note on the operation says; once generated, the stop is marked where the cut stops. While a Facing operation is selected, only its labels are drawn. To hide some or all of them, use **Facing labels** in the view's **Show** menu (<kbd>V</kbd>) or **View > Facing labels**: **Faces** (End and Round labels among them), **Margin**, **Opposite faces** and **Stops beside a grip**. The outlines stay, and nothing else changes. The label beside **Show** names what is hidden, and **Show everything** in the **Show** menu shows it all again. The choice is kept on this computer for every project.
+
 ## Helical finishing
 
 Follows the surface in a spiral round the part as the tool moves along it: a general finish for round shapes. Selections and gaps can split the spiral, and the tool may not reach tight inside corners.
@@ -212,7 +214,7 @@ Follows the surface in a spiral round the part as the tool moves along it: a gen
 | --- | --- | --- |
 | Rotation | Positive | Which way A turns as X increases. |
 | Start angle | 0° | A at the lowest X of the part. |
-| Largest angle step | 5° | The most A may turn between two points; points are added where the surface needs them. |
+| Largest angle step | 5° | The most A may turn between two points; points are added where the surface needs them. With **Finish to a point**, the turns down to the rotary axis past a point have at most 3600 points a turn (0.1° apart), however small this is. |
 | Scallop height / Allowed excess | 0 / 0.01 mm | See [the shared settings](#settings-some-strategies-share). |
 | Passes | Spiral | **Spiral** or **Rings** (one full turn at a time, at the start angle). |
 

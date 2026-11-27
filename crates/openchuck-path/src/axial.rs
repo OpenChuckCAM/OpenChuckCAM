@@ -510,6 +510,16 @@ impl<'a> AlongX<'a> {
         end: &crate::finishing::PointEnd,
         context: &JobContext<'_>,
     ) -> Result<Vec<Pass>> {
+        let Some((from, seeds)) = self.stretch_seeds(end) else {
+            return Ok(Vec::new());
+        };
+        self.fit_span((Degrees(a), 0.0), (from, end.edge), seeds as usize, context)
+    }
+
+    /// Where the stretch past `end` starts and how many points it is
+    /// seeded with, at the passes' own spacing along X; none where the
+    /// passes already reach the end's last drop.
+    fn stretch_seeds(&self, end: &crate::finishing::PointEnd) -> Option<(f64, f64)> {
         let from = if end.far {
             self.x1 + self.beyond
         } else {
@@ -520,12 +530,49 @@ impl<'a> AlongX<'a> {
         } else {
             from - end.edge
         };
-        if length <= 0.0 {
-            return Ok(Vec::new());
+        if length <= 0.0 || !length.is_finite() {
+            return None;
         }
         let h = (self.x1 - self.x0) / self.seeds as f64;
-        let seeds = ((length / h).ceil() as usize).max(2);
-        self.fit_span((Degrees(a), 0.0), (from, end.edge), seeds, context)
+        Some((from, (length / h).ceil().max(2.0)))
+    }
+
+    /// Refuses `count` passes carried on past the ends `ends` (Finish to a
+    /// point) that would make more points than one run may: the stretches
+    /// past the point count towards the same limit as the passes over the
+    /// part, and are refused before any is fitted (CodeRabbit on #956,
+    /// issue #959).
+    pub(crate) fn check_point_stretches(
+        &self,
+        ends: &[crate::finishing::PointEnd],
+        count: usize,
+    ) -> Result<()> {
+        let past: f64 = ends
+            .iter()
+            .filter_map(|e| self.stretch_seeds(e))
+            .map(|(_, seeds)| seeds)
+            .sum();
+        if past == 0.0 {
+            return Ok(());
+        }
+        let per_pass = self.seeds as f64 + past;
+        let total = if self.candidates.is_none() {
+            per_pass * count as f64
+        } else {
+            per_pass
+        };
+        if !total.is_finite() || total > MAX_SEEDS {
+            return Err(PathError::Parameter {
+                name: parameter::MAX_X_STEP.to_owned(),
+                reason: format!(
+                    "{} of {} each, with {past:.0} more past the point, is too many; \
+                     increase the stepover or the largest step",
+                    crate::counted(count, "pass", "passes"),
+                    crate::counted(self.seeds, "point", "points")
+                ),
+            });
+        }
+        Ok(())
     }
 
     /// The whole turns down to the rotary axis at `end`'s last drop that
@@ -819,6 +866,7 @@ fn passes(
             parameters,
         )
     });
+    along.check_point_stretches(&pointed, count)?;
     let (mut passes, spaced) = match adaptive {
         None => {
             let mut passes = along.passes_at(&angles, "axial finishing", context)?;

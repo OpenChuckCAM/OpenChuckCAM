@@ -651,3 +651,42 @@ Updated in place: OI-318 and OI-337 (the blisk now generates and cuts its blade 
   - **A Minor not fixed here**, for the lane's ticket: an app test of a saved helical, axial or indexed operation without the setting. The schema default (off) is tested in `openchuck-path`.
 - **Not verified:** nothing was cut or air-cut.
 - **Open items:** OI-2236 closes.
+
+## Verification (follow-ups, issues #951 and #959)
+
+Lane PATH-QUALITY, one pull request for the CodeRabbit Minors left from #930 (PQ-2, ticket #951) and #956 (PQ-3, ticket #959). No new decision is taken; each item refines how this record's answers were built. Library family 0.73.0, by merge order (#947 took 0.72.0).
+
+- **What changed, by item:**
+  - **#951 item 1, the plunge's depth.** The depth a fallback plunge names (Q4) is measured from where the stock begins, also when the tool is already less than the approach distance above the stock. The old formula took it from the rapid's stop, so it under-reported by up to that distance. The arithmetic is a small function, `depth_into_stock`. Its unit test gives 3.0 mm for a tool 0.5 mm above stock that begins at 10, with a goal of 7; the old formula gave 2.5.
+  - **#951 item 2, the refusal wording.** A refusal of too many turns asks to turn on Steeper ramp near the axis only where the Maximum ramp angle is steeper than the Ramp angle.
+  - **#951 item 3, a ring's depth per traverse (Q3 point 4, Q9 part 3).** A ring ramp's depth per traverse is the deepest drop between one visit to a place and the next a turn later. After the ramp's last turn, the next visit is the ring itself, its floor. It was the mean over its turns. A whole ring is held back and forth when that deepest turn exceeds the bound, so an uneven ring that cuts deeper in one turn is held where the mean let it ramp round.
+  - **#951 item 6, the leg fitting.** Where scaling the leg to the bound would take it below the shortest stretch a ramp goes over, a leg of exactly that stretch is tried once before the ramp first fitted is kept (D4).
+  - **#951 item 7, a spiral's turns (Q3, Q4).** The turns a back-and-forth ramp on a spiral would travel count the descent to the lowest point of the stretch its legs use, the stretch its stock is probed over (D5), not of the whole pass.
+  - **#951 items 4 and 5, test precision.** A shared test helper, `entries_by_pass`, maps each entry to its pass number by the pass's first point (A to whole turns), so the tests compare pass numbers, not totals:
+    - the plunge test checks that the plunged passes are the passes the notes name, each named once;
+    - the steep-drop exception applies only to the final move of a pass the note names.
+  - **#959 item 1.** An app test of a saved operation without Finish to a point.
+  - **#959 item 2, the most points (NFR-07).** The points past the point count towards the same 5,000,000-point limit as the passes over the part. Helical finishing checks before any piece is fitted; axial and indexed finishing check before their passes are fitted.
+  - **#959 item 3.** The Largest angle step description (helical finishing), `turns_to_the_axis` and the guide name the cap of 3600 points a turn on the turns down to the axis.
+- **Tests, written from the ticket's items before the code; each was seen failing first unless said:**
+  - `assemble::path_ramp::tests::req_op_11_a_leg_of_the_shortest_stretch_is_tried_before_the_first_fit_is_kept`, on CodeRabbit's case (flat for 0.8 mm, then up 1 mm in 0.2 mm; a 0.2 mm bound; a 0.3 mm minimum). Before the fix the ramp followed the rise and dropped 0.9 mm in a traverse; after it, 0.3 mm legs hold 0.06 mm.
+  - `assemble::ring_ramp::tests::req_op_11_a_ring_ramp_s_depth_per_traverse_is_its_deepest_turn`. Two turns down 0.2 and 1.8 mm gave the mean, 1.0, before the fix, and give 1.8 after it. An even ramp keeps 1.0.
+  - `assemble::entry::tests::req_op_11_req_nfr_12_a_plunge_s_depth_is_from_where_the_stock_begins`. It is written for the new function, so it was not run against the old code; the old formula's figure is given above.
+  - `ramp_load::req_op_11_req_nfr_07_a_refusal_asks_for_the_steeper_ramp_only_where_it_could_steepen` failed first: the refusal at a Maximum ramp angle equal to the Ramp angle asked for the steeper ramp.
+  - `ramp_load::req_op_11_a_spiral_s_turns_count_only_the_stretch_its_legs_use` failed first: the pass was refused at 12.1 turns. After the fix it is ramped from 17 mm at 3 degrees, unsteepened.
+  - `ramp_load::req_op_11_req_op_03_at_the_new_defaults_only_passes_with_no_room_to_ramp_are_plunged` and `ramp_follows::req_op_11_req_set_09_*` were strengthened, as items 4 and 5 ask. They pass on the old and the new code. All 8 roughing passes are matched to their entries, and the plunged passes (4 to 7) are those named.
+  - `finish_to_a_point::req_nfr_07_req_op_04_the_stretch_past_a_point_counts_towards_the_most_points`: a hemisphere 0.8 mm long. The passes over the part alone are within the limit: helical 3.84 million points at 0.00015 degrees, axial 11 passes of 320,000 points at 0.0000025 mm. Before the fix, helical finishing did not refuse; it ran for over 5 minutes, fitting past the limit, and was stopped. After the fix both refuse in about 1 s in release.
+  - `openchuck-app` `operation::req_op_04_req_gc_07_a_saved_finishing_operation_without_finish_to_a_point_keeps_its_program`, for helical, axial and indexed finishing on a cylinder ending in a cone to a point inside the stock:
+    - a project saved without the setting, opened again, gives the same LinuxCNC program as with the setting off, and a different one with it on;
+    - it confirms behaviour already built, so it passed on the old code too;
+    - it uses a new `walls::build_with` helper.
+- **Results:**
+  - `cargo test --release -p openchuck-path`: 151 unit, 921 integration and 1 doc test pass.
+  - `-p openchuck-app`: 304 unit (1 ignored) and 628 integration tests pass. No golden and no shipped example changed: none enters by Ramp on an uneven ring or a spiral that drops beyond its legs.
+  - Each new test takes under 2 s in release; the app test takes about 2 s.
+  - fmt, clippy, and `cargo xtask deps` (with messages and topics), `licences`, `records` and `trace` pass.
+  - `cargo-semver-checks` is not installed here; CI runs it. There is no public API change.
+- **Release head** (`main` 22100b00 merged, library family 0.73.0): `cargo test --release --locked -p openchuck-path` passes 153 unit, 925 integration and 1 doc test, and `-p openchuck-app` 317 unit (1 ignored) and 634 integration tests.
+- **Environment:** this lane's cloud container, on `main` 04e92e5b; the release head as above.
+- **Not verified:** nothing was cut or air-cut. Indexed finishing's new check was not driven past the limit by a test: its passes already run a tool radius past the end, so its stretch is tiny. It shares axial finishing's check. The output effect on a real part of items 3, 6 and 7 was not measured, because no example enters by Ramp on such a pass.
+- **Open items:** none raised or closed.

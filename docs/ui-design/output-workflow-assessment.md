@@ -252,7 +252,7 @@ Fresh integrated checks:
 
 The native/physical-GPU limitations above remain. Original #307 and #311
 still require owner feedback on Windows display and actual interaction;
-apply `awaiting-fix-feedback` at merge as instructed. #306 is the completed
+apply `owner-to-check` (earlier `awaiting-fix-feedback`) at merge as instructed. #306 is the completed
 assessment; the approved four-step/two-button build remains #322. SIMUI's
 nonblocking colour-availability follow-up #330 and minor stale-banner wording
 remain deferred; no follow-up implementation is included here. After the
