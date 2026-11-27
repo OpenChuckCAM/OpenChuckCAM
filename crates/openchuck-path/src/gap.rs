@@ -84,8 +84,13 @@ pub const SIDE_MARGIN: f64 = 1e-7;
 /// of them; `None` when none lies within all (the polytope is empty: it is
 /// bounded by the face's prism, floor and plane).
 fn polytope_least(planes: &[(Vec3, f64)], m: Vec3) -> Option<f64> {
+    polytope_lowest(planes, m).map(|(v, _)| v)
+}
+
+/// As [`polytope_least`], with the corner where it is least.
+fn polytope_lowest(planes: &[(Vec3, f64)], m: Vec3) -> Option<(f64, Point3)> {
     let scale = planes.iter().map(|p| p.1.abs()).fold(1.0, f64::max);
-    let mut least: Option<f64> = None;
+    let mut least: Option<(f64, Point3)> = None;
     let count = planes.len();
     for i in 0..count {
         for j in i + 1..count {
@@ -99,7 +104,9 @@ fn polytope_least(planes: &[(Vec3, f64)], m: Vec3) -> Option<f64> {
                     * (1.0 / det);
                 if planes.iter().all(|(n, b)| n.dot(y) <= b + 1e-10 * scale) {
                     let v = m.dot(y);
-                    least = Some(least.map_or(v, |l: f64| l.min(v)));
+                    if least.is_none_or(|(l, _)| v < l) {
+                        least = Some((v, Point3::ORIGIN + y));
+                    }
                 }
             }
         }
@@ -1190,6 +1197,98 @@ impl<'a> Body<'a> {
         Some((height, x))
     }
 
+    /// Planes touching the tool from below at a single pose, each `(n, k)`
+    /// with the tool where `n . y >= k` and `n . m > 0`: tangent where the
+    /// columns through the piece's centre and corners first meet the tool,
+    /// and leaning from the face's normal towards the piece from under the
+    /// tool, towards the tool's nearest point and across each side, each at
+    /// the angle a golden-section search finds best at the piece's corners.
+    fn cheap_planes(&self, face: &Face) -> Vec<(Vec3, f64)> {
+        let m = face.m;
+        let mut planes = Vec::new();
+        let centre = centroid(&face.corners);
+        for x in std::iter::once(centre).chain(face.corners) {
+            if let Some((_, y)) = self.column_first(face, x) {
+                let n = -self.at_first(y).1;
+                if n.dot(m) > 1e-9 {
+                    planes.push((n, n.dot(y - Point3::ORIGIN)));
+                }
+            }
+        }
+        let (a, b) = self.spine;
+        let middle = Point3::new(0.5 * (a.x + b.x), 0.5 * (a.y + b.y), 0.5 * (a.z + b.z));
+        let to = centre - middle;
+        let leans: Vec<Vec3> = UnitVec3::new(to - m * to.dot(m))
+            .ok()
+            .map(UnitVec3::get)
+            .into_iter()
+            .chain(self.toward(face))
+            .chain(face.sides.iter().map(|(n, _)| *n))
+            .filter(|e| e.length() > 0.0)
+            .collect();
+        let golden = 0.5 * (5.0_f64.sqrt() - 1.0);
+        for e in leans {
+            let plane = |t: f64| {
+                let w = m * t.cos() + e * t.sin();
+                (w, self.lowest_first(w))
+            };
+            let score = |t: f64| {
+                let (n, k) = plane(t);
+                face.corners
+                    .iter()
+                    .map(|x| (k - n.dot(*x - Point3::ORIGIN)) / n.dot(m))
+                    .fold(f64::INFINITY, f64::min)
+            };
+            let (mut lo, mut hi) = (0.0_f64, std::f64::consts::FRAC_PI_2 - 1e-6);
+            for _ in 0..LEAN_STEPS {
+                let (c, d) = (hi - golden * (hi - lo), lo + golden * (hi - lo));
+                if score(c) >= score(d) {
+                    hi = d;
+                } else {
+                    lo = c;
+                }
+            }
+            planes.push(plane(0.5 * (lo + hi)));
+            // Square to the face: a tool lying beside it.
+            let side = (e, self.lowest_first(e));
+            planes.push(side);
+        }
+        planes
+    }
+
+    /// The best bound `planes` give on the least height above the face of
+    /// a tool point in `region` (as `n . y <= b` sides), no deeper than
+    /// `limit` below the face and no higher than `cap` above it: the least
+    /// height over the corners of the polytope of the region and each
+    /// plane; `INFINITY` when for some plane it is empty.
+    fn polytope_bound(
+        &self,
+        face: &Face,
+        region: &[(Vec3, f64)],
+        planes: &[(Vec3, f64)],
+        limit: f64,
+        cap: f64,
+    ) -> (f64, Option<Point3>) {
+        let m = face.m;
+        let mut base: Vec<(Vec3, f64)> = region.to_vec();
+        base.push((-m, limit - face.d));
+        base.push((m, face.d + cap));
+        let mut best = (f64::NEG_INFINITY, None);
+        for (n, k) in planes {
+            let mut with = base.clone();
+            with.push((-*n, -*k));
+            let (v, at) = polytope_lowest(&with, m)
+                .map_or((f64::INFINITY, None), |(v, at)| (v - face.d, Some(at)));
+            if v > best.0 {
+                best = (v, at);
+            }
+            if best.0 == f64::INFINITY {
+                break;
+            }
+        }
+        best
+    }
+
     /// A bound, at a single pose (no shift or turn), on the least height
     /// above the face of a tool point in `region` (the face's prism, with
     /// or without its clips, as `n . y <= b` sides), counted no deeper than
@@ -1891,6 +1990,151 @@ impl Search<'_, '_> {
     /// Measures a piece at the ends and middle of its part of the move
     /// (and its hint): the best multipliers at each pose give a proven
     /// bound over the whole part, the best of which is kept, and the lowest
+    /// Measures a piece at a single pose (no shift or turn) by the tool's
+    /// lower surface along the face's normal and its columns, without the
+    /// dual (the owner's confirmation of 27 Nov 2026: at the move check's
+    /// single poses the dual's multipliers grow without end where the tool
+    /// runs along a face's edge or lies beside it). The bound is the best
+    /// of planes touching the tool from below, each at the piece's corners
+    /// ([`Body::cheap_planes`]), and where that is short of what the caller
+    /// accepts, over the corners of the polytope of the region and the
+    /// plane, which may show it empty; real values are the columns through
+    /// the piece's centre and corners. The open and clipped regions are
+    /// counted as in [`Self::measure`].
+    fn measure_single(&mut self, piece: Piece) -> Piece {
+        let clipped = self.face(piece.corners, piece.normal, piece.triangle);
+        let open = Face {
+            clips: Vec::new(),
+            ..clipped.clone()
+        };
+        let e = (self.error)(piece.triangle);
+        let empty = Piece {
+            lower: f64::INFINITY,
+            measured: true,
+            ..piece
+        };
+        if self.body.beside(&open, 0.0, 0.0) {
+            return empty;
+        }
+        let top = self.body.top_over(&open, 0.0, 0.0);
+        if top < -self.limit {
+            return empty;
+        }
+        let planes = self.body.cheap_planes(&open);
+        // At the corners only a plane facing along the face's normal bounds
+        // the height; one square to it (a tool beside the piece) counts in
+        // the polytope's bound, where it is a side.
+        let at_corners = |(n, k): &(Vec3, f64)| {
+            let along = n.dot(open.m);
+            if along <= 1e-9 {
+                return f64::NEG_INFINITY;
+            }
+            open.corners
+                .iter()
+                .map(|x| (k - n.dot(*x - Point3::ORIGIN)) / along)
+                .fold(f64::INFINITY, f64::min)
+        };
+        let mut open_lower = planes
+            .iter()
+            .map(at_corners)
+            .fold(self.body.dual_over(open.m, open.d, 0.0, 0.0), f64::max);
+        // The foot of a polytope's lowest corner: a place for a real value.
+        let foot =
+            |face: &Face, y: Point3| y + face.m * (-(face.m.dot(y - Point3::ORIGIN) - face.d));
+        let mut probes: Vec<(bool, Point3)> = Vec::new();
+        if open_lower < -self.inside {
+            let region: Vec<(Vec3, f64)> = open.sides.to_vec();
+            let (v, at) =
+                self.body
+                    .polytope_bound(&open, &region, &planes, self.limit, top.max(0.0));
+            if v == f64::INFINITY {
+                return empty;
+            }
+            open_lower = open_lower.max(v);
+            probes.extend(at.map(|y| (false, foot(&open, y))));
+        }
+        let centre = centroid(&open.corners);
+        let columns = |face: &Face| {
+            std::iter::once(centre)
+                .chain(face.corners)
+                .filter_map(|x| self.body.column(face, x, 0.0, self.limit))
+                .fold(None, |best: Option<(f64, Point3)>, c| match best {
+                    Some(b) if b.0 <= c.0 => Some(b),
+                    _ => Some(c),
+                })
+        };
+        // And the tool's own lowest point along the face's normal, with the
+        // column nearest its foot.
+        let free = self.body.found(&open, &[0.0; 3], 0.0, self.limit);
+        let probe = |face: &Face, list: &[(bool, Point3)], clipped: bool| {
+            list.iter()
+                .filter(|(c, _)| *c == clipped)
+                .filter_map(|(_, x)| self.body.column(face, *x, 0.0, self.limit))
+                .fold(None, |best: Option<(f64, Point3)>, c| match best {
+                    Some(b) if b.0 <= c.0 => Some(b),
+                    _ => Some(c),
+                })
+        };
+        let lowest = |a: Option<(f64, Point3)>, b: Option<(f64, Point3)>| match (a, b) {
+            (Some(a), Some(b)) => Some(if b.0 < a.0 { b } else { a }),
+            (a, b) => a.or(b),
+        };
+        let near = match (lowest(columns(&open), probe(&open, &probes, false)), free) {
+            (Some(a), Some(b)) => Some(if b.0 < a.0 { b } else { a }),
+            (a, b) => a.or(b),
+        };
+        let has_clips = !clipped.clips.is_empty();
+        let mut bound = open_lower;
+        let mut value = near;
+        if has_clips && open_lower < 0.0 {
+            // Below the face only the clipped region counts; its value is
+            // at most zero where the open region's is below the face.
+            let clipped_lower = if open_lower >= -self.inside {
+                0.0_f64.min(open_lower.max(-self.inside))
+            } else if self.body.beside(&clipped, 0.0, 0.0) {
+                f64::INFINITY
+            } else {
+                let region: Vec<(Vec3, f64)> = clipped.constraints().copied().collect();
+                let cplanes = self.body.cheap_planes(&clipped);
+                let (v, at) = self
+                    .body
+                    .polytope_bound(&clipped, &region, &cplanes, self.limit, 0.0);
+                probes.extend(at.map(|y| (true, foot(&clipped, y))));
+                v.max(open_lower)
+            };
+            bound = clipped_lower.min(0.0).max(open_lower);
+            value = match near {
+                Some((h, at)) if h >= 0.0 => Some((h, at)),
+                Some((_, at)) => Some(
+                    match lowest(columns(&clipped), probe(&clipped, &probes, true)) {
+                        Some((hc, atc)) if hc < 0.0 => (hc, atc),
+                        _ => (0.0, at),
+                    },
+                ),
+                None => lowest(columns(&clipped), probe(&clipped, &probes, true))
+                    .map(|(h, at)| (h.min(0.0), at)),
+            };
+        }
+        if let Some((h, at)) = value
+            && self.best.is_none_or(|(b, _, _)| h - e < b)
+        {
+            self.best = Some((h - e, at, e));
+        }
+        if std::env::var("MDBG").is_ok() {
+            eprintln!(
+                "MS tri {} size {:.3} open_lower {open_lower} bound {bound} near {near:?} value {value:?} planes {} top {top}",
+                piece.triangle,
+                longest_side(&piece.corners).3,
+                planes.len()
+            );
+        }
+        Piece {
+            lower: piece.lower.max(bound.max(-self.limit) - e),
+            measured: true,
+            ..piece
+        }
+    }
+
     /// tool point on the face there a real value.
     fn measure(&mut self, piece: Piece) -> Piece {
         // The face's region without its clips, which counts the tool above
@@ -1898,6 +2142,9 @@ impl Search<'_, '_> {
         // counts, and with them, which counts the tool below it (see
         // [`Face`]): over the piece the gap is the open region's where that
         // is not below the face, else the clipped region's, or zero.
+        if !self.body.turns() && self.body.sweep.length() <= 0.0 {
+            return self.measure_single(piece);
+        }
         let clipped = self.face(piece.corners, piece.normal, piece.triangle);
         let open = Face {
             clips: Vec::new(),
@@ -1966,7 +2213,9 @@ impl Search<'_, '_> {
         if single && open_lower < -self.inside {
             let top = self.body.top_over(&open, s0, s1);
             let region: Vec<(Vec3, f64)> = open.sides.to_vec();
-            let v = self.body.lower_surface(&open, &region, self.limit, top.max(0.0));
+            let v = self
+                .body
+                .lower_surface(&open, &region, self.limit, top.max(0.0));
             if v == f64::INFINITY {
                 return empty;
             }
@@ -1989,7 +2238,8 @@ impl Search<'_, '_> {
         }
         if has_clips && wanted && !clipped_beside && single {
             let region: Vec<(Vec3, f64)> = clipped.constraints().copied().collect();
-            clipped_lower = clipped_lower.max(self.body.lower_surface(&clipped, &region, self.limit, 0.0));
+            clipped_lower =
+                clipped_lower.max(self.body.lower_surface(&clipped, &region, self.limit, 0.0));
         }
         if has_clips && wanted && !clipped_beside {
             for &f in &poses {

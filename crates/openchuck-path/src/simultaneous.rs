@@ -3720,16 +3720,8 @@ mod tests {
         assert!(theirs.upper >= -0.01, "{theirs:?}");
     }
 
-    #[test]
-    fn req_op_12_a_flat_end_overhanging_the_blisk_rim_is_settled_at_once() {
-        // One sample of the move check on the public blisk (27 Nov 2026): a
-        // 3 mm flat end grown by a tenth of the tolerance, its bottom resting
-        // on the rim at the end face X 0 and overhanging it. The end face's
-        // pieces under the rim lie wholly below the tool, parted from it by
-        // a plane across the face towards the tool's nearest point; the
-        // independent checker reads the gap -0.001 there (the growth).
-        use openchuck_testkit::contact::{ConvexTool, Geometry, Settings};
-        use openchuck_types::tool::{ProfilePoint, ProfileSegment, ToolProfile};
+    /// The public blisk, `testdata/stl/blisk.stl`.
+    fn blisk() -> TriangleMesh {
         let bytes = std::fs::read(concat!(
             env!("CARGO_MANIFEST_DIR"),
             "/../../testdata/stl/blisk.stl"
@@ -3750,7 +3742,13 @@ mod tests {
             }
             mesh.triangles.push(ids);
         }
-        let flat = ToolProfile {
+        mesh
+    }
+
+    /// A 3 mm flat end with flutes to 16 mm.
+    fn flat_3mm() -> RevolvedProfile {
+        use openchuck_types::tool::{ProfilePoint, ProfileSegment, ToolProfile};
+        ToolProfile {
             segments: vec![
                 ProfileSegment::Line {
                     to: ProfilePoint::new(1.5, 0.0),
@@ -3761,8 +3759,73 @@ mod tests {
             ],
         }
         .validate()
-        .unwrap();
-        let profile = cutter::grow_profile(&flat, 0.001).unwrap();
+        .unwrap()
+    }
+
+    /// One grown sample of the move check at `line` on `mesh`: proven when
+    /// the independent checker finds no cut deeper than the tolerance
+    /// there, within half a second, and the two overlap.
+    fn sample_agrees(mesh: &TriangleMesh, profile: &RevolvedProfile, line: ToolLine) {
+        use openchuck_testkit::contact::{ConvexTool, Geometry, Settings};
+        let surface = crate::MeshSurface::new(mesh).unwrap();
+        let started = std::time::Instant::now();
+        let g = surface
+            .tool_gap(profile, &line, &move_query(Vec3::ZERO, 0.01))
+            .unwrap();
+        let took = started.elapsed().as_secs_f64();
+        let geometry = Geometry::of_mesh(mesh).unwrap();
+        let settings = Settings {
+            margin: 5.0,
+            tolerance: 1e-4,
+            budget: 400_000,
+        };
+        let theirs = geometry
+            .face_gap(
+                &ConvexTool::new(profile).unwrap(),
+                line.origin,
+                line.axis.get(),
+                LAYER * 0.01,
+                0.01,
+                &settings,
+            )
+            .unwrap();
+        assert!(took < 0.5, "{took} s: {g:?}");
+        if theirs.lower >= -0.01 {
+            assert!(proven(&g, 0.01), "{g:?} against {theirs:?}");
+        }
+        assert!(
+            theirs.lower <= g.upper + 1e-6 && g.lower <= theirs.upper + 1e-6,
+            "{g:?} against {theirs:?}"
+        );
+    }
+
+    #[test]
+    fn req_op_12_a_flat_end_along_a_blisk_blade_is_settled_at_once() {
+        // One sample of the move check on the public blisk (27 Nov 2026): a
+        // 3 mm flat end grown by a tenth of the tolerance along a blade at
+        // X 26, where the dual ran out of pieces after a minute.
+        sample_agrees(
+            &blisk(),
+            &cutter::grow_profile(&flat_3mm(), 0.001).unwrap(),
+            ToolLine {
+                origin: Point3::new(25.863143502192667, -12.852973502343001, 15.352902130085894),
+                axis: UnitVec3::new(Vec3::new(0.0, -0.6787119585156624, 0.7344045733571066))
+                    .unwrap(),
+            },
+        );
+    }
+
+    #[test]
+    fn req_op_12_a_flat_end_overhanging_the_blisk_rim_is_settled_at_once() {
+        // One sample of the move check on the public blisk (27 Nov 2026): a
+        // 3 mm flat end grown by a tenth of the tolerance, its bottom resting
+        // on the rim at the end face X 0 and overhanging it. The end face's
+        // pieces under the rim lie wholly below the tool, parted from it by
+        // a plane across the face towards the tool's nearest point; the
+        // independent checker reads the gap -0.001 there (the growth).
+        use openchuck_testkit::contact::{ConvexTool, Geometry, Settings};
+        let mesh = blisk();
+        let profile = cutter::grow_profile(&flat_3mm(), 0.001).unwrap();
         let line = ToolLine {
             origin: Point3::new(0.006857042969743199, 0.8612806537201169, 19.97784899716719),
             axis: UnitVec3::new(Vec3::new(0.0, 0.0245498683554625, 0.9996986065628628)).unwrap(),
