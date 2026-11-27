@@ -247,8 +247,10 @@ fn proven(g: &crate::gap::ToolGap, allowed: f64) -> bool {
 /// The most a tool point may move between a sample of the move check and
 /// the midpoints to its neighbours, as a share of the allowance: each sample
 /// is checked with the tool grown by that much (decision record
-/// SIMUL-EDGE-1, Q3), reading at most that much deeper than the tool.
-const CHECK_GROWTH: f64 = 0.1;
+/// SIMUL-EDGE-1, Q3), reading at most that much deeper than the tool. Half
+/// the tolerance for the first spacing, the project owner's answer of 27 Nov
+/// 2026; a sample that fails is checked again finer ([`CHECK_LEVELS`]).
+const CHECK_GROWTH: f64 = 0.5;
 
 /// How many times a sample the grown tool fails is checked again, with
 /// finer samples and the tool grown a quarter as much.
