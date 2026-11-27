@@ -579,10 +579,19 @@ fn generate_with(
             &common,
             &entry,
             descent,
-            // The faces next to the face set, which swarf alone is given:
-            // its entries and exits are checked against them as well
-            // (decision record 0682; issue #572).
-            region.and_then(|r| r.neighbours),
+            // The faces a lead or helix is checked against as well: the
+            // faces next to the face set, which swarf alone is given
+            // (decision record 0682; issue #572), with the pass's own cut
+            // allowed; for every other strategy limited to a selection, the
+            // part's faces outside it, with the tolerance only (decision
+            // record 0701; issue #957).
+            region.and_then(|r| match r.neighbours {
+                Some(faces) => Some((faces, crate::assemble::Allowance::PassCut)),
+                None if strategy.name() == crate::swarf::NAME => None,
+                None => r
+                    .outside
+                    .map(|faces| (faces, crate::assemble::Allowance::Tolerance)),
+            }),
             context,
         )?
     };

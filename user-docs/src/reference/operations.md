@@ -75,6 +75,8 @@ Each choice is shown as a row of buttons with a name for each, for example **Saf
 | Helix diameter | 0.75 | The diameter of the helix entry, as a fraction of the tool's diameter. |
 | Lead radius | 0 mm | The radius of the lead arcs; 0 uses the tool's radius. |
 
+**Entries beside a selection.** On a STEP part, when an operation cuts only the faces in **Cut on**, a **Tangent arc** or **Descending helix** entry is also checked against the part's other faces that it comes near. If it would cut into one, the operation is not made, and the message names the face and says what to do: set **Entry** to **Plunge** or **Straight ramp**, or use a smaller **Lead radius** or **Helix diameter**. Where the operation's own passes already cut into that face, the message says so, and the fix is to change the selection or the stock to leave so that the passes keep clear of it. Swarf has its own check of the faces next to its face set. Selections on an STL part are not checked this way.
+
 **Where the entry settings are.** Entry, Ramp angle and Plunge where no ramp fits are in the **Entry, links and retract** section. The other entry settings (Steeper ramp near the axis, Maximum ramp angle, Largest depth per traverse, Plunge to remove face nubs, Face nub diameter, Helix diameter and Lead radius) are under **Advanced**: most operations leave them as they are.
 
 **A flat free end.** Where the part ends in a flat face square to the rotary axis with stock beyond it, a Facing operation with the **Unheld end** shape before roughing removes the stock past the end across Y, so roughing leaves no nub round the axis there.

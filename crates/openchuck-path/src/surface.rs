@@ -131,6 +131,13 @@ pub trait ParametricFace: Send + Sync + std::fmt::Debug {
     /// The trim test: whether `uv` lies on the face, inside its boundary
     /// loops.
     fn contains(&self, uv: Uv) -> bool;
+
+    /// A box that holds the whole face, however it curves between any
+    /// points sampled on it, where the face can give one cheaply (an exact
+    /// face: its control hull, or its speed bound); `None` where it cannot.
+    fn bounds(&self) -> Option<Aabb> {
+        None
+    }
 }
 
 /// The selected surfaces of a part, as the strategies see them.

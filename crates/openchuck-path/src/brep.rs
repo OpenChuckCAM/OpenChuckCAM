@@ -2015,6 +2015,10 @@ impl ExactFace {
 }
 
 impl ParametricFace for ExactFace {
+    fn bounds(&self) -> Option<Aabb> {
+        Some(self.bbox)
+    }
+
     fn uv_bounds(&self) -> (Uv, Uv) {
         (
             Uv {
