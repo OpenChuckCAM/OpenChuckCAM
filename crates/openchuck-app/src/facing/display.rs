@@ -70,12 +70,14 @@ impl FacingVerification {
                 let v = normal.cross(u);
                 for tip in [from.tip, to.tip] {
                     display.lines.push(ScenePolyline {
+                        facing: None,
                         role: SceneRole::FacingSweep,
                         points: circle(tip, u, v),
                     });
                 }
                 for offset in [u * r, u * (-r)] {
                     display.lines.push(ScenePolyline {
+                        facing: None,
                         role: SceneRole::FacingSweep,
                         points: vec![from.tip + offset, to.tip + offset],
                     });
@@ -101,6 +103,7 @@ impl FacingVerification {
                     );
                     let u = Vec3::new(1., 0., 0.);
                     display.lines.push(ScenePolyline {
+                        facing: None,
                         role: SceneRole::FacingSweep,
                         points: circle(tip, u, normal.cross(u)),
                     });
@@ -121,10 +124,20 @@ impl FacingVerification {
 }
 
 pub(super) fn nominal(description: FacingDescription) -> Result<FacingDisplay, AppError> {
+    use crate::facing_labels::FacingLabel;
     use openchuck_path::facing::extents::FacingExtent;
     let mut lines = Vec::new();
     let mut labels = Vec::new();
     let margin = description.margin;
+    let label = |role: SceneRole, at: Point3, kind: FacingLabel, text: String| SceneLabel {
+        role,
+        at,
+        text,
+        facing: Some(tag(kind)),
+    };
+    // The extent's outline and, when the margin is not zero, the margin's
+    // outline inside it; the face's own label at its far corner.
+    let mut margin_at: Option<Point3> = None;
     let mut rectangle = |plane: FacingPlane,
                          extent: CoverageRectangle,
                          h: f64,
@@ -149,30 +162,36 @@ pub(super) fn nominal(description: FacingDescription) -> Result<FacingDisplay, A
             .into_iter()
             .map(|(u, v)| plane.point(u, v, h))
             .collect::<Result<Vec<_>, _>>()?;
-            lines.push(ScenePolyline { role, points });
+            if role == SceneRole::FacingMargin && margin_at.is_none() {
+                margin_at = points.get(2).copied();
+            }
+            lines.push(ScenePolyline {
+                role,
+                points,
+                facing: None,
+            });
         }
-        labels.push(SceneLabel {
-            role: SceneRole::FacingExtent,
-            at: plane.point(hi[0], hi[1], h)?,
-            text: format!("{text} · margin {margin:.3} mm"),
-        });
+        labels.push(label(
+            SceneRole::FacingExtent,
+            plane.point(hi[0], hi[1], h)?,
+            FacingLabel::Face,
+            text,
+        ));
         Ok(())
     };
     match &description.geometry {
         FacingGeometry::Flat { faces } | FacingGeometry::Box { faces } => {
             for face in faces {
+                let (a, offset) = (face.target.angle.0, face.target.offset);
                 rectangle(
                     face.target.plane,
                     face.coverage,
-                    face.target.offset,
-                    format!(
-                        "A {:.3}° · plane offset {:.3} mm",
-                        face.target.angle.0, face.target.offset
-                    ),
+                    offset,
+                    fit(|d| format!("Face A {}°: {offset:.d$} mm from axis", degrees(a))),
                 )?;
             }
-            // Where each face stops beside a held region, and what it
-            // leaves unfaced (decision 0685).
+            // Where each face stops beside a held region (decision 0685):
+            // the line on each face, one label per held end.
             for face in faces {
                 let [_, v0] = face.coverage.min();
                 let [_, v1] = face.coverage.max();
@@ -185,30 +204,33 @@ pub(super) fn nominal(description: FacingDescription) -> Result<FacingDisplay, A
                             face.target.plane.point(x, v0, h)?,
                             face.target.plane.point(x, v1, h)?,
                         ],
+                        facing: Some(tag(FacingLabel::Stop)),
                     });
-                    // One label per held end, however many faces stop there.
                     let text = unfaced_label(u);
                     if labels.iter().any(|l| l.text == text) {
                         continue;
                     }
-                    labels.push(SceneLabel {
-                        role: SceneRole::FacingExtent,
-                        at: face.target.plane.point(x, v1, h)?,
+                    labels.push(label(
+                        SceneRole::FacingExtent,
+                        face.target.plane.point(x, v1, h)?,
+                        FacingLabel::Stop,
                         text,
-                    });
+                    ));
                 }
             }
+            // The distance between each pair of opposite faces, once per
+            // pair, at a corner of its first face.
             for (i, a) in faces.iter().enumerate() {
                 for b in faces.iter().skip(i + 1) {
                     if (a.target.plane.normal() + b.target.plane.normal()).length() < 1e-9 {
-                        labels.push(SceneLabel {
-                            role: SceneRole::FacingMargin,
-                            at: a.corners()?[0],
-                            text: format!(
-                                "Opposite-plane separation {:.3} mm",
-                                a.target.offset + b.target.offset
-                            ),
-                        });
+                        let apart = a.target.offset + b.target.offset;
+                        let (from, to) = (degrees(a.target.angle.0), degrees(b.target.angle.0));
+                        labels.push(label(
+                            SceneRole::FacingMargin,
+                            a.corners()?[0],
+                            FacingLabel::Separation,
+                            fit(|d| format!("A {from}° to A {to}°: {apart:.d$} mm apart")),
+                        ));
                     }
                 }
             }
@@ -223,10 +245,7 @@ pub(super) fn nominal(description: FacingDescription) -> Result<FacingDisplay, A
                 plane,
                 *coverage,
                 plane.normal().x * target.x,
-                format!(
-                    "Target X {:.3} mm · length to opposite model end {:.3} mm",
-                    target.x, target.length
-                ),
+                fit(|d| format!("End face at X {:.d$} mm", target.x)),
             )?;
         }
         FacingGeometry::Round {
@@ -234,23 +253,27 @@ pub(super) fn nominal(description: FacingDescription) -> Result<FacingDisplay, A
             x_extent,
             unfaced,
         } => {
-            for u in unfaced {
-                let x = unfaced_edge(u);
-                let points = (0..=64)
+            let ring = |x: f64| -> Vec<Point3> {
+                (0..=64)
                     .map(|i| {
                         let a = std::f64::consts::TAU * f64::from(i) / 64.;
                         Point3::new(x, 0.5 * diameter * a.cos(), 0.5 * diameter * a.sin())
                     })
-                    .collect();
+                    .collect()
+            };
+            for u in unfaced {
+                let x = unfaced_edge(u);
                 lines.push(ScenePolyline {
                     role: SceneRole::FacingExtent,
-                    points,
+                    points: ring(x),
+                    facing: Some(tag(FacingLabel::Stop)),
                 });
-                labels.push(SceneLabel {
-                    role: SceneRole::FacingExtent,
-                    at: Point3::new(x, 0., 0.5 * diameter),
-                    text: unfaced_label(u),
-                });
+                labels.push(label(
+                    SceneRole::FacingExtent,
+                    Point3::new(x, 0., 0.5 * diameter),
+                    FacingLabel::Stop,
+                    unfaced_label(u),
+                ));
             }
             for (m, role) in [
                 (0., SceneRole::FacingExtent),
@@ -260,13 +283,14 @@ pub(super) fn nominal(description: FacingDescription) -> Result<FacingDisplay, A
                     continue;
                 }
                 for x in [x_extent.0 + m, x_extent.1 - m] {
-                    let points = (0..=64)
-                        .map(|i| {
-                            let a = std::f64::consts::TAU * f64::from(i) / 64.;
-                            Point3::new(x, 0.5 * diameter * a.cos(), 0.5 * diameter * a.sin())
-                        })
-                        .collect();
-                    lines.push(ScenePolyline { role, points });
+                    if role == SceneRole::FacingMargin && margin_at.is_none() {
+                        margin_at = Some(Point3::new(x, 0., 0.5 * diameter));
+                    }
+                    lines.push(ScenePolyline {
+                        role,
+                        points: ring(x),
+                        facing: None,
+                    });
                 }
             }
             for (y, z) in [
@@ -278,17 +302,37 @@ pub(super) fn nominal(description: FacingDescription) -> Result<FacingDisplay, A
                 lines.push(ScenePolyline {
                     role: SceneRole::FacingExtent,
                     points: vec![Point3::new(x_extent.0, y, z), Point3::new(x_extent.1, y, z)],
+                    facing: None,
                 });
             }
-            labels.push(SceneLabel {
-                role: SceneRole::FacingExtent,
-                at: Point3::new(x_extent.1, 0., 0.5 * diameter),
-                text: format!(
-                    "Nominal Ø{diameter:.3} mm · X {:.3}…{:.3} mm · axial margin {margin:.3} mm",
-                    x_extent.0, x_extent.1
-                ),
-            });
+            labels.push(label(
+                SceneRole::FacingExtent,
+                Point3::new(x_extent.1, 0., 0.5 * diameter),
+                FacingLabel::Face,
+                fit(|d| {
+                    format!(
+                        "Ø{diameter:.d$} mm · X {:.d$}–{:.d$}",
+                        x_extent.0, x_extent.1
+                    )
+                }),
+            ));
         }
+    }
+    // The margin, when it is not zero: one label, on its outline.
+    if margin > 0.
+        && let Some(at) = margin_at
+    {
+        let edges = if matches!(description.geometry, FacingGeometry::Round { .. }) {
+            "ends"
+        } else {
+            "edges"
+        };
+        labels.push(label(
+            SceneRole::FacingMargin,
+            at,
+            FacingLabel::Margin,
+            fit(|d| format!("Margin: {margin:.d$} mm past the {edges}")),
+        ));
     }
     Ok(FacingDisplay {
         intentionally_unfaced: description.extent != FacingExtent::WholeStock,
@@ -297,6 +341,40 @@ pub(super) fn nominal(description: FacingDescription) -> Result<FacingDisplay, A
         labels,
         completion: "Draft Facing extent; generate to verify completion".into(),
     })
+}
+
+/// The longest a Facing label in the view may be, in characters (the
+/// owner's answer to issue #881).
+pub(crate) const LABEL_CHARS: usize = 32;
+
+/// A label with its numbers to three decimals, or fewer when that is what
+/// keeps it within [`LABEL_CHARS`] (a face far from the axis).
+fn fit(text: impl Fn(usize) -> String) -> String {
+    (0..=3)
+        .rev()
+        .map(&text)
+        .find(|t| t.chars().count() <= LABEL_CHARS)
+        .unwrap_or_else(|| text(0))
+}
+
+/// An angle in degrees as the labels write it: whole degrees without a
+/// fraction, otherwise to a tenth of a millidegree, trailing zeros dropped.
+fn degrees(a: f64) -> String {
+    let text = format!("{a:.3}");
+    let text = text.trim_end_matches('0').trim_end_matches('.');
+    if text == "-0" {
+        "0".to_owned()
+    } else {
+        text.to_owned()
+    }
+}
+
+/// A label's tag before its operation is known.
+fn tag(kind: crate::facing_labels::FacingLabel) -> crate::facing_labels::FacingTag {
+    crate::facing_labels::FacingTag {
+        operation: None,
+        kind,
+    }
 }
 
 /// Where the face is finished up to beside a held region: the unfaced
@@ -308,14 +386,18 @@ fn unfaced_edge(u: &openchuck_path::facing::held::Unfaced) -> f64 {
     }
 }
 
-/// The overlay's label for what is left unfaced beside a held region: short,
-/// once per held end and operation; the numbers are in the notes.
+/// The overlay's label where a face stops beside a held region: the X it is
+/// faced from (or up to) and which end is held (the owner's answer to issue
+/// #881, Q2 A); how much is left unfaced is in the notes.
 fn unfaced_label(u: &openchuck_path::facing::held::Unfaced) -> String {
     match u.beside {
-        openchuck_path::facing::geometry::FacingEnd::Start => "Not faced: held start",
-        openchuck_path::facing::geometry::FacingEnd::Far => "Not faced: held far end",
+        openchuck_path::facing::geometry::FacingEnd::Start => {
+            fit(|d| format!("Faced from X {:.d$} (held start)", u.x.1))
+        }
+        openchuck_path::facing::geometry::FacingEnd::Far => {
+            fit(|d| format!("Faced up to X {:.d$} (held end)", u.x.0))
+        }
     }
-    .to_owned()
 }
 
 /// Build draft geometry inside the existing scene worker from its immutable
@@ -417,14 +499,12 @@ pub(crate) fn preview(
         })();
         match result {
             Ok(mut display) => {
-                for label in &mut display.labels {
-                    label.text = format!("{} · draft · {}", operation.name, label.text);
-                    if display.description.source_projection_error.is_none() {
-                        label
-                            .text
-                            .push_str(" · tessellation bounds; source accuracy not checked");
-                    }
-                }
+                // The labels stay short (issue #881): the operation is in
+                // the tag, which the view uses to show the selected Facing
+                // operation's labels; that the extent is a draft, and that
+                // its bounds are the tessellation's, are in the notes.
+                place(&mut display, operation.id);
+                view.notes.push(draft_note(&operation.name));
                 if display.description.source_projection_error.is_none() {
                     view.notes.push(format!("{}: Facing source projection accuracy is unknown; so Facing cannot be checked against these tessellation bounds",operation.name));
                 }
@@ -459,14 +539,112 @@ pub(crate) fn add_generated(
             continue;
         }
         if let Some(proof) = &info.facing {
-            let display = proof.display(group, context)?;
+            let mut display = proof.display(group, context)?;
+            place(&mut display, info.operation);
             view.lines.extend(
                 display
                     .lines
-                    .into_iter()
-                    .filter(|l| l.role == SceneRole::FacingSweep),
+                    .iter()
+                    .filter(|l| l.role == SceneRole::FacingSweep)
+                    .cloned(),
             );
+            // Where the face stops is read from the cut once it is made
+            // (legacy Flat, decision 0685): the generated stop marker takes
+            // the draft's place, so the view shows one, where the notes say
+            // (issue #895 item 1).
+            let is_stop = |t: &Option<crate::facing_labels::FacingTag>| {
+                t.is_some_and(|t| {
+                    t.operation == Some(info.operation)
+                        && t.kind == crate::facing_labels::FacingLabel::Stop
+                })
+            };
+            view.lines.retain(|l| !is_stop(&l.facing));
+            view.labels.retain(|l| !is_stop(&l.facing));
+            view.lines
+                .extend(display.lines.into_iter().filter(|l| is_stop(&l.facing)));
+            view.labels
+                .extend(display.labels.into_iter().filter(|l| is_stop(&l.facing)));
+            // Generated: no longer a draft.
+            if let Some(operation) = project.operation(info.operation) {
+                let draft = draft_note(&operation.name);
+                view.notes.retain(|n| *n != draft);
+            }
         }
     }
     Ok(())
+}
+
+/// The note that says an operation's Facing outlines and labels are a
+/// draft, said once instead of on every label (issue #881).
+fn draft_note(operation: &str) -> String {
+    format!("{operation}: the Facing outlines and labels are a draft until you generate")
+}
+
+/// Tags a display's Facing labels and stop lines with the operation it was
+/// drawn for.
+fn place(display: &mut FacingDisplay, operation: openchuck_project::id::OperationId) {
+    for tag in display
+        .labels
+        .iter_mut()
+        .map(|l| &mut l.facing)
+        .chain(display.lines.iter_mut().map(|l| &mut l.facing))
+        .flatten()
+    {
+        tag.operation = Some(operation);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{LABEL_CHARS, degrees, fit, unfaced_edge, unfaced_label};
+    use openchuck_path::facing::geometry::FacingEnd;
+    use openchuck_path::facing::held::Unfaced;
+
+    /// Issue #881, the owner's answer Q2 A: beside the held start a face is
+    /// "faced from" the unfaced span's far edge; beside the held end it is
+    /// "faced up to" its near edge, and the stop is drawn at that X.
+    #[test]
+    fn req_ui_03_req_op_24_a_stop_label_names_the_x_and_the_held_end() {
+        let start = Unfaced {
+            beside: FacingEnd::Start,
+            held: (16.99, 24.99),
+            x: (16.99, 25.49),
+        };
+        assert_eq!(unfaced_label(&start), "Faced from X 25.490 (held start)");
+        assert!((unfaced_edge(&start) - 25.49).abs() < 1e-12);
+        let end = Unfaced {
+            beside: FacingEnd::Far,
+            held: (86.49, 94.49),
+            x: (85.99, 94.49),
+        };
+        assert_eq!(unfaced_label(&end), "Faced up to X 85.990 (held end)");
+        assert!((unfaced_edge(&end) - 85.99).abs() < 1e-12);
+        let far = Unfaced {
+            beside: FacingEnd::Far,
+            held: (1000.0, 1010.0),
+            x: (1234.5678, 1300.0),
+        };
+        assert!(unfaced_label(&far).chars().count() <= LABEL_CHARS);
+    }
+
+    /// Issue #881: a label keeps its three decimals while it fits in 32
+    /// characters, and gives up decimals, never words, when it would not (a
+    /// face 100 mm or more from the axis).
+    #[test]
+    fn req_ui_03_a_facing_label_gives_up_decimals_to_stay_within_32_characters() {
+        let face = |offset: f64| fit(|d| format!("Face A 270°: {offset:.d$} mm from axis"));
+        assert_eq!(face(13.65), "Face A 270°: 13.650 mm from axis");
+        assert_eq!(face(123.456), "Face A 270°: 123.46 mm from axis");
+        for offset in [0.0, 9.999, 99.9995, 1234.5678, 123_456.789] {
+            assert!(
+                face(offset).chars().count() <= LABEL_CHARS,
+                "{}",
+                face(offset)
+            );
+        }
+        assert_eq!(degrees(90.0), "90");
+        assert_eq!(degrees(22.5), "22.5");
+        assert_eq!(degrees(-0.0), "0");
+        assert_eq!(degrees(12.3456), "12.346");
+    }
 }

@@ -23,14 +23,14 @@ The edge set is optional: without it, each face starts from its longest side. It
 3. In the Inspector, under **Geometry**, choose **Hub floor** beside **Cut on**. Leave **Guide edge** empty for now.
 
 <figure>
-<a href="images/blisk_faceflow/01-geometry.png"><img src="images/blisk_faceflow/01-geometry.png" width="1920" height="1080" alt="The Operations step with the blisk in the front view. The Inspector shows Floor finish, Face flow finishing, Stale, and Geometry with Cut on Hub floor; Guide edge, Contain within, Avoid and Check are empty."></a>
+<a href="images/blisk_faceflow/01-geometry.png"><img src="images/blisk_faceflow/01-geometry.png" width="1920" height="1080" alt="The Operations step with the blisk in the front view. The Inspector shows Floor finish, Face flow finishing, Stale, and Geometry with a line for Hub floor under Cut on, with its colour dot and ×; Guide edge, Contain within, Avoid and Check are empty."></a>
 <figcaption><b>Figure 1.</b> Face-flow finishing shows <b>Cut on</b> for the faces and <b>Guide edge</b> for the edge the passes follow.</figcaption>
 </figure>
 
 4. Click **Generate stale** at the bottom right. It took about 35 s on the test computer.
 
 <figure>
-<a href="images/blisk_faceflow/02-stepover.png"><img src="images/blisk_faceflow/02-stepover.png" width="1920" height="1080" alt="The face-flow passes drawn in orange along the twisted hub floor, with a strip of white-cased black diagonal hatching along both blade walls marking the unreachable area, labelled Unreachable (Floor finish) in the legend, and a numbered black-and-white marker 1 on the floor. Results: 1 operation, 2310 moves, 30.7 s to generate, Warnings 1, and the lines quoted in the text."></a>
+<a href="images/blisk_faceflow/02-stepover.png"><img src="images/blisk_faceflow/02-stepover.png" width="1920" height="1080" alt="The face-flow passes drawn in orange along the twisted hub floor, with a strip of white-cased black diagonal hatching along both blade walls marking the unreachable area, labelled Unreachable (Floor finish) in the legend, and a numbered black-and-white marker 1 on the floor. Results: 1 operation, 2310 moves, 25.1 s to generate, Warnings 1, and the lines quoted in the text."></a>
 <figcaption><b>Figure 2.</b> With the stepover of the tool's cutting data, 1 mm: the passes follow the floor, and the hatched area along the walls is where the ball does not fit.</figcaption>
 </figure>
 
@@ -65,7 +65,7 @@ A [scallop](../glossary.md#scallop) height sets the spacing by the ridge a ball 
 </figure>
 
 <figure>
-<a href="images/blisk_faceflow/04-scallop.png"><img src="images/blisk_faceflow/04-scallop.png" width="1920" height="1080" alt="The floor with about twice as many orange passes. Results: 1 operation, 4803 moves, 31.9 s to generate; face 20 is cut from its guide, edge 65 (49.1 mm long), towards the opposite side in 34 passes up to 0.462 mm apart along the face, 25 of them cut; face-flow finishing cuts 25 passes on 1 face; 170.3 mm2 unreached."></a>
+<a href="images/blisk_faceflow/04-scallop.png"><img src="images/blisk_faceflow/04-scallop.png" width="1920" height="1080" alt="The floor with about twice as many orange passes. Results: 1 operation, 4792 moves, 27.0 s to generate; face 20 is cut from its guide, edge 65 (49.1 mm long), towards the opposite side in 34 passes up to 0.462 mm apart along the face, 25 of them cut; face-flow finishing cuts 25 passes on 1 face; 170.3 mm2 unreached."></a>
 <figcaption><b>Figure 4.</b> A 0.02 mm scallop height with a 3 mm ball puts the passes up to 0.462 mm apart.</figcaption>
 </figure>
 
@@ -74,7 +74,7 @@ A [scallop](../glossary.md#scallop) height sets the spacing by the ridge a ball 
 | Passes laid out | 17, up to 0.953 mm apart | 34, up to 0.462 mm apart |
 | Passes cut | 12 | 25 |
 | Unreached area | 173.8 mm2 | 170.3 mm2 |
-| Moves | 2310 | 4803 |
+| Moves | 2310 | 4792 |
 | Time to generate | 30.7 s | 31.9 s |
 
 Closer passes take longer to cut and leave smaller ridges. They do not get the ball into the corners: the unreached area hardly changes.
@@ -86,7 +86,7 @@ Closer passes take longer to cut and leave smaller ridges. They do not get the b
 3. Click **Generate stale**.
 
 <figure>
-<a href="images/blisk_faceflow/05-guide-result.png"><img src="images/blisk_faceflow/05-guide-result.png" width="1920" height="1080" alt="Floor finish with Cut on Hub floor and Guide edge Floor guide. The passes and the Results are the same as in Figure 4: 4803 moves, 34 passes up to 0.462 mm apart from guide edge 65."></a>
+<a href="images/blisk_faceflow/05-guide-result.png"><img src="images/blisk_faceflow/05-guide-result.png" width="1920" height="1080" alt="Floor finish with a line for Hub floor under Cut on and a line for Floor guide under Guide edge. The passes and the Results are the same as in Figure 4: 4792 moves, 34 passes up to 0.462 mm apart from guide edge 65."></a>
 <figcaption><b>Figure 5.</b> With <b>Floor guide</b> as the guide, the passes are the same: edge 65 is the floor's longest side, the edge the operation chose by itself.</figcaption>
 </figure>
 

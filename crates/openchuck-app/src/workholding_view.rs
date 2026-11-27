@@ -922,10 +922,12 @@ pub fn display_items(
             ),
         };
         lines.push(ScenePolyline {
+            facing: None,
             role,
             points: base_line,
         });
         lines.push(ScenePolyline {
+            facing: None,
             role,
             points: top_line,
         });

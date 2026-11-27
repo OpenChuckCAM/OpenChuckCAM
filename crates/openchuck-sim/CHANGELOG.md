@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased (TOOL-LOAD, TL-1; issue #844; decision 0698, accepted)
+
+- **Added:** the tool-load measure (SIM-16). `GroupResult::load` (`ToolLoad`) holds, for each move of a simulated group, the volume removed, the lowest and highest point removed along the tool axis and the tip's travel through the part (`MoveLoad`); `ToolLoad::summarise(group, limit)` gives the `LoadSummary`: stretches of one tool diameter of travel, those past the limit, the heaviest cut section, the highest removal rate, the longest engaged length, and the material removed over the cutting time. Deterministic at any thread count. A replay (`stock_at`) does not measure. Additive; `GroupResult` gains a public field.
+
 ## Unreleased (MOPUP-1, PR B1; issue #846; not breaking)
 
 - **Faster (#846 item 4):** the deepest-cut tally of a rapid's batch is made only for the stock rows the rapid cuts, so a rapid in the clear allocates and scans nothing. Results are unchanged, and the same on any thread count.

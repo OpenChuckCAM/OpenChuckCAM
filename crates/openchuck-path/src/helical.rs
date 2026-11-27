@@ -191,6 +191,7 @@ impl Strategy for HelicalFinishing {
             .chain(ring_step_specs())
             .chain(crate::extend::specs(false))
             .chain(crate::finishing::specs(true, true))
+            .chain(std::iter::once(crate::finishing::point_spec()))
             .chain(adaptive::specs())
             .chain(std::iter::once(crate::order::spec()))
             .chain(std::iter::once(crate::axial::link_height_spec()))
@@ -459,6 +460,46 @@ fn passes(
             leave,
             blended: blend.is_some(),
         };
+        // Finish to a point (decision record 0695, Q2): past each end that
+        // comes to a point the helix (or the rings) carries on at its pitch,
+        // following the part down to the end's last drop. Fitted on its own,
+        // so the passes over the part are as before; adaptive spacing
+        // measures over it with the rest (Q2 (c) B).
+        let pointed =
+            crate::finishing::point_ends(input, &grown, &found.free, (region, zones), parameters);
+        let mut pieces = Vec::with_capacity(pointed.len());
+        for end in &pointed {
+            pieces.push(point_piece(
+                &fit,
+                end,
+                (x0, x1),
+                (pitch, step),
+                rings.then_some(blend),
+                context,
+            )?);
+        }
+        // The helix adaptive spacing measures: over the pieces too.
+        let measured = pointed.iter().fold(helix, |h, end| {
+            let (lo, hi) = if end.far {
+                (h.x0, end.edge)
+            } else {
+                (end.edge, h.x1)
+            };
+            Helix {
+                x0: lo,
+                x1: hi,
+                total: 360.0 * (hi - lo) / pitch,
+                // Rings each start at the start angle wherever they are, so
+                // only the helix's start moves with its X (CodeRabbit on
+                // #956).
+                start: if rings {
+                    start
+                } else {
+                    start + sign * 360.0 * (lo - x0) / pitch
+                },
+                ..h
+            }
+        });
         let (passes, spaced, ring_note) = if rings {
             // Rings evenly spaced from end to end, no wider apart than the
             // pitch, with each face's turn among them (decision record 0390).
@@ -476,15 +517,25 @@ fn passes(
                 context,
             )?;
             let spaced = match adaptive {
-                Some(settings) => Some(adaptive_passes(
-                    input,
-                    (region, zones, candidates.as_ref()),
-                    &passes,
-                    Shape::Rings(&each),
-                    helix,
-                    settings,
-                    context,
-                )?),
+                Some(settings) => {
+                    let mut each = each.clone();
+                    each.extend(pieces.iter().flat_map(|p| p.rings.iter().cloned()));
+                    each.sort_by(|a, b| a.0.total_cmp(&b.0));
+                    let all: Vec<Pass> = pieces
+                        .iter()
+                        .flat_map(|p| p.passes.iter().cloned())
+                        .chain(passes.iter().cloned())
+                        .collect();
+                    Some(adaptive_passes(
+                        input,
+                        (region, zones, candidates.as_ref()),
+                        &all,
+                        Shape::Rings(&each),
+                        measured,
+                        settings,
+                        context,
+                    )?)
+                }
                 None => None,
             };
             let text = match blend {
@@ -507,15 +558,31 @@ fn passes(
             // Passes added between the wraps where more than the Allowed
             // excess is left (decision record 0239), cut after the helix.
             let spaced = match adaptive {
-                Some(settings) => Some(adaptive_passes(
-                    input,
-                    (region, zones, candidates.as_ref()),
-                    &passes,
-                    Shape::Helix(&turns),
-                    helix,
-                    settings,
-                    context,
-                )?),
+                Some(settings) => {
+                    // The helix in order along X: the piece before the part,
+                    // the part, the piece after it.
+                    let all: Vec<Pass> = pieces
+                        .iter()
+                        .filter(|p| !p.end.far)
+                        .flat_map(|p| p.passes.iter().cloned())
+                        .chain(passes.iter().cloned())
+                        .chain(
+                            pieces
+                                .iter()
+                                .filter(|p| p.end.far)
+                                .flat_map(|p| p.passes.iter().cloned()),
+                        )
+                        .collect();
+                    Some(adaptive_passes(
+                        input,
+                        (region, zones, candidates.as_ref()),
+                        &all,
+                        Shape::Helix(&turns),
+                        measured,
+                        settings,
+                        context,
+                    )?)
+                }
                 None => None,
             };
             (passes, spaced, None)
@@ -546,8 +613,18 @@ fn passes(
         };
         let mut spaced_note = None;
         let mut spaced_warning = None;
+        // Passes adaptive spacing added past a pointed end are cut with the
+        // pieces, after the free ends' turns.
+        let mut past = Vec::new();
         if let Some((added, outcome, settings)) = spaced {
-            passes.extend(added);
+            let (beyond, within): (Vec<Pass>, Vec<Pass>) = added.into_iter().partition(|p| {
+                !pointed.is_empty()
+                    && p.points
+                        .iter()
+                        .any(|c| c.tip.x > x1 + 1e-6 || c.tip.x < x0 - 1e-6)
+            });
+            past = beyond;
+            passes.extend(within);
             spaced_note = Some(outcome.note(&settings));
             spaced_warning =
                 outcome.warning(&settings, &adaptive::Limits::OWNER, parameter::SCALLOP);
@@ -595,6 +672,36 @@ fn passes(
             (start, sign, step),
         )?;
         passes.extend(free.passes);
+        let faced = free.faced;
+        // Finish to a point (decision record 0695, Q2): past each end that
+        // comes to a point, the spiral carries on at its pitch following the
+        // part down, then whole turns take the tool to the rotary axis. Cut
+        // after the free ends' turns, which take the stock beside the end.
+        let stepdown = parameters
+            .number(crate::finishing::parameter::STEPDOWN)
+            .unwrap_or(0.0);
+        // With Finishing layers on, the run past the point is cut in the
+        // same layers, which stand at the same depths above each pass
+        // (decision record 0345; CodeRabbit on #956).
+        let run_past: Vec<Pass> = pieces
+            .into_iter()
+            .flat_map(|p| p.passes)
+            .chain(past)
+            .collect();
+        let (run_past, _) = crate::finishing::layers(input, run_past, parameters)?;
+        passes.extend(run_past);
+        for end in &pointed {
+            let top = crate::finishing::top_at_edge(input, &grown, leave, end);
+            let at = start + sign * 360.0 * (end.edge - x0) / pitch;
+            passes.extend(crate::finishing::turns_to_the_axis(
+                input,
+                end,
+                top,
+                stepdown,
+                (at, sign, step),
+                context,
+            )?);
+        }
         let notes = ring_note
             .into_iter()
             .chain(extend_note)
@@ -605,6 +712,7 @@ fn passes(
             .chain(free.notes)
             .collect();
         let mut warnings = free.warnings;
+        warnings.extend(crate::finishing::point_warnings(input, &pointed, &faced));
         warnings.extend(spaced_warning);
         warnings.extend(faces::held_warning(&found.held));
         warnings.extend(crate::finishing::across_axis_warning(
@@ -615,6 +723,74 @@ fn passes(
         crate::axial::mark_low_links_if_asked(parameters, &mut passes);
         Ok((passes, notes, warnings))
     }
+}
+
+/// The stretch Finish to a point adds past `end` (decision record 0695, Q2).
+struct PointPiece {
+    end: crate::finishing::PointEnd,
+    /// Its passes, in order along the helix.
+    passes: Vec<Pass>,
+    /// With rings, each ring's own passes by X, for adaptive spacing.
+    rings: Vec<Ring>,
+}
+
+/// The helix of `fit` (the part from `x0` to `x1` at `pitch`) carried on
+/// past `end` from the part's end to the end's last drop, no more than
+/// `step` degrees between seeds; or, with `rings` (the ring blend), rings no
+/// more than `pitch` apart up to a ring at the last drop.
+fn point_piece(
+    fit: &Fit<'_>,
+    end: &crate::finishing::PointEnd,
+    (x0, x1): (f64, f64),
+    (pitch, step): (f64, f64),
+    rings: Option<Option<f64>>,
+    context: &JobContext<'_>,
+) -> Result<PointPiece> {
+    let (from, to) = if end.far {
+        (x1, end.edge)
+    } else {
+        (end.edge, x0)
+    };
+    let length = to - from;
+    let mut piece = PointPiece {
+        end: *end,
+        passes: Vec::new(),
+        rings: Vec::new(),
+    };
+    if length <= 0.0 {
+        return Ok(piece);
+    }
+    if let Some(blend) = rings {
+        let gaps = (length / pitch).ceil().max(1.0) as usize;
+        let mut xs: Vec<f64> = (1..=gaps)
+            .map(|k| {
+                let t = k as f64 / gaps as f64;
+                if end.far {
+                    x1 + t * length
+                } else {
+                    x0 - t * length
+                }
+            })
+            .collect();
+        xs.sort_by(f64::total_cmp);
+        let (passes, each) =
+            ring_passes(fit, &xs, step, blend, true, "finishing to a point", context)?;
+        piece.passes = passes;
+        piece.rings = each;
+        return Ok(piece);
+    }
+    let total_angle = 360.0 * length / pitch;
+    let n = (total_angle / step).ceil().max(2.0);
+    let stretch = Fit {
+        x0: from,
+        length,
+        start: fit.start + fit.sign * 360.0 * (from - x0) / pitch,
+        total_angle,
+        max_dt: 1.0 / n,
+        ..*fit
+    };
+    piece.passes = fit_region(&stretch, n as usize, "finishing to a point", context)?;
+    Ok(piece)
 }
 
 /// The **Passes** setting (decision records 0390 and 0420): the same name,

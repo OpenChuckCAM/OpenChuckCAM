@@ -320,6 +320,20 @@ impl Application {
                 openchuck_project::ParameterValue::Flag(true),
             );
         }
+        // A finishing strategy that offers Finish to a point starts with it
+        // on, written into the operation, so a part that ends in a point is
+        // cut to the point; one saved without it keeps its program (decision
+        // 0695, Q2 (a) A, the owner's answer, in decision 0545 D3's pattern).
+        if self.strategies.get(strategy).is_ok_and(|s| {
+            s.schema()
+                .get(openchuck_path::finishing::parameter::FINISH_TO_A_POINT)
+                .is_some()
+        }) {
+            parameters.insert(
+                openchuck_path::finishing::parameter::FINISH_TO_A_POINT.to_owned(),
+                openchuck_project::ParameterValue::Flag(true),
+            );
+        }
         // Face flow starts with Pattern Automatic; one saved without it
         // keeps its passes along the guide (the owner's decision of 23 Nov
         // 2026, decision 0545 D3's pattern).

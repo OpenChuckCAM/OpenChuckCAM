@@ -15,6 +15,7 @@ use openchuck_types::tool::RevolvedProfile;
 use openchuck_types::{Error, Result};
 
 use crate::dexel::{DexelStock, PackedStock, Pose};
+use crate::load::{MoveLoad, ToolLoad};
 use crate::sample::{Sampling, must_not_cut, sample_move};
 use crate::span::ToolSolid;
 
@@ -71,6 +72,10 @@ pub struct GroupResult {
     pub volume_after: f64,
     /// Rapid moves that removed material.
     pub rapid_cuts: Vec<RapidCut>,
+    /// What each move removed and where along the tool axis, for the
+    /// tool-load figures (SIM-16; [`ToolLoad::summarise`]). Empty for a
+    /// replay, which only rebuilds the stock.
+    pub load: ToolLoad,
 }
 
 /// The stock after a number of moves of a group.
@@ -269,7 +274,8 @@ impl Simulator {
     ) -> Result<GroupResult> {
         let index = self.groups_done;
         let keep = self.keep_checkpoints;
-        let result = self.run_range(group, profile, 0, group.segments.len(), keep, context)?;
+        let result =
+            self.run_range(group, profile, 0, group.segments.len(), keep, true, context)?;
         self.groups_done += 1;
         if keep {
             self.keep_checkpoint(index + 1, 0);
@@ -366,14 +372,16 @@ impl Simulator {
                 total,
             };
             let part = JobContext::new(context.cancel, &within);
-            replay.run_range(path, profile, first, end, false, &part)?;
+            replay.run_range(path, profile, first, end, false, false, &part)?;
             before += end.saturating_sub(first) as u64;
         }
         Ok(replay.stock)
     }
 
     /// Simulates moves `first..end` of `group`, starting from the pose
-    /// before move `first`.
+    /// before move `first`; with `measure`, notes what each move removed
+    /// (the tool-load measure, SIM-16).
+    #[allow(clippy::too_many_arguments)]
     fn run_range(
         &mut self,
         group: &ToolpathGroup,
@@ -381,6 +389,7 @@ impl Simulator {
         first: usize,
         end: usize,
         keep: bool,
+        measure: bool,
         context: &JobContext<'_>,
     ) -> Result<GroupResult> {
         group.start.tip.validate("group.start.tip")?;
@@ -401,7 +410,15 @@ impl Simulator {
             removed_volume: 0.0,
             volume_after: 0.0,
             rapid_cuts: Vec::new(),
+            load: ToolLoad {
+                moves: Vec::new(),
+                diameter: 2.0 * tool.radius(),
+            },
         };
+        let mut tally = measure.then(|| Tally {
+            owners: Vec::new(),
+            loads: vec![MoveLoad::default(); group.segments.len()],
+        });
         let mut prev = first
             .checked_sub(1)
             .and_then(|i| group.segments.get(i))
@@ -410,7 +427,14 @@ impl Simulator {
         for (i, segment) in group.segments.iter().enumerate().take(end).skip(first) {
             segment.validate(&format!("segments[{i}]"))?;
             if must_not_cut(segment.kind) {
-                self.flush(&tool, &mut batch, &mut result, context, total)?;
+                self.flush(
+                    &tool,
+                    &mut batch,
+                    &mut result,
+                    tally.as_mut(),
+                    context,
+                    total,
+                )?;
                 sample_move(&self.frame, &prev, &segment.end, &sampling, &mut batch);
                 let (removed, depth) = self.stock.cut_deepest(&tool, &batch, context.cancel)?;
                 result.poses += batch.len();
@@ -427,7 +451,22 @@ impl Simulator {
                     });
                 }
             } else {
+                let from = batch.len();
                 sample_move(&self.frame, &prev, &segment.end, &sampling, &mut batch);
+                if let Some(t) = tally.as_mut() {
+                    // The tip's travel through the part, pose to pose, from
+                    // where the move starts (SIM-16).
+                    let mut last = prev.tip;
+                    let mut travel = 0.0;
+                    for pose in batch.get(from..).unwrap_or_default() {
+                        travel += last.distance(pose.tip);
+                        last = pose.tip;
+                    }
+                    if let Some(load) = t.loads.get_mut(i) {
+                        load.travel += travel;
+                    }
+                    t.owners.resize(batch.len(), i);
+                }
             }
             result.moves += 1;
             prev = segment.end;
@@ -440,14 +479,31 @@ impl Simulator {
             let at_checkpoint =
                 keep && done < end && self.checkpoint_every.is_some_and(|n| done % n == 0);
             if batch.len() >= BATCH_POSES || at_checkpoint {
-                self.flush(&tool, &mut batch, &mut result, context, total)?;
+                self.flush(
+                    &tool,
+                    &mut batch,
+                    &mut result,
+                    tally.as_mut(),
+                    context,
+                    total,
+                )?;
             }
             if at_checkpoint {
                 self.keep_checkpoint(self.groups_done, done);
             }
         }
-        self.flush(&tool, &mut batch, &mut result, context, total)?;
+        self.flush(
+            &tool,
+            &mut batch,
+            &mut result,
+            tally.as_mut(),
+            context,
+            total,
+        )?;
         result.volume_after = self.stock.volume();
+        if let Some(t) = tally {
+            result.load.moves = t.loads;
+        }
         Ok(result)
     }
 
@@ -456,9 +512,23 @@ impl Simulator {
         tool: &ToolSolid,
         batch: &mut Vec<Pose>,
         result: &mut GroupResult,
+        tally: Option<&mut Tally>,
         context: &JobContext<'_>,
     ) -> Result<f64> {
-        let removed = self.stock.cut_cancellable(tool, batch, context.cancel)?;
+        let removed = if let Some(t) = tally {
+            let (removed, poses) = self.stock.cut_tallied(tool, batch, context.cancel)?;
+            for (pose, owner) in poses.iter().zip(&t.owners) {
+                if pose.removed()
+                    && let Some(load) = t.loads.get_mut(*owner)
+                {
+                    load.add(pose.volume, pose.low, pose.high);
+                }
+            }
+            t.owners.clear();
+            removed
+        } else {
+            self.stock.cut_cancellable(tool, batch, context.cancel)?
+        };
         result.poses += batch.len();
         result.removed_volume += removed;
         batch.clear();
@@ -470,16 +540,25 @@ impl Simulator {
         tool: &ToolSolid,
         batch: &mut Vec<Pose>,
         result: &mut GroupResult,
+        tally: Option<&mut Tally>,
         context: &JobContext<'_>,
         total: u64,
     ) -> Result<()> {
         context.check_cancelled()?;
         if !batch.is_empty() {
-            self.cut_batch(tool, batch, result, context)?;
+            self.cut_batch(tool, batch, result, tally, context)?;
         }
         context.report("simulate", result.moves as u64, Some(total));
         Ok(())
     }
+}
+
+/// What the moves of the batch being sampled removed, for the tool-load
+/// measure (SIM-16): the move each pose of the batch belongs to, and each
+/// move's load so far.
+struct Tally {
+    owners: Vec<usize>,
+    loads: Vec<MoveLoad>,
 }
 
 /// The progress of one range of a longer replay, reported as a share of the

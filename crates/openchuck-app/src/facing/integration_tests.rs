@@ -372,7 +372,14 @@ fn req_op_24_req_gc_07_req_ui_03_req_sim_05_all_modes_complete_through_real_appl
     for shape in ["box", "end", "flat", "round"] {
         let (mut p, op) = project(&format!("facing-e2e-{shape}"), shape);
         let draft = p.app.start_scene(None).wait().unwrap();
-        assert!(draft.notes.is_empty(), "{:?}", draft.notes);
+        // A valid draft has no problem to report; its one note says that the
+        // outlines and labels are a draft (issue #881; decision record
+        // MOPUP-1-A), which the labels no longer each say.
+        assert_eq!(
+            draft.notes,
+            ["Facing: the Facing outlines and labels are a draft until you generate"],
+            "{shape}"
+        );
         assert!(
             draft
                 .lines

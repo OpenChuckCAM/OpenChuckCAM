@@ -171,12 +171,17 @@ impl ShownMoves {
     /// `None` when every kind is shown. Entry and exit hidden whole reads as
     /// one name.
     pub fn hidden_text(self) -> Option<String> {
+        let names = self.hidden_names();
+        (!names.is_empty()).then(|| format!("Hidden: {}", names.join(", ")))
+    }
+
+    /// The names of the kinds hidden, in legend order; Entry and exit hidden
+    /// whole reads as one name. The chip shared with the Facing labels
+    /// (decision record MOPUP-1-A) takes them from here.
+    pub fn hidden_names(self) -> Vec<&'static str> {
         let hidden = self.hidden();
-        if hidden.is_empty() {
-            return None;
-        }
         let whole_entry = Self::ENTRY.iter().all(|k| hidden.contains(k));
-        let mut names: Vec<&str> = hidden
+        let mut names: Vec<&'static str> = hidden
             .iter()
             .filter(|k| !(whole_entry && Self::ENTRY.contains(k)))
             .map(|k| move_name(*k))
@@ -184,7 +189,7 @@ impl ShownMoves {
         if whole_entry {
             names.push(ENTRY_NAME);
         }
-        Some(format!("Hidden: {}", names.join(", ")))
+        names
     }
 }
 

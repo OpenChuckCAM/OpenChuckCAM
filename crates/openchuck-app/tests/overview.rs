@@ -2575,6 +2575,12 @@ fn free_ends_off(strategy: &str) -> BTreeMap<String, ParameterValue> {
     {
         out.insert("adaptive_spacing".to_owned(), ParameterValue::Flag(false));
     }
+    // The tool load is not what these tests check: a single ring dropped on
+    // the blank cuts deep, so the limit is set past it (SIM-16).
+    out.insert(
+        openchuck_app::tool_load::LARGEST_CUT_SECTION.to_owned(),
+        ParameterValue::Number(1.0e6),
+    );
     out
 }
 
