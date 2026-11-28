@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.79.0
+
+- **Family release (0.79.0; PATH-QUALITY; issue #862):** `openchuck-path` cuts a face across the rotary axis in face flow with the side of the tool's tip, with a note, and no longer gives an infinite unreached area; no change to this crate.
+
 ## 0.75.0
 
 - **Family release (0.75.0; PATH-QUALITY; issue #957):** `openchuck-path` measures a lead or helix entry of an operation limited to a selection against the part's faces outside the selection that it comes near, and refuses one that would cut them; no change to this crate.

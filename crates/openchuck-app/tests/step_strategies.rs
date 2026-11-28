@@ -1125,6 +1125,152 @@ fn req_op_28_face_flow_on_the_blisk_floor_runs_between_the_blade_roots_without_g
     assert_eq!(runs.len(), 4);
 }
 
+/// Issue #862: face flow on the blisk's end face 15, a plane across the
+/// rotary axis, at a stepover of 1 mm. The ball can reach it only with the
+/// side of its tip. Before, whether each sample read contact depended on
+/// rounding, so its passes broke into about 12,000 pieces, some with the
+/// tool down on the hub, and an unreached area was given as "inf mm2". Now
+/// the passes are whole where the ball can reach, rest beside the face, cut
+/// no face of the blisk beyond the tolerance, every area is finite, the
+/// owner's note says how the face is cut, and the output is the same at 1,
+/// 2 and N threads.
+#[test]
+fn req_op_28_req_op_12_face_flow_on_the_blisk_end_face_cuts_it_with_the_side_of_the_tip() {
+    use std::sync::Arc;
+
+    use openchuck_path::face_flow::FaceFlow;
+    use openchuck_path::params::names;
+    use openchuck_path::{AcceptAll, AnalyticStock, RotaryMapping, Strategy, StrategyInput};
+    use openchuck_testkit::contact::{ConvexTool, Geometry, Settings};
+    use openchuck_types::brep::FaceId;
+    use openchuck_types::ir::PathTags;
+    use openchuck_types::machine::Clearance;
+
+    const TOLERANCE: f64 = 0.01;
+    let model = blisk_on_axis();
+    let tool = ball().tool.profile().unwrap();
+    let machine = builtin("makera-z1").unwrap().unwrap();
+    let rotary = RotaryMapping::of_profile(&machine);
+    let surface = BrepSurface::new(&model).unwrap();
+    let stock = AnalyticStock::Cylinder {
+        radius: 21.0,
+        x_start: 9.0,
+        x_end: 61.0,
+    };
+    let tags = PathTags {
+        operation: "op".into(),
+        setup: "setup".into(),
+        tool: "tool".into(),
+    };
+    let input = StrategyInput {
+        surface: &surface,
+        stock: &stock,
+        collision: &AcceptAll,
+        tool: &tool,
+        rotary,
+        clearance: Clearance {
+            radius: Millimetres(26.0),
+            safe_z: Millimetres(36.0),
+        },
+        max_feeds: machine.max_feeds,
+        tags: &tags,
+        facing: None,
+        keep_out: &[],
+        shank: None,
+    };
+    let values: BTreeMap<String, openchuck_path::ParameterValue> = [
+        (names::STEPOVER, 1.0),
+        (names::TOLERANCE, TOLERANCE),
+        (names::FEED, 300.0),
+        (names::PLUNGE_FEED, 100.0),
+    ]
+    .into_iter()
+    .map(|(k, v)| (k.to_owned(), openchuck_path::ParameterValue::Number(v)))
+    .collect();
+    let strategy = FaceFlow::on_brep(Arc::new(model.clone()), vec![FaceId(15)], Vec::new());
+    let parameters = strategy.resolve_parameters(&values).unwrap();
+    let run = || {
+        let cancel = CancelToken::new();
+        strategy
+            .passes_with_notes(
+                &input,
+                None,
+                &parameters,
+                &JobContext::new(&cancel, &NoProgress),
+            )
+            .unwrap()
+    };
+    let started = std::time::Instant::now();
+    let out = run();
+    let took = started.elapsed().as_secs_f64();
+    let points: usize = out.passes.iter().map(|p| p.points.len()).sum();
+    println!(
+        "face flow on the blisk's end face 15: {} runs, {points} points, {took:.2} s; {} \
+         unreached areas",
+        out.passes.len(),
+        out.unreached.len()
+    );
+    let notes = out.notes().join("\n");
+    assert!(
+        notes.contains(
+            "face 15 lies across the rotary axis: the tool can reach it only with the side of \
+             its tip, so the passes on it are cut that way."
+        ),
+        "{notes}"
+    );
+    assert!(!out.passes.is_empty());
+    // 127 runs, against 11,919 before (most of them pieces of 3 passes).
+    const RUNS: usize = 200;
+    assert!(out.passes.len() <= RUNS, "{} runs", out.passes.len());
+    // Every area is finite, and so is every word about it.
+    for u in &out.unreached {
+        assert!(u.area.is_finite() && u.area >= 0.0, "{u:?}");
+    }
+    for w in out.warnings() {
+        assert!(!w.text.contains("inf"), "{}", w.text);
+    }
+    // The ball rests beside the face: its centre one radius from it, and
+    // not down on the hub.
+    let end = BrepSurface::with_faces(&model, &[FaceId(15)]).unwrap();
+    let radius = tool.cutting_radius();
+    for pass in &out.passes {
+        for c in &pass.points {
+            let centre = c.tip + rotary.tool_axis(c.a).get() * radius;
+            let on = end.project(centre).unwrap();
+            let gap = on.point.distance(centre) - radius;
+            assert!(
+                gap.abs() <= TOLERANCE + 0.001,
+                "the ball is {gap} mm off face 15 at {centre:?}"
+            );
+        }
+    }
+    // No cut into any face of the blisk beyond the tolerance, by the
+    // independent bounded checker.
+    let exact = Geometry::of_faces(&model).unwrap();
+    let ball_tool = ConvexTool::new(&tool).unwrap();
+    let settings = Settings {
+        margin: 0.5,
+        tolerance: 0.001,
+        budget: 4_000_000,
+    };
+    let mut deepest: f64 = 0.0;
+    for pass in &out.passes {
+        for c in &pass.points {
+            let axis = rotary.tool_axis(c.a).get();
+            let clearance = exact.clearance(&ball_tool, c.tip, axis, &settings).unwrap();
+            deepest = deepest.min(clearance.lower);
+        }
+    }
+    assert!(
+        deepest >= -(TOLERANCE + 0.001),
+        "cuts {deepest} mm into the blisk"
+    );
+    // The same passes at 1, 2 and N threads (GC-07, NFR-06).
+    let runs = openchuck_testkit::determinism::check(|| format!("{:?}", run().passes).into_bytes())
+        .unwrap();
+    assert_eq!(runs.len(), 4);
+}
+
 /// A ramp entry on a STEP part (decision 0543, the owner's answers; D10):
 /// the back-and-forth ramp was refused on every STEP part, its clearance
 /// certificate needing triangles with a proved error. Following the pass,

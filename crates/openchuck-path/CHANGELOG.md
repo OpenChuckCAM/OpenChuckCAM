@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.79.0 (PATH-QUALITY; issue #862; decision 0710, proposed; not breaking, output change)
+
+- **Changed output (face flow, faces square to the tool axis):** where a face's normal is within 1° of square to the tool axis, the tool can touch it only with the side of its tip, and a drop along the tool line is tangent to the face all the way down. Such a sample is no longer placed by that drop: the tool is tried half the tolerance off the face, and rests there where nothing lies above it along its line, or is blocked where something does. A move between two such poses is split only where it would cut in. So a face across the rotary axis is cut in whole passes beside it, where it broke into many pieces, some with the tool down on the part below.
+- **New note:** a face across the rotary axis gets the note "face N lies across the rotary axis: the tool can reach it only with the side of its tip, so the passes on it are cut that way." (or "faces M and N lie …").
+- **Fixed:** an unreached area on a face that ends before its far side (an annulus) was given an infinite area; it is now measured from the face's extent across at that place.
+- No public API change.
+
 ## 0.75.0 (PATH-QUALITY; issue #957; decision 0701, proposed; not breaking, output change: new refusals)
 
 - **New refusal (Entry Lead and Helix, every strategy but swarf, an operation limited to a selection):** a lead or helix is measured against the part's faces outside the selection (`RegionConstraint::outside`) that it comes near: the faces whose box meets the box the tool's cutting part sweeps over the entry, sampled lazily as swarf samples its faces next to the face set. One that would cut such a face deeper than the tolerance and the sampling slack is refused, naming the face. Where the pass itself cuts the face where the move meets it, the refusal says so. Plunge and Ramp, swarf (decision 0682, unchanged) and faces with no exact form (a mesh) are not measured.

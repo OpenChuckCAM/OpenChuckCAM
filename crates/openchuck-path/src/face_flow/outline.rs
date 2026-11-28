@@ -1153,6 +1153,7 @@ pub(super) fn cut_outline(
         outline: true,
         ring_words: String::new(),
         one_way: false,
+        across_axis: false,
     })
 }
 

@@ -1603,10 +1603,21 @@ impl Across {
         worst
     }
 
-    /// The width of the face across at guide fraction `s`, along the face.
+    /// The width of the face across at guide fraction `s`, along the face:
+    /// as far as its points at that place reach, where the face ends before
+    /// its far side (an annulus, issue #862); the nearest place's where it
+    /// has none; 0 where no place has any.
     fn width(&self, s: f64) -> f64 {
-        let k = (s.clamp(0.0, 1.0) * (self.places.len().saturating_sub(1)) as f64).round() as usize;
-        self.at(k, 1.0).map_or(f64::INFINITY, |p| p.2)
+        let reach = |row: &Vec<Option<(Point3, Vec3, f64)>>| {
+            row.iter().flatten().map(|p| p.2).reduce(f64::max)
+        };
+        let last = self.places.len().saturating_sub(1);
+        let k = (s.clamp(0.0, 1.0) * last as f64).round() as usize;
+        (0..=last)
+            .flat_map(|d| [k.checked_sub(d), Some(k + d).filter(|&j| j <= last)])
+            .flatten()
+            .find_map(|j| self.places.get(j).and_then(reach))
+            .unwrap_or(0.0)
     }
 }
 
@@ -1694,6 +1705,9 @@ fn weights(across: &Across, settings: &Settings, face: FaceId) -> Result<Vec<f64
 struct Pose {
     s: f64,
     point: CutPoint,
+    /// Placed with the side of the tool's tip beside a face square to its
+    /// axis (issue #862).
+    beside: bool,
 }
 
 /// What became of one sample of a pass.
@@ -1709,6 +1723,65 @@ enum Sample {
     /// The region (avoid or check set) forbids a cut here, or the face has
     /// no point here.
     Skipped,
+}
+
+/// The most a face's normal may lean off square to the tool axis for the
+/// tool to be taken as touching it with the side of its tip (issue #862):
+/// the sine of 1°.
+const BESIDE: f64 = 0.017_452_406;
+
+/// Whether a face with normal `n` is square to the tool axis `axis`: a
+/// wall to the tool's side, which it reaches only with the side of its tip.
+fn beside(n: Vec3, axis: UnitVec3) -> bool {
+    let len = n.length();
+    len > 0.0 && (n.dot(axis.get()) / len).abs() <= BESIDE
+}
+
+/// Whether `face` lies across the rotary axis (issue #862): its normal is
+/// along the axis, within [`BESIDE`], wherever it is sampled, so every tool
+/// axis, which is square to the rotary axis, is square to the face too.
+fn across_axis(face: &ExactFace, rotary: &RotaryMapping) -> bool {
+    let axis = rotary
+        .tool_axis(Degrees(0.0))
+        .get()
+        .cross(rotary.tool_axis(Degrees(90.0)).get());
+    let len = axis.length();
+    if len <= 0.0 {
+        return false;
+    }
+    let axis = axis * (1.0 / len);
+    let least = (1.0 - BESIDE * BESIDE).sqrt();
+    let (lo, hi) = face.uv_bounds();
+    const N: u32 = 9;
+    let mut seen = false;
+    for i in 0..=N {
+        for j in 0..=N {
+            let uv = Uv {
+                u: lo.u + (hi.u - lo.u) * f64::from(i) / f64::from(N),
+                v: lo.v + (hi.v - lo.v) * f64::from(j) / f64::from(N),
+            };
+            if !face.contains(uv) {
+                continue;
+            }
+            let Some(sp) = face.point_normal(uv) else {
+                continue;
+            };
+            if sp.normal.get().dot(axis).abs() < least {
+                return false;
+            }
+            seen = true;
+        }
+    }
+    seen
+}
+
+/// `ids` in words: "15", "0 and 15", "0, 3 and 15".
+fn and_list(ids: &[u32]) -> String {
+    match ids.split_last() {
+        Some((last, [])) => last.to_string(),
+        Some((last, rest)) => format!("{} and {last}", list(rest.iter().copied())),
+        None => String::new(),
+    }
 }
 
 /// What the tool needs that does not change along a pass.
@@ -1750,6 +1823,9 @@ impl Tooling<'_> {
     fn place(&self, s: f64, p: Point3, n: Vec3, phi: f64) -> Sample {
         let (a, axis) = self.axis(phi);
         let seed = self.seed(p, n, axis);
+        if beside(n, axis) {
+            return self.place_beside(s, p, n, a, axis, seed);
+        }
         let line = ToolLine { origin: seed, axis };
         let Some(contact) = self.part.drop_tool(self.profile, &line) else {
             return Sample::Skipped;
@@ -1771,6 +1847,55 @@ impl Tooling<'_> {
         Sample::Cut(Pose {
             s,
             point: self.cut_point(contact.tip, contact.contact, a, axis),
+            beside: false,
+        })
+    }
+
+    /// The tool touching `p` with the side of its tip, on a face square to
+    /// the tool axis there (issue #862, the owner's answer A). The drop
+    /// along the tool line is tangent to the face all the way down, so its
+    /// height is not trusted: the tool is tried at the seed moved off the
+    /// face by half the tolerance. Nothing above it along the line, the
+    /// pose is there, half the tolerance clear of the face, so that no later
+    /// drop along a line beside it is tangent to it either; something more
+    /// than the tolerance above, it is blocked, as any other sample.
+    fn place_beside(
+        &self,
+        s: f64,
+        p: Point3,
+        n: Vec3,
+        a: Degrees,
+        axis: UnitVec3,
+        seed: Point3,
+    ) -> Sample {
+        let off = seed + n * (0.5 * self.settings.tolerance);
+        let line = ToolLine { origin: off, axis };
+        let (tip, contact) = match self.part.drop_tool(self.profile, &line) {
+            Some(c) => {
+                let lift = (c.tip - off).dot(axis.get());
+                if lift > self.settings.tolerance {
+                    return Sample::Blocked {
+                        point: p,
+                        a: a.0,
+                        s,
+                    };
+                }
+                if lift > 0.0 {
+                    (c.tip, c.contact)
+                } else {
+                    (off, p)
+                }
+            }
+            None => (off, p),
+        };
+        let line = ToolLine { origin: tip, axis };
+        if !self.region.allows(contact, tip, self.profile, &line) {
+            return Sample::Skipped;
+        }
+        Sample::Cut(Pose {
+            s,
+            point: self.cut_point(tip, contact, a, axis),
+            beside: true,
         })
     }
 
@@ -2151,7 +2276,14 @@ fn split_move(
     depth: u32,
     out: &mut Vec<Sample>,
 ) {
-    let error = tooling.move_error(&a.point, &b.point);
+    // Between two poses beside a face square to the tool axis, a drop
+    // along the line slides past the face and so says nothing of how far
+    // the move leaves it (issue #862): only a cut in counts.
+    let error = if a.beside && b.beside {
+        tooling.move_gouge(&a.point, &b.point)
+    } else {
+        tooling.move_error(&a.point, &b.point)
+    };
     if error.abs() <= tooling.settings.tolerance {
         return;
     }
@@ -2215,6 +2347,9 @@ struct FaceCut {
     ring_words: String,
     /// Its passes are already directed (rings, which never reverse).
     one_way: bool,
+    /// The face lies across the rotary axis, so the tool reaches it only
+    /// with the side of its tip (issue #862).
+    across_axis: bool,
 }
 
 #[allow(clippy::too_many_lines)]
@@ -2349,10 +2484,12 @@ fn face_flow(
             (Pattern::Automatic, Some(f)) => notched(f),
             _ => true,
         };
-        cuts.push(match f {
+        let mut cut = match f {
             Some(f) if !along_outline => cut_face(f, &tooling, &profile, context)?,
             _ => outline::cut_outline(model, brep, *id, face, closed, &tooling, &profile, context)?,
-        });
+        };
+        cut.across_axis = across_axis(face, &input.rotary);
+        cuts.push(cut);
     }
     context.report("face-flow finishing", total as u64, Some(total as u64));
     assemble(cuts, &tooling, input, context)
@@ -2600,6 +2737,7 @@ fn cut_face(
         outline: false,
         ring_words,
         one_way: closed_face,
+        across_axis: false,
     })
 }
 
@@ -3142,7 +3280,11 @@ fn assemble(
             c.contact.z.to_bits(),
         ]
     };
+    let mut across: Vec<u32> = Vec::new();
     for mut cut in cuts {
+        if cut.across_axis {
+            across.push(cut.id.0);
+        }
         let geometric = cut.passes.len();
         let pass_keys: Vec<Vec<[u64; 3]>> = cut
             .passes
@@ -3363,6 +3505,24 @@ fn assemble(
             .into_iter()
             .map(|note| Notice::information(note).about(topic::FACE_FLOW)),
     );
+    // The owner's note for faces across the rotary axis (issue #862).
+    across.sort_unstable();
+    across.dedup();
+    if !across.is_empty() {
+        let (faces, lie, them) = if across.len() == 1 {
+            ("face", "lies", "it")
+        } else {
+            ("faces", "lie", "them")
+        };
+        notes.push(
+            Notice::information(format!(
+                "{faces} {} {lie} across the rotary axis: the tool can reach {them} only with \
+                 the side of its tip, so the passes on {them} are cut that way.",
+                and_list(&across)
+            ))
+            .about(topic::FACE_FLOW),
+        );
+    }
     let mut warnings = Vec::new();
     if !unreached.is_empty() {
         let plural = if unreached.len() == 1 { "" } else { "s" };
@@ -3586,7 +3746,8 @@ fn unreached_list(areas: &[Unreached], diameter: f64) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::spans_overlap;
+    use super::{Across, spans_overlap};
+    use openchuck_types::geometry::{Point3, Vec3};
 
     #[test]
     fn req_op_28_a_blocked_stretch_across_the_seam_meets_only_what_it_crosses() {
@@ -3601,5 +3762,39 @@ mod tests {
         assert!(spans_overlap((0.2, 0.4), (0.3, 0.5)));
         assert!(!spans_overlap((0.2, 0.3), (0.4, 0.5)));
         assert!(spans_overlap((0.0, 1.0), (0.45, 0.55)));
+    }
+
+    #[test]
+    fn req_op_28_req_nfr_07_the_width_across_is_finite_where_the_face_ends_before_its_far_side() {
+        // Issue #862: on an annulus, the blend from the guide edge to the
+        // opposite side leaves the trimmed face before w = 1, so the row has
+        // no point there. The width is then the face's extent across at that
+        // place, as far as its points reach, not infinite.
+        let row = |reach: usize| -> Vec<Option<(Point3, Vec3, f64)>> {
+            (0..=4)
+                .map(|i| {
+                    (i <= reach).then(|| {
+                        (
+                            Point3::new(0.0, i as f64, 0.0),
+                            Vec3::new(0.0, 0.0, 1.0),
+                            i as f64,
+                        )
+                    })
+                })
+                .collect()
+        };
+        let across = Across {
+            places: vec![row(4), row(2), vec![None; 5]],
+            n: 4,
+        };
+        assert!((across.width(0.0) - 4.0).abs() < 1e-12);
+        assert!((across.width(0.5) - 2.0).abs() < 1e-12);
+        // A place with no point at all takes the nearest place's width.
+        assert!((across.width(1.0) - 2.0).abs() < 1e-12);
+        let nothing = Across {
+            places: vec![vec![None; 5]; 3],
+            n: 4,
+        };
+        assert!((nothing.width(0.5) - 0.0).abs() < 1e-12);
     }
 }

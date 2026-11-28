@@ -3254,3 +3254,86 @@ fn req_op_28_req_op_20_a_pass_with_a_run_left_out_and_a_run_kept_still_counts_as
     let notes = joined.notes().join("\n");
     assert!(!notes.contains("of them cut"), "{notes}");
 }
+
+// ---- issue #862: a face across the rotary axis --------------------------------------
+
+/// A step: a floor at Z 4 from X 10 to 20 (face 0), and a wall at X 10
+/// facing +X from Z 4 to 12 (face 1), across the rotary axis: its normal is
+/// along the axis, so the tool, whose axis is always square to it, reaches
+/// it only with the side of its tip.
+fn step_across_the_axis() -> BrepModel {
+    let mut b = Builder::default();
+    flat(
+        &mut b,
+        4.0,
+        &[(10.0, -5.0), (20.0, -5.0), (20.0, 5.0), (10.0, 5.0)],
+        &[],
+    );
+    wall(
+        &mut b,
+        p3(10.0, 5.0, 4.0),
+        p3(10.0, -5.0, 4.0),
+        8.0,
+        Vec3::new(1.0, 0.0, 0.0),
+        EdgeId(3),
+    );
+    b.model
+}
+
+#[test]
+fn req_op_28_req_op_12_a_face_across_the_rotary_axis_is_cut_with_the_side_of_the_tip() {
+    // Issue #862, the owner's answer A: the drop along a tool line parallel
+    // to such a face is tangent to it all the way down, so whether it read
+    // contact depended on rounding: the tool either stopped above the face
+    // (read as blocked) or slid past the point down to the floor. Now each
+    // point the tool can reach with its side is cut there, with the ball
+    // beside the wall, and the passes are whole.
+    let rig = Rig::new(step_across_the_axis(), &ball(6.0));
+    let out = rig
+        .output(&rig.strategy(&[1], &[]), &values(0.5, &[]))
+        .unwrap();
+    assert!(!out.passes.is_empty());
+    let tol = 0.005;
+    let r = 3.0;
+    for pass in &out.passes {
+        for c in &pass.points {
+            let o = centre_of(&rig, c, r);
+            assert!(
+                (o.x - 10.0 - r).abs() <= tol + 0.001,
+                "the ball is {} mm off the wall at {o:?}",
+                o.x - 10.0 - r
+            );
+            assert!(o.z >= 4.0 + r - tol, "into the floor at {o:?}");
+        }
+        // Nor at the middle and quarter points of each move, by the closed
+        // form of the step.
+        for w in pass.points.windows(2) {
+            for f in [0.25, 0.5, 0.75] {
+                let o = centre_of(&rig, &between(&rig, &w[0], &w[1], f), r);
+                assert!(o.x >= 10.0 + r - tol, "into the wall at {o:?}");
+                assert!(o.z >= 4.0 + r - tol, "into the floor at {o:?}");
+            }
+        }
+        let ys = contacts(pass).iter().map(|q| q.y).collect::<Vec<_>>();
+        let span = ys.iter().fold(f64::NEG_INFINITY, |m, y| m.max(*y))
+            - ys.iter().fold(f64::INFINITY, |m, y| m.min(*y));
+        assert!(span > 9.0, "a pass is a fragment of {span} mm");
+    }
+    let notes = out.notes().join("\n");
+    assert!(
+        notes.contains(
+            "face 1 lies across the rotary axis: the tool can reach it only with the side of \
+             its tip, so the passes on it are cut that way."
+        ),
+        "{notes}"
+    );
+    // The floor is not across the axis, and gets no such note.
+    let floor = rig
+        .output(&rig.strategy(&[0], &[]), &values(0.5, &[]))
+        .unwrap();
+    assert!(
+        !floor.notes().join("\n").contains("across the rotary axis"),
+        "{:?}",
+        floor.notes()
+    );
+}
