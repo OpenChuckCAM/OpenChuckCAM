@@ -228,3 +228,96 @@ fn req_imp_02_exact_surface_beats_the_tessellation_it_was_built_from() {
     assert!(worst_exact < 1e-9, "{worst_exact:e}");
     assert!(worst_mesh > worst_exact);
 }
+
+/// Issue #917 B (OI-2271), the owner's answer F1: each face's trim used to
+/// be its p-curves sampled at 48 steps on their own, a chord of the true
+/// edge, so beside a curved edge a strip up to the chord's sag (0.02 mm on
+/// a round edge, 0.04 mm on the blisk) lay outside both faces' trims and a
+/// ray through it hit nothing. The importer now samples each edge once
+/// along its 3D curve to 1 µm and takes both faces' trims at those
+/// parameters, so a ray aimed along the normal at a point 2 µm or 10 µm in
+/// from any vertex of a shared edge hits that face.
+#[test]
+fn req_imp_02_a_ray_just_inside_a_shared_edge_hits_its_face() {
+    const PARTS: &[&str] = &[
+        "blisk",
+        "box",
+        "cone",
+        "crankshaft",
+        "cylinder",
+        "extruded_spline",
+        "filleted_box",
+        "hex_bar",
+        "multi_body",
+        "rotary_blank_drilled",
+        "shouldered_shaft",
+    ];
+    const IN: [f64; 2] = [0.002, 0.010];
+    // Above the ray's target, along the face's normal.
+    const ABOVE: f64 = 1.0;
+    let mut misses = Vec::new();
+    for name in PARTS {
+        let model = import(name);
+        let surface = BrepSurface::new(&model).unwrap();
+        let faces = surface.faces();
+        let (mut tried, mut missed) = (0usize, 0usize);
+        for e in &model.edges {
+            if e.faces.len() != 2 || e.polyline.len() < 2 {
+                continue;
+            }
+            for (k, p) in e.polyline.iter().enumerate() {
+                let (q0, q1) = match e.polyline.get(k + 1) {
+                    Some(next) => (*p, *next),
+                    None => (e.polyline[k - 1], *p),
+                };
+                let along = q1 - q0;
+                if along.length() < 1e-9 {
+                    continue;
+                }
+                let along = along * (1.0 / along.length());
+                for f in &e.faces {
+                    let Some(c) = faces[f.0 as usize].closest_within(*p, 0.1) else {
+                        continue;
+                    };
+                    let n = c.point.normal.get();
+                    let across = n.cross(along);
+                    if across.length() < 1e-9 {
+                        continue;
+                    }
+                    let across = across * (1.0 / across.length());
+                    let hits = |target: Point3| {
+                        surface
+                            .cast_ray(target + n * ABOVE, UnitVec3::new(-n).unwrap(), 2.0 * ABOVE)
+                            .is_some_and(|hit| {
+                                (hit.distance - ABOVE).abs() < 0.05
+                                    && hit.position.is_some_and(|at| at.face == f.0)
+                            })
+                    };
+                    // The side of the edge the face is on: where it is hit
+                    // well inside it.
+                    let Some(side) = [1.0, -1.0]
+                        .into_iter()
+                        .find(|s| hits(*p + across * (0.3 * s)))
+                    else {
+                        continue;
+                    };
+                    for d in IN {
+                        tried += 1;
+                        if !hits(*p + across * (d * side)) {
+                            missed += 1;
+                        }
+                    }
+                }
+            }
+        }
+        eprintln!("{name}: {missed} of {tried} rays just inside a shared edge miss its face");
+        assert!(
+            tried > 0 || ["hex_bar", "box"].contains(name),
+            "{name}: nothing tried"
+        );
+        if missed > 0 {
+            misses.push(format!("{name}: {missed} of {tried}"));
+        }
+    }
+    assert!(misses.is_empty(), "rays that miss: {misses:?}");
+}
