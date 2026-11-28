@@ -748,7 +748,7 @@ impl Shell {
             ui.data_mut(|data| data.insert_temp(egui::Id::unique("tree empty space"), space));
             let response = ui.interact(
                 space,
-                egui::Id::new("tree empty space"),
+                egui::Id::unique("tree empty space interact"),
                 egui::Sense::click(),
             );
             if response.clicked() && !busy {
