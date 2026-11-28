@@ -61,6 +61,13 @@ Environment: the lane's cloud container, Linux x86-64, 4 cores, Rust 1.97.0, car
   - Run against a folder with no match (the floor container's case): nothing was removed and the step went on.
   - The hosted-runner check is the manual `ci.yml` run on the branch (pull request).
 - **The step limit.** A YAML key on the replay step only; the replay itself is unchanged. It is exercised by the same manual run.
+- **Manual `ci.yml` run on the branch** (run 46135228816, `workflow_dispatch` at `930319a`, which runs the full layout, macOS test shares included): all 40 jobs passed, and `CI required checks` passed.
+  - **UI smoke.** Ubuntu 2.0 min, Windows 3.0 min, macOS 3.2 min. The Ubuntu log shows `Removing apt sources: /etc/apt/sources.list.d/microsoft-prod.list`, followed by an `apt-get update` with no error (#983).
+  - **Gate 3.** The five shares took 17.0 to 19.2 min, and their replay steps 16.5 to 18.5 min, under the 30-minute step limit (#974).
+  - **Test shares.** Ubuntu 9.0 to 20.4 min, Windows 9.2 to 14.6 min, macOS 34.2 and 42.6 min.
+  - **Whole run.** The wall time was 122.7 min, mostly queueing for the project's shared runners while other runs were going. The last job was macOS Tests share 2 of 2, which a pull request run does not have.
+  - **Runner minutes.** 529.8, the sum of the job durations.
+  - **Not measured.** Peak jobs at once and queue time.
 - **`wait_limit`, uninstrumented.**
   - `cargo nextest run -p openchuck-ui --locked`: 828 tests passed, 1 skipped, in 565.7 s.
   - The longest test was `shell::simulate_tests::req_ui_16_req_sim_04_the_playback_dock_lays_out_whole_in_every_state` at 70.7 s. It is already listed in both profiles of `.config/nextest.toml`.
@@ -78,7 +85,6 @@ Environment: the lane's cloud container, Linux x86-64, 4 cores, Rust 1.97.0, car
   - `cargo xtask deps`, `licences`, `records` and `trace`: all ok.
   - `bash tools/ci/main-run-mode.test.sh`: ok. The job layout is unchanged.
 - **Not verified here.**
-  - The hosted-runner legs (the manual run covers them).
   - The nightly Coverage run (the first night after merge shows whether the issue closes).
   - The `wait_limit` waits in the other `openchuck-ui` modules under instrumentation (the nightly run covers them).
   - Line coverage: the change is in test code apart from the helper, which its own test runs.
