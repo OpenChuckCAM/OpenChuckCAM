@@ -1846,3 +1846,35 @@ fn req_op_21_cli_says_a_set_on_ignore_as_a_note() {
     assert!(lines[0].starts_with("note: "), "{all}");
     std::fs::remove_dir_all(&dir).unwrap();
 }
+
+#[test]
+fn req_nfr_07_cli_takes_the_memory_a_toolpath_job_may_use_and_refuses_nonsense() {
+    // Issue #847: --job-memory is a share of this computer's memory, 10 to
+    // 90 % in steps of 5 (default 50); anything else is refused with what to
+    // give, before any project is opened.
+    let project = empty_project("job-memory");
+    for good in ["10", "50", "90", "75%"] {
+        let out = run(&[
+            "--job-memory".as_ref(),
+            good.as_ref(),
+            "regenerate".as_ref(),
+            project.as_os_str(),
+        ]);
+        assert_eq!(out.code, Some(0), "{good}: {}", out.stderr);
+    }
+    for bad in ["0", "5", "52", "95", "lots"] {
+        let out = run(&[
+            "--job-memory".as_ref(),
+            bad.as_ref(),
+            "regenerate".as_ref(),
+            project.as_os_str(),
+        ]);
+        assert_ne!(out.code, Some(0), "{bad}");
+        assert!(
+            out.stderr
+                .contains("give a whole percentage from 10 to 90, in steps of 5"),
+            "{bad}: {}",
+            out.stderr
+        );
+    }
+}

@@ -97,6 +97,23 @@ pub enum AppError {
         /// setting opens it (decision record 0536 section 4).
         setting: Option<String>,
     },
+    /// An operation was stopped before it would pass the memory a toolpath
+    /// job may use (issue #847): nothing was made for it. Its words name
+    /// where the limit is set and, where it was raised, the operation's
+    /// Adaptive work limit as the likely cause (the owner's wording).
+    #[error("{}", memory_stop_words(name, *reached, *limit, *work_limit, *memory))]
+    MemoryStop {
+        /// The operation's name.
+        name: String,
+        /// What the job had accounted for when it stopped, bytes.
+        reached: u64,
+        /// The job's limit, bytes.
+        limit: u64,
+        /// The operation's Adaptive work limit, geometry queries.
+        work_limit: u64,
+        /// The jobs' memory limit as the host set it, when it says.
+        memory: Option<crate::memory::JobMemory>,
+    },
     /// The tool numbers cannot be used as asked (GC-14).
     #[error("tool numbers: {0}")]
     ToolNumbers(String),
@@ -159,6 +176,28 @@ impl AppError {
         }
     }
 
+    /// As it is, with the jobs' memory limit `memory` in a memory stop, so
+    /// its words say where the limit is set.
+    #[must_use]
+    pub fn with_memory(self, memory: Option<crate::memory::JobMemory>) -> Self {
+        match self {
+            Self::MemoryStop {
+                name,
+                reached,
+                limit,
+                work_limit,
+                ..
+            } => Self::MemoryStop {
+                name,
+                reached,
+                limit,
+                work_limit,
+                memory,
+            },
+            other => other,
+        }
+    }
+
     /// As it is, with Show setting opening the operation's setting `key`
     /// when it is a refusal.
     #[must_use]
@@ -213,6 +252,64 @@ fn refusal_display(topic: &str, name: &str, text: &str) -> String {
 mod tests {
     use super::*;
 
+    const GIB: u64 = 1024 * 1024 * 1024;
+
+    fn stop(work_limit: u64, origin: crate::memory::MemoryOrigin) -> String {
+        AppError::MemoryStop {
+            name: "Operation 1".into(),
+            reached: 31 * GIB,
+            limit: 32 * GIB,
+            work_limit,
+            memory: None,
+        }
+        .with_memory(Some(crate::memory::JobMemory {
+            percent: 50,
+            bytes: 32 * GIB,
+            origin,
+        }))
+        .to_string()
+    }
+
+    /// Issue #847: the owner's approved words for a memory stop, where the
+    /// Adaptive work limit was raised and where it is at its default, as
+    /// Settings and as the command line set the limit.
+    #[test]
+    fn req_nfr_07_req_nfr_12_a_memory_stop_says_what_happened_and_what_to_change() {
+        use crate::memory::MemoryOrigin::{CommandLine, Settings};
+        assert_eq!(
+            stop(500_000_000, Settings),
+            "Operation 'Operation 1' was stopped: it would need more memory than toolpath jobs \
+             may use on this computer (it had reached about 31 GB; the limit is 32 GB, 50 % of \
+             this computer's memory, set in Settings, 'Memory a toolpath job may use'). No \
+             toolpath or G-code was made for this operation, and the project is unchanged. \
+             Adaptive work limit (Advanced) is 500,000,000, above its default of 1,000,000, and \
+             is the likely cause: lower it, or use a larger Allowed excess, a larger Smallest \
+             spacing or a smaller Stepover. You can also allow jobs more memory in Settings."
+        );
+        assert_eq!(
+            stop(1_000_000, Settings),
+            "Operation 'Operation 1' was stopped: it would need more memory than toolpath jobs \
+             may use on this computer (it had reached about 31 GB; the limit is 32 GB, 50 % of \
+             this computer's memory, set in Settings, 'Memory a toolpath job may use'). No \
+             toolpath or G-code was made for this operation, and the project is unchanged. \
+             Adaptive work limit is at its default; this part needs more passes than fit in the \
+             memory allowed: use a larger Allowed excess, a larger Smallest spacing or a smaller \
+             Stepover, limit the operation to a smaller selection, close other programs, or \
+             allow jobs more memory in Settings ('Memory a toolpath job may use')."
+        );
+        let raised = stop(500_000_000, CommandLine);
+        assert!(
+            raised.contains("50 % of this computer's memory, set with --job-memory)")
+                && raised.ends_with("You can also allow jobs more memory with --job-memory."),
+            "{raised}"
+        );
+        let default = stop(1_000_000, CommandLine);
+        assert!(
+            default.ends_with("close other programs, or allow jobs more memory with --job-memory."),
+            "{default}"
+        );
+    }
+
     /// Specification section 15: no schema field names in what a panel reads.
     #[test]
     fn req_nfr_15_a_refused_parameter_reads_as_a_sentence() {
@@ -224,4 +321,77 @@ mod tests {
         let cancelled = AppError::Path(openchuck_path::PathError::Cancelled);
         assert_eq!(cancelled.user_message(), cancelled.to_string());
     }
+}
+
+/// The words of a memory stop (issue #847, the owner's approved wording).
+fn memory_stop_words(
+    name: &str,
+    reached: u64,
+    limit: u64,
+    work_limit: u64,
+    memory: Option<crate::memory::JobMemory>,
+) -> String {
+    use crate::memory::{MemoryOrigin, size_words};
+    let origin = memory.map(|m| m.origin);
+    let set = match memory {
+        Some(m) => match m.origin {
+            MemoryOrigin::Settings => format!(
+                ", {} % of this computer's memory, set in Settings, 'Memory a toolpath job may \
+                 use'",
+                m.percent
+            ),
+            MemoryOrigin::CommandLine => format!(
+                ", {} % of this computer's memory, set with --job-memory",
+                m.percent
+            ),
+        },
+        None => String::new(),
+    };
+    let head = format!(
+        "Operation '{name}' was stopped: it would need more memory than toolpath jobs may use \
+         on this computer (it had reached about {}; the limit is {}{set}). No toolpath or \
+         G-code was made for this operation, and the project is unchanged.",
+        size_words(reached),
+        size_words(limit)
+    );
+    let default = openchuck_path::adaptive::DEFAULT_WORK_LIMIT;
+    if work_limit > default {
+        let more = match origin {
+            Some(MemoryOrigin::CommandLine) => {
+                " You can also allow jobs more memory with --job-memory."
+            }
+            _ => " You can also allow jobs more memory in Settings.",
+        };
+        format!(
+            "{head} Adaptive work limit (Advanced) is {}, above its default of {}, and is the \
+             likely cause: lower it, or use a larger Allowed excess, a larger Smallest spacing or \
+             a smaller Stepover.{more}",
+            thousands(work_limit),
+            thousands(default)
+        )
+    } else {
+        let more = match origin {
+            Some(MemoryOrigin::CommandLine) => "allow jobs more memory with --job-memory",
+            _ => "allow jobs more memory in Settings ('Memory a toolpath job may use')",
+        };
+        format!(
+            "{head} Adaptive work limit is at its default; this part needs more passes than fit \
+             in the memory allowed: use a larger Allowed excess, a larger Smallest spacing or a \
+             smaller Stepover, limit the operation to a smaller selection, close other programs, \
+             or {more}."
+        )
+    }
+}
+
+/// `n` with a comma between each three digits.
+fn thousands(n: u64) -> String {
+    let digits = n.to_string();
+    let mut out = String::with_capacity(digits.len() + digits.len() / 3);
+    for (i, c) in digits.chars().enumerate() {
+        if i > 0 && (digits.len() - i) % 3 == 0 {
+            out.push(',');
+        }
+        out.push(c);
+    }
+    out
 }

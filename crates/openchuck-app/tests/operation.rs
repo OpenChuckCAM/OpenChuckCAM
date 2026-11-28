@@ -441,6 +441,48 @@ fn req_op_05_req_op_01_simultaneous_finishing_runs_from_a_project_with_the_built
 }
 
 #[test]
+fn req_nfr_07_req_gc_07_an_operation_over_the_memory_a_job_may_use_is_stopped_and_named() {
+    // Issue #847: with the memory a toolpath job may use set far below what
+    // the helical finish's points need, regenerating stops it with an error
+    // that names it and where the limit is set; nothing is made, so the
+    // same project regenerates once the limit is lifted.
+    use openchuck_app::memory::{JobMemory, MemoryOrigin};
+    let (dir, mut app, op) = project("memory-stop");
+    let mut operation = app.project().operation(op).unwrap().clone();
+    operation.strategy = "helical_finishing".into();
+    operation
+        .parameters
+        .insert("face_free_ends".to_owned(), ParameterValue::Flag(false));
+    operation
+        .parameters
+        .insert("adaptive_spacing".to_owned(), ParameterValue::Flag(true));
+    app.execute(Command::Replace(Item::Operation(operation)))
+        .unwrap();
+    // Before the first regenerate: a regenerate of an unchanged project
+    // keeps the toolpaths it made.
+    app.set_job_memory(Some(JobMemory {
+        percent: 50,
+        bytes: 1_000,
+        origin: MemoryOrigin::Settings,
+    }));
+    assert_eq!(app.job_memory().map(|m| m.bytes), Some(1_000));
+    let e = app.regenerate().unwrap_err();
+    assert!(
+        matches!(&e, AppError::MemoryStop { memory: Some(m), .. } if m.bytes == 1_000),
+        "{e:?}"
+    );
+    let text = e.to_string();
+    assert!(
+        text.starts_with("Operation 'Ring' was stopped: it would need more memory")
+            && text.contains("set in Settings, 'Memory a toolpath job may use'"),
+        "{text}"
+    );
+    app.set_job_memory(None);
+    assert!(app.regenerate().is_ok());
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+#[test]
 fn req_op_04_req_op_01_helical_finishing_runs_from_a_project_with_the_builtin_strategy() {
     let (dir, mut app, op) = project("helical");
     // The library's own strategy needs no registration.

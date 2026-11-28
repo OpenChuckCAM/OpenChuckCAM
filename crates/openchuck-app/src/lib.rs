@@ -46,6 +46,7 @@ pub mod machine_library;
 pub mod machine_view;
 pub mod materials;
 mod memo;
+pub mod memory;
 pub mod model;
 pub mod note_groups;
 pub mod operation;
@@ -1629,6 +1630,20 @@ impl Application {
     /// simulating, or `None` when they are not.
     pub fn playback_with_generation(&self) -> Option<usize> {
         self.playback_with_generation
+    }
+
+    /// Sets the memory a toolpath job may use, for the jobs started from now
+    /// on (issue #847): the app sets it from Settings, the command line from
+    /// `--job-memory`. `None`, no limit (the computer's memory cannot be
+    /// read). It never changes what a job that finishes makes, only whether
+    /// it finishes.
+    pub fn set_job_memory(&self, memory: Option<crate::memory::JobMemory>) {
+        self.jobs.set_memory(memory);
+    }
+
+    /// The memory a toolpath job may use, as set.
+    pub fn job_memory(&self) -> Option<crate::memory::JobMemory> {
+        self.jobs.memory()
     }
 
     /// Chooses the post that turns toolpaths into G-code (GC-02, OI-88).

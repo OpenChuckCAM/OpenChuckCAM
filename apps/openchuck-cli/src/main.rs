@@ -98,6 +98,13 @@ struct Cli {
     /// Worker threads (default: one per core).
     #[arg(long, global = true)]
     threads: Option<usize>,
+    /// The share of this computer's memory one toolpath job may use, in
+    /// percent: 10 to 90 in steps of 5 (default 50). A job that would need
+    /// more is stopped with an error and nothing is made for its operation.
+    /// It is not a guarantee that the system will not stop the program when
+    /// the computer runs short of memory.
+    #[arg(long, global = true, value_parser = job_memory_percent)]
+    job_memory: Option<u8>,
     /// Create a project in a folder that has none, instead of asking.
     #[arg(long, global = true)]
     create: bool,
@@ -504,7 +511,40 @@ fn main() -> ExitCode {
 /// and an offer to create one: `--create` accepts it, a terminal is asked, and
 /// anything else stops with an error so a script never carries on by accident
 /// (decision record 0008 item 8).
-fn open_project(folder: &Path, threads: Threads, create: bool) -> Result<Application> {
+fn open_project(
+    folder: &Path,
+    threads: Threads,
+    create: bool,
+    job_memory: u8,
+) -> Result<Application> {
+    let app = open_or_create(folder, threads, create)?;
+    // The memory a toolpath job may use: a share of this computer's memory
+    // (issue #847); no limit where the memory cannot be read.
+    app.set_job_memory(openchuck_app::memory::JobMemory::of(
+        job_memory,
+        openchuck_app::memory::physical(),
+        openchuck_app::memory::MemoryOrigin::CommandLine,
+    ));
+    Ok(app)
+}
+
+/// `--job-memory`: a whole percentage from 10 to 90, a multiple of 5.
+fn job_memory_percent(text: &str) -> std::result::Result<u8, String> {
+    let (least, _, most, step) = openchuck_app::memory::JOB_MEMORY_PERCENT;
+    text.trim()
+        .trim_end_matches('%')
+        .parse::<u8>()
+        .ok()
+        .filter(|p| (least..=most).contains(p) && p % step == 0)
+        .ok_or_else(|| {
+            format!(
+                "'{text}' is not a share of this computer's memory a job may use: give a whole \
+                 percentage from {least} to {most}, in steps of {step}"
+            )
+        })
+}
+
+fn open_or_create(folder: &Path, threads: Threads, create: bool) -> Result<Application> {
     match Application::open(folder, threads) {
         Err(AppError::NoProject(path)) => {
             eprintln!(
@@ -542,6 +582,9 @@ fn confirm_create() -> bool {
 fn run(cli: Cli) -> Result<()> {
     let threads = cli.threads.map_or(Threads::All, Threads::Exactly);
     let create = cli.create;
+    let job_memory = cli
+        .job_memory
+        .unwrap_or(openchuck_app::memory::JOB_MEMORY_PERCENT.1);
     match cli.command {
         Action::New { project, name } => {
             let name = name.unwrap_or_else(|| {
@@ -554,7 +597,7 @@ fn run(cli: Cli) -> Result<()> {
             println!("{}: created project '{name}'", project.display());
         }
         Action::Validate { project } => {
-            let app = open_project(&project, threads, create)?;
+            let app = open_project(&project, threads, create, job_memory)?;
             let mut problems = 0;
             for (id, check) in app.check_models()? {
                 let model = app.project().models().iter().find(|m| m.id == id);
@@ -631,7 +674,7 @@ fn run(cli: Cli) -> Result<()> {
             println!("{}: valid", project.display());
         }
         Action::Resave { project } => {
-            let app = open_project(&project, threads, create)?;
+            let app = open_project(&project, threads, create, job_memory)?;
             app.save()?;
             println!("{}: saved", project.display());
         }
@@ -645,7 +688,7 @@ fn run(cli: Cli) -> Result<()> {
             acknowledge_partial_path,
             acknowledge_collision_warnings,
         } => {
-            let mut app = open_project(&project, threads, create)?;
+            let mut app = open_project(&project, threads, create, job_memory)?;
             if setup_sheet && out.is_none() {
                 anyhow::bail!("--setup-sheet needs --out: say which folder to write it into");
             }
@@ -799,7 +842,7 @@ fn run(cli: Cli) -> Result<()> {
             println!("{VERIFY_GCODE_NOTICE}");
         }
         Action::Simulate { project, cell } => {
-            let mut app = open_project(&project, threads, create)?;
+            let mut app = open_project(&project, threads, create, job_memory)?;
             if let Some(cell) = cell {
                 app.execute(Command::SetSimulation(SimulationSettings {
                     cell: Millimetres(cell),
@@ -873,7 +916,7 @@ fn run(cli: Cli) -> Result<()> {
             set,
             max,
         } => {
-            let mut app = open_project(&project, threads, create)?;
+            let mut app = open_project(&project, threads, create, job_memory)?;
             print_tool_numbers(&app);
             if auto || !set.is_empty() {
                 let numbering = if auto {
@@ -910,7 +953,7 @@ fn run(cli: Cli) -> Result<()> {
             }
         }
         Action::Report { project } => {
-            let app = open_project(&project, threads, create)?;
+            let app = open_project(&project, threads, create, job_memory)?;
             let summary = match app.query(Query::Summary) {
                 QueryResult::Summary(summary) => summary,
                 other => anyhow::bail!("unexpected answer to a summary query: {other:?}"),
@@ -937,7 +980,7 @@ fn run(cli: Cli) -> Result<()> {
         }
         Action::Inspect { path, units } => {
             if path.is_dir() {
-                let app = open_project(&path, threads, create)?;
+                let app = open_or_create(&path, threads, create)?;
                 let ids: Vec<_> = app.project().models().iter().map(|m| m.id).collect();
                 if ids.is_empty() {
                     println!("{}: no models", path.display());
@@ -961,7 +1004,7 @@ fn run(cli: Cli) -> Result<()> {
             units,
         } => {
             let units = units.as_deref().map(parse_unit).transpose()?;
-            let mut app = open_project(&project, threads, create)?;
+            let mut app = open_project(&project, threads, create, job_memory)?;
             let storage = if link {
                 ModelStorage::Link
             } else {
@@ -1009,7 +1052,7 @@ fn run(cli: Cli) -> Result<()> {
             print_inspection(&inspection);
         }
         Action::CopyModel { project, model } => {
-            let mut app = open_project(&project, threads, create)?;
+            let mut app = open_project(&project, threads, create, job_memory)?;
             let ids = match model {
                 Some(text) => vec![app.find_model(&text)?.id],
                 None => app.linked_models(),
@@ -1075,7 +1118,7 @@ fn run(cli: Cli) -> Result<()> {
             library,
             clear,
         } => {
-            let mut app = open_project(&project, threads, create)?;
+            let mut app = open_project(&project, threads, create, job_memory)?;
             if clear {
                 app.execute(Command::SetMachine(None))?;
                 app.save()?;
@@ -1121,7 +1164,7 @@ fn run(cli: Cli) -> Result<()> {
                 clear_tabs,
                 default_tabs,
             } = *holding;
-            let mut app = open_project(&project, threads, create)?;
+            let mut app = open_project(&project, threads, create, job_memory)?;
             let mut edited = match (&new, &setup) {
                 (Some(name), _) => Setup::new(SetupId::new(), name.clone()),
                 (None, Some(text)) => app.find_setup(text)?.clone(),
@@ -1250,7 +1293,7 @@ fn run(cli: Cli) -> Result<()> {
             print_setup(&app, &report);
         }
         Action::Tools { project, library } => {
-            let app = open_project(&project, threads, create)?;
+            let app = open_project(&project, threads, create, job_memory)?;
             let library = open_library(library.as_deref())?;
             if app.project().tools().is_empty() {
                 println!("{}: no tools", project.display());
@@ -1277,7 +1320,7 @@ fn run(cli: Cli) -> Result<()> {
             stick_out,
             remove,
         } => {
-            let mut app = open_project(&project, threads, create)?;
+            let mut app = open_project(&project, threads, create, job_memory)?;
             let library = open_library(library.as_deref())?;
             let need_library = || {
                 library
@@ -1393,7 +1436,7 @@ fn run(cli: Cli) -> Result<()> {
                 "default" => None,
                 other => Some(parse_unit(other)?),
             };
-            let mut app = open_project(&project, threads, create)?;
+            let mut app = open_project(&project, threads, create, job_memory)?;
             let id = app.find_model(&model)?.id;
             app.execute(Command::SetModelUnits { model: id, units })?;
             app.save()?;
@@ -1405,7 +1448,7 @@ fn run(cli: Cli) -> Result<()> {
             steps,
             clear,
         } => {
-            let mut app = open_project(&project, threads, create)?;
+            let mut app = open_project(&project, threads, create, job_memory)?;
             let reference = app.find_model(&model)?;
             let id = reference.id;
             let mut transform = if clear {
@@ -1691,7 +1734,7 @@ fn run_library(path: &Path, action: LibraryAction, threads: Threads, create: boo
             println!("    {}", describe(&entry.tool));
         }
         LibraryAction::Store { project, tool } => {
-            let app = open_project(&project, threads, create)?;
+            let app = open_or_create(&project, threads, create)?;
             let snapshot = find_tool(app.project(), &tool)
                 .with_context(|| format!("the project has no single tool named \"{tool}\""))?;
             let written = library.save_tool(LibraryTool::from_snapshot(snapshot))?;

@@ -233,3 +233,25 @@ fn req_op_04_req_nfr_12_raising_the_adaptive_work_limit_confirms_more_places() {
         );
     }
 }
+
+#[test]
+fn req_nfr_07_every_adaptive_finish_carries_the_memory_limit_into_its_work() {
+    // Axial finishing's work carries the memory limit, as helical
+    // finishing's does (a guard: its passes are fitted under a context of
+    // their own, which keeps the limit).
+    let f = fixture();
+    let v = values(&[]);
+    let cancel = CancelToken::new();
+    let free = generate(
+        &AxialFinishing,
+        &f.input(),
+        &v,
+        &JobContext::new(&cancel, &NoProgress),
+    );
+    assert!(free.is_ok(), "{free:?}");
+    let tight = JobContext::new(&cancel, &NoProgress).with_memory(Some(MemoryLimit {
+        bytes: BYTES_PER_POINT,
+    }));
+    let e = generate(&AxialFinishing, &f.input(), &v, &tight).unwrap_err();
+    assert!(matches!(e, PathError::OutOfMemory { .. }), "{e:?}");
+}

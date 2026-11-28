@@ -525,3 +525,32 @@ fn req_nfr_07_req_ui_15_the_settings_text_read_gives_defaults_and_a_message_neve
         15
     );
 }
+
+/// Issue #847 (the owner's Q6 and Q7 answers): the memory a toolpath job may
+/// use is the user's, a share of this computer's memory, half by default,
+/// 10 to 90 % in steps of 5, kept on this computer and never in a project.
+#[test]
+fn req_ui_15_req_nfr_07_the_memory_a_toolpath_job_may_use_is_personal_and_bounded() {
+    let config = folder("job-memory");
+    let file = SettingsFile::in_folder(&config);
+    assert_eq!(UserSettings::default().job_memory_percent, 50);
+    // A file written before the setting existed reads half.
+    std::fs::create_dir_all(&config).unwrap();
+    std::fs::write(file.file(), "[interface]\nscale = 1.0\n").unwrap();
+    assert_eq!(file.load().settings.job_memory_percent, 50);
+    let mut settings = UserSettings::default();
+    settings.job_memory_percent = 70;
+    file.save(&settings).unwrap();
+    assert_eq!(file.load().settings.job_memory_percent, 70);
+    for (written, read) in [(0, 10), (7, 10), (52, 50), (53, 55), (95, 90), (255, 90)] {
+        std::fs::write(
+            file.file(),
+            format!("[interface]\njob_memory_percent = {written}\n"),
+        )
+        .unwrap();
+        let loaded = file.load();
+        assert!(loaded.problem.is_none(), "{written}");
+        assert_eq!(loaded.settings.job_memory_percent, read, "{written}");
+    }
+    let _ = std::fs::remove_dir_all(config);
+}

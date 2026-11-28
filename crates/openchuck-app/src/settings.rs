@@ -219,6 +219,11 @@ pub struct UserSettings {
     /// decision 0702), remembered across projects. A file written before
     /// the field existed shows every kind.
     pub facing_labels: crate::facing_labels::ShownFacingLabels,
+    /// "Memory a toolpath job may use": the share of the computer's memory
+    /// one toolpath job may hold, percent, 10 to 90 in steps of 5 (issue
+    /// #847; [`crate::memory`]). A file written before the field existed
+    /// reads half.
+    pub job_memory_percent: u8,
 }
 
 impl Default for UserSettings {
@@ -240,6 +245,7 @@ impl Default for UserSettings {
             file_names: FileNameTemplates::default(),
             path_moves: crate::pathview::ShownMoves::ALL,
             facing_labels: crate::facing_labels::ShownFacingLabels::ALL,
+            job_memory_percent: crate::memory::JOB_MEMORY_PERCENT.1,
         }
     }
 }
@@ -267,6 +273,7 @@ impl UserSettings {
         self.recent.truncate(RECENT_KEPT);
         self.simulate = self.simulate.clamped();
         self.file_names = self.file_names.clamped();
+        self.job_memory_percent = crate::memory::clamp_percent(self.job_memory_percent);
         self.window = self.window.filter(|[w, h]| {
             (WINDOW_RANGE.0..=WINDOW_RANGE.1).contains(w)
                 && (WINDOW_RANGE.0..=WINDOW_RANGE.1).contains(h)

@@ -704,7 +704,7 @@ impl<'a> AlongX<'a> {
         // The passes report nothing of their own: their counts, from many
         // threads at once, would replace each other in the progress shown.
         let diagnostics = QuietPassProgress(context.progress);
-        let quiet = JobContext::new(context.cancel, &diagnostics);
+        let quiet = context.with_progress(&diagnostics);
         let done = Mutex::new(0_u64);
         let indexed: Vec<(usize, f64)> = angles.iter().copied().enumerate().collect();
         let fitted = parallel::map_each_in_order(&indexed, |&(i, a)| {

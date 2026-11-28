@@ -370,7 +370,7 @@ pub(crate) fn regenerate(
             (hit.path, stock)
         } else {
             let own = share(STAGE_GENERATE, i, 0.0, made_part);
-            let within = JobContext::new(context.cancel, &own);
+            let within = context.with_progress(&own);
             // Only an operation that is made, or simulated, shows as running.
             record.doing(crate::overview::PipelineActivity::Generating);
             let carried = setups
@@ -461,7 +461,7 @@ pub(crate) fn regenerate(
                 // A reused path leaves the whole share to the simulation.
                 let from = if cached_path { 0.0 } else { made_part };
                 let own = share(STAGE_GENERATE, i, from, 1.0);
-                let within = JobContext::new(context.cancel, &own);
+                let within = context.with_progress(&own);
                 if let Some(memory) = playback {
                     let used: usize = setups.iter().map(|s| s.checkpoint_bytes()).sum();
                     if let Some(state) = setups.get_mut(at) {
@@ -608,7 +608,7 @@ pub(crate) fn regenerate(
                 (operations.len() + k) as f64 / shares * WORK_END,
             );
             context.check_cancelled()?;
-            let within = JobContext::new(context.cancel, &own);
+            let within = context.with_progress(&own);
             let setup = project.setup(state.id);
             let part = setup
                 .and_then(|s| s.part)

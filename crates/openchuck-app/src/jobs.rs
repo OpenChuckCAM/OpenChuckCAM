@@ -147,6 +147,9 @@ pub struct JobId(pub u64);
 pub struct JobManager {
     pool: rayon::ThreadPool,
     next_id: AtomicU64,
+    /// The memory a toolpath job may use (issue #847): given to each job
+    /// as it starts; `None`, no limit.
+    memory: Mutex<Option<crate::memory::JobMemory>>,
     /// The cancel tokens of the jobs still running, so a job can be cancelled
     /// by its ID from a list of jobs (specification section 9, Jobs).
     running: Arc<Mutex<BTreeMap<JobId, CancelToken>>>,
@@ -195,8 +198,22 @@ impl JobManager {
         Ok(Self {
             pool,
             next_id: AtomicU64::new(1),
+            memory: Mutex::new(None),
             running: Arc::default(),
         })
+    }
+
+    /// Sets the memory a toolpath job may use, for the jobs started from
+    /// now on (issue #847); `None`, no limit.
+    pub fn set_memory(&self, memory: Option<crate::memory::JobMemory>) {
+        if let Ok(mut held) = self.memory.lock() {
+            *held = memory;
+        }
+    }
+
+    /// The memory a toolpath job may use, as set.
+    pub fn memory(&self) -> Option<crate::memory::JobMemory> {
+        self.memory.lock().ok().and_then(|held| *held)
     }
 
     /// Number of worker threads.
@@ -224,16 +241,20 @@ impl JobManager {
             running.insert(id, cancel.clone());
         }
         let registry = Arc::clone(&self.running);
+        let memory = self.memory();
         self.pool.spawn(move || {
             let progress = EventProgress {
                 job: id,
                 events: events.clone(),
             };
-            let context = JobContext::new(&job_cancel, &progress);
+            let context = JobContext::new(&job_cancel, &progress)
+                .with_memory(memory.map(|m| openchuck_types::job::MemoryLimit { bytes: m.bytes }));
             // A panic must not abort the application (NFR-07): rayon aborts the
             // process on a panic in a spawned task, so catch it here.
             let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| work(&context)))
-                .unwrap_or_else(|_| Err(AppError::JobPanicked(job_name.clone())));
+                .unwrap_or_else(|_| Err(AppError::JobPanicked(job_name.clone())))
+                // A memory stop says where its limit is set.
+                .map_err(|e| e.with_memory(memory));
             let error = result.as_ref().err().map(ToString::to_string);
             let cancelled = result.as_ref().err().is_some_and(AppError::is_cancelled);
             if let Ok(mut running) = registry.lock() {

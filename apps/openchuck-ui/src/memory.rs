@@ -39,74 +39,12 @@ pub(crate) fn playback_with_generation_default(physical: Option<u64>) -> bool {
 /// The computer's memory in whole GB of 2^30 bytes, to the nearest, as
 /// Settings names it.
 pub(crate) fn gigabytes(physical: Option<u64>) -> Option<u64> {
-    let gib = 1024 * MIB;
-    physical.map(|bytes| bytes.saturating_add(gib / 2) / gib)
+    openchuck_app::memory::gigabytes(physical)
 }
 
 /// The physical memory of this computer, in bytes, if it can be read.
 pub(crate) fn physical() -> Option<u64> {
-    platform()
-}
-
-/// `MemTotal` of Linux's `/proc/meminfo`, in bytes.
-#[cfg_attr(not(target_os = "linux"), allow(dead_code))]
-fn from_meminfo(text: &str) -> Option<u64> {
-    let line = text.lines().find(|l| l.starts_with("MemTotal:"))?;
-    let mut words = line.split_whitespace().skip(1);
-    let number: u64 = words.next()?.parse().ok()?;
-    match words.next() {
-        Some("kB") => number.checked_mul(1024),
-        _ => None,
-    }
-}
-
-/// The output of `sysctl -n hw.memsize` (macOS), in bytes.
-#[cfg_attr(not(target_os = "macos"), allow(dead_code))]
-fn from_sysctl(text: &str) -> Option<u64> {
-    text.trim().parse().ok().filter(|&bytes| bytes > 0)
-}
-
-#[cfg(target_os = "linux")]
-fn platform() -> Option<u64> {
-    from_meminfo(&std::fs::read_to_string("/proc/meminfo").ok()?)
-}
-
-#[cfg(target_os = "macos")]
-fn platform() -> Option<u64> {
-    let output = std::process::Command::new("/usr/sbin/sysctl")
-        .args(["-n", "hw.memsize"])
-        .output()
-        .ok()?;
-    if !output.status.success() {
-        return None;
-    }
-    from_sysctl(&String::from_utf8_lossy(&output.stdout))
-}
-
-#[cfg(windows)]
-#[allow(unsafe_code)]
-fn platform() -> Option<u64> {
-    use windows_sys::Win32::System::SystemInformation::{GlobalMemoryStatusEx, MEMORYSTATUSEX};
-    let mut status = MEMORYSTATUSEX {
-        dwLength: u32::try_from(std::mem::size_of::<MEMORYSTATUSEX>()).ok()?,
-        dwMemoryLoad: 0,
-        ullTotalPhys: 0,
-        ullAvailPhys: 0,
-        ullTotalPageFile: 0,
-        ullAvailPageFile: 0,
-        ullTotalVirtual: 0,
-        ullAvailVirtual: 0,
-        ullAvailExtendedVirtual: 0,
-    };
-    // SAFETY: the pointer is to a live MEMORYSTATUSEX whose dwLength is set
-    // to its size, as the call requires; it writes only into that struct.
-    let done = unsafe { GlobalMemoryStatusEx(&raw mut status) };
-    (done != 0 && status.ullTotalPhys > 0).then_some(status.ullTotalPhys)
-}
-
-#[cfg(not(any(target_os = "linux", target_os = "macos", windows)))]
-fn platform() -> Option<u64> {
-    None
+    openchuck_app::memory::physical()
 }
 
 #[cfg(test)]
@@ -163,19 +101,5 @@ mod tests {
             );
             assert_eq!(gigabytes(physical), gb, "{physical:?}");
         }
-    }
-
-    #[test]
-    fn req_nfr_07_the_physical_memory_is_read_from_the_platforms_text() {
-        let meminfo = "MemTotal:       16303740 kB\nMemFree:        15000000 kB\n";
-        assert_eq!(from_meminfo(meminfo), Some(16_303_740 * 1024));
-        assert_eq!(from_meminfo("MemFree: 1 kB\n"), None);
-        assert_eq!(from_meminfo("MemTotal: lots kB\n"), None);
-        assert_eq!(from_meminfo("MemTotal: 12\n"), None);
-        assert_eq!(from_sysctl("34359738368\n"), Some(32 * GIB));
-        assert_eq!(from_sysctl("0\n"), None);
-        assert_eq!(from_sysctl("sysctl: unknown oid\n"), None);
-        // This computer's memory, when it can be read, is above zero.
-        assert!(physical().is_none_or(|bytes| bytes > 0));
     }
 }

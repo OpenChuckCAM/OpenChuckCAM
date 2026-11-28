@@ -503,6 +503,17 @@ fn named_in(operation: &Operation, registry: Option<&Registry>, error: AppError)
     let name = &operation.name;
     match path {
         PathError::Cancelled => AppError::Path(PathError::Cancelled),
+        PathError::OutOfMemory {
+            reached,
+            limit,
+            work_limit,
+        } => AppError::MemoryStop {
+            name: name.clone(),
+            reached,
+            limit,
+            work_limit,
+            memory: None,
+        },
         PathError::Refused {
             topic,
             text,

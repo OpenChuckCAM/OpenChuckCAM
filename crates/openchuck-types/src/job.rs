@@ -120,6 +120,20 @@ impl<'a> JobContext<'a> {
         }
     }
 
+    /// This context reporting to `progress` instead, keeping the rest
+    /// (cancelling, the memory limit): for a part of a job that reports its
+    /// progress its own way.
+    pub fn with_progress<'b>(&self, progress: &'b dyn ProgressSink) -> JobContext<'b>
+    where
+        'a: 'b,
+    {
+        JobContext {
+            cancel: self.cancel,
+            progress,
+            memory: self.memory,
+        }
+    }
+
     /// This context with the memory limit `memory`.
     #[must_use]
     pub fn with_memory(mut self, memory: Option<MemoryLimit>) -> Self {
