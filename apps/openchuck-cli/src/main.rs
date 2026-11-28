@@ -215,7 +215,7 @@ enum Action {
         /// The project folder.
         project: PathBuf,
     },
-    /// Write one file for a bug report (NFR-20): the build information and
+    /// Write one file for a bug report: the build information and
     /// the log files always; the project's own files, its model files and
     /// program files only when asked. Folder names show the home folder as
     /// "~". Nothing is sent anywhere; attach the file to your report

@@ -58,7 +58,12 @@ Tests written first from NFR-20's verification row, named by requirement. They u
 - `openchuck-cli`, `tests/cli.rs`: `req_nfr_20_cli_writes_the_bug_report_file_with_what_was_asked`.
 - `cargo xtask deps`: no network crate.
 
-Results of the full suites, coverage and environment are added before the pull request opens.
+### Results (lane PROJECT-UX-B, 28 Nov 2026, branch from `main` `f906fa5`)
+
+Environment: managed Linux x86_64 container, Rust 1.97.0, debug builds. Tests were timed uninstrumented with `cargo nextest run`.
+- `cargo nextest run -p openchuck-ui -p openchuck-app -p openchuck-cli`: 1892 of 1893 passed, 2 skipped, in 2025 s. The one failure was `openchuck-cli tests::req_ui_12_the_help_text_uses_plain_words`: the new command's help said "(NFR-20)", and help text carries no requirement numbers (decision 0536 step 4). That was fixed, and `cargo nextest run -p openchuck-cli` then passed 93 of 93.
+- `cargo fmt --all`, `cargo clippy` on the changed crates (no warnings), `cargo xtask deps`, `licences`, `records` and `trace`, and `cargo xtask changelog check-pr` pass.
+- Coverage of the changed files is added before the pull request opens.
 
 Not verified here: the native save dialog, Explorer opening the zip, and attaching it to an issue, which are the owner's check (OI-9946).
 
