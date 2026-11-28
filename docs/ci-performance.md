@@ -38,6 +38,7 @@ A check moves off the pull request run only by an owner's decision recorded in a
 
 - A test over about a minute uninstrumented is listed in both profiles of `.config/nextest.toml` (excluded from `coverage`, selected by `long`), with its time (AGENTS.md). A test over 10 minutes is flagged for an owner's decision before it is kept.
 - The longest test in a share sets that share's time. Split a long test by case where the cases are independent, keeping the requirement IDs in each name and the same checks: the first-cut golden-programs test became one test per thread count, each compared with the golden programs (OI-2036). A determinism test split this way still proves the outputs equal only if each compares its raw output byte for byte with the same golden file: a normalised comparison (such as the samples' `stable`, which masks the operation lines) would hide a thread-dependent difference in what it masks.
+- A wall-clock limit on a wait inside an `openchuck-ui` test is written `crate::testing::wait_limit(seconds)`, never a bare `Duration`: it is ten times longer in a coverage build (`cfg(coverage)`), so the instrumented nightly run does not fail a test for being slow (issue #982, record CI-HYGIENE-A). The limit only stops a hang; the test's cost is its uninstrumented time.
 - Contention on a 4-core runner makes a long test 1.6 to 3.8 times slower than alone (0052); the times in CI are what count.
 
 ## Build size and disk
@@ -57,6 +58,7 @@ Before and after any CI change, give: the wall time of a full pull request run, 
 - [ ] A called workflow repeats the settings it needs (`env`, permissions): it does not see the caller's `env`.
 - [ ] A job that needs another system's job does not wait on a whole matrix job by accident (`needs` waits for every leg).
 - [ ] `tools/ci/main-run-mode.test.sh` passes, and the light, full, pull request and scheduled cases still give the jobs they should.
+- [ ] A new step that runs `apt-get update` on a hosted Ubuntu runner first removes the runner's `packages.microsoft.com` source, as the existing ones do: no job uses it, and when it is refused or unsigned the update fails (issue #983).
 - [ ] Permissions stay read-only except where a job must write (the issue jobs).
 - [ ] Windows stays first; no Windows check is removed; any check that leaves the pull request run has an owner's decision.
 - [ ] The change was run once (a manual run, or the ready pull request run) and its times are reported.
