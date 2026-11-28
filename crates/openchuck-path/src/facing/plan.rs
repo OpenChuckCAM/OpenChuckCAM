@@ -272,6 +272,7 @@ pub fn plan_box_sides(
                 })
                 .to_vec();
                 plan.passes.push(Pass {
+                    turn_above: None,
                     helical_pass_start: false,
                     low_link: false,
                     points,

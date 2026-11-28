@@ -2646,6 +2646,7 @@ impl Plan<'_> {
                         None => {
                             if !points.is_empty() {
                                 passes.push(Pass {
+                                    turn_above: None,
                                     helical_pass_start: false,
                                     low_link: false,
                                     points: std::mem::take(&mut points),
@@ -2662,6 +2663,7 @@ impl Plan<'_> {
             findings.shank_breaks.extend(breaks);
             if !points.is_empty() {
                 passes.push(Pass {
+                    turn_above: None,
                     helical_pass_start: false,
                     low_link: false,
                     points,

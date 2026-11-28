@@ -554,6 +554,7 @@ fn hole_pass(
         points.push(at(depth_of(k)));
     }
     Ok(Pass {
+        turn_above: None,
         helical_pass_start: false,
         low_link: false,
         points,

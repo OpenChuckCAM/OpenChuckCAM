@@ -121,6 +121,7 @@ impl Strategy for Lines {
                     })
                     .collect();
                 Pass {
+                    turn_above: None,
                     helical_pass_start: false,
                     low_link: k > 0,
                     points,

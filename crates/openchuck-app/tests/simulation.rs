@@ -66,6 +66,7 @@ impl Strategy for FineRing {
             })
             .collect();
         Ok(vec![Pass {
+            turn_above: None,
             helical_pass_start: false,
             low_link: false,
             points,
@@ -350,6 +351,7 @@ impl Strategy for RapidThrough {
             }
         };
         Ok(vec![Pass {
+            turn_above: None,
             helical_pass_start: false,
             low_link: false,
             points: vec![at(0.5), at(9.5)],

@@ -831,3 +831,71 @@ fn req_ui_03_req_op_24_the_generated_flat_stop_marker_is_where_its_cut_stops() {
     assert_eq!(draft_note(&draft), 1, "{:?}", draft.notes);
     assert_eq!(draft_note(&generated), 0, "{:?}", generated.notes);
 }
+
+/// The Baluster's round bar (diameter 24, length 63) with Round facing to
+/// Finished size `size` over the Part extent, the start held for 8 mm or
+/// not (issue #880).
+fn round_on_round_bar(name: &str, size: f64, held: bool) -> PathBuf {
+    let dir = round_bar(name, 63.0, 2.0, 2.2225);
+    let operation = dir.join(format!("operations/{FACING}.toml"));
+    let text = std::fs::read_to_string(&operation).unwrap();
+    std::fs::write(
+        &operation,
+        text.replace(
+            "shape = \"end\"",
+            &format!("shape = \"round\"\nsize = {size:?}\nextent = \"part\""),
+        ),
+    )
+    .unwrap();
+    if !held {
+        let setup = dir.join(format!("setups/{SETUP}.toml"));
+        let text = std::fs::read_to_string(&setup).unwrap();
+        assert!(text.contains("\n[workholding.start]\nlength = 8.0\n"));
+        std::fs::write(
+            &setup,
+            text.replace("\n[workholding.start]\nlength = 8.0\n", "\n"),
+        )
+        .unwrap();
+    }
+    dir
+}
+
+/// Issue #880, the owner's answer A: Round facing over the Part extent on
+/// the Baluster was refused by Facing's rapid check ("rapid move N has no
+/// continuous complete-tool separation from stock, ..."), with and without
+/// the held start, at Finished size 22 and 23.5. Round's links that turn A
+/// now rise above the setup's enclosing radius first, so it generates and
+/// posts through both posts, and every rapid that turns A is above that
+/// radius or off the stock along X.
+#[test]
+fn req_op_24_req_nfr_07_round_facing_over_the_part_on_the_baluster_bar_generates() {
+    for (size, held) in [(22.0, true), (22.0, false), (23.5, true)] {
+        let dir = round_on_round_bar("round-880", size, held);
+        for name in ["makera-z1", "linuxcnc"] {
+            let mut app = Application::open(&dir, Threads::Exactly(2)).unwrap();
+            let run = app
+                .start_regenerate_with_post(
+                    PostSelection::Builtin(name.into()),
+                    OutputGrouping::Setup,
+                )
+                .wait();
+            let run = run.unwrap_or_else(|e| panic!("size {size}, held {held}, {name}: {e}"));
+            let group = facing(&run);
+            let mut from = group.start;
+            for s in &group.segments {
+                if s.kind == MoveKind::Rapid && (s.end.a.0 - from.a.0).abs() > 1e-9 {
+                    let height = |p: &openchuck_types::ir::ToolPose| p.tip.y.hypot(p.tip.z);
+                    let off = from.tip.x.max(s.end.tip.x) < 16.990_234_375 - RADIUS
+                        || from.tip.x.min(s.end.tip.x) > 16.990_234_375 + 63.0 + RADIUS;
+                    assert!(
+                        off || height(&from).min(height(&s.end)) >= 12.0,
+                        "size {size}, held {held}: a rapid turns A at {} mm from the axis",
+                        height(&from).min(height(&s.end))
+                    );
+                }
+                from = s.end;
+            }
+        }
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+}

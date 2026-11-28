@@ -418,6 +418,7 @@ impl Strategy for StepThenRing {
             .filter_map(|(x, a)| at(x, a))
             .collect();
         Ok(vec![openchuck_path::Pass {
+            turn_above: None,
             helical_pass_start: false,
             low_link: false,
             points,
@@ -530,6 +531,7 @@ impl Strategy for RingOnAxis {
             })
             .collect();
         Ok(vec![openchuck_path::Pass {
+            turn_above: None,
             helical_pass_start: false,
             low_link: false,
             points,
@@ -786,6 +788,7 @@ impl Strategy for NarrowingRings {
                     })
                     .collect();
                 openchuck_path::Pass {
+                    turn_above: None,
                     helical_pass_start: false,
                     low_link: false,
                     points,
@@ -928,6 +931,7 @@ impl Strategy for DropBeforeHead {
             })
             .collect();
         Ok(vec![openchuck_path::Pass {
+            turn_above: None,
             helical_pass_start: false,
             low_link: false,
             points,
@@ -1014,6 +1018,7 @@ impl Strategy for LayerPastTheEnd {
                 x_end: 47.0,
             });
         Ok(vec![openchuck_path::Pass {
+            turn_above: None,
             helical_pass_start: false,
             low_link: false,
             points,
@@ -1175,6 +1180,7 @@ impl Strategy for Through {
             })
             .collect();
         Ok(vec![openchuck_path::Pass {
+            turn_above: None,
             helical_pass_start: false,
             low_link: false,
             points,

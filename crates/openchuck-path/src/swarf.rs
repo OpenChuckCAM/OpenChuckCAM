@@ -3139,6 +3139,7 @@ fn swarf(
         notes.push(Notice::information(path.note(settings.tolerance, limit)).about(topic::SWARF));
         for run in &path.runs {
             passes.push(Pass {
+                turn_above: None,
                 helical_pass_start: false,
                 low_link: false,
                 points: run

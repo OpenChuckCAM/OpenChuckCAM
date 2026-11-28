@@ -923,6 +923,7 @@ pub fn follow_chains(
                     })
                     .collect();
                 passes.push(Pass {
+                    turn_above: None,
                     helical_pass_start: false,
                     low_link: false,
                     points,

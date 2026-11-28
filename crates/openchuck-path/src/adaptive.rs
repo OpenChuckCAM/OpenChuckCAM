@@ -1135,6 +1135,7 @@ mod tests {
         fn pass(&self, c: f64, (from, to): (f64, f64)) -> Pass {
             let n = 20;
             Pass {
+                turn_above: None,
                 helical_pass_start: false,
                 low_link: false,
                 points: (0..=n)

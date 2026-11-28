@@ -71,6 +71,17 @@ fn generate<T>(
     keep_out: Option<Vec<(f64, f64)>>,
     f: impl FnOnce(Result<GeneratedPath, PathError>) -> T,
 ) -> T {
+    generate_on(values, held, keep_out, false, f)
+}
+
+/// As [`generate`], on the box stock whatever the shape when `boxed`.
+fn generate_on<T>(
+    values: &BTreeMap<String, ParameterValue>,
+    held: [Option<(f64, f64)>; 2],
+    keep_out: Option<Vec<(f64, f64)>>,
+    boxed: bool,
+    f: impl FnOnce(Result<GeneratedPath, PathError>) -> T,
+) -> T {
     let part = TriangleMesh {
         vertices: vec![
             Point3::new(10., -2., -2.),
@@ -98,7 +109,7 @@ fn generate<T>(
         ],
     };
     // Round turns about the axis: a bar of 10 mm diameter, as it would be.
-    let stock = if values.get("shape") == Some(&ParameterValue::Text("round".into())) {
+    let stock = if !boxed && values.get("shape") == Some(&ParameterValue::Text("round".into())) {
         Stock::Cylinder {
             diameter: Millimetres(10.),
             length: Millimetres(STOCK.1 - STOCK.0),
@@ -447,5 +458,16 @@ fn req_op_24_req_set_09_restricted_flat_faces_up_to_a_held_far_end() {
             "{}",
             notes[0]
         );
+    });
+}
+
+/// Issue #880, the owner's answer A: Round over the Part extent on box
+/// stock, which it cuts in arcs where the corners are, was refused by
+/// Facing's rapid check: its links turned A between the arcs inside the
+/// setup's reach. They now rise above it first.
+#[test]
+fn req_op_24_req_nfr_07_round_on_box_stock_turns_a_above_the_setup_between_its_arcs() {
+    generate_on(&values("round", "part"), [None, None], None, true, |path| {
+        path.unwrap_or_else(|e| panic!("round on box stock: {e}"));
     });
 }

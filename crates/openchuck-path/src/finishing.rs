@@ -774,6 +774,7 @@ fn arc_pass(input: &StrategyInput<'_>, end: &FreeEnd, h: f64, angles: &[f64], si
         })
         .collect();
     Pass {
+        turn_above: None,
         helical_pass_start: false,
         low_link: false,
         points,
@@ -1132,6 +1133,7 @@ const LAYER_SLACK: f64 = 1e-6;
 fn push_run(out: &mut Vec<Pass>, points: Vec<CutPoint>) {
     if points.len() >= 2 {
         out.push(Pass {
+            turn_above: None,
             helical_pass_start: false,
             low_link: false,
             points,
@@ -1345,6 +1347,7 @@ pub(crate) fn turns_to_the_axis(
     for h in heights {
         context.check_cancelled()?;
         out.push(Pass {
+            turn_above: None,
             helical_pass_start: false,
             low_link: false,
             points: (0..=points)

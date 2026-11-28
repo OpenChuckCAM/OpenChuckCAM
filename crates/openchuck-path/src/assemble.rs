@@ -565,6 +565,7 @@ pub(crate) fn assemble_limited(
     let mut plunge_fed: Vec<Vec<usize>> = Vec::new();
     let mut helical_starts = Vec::new();
     let mut low_links = Vec::new();
+    let mut turns_above = Vec::new();
     let mut previous = Degrees(0.0);
     for (i, pass) in passes.iter().enumerate() {
         if pass.points.is_empty() {
@@ -610,6 +611,7 @@ pub(crate) fn assemble_limited(
         plunge_fed.push(pass.plunge_fed.clone());
         helical_starts.push(pass.helical_pass_start);
         low_links.push(pass.low_link);
+        turns_above.push(pass.turn_above);
     }
     let Some(first) = placed.first().and_then(|p| p.first()).copied() else {
         return Err(PathError::refused(
@@ -665,6 +667,7 @@ pub(crate) fn assemble_limited(
             &mut plunge_fed,
             &mut helical_starts,
             &mut low_links,
+            &mut turns_above,
         );
     }
     let total = placed.len() as u64;
@@ -718,6 +721,15 @@ pub(crate) fn assemble_limited(
                 _ => None,
             };
             let height = local.unwrap_or(link_height);
+            // A link that turns A into a pass that says how far from the
+            // axis to turn rises there first (issue #880).
+            let turn_above = turns_above
+                .get(i)
+                .copied()
+                .flatten()
+                .filter(|_| head.a != b.pose.a);
+            let above = |height: f64| turn_above.map_or(height, |r| height.max(r));
+            let height = above(height);
             let link = |b: &mut Builder<'_>, resets: &mut Vec<usize>, height: f64| -> Result<()> {
                 leave(b, view(&stocks, i - 1, input), common, height)?;
                 b.retract(height)?;
@@ -771,7 +783,7 @@ pub(crate) fn assemble_limited(
                 b.contact = mark.3;
                 rotary_reset_after.truncate(mark.4);
                 kept_high += 1;
-                linked = link(&mut b, &mut rotary_reset_after, link_height);
+                linked = link(&mut b, &mut rotary_reset_after, above(link_height));
             }
             linked?;
         }
@@ -1568,9 +1580,11 @@ fn split_nubs(
     plunge_fed: &mut Vec<Vec<usize>>,
     helical_starts: &mut Vec<bool>,
     low_links: &mut Vec<bool>,
+    turns_above: &mut Vec<Option<f64>>,
 ) {
     let radius = entry.nub_radius();
     let mut out = (
+        Vec::new(),
         Vec::new(),
         Vec::new(),
         Vec::new(),
@@ -1585,6 +1599,7 @@ fn split_nubs(
         let fed = plunge_fed.get(i).cloned().unwrap_or_default();
         let helical = helical_starts.get(i).copied().unwrap_or(false);
         let low = low_links.get(i).copied().unwrap_or(false);
+        let turn_above = turns_above.get(i).copied().flatten();
         let mut pieces: Vec<Vec<CutPoint>> = Vec::new();
         // A pass with rapids or plunge-fed points (decision 0547) keeps its
         // indices as they are: it is not split.
@@ -1635,6 +1650,7 @@ fn split_nubs(
             out.3.push(helical);
             out.4.push(low);
             out.5.push(fed);
+            out.6.push(turn_above);
         } else {
             for (n, piece) in pieces.into_iter().enumerate() {
                 out.0.push(piece);
@@ -1643,6 +1659,7 @@ fn split_nubs(
                 out.3.push(helical && n == 0);
                 out.4.push(low);
                 out.5.push(Vec::new());
+                out.6.push(turn_above);
             }
         }
     }
@@ -1653,6 +1670,7 @@ fn split_nubs(
         *helical_starts,
         *low_links,
         *plunge_fed,
+        *turns_above,
     ) = out;
 }
 

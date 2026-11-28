@@ -71,6 +71,7 @@ impl Strategy for OneRing {
             })
             .collect();
         Ok(vec![Pass {
+            turn_above: None,
             helical_pass_start: false,
             low_link: false,
             points,

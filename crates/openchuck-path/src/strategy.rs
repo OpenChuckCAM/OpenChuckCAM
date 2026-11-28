@@ -97,6 +97,12 @@ pub struct Pass {
     /// fitting's merge at walls leaves a pass with such points as it is, so
     /// the indices keep their points.
     pub plunge_fed: Vec<usize>,
+    /// How far from the rotary axis a link into this pass must be before it
+    /// turns A, if anywhere: it rises there first, turns A, and comes down.
+    /// Round facing gives the whole setup's reach plus the approach
+    /// distance, above which Facing's rapid check proves a turning rapid
+    /// clear (issue #880). `None` turns A where the link is.
+    pub turn_above: Option<f64>,
 }
 
 /// A strategy's passes with what it found worth telling the user, as
@@ -796,6 +802,7 @@ fn keep_clear(
                 .map(|(at, _)| at)
                 .collect();
             kept.push(Pass {
+                turn_above: pass.turn_above,
                 helical_pass_start: helical_start_pending,
                 low_link: pass.low_link,
                 points: piece.into_iter().map(|(_, point)| point).collect(),
@@ -1089,6 +1096,7 @@ mod tests {
 
     fn pass(xs: &[f64]) -> Pass {
         Pass {
+            turn_above: None,
             helical_pass_start: false,
             low_link: false,
             points: xs.iter().map(|&x| point(x)).collect(),

@@ -835,6 +835,7 @@ impl Strategy for PencilFinishing {
             let (kept, short) = long_enough(runs, min_length);
             left.extend(short);
             passes.extend(kept.into_iter().map(|points| Pass {
+                turn_above: None,
                 helical_pass_start: false,
                 low_link: false,
                 points,

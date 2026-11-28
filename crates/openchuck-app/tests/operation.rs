@@ -71,6 +71,7 @@ impl Strategy for OneRing {
             })
             .collect();
         Ok(vec![Pass {
+            turn_above: None,
             helical_pass_start: false,
             low_link: false,
             points,
@@ -2736,6 +2737,7 @@ impl Strategy for OnePoint {
             .tool_line(Millimetres(0.0), Degrees(0.0), Millimetres(0.0));
         let c = input.surface.drop_tool(input.tool, &line).into_iter();
         Ok(vec![Pass {
+            turn_above: None,
             helical_pass_start: false,
             low_link: false,
             points: c
@@ -2865,6 +2867,7 @@ impl Strategy for OneLine {
             })
             .collect();
         Ok(vec![Pass {
+            turn_above: None,
             helical_pass_start: false,
             low_link: false,
             points,

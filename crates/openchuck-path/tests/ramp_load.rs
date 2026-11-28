@@ -124,6 +124,7 @@ impl Strategy for Spiral {
             })
             .collect();
         Ok(vec![Pass {
+            turn_above: None,
             helical_pass_start: false,
             low_link: false,
             points,
@@ -178,6 +179,7 @@ impl Strategy for Points {
             })
             .collect();
         Ok(vec![Pass {
+            turn_above: None,
             helical_pass_start: false,
             low_link: false,
             points,

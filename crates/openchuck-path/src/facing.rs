@@ -390,6 +390,21 @@ impl Facing {
         };
         let mut output =
             crate::roughing::face(input, parameters, round, level, scope.as_ref(), context)?;
+        // Round's links that turn A do so above the whole setup's reach, so
+        // that Facing's rapid check proves them clear (issue #880, the
+        // owner's answer A); whole-turn rings, which do not turn A between
+        // passes, and links already above it are unchanged.
+        if let (Some(crate::roughing::FacingScope::Round(_)), Some(setup)) =
+            (scope.as_ref(), input.facing)
+        {
+            let reach = motion::enclosing_radius(setup, context)?
+                + crate::params::CommonParameters::read(parameters)?
+                    .approach_distance
+                    .0;
+            for pass in &mut output.passes {
+                pass.turn_above = Some(reach);
+            }
+        }
         if scope.is_some()
             && let Some(setup) = input.facing
         {
