@@ -203,6 +203,11 @@ fn check_motion<'p>(
             let Some(g) = surface.tool_gap(profile, &grown, &query) else {
                 continue;
             };
+            // SE2-SWITCH: every finest-level sample with both rules'
+            // answers, for lane SE-PERF; removed before the pull request.
+            if level + 1 == checks.len() {
+                se2_dump(surface, profile, &grown, &query, &g, allowed);
+            }
             if proven(&g, allowed) {
                 continue;
             }
@@ -215,6 +220,68 @@ fn check_motion<'p>(
         stack.extend(finer.into_iter().rev());
     }
     None
+}
+
+/// SE2-SWITCH: with `OPENCHUCK_SE2_DUMP` naming a file, appends one line
+/// per finest-level sample: the tool's line, the new rule's lower and
+/// upper and verdict, then the old rule's. Temporary, for lane SE-PERF's
+/// measurement (the project owner's answer Q-E of 27 Nov 2026); removed
+/// before the pull request.
+fn se2_dump(
+    surface: &dyn crate::surface::SurfaceSource,
+    profile: &RevolvedProfile,
+    line: &ToolLine,
+    query: &GapQuery,
+    g: &crate::gap::ToolGap,
+    allowed: f64,
+) {
+    use std::io::Write as _;
+    static FILE: std::sync::OnceLock<Option<std::sync::Mutex<std::fs::File>>> =
+        std::sync::OnceLock::new();
+    let Some(file) = FILE.get_or_init(|| {
+        let path = std::env::var_os("OPENCHUCK_SE2_DUMP")?;
+        std::fs::OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(path)
+            .ok()
+            .map(std::sync::Mutex::new)
+    }) else {
+        return;
+    };
+    let other = crate::gap::with_rule(!crate::gap::old_rule(), || {
+        surface.tool_gap(profile, line, query)
+    });
+    let (new, old) = if crate::gap::old_rule() {
+        (other, Some(*g))
+    } else {
+        (Some(*g), other)
+    };
+    let verdict = |x: Option<crate::gap::ToolGap>| {
+        x.map_or("none -".to_owned(), |x| {
+            format!(
+                "{:.9} {:.9} {}",
+                x.lower,
+                x.upper,
+                if proven(&x, allowed) { "pass" } else { "fail" }
+            )
+        })
+    };
+    let (o, a) = (line.origin, line.axis.get());
+    if let Ok(mut f) = file.lock() {
+        let _ = writeln!(
+            f,
+            "{:.9} {:.9} {:.9} {:.9} {:.9} {:.9} new {} old {}",
+            o.x,
+            o.y,
+            o.z,
+            a.x,
+            a.y,
+            a.z,
+            verdict(new),
+            verdict(old)
+        );
+    }
 }
 
 /// The move check's question for the tool swept along `sweep`: counted to

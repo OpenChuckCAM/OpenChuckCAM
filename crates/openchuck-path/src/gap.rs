@@ -112,6 +112,29 @@ fn polytope_lowest(planes: &[(Vec3, f64)], m: Vec3) -> Option<(f64, Point3)> {
     least
 }
 
+// SE2-SWITCH: temporary, for lane SE-PERF's old/new measurement (the
+// project owner's answer Q-E of 27 Nov 2026); removed before the pull
+// request. `OPENCHUCK_SE2_OLD=1` answers by the rule before the redesign:
+// the error both ways, the thresholds the tolerance itself, no ascent and
+// no recheck.
+thread_local! {
+    static OLD_RULE: std::cell::Cell<bool> =
+        std::cell::Cell::new(std::env::var_os("OPENCHUCK_SE2_OLD").is_some());
+}
+
+/// SE2-SWITCH: whether this thread answers by the old rule.
+pub(crate) fn old_rule() -> bool {
+    OLD_RULE.with(std::cell::Cell::get)
+}
+
+/// SE2-SWITCH: runs `f` with the old rule on or off on this thread.
+pub(crate) fn with_rule<T>(old: bool, f: impl FnOnce() -> T) -> T {
+    let before = OLD_RULE.with(|c| c.replace(old));
+    let out = f();
+    OLD_RULE.with(|c| c.set(before));
+    out
+}
+
 /// How far the exact surface lies from one of the triangles standing for
 /// it, each way along the triangle's outward normal (OI-9974; the project
 /// owner's answer of 27 Nov 2026, the error taken one way): `above` outside
@@ -1845,6 +1868,10 @@ pub(crate) fn search(
     neighbours: &dyn Fn(u32) -> Vec<Neighbour>,
     faces: &dyn Fn(u32) -> Option<u32>,
 ) -> Option<ToolGap> {
+    // SE2-SWITCH: the old rule took the error both ways.
+    let old = old_rule();
+    let even = |i: u32| Band::even(error(i).most());
+    let error: &dyn Fn(u32) -> Band = if old { &even } else { error };
     let accept = accept.filter(|a| a.is_finite()).unwrap_or(f64::INFINITY);
     let inside = if accept.is_finite() {
         (-accept).max(GAP_ACCURACY)
@@ -2031,6 +2058,10 @@ fn clip_depth(
     above_m: f64,
     above_n: f64,
 ) -> f64 {
+    // SE2-SWITCH: the old rule's threshold was the tolerance itself.
+    if old_rule() {
+        return inside;
+    }
     if same_face {
         ((inside - above_m) * m_normal.dot(n_normal)).max(0.0)
     } else {
@@ -2253,7 +2284,7 @@ impl Search<'_, '_> {
             // ascent, may show it holds no point that deep (the shortcut
             // above takes the open region's depth for it). A mesh keeps its
             // answers as they were.
-            if band.most() > 0.0 && bound.max(-self.limit) - e < -self.inside {
+            if !old_rule() && band.most() > 0.0 && bound.max(-self.limit) - e < -self.inside {
                 let raised = if self.body.beside(&clipped, 0.0, 0.0) {
                     f64::INFINITY
                 } else {

@@ -3294,6 +3294,7 @@ impl SurfaceSource for BrepSurface {
         let fails = query.accept.is_some_and(|a| a.is_finite() && g.lower < a);
         let single = query.sweep.length() <= 0.0 && query.rotation.is_none();
         if fails
+            && !crate::gap::old_rule()
             && single
             && query.skip_walls_thinner_than.is_none()
             && largest > 0.5 * RECHECK_BAND
