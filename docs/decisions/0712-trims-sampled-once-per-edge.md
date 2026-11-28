@@ -11,7 +11,7 @@
 - **Issue:** #917 (STEP blisk: spurious off-axis zones in 0.05 mm strips).
 - **Requirements:** IMP-02 (STEP import with the exact B-rep), OP-05 and OP-12 (paths and gouge checks on the exact surface), NFR-06 and GC-07 (determinism), NFR-12.
 - **Amends:** the importer's trim rule of slice 11A ([decision 0027](0027-slice-11a-step-import.md); OI-73): straight p-curves sampled at one point and curved ones at 48. OI-73's sampling-density part is settled here; its holes across a seam stay open.
-- **Open items:** closes OI-2271. Settles OI-73's sampling-density part (its holes across a seam stay open). Proposes closing OI-1040, which asks for exact trims or a polyline to a stated tolerance; this is the latter, at 1 µm. #917 A, the zone finder's guard, stays as its own change.
+- **Open items:** closes OI-2271. Settles OI-73's sampling-density part (its holes across a seam stay open). Closes OI-1040, which asked for exact trims or a polyline to a stated tolerance (this is the latter, at 1 µm), on the project owner's instruction of 28 Nov 2026, relayed by the coordinator. #917 A, the zone finder's guard, stays as its own change.
 
 Numbering: decision 0712, provisional: the coordinator gives the number at the release push. 0711 is the provisional number of lane PATH-QUALITY's #880 record. No project schema number is needed: the imported model's format is unchanged, and the model is imported again from the project's STEP file each time it is opened.
 
