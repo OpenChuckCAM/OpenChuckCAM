@@ -14,6 +14,8 @@
 mod adaptive_example;
 #[path = "app.rs"]
 mod app;
+#[path = "bug_report.rs"]
+mod bug_report;
 #[path = "checkpoint_schedule.rs"]
 mod checkpoint_schedule;
 #[path = "checkpoints.rs"]
