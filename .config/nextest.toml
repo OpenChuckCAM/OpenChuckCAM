@@ -58,8 +58,21 @@
 # same prefix still runs in the pull request. `cargo nextest run -p openchuck-path -E
 # 'test(=simultaneous::req_op_12_the_independent_checker_finds_no_gouge_on_the_reference_parts)'`
 # does not select it either: run it with `--profile long`.
+# Lane SIMUL-EDGE, SE-2, 28 Nov 2026 (the project owner's decision, relayed: decide after
+# lane SE-PERF's cheaper stretch query, and until then keep these out of the pull request's
+# Tests job, unshrunk): with the proven move check, timed alone uninstrumented on 4 vCPU
+# (cargo test; lane SE-PERF the same on its own head), every_tool_profile on the lobed part
+# 650 s, the surface of revolution over 900 s (not finished; over 2,400 s on SE-PERF's
+# head), and the independent checker on the reference parts over 900 s (over 2,400 s on
+# SE-PERF's head). All three are over ten minutes. The default profile leaves them out; the
+# `long` profile (the nightly run) and `coverage-full` keep them. To be timed again, and
+# decided, once the cheaper stretch query lands.
 [profile.default]
-default-filter = 'not test(=simultaneous::req_op_12_the_independent_checker_finds_no_gouge_on_the_reference_parts)'
+default-filter = '''
+not test(=simultaneous::req_op_12_the_independent_checker_finds_no_gouge_on_the_reference_parts)
+& not test(=simultaneous::req_op_12_every_tool_profile_finishes_the_lobed_part_without_gouging)
+& not test(=simultaneous::req_op_05_on_a_surface_of_revolution_the_path_is_the_helical_one)
+'''
 
 # The STEP kernel tests run only with `--features kernel-tests`, in CI's STEP
 # kernel job (not in the Tests, Coverage or nightly long runs), so their entry
@@ -234,6 +247,10 @@ priority = 79
 # unchanged full case passed alone at 323.661 s. All remain selected by default
 # (apart from the pre-existing independent-oracle nightly-only exclusion).
 [profile.coverage]
+# Lane SIMUL-EDGE, SE-2, 28 Nov 2026, alone and uninstrumented on 4 vCPU with the proven move
+# check: tilt_bound 206 s (205 s on lane SE-PERF's head); SE-PERF's head also gave smoothing's
+# fewer A reversals 159 s and the feed at the contact 139 s. Already listed below and in `long`.
+# The three over ten minutes are under the default profile above.
 # Lane SE-PERF, 27 Nov 2026: simultaneous_walls' thin tube (98.2 s on 26 Nov) takes 2 to
 # 3 s with the move check's stretches bounded, and is no longer listed.
 # RAMPENTRY 10 Nov 2026 (issue #687): ramp_follows' public blisk roughed in rings at
