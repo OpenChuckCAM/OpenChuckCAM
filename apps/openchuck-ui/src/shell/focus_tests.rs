@@ -705,3 +705,83 @@ fn req_ui_14_esc_in_a_field_of_the_top_window_ends_the_edit_with_another_window_
     );
     assert!(rig.shell.machine_library.is_open());
 }
+
+/// The centres of the controls Tab reaches in `region`, in the order it
+/// reaches them, on the first visit (presses at most `presses`).
+fn centres_in(rig: &mut Rig, region: (&'static str, usize), presses: usize) -> Vec<egui::Pos2> {
+    let mut centres = Vec::new();
+    for _ in 0..presses {
+        rig.tab(false);
+        let here = crate::focus::focused_region(&rig.ctx);
+        if here == Some(region) {
+            if let Some(r) = rig.focused() {
+                centres.push(r.rect.center());
+            }
+        } else if !centres.is_empty() {
+            break;
+        }
+    }
+    centres
+}
+
+/// Issue #868 item 2: on the dock's collapsed rail Tab reads the tabs left
+/// to right and then the button that opens the dock, in reading order
+/// (UI-14, specification section 16).
+#[test]
+fn req_ui_14_the_collapsed_docks_rail_reads_left_to_right() {
+    let mut rig = Rig::cube("focus-dock-rail-order", None);
+    rig.press(Key::Num3, Modifiers::ALT);
+    rig.press(Key::Num3, Modifiers::COMMAND);
+    rig.settle();
+    let centres = centres_in(&mut rig, ("main window", 6), 200);
+    assert!(centres.len() >= 2, "{centres:?}");
+    assert!(
+        centres.windows(2).all(|w| w[0].x < w[1].x),
+        "left to right: {centres:?}"
+    );
+}
+
+/// Issue #868 item 3: in the tool library's list, Tab reads the tools first
+/// and then the buttons under them (New tool, Duplicate, Delete), top to
+/// bottom (UI-14, specification section 16).
+#[test]
+fn req_ui_14_the_tool_lists_buttons_come_after_its_tools() {
+    let mut rig = Rig::cube("focus-tool-list-order", None);
+    let dir = super::frame_tests::temp("focus-tool-list-order-libs");
+    rig.shell.tool_library = ToolLibraryWindow::new(Some(dir.join("tools")));
+    rig.dirs.push(dir);
+    open_each(&mut rig, "tool library");
+    for _ in 0..3 {
+        rig.frame(Vec::new());
+    }
+    let centres = centres_in(&mut rig, ("tool library", 0), 60);
+    assert!(centres.len() >= 3, "{centres:?}");
+    assert!(
+        centres.windows(2).all(|w| w[1].y >= w[0].y - 2.0),
+        "top to bottom: {centres:?}"
+    );
+}
+
+/// Issue #868 item 4: in a footer too narrow for all its right-hand items,
+/// the primary button, the last of them, stays whole and inside the window;
+/// the items before it are cut instead (UI-10, specification section 10).
+#[test]
+fn req_ui_10_the_primary_button_stays_whole_in_a_narrow_footer() {
+    let mut rig = Rig::cube("focus-narrow-footer", None);
+    rig.press(Key::Num3, Modifiers::ALT);
+    rig.size.x = 260.0;
+    rig.settle();
+    let label = rig.shell.overview.primary(rig.shell.step).label;
+    let (whole, shown) = rig
+        .painted()
+        .into_iter()
+        .find_map(|(text, whole, shown)| {
+            (text.as_deref() == Some(label.as_str())).then_some((whole, shown))
+        })
+        .unwrap_or_else(|| panic!("{label:?} is not drawn"));
+    assert_eq!(whole, shown, "{label:?} is cut: {whole:?} shows {shown:?}");
+    assert!(
+        whole.right() <= rig.size.x && whole.left() >= 0.0,
+        "{label:?} at {whole:?} is outside the window"
+    );
+}

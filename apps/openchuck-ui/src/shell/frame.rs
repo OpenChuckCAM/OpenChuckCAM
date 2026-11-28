@@ -570,31 +570,60 @@ impl Shell {
                 .show(ui, |ui| {
                     crate::focus::region(ui, crate::focus::main_window::DOCK, |ui| {
                         // The show button is at the right end, where the hide
-                        // button of the open dock is (issue 433). Its width is
-                        // taken first, so a narrow window clips the tabs and
-                        // never the button (issue 468, OI-2040).
+                        // button of the open dock is (issue 433). Its width
+                        // from the last frame is kept clear first, so a
+                        // narrow window clips the tabs and never the button
+                        // (issue 468, OI-2040); the tabs are drawn before it,
+                        // so Tab reads the row left to right (UI-14; issue
+                        // #868 item 2).
                         ui.horizontal_centered(|ui| {
-                            ui.with_layout(
-                                egui::Layout::right_to_left(egui::Align::Center),
+                            let full = ui.available_rect_before_wrap();
+                            let width_id = egui::Id::unique("dock rail button width");
+                            let button = ui.data(|d| d.get_temp::<f32>(width_id)).unwrap_or(0.0);
+                            let gap = ui.spacing().item_spacing.x;
+                            let tabs = egui::Rect::from_min_max(
+                                full.min,
+                                egui::pos2(
+                                    (full.right() - button - gap).max(full.left()),
+                                    full.max.y,
+                                ),
+                            );
+                            ui.scope_builder(
+                                egui::UiBuilder::new()
+                                    .max_rect(tabs)
+                                    .layout(egui::Layout::left_to_right(egui::Align::Center)),
                                 |ui| {
-                                    if ui
-                                        .small_button("\u{23f6}")
-                                        .tip("Open the dock (Ctrl 3)")
-                                        .clicked()
-                                    {
-                                        self.toggle_region(Region::Dock);
-                                    }
-                                    // The tabs fill what is left of the row, from the
-                                    // left, and are cut off at its edge.
-                                    ui.with_layout(
-                                        egui::Layout::left_to_right(egui::Align::Center),
-                                        |ui| {
-                                            ui.shrink_clip_rect(ui.max_rect());
-                                            self.dock_tabs(ui);
-                                        },
-                                    );
+                                    ui.shrink_clip_rect(tabs);
+                                    self.dock_tabs(ui);
                                 },
                             );
+                            let place = egui::Rect::from_min_max(
+                                egui::pos2((full.right() - button).max(full.left()), full.top()),
+                                full.max,
+                            );
+                            let drawn = ui
+                                .scope_builder(
+                                    egui::UiBuilder::new()
+                                        .max_rect(place)
+                                        .layout(egui::Layout::left_to_right(egui::Align::Center)),
+                                    |ui| {
+                                        if ui
+                                            .small_button("\u{23f6}")
+                                            .tip("Open the dock (Ctrl 3)")
+                                            .clicked()
+                                        {
+                                            self.toggle_region(Region::Dock);
+                                        }
+                                    },
+                                )
+                                .response
+                                .rect
+                                .width();
+                            if (drawn - button).abs() > 0.5 {
+                                ui.data_mut(|d| d.insert_temp(width_id, drawn));
+                                ui.ctx()
+                                    .request_discard("the dock rail's button was measured");
+                            }
                         });
                     })
                 });
@@ -1239,7 +1268,11 @@ impl Shell {
         let full = ui.available_rect_before_wrap();
         let width_id = egui::Id::unique("footer right width");
         let right = ui.data(|d| d.get_temp::<f32>(width_id)).unwrap_or(0.0);
-        let split = (full.right() - right).max(full.left());
+        // Not held at the left edge: in a footer too narrow for the
+        // right-hand items they start left of it and are clipped there, so
+        // the first of them is cut and the primary, the last, stays whole
+        // (UI-10; issue #868 item 4).
+        let split = full.right() - right;
         let gap = ui.spacing().item_spacing.x;
         let left = egui::Rect::from_min_max(
             full.min,
@@ -1250,6 +1283,8 @@ impl Shell {
                 .max_rect(left)
                 .layout(egui::Layout::left_to_right(egui::Align::Center)),
             |ui| {
+                // The status never draws over the right-hand items.
+                ui.set_clip_rect(ui.clip_rect().intersect(left));
                 // The current job, with its one percentage and the
                 // operation it works on; choosing it opens the Jobs tab, with
                 // every job, their history and Cancel (issue 201, the
@@ -1300,6 +1335,7 @@ impl Shell {
                     .max_rect(right_box)
                     .layout(egui::Layout::left_to_right(egui::Align::Center)),
                 |ui| {
+                    ui.set_clip_rect(ui.clip_rect().intersect(full));
                     // A Tab stop of its own, so "Display units" opens on
                     // keyboard focus too (UI-14; issue #868 item 1).
                     let units =

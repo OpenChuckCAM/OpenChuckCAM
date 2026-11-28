@@ -1859,43 +1859,15 @@ fn list(
             .desired_width(f32::INFINITY),
     );
     size_filter(ui, &mut view.filter);
-    egui::Panel::bottom("tool list buttons")
-        .resizable(false)
-        .show(ui, |ui| {
-            ui.add_space(6.0);
-            ui.horizontal(|ui| {
-                ui.menu_button("New tool \u{23f7}", |ui| {
-                    for kind in ToolType::ALL {
-                        if ui.button(kind.label()).clicked() {
-                            acts.push(Act::New(kind));
-                            ui.close();
-                        }
-                    }
-                });
-                if ui
-                    .add_enabled(chosen.is_some(), egui::Button::new("Duplicate"))
-                    .tip("Copy the tool as a new library tool")
-                    .clicked()
-                {
-                    acts.push(Act::Duplicate);
-                }
-                let library_tool = matches!(chosen, Some(Chosen::Library(_)));
-                if ui
-                    .add_enabled(library_tool, egui::Button::new("Delete"))
-                    .tip("Delete the tool from the library; a project keeps its copy")
-                    .on_disabled_hover_text(
-                        "Choose a library tool; a project tool is removed from the project",
-                    )
-                    .clicked()
-                {
-                    acts.push(Act::AskDelete);
-                }
-            });
-            ui.add_space(6.0);
-        });
+    // The buttons stay at the foot, but are drawn after the tools so Tab
+    // reads the tools first (UI-14; issue #868 item 3): their row's height
+    // from the last frame is kept clear under the tools' scroll area.
+    let buttons_id = egui::Id::unique("tool list buttons height");
+    let buttons = ui.data(|d| d.get_temp::<f32>(buttons_id)).unwrap_or(0.0);
     crate::theme::solid_scroll_bar(ui);
     egui::ScrollArea::vertical()
         .auto_shrink([false, false])
+        .max_height((ui.available_height() - buttons - ui.spacing().item_spacing.y).max(0.0))
         .show_keeping_focus(ui, |ui| {
             if let Some(project) = project {
                 let rows = library::project_rows(project, Some(lib), search);
@@ -1997,6 +1969,53 @@ fn list(
                 }
             }
         });
+    let drawn = ui
+        .scope(|ui| {
+            let top = ui.cursor().top();
+            ui.painter().hline(
+                ui.max_rect().x_range(),
+                top,
+                ui.visuals().widgets.noninteractive.bg_stroke,
+            );
+            ui.add_space(6.0);
+            ui.horizontal(|ui| {
+                ui.menu_button("New tool \u{23f7}", |ui| {
+                    for kind in ToolType::ALL {
+                        if ui.button(kind.label()).clicked() {
+                            acts.push(Act::New(kind));
+                            ui.close();
+                        }
+                    }
+                });
+                if ui
+                    .add_enabled(chosen.is_some(), egui::Button::new("Duplicate"))
+                    .tip("Copy the tool as a new library tool")
+                    .clicked()
+                {
+                    acts.push(Act::Duplicate);
+                }
+                let library_tool = matches!(chosen, Some(Chosen::Library(_)));
+                if ui
+                    .add_enabled(library_tool, egui::Button::new("Delete"))
+                    .tip("Delete the tool from the library; a project keeps its copy")
+                    .on_disabled_hover_text(
+                        "Choose a library tool; a project tool is removed from the project",
+                    )
+                    .clicked()
+                {
+                    acts.push(Act::AskDelete);
+                }
+            });
+            ui.add_space(6.0);
+        })
+        .response
+        .rect
+        .height();
+    if (drawn - buttons).abs() > 0.5 {
+        ui.data_mut(|d| d.insert_temp(buttons_id, drawn));
+        ui.ctx()
+            .request_discard("the tool list's buttons were measured");
+    }
 }
 
 /// The width of a cutting data box when the pane leaves `available` after
