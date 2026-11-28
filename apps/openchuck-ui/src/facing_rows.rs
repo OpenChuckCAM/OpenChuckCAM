@@ -255,6 +255,7 @@ mod tests {
                     source: Source::Operation,
                     section: FormSection::PatternAndTolerance,
                     problem: None,
+                    note: None,
                 },
             };
             rig.frame(vec![]);

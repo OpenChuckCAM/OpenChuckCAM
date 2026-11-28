@@ -95,6 +95,16 @@ const IMPORT: KeyboardShortcut = KeyboardShortcut::new(Modifiers::COMMAND, Key::
 const EXPORT: KeyboardShortcut = KeyboardShortcut::new(Modifiers::COMMAND, Key::E);
 const GENERATE: KeyboardShortcut = KeyboardShortcut::new(Modifiers::NONE, Key::G);
 const GENERATE_F5: KeyboardShortcut = KeyboardShortcut::new(Modifiers::NONE, Key::F5);
+
+/// The tooltip of "Memory a toolpath job may use" (issue #847, approved by
+/// the owner).
+const JOB_MEMORY_TOOLTIP: &str = "The share of this computer's memory one toolpath job may \
+     hold while it is made. If a job would need more (most often an operation whose Adaptive \
+     work limit is raised), it is stopped with an error, nothing is made for that operation, \
+     and the project is unchanged. This is a limit OpenChuckCAM keeps itself. It does not \
+     guarantee that the system will not stop the program when the computer runs short of \
+     memory, for example because other programs are using it. Half of the computer's memory \
+     is the default. Playback's checkpoints have their own limit.";
 const GENERATE_STALE: KeyboardShortcut = KeyboardShortcut::new(Modifiers::SHIFT, Key::G);
 const GENERATE_STALE_F5: KeyboardShortcut = KeyboardShortcut::new(Modifiers::SHIFT, Key::F5);
 const NEW_OPERATION: KeyboardShortcut = KeyboardShortcut::new(Modifiers::NONE, Key::N);
@@ -712,6 +722,7 @@ impl Shell {
         }
         self.app = Some(app);
         self.apply_playback_with_generation();
+        self.apply_job_memory();
         self.overview_dirty = true;
         self.rebuild_scene(true);
     }
@@ -952,6 +963,34 @@ impl Shell {
             crate::memory::playback_memory(simulate.playback_memory_mb, self.physical_memory).0,
         );
         self.apply_playback_with_generation();
+        self.settings_touched();
+    }
+
+    /// The memory a toolpath job may use on this computer, from the user's
+    /// "Memory a toolpath job may use"; `None` where the computer's memory
+    /// cannot be read (issue #847).
+    fn job_memory(&self) -> Option<openchuck_app::memory::JobMemory> {
+        openchuck_app::memory::JobMemory::of(
+            self.settings.job_memory_percent,
+            self.physical_memory,
+            openchuck_app::memory::MemoryOrigin::Settings,
+        )
+    }
+
+    /// Gives the application the memory a toolpath job may use (issue #847).
+    fn apply_job_memory(&mut self) {
+        let memory = self.job_memory();
+        if let Some(app) = &mut self.app {
+            app.set_job_memory(memory);
+        }
+    }
+
+    /// Sets "Memory a toolpath job may use" in percent of this computer's
+    /// memory, brought into its range and steps (issue #847), for the next
+    /// job.
+    fn set_job_memory_percent(&mut self, percent: u8) {
+        self.settings.job_memory_percent = openchuck_app::memory::clamp_percent(percent);
+        self.apply_job_memory();
         self.settings_touched();
     }
 
@@ -2577,6 +2616,47 @@ impl Shell {
                      either way. The copies are never allowed to use more than this. A change \
                      applies the next time the cut part is prepared.",
                 );
+                let (least, _, most, step) = openchuck_app::memory::JOB_MEMORY_PERCENT;
+                let mut percent = self.settings.job_memory_percent;
+                ui.horizontal(|ui| {
+                    ui.label("Memory a toolpath job may use (%)")
+                        .on_hover_text(JOB_MEMORY_TOOLTIP);
+                    if ui
+                        .add(
+                            egui::DragValue::new(&mut percent)
+                                .range(least..=most)
+                                .speed(f64::from(step) / 8.0),
+                        )
+                        .on_hover_text(JOB_MEMORY_TOOLTIP)
+                        .changed()
+                    {
+                        action = Some(Box::new(move |s: &mut Self| {
+                            s.set_job_memory_percent(percent);
+                        }));
+                    }
+                    match (self.job_memory(), self.physical_memory) {
+                        (Some(job), Some(physical)) => {
+                            ui.label(format!(
+                                "{} of this computer's {}",
+                                openchuck_app::memory::size_words(job.bytes),
+                                openchuck_app::memory::size_words(physical),
+                            ));
+                        }
+                        _ => {
+                            ui.label(
+                                "This computer's memory could not be read: no limit applies, \
+                                 and a job that needs too much may be stopped by the system",
+                            );
+                        }
+                    }
+                });
+                if self.settings.job_memory_percent > openchuck_app::memory::JOB_MEMORY_NOTE_ABOVE {
+                    crate::field_row::warning_line(
+                        ui,
+                        "Above 75 %, too little memory may be left for OpenChuckCAM's view and \
+                         for other programs, and the system may stop the program.",
+                    );
+                }
                 let mut with_generation = self.playback_with_generation_on();
                 if ui
                     .checkbox(

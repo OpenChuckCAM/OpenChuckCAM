@@ -483,6 +483,69 @@ fn req_nfr_07_req_gc_07_an_operation_over_the_memory_a_job_may_use_is_stopped_an
 }
 
 #[test]
+fn req_op_04_req_nfr_07_the_form_says_when_a_raised_work_limit_could_need_more_memory_than_allowed()
+{
+    // Issue #847: under Adaptive work limit, the form compares the most
+    // memory the operation could need at that limit with what a toolpath
+    // job may use, and says so only where it is more. It is a note, not a
+    // refusal, and says nothing where the limit is unknown.
+    use openchuck_app::memory::{JobMemory, MemoryOrigin};
+    let (dir, mut app, op) = project("memory-note");
+    let mut operation = app.project().operation(op).unwrap().clone();
+    operation.strategy = "helical_finishing".into();
+    operation
+        .parameters
+        .insert("adaptive_spacing".to_owned(), ParameterValue::Flag(true));
+    app.execute(Command::Replace(Item::Operation(operation.clone())))
+        .unwrap();
+    let note = |app: &Application| {
+        app.parameter_form(op)
+            .unwrap()
+            .fields
+            .into_iter()
+            .find(|f| f.name == "adaptive_work_limit")
+            .expect("the field is shown with adaptive spacing on")
+            .note
+    };
+    const GIB: u64 = 1 << 30;
+    app.set_job_memory(Some(JobMemory {
+        percent: 50,
+        bytes: 32 * GIB,
+        origin: MemoryOrigin::Settings,
+    }));
+    // The default needs at most 1,000,000 points at 1.7 kB: 1.6 GB.
+    assert_eq!(note(&app), None);
+    operation.parameters.insert(
+        "adaptive_work_limit".to_owned(),
+        ParameterValue::Integer(30_000_000),
+    );
+    app.execute(Command::Replace(Item::Operation(operation.clone())))
+        .unwrap();
+    // 30,000,000 points at 1.7 kB: 47 GB, over the 32 GB allowed.
+    assert_eq!(
+        note(&app).as_deref(),
+        Some(
+            "At this limit the operation could need up to 47 GB; toolpath jobs may use 32 GB \
+             on this computer (Settings). If it needs more, it is stopped with an error."
+        )
+    );
+    app.set_job_memory(Some(JobMemory {
+        percent: 50,
+        bytes: 32 * GIB,
+        origin: MemoryOrigin::CommandLine,
+    }));
+    assert!(
+        note(&app).is_some_and(|n| n.contains("on this computer (--job-memory)")),
+        "{:?}",
+        note(&app)
+    );
+    // No limit where the computer's memory cannot be read: nothing to say.
+    app.set_job_memory(None);
+    assert_eq!(note(&app), None);
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+#[test]
 fn req_op_04_req_op_01_helical_finishing_runs_from_a_project_with_the_builtin_strategy() {
     let (dir, mut app, op) = project("helical");
     // The library's own strategy needs no registration.

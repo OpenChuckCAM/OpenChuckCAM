@@ -113,6 +113,7 @@ fn number(
         source: Source::Operation,
         section: FormSection::ToolAndFeeds,
         problem: None,
+        note: None,
     }
 }
 
@@ -172,6 +173,7 @@ pub fn tool_form(tool: &Tool) -> Vec<Field> {
         source: Source::Operation,
         section: FormSection::ToolAndFeeds,
         problem: None,
+        note: None,
     });
     match &tool.shape {
         ToolShape::BullNose { corner_radius } => out.push(mm(

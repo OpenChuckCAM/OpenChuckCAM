@@ -169,6 +169,9 @@ impl FormSection {
             "diameter_tolerance" | "crease_angle" | "min_length" | "min_remaining" | "min_cut"
             | "max_material_left" | "through_allowance" | "max_step" | "max_x_step"
             | "depth_reference" | "exact_contact" => Self::Advanced,
+            // The work adaptive spacing may do (issue #847, the owner's
+            // answer to Q1).
+            "adaptive_work_limit" => Self::Advanced,
             // The entry settings past the basic ones (decision
             // 0695, Q9).
             "ramp_steeper_near_axis"
@@ -207,6 +210,9 @@ pub struct Field {
     /// the operation is generated, in plain words with what to change; shown
     /// under it.
     pub problem: Option<String>,
+    /// What to know about the setting as it is, in plain words, when it
+    /// does not stop it being used; shown under it.
+    pub note: Option<String>,
 }
 
 /// An operation's parameter form.
@@ -397,6 +403,7 @@ pub fn parameter_form(
                     EXACT_CONTACT => contact_problem.clone(),
                     _ => None,
                 },
+                note: None,
             }
         })
         .collect::<Vec<_>>();
@@ -449,6 +456,7 @@ fn tool_load_field(project: &Project, op: &Operation) -> Option<Field> {
         source,
         section: FormSection::ToolAndFeeds,
         problem: None,
+        note: None,
     })
 }
 
@@ -650,6 +658,11 @@ mod section_tests {
         assert_eq!(FormSection::of("entry"), FormSection::EntryLinksAndRetract);
         assert_eq!(FormSection::of("min_length"), FormSection::Advanced);
         assert_eq!(FormSection::of("exact_contact"), FormSection::Advanced);
+        // Issue #847 (the owner's answer to Q1): under Advanced.
+        assert_eq!(
+            FormSection::of("adaptive_work_limit"),
+            FormSection::Advanced
+        );
         assert_eq!(
             FormSection::of("ramp_angle"),
             FormSection::EntryLinksAndRetract

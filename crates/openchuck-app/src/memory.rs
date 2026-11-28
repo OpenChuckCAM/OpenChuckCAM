@@ -76,6 +76,28 @@ pub fn size_words(bytes: u64) -> String {
     }
 }
 
+/// The note under Adaptive work limit (issue #847): where the most memory
+/// the operation could need at `work` geometry queries is more than a
+/// toolpath job may use, what each is and what then happens. `None` where
+/// it fits, or where there is no limit. A note, not a refusal: most parts
+/// never come near the most.
+pub fn work_limit_note(work: u64, memory: Option<JobMemory>) -> Option<String> {
+    let memory = memory?;
+    let most = openchuck_path::adaptive::most_memory(work);
+    (most > memory.bytes).then(|| {
+        let r#where = match memory.origin {
+            MemoryOrigin::Settings => "Settings",
+            MemoryOrigin::CommandLine => "--job-memory",
+        };
+        format!(
+            "At this limit the operation could need up to {}; toolpath jobs may use {} on \
+             this computer ({where}). If it needs more, it is stopped with an error.",
+            size_words(most),
+            size_words(memory.bytes),
+        )
+    })
+}
+
 /// The computer's memory in whole GB of 2^30 bytes, to the nearest, as
 /// Settings names it.
 pub fn gigabytes(physical: Option<u64>) -> Option<u64> {

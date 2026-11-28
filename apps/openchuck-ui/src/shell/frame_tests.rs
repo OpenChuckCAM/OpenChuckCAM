@@ -1595,6 +1595,55 @@ fn req_ui_15_req_nfr_07_settings_sets_the_memory_for_playback_checkpoints() {
     assert!(!rig.shows("This computer: at most"));
 }
 
+/// Issue #847: "Memory a toolpath job may use" is a share of this
+/// computer's memory, set in Settings with its size, kept in the user's
+/// settings, given to the application for every job, and brought into its
+/// range; where the memory cannot be read there is no limit, and Settings
+/// says so.
+#[test]
+fn req_ui_15_req_nfr_07_settings_sets_the_memory_a_toolpath_job_may_use() {
+    use openchuck_app::memory::MemoryOrigin;
+    let config = temp("frame-job-memory");
+    let file = SettingsFile::in_folder(&config);
+    let mut rig = Rig::cube("frame-job-memory", Some(file.clone()));
+    rig.dirs.push(config);
+    const GIB: u64 = 1 << 30;
+    rig.shell.physical_memory = Some(64 * GIB);
+    rig.shell.set_job_memory_percent(50);
+    let given = rig.shell.app.as_ref().unwrap().job_memory().unwrap();
+    assert_eq!((given.percent, given.bytes), (50, 32 * GIB));
+    assert_eq!(given.origin, MemoryOrigin::Settings);
+    rig.shell.dialog = Some(Dialog::Settings);
+    rig.frame(Vec::new());
+    rig.frame(Vec::new());
+    assert!(rig.shows("Memory a toolpath job may use (%)"));
+    assert!(rig.shows("32 GB of this computer's 64 GB"));
+    assert!(!rig.shows("Above 75 %"));
+    rig.shell.set_job_memory_percent(80);
+    rig.frame(Vec::new());
+    assert!(rig.shows("Above 75 %"));
+    assert_eq!(
+        rig.shell
+            .app
+            .as_ref()
+            .unwrap()
+            .job_memory()
+            .map(|m| m.bytes),
+        Some(64 * GIB * 80 / 100)
+    );
+    rig.shell.set_job_memory_percent(7);
+    assert_eq!(rig.shell.settings.job_memory_percent, 10);
+    rig.shell.set_job_memory_percent(42);
+    rig.shell.save_settings();
+    assert_eq!(file.load().settings.job_memory_percent, 40);
+    // No limit where this computer's memory cannot be read.
+    rig.shell.physical_memory = None;
+    rig.shell.set_job_memory_percent(40);
+    assert_eq!(rig.shell.app.as_ref().unwrap().job_memory(), None);
+    rig.frame(Vec::new());
+    assert!(rig.shows("This computer's memory could not be read"));
+}
+
 /// The owner's decision D2 with a setting (decision record 0333):
 /// "Generate playback information with toolpath generation" is in Settings,
 /// says which default this computer gives, is the user's to change and to

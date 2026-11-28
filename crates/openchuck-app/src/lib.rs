@@ -1200,7 +1200,18 @@ impl Application {
 
     /// The parameter form of an operation (UI-07).
     pub fn parameter_form(&self, operation: OperationId) -> Result<form::ParameterForm, AppError> {
-        form::parameter_form(&self.document.project, &self.strategies, operation)
+        let mut form = form::parameter_form(&self.document.project, &self.strategies, operation)?;
+        // What a raised Adaptive work limit could need, against the memory a
+        // job may use here (issue #847).
+        for field in &mut form.fields {
+            if field.name == openchuck_path::adaptive::parameter::WORK_LIMIT
+                && let Some(openchuck_project::ParameterValue::Integer(work)) = field.value
+            {
+                field.note =
+                    memory::work_limit_note(u64::try_from(work).unwrap_or(0), self.job_memory());
+            }
+        }
+        Ok(form)
     }
 
     /// Selects all four Box sides in one undoable command, preserving each

@@ -103,6 +103,17 @@ pub const MOST_PASSES: u64 = 1_000_000;
 /// about 1.7 kB a point once the G-code is written (issue #847).
 pub const BYTES_PER_POINT: u64 = 1_700;
 
+/// The most memory an operation could be charged at an Adaptive work
+/// limit of `work` geometry queries, bytes: the most points it may make
+/// there, at [`BYTES_PER_POINT`] (issue #847). Most parts never come near
+/// it; the form compares it with the memory a job may use.
+#[must_use]
+pub fn most_memory(work: u64) -> u64 {
+    Limits::for_work(work)
+        .points
+        .saturating_mul(BYTES_PER_POINT)
+}
+
 const WORK_LIMIT_DESCRIPTION: &str = "The most geometry queries adaptive spacing may make for \
      this operation. A geometry query is one drop of the tool's shape onto the part along a \
      line, or one ray: a search of the whole part. Where the limit is met, the path made so \

@@ -224,6 +224,10 @@ pub fn show(
                     if let Some(problem) = &field.problem {
                         field_row::warning_line(ui, problem);
                     }
+                    // What to know before Generate (issue #847).
+                    if let Some(note) = &field.note {
+                        ui.label(RichText::new(note).color(DARK.muted));
+                    }
                     if let Some(e) = edit {
                         edits.push(e);
                     }
@@ -689,6 +693,7 @@ mod tests {
             source: Source::CuttingData,
             section: FormSection::ToolAndFeeds,
             problem: None,
+            note: None,
         };
         assert_eq!(
             hint(&field).unwrap(),
@@ -738,6 +743,7 @@ mod tests {
             source: Source::Default,
             section: FormSection::EntryLinksAndRetract,
             problem: None,
+            note: None,
         };
         let mut state = FormState::default();
         let mut output = ctx.run_ui(
@@ -789,6 +795,7 @@ mod tests {
                 source: Source::Operation,
                 section: FormSection::Advanced,
                 problem: None,
+                note: None,
             };
             let mut state = FormState::default();
             let mut output = ctx.run_ui(
@@ -845,6 +852,7 @@ mod tests {
             source: Source::Operation,
             section: FormSection::PatternAndTolerance,
             problem: None,
+            note: None,
         };
         let mut state = FormState::default();
         let mut output = ctx.run_ui(
@@ -901,6 +909,7 @@ mod tests {
                 source: Source::Default,
                 section: FormSection::PatternAndTolerance,
                 problem: None,
+                note: None,
             }],
             notes: Vec::new(),
         };
@@ -967,6 +976,7 @@ mod tests {
             source: Source::Default,
             section: FormSection::PatternAndTolerance,
             problem: None,
+            note: None,
         };
         let form = ParameterForm {
             operation: openchuck_app::project::id::OperationId::new(),
@@ -1037,6 +1047,7 @@ mod tests {
             source: Source::Default,
             section: FormSection::PatternAndTolerance,
             problem: None,
+            note: None,
         };
         let number = FieldKind::Number {
             unit: "mm",
@@ -1153,6 +1164,7 @@ mod tests {
             source: Source::Operation,
             section: FormSection::EntryLinksAndRetract,
             problem: problem.map(str::to_owned),
+            note: None,
         };
         let ctx = egui::Context::default();
         let mut settings = UserSettings::default();
@@ -1222,6 +1234,7 @@ mod tests {
                 source: Source::Operation,
                 section: FormSection::PatternAndTolerance,
                 problem: None,
+                note: None,
             }],
             notes: Vec::new(),
         };
