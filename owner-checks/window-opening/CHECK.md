@@ -1,11 +1,11 @@
-# Owner check: how the window opens on Windows (OI-9932; PR #906)
+# Owner check: how the window opens on Windows (OI-2275; PR #906)
 
 **For:** the project owner, on Windows. **Time:** about 10 minutes. **Machine:** none.
 
 > [!IMPORTANT]
 > **You run this on Windows.** A maximised start (steps 1 and 3) could not be shown here: the Linux test setup (openbox on Xvfb) does not honour a request to open maximised, with or without this change. Only Windows shows whether the window opens maximised; see "What could and could not be shown here" at the end.
 
-This one has no GitHub issue: the owner reported it in conversation. The fix is pull request #906 (lane DISPLAY-TARGET, branch `claude/lane-display-target-a`, head `19643a8b`). Its record is DISPLAY-TARGET-A, item 6, on #905. It adds the specification's section 3 bullet "Opening the window".
+This one has no GitHub issue: the owner reported it in conversation. The fix is pull request #906 (lane DISPLAY-TARGET, branch `claude/lane-display-target-a`, head `d2a5b546`). Its record is [decision 0706](../../docs/decisions/0706-window-target-1920-by-1080.md) (record DISPLAY-TARGET-A), item 6, merged with #905. On macOS the maximised state is read only when the window opens (#994); this check is on Windows. It adds the specification's section 3 bullet "Opening the window".
 
 ## What was wrong, and what to check
 
@@ -57,7 +57,7 @@ The file also holds your recent projects, scale, theme and panel sizes. To get t
 
 ## Steps
 
-Use a build of PR #906 (`19643a8b` or later), or a nightly after it merges. **Help > About** gives the version and commit.
+Use a build of PR #906 (`d2a5b546` or later), or a nightly after it merges. **Help > About** gives the version and commit.
 
 1. **Fresh start.** Do the "Fresh settings" steps above, then start OpenChuckCAM. **Expect:** the window is maximised (it fills the screen above the taskbar, and the title bar's middle button shows "Restore Down"). Close it. **Expect** in `settings.toml`: `maximised = true`.
 2. **Un-maximised.** Start it (maximised), and click **Restore Down**. Resize the window to roughly two thirds of the screen. Close it. **Expect** in `settings.toml`: `maximised = false` and `window = [...]` with about that size. Start it. **Expect:** the same size, centred on the screen, not maximised.

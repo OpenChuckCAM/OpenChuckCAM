@@ -2,7 +2,7 @@
 
 Release builds on Linux x86_64, on Xvfb at 1920 × 1080 with the openbox window manager. `wmctrl` resized, moved, maximised and closed the window as a user would; `wmctrl -lG` read where it was (x, y, width, height; y includes openbox's title bar). Fresh settings folder for each build. 25 Nov 2026.
 
-- **After:** PR #906 at `19643a8b` (branch `claude/lane-display-target-a`).
+- **After:** PR #906 at `d2a5b546` (branch `claude/lane-display-target-a`).
 - **Before:** `main` at `361613e` (0.63.0).
 
 | Step | PR #906 | `main` (before) |
