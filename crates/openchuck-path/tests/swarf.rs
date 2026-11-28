@@ -3251,6 +3251,64 @@ fn req_op_07_req_op_12_req_nfr_12_the_reach_past_the_rulings_is_said_after_the_l
 }
 
 #[test]
+fn req_op_07_req_op_12_the_reach_past_the_rulings_counts_a_tapered_tools_lift_along_its_axis() {
+    // Issue #887 (CodeRabbit on #866): the lift is measured up the ruling,
+    // the reach along the tool axis. On a tapered flank with no tilt, a lift
+    // of L moves the tool's end only L cos(a) along the axis, a the flank
+    // half angle, so the reach left where the tool is lifted least is the
+    // reach less that, not less the lift itself.
+    let half_angle: f64 = 10.0;
+    let f = Fixture::brep(&limit_wall(), tapered(half_angle));
+    let rising = BrepSurface::new(&rising_floor(5.0)).unwrap();
+    let avoid = RegionConstraint {
+        avoid: Some(&rising),
+        ..RegionConstraint::default()
+    };
+    let settings = Settings {
+        tip_extension: 1.0,
+        ..f.settings()
+    };
+    let part = limited(&f, &avoid, &settings).unwrap();
+    assert!(
+        part.poses().all(|p| p.tilt < 1e-6),
+        "the wall is cut with no tilt"
+    );
+    let least = part.poses().map(|p| p.lift).fold(f64::INFINITY, f64::min);
+    assert!(
+        least > 0.0 && part.limits.tip_lifted > least,
+        "lifted in part everywhere: {least} {:?}",
+        part.limits
+    );
+    let along_axis = least * half_angle.to_radians().cos();
+    assert!(
+        (part.limits.least_lift_along_axis - along_axis).abs() < 1e-9,
+        "{} {along_axis}",
+        part.limits.least_lift_along_axis
+    );
+    let left = part.limits.end_reach - along_axis;
+    assert!(left >= 0.0005, "a reach is left: {left}");
+    let note = part.note(TOL, LIMIT);
+    assert!(
+        note.contains(&format!(
+            " The tool's end would reach {:.3} mm beyond the end of the rulings at the tip (its \
+             corner radius and the tip extension); where it is lifted least it still reaches \
+             {left:.3} mm beyond them, so it cuts into any face that meets them there, such as a \
+             floor, unless that face is in an avoid or check set.",
+            part.limits.end_reach
+        )),
+        "{note}"
+    );
+    // A straight tool's lift is along its axis: unchanged.
+    let f = Fixture::brep(&limit_wall(), flat());
+    let part = limited(&f, &avoid, &settings).unwrap();
+    let least = part.poses().map(|p| p.lift).fold(f64::INFINITY, f64::min);
+    assert!((part.limits.least_lift_along_axis - least).abs() < 1e-9);
+    // Not lifted: nothing to take off.
+    let plain = limited(&f, &RegionConstraint::default(), &settings).unwrap();
+    assert_eq!(plain.limits.least_lift_along_axis, 0.0);
+}
+
+#[test]
 fn req_op_11_req_op_12_req_nfr_07_a_floor_the_pass_cuts_does_not_excuse_a_lead_out_into_the_end_wall()
  {
     // CodeRabbit on #866 (decision record 0682): the depth the pass cuts at
@@ -3275,5 +3333,39 @@ fn req_op_11_req_op_12_req_nfr_07_a_floor_the_pass_cuts_does_not_excuse_a_lead_o
         let made = made_beside(&f, &neighbours, &[(names::ENTRY, text(style))]).unwrap();
         let cut = entry_exit_cut(&f.tool, &made.group, &wall);
         assert!(cut <= TOL + CHECKER_SLACK, "{style}: {cut}");
+    }
+}
+
+#[test]
+fn req_op_11_req_op_12_swarf_keeps_its_own_allowance_beside_the_faces_outside_its_selection() {
+    // Decision record 0701 (the owner's answer to issue #957: swarf keeps
+    // its mechanism): the host gives swarf the faces outside its face set
+    // too, as it gives every strategy, but swarf's entries and exits are
+    // still measured against the faces next to the face set, with the
+    // pass's own cut allowed (decision 0682). The ball's pass cuts the
+    // floor about a ball radius deep; its ramp and helix are made, as with
+    // the faces next to the face set alone, and the program is the same.
+    let wall = end_wall(1);
+    let model = joined_models(&[wall, numbered(floor_model(), 2)]);
+    let neighbours = BrepSurface::new(&model).unwrap();
+    let f = Fixture::brep(&limit_wall(), ball());
+    for style in ["ramp", "helix"] {
+        let alone = made_beside(&f, &neighbours, &[(names::ENTRY, text(style))]).unwrap();
+        let region = RegionConstraint {
+            neighbours: Some(&neighbours),
+            outside: Some(&neighbours),
+            ..RegionConstraint::default()
+        };
+        let both = run(|ctx| {
+            generate_in_region(
+                &Swarf,
+                &f.input(),
+                &region,
+                &values(&[(names::ENTRY, text(style))]),
+                ctx,
+            )
+        })
+        .unwrap();
+        assert_eq!(alone.group, both.group, "{style}");
     }
 }

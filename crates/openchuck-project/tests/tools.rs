@@ -13,6 +13,7 @@ use std::path::{Path, PathBuf};
 use openchuck_project::id::ToolId;
 use openchuck_project::tools::{
     SnapshotStatus, ToolLibrary, compare_snapshot, load_profile, parse_tool_file, parse_tool_set,
+    render_tool_file, render_tool_set,
 };
 use openchuck_project::{Item, Placement, Project, file};
 use openchuck_types::tool::{ControllerMapping, ToolShape};
@@ -287,4 +288,148 @@ fn req_tl_04_centre_cutting_is_read_from_a_tool_file_and_defaults_to_the_shape()
         .tool;
     assert_eq!(tool.centre_cutting, Some(false));
     assert!(!tool.can_plunge());
+}
+
+/// The schema number a file's text declares.
+fn declared_schema(text: &str) -> i64 {
+    let table: toml::Table = text.parse().unwrap();
+    table["schema"].as_integer().unwrap()
+}
+
+/// Issue #864 (decision 0703, the owner's answer A): a tool file declares
+/// the lowest tool-library schema that can hold it. A tool with a stick-out
+/// is schema 2, so a build that reads only schema 1 (the released 0.55
+/// builds) refuses it by its number, with a clear message; a tool without
+/// one stays schema 1, which every build reads. Tool set files stay
+/// schema 1. Each reads back unchanged.
+#[test]
+fn req_tl_01_req_prj_04_a_tool_file_declares_the_lowest_library_schema_that_holds_it() {
+    let text = std::fs::read_to_string(corpus().join("library/6-mm-flat.toml")).unwrap();
+    let mut tool = parse_tool_file(Path::new("flat.toml"), &text).unwrap();
+    let plain = render_tool_file(&tool).unwrap();
+    assert_eq!(declared_schema(&plain), 1, "{plain}");
+    assert_eq!(parse_tool_file(Path::new("a.toml"), &plain).unwrap(), tool);
+
+    tool.tool.centre_cutting = Some(true);
+    let centre = render_tool_file(&tool).unwrap();
+    assert_eq!(
+        declared_schema(&centre),
+        1,
+        "every build reads centre_cutting"
+    );
+
+    tool.tool.stick_out = Some(Millimetres(37.3));
+    let stick = render_tool_file(&tool).unwrap();
+    assert_eq!(declared_schema(&stick), 2, "{stick}");
+    assert!(
+        declared_schema(&stick) > 1,
+        "a schema-1 build refuses it by number"
+    );
+    assert_eq!(parse_tool_file(Path::new("b.toml"), &stick).unwrap(), tool);
+
+    let set_text =
+        std::fs::read_to_string(corpus().join("library/tool-sets/makera-z1.toml")).unwrap();
+    let set = parse_tool_set(Path::new("set.toml"), &set_text).unwrap();
+    let written = render_tool_set(&set).unwrap();
+    assert_eq!(declared_schema(&written), 1);
+    assert_eq!(
+        parse_tool_set(Path::new("set.toml"), &written).unwrap(),
+        set
+    );
+}
+
+/// Issue #864: a tool-library file of a newer schema than this build reads
+/// is refused, naming it a tool library file and the version to use; never
+/// "project schema". In a library folder the other tools still open.
+#[test]
+fn req_tl_01_req_nfr_07_a_library_file_of_a_newer_schema_says_it_needs_a_newer_version() {
+    let text = std::fs::read_to_string(corpus().join("library/6-mm-flat.toml")).unwrap();
+    let newer = text.replace("schema = 1", "schema = 3");
+    let err = parse_tool_file(Path::new("newer.toml"), &newer)
+        .unwrap_err()
+        .to_string();
+    assert!(
+        err.contains("'newer.toml'")
+            && err.contains("tool library schema 3")
+            && err.contains("reads up to 2")
+            && err.contains("newer OpenChuckCAM"),
+        "{err}"
+    );
+    assert!(!err.contains("project"), "{err}");
+    let set_text =
+        std::fs::read_to_string(corpus().join("library/tool-sets/makera-z1.toml")).unwrap();
+    let err = parse_tool_set(
+        Path::new("set.toml"),
+        &set_text.replace("schema = 1", "schema = 3"),
+    )
+    .unwrap_err()
+    .to_string();
+    assert!(err.contains("tool library schema 3"), "{err}");
+
+    let lib = library_copy("newer-in-folder");
+    std::fs::write(lib.join("newer.toml"), &newer).unwrap();
+    let opened = ToolLibrary::open(&lib).unwrap();
+    assert_eq!(opened.tools().count(), 8, "the other tools open");
+    assert!(
+        opened
+            .problems()
+            .iter()
+            .any(|p| p.contains("tool library schema 3") && p.contains("newer OpenChuckCAM")),
+        "{:?}",
+        opened.problems()
+    );
+    let _ = std::fs::remove_dir_all(lib.parent().unwrap());
+}
+
+/// Issue #864: a tool file that this build reads by its number but that holds
+/// a field it does not know was written by a newer version (as the nightly
+/// builds of 23 to 26 Nov 2026 wrote `stick_out` under schema 1). It reads
+/// as that, naming the field, not as a broken file.
+#[test]
+fn req_tl_01_req_nfr_07_a_tool_file_with_an_unknown_field_was_written_by_a_newer_version() {
+    let text = std::fs::read_to_string(corpus().join("library/6-mm-flat.toml")).unwrap();
+    let future = text.replace(
+        "material = \"carbide\"\n",
+        "material = \"carbide\"\nholder_gauge = 12.0\n",
+    );
+    let err = parse_tool_file(Path::new("future.toml"), &future)
+        .unwrap_err()
+        .to_string();
+    assert!(
+        err.contains("'future.toml'")
+            && err.contains("written by a newer version of OpenChuckCAM")
+            && err.contains("holder_gauge")
+            && err.contains("tool library"),
+        "{err}"
+    );
+    // A misspelt field in a file of a schema this build writes is not
+    // blamed on a newer version only because it is unknown: the message
+    // still names the field, so a user can see a typo.
+    assert!(err.contains("`holder_gauge`"), "{err}");
+}
+
+/// Issue #864: a tool file the nightly builds wrote, schema 1 with a
+/// stick-out, reads with its stick-out kept; opening the library does not
+/// rewrite it (nothing is dropped, and a file is written only when saved).
+#[test]
+fn req_tl_01_a_schema_1_tool_file_with_a_stick_out_reads_and_is_not_rewritten_on_open() {
+    let text = std::fs::read_to_string(corpus().join("library/6-mm-flat.toml")).unwrap();
+    let nightly = text
+        .replace(
+            "material = \"carbide\"\n",
+            "material = \"carbide\"\nstick_out = 37.3\n",
+        )
+        .replace("-000000000001\"", "-0000000000ff\"");
+    let tool = parse_tool_file(Path::new("nightly.toml"), &nightly).unwrap();
+    assert_eq!(tool.tool.stick_out, Some(Millimetres(37.3)));
+    let lib = library_copy("nightly-stick-out");
+    let path = lib.join("nightly.toml");
+    std::fs::write(&path, &nightly).unwrap();
+    let opened = ToolLibrary::open(&lib).unwrap();
+    assert!(opened.problems().is_empty(), "{:?}", opened.problems());
+    assert_eq!(opened.tools().count(), 9);
+    assert_eq!(std::fs::read_to_string(&path).unwrap(), nightly);
+    // Saved again, it declares schema 2.
+    assert_eq!(declared_schema(&render_tool_file(&tool).unwrap()), 2);
+    let _ = std::fs::remove_dir_all(lib.parent().unwrap());
 }

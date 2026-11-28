@@ -89,17 +89,35 @@ pub(super) enum Refusal {
 /// last ends at the first point; each is as long as the path, or shorter
 /// when two legs are enough, but never shorter than `shortest_leg` where the
 /// path is that long (the tool radius, decision 0543 point 4 as accepted:
-/// the ramp is then shallower than the angle, never steeper). Gives the
-/// moves, from above the first point at `top` to the first point; the floor
-/// of each, the pass's own height on the tool line through it (issue #687);
-/// the length of its legs; and whether a steep drop of the pass was followed
-/// (see [`heights`]).
+/// the ramp is then shallower than the angle, never steeper), and never
+/// longer than `longest_leg`: the depth per traverse at a leg's far end is
+/// `2 · leg · tan`, so every ramp bounds its legs to keep that within the
+/// tool radius, and a pass that starts as a spiral also within one turn of
+/// a spiral ramp at its start radius, taking more legs instead (decision
+/// 0695, Q3, the owner's tool-load requirement, and Q8;
+/// `f64::INFINITY` for no bound).
+/// Where the two bounds meet, the longest wins: the depth per traverse is
+/// the owner's requirement, and a leg shorter than the tool radius is
+/// listed for the host's check of a tool that cannot cut straight down.
+/// Where the pass rises from its first point more steeply than the angle,
+/// its floor holds an earlier visit high and a return drops more than
+/// `2 · leg · tan`: the legs are then shortened until the drop the ramp cuts
+/// between one visit to a place and the next is within `2 · longest_leg ·
+/// tan`; where legs shorter than `minimum` would be needed (a step in the
+/// pass), the ramp with the legs first fitted is kept, following the pass's
+/// own steep drop (decision 0543 D4), and its depth says how far it drops.
+/// Gives the moves, from above the first point at `top` to the first point;
+/// the floor of each, the pass's own height on the tool line through it
+/// (issue #687); the length of its legs and how many; and whether a steep
+/// drop of the pass was followed (see [`heights`]); and the depth per
+/// traverse it cuts.
 pub(super) fn back_and_forth(
     path: &[(AxisPosition, Degrees)],
     top: f64,
     tan: f64,
     minimum: f64,
     shortest_leg: f64,
+    longest_leg: f64,
 ) -> Result<Ramp, Refusal> {
     // Distance along the path at each point.
     let mut along = Vec::with_capacity(path.len());
@@ -127,13 +145,29 @@ pub(super) fn back_and_forth(
     // the pass rises near its first point the ramp needs more: two legs
     // more until it starts at `top`.
     let need = rise / tan;
+    let mut cap = longest_leg.min(total);
+    // The depth per traverse the legs are bounded to keep.
+    let bound = 2.0 * longest_leg * tan;
+    let bounded = bound.is_finite() && bound > 0.0;
+    // The first ramp that fitted, kept while shorter legs are tried.
+    let mut fitted: Option<Ramp> = None;
     let (mut leg, mut legs) = if need <= 2.0 * total {
         ((0.5 * need).max(shortest_leg.min(total)), 2.0)
     } else {
         (total, 2.0 * (need / (2.0 * total)).ceil())
     };
+    // Whole legs: a count a rounding error above a whole number is that
+    // number (a ramp that then starts a hair low takes two legs more below).
+    let whole = |x: f64| (x - 1e-9).ceil().max(1.0);
+    if leg > cap {
+        leg = cap;
+        legs = 2.0 * whole(need / (2.0 * leg));
+    }
     loop {
         if !legs.is_finite() || legs > MAX_LEGS as f64 {
+            if let Some(ramp) = fitted {
+                return Ok(ramp);
+            }
             return Err(Refusal::TooManyLegs {
                 legs: if legs.is_finite() {
                     legs as usize
@@ -147,6 +181,9 @@ pub(super) fn back_and_forth(
         let per_leg = along.iter().take_while(|s| **s < leg - 1e-12).count() + 1;
         let moves = (legs as usize).saturating_mul(per_leg);
         if moves > MAX_MOVES {
+            if let Some(ramp) = fitted {
+                return Ok(ramp);
+            }
             return Err(Refusal::MoveLimit { moves });
         }
         let ramp = legs_over(
@@ -159,15 +196,40 @@ pub(super) fn back_and_forth(
             top,
             tan,
         );
-        if ramp
+        let at_top = ramp
             .moves
             .first()
-            .is_some_and(|(p, _)| p.height >= top - 1e-9)
-        {
+            .is_some_and(|(p, _)| p.height >= top - 1e-9);
+        if at_top && (!bounded || ramp.depth <= bound + 1e-9) {
             return Ok(ramp);
         }
-        if leg < total {
-            leg = total;
+        if at_top {
+            // The pass rises from its first point more steeply than the
+            // angle, and its floor held an earlier visit high, so a return
+            // drops more than `2 · leg · tan` (CodeRabbit on #930). That drop
+            // shrinks with the leg: shorter legs, more of them, down to the
+            // shortest stretch a ramp goes over. Where none keeps it (a step
+            // in the pass, which no leg shortens), the ramp first fitted
+            // follows the pass's own steep drop, as decision 0543 D4 accepts,
+            // and reports the drop it cuts.
+            let mut shorter = leg * (bound / ramp.depth).min(0.99);
+            let first = fitted.take().unwrap_or(ramp);
+            // Below the shortest stretch, a leg of exactly that stretch is
+            // tried once before the first fit is kept: over a flat start it
+            // may still hold the bound (CodeRabbit on #930, issue #951).
+            if shorter < minimum && leg > minimum + 1e-12 {
+                shorter = minimum;
+            }
+            if shorter < minimum || !shorter.is_finite() {
+                return Ok(first);
+            }
+            fitted = Some(first);
+            cap = shorter;
+            leg = shorter;
+            legs = 2.0 * whole(need / (2.0 * leg));
+        } else if leg < cap {
+            leg = cap;
+            legs = legs.max(2.0 * whole(need / (2.0 * leg)));
         } else {
             legs += 2.0;
         }
@@ -197,6 +259,8 @@ fn legs_over(
     // The ramp's samples: out along the leg, back, out, ... ending back at
     // the first point.
     let mut samples: Vec<(f64, AxisPosition, Degrees)> = vec![(0.0, head, a0)];
+    // Which of `out_points` each sample is at.
+    let mut places: Vec<usize> = vec![0];
     let mut travelled = 0.0;
     for k in 0..legs {
         let outward = k % 2 == 0;
@@ -206,16 +270,22 @@ fn legs_over(
             out_points.iter().rev().skip(1).collect()
         };
         let mut from = if outward { 0.0 } else { leg };
-        for &&(s, p, a) in &ordered {
+        for (j, &&(s, p, a)) in ordered.iter().enumerate() {
             travelled += (s - from).abs();
             from = s;
             samples.push((travelled, p, a));
+            places.push(if outward {
+                j + 1
+            } else {
+                out_points.len() - 2 - j
+            });
         }
         // A short outward list (one point) still turns at the end of the
         // leg.
         if outward && ordered.is_empty() {
             travelled += leg;
             samples.push((travelled, head, a0));
+            places.push(0);
         }
     }
     let travel: Vec<f64> = samples.iter().map(|(t, _, _)| *t).collect();
@@ -229,24 +299,44 @@ fn legs_over(
     if let Some(last) = moves.last_mut() {
         *last = (head, a0);
     }
+    // The depth per traverse it cuts: the deepest drop between one visit to
+    // a place and the next, the start included. Between two samples both
+    // visits are straight, so the drop there is between theirs.
+    let mut visited: Vec<Option<f64>> = vec![None; out_points.len()];
+    let mut depth = 0.0_f64;
+    for (&place, (p, _)) in places.iter().zip(&moves) {
+        if let Some(seen) = visited.get_mut(place) {
+            if let Some(before) = *seen {
+                depth = depth.max(before - p.height);
+            }
+            *seen = Some(p.height);
+        }
+    }
     Ramp {
         moves,
         floors: base,
         leg,
+        legs,
         steep,
+        depth,
     }
 }
 
 /// A back-and-forth ramp: its moves, from where the descent starts to the
 /// pass's first point; the floor of each move, the height on the tool line
 /// through it that the ramp stands on (the pass's own); the length of its
-/// legs; and whether it follows a steep drop of the pass (see [`heights`]).
+/// legs and how many there are; and whether it follows a steep drop of the
+/// pass (see [`heights`]).
 #[derive(Debug, Clone, PartialEq)]
 pub(super) struct Ramp {
     pub moves: Vec<(AxisPosition, Degrees)>,
     pub floors: Vec<f64>,
     pub leg: f64,
+    pub legs: usize,
     pub steep: bool,
+    /// The deepest drop between one visit to a place and the next, the
+    /// start included: the depth per traverse the ramp cuts, mm.
+    pub depth: f64,
 }
 
 /// The travel of a step from `(q, b)` to `(p, a)`.
@@ -346,7 +436,8 @@ mod tests {
     #[test]
     fn req_op_11_two_legs_when_the_line_is_long_enough() {
         let path = line(100, 0.5, |_| 10.0);
-        let Ramp { moves, steep, .. } = back_and_forth(&path, 12.0, TAN, 3.0, 0.0).unwrap();
+        let Ramp { moves, steep, .. } =
+            back_and_forth(&path, 12.0, TAN, 3.0, 0.0, f64::INFINITY).unwrap();
         assert!(!steep);
         check(&moves, &path, 12.0);
         // 2 mm of rise at 0.1 is 20 mm of travel: two legs of 10 mm.
@@ -359,7 +450,7 @@ mod tests {
     #[test]
     fn req_op_11_more_legs_over_a_short_line() {
         let path = line(4, 0.5, |_| 10.0);
-        let Ramp { moves, .. } = back_and_forth(&path, 12.0, TAN, 1.0, 0.0).unwrap();
+        let Ramp { moves, .. } = back_and_forth(&path, 12.0, TAN, 1.0, 0.0, f64::INFINITY).unwrap();
         check(&moves, &path, 12.0);
         assert!(
             moves
@@ -372,7 +463,7 @@ mod tests {
     fn req_op_11_req_nfr_07_a_line_shorter_than_the_minimum_is_refused() {
         let path = line(2, 0.5, |_| 10.0);
         assert_eq!(
-            back_and_forth(&path, 12.0, TAN, 3.0, 0.0),
+            back_and_forth(&path, 12.0, TAN, 3.0, 0.0, f64::INFINITY),
             Err(Refusal::TooShort { length: 1.0 })
         );
     }
@@ -381,7 +472,7 @@ mod tests {
     fn req_op_11_req_nfr_07_too_many_legs_are_refused() {
         let path = line(1, 0.01, |_| 10.0);
         assert!(matches!(
-            back_and_forth(&path, 1000.0, TAN, 0.001, 0.0),
+            back_and_forth(&path, 1000.0, TAN, 0.001, 0.0, f64::INFINITY),
             Err(Refusal::TooManyLegs { .. })
         ));
     }
@@ -389,7 +480,7 @@ mod tests {
     #[test]
     fn req_op_11_the_ramp_stays_above_a_pass_that_rises_and_falls() {
         let path = line(100, 0.5, |x| 10.0 + (x * 0.5).sin());
-        let Ramp { moves, .. } = back_and_forth(&path, 13.0, TAN, 3.0, 0.0).unwrap();
+        let Ramp { moves, .. } = back_and_forth(&path, 13.0, TAN, 3.0, 0.0, f64::INFINITY).unwrap();
         for (p, _) in &moves {
             let base = 10.0 + (p.along * 0.5).sin();
             assert!(p.height >= base - 1e-6, "{p:?} under {base}");
@@ -411,7 +502,8 @@ mod tests {
         // On a line whose first point is 1 mm below the rest, the last leg
         // comes back over the higher pass and follows it down.
         let path = line(100, 0.5, |x| if x < 0.25 { 10.0 } else { 11.0 });
-        let Ramp { moves, steep, .. } = back_and_forth(&path, 12.0, TAN, 3.0, 0.0).unwrap();
+        let Ramp { moves, steep, .. } =
+            back_and_forth(&path, 12.0, TAN, 3.0, 0.0, f64::INFINITY).unwrap();
         assert!(steep);
         assert_eq!(moves.last().unwrap().0, path[0].0);
     }
@@ -430,7 +522,7 @@ mod tests {
                 )
             })
             .collect();
-        let Ramp { moves, .. } = back_and_forth(&path, 14.0, TAN, 3.0, 0.0).unwrap();
+        let Ramp { moves, .. } = back_and_forth(&path, 14.0, TAN, 3.0, 0.0, f64::INFINITY).unwrap();
         assert!(
             moves
                 .iter()
@@ -447,7 +539,7 @@ mod tests {
     fn req_op_11_each_move_stands_on_the_pass_s_own_height_beneath_it() {
         // A pass that rises and falls under the ramp.
         let path = line(40, 0.5, |x| 10.0 + 0.3 * (x * 0.7).sin());
-        let ramp = back_and_forth(&path, 13.0, TAN, 3.0, 0.0).unwrap();
+        let ramp = back_and_forth(&path, 13.0, TAN, 3.0, 0.0, f64::INFINITY).unwrap();
         assert_eq!(ramp.moves.len(), ramp.floors.len());
         for ((p, _), floor) in ramp.moves.iter().zip(&ramp.floors) {
             assert!(p.height >= floor - 1e-9, "{} below {floor}", p.height);
@@ -472,9 +564,9 @@ mod tests {
         let path = line(100, 0.5, |_| 10.0);
         // 0.2 mm of rise at 0.1 needs 2 mm of travel: 1 mm legs without the
         // radius, 3 mm with it.
-        let short = back_and_forth(&path, 10.2, TAN, 0.1, 0.0).unwrap();
+        let short = back_and_forth(&path, 10.2, TAN, 0.1, 0.0, f64::INFINITY).unwrap();
         assert!((short.leg - 1.0).abs() < 1e-9, "{}", short.leg);
-        let ramp = back_and_forth(&path, 10.2, TAN, 0.1, 3.0).unwrap();
+        let ramp = back_and_forth(&path, 10.2, TAN, 0.1, 3.0, f64::INFINITY).unwrap();
         assert!((ramp.leg - 3.0).abs() < 1e-9, "{}", ramp.leg);
         check(&ramp.moves, &path, 10.2);
         let far = ramp.moves.iter().map(|(p, _)| p.along).fold(0.0, f64::max);
@@ -484,8 +576,158 @@ mod tests {
         }
         // A path shorter than the radius: legs over the whole of it.
         let path = line(4, 0.5, |_| 10.0);
-        let ramp = back_and_forth(&path, 10.05, TAN, 0.1, 3.0).unwrap();
+        let ramp = back_and_forth(&path, 10.05, TAN, 0.1, 3.0, f64::INFINITY).unwrap();
         assert!((ramp.leg - 2.0).abs() < 1e-9, "{}", ramp.leg);
+    }
+
+    /// Decision 0695, Q3 (the owner's tool-load
+    /// requirement): a leg is never longer than the bound it is given, so
+    /// the depth per traverse at its far end, `2 · leg · tan`, stays within
+    /// it; the ramp takes more legs instead, and keeps its angle and its
+    /// whole length.
+    #[test]
+    fn req_op_11_legs_are_shortened_to_bound_the_depth_per_traverse() {
+        let path = line(100, 0.5, |_| 10.0);
+        // 5 mm of rise at 0.1 needs 50 mm of travel: two legs of 25 mm,
+        // a depth per traverse of 5 mm; bounded to 5 mm legs, ten legs and
+        // 1 mm.
+        let free = back_and_forth(&path, 15.0, TAN, 0.1, 0.0, f64::INFINITY).unwrap();
+        assert_eq!((free.legs, free.leg), (2, 25.0));
+        let ramp = back_and_forth(&path, 15.0, TAN, 0.1, 0.0, 5.0).unwrap();
+        assert_eq!(ramp.legs, 10);
+        assert!((ramp.leg - 5.0).abs() < 1e-9, "{}", ramp.leg);
+        check(&ramp.moves, &path, 15.0);
+        let far = ramp.moves.iter().map(|(p, _)| p.along).fold(0.0, f64::max);
+        assert!((far - 5.0).abs() < 1e-9, "{far}");
+        let travel: f64 = ramp
+            .moves
+            .windows(2)
+            .map(|w| (w[1].0.along - w[0].0.along).abs())
+            .sum();
+        assert!(travel >= 50.0 - 1e-9, "{travel}");
+        // The deepest depth per traverse: between visits to the far end.
+        let ends: Vec<f64> = ramp
+            .moves
+            .iter()
+            .filter(|(p, _)| (p.along - 5.0).abs() < 1e-9)
+            .map(|(p, _)| p.height)
+            .collect();
+        assert_eq!(ends.len(), 5);
+        for w in ends.windows(2) {
+            assert!(w[0] - w[1] <= 2.0 * 5.0 * TAN + 1e-9, "{w:?}");
+        }
+    }
+
+    /// The deepest drop between one visit of `moves` to a position along a
+    /// line at a fixed A and the next visit to it, the start included: the
+    /// depth per traverse the ramp actually cuts (CodeRabbit on #930).
+    fn measured_depth(moves: &[(AxisPosition, Degrees)]) -> f64 {
+        let mut seen: Vec<(f64, f64)> = Vec::new();
+        let mut deepest = 0.0_f64;
+        for (p, _) in moves {
+            match seen.iter_mut().find(|(x, _)| (x - p.along).abs() < 1e-9) {
+                Some((_, h)) => {
+                    deepest = deepest.max(*h - p.height);
+                    *h = p.height;
+                }
+                None => seen.push((p.along, p.height)),
+            }
+        }
+        deepest
+    }
+
+    /// Decision 0695, Q3 and Q8 (CodeRabbit on #930): where the pass rises
+    /// from its first point more steeply than the ramp angle, its floor
+    /// holds an earlier visit high, so the last return to a place drops more
+    /// than `2 · leg · tan`. The legs are shortened until the drop the ramp
+    /// actually cuts is within the bound, and the ramp reports that drop.
+    #[test]
+    fn req_op_11_a_pass_rising_from_its_first_point_keeps_the_depth_per_traverse() {
+        // 1 mm rising from 10 to 11; a bound of 0.2 mm is 1 mm legs at 0.1.
+        let path = line(10, 0.1, |x| 10.0 + x);
+        let ramp = back_and_forth(&path, 11.0, TAN, 0.01, 0.0, 1.0).unwrap();
+        let measured = measured_depth(&ramp.moves);
+        assert!(
+            measured <= 0.2 + 1e-9,
+            "{measured} over {} mm legs",
+            ramp.leg
+        );
+        assert!(
+            (ramp.depth - measured).abs() < 1e-9,
+            "{} {measured}",
+            ramp.depth
+        );
+        assert!(ramp.leg < 1.0, "{}", ramp.leg);
+        assert_eq!(ramp.moves.first().unwrap().0.height, 11.0);
+        assert_eq!(ramp.moves.last().unwrap().0, path[0].0);
+        for ((p, _), floor) in ramp.moves.iter().zip(&ramp.floors) {
+            assert!(p.height >= floor - 1e-9);
+        }
+        // A flat pass keeps its legs, and its depth is `2 · leg · tan`.
+        let flat = line(100, 0.5, |_| 10.0);
+        let ramp = back_and_forth(&flat, 15.0, TAN, 0.1, 0.0, 5.0).unwrap();
+        assert_eq!((ramp.legs, ramp.leg), (10, 5.0));
+        assert!((ramp.depth - 1.0).abs() < 1e-9, "{}", ramp.depth);
+        assert!((measured_depth(&ramp.moves) - ramp.depth).abs() < 1e-9);
+    }
+
+    /// Decision 0543 D4: a pass that rises from its first point so steeply
+    /// (a step) that no leg the ramp may take keeps the drop within the
+    /// bound keeps the ramp first fitted, which follows the pass's own drop
+    /// and says how deep it is: never a depth it does not cut.
+    #[test]
+    fn req_op_11_a_rise_no_leg_can_bound_follows_the_pass_s_drop() {
+        let mut path = line(100, 0.5, |_| 11.0);
+        path[0].0.height = 10.0;
+        path[1].0.along = 1e-6;
+        let ramp = back_and_forth(&path, 11.5, TAN, 0.1, 0.0, 1.0).unwrap();
+        assert!(ramp.steep);
+        assert!((ramp.leg - 1.0).abs() < 1e-9, "{}", ramp.leg);
+        let measured = measured_depth(&ramp.moves);
+        assert!(measured > 0.9, "{measured}");
+        assert!(
+            (ramp.depth - measured).abs() < 1e-9,
+            "{} {measured}",
+            ramp.depth
+        );
+        assert_eq!(ramp.moves.last().unwrap().0, path[0].0);
+    }
+
+    /// CodeRabbit on #930 (issue #951, item 6): where scaling the leg to the
+    /// bound would take it below the shortest stretch a ramp goes over, a
+    /// leg of exactly that shortest stretch is tried before the ramp first
+    /// fitted is kept. On a flat start before a rise it holds the bound.
+    #[test]
+    fn req_op_11_a_leg_of_the_shortest_stretch_is_tried_before_the_first_fit_is_kept() {
+        let p = |x: f64, h: f64| {
+            (
+                AxisPosition {
+                    along: x,
+                    across: 0.0,
+                    height: h,
+                },
+                Degrees(30.0),
+            )
+        };
+        // Flat for 0.8 mm, then up 1 mm in 0.2 mm; legs bounded to 1 mm at
+        // 0.1, so a depth per traverse of at most 0.2 mm; at least 0.3 mm.
+        let path = vec![p(0.0, 10.0), p(0.8, 10.0), p(1.0, 11.0)];
+        let ramp = back_and_forth(&path, 11.0, TAN, 0.3, 0.0, 1.0).unwrap();
+        let measured = measured_depth(&ramp.moves);
+        assert!(!ramp.steep, "{} mm legs follow the rise", ramp.leg);
+        assert!(
+            measured <= 0.2 + 1e-9,
+            "{measured} over {} mm legs",
+            ramp.leg
+        );
+        assert!((ramp.depth - measured).abs() < 1e-9);
+        assert!(
+            ramp.leg >= 0.3 - 1e-9 && ramp.leg <= 0.8 + 1e-9,
+            "{}",
+            ramp.leg
+        );
+        assert_eq!(ramp.moves.first().unwrap().0.height, 11.0);
+        assert_eq!(ramp.moves.last().unwrap().0, path[0].0);
     }
 
     /// #781 review: a long pass with many legs is refused by its count of
@@ -495,7 +737,7 @@ mod tests {
         // 30 mm in 30,001 points; 100 mm of rise at 0.1 needs 1,000 mm of
         // travel, so 34 legs over the whole line: over a million moves.
         let path = line(30_000, 0.001, |_| 10.0);
-        match back_and_forth(&path, 110.0, TAN, 0.1, 0.0) {
+        match back_and_forth(&path, 110.0, TAN, 0.1, 0.0, f64::INFINITY) {
             Err(Refusal::MoveLimit { moves }) => assert!(moves > MAX_MOVES, "{moves}"),
             other => panic!("{other:?}"),
         }

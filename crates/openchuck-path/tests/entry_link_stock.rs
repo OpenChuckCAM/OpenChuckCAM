@@ -414,3 +414,48 @@ fn req_op_14_req_nfr_07_stock_at_the_retract_height_is_refused() {
         "{err}"
     );
 }
+
+#[test]
+fn req_op_11_req_op_12_a_ramp_probes_the_stock_only_as_far_as_its_legs_reach() {
+    // Decision 0695, Q8 and D5 (CodeRabbit on #930): a ramp's legs go no
+    // further along its pass than the longest leg, here half the tool
+    // radius's depth per traverse over tan 3 degrees, 28.6 mm from X 2; the
+    // stock under them is probed that far. A block 35 mm along, taller than
+    // the round stock, is past every leg and its footprint, so it neither
+    // raises the ramp's start nor makes the ramp longer; the ramp still
+    // starts the approach distance above the stock under its legs.
+    let stock = Bumpy {
+        along: (37.0, 40.0),
+        across: (-2.0, 2.0),
+        top: 19.5,
+    };
+    let path = generated(
+        vec![(2.0, 40.0)],
+        &stock,
+        &[
+            (names::ENTRY, text("ramp")),
+            (names::RAMP_ANGLE, ParameterValue::Number(3.0)),
+            (names::APPROACH_DISTANCE, ParameterValue::Number(2.0)),
+        ],
+    )
+    .unwrap();
+    let f = fixture();
+    let segs = &path.group.segments;
+    let first = segs
+        .iter()
+        .position(|s| s.kind == MoveKind::LeadIn)
+        .expect("a ramp");
+    let start = f
+        .rotary
+        .to_axis(segs[first - 1].end.tip, segs[first - 1].end.a);
+    assert!(
+        (start.height - (Bumpy::RADIUS + 2.0)).abs() < 0.05,
+        "the ramp starts at {start:?}, not 2 mm above the round stock"
+    );
+    let leg = 0.5 * 3.0 / 3.0_f64.to_radians().tan();
+    for s in segs.iter().filter(|s| s.kind == MoveKind::LeadIn) {
+        let at = f.rotary.to_axis(s.end.tip, s.end.a);
+        assert!(at.along <= 2.0 + leg + 1e-6, "{at:?}");
+    }
+    assert_eq!(rapid_into_stock(&f, &stock, &path), None);
+}

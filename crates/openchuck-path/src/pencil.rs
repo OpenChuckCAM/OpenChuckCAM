@@ -615,16 +615,18 @@ impl Strategy for PencilFinishing {
                     name: pencil_parameter::MIN_LENGTH.to_owned(),
                     label: "Shortest cut".to_owned(),
                     description: "Stretches of an inside corner shorter than this are not cut, \
-                                  so the tool does not plunge in for a short dab. Starts at the \
-                                  tool's diameter. A single point is never cut. The notes say \
-                                  where each stretch left uncut is."
+                                  so the tool does not plunge in for a short dab. Tool diameter: \
+                                  the operation's tool's diameter, following a change of tool; a \
+                                  new operation starts with it. A single point is never cut. The \
+                                  notes say where each stretch left uncut is."
                         .to_owned(),
-                    kind: ParameterKind::Number {
-                        unit: Unit::Millimetres,
+                    // A length or Tool diameter, as face flow's Shortest cut
+                    // (issue #892; decision 0686). 0 for an operation given
+                    // without it, so its program is unchanged.
+                    kind: ParameterKind::LengthOrTool {
                         min: Some(0.0),
-                        min_exclusive: false,
                         max: None,
-                        default: Some(0.0),
+                        default: crate::params::LengthOrTool::Millimetres(0.0),
                     },
                 },
             ])
@@ -664,7 +666,10 @@ impl Strategy for PencilFinishing {
         let min_remaining = parameters.number(parameter::MIN_REMAINING)?;
         let angle = parameters.number(pencil_parameter::CREASE_ANGLE)?;
         let max_step = parameters.number(pencil_parameter::MAX_STEP)?;
-        let min_length = parameters.number(pencil_parameter::MIN_LENGTH)?;
+        let min_length = parameters.length_or_tool(
+            pencil_parameter::MIN_LENGTH,
+            2.0 * input.tool.cutting_radius(),
+        )?;
 
         // Possible corners left unfollowed are a warning (decision record
         // 0536 step 2).
@@ -1022,6 +1027,28 @@ mod tests {
         assert!(
             said.contains("left 7 stretches") && said.contains("; and 2 more."),
             "{said}"
+        );
+    }
+
+    #[test]
+    fn req_op_09_the_shortest_cut_is_a_length_or_the_tools_diameter() {
+        // Issue #892 (the owner's answer A): Shortest cut takes a length or
+        // Tool diameter, as face flow's does (decision 0686). Its default
+        // stays 0 mm, so an operation saved without it, given to the
+        // library as it is, keeps every stretch.
+        let schema = PencilFinishing::default().schema();
+        let spec = schema
+            .parameters
+            .iter()
+            .find(|s| s.name == pencil_parameter::MIN_LENGTH)
+            .unwrap();
+        assert_eq!(
+            spec.kind,
+            ParameterKind::LengthOrTool {
+                min: Some(0.0),
+                max: None,
+                default: crate::params::LengthOrTool::Millimetres(0.0),
+            }
         );
     }
 

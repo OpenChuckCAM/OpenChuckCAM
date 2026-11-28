@@ -54,6 +54,67 @@ impl RingRamp {
     pub fn start(&self) -> Option<(AxisPosition, Degrees)> {
         self.moves.first().copied()
     }
+
+    /// The depth per traverse this ramp cuts, mm (decision 0695, Q3 point
+    /// 4): round a ring, the deepest drop between one visit to a place and
+    /// the next a turn later, the ring itself (its floor) after the ramp's
+    /// last turn, so an uneven ring is measured at its deepest turn, not
+    /// its mean (CodeRabbit on #930, issue #951); on the axis, the rise over
+    /// its turns, at least one.
+    pub fn depth_per_traverse(&self) -> f64 {
+        let (Some((first, a_first)), Some((last, a_last))) =
+            (self.moves.first().copied(), self.moves.last().copied())
+        else {
+            return 0.0;
+        };
+        let rise = (first.height - last.height).max(0.0);
+        let turned = (a_last.0 - a_first.0).abs();
+        let travel: f64 = self
+            .moves
+            .windows(2)
+            .map(|w| match w {
+                [(q, b0), (p, a)] => super::entry::step_length(*q, *b0, *p, *a),
+                _ => 0.0,
+            })
+            .sum();
+        if self.on_axis.is_some() || travel <= EPS {
+            return rise / (turned / 360.0).max(1.0);
+        }
+        // Each move's angle back from the first cut point, falling to 0.
+        let back: Vec<f64> = self
+            .moves
+            .iter()
+            .map(|(_, a)| (a.0 - a_last.0).abs())
+            .collect();
+        // The ramp's height `phi` degrees back, between its moves.
+        let height_at = |phi: f64| -> Option<f64> {
+            let k = back.iter().position(|&o| o <= phi + 1e-12)?;
+            let (&(p1, _), &o1) = (self.moves.get(k)?, back.get(k)?);
+            let Some(j) = k.checked_sub(1) else {
+                return Some(p1.height);
+            };
+            let (&(p0, _), &o0) = (self.moves.get(j)?, back.get(j)?);
+            let f = if o0 - o1 > 1e-12 {
+                (phi - o1) / (o0 - o1)
+            } else {
+                0.0
+            };
+            Some(p1.height + f * (p0.height - p1.height))
+        };
+        self.moves
+            .iter()
+            .zip(&back)
+            .zip(&self.floors)
+            .map(|((&(p, _), &phi), &floor)| {
+                let next = if phi - 360.0 > 1e-9 {
+                    height_at(phi - 360.0).unwrap_or(floor)
+                } else {
+                    floor
+                };
+                p.height - next
+            })
+            .fold(0.0, f64::max)
+    }
 }
 
 /// Why a ring cannot be ramped round.
@@ -230,102 +291,6 @@ fn round(
     }
 }
 
-/// Plans the ramp of a spiral (decision 0543 D2 (a)): round the rotary axis
-/// at the spiral's start X and Y, before its first point, turning A the way
-/// `sign` says, from the approach distance above the highest stock there to
-/// the first cut point `head` at `a0`. `base` gives the height the ramp may
-/// not go under at an angle: the higher of the first point's height and
-/// where the tool meets the finished surface there. `step` is the largest A
-/// step between positions, degrees. Unlike a ring's, this stretch is not the
-/// pass's own path, so the gouge check on every position stays the proof.
-#[allow(clippy::too_many_arguments)]
-pub(super) fn plan_spiral(
-    b: &Builder<'_>,
-    stock: View<'_>,
-    approach: f64,
-    tan: f64,
-    head: AxisPosition,
-    a0: f64,
-    sign: f64,
-    probe_height: f64,
-    step: f64,
-    base: impl Fn(f64) -> f64,
-) -> Result<RingRamp, Refusal> {
-    // The stock round the axis at this X, probed every `step` degrees of a
-    // whole turn (the ramp covers at most whole turns of the same place).
-    let count = ((360.0 / step.max(1e-3)).ceil() as usize).clamp(4, 100_000);
-    let mut stock_top = f64::NEG_INFINITY;
-    let mut low = head.height;
-    for k in 0..count {
-        let a = a0 - sign * 360.0 * k as f64 / count as f64;
-        let over = AxisPosition {
-            height: probe_height,
-            ..head
-        };
-        let travel = (probe_height - head.height).max(0.0);
-        if let Some(d) = super::footprint_entry(b, stock, over, Degrees(a), probe_height, travel) {
-            stock_top = stock_top.max(probe_height - d);
-        }
-        // Where the tool meets nothing of the part the base is the first
-        // point's height, as below.
-        low = low.min(base(a).max(head.height));
-    }
-    let radius = head.across.hypot(head.height);
-    if stock_top <= head.height + EPS {
-        return Err(Refusal::NothingToDescend);
-    }
-    let top = stock_top + approach;
-    let mut delta = ((top - low) / tan / radius.max(EPS)).to_degrees();
-    loop {
-        let turns = delta / 360.0;
-        if !delta.is_finite() || turns > MAX_TURNS {
-            return Err(Refusal::TooManyTurns { radius, turns });
-        }
-        let n = ((delta / step.max(1e-3)).ceil() as usize).max(1);
-        let offsets: Vec<f64> = (0..=n)
-            .map(|k| delta * (1.0 - k as f64 / n as f64))
-            .collect();
-        let bases: Vec<f64> = offsets
-            .iter()
-            .map(|&phi| {
-                if phi <= 0.0 {
-                    head.height
-                } else {
-                    base(a0 - sign * phi).max(head.height)
-                }
-            })
-            .collect();
-        let positions: Vec<AxisPosition> = bases
-            .iter()
-            .map(|&height| AxisPosition { height, ..head })
-            .collect();
-        let travel = real_travel(&offsets, &positions);
-        let (h, steep) = super::path_ramp::heights(&travel, &bases, top, tan);
-        if h.first().is_some_and(|&h0| h0 >= top - 1e-9) {
-            let mut moves: Vec<(AxisPosition, Degrees)> = offsets
-                .iter()
-                .zip(h)
-                .map(|(&phi, height)| (AxisPosition { height, ..head }, Degrees(a0 - sign * phi)))
-                .collect();
-            if let Some(last) = moves.last_mut() {
-                *last = (head, Degrees(a0));
-            }
-            let mut floors = bases;
-            if let Some(last) = floors.last_mut() {
-                *last = head.height;
-            }
-            return Ok(RingRamp {
-                moves,
-                floors,
-                follows_steep_drop: steep,
-                on_axis: None,
-                steepened: None,
-            });
-        }
-        delta += 360.0;
-    }
-}
-
 /// The tip's travel relative to the part from the first of `offsets`
 /// (degrees back from the first cut point, falling) at each sample, on the
 /// path through `positions`: at each step, the arc at the step's mean
@@ -412,4 +377,57 @@ pub(super) fn plan_on_axis(
         on_axis: Some(turns),
         steepened: None,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    #![allow(clippy::unwrap_used)]
+    use super::*;
+
+    /// A ring ramp at the tip's radius 10 whose moves are every 90 degrees,
+    /// from `heights[0]` at `-90 · (n - 1)` degrees to the first point at
+    /// A 0; the ring itself (the floor) at height 10 all round.
+    fn ramp(heights: &[f64]) -> RingRamp {
+        let n = heights.len();
+        let moves = heights
+            .iter()
+            .enumerate()
+            .map(|(k, &h)| {
+                (
+                    AxisPosition {
+                        along: 5.0,
+                        across: 0.0,
+                        height: h,
+                    },
+                    Degrees(-90.0 * (n - 1 - k) as f64),
+                )
+            })
+            .collect();
+        RingRamp {
+            moves,
+            floors: vec![10.0; n],
+            follows_steep_drop: false,
+            on_axis: None,
+            steepened: None,
+        }
+    }
+
+    /// Issue #951, item 3 (CodeRabbit on #930): a ring ramp's depth per
+    /// traverse is the deepest drop between one turn and the next at the
+    /// same place, not the mean over its turns. Two turns down 2 mm, 0.2 mm
+    /// in the first and 1.8 mm in the second, cut 1.8 mm in a traverse,
+    /// though the mean is 1 mm. An even ramp keeps the mean.
+    #[test]
+    fn req_op_11_a_ring_ramp_s_depth_per_traverse_is_its_deepest_turn() {
+        let uneven = ramp(&[12.0, 11.95, 11.9, 11.85, 11.8, 11.35, 10.9, 10.45, 10.0]);
+        let depth = uneven.depth_per_traverse();
+        assert!((depth - 1.8).abs() < 1e-9, "{depth}");
+        let even = ramp(&[12.0, 11.75, 11.5, 11.25, 11.0, 10.75, 10.5, 10.25, 10.0]);
+        let depth = even.depth_per_traverse();
+        assert!((depth - 1.0).abs() < 1e-9, "{depth}");
+        // Less than a turn: the whole drop to the ring beneath.
+        let short = ramp(&[10.6, 10.4, 10.2, 10.0]);
+        let depth = short.depth_per_traverse();
+        assert!((depth - 0.6).abs() < 1e-9, "{depth}");
+    }
 }

@@ -14,6 +14,14 @@ Every command is in a menu, and most have a key. **Help > Keyboard shortcuts** s
 
 A disabled button is not in the <kbd>Tab</kbd> order. Hold the mouse over it to read why it is disabled; for the main button at the bottom right, the bottom bar says the same.
 
+## Typing values
+
+- <kbd>Enter</kbd> applies the value you typed, and so does moving to another field of the same panel. <kbd>Esc</kbd> puts back the value last applied.
+- If you leave a panel such as the Inspector with a value typed but not applied (you choose another item, another step, or generate), the program asks first: **Keep** applies the values, **Discard** puts them back, **Cancel** returns you to the field.
+- In a window such as import, **New operation**, **Rename** or **Post and export**, its own buttons take what you typed, and **Cancel**, the close box or <kbd>Esc</kbd> close it without asking.
+- Several values of a setup kept together are applied as one step, which one **Undo** reverses.
+- A value that is refused stays in its box with the reason, and does not stop you fixing what refused it, for example moving a tab that a new stock size would leave outside the stock (see [Tabs](../concepts/tabs.md)).
+
 ## Shortcuts
 
 | Keys | Command |

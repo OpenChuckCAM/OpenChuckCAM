@@ -19,6 +19,9 @@
 //!   closest distance to the stock's boundary at each surface sample, with
 //!   the worst remaining and overcut values and where they are (SIM-05).
 //! - [`stock_mesh`]: the stock as a mesh for the viewport; plain data only.
+//! - [`ToolLoad`]: what each move removed, and its summary against a limit
+//!   ([`LoadSummary`]): the engaged length, the cut section and the removal
+//!   rate (SIM-16).
 //!
 //! Results never depend on the thread count (NFR-06): work runs on the
 //! caller's rayon pool in fixed pieces, each column is cut alone, and span
@@ -29,6 +32,7 @@
 mod deviation;
 mod dexel;
 mod display;
+mod load;
 mod reach;
 mod sample;
 mod simulation;
@@ -41,6 +45,7 @@ pub use deviation::{
 };
 pub use dexel::{DexelStock, MAX_COLUMNS, PackedStock, Pose};
 pub use display::stock_mesh;
+pub use load::{LoadSummary, MoveLoad, Stretch, ToolLoad};
 pub use reach::{Reach, ReachClass, ReachOptions, classify_reach};
 pub use sample::{MAX_SAMPLES_PER_MOVE, Sampling, sample_move};
 pub use simulation::{BATCH_POSES, Checkpoint, GroupResult, RapidCut, Simulator};

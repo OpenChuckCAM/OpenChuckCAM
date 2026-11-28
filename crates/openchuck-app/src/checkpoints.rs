@@ -476,6 +476,44 @@ pub fn locate(config: &Path, missing: &Candidate, folder: &Path) -> Result<Candi
     })
 }
 
+/// Forgets this computer's note that `missing` kept recovery data, so its
+/// Messages line goes for good (issue #681). Only the note is removed: the
+/// recovery data itself was kept inside the project's folder, which is not
+/// there now (or no longer holds it). Refused while the folder still holds
+/// this project's recovery data: that project is opened to recover or
+/// discard it. Such a project's line offers Open, not Locate, so the refusal
+/// only guards against a folder put back meanwhile.
+pub fn forget(config: &Path, missing: &Candidate) -> Result<(), String> {
+    match Catalog::read(&missing.folder) {
+        Ok(catalog) if catalog.project_id.as_deref() == Some(missing.project_id.as_str()) => {
+            return Err(format!(
+                "'{}' still holds this project's recovery data: open that project to recover \
+                 or discard its kept changes.",
+                missing.folder.display()
+            ));
+        }
+        Ok(_) => {}
+        // Recovery data that cannot be read may still be this project's:
+        // keep the line that leads to it.
+        Err(e) => {
+            return Err(format!(
+                "'{}' has recovery data that cannot be read ({e}), so this project is not \
+                 forgotten. Open the folder to look at it.",
+                missing.folder.display()
+            ));
+        }
+    }
+    let key = index_key(&missing.folder, &missing.project_id);
+    let path = config
+        .join("checkpoint-projects")
+        .join(format!("{key}.toml"));
+    match std::fs::remove_file(path) {
+        Ok(()) => Ok(()),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()),
+        Err(e) => Err(e.to_string()),
+    }
+}
+
 fn index_key(folder: &Path, project_id: &str) -> String {
     let mut bytes = folder.as_os_str().as_encoded_bytes().to_vec();
     bytes.push(0);
@@ -513,5 +551,118 @@ mod failure_tests {
                 .iter()
                 .any(|n| matches!(n, Notice::Closed { problem: Some(_) }))
         );
+    }
+}
+
+#[cfg(test)]
+mod forget_tests {
+    #![allow(clippy::unwrap_used)]
+    use super::*;
+
+    /// Issue #681: the note of a project whose folder was deleted, or no
+    /// longer holds its recovery data, is forgotten, and discovery no longer
+    /// finds it; another project's note stays.
+    #[test]
+    fn req_prj_08_forgetting_a_deleted_projects_recovery_removes_only_its_note() {
+        let root = std::env::temp_dir().join(format!("openchuck-forget-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        let config = root.join("config");
+        let (gone, kept) = (root.join("gone"), root.join("kept"));
+        std::fs::create_dir_all(&gone).unwrap();
+        std::fs::create_dir_all(&kept).unwrap();
+        register(&config, &gone, "gone-id").unwrap();
+        register(&config, &kept, "kept-id").unwrap();
+        std::fs::remove_dir_all(&gone).unwrap();
+        let found = discover(&config);
+        assert_eq!(found.projects.len(), 2);
+        let missing = found
+            .projects
+            .iter()
+            .find(|c| c.project_id == "gone-id")
+            .unwrap();
+        let present = found
+            .projects
+            .iter()
+            .find(|c| c.project_id == "kept-id")
+            .unwrap();
+        forget(&config, missing).unwrap();
+        let after = discover(&config);
+        assert_eq!(after.projects.len(), 1, "another project's note stays");
+        assert_eq!(after.projects[0].project_id, "kept-id");
+        // A folder that is there but holds no recovery data is forgotten too.
+        forget(&config, present).unwrap();
+        assert!(discover(&config).projects.is_empty());
+        // Forgetting again changes nothing.
+        forget(&config, missing).unwrap();
+        std::fs::remove_dir_all(&root).unwrap();
+    }
+
+    /// A folder that still holds that project's recovery data is not
+    /// forgotten: its kept changes are recovered or discarded by opening the
+    /// project (decision record 0689 item 2; issue #681).
+    #[test]
+    fn req_prj_08_a_folder_that_still_holds_its_recovery_is_not_forgotten() {
+        let root = std::env::temp_dir().join(format!("openchuck-keep-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        let config = root.join("config");
+        let folder = root.join("project");
+        std::fs::create_dir_all(&folder).unwrap();
+        let id = Store::open(&folder)
+            .unwrap()
+            .metadata(openchuck_project::recovery::Kind::Periodic, 0, 0)
+            .project_id;
+        register(&config, &folder, &id).unwrap();
+        let found = discover(&config);
+        let line = found
+            .projects
+            .iter()
+            .find(|c| c.project_id == id)
+            .expect("the project is listed");
+        let refused = forget(&config, line).unwrap_err();
+        assert!(
+            refused.contains("still holds this project's recovery data"),
+            "{refused}"
+        );
+        assert_eq!(discover(&config).projects.len(), 1, "the note stays");
+        std::fs::remove_dir_all(&root).unwrap();
+    }
+
+    /// Recovery data that cannot be read may still be the project's, so the
+    /// line that leads to it is kept (from the review of pull request #893;
+    /// issue #681). Here the recovery folder is a symbolic link, which the
+    /// store refuses to read.
+    #[cfg(unix)]
+    #[test]
+    fn req_prj_08_req_nfr_07_unreadable_recovery_data_is_not_forgotten() {
+        let root =
+            std::env::temp_dir().join(format!("openchuck-unreadable-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        let config = root.join("config");
+        let folder = root.join("project");
+        let elsewhere = root.join("elsewhere");
+        std::fs::create_dir_all(&folder).unwrap();
+        std::fs::create_dir_all(&elsewhere).unwrap();
+        let id = Store::open(&folder)
+            .unwrap()
+            .metadata(openchuck_project::recovery::Kind::Periodic, 0, 0)
+            .project_id;
+        register(&config, &folder, &id).unwrap();
+        let recovery = std::fs::read_dir(&folder)
+            .unwrap()
+            .map(|e| e.unwrap().path())
+            .find(|p| p.is_dir())
+            .expect("the recovery folder");
+        std::fs::rename(&recovery, elsewhere.join("moved")).unwrap();
+        std::os::unix::fs::symlink(elsewhere.join("moved"), &recovery).unwrap();
+        let found = discover(&config);
+        let line = found
+            .projects
+            .iter()
+            .find(|c| c.project_id == id)
+            .expect("the project is listed");
+        let refused = forget(&config, line).unwrap_err();
+        assert!(refused.contains("cannot be read"), "{refused}");
+        assert_eq!(discover(&config).projects.len(), 1, "the note stays");
+        std::fs::remove_dir_all(&root).unwrap();
     }
 }

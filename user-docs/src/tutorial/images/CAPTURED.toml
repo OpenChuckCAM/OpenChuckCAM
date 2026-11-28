@@ -1,15 +1,10 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 # Written by user-docs/tools/capture.py. Add reviewed_at = "<commit>" after checking the
 # screens against a later build without re-capturing (user-docs/STYLE.md, Figures).
-captured_at = "867047353f9647fa0796204dc36eba93419df086"
-# captured_at names a commit of lane A11Y-FOCUS (#858) that the squash merge dropped, so it is not in main's history;
-# the screens first appear in main at 445286b, the squash commit of #858.
-captured_on = "2026-11-23"
+captured_at = "4dc41a5e3758df6e0149e41412831b37fadc0f32"
+captured_on = "2026-11-25"
 renderer = "Mesa lavapipe (software Vulkan) on Xvfb"
 window = "1920x1080"
-# Reviewed at 445286b (23 Nov 2026), main after #858. The screens were captured on #858's build, which includes #852,
-# #841, #843 and #838, so none of those changes is missing from them. #858's own record says its only change to the
-# screen folders after the capture is tests (field_row.rs, shell/focus_tests.rs); its capture and review commits are
-# not in main's history, so that statement is taken from the record and not re-checked commit by commit. The figures
-# were looked at: figure 7 and the earlier read of figure 17 show the same content as the #852 capture.
-reviewed_at = "445286b1203f609d974e8c8deba0d6a066c179be"
+# Reviewed for #759 (lane UI-BUGS, PR 3): no tutorial screen shows an operation's Geometry
+# section or a selection set, which is all that commit changes on screen.
+reviewed_at = "54a2d6a0fa4d86d64c47cd75f6ec9b0e4f72ee0b"

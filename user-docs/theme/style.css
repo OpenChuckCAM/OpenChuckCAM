@@ -134,6 +134,14 @@ kbd { border: 1px solid var(--muted); border-bottom-width: 2px; border-radius: 2
 
 hr { border: 0; border-top: 1px solid var(--rule); margin: 2rem 0; }
 
+/* ---------- Sections of changes (release notes, decision 0704) ---------- */
+/* Each section folds, closed: its title is the heading, with the number of its bullets. */
+details.changes { margin: 0 0 0.4em; }
+details.changes > summary { cursor: pointer; }
+details.changes > summary > h3 { display: inline; margin: 0; }
+details.changes[open] > summary { margin-bottom: 0.6em; }
+details.changes > ul { margin-left: 0.2em; }
+
 /* ---------- Numbered procedures ---------- */
 /* An ordered list directly after an "Do this" lead sentence; numbers set in the margin. */
 .content ol { counter-reset: step; list-style: none; padding-left: 2.4rem; }

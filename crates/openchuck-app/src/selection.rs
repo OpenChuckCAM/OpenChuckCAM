@@ -1142,7 +1142,8 @@ pub(crate) struct ResolvedRegion {
     /// The avoid and check sets that only warn, each with its name (decision
     /// record 0229 item 1).
     watched: Vec<(String, Protection, Box<dyn SurfaceSource>)>,
-    /// A warning for each set that limits nothing (set to Ignore).
+    /// A notice, information, for each set that limits nothing (set to
+    /// Ignore; decision 0696 item 8).
     pub(crate) warnings: Vec<Notice>,
     /// The selected triangles that have a stock to leave of their own,
     /// grouped by amount; where sets overlap the largest amount applies
@@ -1424,11 +1425,7 @@ pub(crate) fn resolve(
                         watched.push((name(), protection, s));
                     }
                 }
-                OnBreak::Ignore => warnings.push(crate::operation::limits_nothing(
-                    &format!("{role} set '{}'", name()),
-                    "it is set to Ignore: the tool is not kept clear of it",
-                    "Set it to Cut short or Warn only",
-                )),
+                OnBreak::Ignore => warnings.push(crate::operation::ignored(role, &name())),
             }
         }
     }

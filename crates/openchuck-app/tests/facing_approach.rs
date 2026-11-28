@@ -606,46 +606,228 @@ fn req_op_24_req_set_09_baluster_flat_part_extent_stops_short_of_the_held_start(
     }
 }
 
-/// The owner's direction (23 Nov 2026): the view's label for what is left
-/// beside the grip is short, and the numbers are in the notes. Box facing
-/// of all four sides on the Baluster set-up stops short of the held start
-/// on each: the view shows one label, "Not faced: held start" (21
-/// characters, at most 24; a draft adds the existing "<operation> · draft
-/// · " lead), in the draft and on the generated path, and no label carries
-/// the stop X.
-#[test]
-fn req_ui_03_req_op_24_baluster_overlay_marks_the_grip_with_one_short_label() {
-    let dir = project(
-        "box-overlay",
-        "positive_z = true\npositive_y = true\nnegative_z = true\nnegative_y = true\n\
-         extent = \"whole_stock\"\n",
-    );
+/// A copy of the Baluster set-up with Facing of `shape` and `extra`, its
+/// draft scene and its scene with the generated path, and the run.
+fn scenes(
+    name: &str,
+    shape: &str,
+    extra: &str,
+) -> (
+    openchuck_app::scene::SceneView,
+    openchuck_app::scene::SceneView,
+    Regeneration,
+) {
+    let dir = project(name, extra);
     let operation = dir.join(format!("operations/{FACING}.toml"));
     let text = std::fs::read_to_string(&operation).unwrap();
     std::fs::write(
         &operation,
-        text.replace("shape = \"end\"", "shape = \"box\""),
+        text.replace("shape = \"end\"", &format!("shape = \"{shape}\"")),
     )
     .unwrap();
     let app = Application::open(&dir, Threads::Exactly(2)).unwrap();
     let run = std::sync::Arc::new(app.start_regenerate().wait().unwrap());
     let draft = app.start_scene(None).wait().unwrap();
-    let generated = app.start_scene_with_facing(None, Some(run)).wait().unwrap();
+    let generated = app
+        .start_scene_with_facing(None, Some(run.clone()))
+        .wait()
+        .unwrap();
     std::fs::remove_dir_all(dir).unwrap();
+    (draft, generated, std::sync::Arc::try_unwrap(run).unwrap())
+}
+
+/// The draft scene alone of a copy of the Baluster set-up with Facing of
+/// the given shape, for a set-up that need not generate.
+fn draft_scene(name: &str, shape: &str, extra: &str) -> openchuck_app::scene::SceneView {
+    let dir = project(name, extra);
+    let operation = dir.join(format!("operations/{FACING}.toml"));
+    let text = std::fs::read_to_string(&operation).unwrap();
+    std::fs::write(
+        &operation,
+        text.replace("shape = \"end\"", &format!("shape = \"{shape}\"")),
+    )
+    .unwrap();
+    let app = Application::open(&dir, Threads::Exactly(2)).unwrap();
+    let draft = app.start_scene(None).wait().unwrap();
+    std::fs::remove_dir_all(dir).unwrap();
+    draft
+}
+
+/// The Facing labels of a scene, with their kinds.
+fn facing_labels(
+    view: &openchuck_app::scene::SceneView,
+) -> Vec<(openchuck_app::facing_labels::FacingLabel, String)> {
+    view.labels
+        .iter()
+        .filter_map(|l| l.facing.map(|t| (t.kind, l.text.clone())))
+        .collect()
+}
+
+/// Issue #881 (the owner's answers of 25 Nov 2026, decision record
+/// 0702): each Facing label in the view is at most 32 characters and
+/// says what its number is measured from. On the Baluster set-up, Box
+/// facing of all four sides gives one label per face, its finished plane's
+/// distance from the rotary axis; one per pair of opposite faces, the
+/// distance between them; and one where the faces stop beside the held
+/// start, with the X they are faced from. No label carries the operation's
+/// name, "draft" or a margin of zero, in the draft and on the generated
+/// path alike.
+#[test]
+fn req_ui_03_req_op_24_baluster_box_labels_are_short_and_say_what_they_measure() {
+    let (draft, generated, _) = scenes(
+        "box-labels",
+        "box",
+        "positive_z = true\npositive_y = true\nnegative_z = true\nnegative_y = true\n\
+         extent = \"whole_stock\"\n",
+    );
+    use openchuck_app::facing_labels::FacingLabel;
     for (what, view) in [("draft", &draft), ("generated", &generated)] {
-        let marks: Vec<_> = view
-            .labels
-            .iter()
-            .filter(|l| l.text.contains("Not faced"))
-            .collect();
-        assert_eq!(marks.len(), 1, "{what}: {marks:?}");
-        // A draft label carries the existing "<operation> · draft · " lead.
-        assert!(marks[0].text.ends_with("Not faced: held start"), "{what}");
-        let own = &marks[0].text[marks[0].text.find("Not faced").unwrap()..];
-        assert!(own.chars().count() <= 24, "{what}: {own}");
-        assert!(
-            !view.labels.iter().any(|l| l.text.contains("25.490")),
-            "{what}: the stop X belongs in the notes, not the view"
+        let labels = facing_labels(view);
+        for (_, text) in &labels {
+            assert!(text.chars().count() <= 32, "{what}: {text}");
+            for word in ["draft", "End facing", "margin", "tessellation"] {
+                assert!(!text.contains(word), "{what}: {text}");
+            }
+        }
+        let of = |kind: FacingLabel| -> Vec<&str> {
+            labels
+                .iter()
+                .filter(|(k, _)| *k == kind)
+                .map(|(_, t)| t.as_str())
+                .collect()
+        };
+        let mut faces = of(FacingLabel::Face);
+        faces.sort_unstable();
+        assert_eq!(
+            faces,
+            [
+                "Face A 0°: 13.650 mm from axis",
+                "Face A 180°: 13.650 mm from axis",
+                "Face A 270°: 13.650 mm from axis",
+                "Face A 90°: 13.650 mm from axis",
+            ],
+            "{what}"
         );
+        let mut apart = of(FacingLabel::Separation);
+        apart.sort_unstable();
+        assert_eq!(
+            apart,
+            [
+                "A 0° to A 180°: 27.300 mm apart",
+                "A 90° to A 270°: 27.300 mm apart"
+            ],
+            "{what}"
+        );
+        assert_eq!(
+            of(FacingLabel::Stop),
+            ["Faced from X 25.490 (held start)"],
+            "{what}"
+        );
+        assert!(of(FacingLabel::Margin).is_empty(), "{what}");
     }
+}
+
+/// A margin that is not zero has one label of its own, on the margin
+/// outline, saying how far past the extent's edges Facing goes.
+#[test]
+fn req_ui_03_req_op_24_a_facing_margin_has_one_label_of_its_own() {
+    let (draft, _, _) = scenes(
+        "box-margin",
+        "box",
+        "positive_z = true\nnegative_z = true\nextent = \"whole_stock\"\n\
+         extent_margin = 0.5\n",
+    );
+    let margins: Vec<String> = facing_labels(&draft)
+        .into_iter()
+        .filter(|(k, _)| *k == openchuck_app::facing_labels::FacingLabel::Margin)
+        .map(|(_, t)| t)
+        .collect();
+    assert_eq!(margins, ["Margin: 0.500 mm past the edges"]);
+}
+
+/// Issue #881: Round facing labels its diameter and X range as a face, and
+/// where it stops beside the held start as a stop, each in 32 characters or
+/// fewer, with its stop ring tagged as a stop.
+#[test]
+fn req_ui_03_req_op_24_round_facing_labels_its_face_and_its_stop() {
+    let draft = draft_scene("round-labels", "round", "size = 30.0\nextent = \"part\"\n");
+    let labels = facing_labels(&draft);
+    let stops: Vec<&String> = labels
+        .iter()
+        .filter(|(k, _)| *k == openchuck_app::facing_labels::FacingLabel::Stop)
+        .map(|(_, t)| t)
+        .collect();
+    assert_eq!(stops.len(), 1, "{labels:?}");
+    assert!(stops[0].starts_with("Faced from X ") && stops[0].ends_with(" (held start)"));
+    assert!(labels.iter().any(|(k, t)| {
+        *k == openchuck_app::facing_labels::FacingLabel::Face && t.starts_with('Ø')
+    }));
+    for (_, text) in &labels {
+        assert!(text.chars().count() <= 32, "{text}");
+    }
+    assert!(draft.lines.iter().any(|l| {
+        l.facing
+            .is_some_and(|t| t.kind == openchuck_app::facing_labels::FacingLabel::Stop)
+    }));
+}
+
+/// Issue #895 item 1: legacy Flat's face is finished from where its
+/// passes reach the face, read from the cut (decision 0685). Before Generate
+/// the draft marks the keep-out limit; with the generated path shown, the
+/// view has one stop line and one stop label, at the X the note gives, not
+/// the draft's.
+#[test]
+fn req_ui_03_req_op_24_the_generated_flat_stop_marker_is_where_its_cut_stops() {
+    let (draft, generated, run) = scenes(
+        "flat-stop",
+        "flat",
+        "angles = \"0\"\nsize = 16.0\nextent = \"part\"\n",
+    );
+    let limit = HELD_END + RADIUS + HELD_CLEAR;
+    let stops = |view: &openchuck_app::scene::SceneView| -> Vec<String> {
+        facing_labels(view)
+            .into_iter()
+            .filter(|(k, _)| *k == openchuck_app::facing_labels::FacingLabel::Stop)
+            .map(|(_, t)| t)
+            .collect()
+    };
+    assert_eq!(
+        stops(&draft),
+        [format!("Faced from X {limit:.3} (held start)")]
+    );
+    let note = grip_note(&run);
+    let at = note.find("finished from X ").unwrap() + "finished from X ".len();
+    let x: f64 = note[at..]
+        .split(|c: char| !(c.is_ascii_digit() || c == '.'))
+        .next()
+        .unwrap()
+        .parse()
+        .unwrap();
+    assert!(x > limit + 0.5, "the cut stops past the limit here: {x}");
+    assert_eq!(
+        stops(&generated),
+        [format!("Faced from X {x:.3} (held start)")]
+    );
+    let stop_lines: Vec<_> = generated
+        .lines
+        .iter()
+        .filter(|l| {
+            l.facing
+                .is_some_and(|t| t.kind == openchuck_app::facing_labels::FacingLabel::Stop)
+        })
+        .collect();
+    assert_eq!(stop_lines.len(), 1, "{stop_lines:?}");
+    assert!(
+        stop_lines[0].points.iter().all(|p| (p.x - x).abs() < 1e-3),
+        "{stop_lines:?}"
+    );
+    // The draft is said once, in a note, until the operation is generated.
+    let draft_note = |view: &openchuck_app::scene::SceneView| {
+        view.notes
+            .iter()
+            .filter(|n| n.contains("are a draft until you generate"))
+            .count()
+    };
+    assert_eq!(draft_note(&draft), 1, "{:?}", draft.notes);
+    assert_eq!(draft_note(&generated), 0, "{:?}", generated.notes);
 }

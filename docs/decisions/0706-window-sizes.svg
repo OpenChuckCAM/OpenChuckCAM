@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="600" viewBox="0 0 1920 1200" font-family="sans-serif" font-size="26">
+  <title>The window sizes of UI-16 drawn to scale on a 1920 by 1080 screen: the verified target, a 1920 by 1080 window and a window maximised on a 1920 by 1080 display (about 1920 by 1000), both at 100% scale; and the best-effort sizes in logical pixels, 1600 by 900 (the application at 120%), 1536 by 864 (Windows at 125%), 1366 by 768 (the old target, now the best-effort tests and the compact-window threshold) and 1280 by 720 (Windows at 150%)</title>
+  <rect width="1920" height="1200" fill="#1e1f22"/>
+  <!-- the screen -->
+  <rect x="0" y="0" width="1920" height="1080" fill="#26282c" stroke="#5f6368" stroke-width="2"/>
+  <!-- the task bar of a maximised window -->
+  <rect x="0" y="1032" width="1920" height="48" fill="#33363b"/>
+  <text x="20" y="1065" fill="#9aa0a6">Task bar</text>
+  <!-- the shell's regions at 1920 x 1080, default sizes (specification section 3) -->
+  <g fill="#3a3d42" opacity="0.55">
+    <rect x="0" y="0" width="1920" height="32"/>
+    <rect x="0" y="32" width="1920" height="44"/>
+    <rect x="0" y="76" width="264" height="956"/>
+    <rect x="1580" y="76" width="340" height="956"/>
+    <rect x="264" y="772" width="1316" height="260"/>
+    <rect x="0" y="1032" width="1920" height="48" opacity="0"/>
+  </g>
+  <g fill="#bdc1c6" font-size="22">
+    <text x="20" y="24">Title bar 32</text>
+    <text x="20" y="62">Workflow bar 44</text>
+    <text x="20" y="420">Project panel 264</text>
+    <text x="1600" y="420">Inspector 340</text>
+    <text x="284" y="980">Dock 260</text>
+    <text x="700" y="420">Viewport</text>
+  </g>
+  <!-- verified: 1920 x 1080 -->
+  <rect x="3" y="3" width="1914" height="1074" fill="none" stroke="#4caf50" stroke-width="6"/>
+  <text x="1900" y="112" fill="#81c995" text-anchor="end" font-weight="bold">1920 × 1080 at 100%: verified (the new target)</text>
+  <!-- verified: maximised, about 1920 x 1000 -->
+  <rect x="10" y="32" width="1900" height="1000" fill="none" stroke="#4caf50" stroke-width="4" stroke-dasharray="24 12"/>
+  <text x="1900" y="1015" fill="#81c995" text-anchor="end" font-weight="bold">Maximised on a 1920 × 1080 display, about 1920 × 1000 at 100%: verified</text>
+  <!-- best effort -->
+  <rect x="0" y="0" width="1600" height="900" fill="none" stroke="#fdd663" stroke-width="3"/>
+  <text x="1585" y="890" fill="#fdd663" text-anchor="end">1600 × 900: application at 120%</text>
+  <rect x="0" y="0" width="1536" height="864" fill="none" stroke="#fdd663" stroke-width="3" stroke-dasharray="10 8"/>
+  <text x="1521" y="856" fill="#fdd663" text-anchor="end">1536 × 864: Windows at 125%</text>
+  <rect x="0" y="0" width="1366" height="768" fill="none" stroke="#f28b82" stroke-width="5"/>
+  <text x="1351" y="796" fill="#f28b82" text-anchor="end" font-weight="bold">1366 × 768: the old target, now best-effort tests</text>
+  <text x="1351" y="824" fill="#f28b82" text-anchor="end">and the compact-window threshold (dock folds below it)</text>
+  <rect x="0" y="0" width="1280" height="720" fill="none" stroke="#f28b82" stroke-width="3" stroke-dasharray="10 8"/>
+  <text x="1265" y="706" fill="#f28b82" text-anchor="end" font-size="22">1280 × 720: Windows at 150%</text>
+  <!-- legend -->
+  <g font-size="26">
+    <rect x="20" y="1110" width="40" height="8" fill="#4caf50"/>
+    <text x="72" y="1122" fill="#e8eaed">Verified (UI-16): no overlap, no clipped text, panels resize and collapse</text>
+    <rect x="20" y="1160" width="40" height="8" fill="#fdd663"/>
+    <rect x="980" y="1160" width="40" height="8" fill="#f28b82"/>
+    <text x="72" y="1172" fill="#e8eaed">Best effort: in logical pixels on a 1920 × 1080 screen</text>
+    <text x="1032" y="1172" fill="#e8eaed">Best effort, tested: nothing fails, every command reachable</text>
+  </g>
+</svg>

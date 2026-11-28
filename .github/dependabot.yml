@@ -4,29 +4,36 @@
 # (verification plan section 7; docs/open-items.md OI-18). Every pin has a row
 # in docs/dependencies.md, so `cargo xtask records` fails a bump until its row
 # is updated: each update gets an NFR-14 look.
+#
+# Monthly, and the pull requests Dependabot opens are notices: they stay drafts
+# and are never merged as they are. A dependency lane takes them, checks each
+# bump and opens one reviewed pull request that updates the pins, both lock
+# files and the register rows (decision 0687, docs/dependencies.md).
 version: 2
 updates:
   - package-ecosystem: cargo
-    directory: "/"
-    schedule:
-      interval: weekly
-      day: monday
-    open-pull-requests-limit: 5
-    groups:
-      # The UI and graphics stack moves together (architecture section 13, API churn).
-      ui-graphics:
-        patterns: ["eframe", "egui*", "epaint*", "wgpu*"]
-      test-tools:
-        patterns: ["proptest", "insta", "assert_cmd", "criterion"]
-  - package-ecosystem: cargo
-    directory: "/fuzz"
+    # The fuzz workspace pins some of the same crates (toml) and its lock file
+    # carries the product crates' dependencies, so it moves with the main one.
+    directories: ["/", "/fuzz"]
     schedule:
       interval: monthly
+    open-pull-requests-limit: 5
+    groups:
+      # The UI and graphics stack moves together (architecture section 13, API
+      # churn). First, so these crates never fall into the group below.
+      ui-graphics:
+        patterns: ["eframe", "egui*", "epaint*", "wgpu*"]
+      # Every other crate's minor and patch updates in one pull request.
+      # Dependabot reads 0.x.y as major.minor.patch, so a 0.x minor (0.10 to
+      # 0.11) lands here too; the lane reads each one's release notes.
+      # Majors are left out and arrive one pull request each.
+      cargo-minor-patch:
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
   - package-ecosystem: github-actions
     directory: "/"
     schedule:
-      interval: weekly
-      day: monday
+      interval: monthly
     groups:
       actions:
         patterns: ["*"]
