@@ -1,10 +1,10 @@
 # 0709: A click on empty space in the project panel clears the selection (UI-06, UI-14; lane UI-FOLLOWUPS)
 
-- **Status:** Proposed by lane UI-FOLLOWUPS on 28 Nov 2026. It is built to the project owner's answers of 27 Nov 2026, relayed by the coordinator (decision 0049): Q1 A ("Keep Esc consistent for now": only a click on empty tree space clears the selection) and Q2 A (with nothing selected, the inspector shows what it shows when a project opens). The record itself waits for the owner's acceptance (OI-2280).
+- **Status:** Accepted by the project owner on 28 Nov 2026, relayed by the coordinator (decision 0049), with the keyboard question settled A (Q3 below; OI-2280 closed). Proposed by lane UI-FOLLOWUPS on 28 Nov 2026. It is built to the project owner's answers of 27 Nov 2026, relayed by the coordinator: Q1 A ("Keep Esc consistent for now": only a click on empty tree space clears the selection) and Q2 A (with nothing selected, the inspector shows what it shows when a project opens).
 - **Date:** 28 Nov 2026.
 - **Requirements:** UI-06 (the project tree), UI-14 (keyboard access; unchanged here, see the question in OI-2280).
 - **Amends:** [specification](../ui-design/ui-specification.md) section 6 (a new paragraph, *Clearing the selection*) and section 16 (a *Selection* line), edited in the same pull request. Step 5 of the owner check in [decision 0707](0707-the-plain-key-generates-every-stale-operation.md) says a click on empty tree space keeps the operation selected; that is no longer so, and that record's check is not repeated.
-- **Open items:** adds OI-2280 (the owner's acceptance of this record, and the keyboard question).
+- **Open items:** adds OI-2280 (the owner's acceptance of this record, and the keyboard question), closed by the acceptance of 28 Nov 2026.
 
 Numbering: decision 0709 and OI-2280, the next free across `main` and the unmerged branches on 28 Nov 2026; the coordinator confirms them at release. No project schema number and no library change.
 
@@ -15,6 +15,7 @@ Issue #925 (the owner's request of 25 Nov 2026). Once an operation was selected,
 The lane asked two questions (relayed by the coordinator):
 - **Q1:** what clears the selection? A: a click on empty tree space only; B: that, and Esc as the last step of its order; C: B, and a click on the view background. The owner chose A.
 - **Q2:** with nothing selected, what does the inspector show? A: what it shows when a project opens; B: nothing. The owner chose A.
+- **Q3** (raised by this record, OI-2280): with Esc unchanged, clearing the selection has no keyboard route, while UI-14 asks for every command from the menus and the keyboard. A: accept it as is; B: a menu item, Edit > Select none, with no key; C: revisit Esc later. The owner chose A (28 Nov 2026, relayed): the click is a convenience, not a command, so UI-14 is not engaged, and there is no menu item and no key.
 
 ## Decision
 
@@ -23,7 +24,7 @@ The lane asked two questions (relayed by the coordinator):
    - a click on a row, a group header or its "+", a row's own controls (drag handle, enable box, eye) or the scroll bar, which do what they do there;
    - picking, or a shown selection set, which keep their own ways out (Esc, another step).
 3. While a context menu is open, or a text field has the keyboard, the click only closes the menu or ends the edit.
-4. Esc is unchanged and does not clear the selection. There is no click on the view background.
+4. Esc is unchanged and does not clear the selection. There is no click on the view background, no menu item and no key (Q3 A): the click is a convenience, not a command, so UI-14 is not engaged.
 
 Clearing the selection is part of the same interface step as choosing a row. If the inspector holds a typed value not yet applied, it asks first, as it does for choosing another row.
 
