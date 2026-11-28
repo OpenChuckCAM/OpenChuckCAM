@@ -106,6 +106,62 @@ class Stamp(unittest.TestCase):
         with self.assertRaises(ValueError):
             build.fill(TEMPLATE, version="0.31.0", tag="app-v0.32.0", commit="abc1234", date="2026-11-02", notice=NOTICE)
 
+def _h3(name, slug):
+    return f'<h3 id="{slug}"><a class="header" href="#{slug}">{name}</a></h3>'
+
+
+class ChangeSections(unittest.TestCase):
+    """Decision 0704: on the release notes page, each section of changes folds, closed, with the
+    number of its bullets in its title, and its fixes (a bold lead starting "Fixed:") come last."""
+
+    UI = _h3("UI and workflow", "ui-and-workflow")
+    OPS = _h3("Operations and strategies", "operations-and-strategies")
+
+    def fold(self, html):
+        return build.fold_sections(html, "release-notes.html")
+
+    def test_changelog_sections_a_section_folds_closed_with_its_count(self):
+        html = self.fold(f'{self.UI}\n<ul>\n<li><strong>A.</strong> One.</li>\n<li><strong>B.</strong> Two.</li>\n</ul>\n<p>After.</p>')
+        self.assertIn('<details class="changes"><summary><h3 id="ui-and-workflow">UI and workflow (2)</h3></summary>\n<ul>\n'
+                      '<li><strong>A.</strong> One.</li>\n<li><strong>B.</strong> Two.</li>\n</ul></details>\n<p>After.</p>', html)
+        self.assertNotIn("<details open", html)
+        self.assertNotIn('class="header"', html, "a link in the title would stop it opening the section")
+
+    def test_changelog_sections_the_fixes_come_last_in_page_order(self):
+        html = self.fold(f'{self.OPS}\n<ul>\n<li><strong>Fixed: a marker.</strong> One.</li>\n<li><strong>Facing.</strong> Two.</li>\n'
+                         '<li><p><strong>Fixed: a label.</strong> Three.</p>\n<p>More.</p>\n</li>\n<li><strong>Swarf.</strong> Four.</li>\n</ul>')
+        order = [html.index(x) for x in ("Facing.", "Swarf.", "Fixed: a marker.", "Fixed: a label.")]
+        self.assertEqual(order, sorted(order), html)
+        self.assertIn("Operations and strategies (4)", html)
+
+    def test_changelog_sections_a_nested_list_is_part_of_its_bullet(self):
+        html = self.fold(f'{self.UI}\n<ul>\n<li><strong>A.</strong> One.\n<ul>\n<li>sub</li>\n<li>sub</li>\n</ul>\n</li>\n'
+                         '<li><strong>B.</strong> Two.</li>\n</ul>')
+        self.assertIn("UI and workflow (2)", html)
+        self.assertIn("<li><strong>A.</strong> One.\n<ul>\n<li>sub</li>\n<li>sub</li>\n</ul>\n</li>", html)
+
+    def test_changelog_sections_every_section_on_the_page_folds(self):
+        html = self.fold(f'<h2 id="development-version">Dev</h2>\n{self.UI}\n<ul>\n<li>a</li>\n</ul>\n{self.OPS}\n<ul>\n<li>b</li>\n</ul>')
+        self.assertEqual(html.count('<details class="changes">'), 2)
+
+    def test_changelog_sections_other_headings_are_left_as_they_are(self):
+        for html in (
+            f'{_h3("Known limitations", "known-limitations")}\n<ul>\n<li>a</li>\n</ul>',
+            f'{_h3("Fixed", "fixed")}\n<ul>\n<li>a</li>\n</ul>',
+            f'{self.UI}\n<p>A paragraph, not a list.</p>\n<ul>\n<li>a</li>\n</ul>',
+        ):
+            self.assertEqual(self.fold(html), html)
+
+    def test_changelog_sections_only_the_release_notes_page_folds(self):
+        html = f'{self.UI}\n<ul>\n<li>a</li>\n</ul>'
+        for rel in ("print.html", "concepts/simulation.html", "index.html"):
+            self.assertEqual(build.fold_sections(html, rel), html)
+
+    def test_changelog_sections_the_names_are_the_eight_in_order(self):
+        self.assertEqual(len(build.SECTIONS), 8)
+        self.assertEqual(build.SECTIONS[0], "UI and workflow")
+
+
 class Favicon(unittest.TestCase):
     """Decision 0542: the guide's favicon files reach the site unchanged, under the names the page
     template links (mdBook would rename theme favicons with a content hash)."""

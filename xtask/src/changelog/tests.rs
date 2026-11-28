@@ -16,8 +16,21 @@ const INTRO: &str = "The *latest* version of this guide describes the nightly bu
 const TAIL: &str = "Generated G-code must be verified by you before it is run on a machine. OpenChuckCAM \
 does not guarantee that a program is safe or correct for any machine, tool or setup.";
 
-/// A release-notes page shaped like `user-docs/src/release-notes.md`.
+/// A release-notes page shaped like `user-docs/src/release-notes.md`. Bullets given with no
+/// heading of their own go under the first section (decision record 0704), as a page on `main` has
+/// them; `page` gives the lines exactly as written.
 fn notes_with(dev: &[&str], releases: &[&str]) -> String {
+    let heading = format!("### {}", SECTIONS[0]);
+    let grouped: Vec<&str> = if !dev.is_empty() && !dev.iter().any(|l| l.starts_with('#')) {
+        [&[heading.as_str(), ""][..], dev].concat()
+    } else {
+        dev.to_vec()
+    };
+    page(&grouped, releases)
+}
+
+/// The page with the Development version lines exactly as given.
+fn page(dev: &[&str], releases: &[&str]) -> String {
     let mut out: Vec<String> = vec![
         "# Release notes".into(),
         String::new(),
@@ -1140,4 +1153,466 @@ fn changelog_flow_a_link_with_a_title_in_parentheses_is_rewritten() {
         ),
         "{out}"
     );
+}
+
+// ------------------------------------------- the sections of the Development version (record 0704)
+
+/// A Development version with the given `(heading, bullets)` groups, written as `### heading`.
+fn grouped(groups: &[(&str, &[&str])]) -> String {
+    let mut dev: Vec<String> = Vec::new();
+    for (heading, bullets) in groups {
+        dev.push(format!("### {heading}"));
+        dev.push(String::new());
+        dev.extend(bullets.iter().map(|b| (*b).to_string()));
+        dev.push(String::new());
+    }
+    let refs: Vec<&str> = dev.iter().map(String::as_str).collect();
+    page(&refs, &["0.55.0"])
+}
+
+const UI: &str = "UI and workflow";
+const OPS: &str = "Operations and strategies";
+const SIM: &str = "Simulation";
+const GCODE: &str = "G-code generation and posts";
+
+#[test]
+fn changelog_sections_the_list_holds_the_owners_four_in_the_programs_order() {
+    assert!((6..=9).contains(&SECTIONS.len()), "{SECTIONS:?}");
+    let at = |name: &str| SECTIONS.iter().position(|s| *s == name).expect(name);
+    assert!(at(UI) < at(OPS) && at(OPS) < at(SIM) && at(SIM) < at(GCODE));
+    let unique: BTreeSet<&str> = SECTIONS.iter().copied().collect();
+    assert_eq!(unique.len(), SECTIONS.len());
+}
+
+#[test]
+fn changelog_sections_entries_are_grouped_under_their_headings() {
+    let text = grouped(&[
+        (UI, &["- **Keys.** One.", "- **Dialogs.** Two."]),
+        (OPS, &["- **Facing.** Three,", "  on two lines."]),
+    ]);
+    let groups = development_groups(&text);
+    assert_eq!(groups.len(), 2);
+    assert_eq!(groups[0].heading.as_deref(), Some(UI));
+    assert_eq!(
+        groups[0].entries,
+        vec!["- **Keys.** One.", "- **Dialogs.** Two."]
+    );
+    assert_eq!(groups[1].heading.as_deref(), Some(OPS));
+    assert_eq!(
+        groups[1].entries,
+        vec!["- **Facing.** Three,\n  on two lines."]
+    );
+    // Every entry, in page order, whatever its section.
+    assert_eq!(development_entries(&text).len(), 3);
+}
+
+#[test]
+fn changelog_sections_bullets_before_the_first_heading_have_no_section() {
+    let text = page(
+        &[
+            "- **Flat.** One.",
+            "",
+            "### Simulation",
+            "",
+            "- **Load.** Two.",
+        ],
+        &["0.55.0"],
+    );
+    let groups = development_groups(&text);
+    assert_eq!(groups[0].heading, None);
+    assert_eq!(groups[0].entries, vec!["- **Flat.** One."]);
+    assert_eq!(groups[1].heading.as_deref(), Some(SIM));
+}
+
+#[test]
+fn changelog_sections_a_heading_right_after_a_bullet_ends_it() {
+    let text = page(
+        &[
+            "### UI and workflow",
+            "",
+            "- **Keys.** One.",
+            "### Simulation",
+            "- **Load.** Two.",
+        ],
+        &["0.55.0"],
+    );
+    let groups = development_groups(&text);
+    assert_eq!(groups[0].entries, vec!["- **Keys.** One."]);
+    assert_eq!(groups[1].entries, vec!["- **Load.** Two."]);
+}
+
+fn changed_page() -> Vec<String> {
+    files(&["apps/openchuck-ui/src/a.rs", NOTES_PATH])
+}
+
+#[test]
+fn changelog_sections_a_new_bullet_in_any_known_section_passes() {
+    for section in SECTIONS {
+        let base = grouped(&[(UI, &["- **Old.** Already there."])]);
+        let head = if section == UI {
+            grouped(&[(UI, &["- **Old.** Already there.", "- **New.** New."])])
+        } else {
+            grouped(&[
+                (UI, &["- **Old.** Already there."]),
+                (section, &["- **New.** New."]),
+            ])
+        };
+        let problems = pr_problems(&changed_page(), &base, &head, "");
+        assert!(problems.is_empty(), "{section}: {problems:?}");
+    }
+}
+
+#[test]
+fn changelog_sections_a_new_bullet_outside_a_section_fails_and_names_the_sections() {
+    let base = grouped(&[(UI, &["- **Old.** Already there."])]);
+    let head = page(
+        &[
+            "- **New.** Flat.",
+            "",
+            "### UI and workflow",
+            "",
+            "- **Old.** Already there.",
+        ],
+        &["0.55.0"],
+    );
+    let problems = pr_problems(&changed_page(), &base, &head, "").join("\n");
+    assert!(problems.contains("- **New.** Flat."), "{problems}");
+    for section in SECTIONS {
+        assert!(problems.contains(section), "{section} not in {problems}");
+    }
+}
+
+#[test]
+fn changelog_sections_a_new_bullet_under_an_unknown_heading_fails() {
+    let base = grouped(&[(UI, &["- **Old.** Already there."])]);
+    let head = grouped(&[
+        (UI, &["- **Old.** Already there."]),
+        ("Misc", &["- **New.** New."]),
+    ]);
+    let problems = pr_problems(&changed_page(), &base, &head, "").join("\n");
+    assert!(problems.contains("Misc"), "{problems}");
+    assert!(problems.contains("- **New.** New."), "{problems}");
+}
+
+#[test]
+fn changelog_sections_a_misplaced_bullet_fails_even_with_the_escape_hatch() {
+    let base = grouped(&[(UI, &["- **Old.** Already there."])]);
+    let head = page(
+        &[
+            "- **New.** Flat.",
+            "",
+            "### UI and workflow",
+            "",
+            "- **Old.** Already there.",
+        ],
+        &["0.55.0"],
+    );
+    let problems = pr_problems(&changed_page(), &base, &head, "No user-visible change: x");
+    assert_eq!(problems.len(), 1, "{problems:?}");
+}
+
+#[test]
+fn changelog_sections_a_repeated_or_out_of_order_heading_fails() {
+    let base = grouped(&[(UI, &["- **A.** One."])]);
+    let repeated = grouped(&[
+        (UI, &["- **A.** One."]),
+        (OPS, &["- **B.** Two."]),
+        (UI, &["- **C.** Three."]),
+    ]);
+    let problems = pr_problems(&changed_page(), &base, &repeated, "").join("\n");
+    assert!(problems.contains("more than once"), "{problems}");
+    let order = grouped(&[(OPS, &["- **B.** Two."]), (UI, &["- **A.** One."])]);
+    let problems = pr_problems(&changed_page(), &base, &order, "").join("\n");
+    assert!(problems.contains("order"), "{problems}");
+}
+
+#[test]
+fn changelog_sections_a_heading_with_no_bullets_fails() {
+    let base = grouped(&[(UI, &["- **A.** One."])]);
+    let head = grouped(&[(UI, &["- **A.** One.", "- **B.** Two."]), (SIM, &[])]);
+    let problems = pr_problems(&changed_page(), &base, &head, "").join("\n");
+    assert!(
+        problems.contains("Simulation") && problems.contains("no bullets"),
+        "{problems}"
+    );
+}
+
+#[test]
+fn changelog_sections_problems_already_on_the_base_are_not_this_pull_requests() {
+    // A flat bullet and an unknown heading that the base already has, and the pull request leaves.
+    let dev_base = ["- **Flat.** Old.", "", "### Misc", "", "- **Odd.** Old."];
+    let base = page(&dev_base, &["0.55.0"]);
+    let head = page(
+        &[
+            &dev_base[..],
+            &["", "### Simulation", "", "- **New.** New."],
+        ]
+        .concat(),
+        &["0.55.0"],
+    );
+    // The unknown heading comes before a known one, which is no new problem either.
+    let problems = pr_problems(&changed_page(), &base, &head, "");
+    assert!(problems.is_empty(), "{problems:?}");
+}
+
+#[test]
+fn changelog_sections_the_notes_keep_the_sections_in_order() {
+    let out = make(&grouped(&[
+        (UI, &["- **Keys.** One."]),
+        (OPS, &["- **Facing.** Two."]),
+    ]));
+    let ui = out
+        .find(&format!(
+            "<details><summary><strong>{UI} (1)</strong></summary>\n\n- **Keys.** One.\n\n</details>"
+        ))
+        .expect("UI section");
+    let ops = out
+        .find(&format!(
+            "<details><summary><strong>{OPS} (1)</strong></summary>\n\n- **Facing.** Two.\n\n</details>"
+        ))
+        .expect("ops section");
+    assert!(ui < ops, "{out}");
+    assert!(!out.contains(SIM));
+    assert!(
+        !out.contains("### "),
+        "the sections fold instead of being headings: {out}"
+    );
+    assert!(!out.contains("<details open"), "closed by default: {out}");
+    assert!(!out.contains("\n\n\n"));
+}
+
+#[test]
+fn changelog_sections_bullets_with_no_section_come_first_in_the_notes() {
+    let out = make(&page(
+        &[
+            "- **Flat.** One.",
+            "",
+            "### Simulation",
+            "",
+            "- **Load.** Two.",
+        ],
+        &["0.55.0"],
+    ));
+    let flat = out.find("- **Flat.** One.").expect("flat");
+    let sim = out.find("<summary><strong>Simulation (1)").expect("sim");
+    assert!(flat < sim, "{out}");
+}
+
+#[test]
+fn changelog_sections_a_section_left_out_of_shortened_notes_loses_its_heading() {
+    let many: Vec<String> = (0..100)
+        .map(|i| format!("- **Entry {i}.** {}", "words ".repeat(40)))
+        .collect();
+    let refs: Vec<&str> = many.iter().map(String::as_str).collect();
+    let text = grouped(&[(UI, &refs), (SIM, &["- **Last.** Load."])]);
+    let out = nightly_notes(&text, NOTICE, SHA, "20261123", REPO, GUIDE, 6000).expect("notes");
+    assert!(out.chars().count() <= 6000);
+    // The count is of the bullets listed; the line after the list counts the rest.
+    let listed = out.matches("- **Entry ").count();
+    assert!(
+        out.contains(&format!(
+            "<summary><strong>{UI} ({listed})</strong></summary>"
+        )),
+        "{out}"
+    );
+    assert!(!out.contains(SIM), "{out}");
+    assert_eq!(
+        out.matches("<details>").count(),
+        out.matches("</details>").count()
+    );
+    assert!(out.contains(" more changes are in the [release notes"));
+}
+
+#[test]
+fn changelog_sections_start_release_moves_the_sections_whole_and_in_order() {
+    let text = grouped(&[
+        (UI, &["- **Keys.** One."]),
+        (
+            OPS,
+            &[
+                "- **Fixed: a marker.** Three.",
+                "- **Facing.** Two.",
+                "- **Fixed: a label.** Four.",
+            ],
+        ),
+    ]);
+    let after = start_release(&text, "0.60.0").expect("drafted");
+    let new = after.find("## 0.60.0").expect("new");
+    let old = after.find("## 0.55.0").expect("old");
+    let section = after.get(new..old).expect("section");
+    let ui = section
+        .find(&format!("### {UI}\n\n- **Keys.** One."))
+        .expect("ui");
+    let ops = section
+        .find(&format!(
+            "### {OPS}\n\n- **Facing.** Two.\n- **Fixed: a marker.** Three.\n- **Fixed: a label.** Four."
+        ))
+        .expect("ops");
+    assert!(ui < ops, "{section}");
+    let dev = after
+        .get(after.find("## Development version").expect("dev")..)
+        .expect("dev");
+    assert!(!dev.contains("### "), "{dev}");
+    assert!(development_groups(&after).is_empty());
+}
+
+#[test]
+fn changelog_sections_the_real_release_notes_are_all_in_known_sections() {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .expect("root");
+    let text = std::fs::read_to_string(root.join(NOTES_PATH)).expect("release notes");
+    assert!(
+        section_problems(&text).is_empty(),
+        "{:?}",
+        section_problems(&text)
+    );
+    for group in development_groups(&text) {
+        let heading = group.heading.unwrap_or_default();
+        assert!(
+            SECTIONS.contains(&heading.as_str()),
+            "{heading}: {:?}",
+            group.entries
+        );
+    }
+}
+
+#[test]
+fn changelog_sections_a_heading_of_another_level_is_no_section_and_moves_as_written() {
+    let text = page(
+        &[
+            "### Simulation",
+            "",
+            "- **Load.** One.",
+            "",
+            "#### Notes",
+            "",
+            "- **Odd.** Two.",
+        ],
+        &["0.55.0"],
+    );
+    let problems = section_problems(&text).join("\n");
+    assert!(problems.contains("'#### Notes'"), "{problems}");
+    let after = start_release(&text, "0.60.0").expect("drafted");
+    assert!(after.contains("#### Notes\n\n- **Odd.** Two."), "{after}");
+    let out = make(&text);
+    assert!(
+        out.contains("<summary><strong>Notes (1)</strong></summary>\n\n- **Odd.** Two."),
+        "{out}"
+    );
+}
+
+#[test]
+fn changelog_sections_a_page_with_no_development_version_has_no_sections_or_problems() {
+    let text = "# Release notes\n\n## 0.55.0\n\n### Fixed\n\n- a\n";
+    assert!(development_groups(text).is_empty());
+    assert!(section_problems(text).is_empty());
+}
+
+#[test]
+fn changelog_sections_the_fixes_of_a_section_are_listed_last_in_the_notes() {
+    let out = make(&grouped(&[(
+        OPS,
+        &[
+            "- **Fixed: a marker.** One.",
+            "- **Facing.** Two,",
+            "  on two lines.",
+            "- **Fixed: a label.** Three.",
+            "- **Swarf.** Four.",
+        ],
+    )]));
+    let want = format!(
+        "<details><summary><strong>{OPS} (4)</strong></summary>\n\n- **Facing.** Two,\n  on two lines.\n\
+         - **Swarf.** Four.\n- **Fixed: a marker.** One.\n- **Fixed: a label.** Three.\n\n</details>"
+    );
+    assert!(out.contains(&want), "{out}");
+}
+
+#[test]
+fn changelog_sections_a_fix_is_a_bullet_whose_bold_lead_starts_fixed() {
+    for fix in [
+        "- **Fixed: a marker.** One.",
+        "* **Fixed: x**",
+        "+ **Fixed:** y",
+    ] {
+        assert!(is_fix(fix), "{fix}");
+    }
+    for not in [
+        "- **Facing.** Fixed: a marker.",
+        "- Fixed: no bold lead.",
+        "- **Fixed** without a colon.",
+        "- **Fixes.** Several.",
+    ] {
+        assert!(!is_fix(not), "{not}");
+    }
+}
+
+#[test]
+fn changelog_sections_the_user_guide_build_folds_the_same_sections() {
+    // The guide's build (user-docs/tools/build.py, Python, run without the Rust toolchain) folds the
+    // sections on the release notes page: its list of names must be this one.
+    let root = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .expect("root");
+    let build = std::fs::read_to_string(root.join("user-docs/tools/build.py")).expect("build.py");
+    let start = build
+        .find("SECTIONS = (")
+        .expect("a SECTIONS tuple in build.py");
+    let body = build
+        .get(start..)
+        .and_then(|b| b.split(')').next())
+        .expect("tuple");
+    let names: Vec<&str> = body.split('"').skip(1).step_by(2).collect();
+    assert_eq!(names, SECTIONS.to_vec());
+}
+
+// A heading inside an HTML comment is no section (CodeRabbit on #985): a commented-out section and
+// its bullet stay hidden, and stay in the Development version with both comment markers.
+fn with_commented_section() -> String {
+    page(
+        &[
+            "### UI and workflow",
+            "",
+            "- **Keys.** One.",
+            "",
+            "<!--",
+            "### Simulation",
+            "",
+            "- **Hidden.** Not yet.",
+            "-->",
+        ],
+        &["0.55.0"],
+    )
+}
+
+#[test]
+fn changelog_sections_a_commented_section_is_not_published_in_the_notes() {
+    let text = with_commented_section();
+    let out = make(&text);
+    assert!(!out.contains("Hidden"), "{out}");
+    assert!(!out.contains(SIM), "{out}");
+    assert!(out.contains(&format!("<summary><strong>{UI} (1)</strong></summary>")));
+    assert_eq!(development_groups(&text).len(), 1);
+    assert!(
+        section_problems(&text).is_empty(),
+        "{:?}",
+        section_problems(&text)
+    );
+}
+
+#[test]
+fn changelog_sections_start_release_leaves_a_commented_section_whole() {
+    let after = start_release(&with_commented_section(), "0.60.0").expect("drafted");
+    let dev = after
+        .get(after.find("## Development version").expect("dev")..)
+        .expect("dev");
+    assert!(
+        dev.contains("<!--\n### Simulation\n\n- **Hidden.** Not yet.\n-->"),
+        "{dev}"
+    );
+    let new = after
+        .get(..after.find("## 0.55.0").expect("old"))
+        .expect("new");
+    assert!(!new.contains("Hidden"), "{new}");
+    assert!(!new.contains("-->\n\nGenerated"), "{new}");
 }

@@ -11,7 +11,9 @@
 //! top-level bullet per change that users could notice since the last release, in plain words. The
 //! nightly pre-release notes are made from it; each pull request that changes what users see adds or
 //! changes a bullet, or says `No user-visible change: <reason>` in its description; a release moves
-//! the bullets into the version's own section and leaves the Development version empty.
+//! the bullets into the version's own section and leaves the Development version empty. The bullets
+//! are grouped under the `### ` headings of [`SECTIONS`], in that order (decision record 0704), and
+//! every command keeps the groups.
 //!
 //! Generated G-code is the user's to verify before it is run on a machine (NFR-12): nothing written
 //! here says otherwise, and the notes carry the program's own notice. The output is deterministic.
@@ -48,6 +50,18 @@ const DRAFT_MARKER: &str = "<!-- release-notes draft";
 /// The closing reminder of a section when the page has none to copy (NFR-12).
 const REMINDER: &str = "Generated G-code must be verified by you before it is run on a machine. OpenChuckCAM \
 does not guarantee that a program is safe or correct for any machine, tool or setup.";
+
+/// The sections of the Development version, in their order (decision record 0704).
+pub const SECTIONS: [&str; 8] = [
+    "UI and workflow",
+    "Models, setups and workholding",
+    "Tools and tool libraries",
+    "Operations and strategies",
+    "Simulation",
+    "G-code generation and posts",
+    "Command line",
+    "User guide and examples",
+];
 
 // --------------------------------------------------------------------------------------- parsing
 
@@ -117,8 +131,9 @@ fn entry_spans(lines: &[&str], start: usize, end: usize) -> Vec<(usize, usize)> 
         i += 1;
         let mut last = i;
         while i < end {
-            // Only an unindented comment ends the entry: an indented one is part of it.
-            if is_bullet(line(i)) || line(i).starts_with("<!--") {
+            // Only an unindented comment ends the entry: an indented one is part of it. A heading
+            // ends it too, even with no blank line before it.
+            if is_bullet(line(i)) || line(i).starts_with("<!--") || line(i).starts_with('#') {
                 break;
             }
             if is_blank(line(i)) {
@@ -178,6 +193,137 @@ pub fn development_entries(text: &str) -> Vec<String> {
             .collect(),
         None => Vec::new(),
     }
+}
+
+/// One section of the Development version: its heading (None for bullets above the first heading)
+/// and its entries.
+#[derive(Debug, PartialEq, Eq)]
+pub struct Group {
+    pub heading: Option<String>,
+    pub entries: Vec<String>,
+}
+
+/// The name a heading line inside the Development version gives its section: the text of a
+/// `### ` heading, or the whole line for a heading of another level (which is no known section).
+fn group_heading(line: &str) -> Option<String> {
+    if !line.starts_with('#') {
+        return None;
+    }
+    Some(match line.strip_prefix("### ") {
+        Some(name) => name.trim().to_string(),
+        None => line.trim().to_string(),
+    })
+}
+
+/// A section of the Development version: its heading and the line where it stands (None for the
+/// bullets above the first heading), and the line spans of its entries.
+struct RawGroup {
+    heading: Option<(String, usize)>,
+    spans: Vec<(usize, usize)>,
+}
+
+/// Every section of the Development version, empty ones included, in page order. The bullets above
+/// the first heading are a group with no heading, given only when there are any.
+fn raw_groups(lines: &[&str], dev: &Section) -> Vec<RawGroup> {
+    // A heading inside an HTML comment is no section: the comment is skipped whole, as
+    // `entry_spans` skips it, so a commented-out section stays hidden and in place.
+    let mut headings: Vec<(usize, String)> = Vec::new();
+    let mut i = dev.start + 1;
+    while i < dev.end {
+        let line = lines.get(i).copied().unwrap_or("");
+        if opens_comment(line) {
+            i = comment_end(lines, i, dev.end) + 1;
+            continue;
+        }
+        if let Some(h) = group_heading(line) {
+            headings.push((i, h));
+        }
+        i += 1;
+    }
+    let first = headings.first().map_or(dev.end, |(i, _)| *i);
+    let mut groups = Vec::new();
+    let top = entry_spans(lines, dev.start + 1, first);
+    if !top.is_empty() {
+        groups.push(RawGroup {
+            heading: None,
+            spans: top,
+        });
+    }
+    for (k, (at, name)) in headings.iter().enumerate() {
+        let end = headings.get(k + 1).map_or(dev.end, |(i, _)| *i);
+        groups.push(RawGroup {
+            heading: Some((name.clone(), *at)),
+            spans: entry_spans(lines, at + 1, end),
+        });
+    }
+    groups
+}
+
+/// The sections of the Development version that hold entries, in page order.
+pub fn development_groups(text: &str) -> Vec<Group> {
+    let lines: Vec<&str> = text.lines().collect();
+    let Some(dev) = dev_section(&lines) else {
+        return Vec::new();
+    };
+    raw_groups(&lines, &dev)
+        .into_iter()
+        .filter(|g| !g.spans.is_empty())
+        .map(|g| Group {
+            heading: g.heading.map(|(h, _)| h),
+            entries: g.spans.iter().map(|&(a, b)| join(&lines, a, b)).collect(),
+        })
+        .collect()
+}
+
+/// The section names in their order, for messages.
+fn section_list() -> String {
+    SECTIONS.join("; ")
+}
+
+/// What is wrong with the headings of the Development version: one not in [`SECTIONS`], one given
+/// twice, one out of order, or one with no bullets. Each sentence names the heading, not where it
+/// is, so that a problem the base already had is recognised in the head.
+pub fn section_problems(text: &str) -> Findings {
+    let lines: Vec<&str> = text.lines().collect();
+    let mut problems = Findings::new();
+    let Some(dev) = dev_section(&lines) else {
+        return problems;
+    };
+    let mut seen: BTreeSet<String> = BTreeSet::new();
+    let mut highest: Option<usize> = None;
+    for group in raw_groups(&lines, &dev) {
+        let Some((name, _)) = group.heading else {
+            continue;
+        };
+        match SECTIONS.iter().position(|s| *s == name) {
+            None => problems.push(format!(
+                "the {DEV_HEADING} section has a heading '{name}' that is not one of its sections: use one of \
+                 these, as '### <name>': {}",
+                section_list()
+            )),
+            Some(at) => {
+                if !seen.insert(name.clone()) {
+                    problems.push(format!(
+                        "the section '{name}' is in the {DEV_HEADING} more than once: keep one heading, with all \
+                         of its bullets under it"
+                    ));
+                } else if highest.is_some_and(|h| at < h) {
+                    problems.push(format!(
+                        "the section '{name}' is out of order: the sections of the {DEV_HEADING} go in this \
+                         order: {}",
+                        section_list()
+                    ));
+                }
+                highest = Some(highest.map_or(at, |h| h.max(at)));
+            }
+        }
+        if group.spans.is_empty() {
+            problems.push(format!(
+                "the section '{name}' has no bullets: remove its heading, or put its bullet under it"
+            ));
+        }
+    }
+    problems
 }
 
 /// `X.Y.Z` as numbers, or None.
@@ -317,6 +463,35 @@ fn rewrite_links(text: &str, guide: &str) -> String {
     out
 }
 
+/// Whether an entry is a bug fix: its bold lead starts `Fixed:` (decision record 0704).
+pub fn is_fix(entry: &str) -> bool {
+    let text = entry
+        .strip_prefix(['-', '*', '+'])
+        .unwrap_or(entry)
+        .trim_start();
+    text.starts_with("**Fixed:")
+}
+
+/// A section's entries with its fixes last, each group in page order (decision record 0704).
+fn fixes_last<T: AsRef<str>>(entries: Vec<T>) -> Vec<T> {
+    let (fixes, others): (Vec<T>, Vec<T>) = entries.into_iter().partition(|e| is_fix(e.as_ref()));
+    [others, fixes].into_iter().flatten().collect()
+}
+
+/// The name a section is shown with: a heading of another level loses its `#` marks.
+fn section_name(heading: &str) -> &str {
+    heading.trim_start_matches('#').trim()
+}
+
+/// The `### ` heading line of a section; a heading of another level is kept as written.
+fn section_heading(name: &str) -> String {
+    if name.starts_with('#') {
+        name.to_string()
+    } else {
+        format!("### {name}")
+    }
+}
+
 fn chars(s: &str) -> usize {
     s.chars().count()
 }
@@ -332,9 +507,15 @@ pub fn nightly_notes(
     limit: usize,
 ) -> Result<String> {
     let latest = latest_release(text);
-    let entries: Vec<String> = development_entries(text)
-        .iter()
-        .map(|e| rewrite_links(e, guide))
+    // Each entry with the section it is in, in page order, a section's fixes last.
+    let entries: Vec<(Option<String>, String)> = development_groups(text)
+        .into_iter()
+        .flat_map(|g| {
+            let heading = g.heading;
+            fixes_last(g.entries)
+                .into_iter()
+                .map(move |e| (heading.clone(), rewrite_links(&e, guide)))
+        })
         .collect();
     let notes_link = format!("{guide}release-notes.html#development-version");
     let mut head = vec![
@@ -378,9 +559,37 @@ pub fn nightly_notes(
             .to_string(),
         String::new(),
     ];
-    // The notes with the first `kept` entries, and a line for the rest when any are left out.
+    // The notes with the first `kept` entries, each section folded (closed) with the number of its
+    // entries listed in its title (a section with no entry kept is not shown), and a line for the
+    // rest when any are left out.
     let render = |kept: usize| -> String {
-        let mut body: Vec<String> = entries.iter().take(kept).cloned().collect();
+        let mut runs: Vec<(&Option<String>, Vec<&String>)> = Vec::new();
+        for (heading, entry) in entries.iter().take(kept) {
+            match runs.last_mut() {
+                Some((h, list)) if *h == heading => list.push(entry),
+                _ => runs.push((heading, vec![entry])),
+            }
+        }
+        let mut body: Vec<String> = Vec::new();
+        for (heading, list) in runs {
+            let lines = list.iter().map(|e| (*e).clone());
+            match heading {
+                Some(h) => {
+                    body.extend([
+                        String::new(),
+                        format!(
+                            "<details><summary><strong>{} ({})</strong></summary>",
+                            section_name(h),
+                            list.len()
+                        ),
+                        String::new(),
+                    ]);
+                    body.extend(lines);
+                    body.extend([String::new(), "</details>".to_string(), String::new()]);
+                }
+                None => body.extend(lines),
+            }
+        }
         if kept < entries.len() {
             body.push(String::new());
             body.push(format!(
@@ -635,6 +844,29 @@ pub fn pr_problems(files: &[String], base_text: &str, head_text: &str, body: &st
         .filter(|e| !old.contains(&squash(e)))
         .collect();
     let mut problems = Findings::new();
+    let known: BTreeSet<&str> = SECTIONS.iter().copied().collect();
+    for group in development_groups(head_text) {
+        let place = match &group.heading {
+            Some(h) if known.contains(h.as_str()) => continue,
+            Some(h) => format!("is under '{h}', which is not one of the sections"),
+            None => "is not under a section".to_string(),
+        };
+        for e in group.entries.iter().filter(|e| !old.contains(&squash(e))) {
+            let first: String = e.lines().next().unwrap_or("").chars().take(80).collect();
+            problems.push(format!(
+                "the {DEV_HEADING} entry '{first}' {place}: put it at the end of the section it belongs to, \
+                 one of these in this order: {}; if that section has no heading yet, add '### <name>' in that \
+                 order",
+                section_list()
+            ));
+        }
+    }
+    let had: BTreeSet<String> = section_problems(base_text).into_iter().collect();
+    problems.extend(
+        section_problems(head_text)
+            .into_iter()
+            .filter(|p| !had.contains(p)),
+    );
     for e in &new_entries {
         if let Some(number) = internal_number(e) {
             let first: String = e.lines().next().unwrap_or("").chars().take(80).collect();
@@ -845,8 +1077,12 @@ pub fn start_release(text: &str, version: &str) -> Result<String> {
     let Some(dev) = dev_section(&lines) else {
         bail!("the release notes have no '## {DEV_HEADING}' section");
     };
-    let spans = entry_spans(&lines, dev.start + 1, dev.end);
-    let entries: Vec<String> = spans.iter().map(|&(a, b)| join(&lines, a, b)).collect();
+    let groups = raw_groups(&lines, &dev);
+    let spans: Vec<(usize, usize)> = groups.iter().flat_map(|g| g.spans.clone()).collect();
+    let headings: Vec<usize> = groups
+        .iter()
+        .filter_map(|g| g.heading.as_ref().map(|(_, at)| *at))
+        .collect();
     let reminder = lines
         .get(dev.start..dev.end)
         .unwrap_or(&[])
@@ -855,7 +1091,9 @@ pub fn start_release(text: &str, version: &str) -> Result<String> {
         .find(|l| l.starts_with("Generated G-code"))
         .map_or(REMINDER.to_string(), |l| (*l).to_string());
 
-    let dropped = |i: usize| spans.iter().any(|&(a, b)| (a..b).contains(&i));
+    // The entries and the section headings move; the rest of the section stays.
+    let dropped =
+        |i: usize| headings.contains(&i) || spans.iter().any(|&(a, b)| (a..b).contains(&i));
     let kept: Vec<String> = (dev.start..dev.end)
         .filter(|&i| !dropped(i))
         .filter_map(|i| lines.get(i).map(|l| (*l).to_string()))
@@ -867,16 +1105,32 @@ pub fn start_release(text: &str, version: &str) -> Result<String> {
         format!(
             "{DRAFT_MARKER}: made by cargo xtask changelog start-release. Write the release's summary, the known \
              limitations, the unconfirmed Makera Z1 values and the known issues (docs/releasing.md), edit the \
-             changes below into groups for users, then delete this comment. -->"
+             changes below for users (in each section, the fixes may go last), then delete this comment. -->"
         ),
         String::new(),
-        "### What has changed".to_string(),
-        String::new(),
     ];
-    if entries.is_empty() {
-        new.push("- Nothing user-visible has changed since the last release.".to_string());
-    } else {
-        new.extend(entries);
+    // Each section that holds entries moves whole, in page order; bullets above the first heading
+    // go under "What has changed".
+    let mut moved = 0;
+    for g in groups.iter().filter(|g| !g.spans.is_empty()) {
+        let heading = g
+            .heading
+            .as_ref()
+            .map_or("### What has changed".to_string(), |(h, _)| {
+                section_heading(h)
+            });
+        new.extend([heading, String::new()]);
+        let moved_entries: Vec<String> = g.spans.iter().map(|&(a, b)| join(&lines, a, b)).collect();
+        new.extend(fixes_last(moved_entries));
+        new.push(String::new());
+        moved += g.spans.len();
+    }
+    if moved == 0 {
+        new.extend([
+            "### What has changed".to_string(),
+            String::new(),
+            "- Nothing user-visible has changed since the last release.".to_string(),
+        ]);
     }
     new.extend([String::new(), reminder, String::new()]);
 
