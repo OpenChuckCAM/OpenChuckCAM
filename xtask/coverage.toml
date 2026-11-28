@@ -25,6 +25,9 @@ gated = [
     "openchuck-project",
     "openchuck-import",
     "openchuck-app",
+    # The build and version information. Unlisted, it failed the nightly run's configuration
+    # check (issue #170). 97.1% of lines on its own tests alone (28 Nov 2026).
+    "openchuck-buildinfo",
 ]
 
 # Reported, never failing: the GPU and windowing code the headless run cannot reach, and
