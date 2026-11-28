@@ -39,7 +39,7 @@ Nothing saves the project by itself: the owner chose that on 30 Oct 2026 (decisi
    - With the switch off, everything is as before: "Edited, not saved" and its tooltip.
 5. **A save that fails** (a read-only folder, a full disk, a locked file):
    - The switch stays on.
-   - The title bar reads in amber "▲ Auto-save failed · see Messages", with the reason in its tooltip.
+   - The title bar reads in amber "Auto-save failed · see Messages", after the warning mark the tree uses, with the reason in its tooltip.
    - Messages gets one warning naming the folder and the reason, not one per try, until a save works.
    - It is tried again at each interval. Recovery copies carry on.
 6. **The application decides; the window acts.** `openchuck-app` has `autosave::Schedule`, which takes the frame's facts (the switch, modified, recovered, typing, dialog) and monotonic time, and says Off, Idle, Waiting or Save. It is unit-tested without a window. The window saves, records "Saved automatically …" in the Jobs list (decision 0536 section 8), and tells the schedule how the save went.
@@ -67,7 +67,14 @@ Tests written first from PRJ-08 and the owner's answers, named by requirement. G
   - `req_prj_08_after_a_recovery_auto_save_waits_for_one_save_by_hand`;
   - `req_prj_08_req_nfr_07_a_failed_save_warns_once_and_the_switch_stays_on`: a folder where `project.toml` goes makes every save fail, for any user. One warning stays one, and a save by hand that works removes it.
 
-Results, coverage and environment are added before the pull request opens. This branch sits on top of PR #904 (B1), because both change the title bar, and is rebased once #904 has merged.
+### Results (lane PROJECT-UX-B, 28 Nov 2026, on PR #904's local head `a115377c`)
+
+Environment: managed Linux x86_64 container, Rust 1.97.0, debug builds. Tests were timed uninstrumented with `cargo nextest run`.
+- `cargo nextest run -p openchuck-ui -p openchuck-app`: 1694 of 1695 passed, 2 skipped, in 1634 s. The one failure was `theme::tests::req_nfr_09_req_ui_16_every_character_the_interface_draws_has_a_glyph`: the failed state began with "▲", which the bundled fonts do not draw. The title bar now draws the tree's warning mark (a shape, so the state does not rest on colour alone) before the text, and the autosave tests and the glyph test then passed, 6 of 6 (0.14 to 1.6 s each).
+- `cargo fmt --all`, `cargo clippy` on the changed crates, `cargo xtask deps`, `licences`, `records` and `trace` pass.
+- Coverage of the changed files is added before the pull request opens.
+
+This branch sits on top of PR #904 (B1), because both change the title bar, and is rebased once #904 has merged.
 
 Not verified here: native drawing, keys and file locking on Windows, and Git status in a repository folder, which are the owner's check (OI-9948).
 

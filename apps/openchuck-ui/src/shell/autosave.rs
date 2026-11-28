@@ -44,6 +44,10 @@ impl State {
 /// The switch's label.
 pub(super) const LABEL: &str = "Auto-save";
 
+/// The save state while saves fail, after the warning mark (the shape the
+/// tree uses, so it does not rest on colour alone).
+pub(super) const FAILED: &str = "Auto-save failed \u{b7} see Messages";
+
 impl Shell {
     /// Saves the project if auto-save says so this frame (PRJ-08).
     pub(super) fn autosave_frame(&mut self, ctx: &egui::Context) {
@@ -174,7 +178,7 @@ impl Shell {
             let now = self.autosave.now();
             if let Some(reason) = self.autosave.schedule.failure() {
                 return (
-                    "\u{25b2} Auto-save failed \u{b7} see Messages".to_owned(),
+                    FAILED.to_owned(),
                     DARK.warning,
                     Some(format!("The last automatic save failed: {reason}.")),
                 );

@@ -676,7 +676,9 @@ impl Shell {
                 // for warnings (specification section 10). With auto-save
                 // on, what it did or waits for.
                 let (text, colour, tip) = self.save_state_text(modified);
-                if modified && colour != DARK.warning {
+                if colour == DARK.warning {
+                    super::mark_beside(ui, openchuck_app::overview::ItemState::Warning, &text);
+                } else if modified {
                     let (rect, _) =
                         ui.allocate_exact_size(egui::vec2(8.0, 8.0), egui::Sense::hover());
                     ui.painter().circle_filled(rect.center(), 3.5, DARK.muted);

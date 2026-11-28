@@ -144,11 +144,7 @@ fn req_prj_08_req_nfr_07_a_failed_save_warns_once_and_the_switch_stays_on() {
     }
     rig.settle();
     assert!(rig.shell.settings.auto_save, "the switch stays on");
-    assert!(
-        rig.shows("\u{25b2} Auto-save failed \u{b7} see Messages"),
-        "{:?}",
-        rig.texts()
-    );
+    assert!(rig.shows(super::autosave::FAILED), "{:?}", rig.texts());
     let warnings = |rig: &Rig| {
         rig.shell
             .overview
