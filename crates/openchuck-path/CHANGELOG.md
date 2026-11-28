@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.80.0 (PATH-QUALITY; issue #880; decision 0711, proposed; breaking, output change)
+
+- **Added (breaking):** `Pass::turn_above: Option<f64>`, how far from the rotary axis a link into the pass must be before it turns A. The assembler's link rises there first, turns A, and comes down; a link that does not turn A, or is already above it, is unchanged. A struct literal of `Pass` must now give it (`None` keeps today's links).
+- **Changed output (Facing, Round):** Round's passes give the whole setup's enclosing radius plus the approach distance, so a link between two arcs (box stock, the Part extent) turns A where Facing's rapid check proves it clear. Such a Round was refused with "rapid move N has no continuous complete-tool separation from stock, the whole part and protected geometry"; it now generates. Whole-turn rings and links already above that radius are unchanged.
+
 ## 0.75.0 (PATH-QUALITY; issue #957; decision 0701, proposed; not breaking, output change: new refusals)
 
 - **New refusal (Entry Lead and Helix, every strategy but swarf, an operation limited to a selection):** a lead or helix is measured against the part's faces outside the selection (`RegionConstraint::outside`) that it comes near: the faces whose box meets the box the tool's cutting part sweeps over the entry, sampled lazily as swarf samples its faces next to the face set. One that would cut such a face deeper than the tolerance and the sampling slack is refused, naming the face. Where the pass itself cuts the face where the move meets it, the refusal says so. Plunge and Ramp, swarf (decision 0682, unchanged) and faces with no exact form (a mesh) are not measured.

@@ -467,7 +467,27 @@ fn req_op_24_req_set_09_restricted_flat_faces_up_to_a_held_far_end() {
 /// setup's reach. They now rise above it first.
 #[test]
 fn req_op_24_req_nfr_07_round_on_box_stock_turns_a_above_the_setup_between_its_arcs() {
+    // The setup reaches to the box's corner, sqrt(4^2 + 5^2) from the axis;
+    // the links turn A the approach distance (1 mm) above it.
+    let reach = 4f64.hypot(5.) + 1.;
     generate_on(&values("round", "part"), [None, None], None, true, |path| {
-        path.unwrap_or_else(|e| panic!("round on box stock: {e}"));
+        let path = path.unwrap_or_else(|e| panic!("round on box stock: {e}"));
+        let mut from = path.group.start;
+        let mut turning = 0;
+        for s in &path.group.segments {
+            let to = s.end;
+            if !s.kind.is_fed() && from.a != to.a {
+                turning += 1;
+                let height = |p: Point3| p.y.hypot(p.z);
+                let low = height(from.tip).min(height(to.tip));
+                assert!(
+                    low >= reach - 1e-6,
+                    "a rapid turns A {} mm from the axis, inside {reach}",
+                    low
+                );
+            }
+            from = to;
+        }
+        assert!(turning > 0, "no link turns A between the arcs");
     });
 }

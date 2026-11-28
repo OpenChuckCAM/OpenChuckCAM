@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.80.0
+
+- **Family release (0.80.0; PATH-QUALITY; issue #880):** `openchuck-path` adds `Pass::turn_above` (breaking) and raises Round facing's links that turn A above the setup; no change to this crate.
+
 ## 0.75.0
 
 - **Family release (0.75.0; PATH-QUALITY; issue #957):** `openchuck-path` measures a lead or helix entry of an operation limited to a selection against the part's faces outside the selection that it comes near, and refuses one that would cut them; no change to this crate.
