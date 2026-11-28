@@ -200,6 +200,13 @@ pub struct UserSettings {
     /// Periodic recovery checkpoint interval, in whole minutes (PRJ-08).
     /// The independent interim checkpoint uses the fixed 15-second debounce.
     pub checkpoint_minutes: u16,
+    /// Whether the project is saved automatically (PRJ-08; decision
+    /// PROJUX-B-3): the title bar's switch, off by default, for every
+    /// project. A file written before the field existed reads as off.
+    pub auto_save: bool,
+    /// How often auto-save saves while there are changes, in whole minutes
+    /// from 1 to 30 (`autosave::MINUTES`).
+    pub auto_save_minutes: u16,
     /// The Simulate step's choices.
     pub simulate: SimulateSettings,
     /// The tool library's folded groups and size filter (decision record
@@ -227,6 +234,8 @@ impl Default for UserSettings {
             open_sections: BTreeMap::new(),
             record_actions: true,
             checkpoint_minutes: 3,
+            auto_save: false,
+            auto_save_minutes: crate::autosave::MINUTES.1,
             simulate: SimulateSettings::default(),
             tool_library: ToolLibraryView::default(),
             file_names: FileNameTemplates::default(),
@@ -246,6 +255,9 @@ impl UserSettings {
         };
         self.units = "mm".to_owned();
         self.checkpoint_minutes = self.checkpoint_minutes.clamp(1, 15);
+        self.auto_save_minutes = self
+            .auto_save_minutes
+            .clamp(crate::autosave::MINUTES.0, crate::autosave::MINUTES.2);
         let range = |r: (f32, f32, f32)| (r.1, r.2);
         self.project_panel = self
             .project_panel

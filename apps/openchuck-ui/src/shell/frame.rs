@@ -658,6 +658,11 @@ impl Shell {
                     (a.project().name().to_owned(), a.is_modified())
                 });
             ui.add_space(24.0);
+            // The auto-save switch, before the name (decision PROJUX-B-3).
+            if self.app.is_some() {
+                self.autosave_switch(ui);
+                ui.add_space(8.0);
+            }
             let folder = self
                 .app
                 .as_ref()
@@ -668,14 +673,15 @@ impl Shell {
             }
             if self.app.is_some() {
                 // A neutral dot and "Edited", or "· saved"; amber is kept
-                // for warnings (specification section 10).
-                let (text, tip) = crate::window_title::save_state(modified);
-                if modified {
+                // for warnings (specification section 10). With auto-save
+                // on, what it did or waits for.
+                let (text, colour, tip) = self.save_state_text(modified);
+                if modified && colour != DARK.warning {
                     let (rect, _) =
                         ui.allocate_exact_size(egui::vec2(8.0, 8.0), egui::Sense::hover());
                     ui.painter().circle_filled(rect.center(), 3.5, DARK.muted);
                 }
-                let label = ui.label(RichText::new(text).color(DARK.muted));
+                let label = ui.label(RichText::new(text).color(colour));
                 if let Some(tip) = tip {
                     label.tip(tip);
                 }
@@ -772,6 +778,14 @@ impl Shell {
                 let save = egui::Button::new("Save").shortcut_text(ctx.format_shortcut(&SAVE));
                 if ui.add_enabled(open, save).clicked() {
                     self.save();
+                }
+                let mut auto = self.settings.auto_save;
+                if ui
+                    .add_enabled(open, egui::Checkbox::new(&mut auto, "Save automatically"))
+                    .clicked()
+                {
+                    self.set_auto_save(auto);
+                    ui.close();
                 }
                 let export = egui::Button::new("Post and export…")
                     .shortcut_text(ctx.format_shortcut(&EXPORT));

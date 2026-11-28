@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased (PROJECT-UX-B, B3; issue #702; record PROJUX-B-3, proposed)
+
+- **Added:** `autosave`: `Schedule` (when to save: at once when turned on with changes, then an interval after the first unsaved change; waits for typing, a dialog or an unsaved recovery; a failure said once and retried), `Frame`, `Step`, `Wait`, `MINUTES`. `UserSettings::auto_save` (off by default) and `auto_save_minutes` (1 to 30, default 5).
+
 ## Unreleased (PROJECT-UX-B; issue #705; record PROJUX-B-1, proposed)
 
 - **Added:** the undo history as the user sees it: `Application::undo_history()` gives every step, oldest first, named in words with its item and value ("Set stepover 1.2 mm (Roughing)"), how long ago it was made, whether it is undone, the project as opened, created or recovered, and where the project was last saved in this session (`history::UndoHistory`, `HistoryStep`, `SavedMark`). `Application::go_to_step(n)` returns to a step by undoing or redoing; a step that does not exist is refused with `AppError::NoHistoryStep` and nothing changes. Each step is named when it runs; the project format and the log lines are unchanged.

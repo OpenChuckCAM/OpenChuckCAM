@@ -53,6 +53,7 @@ use crate::viewport::Viewport;
 use crate::workholding_panel::WorkholdingPanel;
 
 mod actions;
+mod autosave;
 mod checkpoints;
 mod dock;
 mod frame;
@@ -77,6 +78,8 @@ mod open_recovery_tests;
 mod pending_edit_tests;
 #[cfg(test)]
 mod recent_tests;
+#[cfg(test)]
+mod autosave_tests;
 #[cfg(test)]
 mod reminder_tests;
 
@@ -211,6 +214,8 @@ pub struct Shell {
     /// The recent project chosen in this frame, so the action log can leave
     /// its folder name out (NFR-18).
     recent_clicked: Option<std::path::PathBuf>,
+    /// Auto-save's clock and what it last decided (PRJ-08).
+    autosave: autosave::State,
     /// Whether the undo history popover is open (UI-22).
     history_open: bool,
     /// Whether the popover's current row takes the keyboard when it is next
@@ -384,6 +389,7 @@ impl Shell {
             edit_context: None,
             open_hint: None,
             recent_clicked: None,
+            autosave: autosave::State::default(),
             history_open: false,
             history_focus: false,
             history_clicked: None,
@@ -821,6 +827,7 @@ impl Shell {
             for message in [
                 reminders::recovered(app),
                 reminders::tool_numbers(app, self.tool_numbers_changed),
+                self.autosave_message(),
                 self.dropped_pick
                     .map(|d| reminders::dropped_pick(app.project(), d)),
             ]
@@ -877,6 +884,9 @@ impl Shell {
         match app.save() {
             Ok(()) => {
                 self.recovery.saved(app.revision());
+                // A save by hand also restarts auto-save's clock, and ends
+                // a failure it was reporting.
+                self.autosave.schedule.saved_by_hand();
                 self.jobs
                     .record(&format!("Saved {}", app.location().display()));
                 // The warnings of unsaved work clear (decision record 0536
@@ -2421,6 +2431,16 @@ impl Shell {
                     }
                 });
                 ui.label("Keeps three periodic checkpoints and one interim checkpoint after 15 seconds without a confirmed change. Recovery never saves over your project automatically.");
+                let (least, _, most) = openchuck_app::autosave::MINUTES;
+                let mut auto_minutes = self.settings.auto_save_minutes;
+                ui.horizontal(|ui| {
+                    ui.label("Auto-save interval (minutes)");
+                    if ui.add(egui::DragValue::new(&mut auto_minutes).range(least..=most)).changed() {
+                        self.settings.auto_save_minutes = auto_minutes;
+                        self.settings_touched();
+                    }
+                });
+                ui.label("With Auto-save on (the switch in the title bar), the project is saved this often while it has changes, as File > Save saves it.");
                 let (least, _, most, step) = openchuck_app::settings::PLAYBACK_MEMORY_MB;
                 let mut memory = self.settings.simulate.playback_memory_mb;
                 ui.horizontal(|ui| {
@@ -2939,6 +2959,7 @@ impl Shell {
             self.recovery.cancel_install(app.location());
         }
         self.checkpoint_frame(&ctx);
+        self.autosave_frame(&ctx);
         crate::focus::end_frame(&ctx);
         self.text_had_focus = ctx.text_edit_focused();
         self.record_actions_frame(&ctx);

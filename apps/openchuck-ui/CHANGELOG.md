@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased (PROJECT-UX-B, B3; issue #702; record PROJUX-B-3, proposed)
+
+- **Added:** auto-save (`shell::autosave`): the title bar's switch before the project's name, File > Save automatically, the Settings interval, the save-state texts while it waits or after it saved, and one Messages warning while saves fail. A save by hand restarts its clock.
+
 ## Unreleased (PROJECT-UX-B; issue #705; record PROJUX-B-1, proposed)
 
 - **Added:** the undo history popover: the title bar's history button at the right of Undo and Redo, Edit > Undo history and Ctrl H open it; steps newest first, undone steps in italics marked "undone", "Saved … ago" under the step last saved; choosing a row returns to it through the Undo guard; a chosen row is logged without its text (NFR-18).
