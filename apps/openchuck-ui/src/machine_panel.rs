@@ -446,8 +446,15 @@ impl MachinePanel {
                 // would wrap and push the sections below it down); the whole
                 // path is in the tooltip.
                 let path = format!("Library: {}", dir.display());
-                ui.add(egui::Label::new(RichText::new(&path).color(DARK.muted)).truncate())
-                    .tip(&path);
+                // A Tab stop of its own, so the whole path opens on keyboard
+                // focus too (UI-14; issue #868 item 1).
+                let shown = ui.add(
+                    egui::Label::new(RichText::new(&path).color(DARK.muted))
+                        .truncate()
+                        .sense(crate::focus::info_sense()),
+                );
+                crate::focus::focus_ring(ui, &shown);
+                shown.tip(&path);
                 if dir.is_dir() {
                     ui.horizontal_wrapped(|ui| {
                         if ui.button("Open the library folder").clicked() {

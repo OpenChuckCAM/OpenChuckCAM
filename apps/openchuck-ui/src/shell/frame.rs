@@ -1300,7 +1300,12 @@ impl Shell {
                     .max_rect(right_box)
                     .layout(egui::Layout::left_to_right(egui::Align::Center)),
                 |ui| {
-                    ui.label("mm · deg").tip("Display units");
+                    // A Tab stop of its own, so "Display units" opens on
+                    // keyboard focus too (UI-14; issue #868 item 1).
+                    let units =
+                        ui.add(egui::Label::new("mm · deg").sense(crate::focus::info_sense()));
+                    crate::focus::focus_ring(ui, &units);
+                    units.tip("Display units");
                     if let Some(tolerance) = self.footer_tolerance() {
                         ui.monospace(format!("Tol {tolerance:.3} mm"));
                     }

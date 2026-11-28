@@ -334,6 +334,11 @@ fn preset_row(
                 }
             });
         crate::pending_edits::track(ui, &combo.response, "Material preset", None);
+        // The label is not a Tab stop: the list shows its words on focus
+        // (UI-14; issue #868 item 1).
+        if combo.response.has_focus() {
+            combo.response.show_tooltip_text(PRESET_HELP);
+        }
     });
     if let Some(why) = &preset.differs {
         ui.horizontal_wrapped(|ui| {

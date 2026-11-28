@@ -967,6 +967,18 @@ pub fn segmented(
     current: Option<usize>,
     enabled: bool,
 ) -> Option<usize> {
+    segments(ui, options, current, enabled, "")
+}
+
+/// [`segmented`], showing a row's `description` while a segment has the
+/// keyboard, as the row's drop-down list does (UI-14; issue #868 item 5).
+fn segments(
+    ui: &mut egui::Ui,
+    options: &[&str],
+    current: Option<usize>,
+    enabled: bool,
+    description: &str,
+) -> Option<usize> {
     let mut chosen = None;
     ui.scope(|ui| {
         ui.spacing_mut().item_spacing.x = 0.0;
@@ -981,7 +993,7 @@ pub fn segmented(
             .stroke(Stroke::new(1.0, DARK.line))
             .corner_radius(0.0)
             .selected(on);
-            let response = ui.add_enabled(enabled, button);
+            let response = describe_on_focus(ui.add_enabled(enabled, button), description);
             crate::pending_edits::track(ui, &response, option, None);
             if response.clicked() && !on {
                 chosen = Some(i);
@@ -1028,7 +1040,7 @@ pub fn choice_row(
         if (2..=4).contains(&options.len())
             && segmented_width(ui, options) + 2.0 <= ui.available_width()
         {
-            segmented(ui, options, current, enabled)
+            segments(ui, options, current, enabled, description)
         } else {
             let mut chosen = None;
             let shown = current
@@ -1244,6 +1256,58 @@ mod tests {
     /// A field's description, which its label shows on hover, opens on the
     /// box while the box has the keyboard: the label is not a Tab stop
     /// (UI-14; CodeRabbit on #858).
+    /// Issue #868 item 5: a choice row drawn as segments shows its
+    /// description while a segment has the keyboard, as its drop-down list
+    /// does (UI-14).
+    #[test]
+    fn req_ui_14_a_segmented_choices_description_opens_on_focus() {
+        let ctx = egui::Context::default();
+        let description = "How the part is held in the chuck";
+        let tab = egui::Event::Key {
+            key: egui::Key::Tab,
+            physical_key: None,
+            pressed: true,
+            repeat: false,
+            modifiers: egui::Modifiers::NONE,
+        };
+        let mut texts = Vec::new();
+        for events in [vec![], vec![tab], vec![], vec![]] {
+            let input = egui::RawInput {
+                screen_rect: Some(egui::Rect::from_min_size(
+                    egui::Pos2::ZERO,
+                    egui::vec2(900.0, 300.0),
+                )),
+                events,
+                ..Default::default()
+            };
+            let mut segmented_drawn = false;
+            let mut output = ctx.run_ui(input, |ui| {
+                let options = ["Round", "Square"];
+                segmented_drawn = segmented_width(ui, &options) + 2.0 <= ui.available_width();
+                choice_row(ui, "shape", "Shape", description, &options, Some(0), true);
+            });
+            assert!(segmented_drawn, "the row is wide enough for segments");
+            output.textures_delta.clear();
+            texts.clear();
+            fn walk(shape: &egui::Shape, out: &mut Vec<String>) {
+                match shape {
+                    egui::Shape::Text(t) => out.push(t.galley.text().to_owned()),
+                    egui::Shape::Vec(v) => v.iter().for_each(|s| walk(s, out)),
+                    _ => {}
+                }
+            }
+            output
+                .shapes
+                .iter()
+                .for_each(|s| walk(&s.shape, &mut texts));
+        }
+        assert!(
+            ctx.memory(|m| m.focused()).is_some(),
+            "Tab gave a segment the keyboard"
+        );
+        assert!(texts.iter().any(|t| t.contains(description)), "{texts:?}");
+    }
+
     #[test]
     fn req_ui_14_a_fields_description_opens_on_its_box_on_focus() {
         let ctx = egui::Context::default();

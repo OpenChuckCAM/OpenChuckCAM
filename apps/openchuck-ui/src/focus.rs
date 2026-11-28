@@ -678,6 +678,61 @@ mod tests {
         files
     }
 
+    /// A plain label is not a Tab stop, so a `.tip(` on it opens on hover
+    /// only (issue #868 item 1). Its words must reach the keyboard another
+    /// way: the label made a focusable information widget (`info_sense`),
+    /// or the control beside it showing the same words on focus
+    /// (`show_tooltip_text(<the same text>)`), as Tangent edges does.
+    #[test]
+    fn req_ui_14_a_labels_tooltip_reaches_the_keyboard() {
+        const LABELS: [&str; 8] = [
+            "ui.label(",
+            "ui.strong(",
+            "ui.weak(",
+            "ui.heading(",
+            "ui.small(",
+            "ui.monospace(",
+            "ui.colored_label(",
+            "Label::new(",
+        ];
+        let mut hover_only = Vec::new();
+        for (name, text) in sources() {
+            for (at, _) in text.match_indices(".tip(") {
+                // The statement the tip ends: back to the last `;`, `{` or `}`.
+                let start = text[..at].rfind([';', '{', '}']).map_or(0, |i| i + 1);
+                let receiver = &text[start..at];
+                if !LABELS.iter().any(|l| receiver.contains(l)) || receiver.contains(".sense(") {
+                    continue;
+                }
+                // The tip's text, to its closing bracket.
+                let rest = &text[at + ".tip(".len()..];
+                let mut depth = 1;
+                let end = rest
+                    .char_indices()
+                    .find(|&(_, c)| {
+                        depth += match c {
+                            '(' => 1,
+                            ')' => -1,
+                            _ => 0,
+                        };
+                        depth == 0
+                    })
+                    .map_or(rest.len(), |(i, _)| i);
+                let words = rest[..end].trim_start_matches('&');
+                let shown = format!("show_tooltip_text({words})");
+                let after = &rest[end..rest.len().min(end + 2000)];
+                if !after.contains(&shown) {
+                    let line = text[..at].lines().count();
+                    hover_only.push(format!("{name}:{line}"));
+                }
+            }
+        }
+        assert!(
+            hover_only.is_empty(),
+            "label tooltips Tab cannot reach: {hover_only:#?}"
+        );
+    }
+
     /// Every scroll area in the application keeps focus in view: none is
     /// shown with egui's plain `show`.
     #[test]

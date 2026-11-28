@@ -35,8 +35,13 @@ pub fn show(ui: &mut egui::Ui, field: &Field, state: &mut FieldState) -> Option<
     };
     let decoded = decode_rows(data);
     let valid = decoded.is_ok();
-    ui.label(RichText::new(&field.label).strong())
-        .tip(&field.description);
+    // A Tab stop of its own, so the description opens on keyboard focus too
+    // (UI-14; issue #868 item 1).
+    let heading = ui.add(
+        egui::Label::new(RichText::new(&field.label).strong()).sense(crate::focus::info_sense()),
+    );
+    crate::focus::focus_ring(ui, &heading);
+    heading.tip(&field.description);
     if let Err(error) = &decoded {
         ui.colored_label(DARK.error, format!("Cannot read these faces: {error}"));
     }
