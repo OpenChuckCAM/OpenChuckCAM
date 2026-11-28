@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased (SIM-UX; issues #454 and #538; decision SIM-UX-A, proposed)
+
+- **Changed:** `Application::start_stock_surface` takes `colours` and colours only the cut part at the end of a setup's program; an earlier cut part, and every frame from `start_playing_stock_surface`, is plain. Both return `Arc<StockSurface>`; the final coloured cut part is made once and kept with the playback.
+- **Changed:** preparing playback no longer builds the sample index; it is built the first time colours are made (#538).
+- **Added:** `StockPlayback::is_final` and `colours_ready`, the hidden `samples_built`, `Application::start_preparing_deviation` (job "prepare deviation colours") and `SimulateSettings::deviation_in_background`.
+
 ## Unreleased (SIM-UX; issue #699; decision 0708, accepted)
 
 - **Changed:** `SetupSimulation::deviation` is an `Option<Arc<Deviation>>`: a run that takes the comparison kept with a cached stock shares it instead of copying it (decision 0217).

@@ -1115,7 +1115,7 @@ impl Viewport {
         if self.part_coloured() {
             "Part \u{b7} final result"
         } else {
-            "Cut part \u{b7} nearest target sample"
+            "Cut part at the end \u{b7} measured against the finished part"
         }
     }
 
@@ -3065,7 +3065,7 @@ pub(crate) mod tests {
         let mut viewport = Viewport::new(true);
         viewport.set_scene(view, true);
         viewport.set_step(Some(ViewStep::Simulate));
-        let cut = "Cut part \u{b7} nearest target sample";
+        let cut = "Cut part at the end \u{b7} measured against the finished part";
         let part = "Part \u{b7} final result";
         let tick = "Tick Part to see these colours on the part model.";
         // Only the cut part is shown and coloured: it is named, and the

@@ -1218,7 +1218,7 @@ fn req_ui_11_a_changed_part_is_drawn_plain_in_the_shell_with_the_note() {
     );
     assert_eq!(
         rig.shell.viewport.scale_title(),
-        "Cut part \u{b7} nearest target sample"
+        "Cut part at the end \u{b7} measured against the finished part"
     );
 }
 

@@ -270,6 +270,11 @@ enum PartShown {
     Bands(SetupId),
 }
 
+/// Under "Deviation colours" while the cut part on screen is plain because
+/// it is not the one at the end (the owner's decision of 26 Nov 2026, issue
+/// #454).
+pub(crate) const INTERIM_NOTE: &str = "Colours show the finished result at the end of the program.";
+
 /// A wait the user may be watching in the 3D view on Simulate, shown as a
 /// lozenge at the top of the view once it has lasted [`LOZENGE_DELAY`] (the
 /// owner's Q1 B on issue #454).
@@ -1381,12 +1386,27 @@ impl PlaybackPanel {
                 available && self.stock.error.is_none(),
                 egui::Checkbox::new(&mut self.bands_on, "Deviation colours"),
             )
-            .tip("Show overcut, on the surface, and material left; untick for the plain cut part")
+            .tip(
+                "Colour the cut part at the end of the program, and the part, by how far they \
+                 are from the finished part: overcut, on the surface, or material left; untick \
+                 for the plain cut part",
+            )
             .on_disabled_hover_text(self.stock.error.as_deref().unwrap_or(NO_STOCK_SIMULATION));
         if let Some(error) = &self.stock.error {
             ui.weak(format!("Deviation colours unavailable: {error}"));
+        } else if self.bands_on && self.shows_interim_cut_part() {
+            ui.weak(INTERIM_NOTE);
         }
         response
+    }
+
+    /// Whether the cut part on screen is one before the end of its setup's
+    /// program, which is drawn plain (issue #454).
+    fn shows_interim_cut_part(&self) -> bool {
+        match (self.stock.show, self.stock.shown, &self.stock.playback) {
+            (true, Some(shown), Some(playback)) => !playback.is_final(shown),
+            _ => false,
+        }
     }
 
     /// Sets the deviation bands shown (SIM-15), and redraws the colours.

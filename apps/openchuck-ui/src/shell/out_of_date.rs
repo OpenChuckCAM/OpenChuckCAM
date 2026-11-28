@@ -175,6 +175,11 @@ impl Shell {
         let esc = lozenge.stop
             && !self.run.is_running()
             && !self.text_had_focus
+            && !self.window_open()
+            && !matches!(
+                self.selected,
+                Some(super::Selection::Picking | super::Selection::Set(_))
+            )
             && ctx.input_mut(|i| i.consume_key(egui::Modifiers::NONE, egui::Key::Escape));
         if stop || esc {
             self.play.stop_colouring(&mut self.viewport);
