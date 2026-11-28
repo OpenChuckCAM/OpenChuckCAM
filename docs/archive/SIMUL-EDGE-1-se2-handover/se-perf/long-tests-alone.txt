@@ -1,0 +1,34 @@
+Tests of openchuck-path's integration binary seen over a minute, each run alone (cargo test, the test profile, 4 vCPU, 28 Nov 2026, lane SE-PERF's code head 5f66a7d).
+seconds / on the long list of .config/nextest.toml at that head / test
+  560  listed     simultaneous_hidden::req_op_20_req_nfr_06_hidden_surfaces_are_identical_at_1_2_and_n_threads
+  297  not-listed simultaneous_off_axis::req_op_26_a_ball_end_notes_the_corner_it_cannot_finish
+  289  listed     simultaneous_hidden::req_op_20_req_op_12_the_walls_of_a_keyway_are_finished_and_nothing_is_cut_in
+  267  not-listed simultaneous_off_axis::req_op_26_req_op_05_blended_rings_finish_the_inner_corners_of_the_crankshaft
+  251  not-listed simultaneous_hidden::req_op_20_req_op_06_on_a_hidden_wall_the_tool_axis_is_the_reachable_one_nearest_the_normal
+  244  not-listed simultaneous_hidden::req_op_20_req_op_06_the_note_gives_the_lean_where_the_tool_is_placed_within_the_limit
+  237  not-listed simultaneous_hidden::req_op_20_a_wall_needing_more_lean_than_the_limit_is_reported_with_its_parameter
+  213  not-listed simultaneous_off_axis::req_op_26_req_op_05_rings_finish_the_inner_corners_of_the_crankshaft_as_the_spiral_does
+  188  not-listed simultaneous_off_axis::req_op_26_req_op_04_a_flat_end_finishes_the_inner_corners_of_the_crankshaft
+  187  not-listed simultaneous_off_axis::req_op_26_req_op_04_face_turns_in_an_off_axis_zone_go_round_the_section_centre
+  184  listed     simultaneous_hidden::req_op_20_req_op_12_a_shank_wider_than_the_cutter_never_meets_the_part
+  158  listed     simultaneous_hidden::req_op_20_two_pins_side_by_side_are_cut_all_round
+  141  listed     simultaneous_hidden::req_op_20_blades_without_a_hub_are_finished_on_both_sides
+  128  listed     simultaneous_hidden::req_op_20_a_gap_narrower_than_the_tool_between_two_pins_is_reported
+   95  not-listed simultaneous_rings::req_nfr_06_req_gc_07_rings_are_identical_at_1_2_and_n_threads
+   94  not-listed simultaneous_hidden::req_op_20_req_op_06_the_note_says_how_much_of_the_lead_the_limit_lets_the_tool_take
+   87  not-listed tool_gap::req_op_12_tool_gap_grazing_a_face_agrees_with_the_independent_checker
+   87  listed     walls::req_nfr_06_req_gc_07_walls_are_merged_identically_at_1_2_and_n_threads
+   68  not-listed simultaneous_rings::req_op_05_req_op_06_on_a_lobed_part_steps_hold_a_and_the_tilt_stays_in_bounds
+   58  not-listed simultaneous_rings::req_op_05_req_op_12_rings_leave_no_more_than_the_spiral_and_never_gouge
+   42  not-listed simultaneous_off_axis::req_op_26_req_op_12_the_crankshaft_pins_are_cut_all_round_in_one_pass_each
+   41  listed     simultaneous_hidden::req_op_20_a_slot_narrower_than_the_tool_is_reported_and_not_cut_into
+   40  not-listed simultaneous_hidden::req_op_20_req_op_12_the_crankshaft_is_finished_where_reached_and_nothing_is_cut_in
+   34  not-listed simultaneous_rings::req_op_05_req_gc_07_the_spiral_is_unchanged_when_rings_are_not_chosen
+   15  not-listed simultaneous_off_axis::req_op_26_req_op_06_an_off_axis_cylinder_is_driven_round_its_own_centre
+    7  not-listed simultaneous_hidden::req_op_12_req_op_20_a_wider_shank_that_never_touches_changes_nothing
+  205  not-listed simultaneous::req_op_06_the_tool_axis_follows_the_normal_within_the_tilt_bound
+  159  not-listed simultaneous::req_op_15_smoothing_has_fewer_a_reversals_than_following_the_normal
+  139  not-listed simultaneous::req_op_13_feed_at_the_contact_is_within_two_percent_on_the_lobed_part
+over 2400 (stopped)  simultaneous::req_op_05_on_a_surface_of_revolution_the_path_is_the_helical_one
+over 2400 (stopped)  simultaneous::req_op_12_the_independent_checker_finds_no_gouge_on_the_reference_parts
+  805 (fails, inherited)  simultaneous::req_op_12_every_tool_profile_finishes_the_lobed_part_without_gouging
