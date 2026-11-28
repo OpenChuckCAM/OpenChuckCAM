@@ -226,6 +226,10 @@ jobs:
           sym=$(command -v llvm-symbolizer || true)
           [ -n "$sym" ] || sym=$(compgen -G '/usr/bin/llvm-symbolizer-*' | sort -V | tail -n 1 || true)
           if [ -z "$sym" ]; then
+            # Issue #983: the runner image lists packages.microsoft.com, which this job does not use;
+            # when that source is refused or unsigned, apt-get update fails. Drop it first.
+            ms=$(grep -l packages.microsoft.com /etc/apt/sources.list.d/* 2>/dev/null || true)
+            if [ -n "$ms" ]; then echo "Removing apt sources: $ms"; sudo rm -f $ms; fi
             sudo apt-get update -qq
             sudo apt-get install -y -qq --no-install-recommends llvm
             sym=$(command -v llvm-symbolizer)

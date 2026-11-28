@@ -283,7 +283,12 @@ jobs:
           fi
       # Every LinuxCNC golden program runs in the headless XYZA simulator and is compared
       # with the replay of the same file (verification plan section 6, gate 3).
+      # Issue #974: a share takes 13 to 20 min with the xtask build, and xtask stops a program after
+      # 900 s, so a step past 30 min is stuck: it fails here and the reports below are still kept. A
+      # runner that loses contact (the case in #974) cannot be stopped from the workflow; GitHub
+      # cancels its job at the job's limit.
       - name: Replay the golden programs in LinuxCNC
+        timeout-minutes: 30
         run: cargo xtask replay --docker "$LINUXCNC_IMAGE" --shard "${{ matrix.shard }}/5" --keep-reports target/replay
       - uses: actions/upload-artifact@v7
         if: always()
@@ -377,6 +382,10 @@ jobs:
       - name: Software Vulkan and a virtual display (Linux)
         if: runner.os == 'Linux'
         run: |
+          # Issue #983: the runner image lists packages.microsoft.com, which this job does not use;
+          # when that source is refused or unsigned, apt-get update fails. Drop it first.
+          ms=$(grep -l packages.microsoft.com /etc/apt/sources.list.d/* 2>/dev/null || true)
+          if [ -n "$ms" ]; then echo "Removing apt sources: $ms"; sudo rm -f $ms; fi
           sudo apt-get update
           # xvfb-run needs xauth, which the xvfb package only recommends.
           # winit loads libxkbcommon-x11 (and may load the other X11 client

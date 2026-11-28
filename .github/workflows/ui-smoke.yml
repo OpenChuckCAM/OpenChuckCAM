@@ -179,6 +179,10 @@ jobs:
           # Root in the floor container, which has no sudo.
           sudo=sudo
           if [ "$(id -u)" = 0 ]; then sudo=; fi
+          # Issue #983: the runner image lists packages.microsoft.com, which this job does not use;
+          # when that source is refused or unsigned, apt-get update fails. Drop it first.
+          ms=$(grep -l packages.microsoft.com /etc/apt/sources.list.d/* 2>/dev/null || true)
+          if [ -n "$ms" ]; then echo "Removing apt sources: $ms"; $sudo rm -f $ms; fi
           $sudo apt-get update
           # As in ci.yml: xvfb-run needs xauth, and winit loads libxkbcommon-x11
           # and the other X11 client libraries at run time.
