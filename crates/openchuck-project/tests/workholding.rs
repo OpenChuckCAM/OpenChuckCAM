@@ -236,3 +236,26 @@ fn req_op_21_req_prj_04_an_automatic_tab_survives_save_and_load() {
     assert_eq!(back.setup(SETUP).unwrap().workholding, w);
     std::fs::remove_dir_all(&dir).ok();
 }
+
+/// A form checks a typed setup value with the same checks the change makes
+/// (decision record 0233 item 4; issue #870): `check_setup_values` refuses
+/// what `Project::replace` refuses, with the same words, and passes what it
+/// stores. A stock moved so that a tab placed by hand is outside it is one.
+#[test]
+fn req_set_09_req_nfr_07_the_setup_check_refuses_what_replace_refuses() {
+    let p = project_with(full());
+    let mut moved = p.setups()[0].clone();
+    moved.stock = Some(Stock::Cylinder {
+        diameter: mm(40.0),
+        length: mm(60.0),
+        x_start: mm(0.0),
+    });
+    let check = openchuck_project::check_setup_values(&moved)
+        .unwrap_err()
+        .to_string();
+    let mut q = p.clone();
+    let replace = q.replace(Item::Setup(moved)).unwrap_err().to_string();
+    assert_eq!(check, replace);
+    assert!(check.contains("not inside the stock"), "{check}");
+    assert!(openchuck_project::check_setup_values(&p.setups()[0]).is_ok());
+}

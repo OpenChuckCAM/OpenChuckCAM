@@ -15,6 +15,8 @@ A [project](../glossary.md#project) is a folder; the program asks for the folder
 
 The program creates the folder and opens the empty project.
 
+You can also start by dragging the model file onto the window: **New project** then opens with the project named after the file, and the import window of the [next step](02-import-model.md) follows when you press **OK**.
+
 <figure>
   <img src="images/02-project-created.png" width="1920" height="1080"
        alt="The empty project: the Model step, with Import model... offered in the middle of the window.">

@@ -332,6 +332,42 @@ fn req_op_24_req_set_09_a_host_keep_out_that_differs_from_the_grip_refuses() {
 }
 
 #[test]
+fn req_op_24_req_set_09_a_host_keep_out_with_an_extra_span_refuses() {
+    // Issue #895 item 2: every span of the host's keep-out must be one the
+    // grip gives, not only the other way round. The grip's own span with a
+    // second one beside it is not the keep-out this set-up gives (NFR-07).
+    let held = [Some((5., 10.)), None];
+    let own = (5. - R - CLEAR, 10. + R + CLEAR);
+    generate(
+        &values("box", "whole_stock"),
+        held,
+        Some(vec![own, (own.0, own.1 + 2.)]),
+        |path| {
+            let error = path.unwrap_err().to_string();
+            assert!(
+                error.contains("held region") && error.contains(&format!("{:.3}", own.1 + 2.)),
+                "{error}"
+            );
+        },
+    );
+    // The same spans in another order are the same keep-out.
+    let held = [Some((5., 10.)), Some((25., 30.))];
+    let spans: Vec<(f64, f64)> = held
+        .iter()
+        .flatten()
+        .rev()
+        .map(|&(lo, hi)| (lo - R - CLEAR, hi + R + CLEAR))
+        .collect();
+    generate(&values("box", "whole_stock"), held, Some(spans), |path| {
+        let error = path.err().map(|e| e.to_string()).unwrap_or_default();
+        assert!(
+            !error.contains("is not the one this set-up gives"),
+            "{error}"
+        );
+    });
+}
+
+#[test]
 fn req_op_24_req_set_09_restricted_flat_and_round_face_up_to_the_held_start() {
     let held = [Some((5., 10.)), None];
     // Flat passes run along X and end at the tool's centre limit, X 12: their

@@ -1,12 +1,12 @@
-# SIM-UX-G: G generates every stale operation, Shift G the selected one (UI-14, UI-09; lane SIM-UX)
+# 0707: G generates every stale operation, Shift G the selected one (UI-14, UI-09; lane SIM-UX)
 
 - **Status:** Accepted by the project owner on 25 Nov 2026, relayed by the coordinator (decision 0049). Proposed by lane SIM-UX on 24 Nov 2026, built to the project owner's answers of 24 Nov 2026, relayed by the coordinator: swap Generate and Generate stale on the keys, and F5 follows G.
 - **Date:** 24 Nov 2026.
 - **Requirements:** UI-14 (every command from the menus and the keyboard), UI-09 (generation runs off the interface thread with progress and cancel; unchanged).
 - **Amends:** [decision 0117](0117-slice-22-shell-frame.md), "Keys" (G and F5 generated the selected operation; Shift G and Shift F5 every stale operation), and the line of [specification section 16](../ui-design/ui-specification.md) that lists them, edited in the same pull request.
-- **Open items:** adds OI-9951 (the owner's acceptance of this record), closed by the acceptance of 25 Nov 2026.
+- **Open items:** adds OI-2278 (the owner's acceptance of this record), closed by the acceptance of 25 Nov 2026.
 
-Numbering: provisional. The coordinator assigns the record number and the OI number at release, in merge order. No project schema number and no library change.
+Numbering: decision 0707 and OI-2278, assigned by the coordinator at release (drafted as "SIM-UX-G" and OI-9951). No project schema number and no library change.
 
 ## Context
 

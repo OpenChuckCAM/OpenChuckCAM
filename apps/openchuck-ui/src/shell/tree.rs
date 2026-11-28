@@ -8,14 +8,17 @@
 //! are not in the tree (UI-06; decision record 0127): an operation's tool is
 //! in its inspector, and the tool library window lists and manages tools.
 //! Rows are 28 high: a drag handle and an enable box for operations, the
-//! status mark, an icon or swatch, the name and a chip. A right click (or
+//! status mark, an icon or swatch, the name and a chip. An operation's chip
+//! is its tool's number, with the tool's name and what it is in a tooltip on
+//! hover and while the row has the keyboard (issue #790). A right click (or
 //! the menu key) opens the row's menu.
 
 use crate::focus::KeepFocus as _;
 use crate::focus::Tip as _;
 use eframe::egui::{self, Color32, RichText, Stroke};
 use openchuck_app::overview::{ItemRef, ItemState, SetupPart, Step, setup_row};
-use openchuck_app::project::ItemId;
+use openchuck_app::project::id::ToolId;
+use openchuck_app::project::{ItemId, ToolSnapshot};
 
 use super::{Command, Selection, Shell, TreeAction, marks};
 use crate::theme::DARK;
@@ -65,9 +68,91 @@ struct Row<'a> {
     swatch: Option<Color32>,
     name: RichText,
     chip: Option<String>,
+    /// An operation's tool chip, drawn in place of `chip` (issue #790).
+    tool: Option<ToolChip>,
     /// A linked model: the link mark is drawn after the name (decision record
     /// 0307 item 8).
     linked: bool,
+}
+
+/// What an operation row's tool chip shows (issue #790; decision record
+/// 0690, the owner's answers T1 A and T2 A): the tool's number, with
+/// its name and what it is in the tooltip; or, for an operation with no tool
+/// or whose tool is not in the project's tool list, a chip saying so, drawn
+/// with the error colour's outline, whose tooltip is the operation's own
+/// reason and where to fix it.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(super) struct ToolChip {
+    /// The chip's words.
+    pub(super) text: String,
+    /// The tooltip's first line, in bold: the tool's name.
+    pub(super) title: Option<String>,
+    /// The tooltip's line: what the tool is, or what is wrong.
+    pub(super) line: String,
+    /// Whether the operation cannot be generated for want of its tool.
+    pub(super) problem: bool,
+}
+
+/// The tool chip of an operation whose tool reference is `tool`, among the
+/// project's `tools`.
+pub(super) fn tool_chip(tools: &[ToolSnapshot], tool: Option<ToolId>) -> ToolChip {
+    let problem = |text: &str, reason: &str| {
+        let mut chars = reason.chars();
+        let reason = chars
+            .next()
+            .map(|c| c.to_uppercase().chain(chars).collect::<String>())
+            .unwrap_or_default();
+        ToolChip {
+            text: text.to_owned(),
+            title: None,
+            line: format!("{reason}. Choose a tool in the operation's Tool section."),
+            problem: true,
+        }
+    };
+    let Some(id) = tool else {
+        return problem("No tool", openchuck_app::operation::NO_TOOL);
+    };
+    let Some(t) = tools.iter().find(|t| t.id == id) else {
+        return problem("Tool missing", openchuck_app::operation::TOOL_MISSING);
+    };
+    let number = format!("T{}", t.controller.number);
+    ToolChip {
+        line: format!(
+            "{number} · {}",
+            openchuck_app::tool_library::summary(&t.tool)
+        ),
+        title: Some(t.name.clone()).filter(|n| !n.trim().is_empty()),
+        text: number,
+        problem: false,
+    }
+}
+
+/// Draws an operation's tool chip in `ui` and gives it its tooltip, which
+/// opens on hover over the chip and while `row` has the keyboard (the chip
+/// is not a Tab stop of its own: the owner's answer T2).
+fn draw_tool_chip(ui: &mut egui::Ui, chip: &ToolChip, row: &egui::Response) -> egui::Response {
+    let colour = if chip.problem {
+        DARK.error
+    } else {
+        ui.visuals().text_color()
+    };
+    let response = crate::field_row::chip(ui, &chip.text, colour);
+    if chip.problem {
+        ui.painter().rect_stroke(
+            response.rect,
+            3.0,
+            Stroke::new(1.0, DARK.error),
+            egui::StrokeKind::Inside,
+        );
+    }
+    crate::focus::tip_through(&response, row, |ui| {
+        ui.set_max_width(ui.spacing().tooltip_width);
+        if let Some(title) = &chip.title {
+            ui.label(RichText::new(title).strong());
+        }
+        ui.label(&chip.line);
+    });
+    response
 }
 
 /// The tooltip of a linked model's row and its link mark (decision record
@@ -130,7 +215,19 @@ fn row(ui: &mut egui::Ui, r: Row<'_>, before: impl FnOnce(&mut egui::Ui)) -> egu
     if r.linked {
         link_mark(&mut child);
     }
-    if let Some(chip) = r.chip {
+    if let Some(tool) = &r.tool {
+        let chip = child
+            .with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                draw_tool_chip(ui, tool, &response)
+            })
+            .inner;
+        #[cfg(test)]
+        ui.data_mut(|data| {
+            data.insert_temp(egui::Id::unique(("tool chip of", response.id)), chip.rect)
+        });
+        #[cfg(not(test))]
+        let _ = chip;
+    } else if let Some(chip) = r.chip {
         child.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
             super::frame::chip(ui, &chip);
         });
@@ -344,6 +441,7 @@ impl Shell {
                             swatch: None,
                             name: RichText::new(m.display_name()),
                             chip: linked.then(|| LINKED_CHIP.to_owned()),
+                            tool: None,
                             linked,
                         },
                         |_| {},
@@ -382,6 +480,7 @@ impl Shell {
                                 swatch: None,
                                 name: RichText::new(label).color(DARK.muted),
                                 chip,
+                                tool: None,
                                 linked: false,
                             },
                             |_| {},
@@ -428,6 +527,7 @@ impl Shell {
                             swatch: None,
                             name: RichText::new(name).strong(),
                             chip: Some(s.frame.work_offset.register.to_string()),
+                            tool: None,
                             linked: false,
                         },
                         |_| {},
@@ -453,6 +553,7 @@ impl Shell {
                                 swatch: None,
                                 name: RichText::new(r.label).color(DARK.muted),
                                 chip,
+                                tool: None,
                                 linked: false,
                             },
                             |_| {},
@@ -482,6 +583,7 @@ impl Shell {
                             swatch: Some(Color32::from_rgb(r, g, b)),
                             name: RichText::new(&s.name),
                             chip: Some(s.counted()),
+                            tool: None,
                             linked: false,
                         },
                         |_| {},
@@ -521,10 +623,7 @@ impl Shell {
                         // D5: struck through and muted.
                         name = name.strikethrough().color(DARK.muted);
                     }
-                    let tool = o
-                        .tool
-                        .and_then(|id| project.tools().iter().find(|t| t.id == id))
-                        .map(|t| format!("T{}", t.controller.number));
+                    let tool = tool_chip(project.tools(), o.tool);
                     let mut enabled = o.enabled;
                     let mut toggled = false;
                     let id = o.id;
@@ -536,7 +635,8 @@ impl Shell {
                             status: status(item),
                             swatch: None,
                             name,
-                            chip: tool,
+                            chip: None,
+                            tool: Some(tool),
                             linked: false,
                         },
                         |ui| {
@@ -586,6 +686,11 @@ impl Shell {
                             egui::Id::unique(("operation row focus", id)),
                             response.id,
                         );
+                        if let Some(chip) = data
+                            .get_temp::<egui::Rect>(egui::Id::unique(("tool chip of", response.id)))
+                        {
+                            data.insert_temp(egui::Id::unique(("operation tool chip", id)), chip);
+                        }
                     });
                     if toggled {
                         actions.push(TreeAction::Command(Box::new(

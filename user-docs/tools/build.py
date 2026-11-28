@@ -9,11 +9,14 @@ Without --version it builds the development version: with --nightly DATE the pub
 - makes the contents list work without JavaScript (links relative to the page, the current page
   marked), because mdBook's {{#toc}} writes links relative to the site root;
 - fills in the version, the footer stamp and the program's own G-code notice (NFR-12);
+- folds each section of changes on the release notes page, closed, with the number of its bullets
+  in its title and its fixes last (decision 0704);
 - adds the stylesheet, the version script and the interface's IBM Plex fonts, copied unmodified
   from apps/openchuck-ui/assets/fonts (OFL-1.1) so the repository holds one copy of them.
 The date in the stamp is the commit's date, so the same commit always builds the same pages.
 """
 import argparse
+import html as htmllib
 import os
 import re
 import shutil
@@ -61,6 +64,68 @@ def fix_lists(text):
     A procedure that a figure interrupts goes on in a second list that starts at its next number.
     """
     return _OL_START.sub(lambda m: f'<ol start="{m.group(1)}" style="counter-reset: step {int(m.group(1)) - 1}">', text)
+
+
+# The sections of changes in the release notes, in their order: the same list as SECTIONS in
+# xtask/src/changelog.rs, which an xtask test compares with this one (decision 0704).
+SECTIONS = (
+    "UI and workflow",
+    "Models, setups and workholding",
+    "Tools and tool libraries",
+    "Operations and strategies",
+    "Simulation",
+    "G-code generation and posts",
+    "Command line",
+    "User guide and examples",
+)
+_SECTION_H3 = re.compile(r'<h3 id="([^"]*)"><a class="header" href="#[^"]*">(.*?)</a></h3>\s*<ul>\n')
+_LI = re.compile(r"<(/?)(li|ul|ol)\b[^>]*>")
+_FIX = re.compile(r"\s*(<p>)?\s*<strong>Fixed:")
+
+
+def _items(ul_body):
+    """The top-level <li> elements of a list's inner HTML, each whole, and the end of the last."""
+    items, depth, start = [], 0, None
+    for m in _LI.finditer(ul_body):
+        closing, tag = m.group(1) == "/", m.group(2)
+        if not closing:
+            if tag == "li" and depth == 0:
+                start = m.start()
+            depth += 1
+        else:
+            depth -= 1
+            if depth < 0:
+                return items, m.start()
+            if tag == "li" and depth == 0:
+                items.append(ul_body[start:m.end()])
+    return items, None
+
+
+def fold_sections(text, rel):
+    """On the release notes page, each section of changes (a heading named in SECTIONS directly
+    followed by a list) becomes a closed <details> whose title is the heading with the number of its
+    bullets, and its fixes (a bold lead starting "Fixed:") move after its other bullets, each group in
+    page order (decision 0704). Other pages, print.html among them, and other headings are left as
+    they are."""
+    if rel != "release-notes.html":
+        return text
+    out, pos = [], 0
+    for m in _SECTION_H3.finditer(text):
+        if m.start() < pos or htmllib.unescape(m.group(2)) not in SECTIONS:
+            continue
+        items, end = _items(text[m.end():])
+        if end is None or not items:
+            continue
+        is_fix = [bool(_FIX.match(i[i.index(">") + 1:])) for i in items]
+        fixes = [i for i, f in zip(items, is_fix) if f]
+        others = [i for i, f in zip(items, is_fix) if not f]
+        close = m.end() + end + len("</ul>")
+        out.append(text[pos:m.start()])
+        out.append(f'<details class="changes"><summary><h3 id="{m.group(1)}">{m.group(2)} ({len(items)})</h3></summary>\n'
+                   f'<ul>\n' + "\n".join(others + fixes) + "\n</ul></details>")
+        pos = close
+    out.append(text[pos:])
+    return "".join(out)
 
 
 def fill(text, version, tag, commit, date, notice, nightly=None):
@@ -117,7 +182,7 @@ def build(out, version=None, tag=None, nightly=None):
             rel = os.path.relpath(path, out).replace(os.sep, "/")
             with open(path, encoding="utf-8") as f:
                 text = f.read()
-            text = fill(fix_lists(fix_nav(text, rel)), version, tag, commit, date, notice, nightly)
+            text = fill(fold_sections(fix_lists(fix_nav(text, rel)), rel), version, tag, commit, date, notice, nightly)
             with open(path, "w", encoding="utf-8") as f:
                 f.write(text)
     # mdBook's contents frame for readers without JavaScript; this theme puts the contents in each

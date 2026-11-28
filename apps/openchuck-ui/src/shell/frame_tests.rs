@@ -28,6 +28,9 @@ pub(super) struct Rig {
     /// The widget with the keyboard at the end of the last frame, read in
     /// that frame (after it, egui answers from the frame before).
     pub(super) focused: Option<egui::Response>,
+    /// What the last frame told the platform: clicks, focus and value
+    /// changes, each with the widget's accessible name and state.
+    pub(super) events: Vec<egui::output::OutputEvent>,
     /// The scope id of the root `Ui` the shell draws into: egui 0.37 derives a
     /// panel's id from its parent's scope id and its salt.
     root: egui::Id,
@@ -42,6 +45,7 @@ impl Rig {
             shapes: Vec::new(),
             dirs,
             focused: None,
+            events: Vec::new(),
             root: egui::Id::NULL,
         };
         rig.frame(Vec::new());
@@ -103,11 +107,17 @@ impl Rig {
     }
 
     pub(super) fn frame(&mut self, events: Vec<Event>) {
-        let input = egui::RawInput {
+        self.raw_frame(|input| input.events = events);
+    }
+
+    /// One frame with input the events alone cannot give, such as dropped
+    /// or hovered files.
+    pub(super) fn raw_frame(&mut self, edit: impl FnOnce(&mut egui::RawInput)) {
+        let mut input = egui::RawInput {
             screen_rect: Some(egui::Rect::from_min_size(egui::pos2(0.0, 0.0), self.size)),
-            events,
             ..Default::default()
         };
+        edit(&mut input);
         let Self {
             shell,
             ctx,
@@ -124,6 +134,7 @@ impl Rig {
                 .and_then(|id| ui.ctx().read_response(id));
         });
         output.textures_delta.clear();
+        self.events = output.platform_output.events;
         self.shapes = output.shapes;
     }
 
@@ -327,7 +338,9 @@ pub(super) fn temp(name: &str) -> PathBuf {
 fn req_ui_10_the_empty_state_offers_a_project_and_dims_the_other_steps() {
     let mut rig = Rig::new(Shell::with_settings(false, None, None), Vec::new());
     rig.frame(Vec::new());
-    assert!(rig.shows("Start with a model"));
+    // With no project open the card says "Start a project" (decision record
+    // 0697 item 1); "Start with a model" is for a project with none.
+    assert!(rig.shows("Start a project"));
     assert!(rig.shows("Open project…"));
     assert!(rig.shows("New project…"));
     for group in ["MODEL", "SETUPS", "SELECTION SETS", "OPERATIONS"] {
@@ -514,6 +527,52 @@ fn req_ui_15_the_layout_and_scale_survive_a_restart() {
     assert!((rig.ctx.zoom_factor() - 2.0).abs() < 1e-6);
 }
 
+/// Draws one frame with the window as the platform reports it: its inner size
+/// in logical pixels and whether it is maximised.
+fn window_frame(rig: &mut Rig, size: egui::Vec2, maximized: bool) {
+    let mut input = egui::RawInput {
+        screen_rect: Some(egui::Rect::from_min_size(egui::Pos2::ZERO, rig.size)),
+        ..Default::default()
+    };
+    let info = input.viewports.get_mut(&egui::ViewportId::ROOT).unwrap();
+    info.inner_rect = Some(egui::Rect::from_min_size(egui::Pos2::ZERO, size));
+    info.maximized = Some(maximized);
+    let mut output = rig.ctx.run_ui(input, |ui| rig.shell.draw(ui));
+    output.textures_delta.clear();
+}
+
+/// A maximised window is kept as maximised and does not replace the normal
+/// size, so the next start opens maximised and un-maximising goes back to
+/// the normal size, centred (UI-15, UI-16; the owner's answers Q6 A, Q7 A).
+#[test]
+fn req_ui_15_req_ui_16_a_maximised_window_keeps_its_normal_size_for_the_next_start() {
+    use openchuck_app::settings::WindowStart;
+    let mut rig = Rig::cube("frame-maximised", None);
+    window_frame(&mut rig, egui::vec2(1200.0, 800.0), false);
+    assert_eq!(rig.shell.settings.window, Some([1200.0, 800.0]));
+    assert!(!rig.shell.settings.maximised);
+    rig.shell.settings_changed = None;
+    window_frame(&mut rig, egui::vec2(1920.0, 1009.0), true);
+    assert_eq!(rig.shell.settings.window, Some([1200.0, 800.0]));
+    assert!(rig.shell.settings.maximised);
+    assert!(rig.shell.settings_changed.is_some());
+    assert_eq!(
+        rig.shell.settings.window_start(),
+        WindowStart::Maximised {
+            restore: Some([1200.0, 800.0])
+        }
+    );
+    // Seen again maximised: nothing changed, so nothing is written.
+    rig.shell.settings_changed = None;
+    window_frame(&mut rig, egui::vec2(1920.0, 1009.0), true);
+    assert!(rig.shell.settings_changed.is_none());
+    window_frame(&mut rig, egui::vec2(1200.0, 800.0), false);
+    assert_eq!(
+        rig.shell.settings.window_start(),
+        WindowStart::Centred([1200.0, 800.0])
+    );
+}
+
 #[test]
 fn req_ui_14_rename_duplicate_and_move_by_key() {
     let mut rig = Rig::cube("frame-keys", None);
@@ -655,7 +714,7 @@ fn until_stale(rig: &mut Rig, stale: usize) {
 }
 
 /// The main action has the plain key (the owner's choice of 24 Nov 2026,
-/// record SIM-UX-G): G generates every stale operation, and Shift G the
+/// decision 0707): G generates every stale operation, and Shift G the
 /// selected operation and the ones before it.
 #[test]
 fn req_ui_14_shift_g_generates_the_selected_operation_and_g_every_stale_one() {
@@ -689,7 +748,7 @@ fn req_ui_14_shift_g_generates_the_selected_operation_and_g_every_stale_one() {
 }
 
 /// F5 follows G and Shift F5 follows Shift G (the owner's answer of 24 Nov
-/// 2026, record SIM-UX-G). With no operation selected, Shift G generates
+/// 2026, decision 0707). With no operation selected, Shift G generates
 /// every stale operation, so it is never a dead key.
 #[test]
 fn req_ui_14_f5_follows_g_and_shift_g_with_nothing_selected_generates_every_stale_one() {
@@ -825,7 +884,8 @@ fn req_op_02_req_ui_07_the_geometry_section_shows_each_sets_options() {
     app.set_operation_selection(op.id, SelectionRole::Avoid, rib, true)
         .unwrap();
     // Helical finishing: the avoid set's choice, no boundary options; the
-    // rib on Ignore says it limits nothing.
+    // rib on Ignore is struck through, with no warning line under it
+    // (decision 0696 item 4).
     app.set_on_break(op.id, SelectionRole::Avoid, rib, OnBreak::Ignore)
         .unwrap();
     rig.settle();
@@ -835,19 +895,15 @@ fn req_op_02_req_ui_07_the_geometry_section_shows_each_sets_options() {
     assert!(rig.shows("Contain within"));
     assert!(!rig.shows("Limits the pass"));
     assert!(!rig.shows("Limits the tip"));
-    for needle in [
-        "Cut short",
-        "Warn only",
-        "Ignore",
-        "The set 'Rib' limits nothing.",
-    ] {
+    for needle in ["Cut short", "Warn only", "Ignore"] {
         assert!(
             rig.shows(needle),
             "{needle} is not shown for helical finishing"
         );
     }
-    // As swarf: the options, with the boundary's limits both off and the
-    // rib ignored, each saying it limits nothing.
+    assert!(!rig.shows("limits nothing"));
+    // As swarf: the options, with the boundary's limits both off, which
+    // says it limits nothing, and the rib ignored, which does not.
     let app = rig.shell.app.as_mut().unwrap();
     let mut swarf = app.project().operation(op.id).unwrap().clone();
     swarf.strategy = "swarf".into();
@@ -871,10 +927,60 @@ fn req_op_02_req_ui_07_the_geometry_section_shows_each_sets_options() {
         "Warn only",
         "Ignore",
         "The set 'Fence' limits nothing.",
-        "The set 'Rib' limits nothing.",
     ] {
         assert!(rig.shows(needle), "{needle} is not shown");
     }
+    assert!(!rig.shows("The set 'Rib' limits nothing."));
+}
+
+/// Decision 0696 item 8 (D3 A): an avoid set on Ignore gives the
+/// operation no amber mark and adds no warning to Messages, the counts or
+/// the project badge.
+#[test]
+fn req_op_21_req_ui_11_a_set_on_ignore_adds_no_warning_and_no_amber_mark() {
+    use openchuck_app::overview::Severity;
+    use openchuck_app::project::{OnBreak, SelectionTarget};
+    use openchuck_app::selection::SelectionRole;
+    let mut rig = Rig::cube("ignore-no-warning", None);
+    let op = rig.shell.app.as_ref().unwrap().project().operations()[0].id;
+    let generated = |rig: &mut Rig| {
+        rig.shell.app.as_ref().unwrap().regenerate().unwrap();
+        rig.shell.overview_dirty = true;
+        rig.frame(Vec::new());
+        rig.frame(Vec::new());
+        let o = &rig.shell.overview;
+        (
+            o.items[&ItemRef::Operation(op)].state,
+            o.count(Severity::Warning),
+            o.count(Severity::Info),
+        )
+    };
+    let (state, warnings, notes) = generated(&mut rig);
+    let app = rig.shell.app.as_mut().unwrap();
+    let model = app.project().models()[0].id;
+    let bead = app
+        .save_selection("Bead", model, SelectionTarget::Triangles([1].into()))
+        .unwrap();
+    app.set_operation_selection(op, SelectionRole::Avoid, bead, true)
+        .unwrap();
+    app.set_on_break(op, SelectionRole::Avoid, bead, OnBreak::Ignore)
+        .unwrap();
+    let (ignored_state, ignored_warnings, ignored_notes) = generated(&mut rig);
+    assert_eq!(ignored_state, state);
+    assert_eq!(ignored_warnings, warnings);
+    // Messages lists no run notes; the note is said once in Results, as
+    // `openchuck-app`'s `req_op_02_avoid_and_check_sets_of_other_strategies_take_their_choices`
+    // checks.
+    assert_eq!(ignored_notes, notes);
+    assert!(
+        !rig.shell
+            .overview
+            .messages
+            .iter()
+            .any(|m| m.text.contains("limits nothing")),
+        "{:?}",
+        rig.shell.overview.messages
+    );
 }
 
 #[test]

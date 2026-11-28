@@ -27,14 +27,14 @@ Make two face sets as in step 1 of [Selection sets on a blisk](selection-sets.md
 2. Beside **Cut on**, choose **Blade wall**.
 
 <figure>
-<a href="images/blisk_swarf/01-geometry.png"><img src="images/blisk_swarf/01-geometry.png" width="1920" height="1080" alt="The Inspector of Blade swarf, Swarf (flank) machining, Stale, with its description, and Geometry with Cut on Blade wall; Contain within, Avoid and Check empty."></a>
+<a href="images/blisk_swarf/01-geometry.png"><img src="images/blisk_swarf/01-geometry.png" width="1920" height="1080" alt="The Inspector of Blade swarf, Swarf (flank) machining, Stale, with its description, and Geometry with a line for Blade wall under Cut on, with its colour dot and ×; Contain within, Avoid and Check empty."></a>
 <figcaption><b>Figure 1.</b> A swarf operation with only the face to cut.</figcaption>
 </figure>
 
 3. Click **Generate stale**. It took about 30 s on the test computer.
 
 <figure>
-<a href="images/blisk_swarf/02-flat.png"><img src="images/blisk_swarf/02-flat.png" width="1920" height="1080" alt="The swarf pass drawn in orange along the blade root. Results: 1 operation, 47 moves, 30.2 s to generate, Errors 0, Warnings 3, Generated Blade swarf, and the warnings quoted in the text."></a>
+<a href="images/blisk_swarf/02-flat.png"><img src="images/blisk_swarf/02-flat.png" width="1920" height="1080" alt="The swarf pass drawn in orange along the blade root. Results: 1 operation, 47 moves, 54.0 s to generate, Errors 0, Warnings 3, Generated Blade swarf, and the warnings quoted in the text."></a>
 <figcaption><b>Figure 2.</b> One pass along the blade with the 3 mm flat end mill.</figcaption>
 </figure>
 
@@ -57,7 +57,7 @@ And one is about the blade itself: "Overcut (operation 'Blade swarf'): swarf on 
 2. Click **Generate stale**.
 
 <figure>
-<a href="images/blisk_swarf/03-ball.png"><img src="images/blisk_swarf/03-ball.png" width="1920" height="1080" alt="Blade swarf with the 3 mm ball. No orange pass shows in the view, only the pink entry move above the blade: the pass runs below the floor, which hides it. Results: 1 operation, 46 moves, 30.9 s to generate, Errors 1, Warnings 3, and the warning that the swarf on face 19 cuts 1.190 mm into face 20. In the Inspector, Tolerance and Tip extension are outlined, with the note The last path was made with a warning about this setting."></a>
+<a href="images/blisk_swarf/03-ball.png"><img src="images/blisk_swarf/03-ball.png" width="1920" height="1080" alt="Blade swarf with the 3 mm ball. No orange pass shows in the view, only the pink entry move above the blade: the pass runs below the floor, which hides it. Results: 1 operation, 46 moves, 53.9 s to generate, Errors 1, Warnings 3, and the warning that the swarf on face 19 cuts 1.190 mm into face 20. In the Inspector, Tolerance and Tip extension are outlined, with the note The last path was made with a warning about this setting."></a>
 <figcaption><b>Figure 3.</b> With a ball, the tool's round end reaches below the end of the rulings into the floor.</figcaption>
 </figure>
 
@@ -73,14 +73,14 @@ The pass also stops 2.158 mm short of the end plane (face 15) instead of 0.833 m
 1. Scroll back to **Geometry**. Beside **Avoid**, choose **Hub floor**. Leave it on **Cut short**.
 
 <figure>
-<a href="images/blisk_swarf/04-avoid-set.png"><img src="images/blisk_swarf/04-avoid-set.png" width="1920" height="1080" alt="The Geometry section of Blade swarf: Cut on Blade wall, Avoid Hub floor with the choice Cut short chosen and Warn only and Ignore beside it; the hub floor is hatched red on the part."></a>
+<a href="images/blisk_swarf/04-avoid-set.png"><img src="images/blisk_swarf/04-avoid-set.png" width="1920" height="1080" alt="The Geometry section of Blade swarf: a line for Blade wall under Cut on, and a line for Hub floor under Avoid with Cut short chosen under it and Warn only and Ignore below; the hub floor is hatched red on the part."></a>
 <figcaption><b>Figure 4.</b> On swarf, <b>Cut short</b> lifts the tool's end up the blade until it is clear of the set.</figcaption>
 </figure>
 
 2. Click **Generate stale**.
 
 <figure>
-<a href="images/blisk_swarf/05-avoid.png"><img src="images/blisk_swarf/05-avoid.png" width="1920" height="1080" alt="Blade swarf with Hub floor as an avoid set: the orange pass runs along the foot of the blade, above the hatched floor. Results: 1 operation, 48 moves, 33.4 s to generate, Errors 0, Warnings 2, and no warning about face 20."></a>
+<a href="images/blisk_swarf/05-avoid.png"><img src="images/blisk_swarf/05-avoid.png" width="1920" height="1080" alt="Blade swarf with Hub floor as an avoid set: the orange pass runs along the foot of the blade, above the hatched floor. Results: 1 operation, 48 moves, 40.2 s to generate, Errors 0, Warnings 2, and no warning about face 20."></a>
 <figcaption><b>Figure 5.</b> The warning about the floor is gone, and so is the overcut.</figcaption>
 </figure>
 
@@ -103,7 +103,7 @@ To see what the setting does, turn it off:
 </figure>
 
 <figure>
-<a href="images/blisk_swarf/07-keep-off-off.png"><img src="images/blisk_swarf/07-keep-off-off.png" width="1920" height="1080" alt="Blade swarf with Keep off the end faces off: Results 1 operation, 48 moves, 32.2 s to generate, Errors 1, Warnings 3, and the warnings that the swarf on face 19 cuts 0.266 mm into face 1 and 0.269 mm into face 5. In the Inspector, Tolerance and Tip extension are outlined, and Tolerance and Keep off the end faces have the note The last path was made with a warning about this setting."></a>
+<a href="images/blisk_swarf/07-keep-off-off.png"><img src="images/blisk_swarf/07-keep-off-off.png" width="1920" height="1080" alt="Blade swarf with Keep off the end faces off: Results 1 operation, 48 moves, 26.3 s to generate, Errors 1, Warnings 3, and the warnings that the swarf on face 19 cuts 0.266 mm into face 1 and 0.269 mm into face 5. In the Inspector, Tolerance and Tip extension are outlined, and Tolerance and Keep off the end faces have the note The last path was made with a warning about this setting."></a>
 <figcaption><b>Figure 7.</b> With the setting off, the pass runs to the end of the blade and into the disc wall. A setting that a warning points at is outlined or has a note under it.</figcaption>
 </figure>
 

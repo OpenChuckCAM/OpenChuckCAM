@@ -789,27 +789,66 @@ fn convex_radius(face: &ExactFace) -> Option<f64> {
         .flat_map(|j| (0..n).map(move |i| (i, j)))
         .map(|(i, j)| at(i, j))
         .collect();
+    radius_from_samples(&samples, n)
+}
+
+/// The smallest radius with which a face curves away from the tool, from a
+/// grid of `n` by `n` samples (row by row along u, `None` off the face), or
+/// `None` where it nowhere does.
+fn radius_from_samples(samples: &[Option<SurfacePoint>], n: usize) -> Option<f64> {
     let mut most: f64 = 0.0;
     for j in 0..n {
         for i in 0..n {
-            let Some(p) = samples.get(j * n + i).copied().flatten() else {
+            let get = |k: Option<usize>| k.and_then(|k| samples.get(k).copied().flatten());
+            let Some(p) = get(Some(j * n + i)) else {
                 continue;
             };
-            let next = [
-                (i + 1 < n).then(|| j * n + i + 1),
-                (j + 1 < n).then(|| (j + 1) * n + i),
-            ];
-            for q in next
-                .into_iter()
-                .flatten()
-                .filter_map(|k| samples.get(k).copied().flatten())
-            {
+            let (qu, qv) = (
+                get((i + 1 < n).then(|| j * n + i + 1)),
+                get((j + 1 < n).then(|| (j + 1) * n + i)),
+            );
+            // Along each step the cell has, the normal's turn per length:
+            // 1/R on a circle. A face trimmed narrower than one step across
+            // still curves along the other (CodeRabbit on #947), so this is
+            // read even where a cell lacks one of its two steps.
+            for q in [qu, qv].into_iter().flatten() {
                 let d = q.point - p.point;
                 let d2 = d.dot(d);
                 if d2 > 1e-18 {
-                    // The normal's turn per length along d: 1/R on a circle.
-                    most = most.max((q.normal.get() - p.normal.get()).dot(d) / d2);
+                    let k = (q.normal.get() - p.normal.get()).dot(d) / d2;
+                    if k.is_finite() {
+                        most = most.max(k);
+                    }
                 }
+            }
+            let (Some(qu), Some(qv)) = (qu, qv) else {
+                continue;
+            };
+            // The first and second fundamental forms from the cell's two
+            // steps along the parameters (the normal's turn along each
+            // step, positive where the face curves away from the tool):
+            // the largest normal curvature in any direction is the larger
+            // root of (EG - F^2) k^2 - (EN - 2FM + GL) k + (LN - M^2) = 0
+            // (issue #896 item 6; along u or v alone it misses a face
+            // curving most between them).
+            let (du, dv) = (qu.point - p.point, qv.point - p.point);
+            let (nu, nv) = (
+                qu.normal.get() - p.normal.get(),
+                qv.normal.get() - p.normal.get(),
+            );
+            let (e, f, g) = (du.dot(du), du.dot(dv), dv.dot(dv));
+            let (l, m, nn) = (nu.dot(du), 0.5 * (nu.dot(dv) + nv.dot(du)), nv.dot(dv));
+            let a = e * g - f * f;
+            // A cell whose two steps are (nearly) parallel has no area.
+            if a.is_nan() || a <= 1e-12 * e * g {
+                continue;
+            }
+            let b = e * nn - 2.0 * f * m + g * l;
+            let c = l * nn - m * m;
+            let disc = (b * b - 4.0 * a * c).max(0.0);
+            let k = (b + disc.sqrt()) / (2.0 * a);
+            if k.is_finite() {
+                most = most.max(k);
             }
         }
     }
@@ -1157,4 +1196,134 @@ fn too_many(id: FaceId) -> PathError {
         ),
     )
     .with_setting(crate::params::names::STEPOVER)
+}
+
+#[cfg(test)]
+mod tests {
+    #![allow(clippy::unwrap_used, clippy::indexing_slicing)]
+
+    use openchuck_types::brep::{BSplinePatch, BrepFace, FaceId, Surface, SurfaceKind};
+    use openchuck_types::geometry::Point3;
+    use openchuck_types::mesh::TriangleMesh;
+
+    use super::{CURVATURE_SAMPLES, convex_radius, radius_from_samples, scallop_spacing};
+    use crate::brep::ExactFace;
+    use crate::surface::SurfacePoint;
+    use openchuck_types::geometry::{UnitVec3, Vec3};
+
+    /// The biquadratic Bezier face over `[0, 1]^2` whose point at (s, t) is
+    /// `f(s, t)`, a polynomial of degree at most two in each: its control
+    /// points from the values at 0, 1/2 and 1 (`c1 = 2 f(1/2) - (f0 + f1) / 2`
+    /// in each direction).
+    fn biquadratic(f: impl Fn(f64, f64) -> Point3) -> ExactFace {
+        let at = [0.0, 0.5, 1.0];
+        let value = |i: usize, j: usize| f(at[i], at[j]).to_vec();
+        let row =
+            |a: openchuck_types::geometry::Vec3,
+             m: openchuck_types::geometry::Vec3,
+             b: openchuck_types::geometry::Vec3| { [a, m * 2.0 - (a + b) * 0.5, b] };
+        // Along t for each s value, then along s.
+        let along_t: Vec<[openchuck_types::geometry::Vec3; 3]> = (0..3)
+            .map(|i| row(value(i, 0), value(i, 1), value(i, 2)))
+            .collect();
+        let mut poles = Vec::new();
+        let mut columns = [[openchuck_types::geometry::Vec3::ZERO; 3]; 3];
+        for j in 0..3 {
+            let c = row(along_t[0][j], along_t[1][j], along_t[2][j]);
+            for i in 0..3 {
+                columns[i][j] = c[i];
+            }
+        }
+        for row in columns {
+            for v in row {
+                poles.push(Point3::ORIGIN + v);
+            }
+        }
+        let face = BrepFace {
+            id: FaceId(0),
+            surface: SurfaceKind::BSpline,
+            body: 0,
+            edges: Vec::new(),
+            geometry: Surface::BSpline(BSplinePatch {
+                degree_u: 2,
+                degree_v: 2,
+                knots_u: vec![0.0, 0.0, 0.0, 1.0, 1.0, 1.0],
+                knots_v: vec![0.0, 0.0, 0.0, 1.0, 1.0, 1.0],
+                poles_u: 3,
+                poles_v: 3,
+                poles,
+                weights: vec![1.0; 9],
+            }),
+            reversed: false,
+            uv_bounds: [0.0, 1.0, 0.0, 1.0],
+            trims: Vec::new(),
+            tessellation: TriangleMesh::default(),
+        };
+        ExactFace::new(&face).unwrap()
+    }
+
+    /// Issue #896 item 6 (CodeRabbit on #854, outline.rs): on
+    /// `P(u, v) = (u + v, v - u, -(u + v)^2 / 20)` the face curves away from
+    /// the tool with a radius of 10 mm at the middle, along `u + v`, but
+    /// along u alone and v alone it reads about 20 mm. The radius taken is
+    /// the smallest in any direction (the largest principal curvature), so
+    /// the scallop spacing leaves no ridge above the height asked for.
+    #[test]
+    fn req_op_28_the_convex_radius_is_the_smallest_in_any_direction() {
+        let saddle = biquadratic(|s, t| {
+            let (u, v) = (2.0 * s - 1.0, 2.0 * t - 1.0);
+            Point3::new(u + v, v - u, -(u + v) * (u + v) / 20.0)
+        });
+        let r = convex_radius(&saddle).unwrap();
+        assert!((r - 10.0).abs() < 0.25, "the face's radius read as {r} mm");
+        // With it, a 3 mm ball at 0.01 mm leaves the ridge asked for (on the
+        // radius read along u alone it left 0.0113 mm).
+        let near = scallop_spacing(0.01, 3.0, Some(r));
+        let far = scallop_spacing(0.01, 3.0, Some(20.0));
+        assert!(near < far, "{near} {far}");
+        // A flat face nowhere curves away from the tool.
+        let flat = biquadratic(|s, t| Point3::new(10.0 * s, 10.0 * t, 0.0));
+        assert_eq!(convex_radius(&flat), None);
+        // A face that closes to a point along one side, as a cone does at its
+        // apex, is read only where its cells have area: a flat fan reads as
+        // flat, not as curving without limit at the point.
+        let fan = biquadratic(|s, t| Point3::new(10.0 * s, 10.0 * s * t, 0.0));
+        assert_eq!(convex_radius(&fan), None);
+    }
+
+    /// CodeRabbit on #947: a trimmed face narrower than one sample step in
+    /// one direction has no cell with both forward neighbours, but it still
+    /// curves along the other. Its radius is still read, from the normal's
+    /// turn along that direction, so the outline is not spaced as on a flat
+    /// face (which would leave a ridge above the height asked for). Here a
+    /// cylinder of radius 5 mm, round its axis along u, has samples only in
+    /// one column (a strip along v) or only in one row (a strip along u,
+    /// which is straight, so it reads as flat).
+    #[test]
+    fn req_op_28_a_narrow_trim_still_reads_the_radius_it_curves_with() {
+        let n = CURVATURE_SAMPLES;
+        let sample = |i: usize, j: usize| {
+            let x = i as f64 * 0.5;
+            let a = j as f64 * 0.05;
+            SurfacePoint {
+                point: Point3::new(x, 5.0 * a.cos(), 5.0 * a.sin()),
+                normal: UnitVec3::new(Vec3::new(0.0, a.cos(), a.sin())).unwrap(),
+                position: None,
+            }
+        };
+        let grid = |keep: &dyn Fn(usize, usize) -> bool| -> Vec<Option<SurfacePoint>> {
+            (0..n)
+                .flat_map(|j| (0..n).map(move |i| (i, j)))
+                .map(|(i, j)| keep(i, j).then(|| sample(i, j)))
+                .collect()
+        };
+        let column = radius_from_samples(&grid(&|i, _| i == 7), n).unwrap();
+        assert!(
+            (column - 5.0).abs() < 0.05,
+            "a strip along v read {column} mm"
+        );
+        assert_eq!(radius_from_samples(&grid(&|_, j| j == 7), n), None);
+        let whole = radius_from_samples(&grid(&|_, _| true), n).unwrap();
+        assert!((whole - 5.0).abs() < 0.05, "{whole}");
+    }
 }

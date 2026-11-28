@@ -90,6 +90,8 @@ A ready-made tool cannot be edited until you copy it with **Duplicate**. A ready
 
 Each tool is one text file; the tool sets are in its `tool-sets` folder. **Import library...** reads tools from another folder and, for a tool you already have that differs, offers **Keep mine**, **Replace** or **Keep both**. **Export library...** writes them to a folder. The [command line](command-line.md#tools) has the same operations.
 
+**Sharing a library with an older version.** A tool with a **Stick-out** is saved in a newer format than a tool without one. An older version of OpenChuckCAM that cannot read it says the tool needs a newer version and leaves it out; the other tools open as usual, and nothing in the file is changed. The released 0.55 versions do this once the tool has been saved by this version. A tool saved by a development build from 23 to 26 November 2026 shows them an error naming `stick_out` instead, until you save it again here: change and save any field of the tool, or **Export library...** to a new folder. A file that only holds a setting this version does not know is named as written by a newer version, with the setting, not as a broken file.
+
 ## Where the Makera Z1 tool data comes from
 
 The ready-made Makera Z1 tools and the Z1 default tool set are written from facts that others published, and we credit them:

@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 560" width="1000" height="560" font-family="Helvetica, Arial, sans-serif" font-size="13">
+<title>Removal rate in the Simulate step's Results inspector</title>
+<rect width="1000" height="560" fill="#ffffff"/>
+<text x="20" y="28" font-size="17" font-weight="bold" fill="#222">Simulate step, Results inspector (340 pixels wide at the default layout, 1920 × 1080): removal rate</text>
+<text x="20" y="48" fill="#444">Mock-up, not a screenshot. The new rows sit under the existing BY OPERATION table (specification 11.5).</text><text x="20" y="64" fill="#444">Moves, removed volume and load are the crankshaft's with the guide's two operations; a to f are filled by the program.</text>
+<!-- window sketch -->
+<rect x="20" y="80" width="560" height="450" fill="#f4f5f7" stroke="#bbb"/>
+<text x="300" y="390" text-anchor="middle" fill="#999">viewport</text>
+<rect x="20" y="420" width="560" height="110" fill="#e9ebef" stroke="#bbb"/>
+<text x="300" y="480" text-anchor="middle" fill="#999">dock: Messages, Jobs, Results, Playback</text>
+<!-- inspector -->
+<rect x="590" y="80" width="340" height="450" fill="#1f2226" stroke="#555"/>
+<text x="602" y="100" fill="#cfd3d8" font-size="12">Results · Setup 1</text>
+<text x="602" y="118" fill="#8a9099" font-size="11">… deviation, histogram (unchanged) …</text>
+<text x="602" y="150" fill="#8a9099" font-size="11">BY OPERATION</text>
+<g font-size="12" fill="#cfd3d8">
+<text x="602" y="170" fill="#8a9099" font-size="11">Operation</text><text x="730" y="170" fill="#8a9099" font-size="11">Moves</text><text x="790" y="170" fill="#8a9099" font-size="11">Removed mm³</text><text x="880" y="170" fill="#8a9099" font-size="11">Status</text>
+<text x="602" y="190">Rough</text><text x="730" y="190" font-family="monospace">24504</text><text x="790" y="190" font-family="monospace">35275</text><text x="880" y="190">Clean</text>
+<text x="602" y="210">Finish</text><text x="730" y="210" font-family="monospace">19505</text><text x="790" y="210" font-family="monospace">476</text><text x="880" y="210">Clean</text>
+</g>
+<rect x="596" y="230" width="328" height="150" fill="none" stroke="#d08a3b" stroke-dasharray="5 3"/>
+<text x="602" y="250" fill="#8a9099" font-size="11">REMOVAL RATE, mm³/min</text>
+<g font-size="12" fill="#cfd3d8">
+<text x="602" y="272" fill="#8a9099" font-size="11">Operation</text><text x="700" y="272" fill="#8a9099" font-size="11">Average</text><text x="772" y="272" fill="#8a9099" font-size="11">Highest</text><text x="848" y="272" fill="#8a9099" font-size="11">Load</text>
+<text x="602" y="294">Rough</text><text x="700" y="294" font-family="monospace">a</text><text x="772" y="294" font-family="monospace">b</text><text x="848" y="294">5.3 mm²</text>
+<text x="602" y="316">Finish</text><text x="700" y="316" font-family="monospace">c</text><text x="772" y="316" font-family="monospace">d</text><text x="848" y="316">1.5 mm²</text>
+<line x1="602" y1="326" x2="918" y2="326" stroke="#555"/>
+<text x="602" y="344">This setup</text><text x="700" y="344" font-family="monospace">e</text><text x="772" y="344" font-family="monospace">f</text><text x="848" y="344">—</text>
+<text x="602" y="368" fill="#8a9099" font-size="11">Average over the cutting time; rapids left out.</text>
+</g>
+<text x="602" y="410" fill="#8a9099" font-size="11">… resolution and its cost (unchanged) …</text>
+<!-- callouts -->
+<g font-size="13" fill="#333">
+<text x="40" y="112">Average: material removed ÷ cutting time</text>
+<text x="40" y="130">(the programmed time of the moves that remove material,</text>
+<text x="40" y="148">machine feed limits included). Rapids and air moves left out.</text>
+<text x="40" y="176">Highest: the highest rate over any stretch of one tool</text>
+<text x="40" y="194">diameter of travel. Load: the heaviest cut section.</text>
+<text x="40" y="222">Hovering a figure gives its definition; Highest and Load</text>
+<text x="40" y="240">offer "Go to" (the move, as Go to overcut does).</text>
+<text x="40" y="268">The whole job (every setup) is in the Results tab's summary.</text>
+<text x="40" y="296">With Skip stock simulation on, the block is not shown and the</text>
+<text x="40" y="314">summary says the removal rate and load were not measured.</text>
+</g>
+<line x1="560" y1="200" x2="594" y2="260" stroke="#d08a3b"/>
+</svg>

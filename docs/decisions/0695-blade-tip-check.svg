@@ -1,0 +1,62 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 500" width="1000" height="500" font-family="Helvetica, Arial, sans-serif" font-size="13">
+<title>Blisk blade tip: a move over a sharp edge checked only at its middle</title>
+<rect width="1000" height="500" fill="#ffffff"/>
+<text x="20" y="28" font-size="17" font-weight="bold" fill="#222">Simultaneous finishing over a blade tip: what the move check tests (schematic)</text>
+<text x="20" y="48" fill="#444">Section across the rotary axis, part frame. Measured case: STEP blisk, 3 mm ball, defaults: one block turns A 86 degrees and cuts 0.94 mm into the tip.</text>
+<text x="20" y="86" font-weight="bold" fill="#222">Today (main d1674b7)</text>
+<polygon points="80,190 150,190 164,420 66,420" fill="#e6eef7" stroke="#2b5d8a" stroke-width="2"/>
+<text x="115.0" y="390" text-anchor="middle" fill="#2b5d8a" font-weight="bold">blade</text>
+<path d="M110,156 Q190,150 194,300" fill="none" stroke="#888" stroke-dasharray="5 4"/>
+<circle cx="110" cy="156" r="34" fill="none" fill-opacity="0.15" stroke="#222" stroke-width="2" stroke-dasharray=""/>
+<circle cx="110" cy="156" r="2.5" fill="#222"/>
+<circle cx="194" cy="300" r="34" fill="none" fill-opacity="0.15" stroke="#222" stroke-width="2" stroke-dasharray=""/>
+<circle cx="194" cy="300" r="2.5" fill="#222"/>
+<line x1="114" y1="156" x2="254" y2="116" stroke="#222" stroke-width="0.8"/>
+<text x="260" y="120" fill="#222">start of the move (on the tip)</text>
+<circle cx="175" cy="165" r="34" fill="none" fill-opacity="0.15" stroke="#1e8449" stroke-width="2" stroke-dasharray=""/>
+<circle cx="175" cy="165" r="2.5" fill="#1e8449"/>
+<circle cx="172" cy="240" r="34" fill="#c0392b" fill-opacity="0.15" stroke="#c0392b" stroke-width="2" stroke-dasharray="4 3"/>
+<circle cx="172" cy="240" r="2.5" fill="#c0392b"/>
+<line x1="179" y1="165" x2="254" y2="176" stroke="#1e8449" stroke-width="0.8"/>
+<text x="260" y="180" fill="#1e8449">middle: tested, clear</text>
+<line x1="176" y1="240" x2="254" y2="236" stroke="#c0392b" stroke-width="0.8"/>
+<text x="260" y="240" fill="#c0392b">three-quarter point: not tested</text>
+<text x="260" y="256" fill="#c0392b">after the last halving;</text>
+<text x="260" y="272" fill="#c0392b">the tool cuts the tip here</text>
+<line x1="198" y1="300" x2="254" y2="326" stroke="#222" stroke-width="0.8"/>
+<text x="260" y="330" fill="#222">end of the move (on the side)</text>
+<text x="20" y="450" fill="#222">Today: after the last halving only the middle is</text>
+<text x="20" y="466" fill="#222">tested, and a middle the drop finds nothing under</text>
+<text x="20" y="482" fill="#222">is accepted without a test.</text>
+<line x1="500" y1="70" x2="500" y2="480" stroke="#ddd"/>
+<text x="520" y="86" font-weight="bold" fill="#222">Option A (recommended)</text>
+<polygon points="580,190 650,190 664,420 566,420" fill="#e6eef7" stroke="#2b5d8a" stroke-width="2"/>
+<text x="615.0" y="390" text-anchor="middle" fill="#2b5d8a" font-weight="bold">blade</text>
+<path d="M610,156 Q690,150 694,300" fill="none" stroke="#888" stroke-dasharray="5 4"/>
+<circle cx="610" cy="156" r="34" fill="none" fill-opacity="0.15" stroke="#222" stroke-width="2" stroke-dasharray=""/>
+<circle cx="610" cy="156" r="2.5" fill="#222"/>
+<circle cx="694" cy="300" r="34" fill="none" fill-opacity="0.15" stroke="#222" stroke-width="2" stroke-dasharray=""/>
+<circle cx="694" cy="300" r="2.5" fill="#222"/>
+<line x1="614" y1="156" x2="754" y2="116" stroke="#222" stroke-width="0.8"/>
+<text x="760" y="120" fill="#222">start of the move (on the tip)</text>
+<circle cx="642" cy="152" r="34" fill="none" fill-opacity="0.15" stroke="#1e8449" stroke-width="2" stroke-dasharray=""/>
+<circle cx="642" cy="152" r="2.5" fill="#1e8449"/>
+<circle cx="675" cy="165" r="34" fill="none" fill-opacity="0.15" stroke="#1e8449" stroke-width="2" stroke-dasharray=""/>
+<circle cx="675" cy="165" r="2.5" fill="#1e8449"/>
+<circle cx="672" cy="240" r="34" fill="#c0392b" fill-opacity="0.15" stroke="#c0392b" stroke-width="2" stroke-dasharray=""/>
+<circle cx="672" cy="240" r="2.5" fill="#c0392b"/>
+<line x1="646" y1="152" x2="754" y2="146" stroke="#1e8449" stroke-width="0.8"/>
+<text x="760" y="150" fill="#1e8449">quarter point: tested, clear</text>
+<line x1="679" y1="165" x2="754" y2="176" stroke="#1e8449" stroke-width="0.8"/>
+<text x="760" y="180" fill="#1e8449">middle: tested, clear</text>
+<line x1="676" y1="240" x2="754" y2="236" stroke="#c0392b" stroke-width="0.8"/>
+<text x="760" y="240" fill="#c0392b">three-quarter point: tested, cuts:</text>
+<text x="760" y="256" fill="#c0392b">the pass breaks here, the tool</text>
+<text x="760" y="272" fill="#c0392b">lifts round the tip, and a warning</text>
+<text x="760" y="288" fill="#c0392b">says where material is left</text>
+<line x1="698" y1="300" x2="754" y2="326" stroke="#222" stroke-width="0.8"/>
+<text x="760" y="330" fill="#222">end of the move (on the side)</text>
+<text x="520" y="450" fill="#222">Option A: the quarter points and long-move poses</text>
+<text x="520" y="466" fill="#222">are tested at every halving, and a middle with</text>
+<text x="520" y="482" fill="#222">nothing under it counts as a failure.</text>
+</svg>

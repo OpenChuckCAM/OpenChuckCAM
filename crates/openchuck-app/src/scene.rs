@@ -206,6 +206,9 @@ pub struct ScenePolyline {
     pub role: SceneRole,
     /// The points, in order.
     pub points: Vec<Point3>,
+    /// The Facing operation and kind of label it belongs to, for a Facing
+    /// stop line (issue #895 item 1); `None` for every other line.
+    pub facing: Option<crate::facing_labels::FacingTag>,
 }
 
 /// A short text placed at a point, such as "A+" or "X".
@@ -217,6 +220,10 @@ pub struct SceneLabel {
     pub at: Point3,
     /// The text.
     pub text: String,
+    /// The Facing operation and kind of a Facing label, which the view
+    /// shows or hides by the user's choice and the selected operation
+    /// (issue #881); `None` for every other label.
+    pub facing: Option<crate::facing_labels::FacingTag>,
 }
 
 /// The view model of one setup's scene.
@@ -440,6 +447,7 @@ pub(crate) fn build_scene(
     let margin = 0.15 * size;
     let (x0, x1) = (bounds.min.x - margin, bounds.max.x + margin);
     view.lines.push(ScenePolyline {
+        facing: None,
         role: SceneRole::RotaryAxis,
         points: vec![Point3::new(x0, 0.0, 0.0), Point3::new(x1, 0.0, 0.0)],
     });
@@ -459,6 +467,7 @@ pub(crate) fn build_scene(
             let (arrow, label_at) = a_arrow(&frame, x0 + 0.3 * margin, radius);
             view.lines.extend(arrow);
             view.labels.push(SceneLabel {
+                facing: None,
                 role: SceneRole::ADirection,
                 at: label_at,
                 text: "A+".to_owned(),
@@ -466,6 +475,7 @@ pub(crate) fn build_scene(
             // The arc's start is machine A = 0, on the fixed frame.
             let start = a_start(&frame, x0 + 0.3 * margin, radius);
             view.labels.push(SceneLabel {
+                facing: None,
                 role: SceneRole::ADirection,
                 at: start,
                 text: "A0".to_owned(),
@@ -488,10 +498,12 @@ pub(crate) fn build_scene(
             let end = view.part_extent.map_or(bounds.max.x, |p| p.bounds.max.x);
             let at = |k: f64| Point3::new(end, up.y * k, up.z * k);
             view.lines.push(ScenePolyline {
+                facing: None,
                 role: SceneRole::AZero,
                 points: vec![at(0.0), at(rim)],
             });
             view.labels.push(SceneLabel {
+                facing: None,
                 role: SceneRole::AZero,
                 at: at(rim * 1.08),
                 text: "A0".to_owned(),
@@ -512,10 +524,12 @@ pub(crate) fn build_scene(
     ] {
         let end = work_zero + direction * length;
         view.lines.push(ScenePolyline {
+            facing: None,
             role,
             points: vec![work_zero, end],
         });
         view.labels.push(SceneLabel {
+            facing: None,
             role,
             at: end,
             text: text.to_owned(),
@@ -586,10 +600,12 @@ fn a_arrow(frame: &RotaryFrame, x: f64, radius: f64) -> (Vec<ScenePolyline>, Poi
     (
         vec![
             ScenePolyline {
+                facing: None,
                 role: SceneRole::ADirection,
                 points: arc,
             },
             ScenePolyline {
+                facing: None,
                 role: SceneRole::ADirection,
                 points: vec![left, tip, right],
             },
@@ -603,6 +619,7 @@ fn a_arrow(frame: &RotaryFrame, x: f64, radius: f64) -> (Vec<ScenePolyline>, Poi
 fn stock_outline(stock: &Stock, part: Option<&PartExtent>) -> Option<(Vec<ScenePolyline>, Aabb)> {
     let bounds = stock.bounds(part)?;
     let line = |points: Vec<Point3>| ScenePolyline {
+        facing: None,
         role: SceneRole::Stock,
         points,
     };
@@ -774,6 +791,7 @@ pub(crate) fn model_scene(
             mesh.vertices.get(*b as usize),
         ) {
             view.lines.push(ScenePolyline {
+                facing: None,
                 role,
                 points: vec![p, q],
             });
@@ -781,6 +799,7 @@ pub(crate) fn model_scene(
     }
     let margin = 0.15 * size;
     view.lines.push(ScenePolyline {
+        facing: None,
         role: SceneRole::RotaryAxis,
         points: vec![
             Point3::new(bounds.min.x - margin, 0.0, 0.0),

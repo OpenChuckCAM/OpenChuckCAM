@@ -1,0 +1,210 @@
+diff --git a/crates/openchuck-sim/src/dexel.rs b/crates/openchuck-sim/src/dexel.rs
+index 6074cd93..7e3a58f0 100644
+--- a/crates/openchuck-sim/src/dexel.rs
++++ b/crates/openchuck-sim/src/dexel.rs
+@@ -14,6 +14,11 @@ use rayon::prelude::*;
+ 
+ use crate::span::{ToolSolid, cut_spans, subtract};
+ 
++/// PROTOTYPE (throwaway): per-pose engagement tally.
++pub static PROTO_ON: std::sync::LazyLock<bool> = std::sync::LazyLock::new(|| std::env::var("PROTO_ENG").is_ok());
++/// Per pose of the last batch: (removed column length sum, hmax, hmin).
++pub static PROTO_LAST: std::sync::Mutex<Vec<(f64, f64, f64)>> = std::sync::Mutex::new(Vec::new());
++
+ /// Poses between looks at the cancel flag while cutting.
+ const WATCH_EVERY: usize = 16;
+ 
+@@ -544,10 +549,14 @@ impl DexelStock {
+         // The extent is worked out again from the columns as they are cut.
+         self.z_range = ZRange::default();
+         let reach = self.reach();
++        let mut pidx: Vec<usize> = Vec::new();
+         let prepared: Vec<Prepared> = poses
+             .iter()
+-            .filter_map(|p| Prepared::new(p, tool, reach))
++            .enumerate()
++            .filter_map(|(k, p)| Prepared::new(p, tool, reach).map(|q| { pidx.push(k); q }))
+             .collect();
++        let proto = *PROTO_ON;
++        let rows_eng: std::sync::Mutex<Vec<Vec<(u32, f64, f64, f64)>>> = std::sync::Mutex::new(Vec::new());
+         let (x0, y0, cx, cy, ny) = (self.x0, self.y0, self.cx, self.cy, self.ny);
+         let march = cx.min(cy);
+         let removed: Vec<(f64, f64)> = self
+@@ -564,6 +573,7 @@ impl DexelStock {
+                     Vec::new()
+                 };
+                 let mut scratch: Vec<[f64; 2]> = Vec::new();
++                let mut eng: Vec<(u32, f64, f64, f64)> = Vec::new();
+                 for (n, p) in prepared.iter().enumerate() {
+                     // A relaxed load every few poses: cheap beside the cut.
+                     if n % WATCH_EVERY == 0 && cancel.is_some_and(CancelToken::is_cancelled) {
+@@ -598,11 +608,30 @@ impl DexelStock {
+                             continue;
+                         }
+                         let before = column_length(col);
++                        let (mut hmax, mut hmin) = (f64::NEG_INFINITY, f64::INFINITY);
++                        if proto {
++                            for sp in spans.as_slice() {
++                                for m in col.iter() {
++                                    let lo = sp.0.max(m[0]);
++                                    let hi = sp.1.min(m[1]);
++                                    if hi > lo {
++                                        for t in [lo, hi] {
++                                            let h = o[2] + t * d[2];
++                                            hmax = hmax.max(h);
++                                            hmin = hmin.min(h);
++                                        }
++                                    }
++                                }
++                            }
++                        }
+                         scratch.clear();
+                         subtract(col, spans.as_slice(), &mut scratch);
+                         if scratch.as_slice() != col.as_slice() {
+                             let here = before - column_length(&scratch);
+                             removed += here;
++                            if proto {
++                                eng.push((n as u32, here, hmax, hmin));
++                            }
+                             if let Some(slot) = by_column.get_mut(j) {
+                                 *slot += here;
+                             }
+@@ -610,9 +639,24 @@ impl DexelStock {
+                         }
+                     }
+                 }
++                if proto && !eng.is_empty() {
++                    rows_eng.lock().unwrap().push(eng);
++                }
+                 (removed, by_column.into_iter().fold(0.0, f64::max))
+             })
+             .collect();
++        if proto {
++            let mut last = vec![(0.0, f64::NEG_INFINITY, f64::INFINITY); poses.len()];
++            for row in rows_eng.into_inner().unwrap() {
++                for (n, here, hmax, hmin) in row {
++                    let e = &mut last[pidx[n as usize]];
++                    e.0 += here;
++                    e.1 = e.1.max(hmax);
++                    e.2 = e.2.min(hmin);
++                }
++            }
++            *PROTO_LAST.lock().unwrap() = last;
++        }
+         (
+             removed.iter().map(|r| r.0).sum::<f64>() * cx * cy,
+             removed.iter().map(|r| r.1).fold(0.0, f64::max),
+diff --git a/crates/openchuck-sim/src/simulation.rs b/crates/openchuck-sim/src/simulation.rs
+index 847f4773..dafb1f55 100644
+--- a/crates/openchuck-sim/src/simulation.rs
++++ b/crates/openchuck-sim/src/simulation.rs
+@@ -104,6 +104,8 @@ pub struct Simulator {
+     /// The memory the checkpoints hold.
+     checkpoint_bytes: usize,
+     groups_done: usize,
++    proto_moves: Vec<usize>,
++    proto_acc: std::collections::HashMap<usize, (f64, f64, f64, f64)>,
+ }
+ 
+ impl Simulator {
+@@ -136,6 +138,8 @@ impl Simulator {
+             checkpoint_budget: None,
+             checkpoint_bytes,
+             groups_done: 0,
++            proto_moves: Vec::new(),
++            proto_acc: std::collections::HashMap::new(),
+         }
+     }
+ 
+@@ -217,6 +221,8 @@ impl Simulator {
+             checkpoint_budget: None,
+             checkpoint_bytes,
+             groups_done,
++            proto_moves: Vec::new(),
++            proto_acc: std::collections::HashMap::new(),
+         })
+     }
+ 
+@@ -237,6 +243,8 @@ impl Simulator {
+             checkpoint_budget: None,
+             checkpoint_bytes: 0,
+             groups_done: 0,
++            proto_moves: Vec::new(),
++            proto_acc: std::collections::HashMap::new(),
+         }
+     }
+ 
+@@ -338,6 +346,8 @@ impl Simulator {
+             checkpoint_budget: None,
+             checkpoint_bytes: 0,
+             groups_done: cp.group,
++            proto_moves: Vec::new(),
++            proto_acc: std::collections::HashMap::new(),
+         };
+         // The ranges to replay, first to last, so that progress is one total.
+         let mut ranges = Vec::new();
+@@ -407,7 +417,10 @@ impl Simulator {
+             .and_then(|i| group.segments.get(i))
+             .map_or(group.start, |s| s.end);
+         let mut batch: Vec<Pose> = Vec::new();
++        self.proto_moves.clear();
++        self.proto_acc.clear();
+         for (i, segment) in group.segments.iter().enumerate().take(end).skip(first) {
++            let before_len = batch.len();
+             segment.validate(&format!("segments[{i}]"))?;
+             if must_not_cut(segment.kind) {
+                 self.flush(&tool, &mut batch, &mut result, context, total)?;
+@@ -428,6 +441,9 @@ impl Simulator {
+                 }
+             } else {
+                 sample_move(&self.frame, &prev, &segment.end, &sampling, &mut batch);
++                for _ in before_len..batch.len() {
++                    self.proto_moves.push(i);
++                }
+             }
+             result.moves += 1;
+             prev = segment.end;
+@@ -448,6 +464,20 @@ impl Simulator {
+         }
+         self.flush(&tool, &mut batch, &mut result, context, total)?;
+         result.volume_after = self.stock.volume();
++        if *crate::dexel::PROTO_ON {
++            use std::io::Write;
++            let path = format!("{}-{}.csv", std::env::var("PROTO_ENG").unwrap(), group.tags.operation);
++            let mut f = std::io::BufWriter::new(std::fs::File::create(path).unwrap());
++            let (cx, cy) = self.stock.cell();
++            let mut keys: Vec<_> = self.proto_acc.keys().copied().collect();
++            keys.sort_unstable();
++            writeln!(f, "move,volume,hmax,hmin,length,kind").unwrap();
++            for k in keys {
++                let a = self.proto_acc[&k];
++                let seg = &group.segments[k];
++                writeln!(f, "{k},{},{},{},{},{:?}", a.0 * cx * cy, a.1, a.2, a.3, seg.kind).unwrap();
++            }
++        }
+         Ok(result)
+     }
+ 
+@@ -459,6 +489,22 @@ impl Simulator {
+         context: &JobContext<'_>,
+     ) -> Result<f64> {
+         let removed = self.stock.cut_cancellable(tool, batch, context.cancel)?;
++        if *crate::dexel::PROTO_ON {
++            let last = std::mem::take(&mut *crate::dexel::PROTO_LAST.lock().unwrap());
++            for (k, e) in last.iter().enumerate() {
++                let Some(&m) = self.proto_moves.get(k) else { continue };
++                let len = if k > 0 && self.proto_moves.get(k - 1) == Some(&m) {
++                    let (a, b) = (batch[k - 1].tip, batch[k].tip);
++                    ((a.x - b.x).powi(2) + (a.y - b.y).powi(2) + (a.z - b.z).powi(2)).sqrt()
++                } else { 0.0 };
++                let acc = self.proto_acc.entry(m).or_insert((0.0, f64::NEG_INFINITY, f64::INFINITY, 0.0));
++                acc.0 += e.0;
++                acc.1 = acc.1.max(e.1);
++                acc.2 = acc.2.min(e.2);
++                acc.3 += len;
++            }
++            self.proto_moves.clear();
++        }
+         result.poses += batch.len();
+         result.removed_volume += removed;
+         batch.clear();

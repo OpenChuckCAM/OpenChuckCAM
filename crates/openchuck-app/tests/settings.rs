@@ -6,7 +6,7 @@
 
 use std::path::PathBuf;
 
-use openchuck_app::settings::{SettingsFile, ThemeChoice, UserSettings};
+use openchuck_app::settings::{SettingsFile, ThemeChoice, UserSettings, WindowStart, WindowState};
 use openchuck_app::{Acknowledgements, Application, Threads};
 
 #[test]
@@ -27,6 +27,75 @@ fn req_ui_15_req_prj_08_checkpoint_interval_is_personal_and_survives_restart() {
     std::fs::write(file.file(), "[interface]\nscale = 1.0\n").unwrap();
     assert_eq!(file.load().settings.checkpoint_minutes, 3);
     std::fs::remove_dir_all(config).unwrap();
+}
+
+/// Issue #789 (decision record 0693, the owner's answer P3 A): the
+/// kinds of toolpath move shown are the user's, kept on the computer across
+/// projects and restarts; a file from before shows every kind, and so does
+/// one that leaves a kind out.
+#[test]
+fn req_ui_15_req_sim_01_the_move_kinds_shown_are_personal_and_survive_restart() {
+    use openchuck_app::pathview::ShownMoves;
+    use openchuck_types::ir::MoveKind;
+    let config = folder("path-moves");
+    let file = SettingsFile::in_folder(&config);
+    assert_eq!(file.load().settings.path_moves, ShownMoves::ALL);
+    let mut settings = UserSettings::default();
+    settings.path_moves.set(MoveKind::Rapid, false);
+    settings.path_moves.set(MoveKind::LeadOut, false);
+    file.save(&settings).unwrap();
+    let loaded = file.load();
+    assert!(loaded.problem.is_none());
+    assert_eq!(loaded.settings.path_moves, settings.path_moves);
+    assert_eq!(
+        loaded.settings.path_moves.hidden(),
+        [MoveKind::Rapid, MoveKind::LeadOut]
+    );
+    // Written before the field existed, or with one kind only: every other
+    // kind is shown.
+    std::fs::write(file.file(), "[interface]\nscale = 1.0\n").unwrap();
+    assert_eq!(file.load().settings.path_moves, ShownMoves::ALL);
+    std::fs::write(file.file(), "[interface.path_moves]\nrapid = false\n").unwrap();
+    assert_eq!(file.load().settings.path_moves.hidden(), [MoveKind::Rapid]);
+    std::fs::remove_dir_all(config).unwrap();
+}
+
+#[test]
+fn req_sim_01_the_hidden_chip_names_what_is_hidden() {
+    use openchuck_app::pathview::{ENTRY_NAME, ShownMoves, move_name};
+    use openchuck_types::ir::MoveKind;
+    let mut moves = ShownMoves::ALL;
+    assert!(moves.all_shown());
+    assert_eq!(moves.hidden_text(), None);
+    moves.set(MoveKind::Rapid, false);
+    moves.set(MoveKind::LeadOut, false);
+    assert!(!moves.all_shown());
+    assert_eq!(
+        moves.hidden_text().as_deref(),
+        Some("Hidden: Rapid, Lead-out")
+    );
+    // The three kinds of entry and exit hidden together read as one.
+    let mut entries = ShownMoves::ALL;
+    for kind in ShownMoves::ENTRY {
+        entries.set(kind, false);
+    }
+    assert_eq!(
+        entries.hidden_text().as_deref(),
+        Some("Hidden: Entry and exit")
+    );
+    assert_eq!(ENTRY_NAME, "Entry and exit");
+    let names: Vec<&str> = ShownMoves::ORDER.iter().map(|k| move_name(*k)).collect();
+    assert_eq!(
+        names,
+        [
+            "Cut",
+            "Link",
+            "Rapid",
+            "Plunge",
+            "Lead-in and ramp",
+            "Lead-out"
+        ]
+    );
 }
 
 fn folder(name: &str) -> PathBuf {
@@ -454,5 +523,102 @@ fn req_nfr_07_req_ui_15_the_settings_text_read_gives_defaults_and_a_message_neve
             .settings
             .checkpoint_minutes,
         15
+    );
+}
+
+/// The first start, with nothing kept, opens the window maximised (UI-16:
+/// maximised on a 1920 by 1080 display; the owner's answer Q7 A).
+#[test]
+fn req_ui_15_req_ui_16_the_first_start_opens_maximised() {
+    let settings = UserSettings::default();
+    assert_eq!(settings.window, None);
+    assert!(!settings.maximised);
+    assert_eq!(
+        settings.window_start(),
+        WindowStart::Maximised { restore: None }
+    );
+}
+
+/// A window closed at a normal size opens again at that size, centred on the
+/// screen; its position is not kept (UI-15; the owner's answer Q6 A).
+#[test]
+fn req_ui_15_req_ui_16_a_normal_window_opens_centred_at_its_size() {
+    let mut settings = UserSettings::default();
+    assert!(settings.window_seen([1400.0, 900.0], WindowState::Normal));
+    assert!(!settings.maximised);
+    assert_eq!(settings.window, Some([1400.0, 900.0]));
+    assert_eq!(
+        settings.window_start(),
+        WindowStart::Centred([1400.0, 900.0])
+    );
+    // The same size again is not a change, so nothing is written.
+    assert!(!settings.window_seen([1400.0, 900.0], WindowState::Normal));
+}
+
+/// A window closed maximised opens maximised, and its normal size is not
+/// replaced by the maximised one: un-maximising goes back to it, centred
+/// (UI-15, UI-16). Before this, the maximised size was saved as the normal
+/// size and the next start opened a screen-sized window at the system's
+/// default place, off-centre and past the screen's edge.
+#[test]
+fn req_ui_15_req_ui_16_a_window_closed_maximised_opens_maximised_and_keeps_its_normal_size() {
+    let config = folder("settings-maximised");
+    let file = SettingsFile::in_folder(&config);
+    let mut settings = UserSettings::default();
+    settings.window_seen([1200.0, 800.0], WindowState::Normal);
+    assert!(settings.window_seen([1920.0, 1009.0], WindowState::Maximised));
+    assert!(settings.maximised);
+    assert_eq!(settings.window, Some([1200.0, 800.0]));
+    assert!(!settings.window_seen([1920.0, 1009.0], WindowState::Maximised));
+    file.save(&settings).unwrap();
+    let loaded = file.load();
+    assert!(loaded.problem.is_none());
+    assert_eq!(loaded.settings, settings);
+    assert_eq!(
+        loaded.settings.window_start(),
+        WindowStart::Maximised {
+            restore: Some([1200.0, 800.0])
+        }
+    );
+    // Un-maximised again, it is a normal window at its own size.
+    assert!(settings.window_seen([1200.0, 800.0], WindowState::Normal));
+    assert!(!settings.maximised);
+    assert_eq!(
+        settings.window_start(),
+        WindowStart::Centred([1200.0, 800.0])
+    );
+    let _ = std::fs::remove_dir_all(&config);
+}
+
+/// A minimised or full-screen window changes nothing that is kept, and a
+/// size out of range is not kept (UI-15; NFR-07).
+#[test]
+fn req_ui_15_req_nfr_07_a_minimised_window_or_a_size_out_of_range_is_not_kept() {
+    let mut settings = UserSettings::default();
+    settings.window_seen([1400.0, 900.0], WindowState::Normal);
+    let before = settings.clone();
+    assert!(!settings.window_seen([0.0, 0.0], WindowState::Minimised));
+    assert!(!settings.window_seen([1920.0, 1080.0], WindowState::Fullscreen));
+    assert!(!settings.window_seen([100.0, 50.0], WindowState::Normal));
+    assert!(!settings.window_seen([f32::NAN, 900.0], WindowState::Normal));
+    assert_eq!(settings, before);
+}
+
+/// A settings file written before the maximised state was kept reads as a
+/// normal window, centred at its size (UI-15: additive field, no version).
+#[test]
+fn req_ui_15_an_older_file_without_the_maximised_state_opens_centred() {
+    let file = SettingsFile::in_folder(std::path::Path::new("config"));
+    let loaded = file.load_text("[interface]\nwindow = [1920.0, 1009.0]\n");
+    assert!(loaded.problem.is_none());
+    assert!(!loaded.settings.maximised);
+    assert_eq!(
+        loaded.settings.window_start(),
+        WindowStart::Centred([1920.0, 1009.0])
+    );
+    let maximised = file.load_text("[interface]\nmaximised = true\n");
+    assert_eq!(
+        maximised.settings.window_start(),
+        WindowStart::Maximised { restore: None }
     );
 }
