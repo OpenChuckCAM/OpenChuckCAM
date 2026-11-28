@@ -123,3 +123,37 @@ The other hover-only sites CodeRabbit named (the view cube's caption, the simula
 **Coverage (instrumented, `openchuck-ui`'s own tests, a lower bound), on the final code after the answers to CodeRabbit:** 746 of 747 passed (2 061 s, `--no-fail-fast`, `coverage` profile); `area_view_tests::req_ui_11_another_setup_of_the_same_run_draws_its_own_areas` hit its 120 s settle deadline under instrumentation, as in the earlier runs, and passes uninstrumented. `openchuck-ui` 90.44 % of lines on its own tests (below the 95 % target before this lane as well). `focus.rs` 91.94 %: the lines not reached are the two `const fn` region constructors (evaluated at compile time), the clean-up of an empty region with no region left to try (defensive), and the router's fallback for Tab from a control outside every region with nothing drawn after it (the Simulate walk reaches the regions through the region-end path instead). `floating.rs` 98.79 %: one defensive early return. `shell/marks.rs` 96.54 %. The new menu, key list, footer and New operation lines of `shell/frame.rs` and `run_panel.rs` are reached by their tests.
 
 **Not verified:** a real keyboard on Windows and macOS, and contrast of the focus ring on a real screen (OI-493, OI-623); the keyboard-only run through every step as a committed test (OI-539); the example figures of the user guide were not re-captured (their windows were opened by the mouse; the only change they could show is a focus outline on a window's first control); F12 c to e (OI-2192).
+
+## Verification addendum (28 Nov 2026): issue #868
+
+Lane UI-FOLLOWUPS, on branch `claude/lane-ui-followups-868-focus` from `main` `f906fa5f`, head `25b5cf1f`. This addendum covers the five follow-ups of issue #868 to CodeRabbit's re-review of #858. They put the record's items 3 and 8 and specification section 10 into effect where #858 had not. The record's decision is unchanged, and no number is added. Linux cloud container, 4 vCPU, no GPU.
+
+**Tests, each written first and watched failing on `main` as the issue predicted:**
+
+| Test | Item of #868 | Failed on `main` with |
+| --- | --- | --- |
+| `focus::tests::req_ui_14_a_labels_tooltip_reaches_the_keyboard` (a source scan) | 1: a `.tip(` on a plain label reaches the keyboard (`info_sense` and `focus_ring`, or the control beside it shows the same words on focus) | the four sites the issue names: `run_panel.rs:323`, `machine_panel.rs:450`, `facing_rows.rs:39`, `shell/frame.rs:1303` |
+| `shell::focus_tests::req_ui_14_the_collapsed_docks_rail_reads_left_to_right` | 2: the folded dock's tabs, then its open button | the button (x 1078) before the tabs (x 317, 392, 451) |
+| `shell::focus_tests::req_ui_14_the_tool_lists_buttons_come_after_its_tools` | 3: the tool library's tools, then New tool, Duplicate, Delete | New tool (y 748) before the rows (y 239, 262) |
+| `shell::focus_tests::req_ui_10_the_primary_button_stays_whole_in_a_narrow_footer` | 4: at 260 px the primary button is whole and inside the window | "Generate stale (1)" not drawn |
+| `field_row::tests::req_ui_14_a_segmented_choices_description_opens_on_focus` | 5: a choice drawn as segments shows its description while a segment has the keyboard | only "Shape", "Round", "Square" painted |
+
+**Changes:**
+- Item 1: `run_panel.rs`, `machine_panel.rs`, `facing_rows.rs` and the footer in `shell/frame.rs`.
+- Item 2: the dock rail in `shell/frame.rs`. The button keeps last frame's width clear at the right end, and is drawn after the tabs at a fixed place.
+- Item 3: `tool_library_window.rs`. The bottom panel is replaced: the scroll area stops short of last frame's button-row height, and the buttons are drawn after it under a hairline that stands in for the panel's edge.
+- Item 4: the footer in `shell/frame.rs`. The split is no longer held at the left edge, and both boxes are clipped.
+- Item 5: `field_row.rs`. One `segmented` control takes the row's description.
+
+**Runs (uninstrumented, `cargo nextest run -p openchuck-ui`):** 832 of 832 passed, 1 skipped. The existing dock-rail tests at 440 pt and 540 pt, and the tool-library and focus tests, are among them. The new tests take under a second each, except the narrow-footer test (about 14 s, settling at 260 px).
+
+**Checks:**
+- `cargo clippy --workspace --all-targets`, with no warnings at `25b5cf1f`.
+- `cargo fmt --all`.
+- `cargo xtask deps`, `licences`, `records` and `trace`, all ok.
+
+**Coverage (instrumented, the related `openchuck-ui` tests, a lower bound):** every changed application line runs, except the click branches of New tool, Duplicate and Delete. Those were moved, not changed, and these tests do not click them.
+
+**Not verified:**
+- The tutorial screens that fold the dock and open the tool library are not yet re-captured. That is done at the pull request's release push, once #904, #909 and #911 have merged. The tool list's hairline may differ from the old panel edge by a pixel row.
+- A real keyboard and screen (the tests send egui events), as for the rest of this record.
