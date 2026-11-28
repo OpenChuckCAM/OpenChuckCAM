@@ -32,7 +32,7 @@ Each element below names the requirement it serves. An element that serves only 
 | Tool library and profile editor | 12.1 |
 | Selection sets (now in the inspector, [decision 0215](../decisions/0215-selection-sets-in-the-inspector-and-direct-set-editing.md); the board predates it) | 12.2 |
 | Undo history (popover) | 12.3 |
-| Operations at 1366 × 768 | 3 |
+| Operations in a small window (1366 × 768, best effort) | 3 |
 
 Every workspace board has a dark and a light theme (its Tweaks panel on the canvas). Rendered images of the boards are in [mockups/](mockups/), listed in section 20.
 
@@ -69,7 +69,7 @@ Sizes are logical pixels at 100% scale. The default scale is 100% (decision 0148
 
 - **Splitters** are 5 pixels with a grip mark. Double-clicking one resets its panel to the default size. A splitter is not a Tab stop: Tab passes over it to the next region, also when the panel beside it scrolls (UI-14).
 - **Collapsing.** The project panel, the inspector and the dock collapse with the chevron in their headers, or Ctrl 1, Ctrl 2 and Ctrl 3. A collapsed side panel leaves a 28-pixel rail with its icon. The collapsed dock leaves a rail with its tabs at the left and its open button at the right end, where the open dock's collapse button is (decision 0440). *(UI-16)*
-- **Smallest window.** At 100% scale, everything stays usable at 1366 × 768 logical pixels (UI-16). At the default 100% a 1366 × 768 screen gives the full 1366 × 768 logical pixels, so no change of scale is needed. At that size: the panels keep their defaults, the viewport shrinks, and overlays keep clear of each other (the "Operations at 1366 × 768" board). Below that size the dock collapses, and the inspector too when the viewport would be narrower than 420 pixels. Neither is kept as the user's choice: the user can open either again, and the rule applies afresh once the window is large again. *(UI-16)*
+- **Window size.** The window is laid out for 1920 × 1080 logical pixels at 100% scale, and for a window maximised on such a display (about 1920 × 1000) (UI-16; [decision 0706](../decisions/0706-window-target-1920-by-1080.md)). There the panels keep their defaults and nothing overlaps or is clipped. A smaller window, or a larger scale, is best effort: nothing fails and every command stays reachable (the "Operations in a small window" board). Below 1366 × 768, the *compact window* threshold, the dock collapses, and the inspector too when the viewport would be narrower than 420 pixels. Neither is kept as the user's choice: the user can open either again, and the rule applies afresh once the window is large again. *(UI-16)*
 - **Remembered layout.** Panel sizes, collapsed panels, open sections, scale and theme are remembered per user on the computer, never in the project (section 13). *(UI-15)*
 - **Dialogs.**
   - Modal dialogs (open, new, unsaved changes, errors) stay inside the main window.
@@ -413,7 +413,7 @@ File > New project opens a dialog for a parent folder and project name (decision
 **Import dialog** (IMP-01, IMP-03, IMP-04; decision 0029 item 13; board 1b):
 
 - **Opening.** File > Import model, the Model "+", or a dropped file. It opens in its own window.
-- **Size.** The window has a fixed size (460 by 520 points) that fits 1366 by 768 at 120% scale; it cannot be resized or maximised. The path, its button and the step line are pinned at the top and the footer at the bottom; the blocks between them scroll (UI-16).
+- **Size.** The window has a fixed size (460 by 520 points), kept from the 1366 by 768 layout (OI-2276); it cannot be resized or maximised. The path, its button and the step line are pinned at the top and the footer at the bottom; the blocks between them scroll (UI-16).
 - **The path.** It is typed, with Browse (`rfd`, decision 0029 item 15) and the button "Check and preview". Under it, a line says where the flow is: "Step 1 of 2: check the file. Nothing is added to the project yet.", then "Step 2 of 2: set the units and placement, then add. Nothing is added until you press Add to project." once the check has run. A status row of fixed height shows the spinner while a check runs, so nothing moves when it appears.
 - **Coming back.** When the application returns from the background, the window is brought to the front once (UI-14).
 - **The preview** is the main viewport behind the window, not a pane of it, because a tool window draws no 3D (section 3; decision 0029 item 17). It shows the placed model, with findings highlighted:
@@ -1099,7 +1099,7 @@ Images of the design canvas boards, rendered at 100% scale in headless Chromium 
 | [10-tool-library.png](mockups/10-tool-library.png) | Tool library and profile editor | 12.1 |
 | [11-selection-sets.png](mockups/11-selection-sets.png) | Selection sets tab (before decision 0215) | 12.2 |
 | [12-undo-history.png](mockups/12-undo-history.png) | Undo history | 12.3 |
-| [13-operations-1366x768.png](mockups/13-operations-1366x768.png) | Operations at 1366 × 768 | 3 |
+| [13-operations-1366x768.png](mockups/13-operations-1366x768.png) | Operations in a small window (1366 × 768, best effort) | 3 |
 | [14-operations-light.png](mockups/14-operations-light.png) | Operations, light theme | 14.2 |
 | [15-simulate-light.png](mockups/15-simulate-light.png) | Simulate, light theme | 14.2 |
 | [16-workholding.png](mockups/16-workholding.png) | Workholding and tabs: the setup inspector section with a draft not applied, a default tab and a refused value (18 Oct 2026) | 11.7 |
