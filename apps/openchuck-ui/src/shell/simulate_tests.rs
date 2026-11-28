@@ -2198,3 +2198,18 @@ fn req_sim_16_req_nfr_07_add_roughing_with_no_flat_end_says_why() {
         1
     );
 }
+
+#[test]
+fn req_sim_16_go_to_a_stretch_at_the_first_move_starts_the_operation_and_waits_for_playback() {
+    // A stretch that starts at the operation's first move goes to where the
+    // operation starts; before playback is ready, Go to moves nothing
+    // (issue #935).
+    let op = openchuck_app::project::id::OperationId::new();
+    assert!(!crate::playback_panel::PlaybackPanel::default().go_to(op, 0));
+    let mut rig = simulated("sim-go-to-first");
+    let op = rig.shell.app.as_ref().unwrap().project().operations()[0].id;
+    let start = rig.shell.play.first_move_of(op).unwrap();
+    rig.shell.play.go_to(op, 3);
+    assert!(rig.shell.play.go_to(op, 0));
+    assert_eq!(rig.shell.play.moves_done(), start);
+}
