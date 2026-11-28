@@ -36,6 +36,14 @@ use crate::AppError;
 
 /// The refusal of `operation` by the check `topic`, for `what` (decision
 /// record 0644).
+/// Why an operation with no tool cannot be generated. The project panel's
+/// tool chip says the same (issue #790).
+pub const NO_TOOL: &str = "it has no tool";
+
+/// Why an operation whose tool is not in the project's tool list cannot be
+/// generated. The project panel's tool chip says the same (issue #790).
+pub const TOOL_MISSING: &str = "its tool is missing";
+
 fn missing(operation: &Operation, topic: &str, what: &str) -> AppError {
     AppError::refused(topic, &operation.name, what)
 }
@@ -56,6 +64,9 @@ pub(crate) fn stored_values(operation: &Operation) -> BTreeMap<String, Parameter
     operation
         .parameters
         .iter()
+        // The application's own settings, which no strategy takes (the
+        // tool-load limit, SIM-16), stay with the application.
+        .filter(|(k, _)| k.as_str() != crate::tool_load::LARGEST_CUT_SECTION)
         .map(|(k, v)| {
             let v = match v {
                 openchuck_project::ParameterValue::Integer(v) => ParameterValue::Integer(*v),
@@ -242,11 +253,11 @@ pub fn parameter_values(
     // corner.
     if operation.strategy == pencil::NAME
         && !values.contains_key(pencil::pencil_parameter::MIN_LENGTH)
-        && let Some(snapshot) = snapshot
+        && snapshot.is_some()
     {
         values.insert(
             pencil::pencil_parameter::MIN_LENGTH.to_owned(),
-            ParameterValue::Number(snapshot.tool.diameter.0),
+            ParameterValue::Text(openchuck_path::params::TOOL_DIAMETER.to_owned()),
         );
     }
     // A required value that neither the operation nor the cutting data gives:
@@ -653,18 +664,12 @@ fn generate_unnamed(
     })?;
     let tool_id = operation
         .tool
-        .ok_or_else(|| missing(operation, crate::lead_in::topic::TOOL, "it has no tool"))?;
+        .ok_or_else(|| missing(operation, crate::lead_in::topic::TOOL, NO_TOOL))?;
     let snapshot = project
         .tools()
         .iter()
         .find(|t| t.id == tool_id)
-        .ok_or_else(|| {
-            missing(
-                operation,
-                crate::lead_in::topic::TOOL,
-                "its tool is missing",
-            )
-        })?;
+        .ok_or_else(|| missing(operation, crate::lead_in::topic::TOOL, TOOL_MISSING))?;
     let part_id = setup.part.ok_or_else(|| {
         missing(
             operation,
@@ -1192,14 +1197,17 @@ fn generate_unnamed(
     ) {
         check_travel_along(operation, machine, &path.group)?;
     }
-    // A set the operation's options leave limiting nothing is a warning
-    // (decision 0176). A warning is said once, as a warning, and not repeated
-    // among the notes (decision 0536 section 5).
-    let mut warnings = brep_limits
+    // A boundary set the operation's options leave limiting nothing is a
+    // warning (decision 0176); an avoid or check set on Ignore is
+    // information (decision 0696 item 8). Each is said once, by its
+    // level, and not repeated (decision 0536 section 5).
+    let (mut warnings, set_notes): (Vec<_>, Vec<_>) = brep_limits
         .as_ref()
         .map(|l| l.warnings.clone())
         .or_else(|| resolved_region.as_ref().map(|r| r.warnings.clone()))
-        .unwrap_or_default();
+        .unwrap_or_default()
+        .into_iter()
+        .partition(|n| n.level == openchuck_path::Level::Warning);
     warnings.extend(
         tab_warnings
             .into_iter()
@@ -1227,6 +1235,7 @@ fn generate_unnamed(
             openchuck_path::Notice::information(note).about(crate::lead_in::topic::CUTTING_DATA)
         })
         .collect();
+    notes.extend(set_notes);
     // A stock to leave other than the operation's is a warning (decision
     // 0536 step 2, the owner's answer to question Q-G; P76).
     warnings.extend(leave_notes);
@@ -1737,7 +1746,8 @@ pub(crate) fn default_override(
 /// pathing library takes them (OP-02; decision 0176): the boundary as the
 /// window of its faces, the avoid and check sets that cut the pass short as
 /// their exact faces, and those that only warn as watched surfaces, each
-/// named. A set that limits nothing is left out, with a warning naming it.
+/// named. A set that limits nothing is left out, with a notice naming it: a
+/// warning for the boundary, information for a set on Ignore.
 struct BrepLimits {
     boundary: Option<Window>,
     boundary_limits: BoundaryLimits,
@@ -1809,11 +1819,7 @@ impl BrepLimits {
                             watched.push((set.name.clone(), protection, s));
                         }
                     }
-                    OnBreak::Ignore => warnings.push(limits_nothing(
-                        &format!("{role} set '{}'", set.name),
-                        "it is set to Ignore: the tool is not kept clear of it",
-                        "Set it to Cut short or Warn only",
-                    )),
+                    OnBreak::Ignore => warnings.push(ignored(role, &set.name)),
                 }
             }
         }
@@ -1890,6 +1896,21 @@ pub(crate) fn limits_nothing(set: &str, why: &str, fix: &str) -> Notice {
          inspector's Geometry section, or take the set out of the operation."
     ))
     .about(openchuck_path::topic::SELECTION_SET)
+}
+
+/// The note for an avoid or check set on Ignore (decision 0176's words;
+/// decision 0696 item 8): information, not a warning, because Ignore
+/// is the user's own choice and the inspector shows it on the set's line.
+/// The path is made as if the set were not there.
+pub(crate) fn ignored(role: &str, set: &str) -> Notice {
+    Notice {
+        level: openchuck_path::Level::Information,
+        ..limits_nothing(
+            &format!("{role} set '{set}'"),
+            "it is set to Ignore: the tool is not kept clear of it",
+            "Set it to Cut short or Warn only",
+        )
+    }
 }
 
 /// A boundary, avoid or check set of swarf on a STEP part, with its
@@ -2206,7 +2227,7 @@ fn keep_out_of(
 
 /// The largest radius of `tool`, its cutting profile or its shank: how far
 /// its middle keeps from a held region (decision 0161).
-fn tool_reach(
+pub(crate) fn tool_reach(
     profile: &openchuck_types::tool::profile::RevolvedProfile,
     tool: &openchuck_types::tool::Tool,
 ) -> f64 {
@@ -3286,7 +3307,7 @@ mod tests {
         );
         // An avoid or check set that only warns keeps the whole cut and
         // warns naming the set; one set to Ignore limits nothing, and says
-        // so.
+        // so as information, not a warning (decision 0696 item 8).
         for (role, on_break, said) in [
             (
                 Role::Avoid,
@@ -3326,12 +3347,23 @@ mod tests {
                 "{role:?} {on_break:?}: {}",
                 furthest_cut(&path)
             );
-            assert_eq!(path.warnings.len(), 1, "{:?}", path.warnings);
-            assert!(
-                path.warnings[0].text.contains(said),
-                "{}",
-                path.warnings[0].text
-            );
+            if on_break == OnBreak::Ignore {
+                assert!(path.warnings.is_empty(), "{:?}", path.warnings);
+                let notes: Vec<_> = path
+                    .notes
+                    .iter()
+                    .filter(|n| n.text.contains(said))
+                    .collect();
+                assert_eq!(notes.len(), 1, "{:?}", path.notes);
+                assert_eq!(notes[0].level, openchuck_path::Level::Information);
+            } else {
+                assert_eq!(path.warnings.len(), 1, "{:?}", path.warnings);
+                assert!(
+                    path.warnings[0].text.contains(said),
+                    "{}",
+                    path.warnings[0].text
+                );
+            }
         }
         // A wall that is cut and kept clear of is refused, naming it.
         let mut f = swarf_limits_fixture(&[]);
@@ -4106,14 +4138,28 @@ mod tests {
             .unwrap();
         assert_eq!(field.label, "Shortest cut");
         assert_eq!(field.section, crate::form::FormSection::Advanced);
-        assert_eq!(field.value, Some(Value::Number(BALL)));
+        // Issue #892: shown and given to the library as Tool diameter, which
+        // the library reads as the tool's diameter (BALL here) and which
+        // follows a change of tool.
+        let word = openchuck_path::params::TOOL_DIAMETER.to_owned();
+        assert_eq!(field.value, Some(Value::Text(word.clone())));
         assert_eq!(field.source, crate::form::Source::Default);
         let op = f.project.operation(f.operation).unwrap();
         let resolved = parameter_values(&f.project, op, &registry).unwrap();
         assert_eq!(
             resolved.values.get(pencil::pencil_parameter::MIN_LENGTH),
-            Some(&openchuck_path::ParameterValue::Number(BALL))
+            Some(&openchuck_path::ParameterValue::Text(word))
         );
+        let params = registry
+            .get(pencil::NAME)
+            .unwrap()
+            .schema()
+            .resolve(&resolved.values)
+            .unwrap();
+        let shortest = params
+            .length_or_tool(pencil::pencil_parameter::MIN_LENGTH, BALL)
+            .unwrap();
+        assert!((shortest - BALL).abs() < 1e-12, "{shortest}");
         let mut set = op.clone();
         set.parameters.insert(
             pencil::pencil_parameter::MIN_LENGTH.to_owned(),

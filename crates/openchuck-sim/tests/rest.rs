@@ -739,6 +739,28 @@ fn req_op_09_req_nfr_12_a_corner_shorter_than_the_shortest_cut_is_refused_and_sa
 }
 
 #[test]
+fn req_op_09_a_shortest_cut_of_tool_diameter_is_the_tools_diameter() {
+    // Issue #892 (the owner's answer A): Tool diameter is read from the
+    // operation's tool when the path is made, so it gives the path the
+    // tool's diameter as a number gives.
+    let rig = Rig::new();
+    let stock = rig.after_big_ball();
+    let small = small_ball();
+    let with = |x: ParameterValue| {
+        let mut v = values(&[]);
+        v.insert(pencil_parameter::MIN_LENGTH.to_owned(), x);
+        rig.generate(&PencilFinishing::default(), &small, &stock, &v)
+            .unwrap()
+    };
+    let by_word = with(ParameterValue::Text(
+        openchuck_path::params::TOOL_DIAMETER.to_owned(),
+    ));
+    let by_number = with(num(2.0 * small.cutting_radius()));
+    assert_eq!(by_word.group, by_number.group);
+    assert_eq!(by_word.notices, by_number.notices);
+}
+
+#[test]
 fn req_op_09_req_nfr_12_pencil_counts_the_corners_material_with_stock_to_leave() {
     // Decision 0684 item 1 with stock to leave (CodeRabbit on pull request
     // #856): the tool's axis rests its radius plus the stock to leave from

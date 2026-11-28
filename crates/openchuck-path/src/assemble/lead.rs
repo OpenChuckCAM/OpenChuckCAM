@@ -116,12 +116,12 @@ pub(super) struct TurnLead {
     pub moves: Vec<(AxisPosition, Degrees)>,
 }
 
-impl Entry {
+impl Entry<'_> {
     /// Whether the tip at `end` is on the rotary axis, within the path
     /// tolerance. A lead has no plane of the cut there, so such an end is
     /// led like a single-point pass: a plunge with a note, and no lead-out
     /// (decision 0543 point 2, the owner's answer, relayed).
-    fn on_axis(&self, b: &Builder<'_>, end: Option<&CutPoint>) -> bool {
+    pub(super) fn on_axis(&self, b: &Builder<'_>, end: Option<&CutPoint>) -> bool {
         end.is_some_and(|p| {
             let at = b.rotary.to_axis(p.tip, p.a);
             at.across.hypot(at.height) <= self.tolerance
@@ -365,6 +365,12 @@ impl Entry {
     /// does, which generation has already refused.
     fn refuse_turning(&self, pass: usize, name: &str, found: Gouge) -> PathError {
         let r = self.lead_radius;
+        // Where the pass itself cuts a face outside the selection, no lead
+        // there can keep clear of it (decision 0701).
+        if let Some(text) = found.pass_cut_refusal(pass, name, self.tolerance) {
+            return PathError::refused(crate::topic::LEAD_ENTRY, text)
+                .with_setting(crate::params::names::ENTRY);
+        }
         PathError::refused(
             crate::topic::LEAD_ENTRY,
             format!(

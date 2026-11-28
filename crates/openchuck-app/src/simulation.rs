@@ -42,6 +42,10 @@ pub struct OperationSimulation {
     pub removed_volume: f64,
     /// Rapid moves that removed material (a fault in the toolpath).
     pub rapid_cuts: Vec<RapidCut>,
+    /// The load on the tool, measured against the operation's limit
+    /// (SIM-16): the heaviest cut, the stretches past the limit and the
+    /// removal rate. `None` for an operation with no tool to measure against.
+    pub load: Option<openchuck_sim::LoadSummary>,
 }
 
 /// A setup's final stock compared with its part (SIM-05): the comparison,
@@ -348,6 +352,7 @@ impl SetupState {
         operation: &str,
         group: &ToolpathGroup,
         tool: &RevolvedProfile,
+        limit: Option<f64>,
         context: &JobContext<'_>,
     ) -> Result<GroupResult, AppError> {
         // The stock changes, so a comparison of the old one no longer holds;
@@ -364,8 +369,14 @@ impl SetupState {
             // batched (checkpoints end a batch; decision record 0333).
             removed_volume: before - self.simulator.stock().volume(),
             rapid_cuts: result.rapid_cuts.clone(),
+            load: limit.map(|l| result.load.summarise(group, l)),
         });
         Ok(result)
+    }
+
+    /// The tool load of the last operation simulated (SIM-16).
+    pub(crate) fn last_load(&self) -> Option<&openchuck_sim::LoadSummary> {
+        self.operations.last().and_then(|o| o.load.as_ref())
     }
 
     /// The rapid moves that removed material in the last operation simulated.

@@ -14,6 +14,14 @@ Every command is in a menu, and most have a key. **Help > Keyboard shortcuts** s
 
 A disabled button is not in the <kbd>Tab</kbd> order. Hold the mouse over it to read why it is disabled; for the main button at the bottom right, the bottom bar says the same.
 
+## Typing values
+
+- <kbd>Enter</kbd> applies the value you typed, and so does moving to another field of the same panel. <kbd>Esc</kbd> puts back the value last applied.
+- If you leave a panel such as the Inspector with a value typed but not applied (you choose another item, another step, or generate), the program asks first: **Keep** applies the values, **Discard** puts them back, **Cancel** returns you to the field.
+- In a window such as import, **New operation**, **Rename** or **Post and export**, its own buttons take what you typed, and **Cancel**, the close box or <kbd>Esc</kbd> close it without asking.
+- Several values of a setup kept together are applied as one step, which one **Undo** reverses.
+- A value that is refused stays in its box with the reason, and does not stop you fixing what refused it, for example moving a tab that a new stock size would leave outside the stock (see [Tabs](../concepts/tabs.md)).
+
 ## Shortcuts
 
 | Keys | Command |
@@ -30,8 +38,8 @@ A disabled button is not in the <kbd>Tab</kbd> order. Hold the mouse over it to 
 | <kbd>F</kbd>, <kbd>V</kbd> | Fit the view to the part; open **Show** |
 | <kbd>1</kbd>, <kbd>3</kbd>, <kbd>7</kbd>, <kbd>0</kbd> | Front, right, top, isometric view (the number row or the number pad) |
 | <kbd>N</kbd> | New operation |
-| <kbd>G</kbd> or <kbd>F5</kbd> | Generate the selected operation, and the ones before it |
-| <kbd>Shift</kbd>+<kbd>G</kbd> or <kbd>Shift</kbd>+<kbd>F5</kbd> | Generate every stale operation |
+| <kbd>G</kbd> or <kbd>F5</kbd> | Generate every stale operation, as **Generate stale** does |
+| <kbd>Shift</kbd>+<kbd>G</kbd> or <kbd>Shift</kbd>+<kbd>F5</kbd> | Generate the selected operation, and the ones before it (every stale operation when none is selected) |
 | <kbd>Ctrl</kbd>+<kbd>D</kbd>, <kbd>Del</kbd>, <kbd>F2</kbd> | Duplicate, delete, rename the selected item |
 | <kbd>Alt</kbd>+<kbd>↑</kbd>, <kbd>Alt</kbd>+<kbd>↓</kbd> | Move the selected operation earlier or later |
 | <kbd>Q</kbd>, <kbd>W</kbd>, <kbd>E</kbd>, <kbd>R</kbd> | While picking: select one, flood fill, by angle, same direction. On an edge, <kbd>Q</kbd>, <kbd>W</kbd> and <kbd>E</kbd> are select one, chain and smooth chain |

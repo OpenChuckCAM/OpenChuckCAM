@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="760" height="330" viewBox="0 0 760 330" font-family="sans-serif" font-size="13">
+  <title>Issue 870: before, a refused Start X blocked the Apply that would fix it; after, the Apply goes ahead and Enter applies the value</title>
+  <rect width="760" height="330" fill="#ffffff"/>
+  <defs>
+    <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#333"/></marker>
+  </defs>
+  <text x="20" y="26" font-weight="bold" font-size="14">Before (main)</text>
+  <rect x="20" y="40" width="150" height="56" rx="6" fill="#fde7e9" stroke="#c5221f"/>
+  <text x="30" y="62">Start X −5, Enter</text>
+  <text x="30" y="82" fill="#c5221f">refused (tab 1 outside)</text>
+  <rect x="210" y="40" width="150" height="56" rx="6" fill="#f1f3f4" stroke="#5f6368"/>
+  <text x="220" y="62">move tab 1,</text>
+  <text x="220" y="82">press Apply</text>
+  <rect x="400" y="40" width="150" height="56" rx="6" fill="#fde7e9" stroke="#c5221f"/>
+  <text x="410" y="62">"Unconfirmed</text>
+  <text x="410" y="82">changes": Keep?</text>
+  <rect x="590" y="40" width="150" height="56" rx="6" fill="#fde7e9" stroke="#c5221f"/>
+  <text x="600" y="62">Keep: refused again,</text>
+  <text x="600" y="82">tab not applied</text>
+  <line x1="170" y1="68" x2="208" y2="68" stroke="#333" marker-end="url(#a)"/>
+  <line x1="360" y1="68" x2="398" y2="68" stroke="#333" marker-end="url(#a)"/>
+  <line x1="550" y1="68" x2="588" y2="68" stroke="#333" marker-end="url(#a)"/>
+  <path d="M665,96 C665,130 285,130 285,98" fill="none" stroke="#c5221f" stroke-dasharray="4 3" marker-end="url(#a)"/>
+  <text x="330" y="142" fill="#c5221f">only Discard gets out, and loses the −5</text>
+  <text x="20" y="186" font-weight="bold" font-size="14">After (answer A)</text>
+  <rect x="20" y="200" width="150" height="72" rx="6" fill="#fef7e0" stroke="#b06000"/>
+  <text x="30" y="222">Start X −5, Enter</text>
+  <text x="30" y="242" fill="#b06000">refused, names tab 1</text>
+  <text x="30" y="260" fill="#b06000">and both ways out</text>
+  <rect x="210" y="200" width="150" height="72" rx="6" fill="#f1f3f4" stroke="#5f6368"/>
+  <text x="220" y="222">move tab 1,</text>
+  <text x="220" y="242">press Apply:</text>
+  <text x="220" y="260" fill="#188038">applied, no question</text>
+  <rect x="400" y="200" width="150" height="72" rx="6" fill="#e6f4ea" stroke="#188038"/>
+  <text x="410" y="222">box still says −5:</text>
+  <text x="410" y="242">"now allowed.</text>
+  <text x="410" y="260">Press Enter to apply"</text>
+  <rect x="590" y="200" width="150" height="72" rx="6" fill="#e6f4ea" stroke="#188038"/>
+  <text x="600" y="222">Enter:</text>
+  <text x="600" y="242" fill="#188038">Start X −5 stored</text>
+  <line x1="170" y1="236" x2="208" y2="236" stroke="#333" marker-end="url(#a)"/>
+  <line x1="360" y1="236" x2="398" y2="236" stroke="#333" marker-end="url(#a)"/>
+  <line x1="550" y1="236" x2="588" y2="236" stroke="#333" marker-end="url(#a)"/>
+  <text x="20" y="306" fill="#5f6368" font-size="12">Leaving the setup still asks Keep, Discard or Cancel. Synthetic cube project: stock X −7 to 7, tab 1 at X −6.5 to −5.5.</text>
+</svg>

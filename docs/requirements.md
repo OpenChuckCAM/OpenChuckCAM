@@ -95,7 +95,7 @@ These requirements define the first usable release unless marked P2. Each has a 
 | UI-13 | Show, for each machine profile value, whether it is confirmed on the machine or not, with where the value came from and how to confirm it. | P1 |
 | UI-14 | Every command is available from the menus and the keyboard, every control can be used with the keyboard, and anything shown on hover is also shown on keyboard focus. | P1 |
 | UI-15 | Keep per-user settings on the computer (window layout, scale, theme, display units, recent projects, export acknowledgements), never in the project. | P1 |
-| UI-16 | The window is usable at 1366 by 768 logical pixels at 100% scale, and its panels can be resized and collapsed. | P1 |
+| UI-16 | The window is usable at 1920 by 1080 logical pixels at 100% scale, and when maximised on a 1920 by 1080 display at 100% scale; its panels can be resized and collapsed. In a smaller window, or at a larger scale, nothing fails and every command stays reachable (by collapsing a panel, scrolling or the menus); no smaller size is promised. | P1 |
 | UI-17 | A command search that finds any command by name and runs it. | P2 |
 | UI-18 | Display and enter lengths in inches as a user setting, and accept a unit typed with a value; values are stored in millimetres. | P2 |
 | UI-19 | Parameter forms group settings as basic and advanced, mark values that differ from their default with a way to reset them, and show derived values with how they were worked out. | P2 |
@@ -201,6 +201,7 @@ Every strategy must produce toolpaths in XYZA. Geometry selected on the model (f
 | SIM-13 | Summarise each generated operation: moves, cut length, A travel, A unwinds and programmed time. | P2 |
 | SIM-14 | Show, for each operation, the largest overcut and the most material left after it, and the worst values after the current operation during playback. | P2 |
 | SIM-15 | Choose which deviation bands the result views show, as the histogram's bins and as a range the user sets, so the part shows only the overcut or the material left of interest; the colour scale, the legend and the histogram follow the choice, and the worst values and counts stay those of the whole part. | P2 |
+| SIM-16 | Measure the load each operation puts on the tool from the stock as the simulation leaves it at each move (SIM-06): for each stretch of path, the length of the cutting edge in the material along the tool axis, the width of cut, the material removed per millimetre of travel (the cut section) and the removal rate at the programmed feed. Show the heaviest cut of each operation, with where it is, and the average and highest removal rate of each operation and of the whole job, and warn, with the figures and the place, where the cut section passes a limit set from the tool and its cutting data. A warning, or none, does not say that a cut is safe for the tool or the machine (NFR-12). | P1 |
 
 ### 3.7 G-code generation and post-processing
 

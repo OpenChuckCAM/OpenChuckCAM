@@ -25,6 +25,7 @@ use std::time::Instant;
 
 use crate::theme::DARK;
 use eframe::egui::{self, Key, KeyboardShortcut, Modifiers};
+use openchuck_app::dropped::{self, Dropped};
 use openchuck_app::new_folder;
 use openchuck_app::overview::{
     Checks, ItemRef, Message, MessageAction, Overview, PrimaryKind, SettingPlace, SettingRef,
@@ -76,6 +77,8 @@ mod pending_edit_tests;
 mod recent_tests;
 #[cfg(test)]
 mod reminder_tests;
+#[cfg(test)]
+mod start_page_tests;
 
 use dock::DockTab;
 pub(crate) use frame::{chip, primary_button};
@@ -90,10 +93,12 @@ const NEW: KeyboardShortcut = KeyboardShortcut::new(Modifiers::COMMAND, Key::N);
 const OPEN: KeyboardShortcut = KeyboardShortcut::new(Modifiers::COMMAND, Key::O);
 const IMPORT: KeyboardShortcut = KeyboardShortcut::new(Modifiers::COMMAND, Key::I);
 const EXPORT: KeyboardShortcut = KeyboardShortcut::new(Modifiers::COMMAND, Key::E);
-const GENERATE: KeyboardShortcut = KeyboardShortcut::new(Modifiers::NONE, Key::G);
-const GENERATE_F5: KeyboardShortcut = KeyboardShortcut::new(Modifiers::NONE, Key::F5);
-const GENERATE_STALE: KeyboardShortcut = KeyboardShortcut::new(Modifiers::SHIFT, Key::G);
-const GENERATE_STALE_F5: KeyboardShortcut = KeyboardShortcut::new(Modifiers::SHIFT, Key::F5);
+// The main action, Generate stale, has the plain keys; Generate selected
+// has them with Shift (the owner's choice of 24 Nov 2026, decision 0707).
+const GENERATE_STALE: KeyboardShortcut = KeyboardShortcut::new(Modifiers::NONE, Key::G);
+const GENERATE_STALE_F5: KeyboardShortcut = KeyboardShortcut::new(Modifiers::NONE, Key::F5);
+const GENERATE_SELECTED: KeyboardShortcut = KeyboardShortcut::new(Modifiers::SHIFT, Key::G);
+const GENERATE_SELECTED_F5: KeyboardShortcut = KeyboardShortcut::new(Modifiers::SHIFT, Key::F5);
 const NEW_OPERATION: KeyboardShortcut = KeyboardShortcut::new(Modifiers::NONE, Key::N);
 const DUPLICATE: KeyboardShortcut = KeyboardShortcut::new(Modifiers::COMMAND, Key::D);
 const DELETE: KeyboardShortcut = KeyboardShortcut::new(Modifiers::NONE, Key::Delete);
@@ -206,6 +211,19 @@ pub struct Shell {
     /// The recent project chosen in this frame, so the action log can leave
     /// its folder name out (NFR-18).
     recent_clicked: Option<std::path::PathBuf>,
+    /// A model dropped with no project open: the New project dialog it
+    /// opened is named after it, and OK opens the import window on it
+    /// (UI-23; decision record 0697 item 2). It lives only while that
+    /// dialog is open.
+    start_import: Option<PathBuf>,
+    /// The name the next New project dialog starts with, for that model.
+    new_name: Option<String>,
+    /// The Messages line about the last drop, and how many project opens
+    /// it outlives (one when the drop itself opens or creates a project).
+    drop_note: Option<(Message, u8)>,
+    /// What the items dragged over the window would do: their paths and
+    /// the line said for them, worked out once per set of items.
+    drag_line: Option<(Vec<PathBuf>, String)>,
     /// The running check of which recent folders exist, and when it last
     /// started (the check is off the UI thread; issue 381).
     recent_check: Option<RecentCheck>,
@@ -371,6 +389,10 @@ impl Shell {
             edit_context: None,
             open_hint: None,
             recent_clicked: None,
+            start_import: None,
+            new_name: None,
+            drop_note: None,
+            drag_line: None,
             recent_check: None,
             recent_checked_at: None,
             #[cfg(test)]
@@ -445,6 +467,12 @@ impl Shell {
     /// Gives the playback panel and the view the user's Simulate choices
     /// (decision records 0168 and 0169).
     fn apply_simulate_settings(&mut self) {
+        // The kinds of move shown apply on every step (issue #789).
+        self.viewport.set_shown_moves(self.settings.path_moves);
+        self.play.set_shown_moves(self.settings.path_moves);
+        // The kinds of Facing label shown, likewise (issue #881).
+        self.viewport
+            .set_shown_facing_labels(self.settings.facing_labels);
         let simulate = self.settings.simulate;
         self.viewport.set_cut_part_solid(simulate.cut_part_solid);
         self.play.set_turn_part_with_a(simulate.turn_part_with_a);
@@ -465,6 +493,26 @@ impl Shell {
     /// Keeps the Simulate choices the user made in the settings, so they are
     /// remembered between runs (issues 203, 204, 205).
     fn keep_simulate_settings(&mut self) {
+        // The kinds of move the view's controls set: drawn by the playback
+        // panel, kept for the user (issue #789; the owner's answer P3 A).
+        let moves = self.viewport.shown_moves();
+        self.play.set_shown_moves(moves);
+        if moves != self.settings.path_moves {
+            self.settings.path_moves = moves;
+            self.settings_touched();
+        }
+        // The kinds of Facing label shown, kept for the user (issue #881),
+        // and the selected operation, whose Facing labels alone the view
+        // draws while it is a Facing operation (the owner's answer to Q3).
+        let labels = self.viewport.shown_facing_labels();
+        if labels != self.settings.facing_labels {
+            self.settings.facing_labels = labels;
+            self.settings_touched();
+        }
+        self.viewport.set_selected_operation(match self.selected {
+            Some(Selection::Operation(id)) => Some(id),
+            _ => None,
+        });
         let show = self.viewport.simulate_show();
         let now = openchuck_app::settings::SimulateSettings {
             cut_part_solid: self.viewport.cut_part_solid(),
@@ -594,7 +642,13 @@ impl Shell {
             skip_stock_simulation: self.settings.simulate.skip_stock_simulation,
         };
         match Application::create_with(&folder, name, Threads::All, defaults) {
-            Ok(app) => self.set_app(app),
+            Ok(app) => {
+                self.set_app(app);
+                // The model dropped to start this project (UI-23).
+                if let Some(file) = self.start_import.take() {
+                    self.dropped_model(file);
+                }
+            }
             Err(e) => {
                 self.dialog = Some(Dialog::Error(Failure::new("Create project", e)));
             }
@@ -636,6 +690,11 @@ impl Shell {
         self.workholding_panel = None;
         self.machine_panel = None;
         self.import = None;
+        // A drop's note outlives only the project open the drop itself made.
+        match &mut self.drop_note {
+            Some((_, opens)) if *opens > 0 => *opens -= 1,
+            _ => self.drop_note = None,
+        }
         self.form.clear();
         self.highlight = None;
         if self.bench.is_none() {
@@ -711,6 +770,9 @@ impl Shell {
                 }
                 for message in self.recovery.messages() {
                     self.overview.push(message);
+                }
+                if let Some((note, _)) = &self.drop_note {
+                    self.overview.push(note.clone());
                 }
                 self.overview_dirty = false;
             }
@@ -799,6 +861,9 @@ impl Shell {
             for message in self.recovery.messages() {
                 overview.push(message);
             }
+            if let Some((note, _)) = &self.drop_note {
+                overview.push(note.clone());
+            }
             // The status line's texts, at their levels (decision record 0536
             // section 8).
             self.tool_numbers_changed &= app.tool_numbers_unsaved();
@@ -823,7 +888,8 @@ impl Shell {
     }
 
     /// Generates the selected operation, up to and including it, when an
-    /// operation is selected (G, F5); otherwise every stale operation
+    /// operation is selected (Shift G, Shift F5; decision 0707); otherwise
+    /// every stale operation
     /// (specification section 16; decision record 0117, OI-351). A turned-off
     /// operation goes to the run too, which refuses it and says why (OI-352).
     fn generate_selected(&mut self) {
@@ -993,10 +1059,11 @@ impl Shell {
         match next {
             Next::New | Next::Open => {
                 let hint = self.open_hint.take().filter(|_| next == Next::Open);
+                let name = self.new_name.take().filter(|_| next == Next::New);
                 self.dialog = Some(Dialog::Folder {
                     create: next == Next::New,
                     folder: hint.unwrap_or_default(),
-                    name: "Untitled".to_owned(),
+                    name: name.unwrap_or_else(|| "Untitled".to_owned()),
                 });
             }
             Next::Quit => {
@@ -1272,9 +1339,10 @@ impl Shell {
         }
         let (stale, generate, new_operation) = ctx.input_mut(|i| {
             // Shift first: Shift G would otherwise be taken for G.
+            let generate =
+                i.consume_shortcut(&GENERATE_SELECTED) || i.consume_shortcut(&GENERATE_SELECTED_F5);
             let stale =
                 i.consume_shortcut(&GENERATE_STALE) || i.consume_shortcut(&GENERATE_STALE_F5);
-            let generate = i.consume_shortcut(&GENERATE) || i.consume_shortcut(&GENERATE_F5);
             (stale, generate, i.consume_shortcut(&NEW_OPERATION))
         });
         if stale {
@@ -2091,16 +2159,26 @@ impl Shell {
     /// Runs the import dialog (OI-51): polls its check, shows the preview in
     /// the viewport, and adds the model or closes.
     fn import_frame(&mut self, ctx: &egui::Context) {
-        // A dropped file opens the import window on it (specification 11.2).
-        let dropped = ctx.input(|i| {
+        // A model dropped to start a project belongs to the New project
+        // dialog it opened, and only while that dialog is open.
+        if !matches!(
+            self.dialog,
+            Some(Dialog::Folder { create: true, .. } | Dialog::FolderExists { .. })
+        ) {
+            self.start_import = None;
+            self.new_name = None;
+        }
+        // Dropped files and folders (specification 11.1, 11.2; UI-23).
+        let dropped: Vec<PathBuf> = ctx.input(|i| {
             i.raw
                 .dropped_files
-                .first()
+                .iter()
                 .map(|f| f.path().to_path_buf())
                 .filter(|p| !p.as_os_str().is_empty())
+                .collect()
         });
-        if let Some(file) = dropped {
-            self.dropped_model(file);
+        if !dropped.is_empty() {
+            self.dropped(dropped, ctx);
         }
         let (Some(app), Some(session)) = (&self.app, &mut self.import) else {
             return;
@@ -2151,6 +2229,81 @@ impl Shell {
             },
             Some(Err(e)) => session.error = Some(e.to_string()),
         }
+    }
+
+    /// Files or folders dropped on the window (UI-23; decision record
+    /// 0697 items 2 and 3): the first usable one is used, and
+    /// Messages names the rest, or says why nothing could be used.
+    fn dropped(&mut self, paths: Vec<PathBuf>, ctx: &egui::Context) {
+        let (deferred, deferred_ctx) = (paths.clone(), ctx.clone());
+        if self.defer(move |s| s.dropped(deferred, &deferred_ctx)) {
+            return;
+        }
+        let plan = dropped::plan(&paths);
+        let opens = match (&plan.used, &self.app) {
+            (Some(Dropped::Project(_)), _) | (Some(Dropped::Model(_)), None) => 1,
+            _ => 0,
+        };
+        self.drop_note = dropped::message(&plan).map(|m| (m, opens));
+        self.overview_dirty = true;
+        match plan.used {
+            Some(Dropped::Model(file)) if self.app.is_some() => self.dropped_model(file),
+            Some(Dropped::Model(file)) => {
+                self.new_name = Some(dropped::project_name(&file));
+                self.start_import = Some(file);
+                self.request(Next::New, ctx);
+            }
+            Some(Dropped::Project(folder)) => self.open_recent(&folder, ctx),
+            Some(Dropped::Other(_)) | None => {}
+        }
+    }
+
+    /// While files are dragged over the window, it is tinted and says in
+    /// the middle what dropping them would do (decision record 0697
+    /// item 4). Systems that report no hovered files (Wayland) show nothing.
+    fn drag_frame(&mut self, ctx: &egui::Context) {
+        let hovered: Vec<Option<PathBuf>> =
+            ctx.input(|i| i.raw.hovered_files.iter().map(|f| f.path.clone()).collect());
+        if hovered.is_empty() {
+            self.drag_line = None;
+            return;
+        }
+        let paths: Vec<PathBuf> = hovered.into_iter().flatten().collect();
+        if self.drag_line.as_ref().is_none_or(|(p, _)| *p != paths) {
+            let line = if paths.is_empty() {
+                // The system did not say what is dragged.
+                dropped::WHAT_IS_TAKEN.to_owned()
+            } else {
+                dropped::hover_text(&dropped::plan(&paths), self.app.is_some())
+            };
+            self.drag_line = Some((paths, line));
+        }
+        let Some((_, line)) = &self.drag_line else {
+            return;
+        };
+        let painter = ctx.layer_painter(egui::LayerId::new(
+            egui::Order::Tooltip,
+            egui::Id::unique("dropped files"),
+        ));
+        let screen = ctx.content_rect();
+        painter.rect_filled(screen, 0.0, DARK.accent.gamma_multiply(0.18));
+        let galley = painter.layout(
+            line.clone(),
+            egui::FontId::proportional(18.0),
+            DARK.text,
+            (screen.width() - 64.0).max(120.0),
+        );
+        let card =
+            egui::Rect::from_center_size(screen.center(), galley.size() + egui::vec2(32.0, 24.0));
+        painter.rect_filled(card, 6.0, DARK.panel);
+        painter.rect_stroke(
+            card,
+            6.0,
+            egui::Stroke::new(1.0, DARK.accent),
+            egui::StrokeKind::Inside,
+        );
+        painter.galley(card.center() - galley.size() / 2.0, galley, DARK.text);
+        ctx.request_repaint();
     }
 
     fn dropped_model(&mut self, file: PathBuf) {
@@ -2558,8 +2711,11 @@ impl Shell {
         }
         if close {
             if folder_form {
-                // Cancel explicitly abandons this dialog's input.
+                // Cancel explicitly abandons this dialog's input, and the
+                // model dropped to start it (decision 0697 item 2).
                 crate::pending_edits::clear(ctx);
+                self.start_import = None;
+                self.new_name = None;
             }
             let deferred_ctx = ctx.clone();
             if !crate::pending_edits::entries(ctx).is_empty() {
@@ -2903,6 +3059,7 @@ impl Shell {
         self.run_frame(&ctx);
         self.import_frame(&ctx);
         self.dialogs(&ctx);
+        self.drag_frame(&ctx);
         self.finish_pending(&ctx);
         self.pending_dialog(&ctx);
         self.keep_simulate_settings();
@@ -3176,12 +3333,25 @@ mod machine_library_tests;
 mod tool_library_tests;
 
 #[cfg(test)]
+mod path_moves_tests;
+
+#[cfg(test)]
+mod facing_labels_tests;
+
+#[cfg(test)]
+mod tool_chip_tests;
+
+#[cfg(test)]
 mod tooltip_tests;
 
 #[cfg(test)]
 mod focus_tests;
 
 #[cfg(test)]
+mod dialog_walk_tests;
+#[cfg(test)]
 mod import_layout_tests;
 #[cfg(test)]
 mod model_copy_tests;
+#[cfg(test)]
+mod setup_conflict_tests;

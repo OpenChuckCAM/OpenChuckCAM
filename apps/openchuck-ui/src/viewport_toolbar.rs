@@ -10,6 +10,11 @@ use eframe::egui;
 use openchuck_viewport::{DisplayMode, Projection, StandardView};
 
 use crate::viewport::{SimulateShow, ViewStep, Viewport, Visibility};
+use openchuck_app::facing_labels::{
+    FACING_LABELS_NAME, FacingLabel, HiddenChip, ShownFacingLabels,
+};
+use openchuck_app::pathview::{ENTRY_NAME, ShownMoves, move_name};
+use openchuck_app::playback::MoveKind;
 
 /// The strip's height (7.1).
 pub const HEIGHT: f32 = 44.0;
@@ -131,10 +136,21 @@ pub fn show(ui: &mut egui::Ui, viewport: &mut Viewport, strip: egui::Rect) {
             }
             // Simulate's "Show" choices stay in the strip while they fit after the other
             // controls, else they move into the "Show" menu, so none is cut off (OI-529).
-            let inline_show = step == ViewStep::Simulate
-                && ui.available_width()
-                    >= text_width(ui, "Show \u{23f7}") + button_extra(ui) + simulate_show_width(ui);
+            // The chip's long form while it fits after Show, else its
+            // short form; Simulate's inline Show choices give way first, so
+            // the chip is never cut (decision 0702).
+            let after_show =
+                ui.available_width() - text_width(ui, "Show \u{23f7}") - button_extra(ui);
+            let chip = viewport
+                .hidden_chip()
+                .map(|chip| chip_text(ui, &chip, after_show));
+            let chip_room = chip.as_deref().map_or(0.0, |t| chip_width(ui, t));
+            let inline_show =
+                step == ViewStep::Simulate && after_show >= chip_room + simulate_show_width(ui);
             show_or_hide(ui, viewport);
+            if let Some(text) = chip {
+                hidden_chip(ui, &text);
+            }
             if step == ViewStep::Model && viewport.has_findings() {
                 let mut show = viewport.visibility();
                 if ui
@@ -207,16 +223,132 @@ fn segments<T: Copy + PartialEq>(ui: &mut egui::Ui, choices: &[(T, &str, &str)],
     });
 }
 
+/// The tick boxes of the kinds of toolpath move (issue #789; decision record
+/// 0693, the owner's answers P1 B and P2 A): Cut, Link, Rapid, then
+/// Entry and exit with its three kinds under it, and "Show all moves" while
+/// any is hidden. Shared by the Show menu (V) and View > Toolpath moves, and
+/// the same choice as the path legend's tick boxes.
+pub fn move_ticks(ui: &mut egui::Ui, moves: &mut ShownMoves) {
+    for kind in [MoveKind::Cutting, MoveKind::Linking, MoveKind::Rapid] {
+        let mut shown = moves.shows(kind);
+        if ui.checkbox(&mut shown, move_name(kind)).changed() {
+            moves.set(kind, shown);
+        }
+    }
+    let entry = ShownMoves::ENTRY
+        .iter()
+        .filter(|k| moves.shows(**k))
+        .count();
+    let mut all = entry == ShownMoves::ENTRY.len();
+    let parent = egui::Checkbox::new(&mut all, ENTRY_NAME)
+        .indeterminate(entry > 0 && entry < ShownMoves::ENTRY.len());
+    // The press follows the legend's rule (`viewport_overlays::toggle`): a
+    // ticked or partly ticked box hides its three kinds, an empty one shows
+    // them, so the menus and the legend agree.
+    if ui.add(parent).changed() {
+        crate::viewport_overlays::toggle(moves, &ShownMoves::ENTRY);
+    }
+    ui.indent("entry and exit moves", |ui| {
+        for kind in ShownMoves::ENTRY {
+            let mut shown = moves.shows(kind);
+            if ui.checkbox(&mut shown, move_name(kind)).changed() {
+                moves.set(kind, shown);
+            }
+        }
+    });
+    if !moves.all_shown() && ui.button("Show all moves").clicked() {
+        *moves = ShownMoves::ALL;
+    }
+}
+
+/// The tick boxes of the kinds of Facing label (issue #881; decision record
+/// 0702, the owner's answer A1): a "Facing labels" box that is ticked,
+/// partly ticked or empty, with Faces, Margin, Opposite faces and Stops
+/// beside a grip under it, as the owner's mock-up shows; two presses of the
+/// group's box show all four from any state. Shared by the Show menu (V)
+/// and View > Facing labels. Hiding them hides only the words in the view:
+/// the outlines stay.
+pub fn facing_label_ticks(ui: &mut egui::Ui, labels: &mut ShownFacingLabels) {
+    let shown = labels.count_shown();
+    let mut all = labels.all_shown();
+    let parent = egui::Checkbox::new(&mut all, FACING_LABELS_NAME)
+        .indeterminate(shown > 0 && shown < FacingLabel::ORDER.len());
+    // A ticked or partly ticked box hides all four, an empty one shows
+    // them, as Entry and exit's box does.
+    if ui.add(parent).changed() {
+        labels.toggle_all();
+    }
+    ui.indent("facing label kinds", |ui| {
+        for kind in FacingLabel::ORDER {
+            let mut shown = labels.shows(kind);
+            if ui.checkbox(&mut shown, kind.menu_name()).changed() {
+                labels.set(kind, shown);
+            }
+        }
+    });
+}
+
+/// The chip's words for the room after Show: the long form when it fits
+/// there, else the short form (decision 0702's length rule).
+fn chip_text(ui: &egui::Ui, chip: &HiddenChip, room: f32) -> String {
+    let long = chip.long();
+    if chip_width(ui, &long) <= room {
+        long
+    } else {
+        chip.short()
+    }
+}
+
+/// The room a chip with `text` takes in the strip, with its gap.
+fn chip_width(ui: &egui::Ui, text: &str) -> f32 {
+    text_width(ui, text) + 16.0 + ui.spacing().item_spacing.x
+}
+
+/// The chip beside "Show" while anything is hidden in the view (issue #789,
+/// decision record 0693 as the owner amended it on 25 Nov 2026; issue #881,
+/// decision 0702), so nothing hidden is forgotten: the hidden
+/// kinds of move, then of Facing label, "Hidden: Rapid, Facing margin". It
+/// is a plain label, not a control: no button styling, no tooltip, no Tab
+/// stop, and a click does nothing. Its outline and warning colour mark it
+/// apart, and its words say what is hidden, so it is not shown by colour
+/// alone. The way back is "Show everything" in the Show menu (V), whose
+/// tooltip lists every hidden name, the menus' tick boxes, or the path
+/// legend's.
+fn hidden_chip(ui: &mut egui::Ui, text: &str) {
+    let text = text.to_owned();
+    let colour = crate::theme::DARK.warning;
+    let galley = ui.painter().layout_no_wrap(
+        text.clone(),
+        egui::TextStyle::Body.resolve(ui.style()),
+        colour,
+    );
+    let size = galley.size() + egui::vec2(16.0, 6.0);
+    let (rect, response) = ui.allocate_exact_size(size, egui::Sense::hover());
+    ui.painter().rect_stroke(
+        rect,
+        rect.height() / 2.0,
+        egui::Stroke::new(1.0, colour),
+        egui::StrokeKind::Inside,
+    );
+    ui.painter()
+        .galley(rect.center() - galley.size() / 2.0, galley, colour);
+    // Read as text by a screen reader (OI-2110), never as a button.
+    response.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Label, true, &text));
+}
+
 /// The "Show or hide" button and its list (V).
 fn show_or_hide(ui: &mut egui::Ui, viewport: &mut Viewport) {
     let button = ui.button("Show \u{23f7}").tip(
-        "Show or hide: part, stock, axes, held regions and tabs, selections, toolpaths, unreachable \
-         areas (V)",
+        "Show or hide: part, stock, axes, held regions and tabs, selections, toolpaths and each \
+         kind of toolpath move, Facing labels, unreachable areas (V)",
     );
     if button.clicked() {
         viewport.show_menu_open = !viewport.show_menu_open;
     }
     let mut show = viewport.visibility();
+    let mut moves = viewport.shown_moves();
+    let mut labels = viewport.shown_facing_labels();
+    let hidden = viewport.hidden_chip();
     let simulate = viewport.step() == ViewStep::Simulate;
     let mut open = viewport.show_menu_open;
     egui::Popup::from_response(&button)
@@ -237,6 +369,21 @@ fn show_or_hide(ui: &mut egui::Ui, viewport: &mut Viewport) {
                 ui.add_enabled(!locked, egui::Checkbox::new(field(&mut show), name))
                     .on_disabled_hover_text(LAST_TICK);
             }
+            ui.separator();
+            ui.label("Toolpath moves");
+            ui.indent("toolpath moves", |ui| move_ticks(ui, &mut moves));
+            ui.separator();
+            facing_label_ticks(ui, &mut labels);
+            // The way back from the chip: everything it names, listed in
+            // the tooltip, which opens on keyboard focus as well as on
+            // hover.
+            if let Some(hidden) = &hidden {
+                ui.separator();
+                if ui.button("Show everything").tip(hidden.full()).clicked() {
+                    moves = ShownMoves::ALL;
+                    labels = ShownFacingLabels::ALL;
+                }
+            }
             if simulate {
                 ui.separator();
                 ui.label("Cut part display");
@@ -251,6 +398,8 @@ fn show_or_hide(ui: &mut egui::Ui, viewport: &mut Viewport) {
         });
     viewport.show_menu_open = open;
     viewport.set_visibility(show);
+    viewport.set_shown_moves(moves);
+    viewport.set_shown_facing_labels(labels);
 }
 
 #[cfg(test)]
@@ -265,7 +414,7 @@ mod tests {
             viewport: &mut Viewport,
             events: Vec<egui::Event>,
         ) -> Vec<(String, egui::Rect)> {
-            let screen = egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(1400.0, 500.0));
+            let screen = egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(1400.0, 768.0));
             let input = egui::RawInput {
                 screen_rect: Some(screen),
                 events,

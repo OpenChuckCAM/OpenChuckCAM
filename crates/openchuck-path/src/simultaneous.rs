@@ -1173,8 +1173,9 @@ pub(crate) fn unreached_list(
                 }
             };
             format!(
-                "X {:.3} to {:.3} {place} ({:.1} mm2), {why}",
-                u.x.0, u.x.1, u.area
+                "{} {place} ({:.1} mm2), {why}",
+                crate::words::x_span(u.x.0, u.x.1),
+                u.area
             )
         })
         .collect();
@@ -2908,6 +2909,22 @@ mod tests {
         let i = v.partition_point(|p| p.0 < x).clamp(1, v.len() - 1);
         let (a, b) = (v[i - 1], v[i]);
         a.1 + (x - a.0) / (b.0 - a.0) * (b.1 - a.1)
+    }
+
+    #[test]
+    fn req_op_20_req_ui_12_an_area_at_one_x_is_listed_at_that_x() {
+        use crate::assemble::{Unreached, UnreachedReason};
+        let area = |lo: f64, hi: f64| Unreached {
+            x: (lo, hi),
+            a: (0.0, 360.0),
+            area: 40.1,
+            reason: UnreachedReason::NearHeldRegion,
+            points: Vec::new(),
+        };
+        let text = unreached_list(&[area(10.0, 10.0), area(12.0, 14.5)], 2.0, 0.0);
+        assert!(text.contains("X 10.000 all round (40.1 mm2)"), "{text}");
+        assert!(!text.contains("10.000 to 10.000"), "{text}");
+        assert!(text.contains("X 12.000 to 14.500 all round"), "{text}");
     }
 
     #[test]

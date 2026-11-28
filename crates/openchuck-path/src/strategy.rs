@@ -161,8 +161,10 @@ pub struct StrategyInput<'a> {
     pub facing: Option<&'a crate::facing::plan::FacingSetup<'a>>,
     /// Model X intervals, as (low, high), that the tool's tip never enters
     /// while it cuts: each held region of the setup widened on both sides by
-    /// the tool's largest radius, so no part of the tool reaches over the
-    /// gripped length (SET-09; decision record 0161). The tool is always
+    /// the tool's largest radius and [`HELD_CLEARANCE`], so no part of the
+    /// tool comes within that distance of the gripped length (SET-09;
+    /// decision record 0161). The held-region note this crate gives names
+    /// [`HELD_CLEARANCE`], so a caller widens by it as well (issue #774). The tool is always
     /// across the rotary axis, so its body spans its tip's X plus and minus
     /// that radius. Passes are cut short where they would enter one, and a
     /// path whose entry, exit or link at feed still would is refused. Empty
@@ -324,19 +326,6 @@ pub trait Strategy: Send + Sync + std::fmt::Debug {
     /// has not cut. Off by default; finishing keeps its feeds (OI-2134).
     fn limits_descent_feed(&self, _parameters: &Parameters) -> bool {
         false
-    }
-
-    /// Whether a ramp entry may turn A round the part before a pass that
-    /// starts as a ring or a spiral (decision record 0543 D2), on the
-    /// stretch round the rotary axis at the pass's start that the pass
-    /// itself does not cut. True by default: a ring or spiral cuts all round
-    /// the part there. A strategy whose passes turn A without cutting all
-    /// round, such as swarf along a blade, returns false: its ramps then go
-    /// back and forth over the pass's own path, A reversing during the entry
-    /// only, so every ramp position is a pose of the pass raised along the
-    /// tool axis (decision record 0645; issue #778).
-    fn ramps_round_the_part(&self) -> bool {
-        true
     }
 
     /// Whether the strategy works on the material earlier operations left
@@ -590,11 +579,19 @@ fn generate_with(
             &common,
             &entry,
             descent,
-            strategy.ramps_round_the_part(),
-            // The faces next to the face set, which swarf alone is given:
-            // its entries and exits are checked against them as well
-            // (decision record 0682; issue #572).
-            region.and_then(|r| r.neighbours),
+            // The faces a lead or helix is checked against as well: the
+            // faces next to the face set, which swarf alone is given
+            // (decision record 0682; issue #572), with the pass's own cut
+            // allowed; for every other strategy limited to a selection, the
+            // part's faces outside it, with the tolerance only (decision
+            // record 0701; issue #957).
+            region.and_then(|r| match r.neighbours {
+                Some(faces) => Some((faces, crate::assemble::Allowance::PassCut)),
+                None if strategy.name() == crate::swarf::NAME => None,
+                None => r
+                    .outside
+                    .map(|faces| (faces, crate::assemble::Allowance::Tolerance)),
+            }),
             context,
         )?
     };
@@ -821,12 +818,15 @@ fn keep_clear(
         ));
     }
     if cut_short {
-        // What is left uncut beside the grip is a warning (decision record
-        // 0536 step 2), and so is a hole not drilled.
+        // What is left uncut beside the grip is information: the tool keeps
+        // HELD_CLEARANCE from the grip by design (the owner's answer to
+        // #774, amending decision record 0536 step 2's row P65). A hole not
+        // drilled stays a warning.
         notes.push(
-            Notice::warning(format!(
-                "Nothing within one tool radius of {names} is cut: no part of the tool reaches \
-             over the gripped length of the stock."
+            Notice::information(format!(
+                "No part of the tool comes within {HELD_CLEARANCE:.3} mm of {names}, so the \
+                 surface beside it is not cut there, and corners beside it may keep more. The \
+                 setup's Workholding section shows where the tools keep clear."
             ))
             .about(topic::HELD_REGION),
         );
@@ -1133,16 +1133,18 @@ mod tests {
                 vec![0.0, 10.0]
             ]
         );
-        // What is left uncut beside the grip is a warning (decision record
-        // 0536 step 2; UI-12).
+        // What is left uncut beside the grip is information: the tool keeps
+        // its 0.5 mm from the grip by design (the owner's answer to #774,
+        // amending decision record 0536 step 2's row P65).
         assert_eq!(
             notes,
             vec![
                 Notice::information("first"),
-                Notice::warning(
-                    "Nothing within one tool radius of the held region at the start of the \
-                     stock is cut: no part of the tool reaches over the gripped length of the \
-                     stock."
+                Notice::information(
+                    "No part of the tool comes within 0.500 mm of the held region at the start \
+                     of the stock, so the surface beside it is not cut there, and corners beside \
+                     it may keep more. The setup's Workholding section shows where the tools \
+                     keep clear."
                 )
                 .about(topic::HELD_REGION)
             ]
@@ -1252,9 +1254,10 @@ mod tests {
         )
         .unwrap();
         assert!(
-            notes[0].is_warning()
+            !notes[0].is_warning()
                 && notes[0].text.starts_with(
-                    "Nothing within one tool radius of the held regions at both ends of the stock"
+                    "No part of the tool comes within 0.500 mm of the held regions at both ends \
+                     of the stock"
                 ),
             "{:?}",
             notes[0]

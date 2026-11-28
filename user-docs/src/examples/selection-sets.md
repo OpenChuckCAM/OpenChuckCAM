@@ -79,13 +79,13 @@ In the same way, make two more face sets with **Faces** and **Select one (Q)**:
 Face-flow finishing cuts the faces in **Cut on** with passes that run along a guide edge ([Face-flow finishing on a blisk floor](faceflow.md) goes through it in detail).
 
 1. Click **+ New operation**. Choose **Face flow finishing**, tool **3 mm ball**, name it `Floor finish`, and click **Add**.
-2. In the Inspector, under **Geometry**, open the list beside **Cut on** and choose **Hub floor**.
-3. Open the list beside **Guide edge** and choose **Floor guide**. This list offers only edge sets.
-4. Open the list beside **Check** and choose **Blade wall**. Leave its choice on **Cut short**.
+2. In the Inspector, under **Geometry**, open **Add a set…** beside **Cut on** and choose **Hub floor**.
+3. Open **Add a set…** beside **Guide edge** and choose **Floor guide**. This list offers only edge sets.
+4. Open **Add a set…** beside **Check** and choose **Blade wall**. Leave its choice, under its name, on **Cut short**.
 5. Scroll down to **Pattern and tolerance** and set **Stock to leave** to `0.2` mm.
 
 <figure>
-<a href="images/blisk_selection_sets/05-faceflow-sets.png"><img src="images/blisk_selection_sets/05-faceflow-sets.png" width="1920" height="1080" alt="The Inspector of Floor finish, a Face flow finishing operation, Stale. Geometry: Cut on Hub floor, Guide edge Floor guide, Contain within and Avoid empty, Check Blade wall with the choices Cut short (chosen), Warn only and Ignore."></a>
+<a href="images/blisk_selection_sets/05-faceflow-sets.png"><img src="images/blisk_selection_sets/05-faceflow-sets.png" width="1920" height="1080" alt="The Inspector of Floor finish, a Face flow finishing operation, Stale. Geometry: a line for Hub floor under Cut on, a line for Floor guide under Guide edge, Contain within and Avoid empty, and a line for Blade wall under Check with the choices Cut short (chosen), Warn only and Ignore under it."></a>
 <figcaption><b>Figure 5.</b> Each set in <b>Avoid</b> or <b>Check</b> has its own choice, shown under it.</figcaption>
 </figure>
 
@@ -94,7 +94,7 @@ A check set keeps the tool the operation's stock to leave away from its faces. H
 6. Click **Generate stale** at the bottom right. It took about 30 s on the test computer.
 
 <figure>
-<a href="images/blisk_selection_sets/06-faceflow-result.png"><img src="images/blisk_selection_sets/06-faceflow-result.png" width="1920" height="1080" alt="The face-flow passes in orange along the hub floor, with white-cased black diagonal hatching marking the unreachable area along the blade walls, labelled Unreachable (Floor finish) in the legend, a numbered black-and-white marker 1 on the floor, and the check set Blade wall hatched. Results: 1 operation, 2133 moves, 32.8 s to generate, Warnings 1, and the lines quoted in the text."></a>
+<a href="images/blisk_selection_sets/06-faceflow-result.png"><img src="images/blisk_selection_sets/06-faceflow-result.png" width="1920" height="1080" alt="The face-flow passes in orange along the hub floor, with white-cased black diagonal hatching marking the unreachable area along the blade walls, labelled Unreachable (Floor finish) in the legend, a numbered black-and-white marker 1 on the floor, and the check set Blade wall hatched. Results: 1 operation, 2133 moves, 25.9 s to generate, Warnings 1, and the lines quoted in the text."></a>
 <figcaption><b>Figure 6.</b> The passes follow the floor along the guide. The hatched area beside the walls is the part of the floor the 3 mm ball cannot reach.</figcaption>
 </figure>
 
@@ -115,7 +115,7 @@ Without the check set and with no stock to leave, the same floor reported 173.8 
 3. Click **Generate stale**.
 
 <figure>
-<a href="images/blisk_selection_sets/08-swarf-before.png"><img src="images/blisk_selection_sets/08-swarf-before.png" width="1920" height="1080" alt="Blade wall swarf generated with only Cut on Blade wall: the Inspector shows Warning, and the Results, 2 operations, 2181 moves, 35.1 s to generate, Warnings 4, list the warnings that the swarf on face 19 cuts 0.0158 mm into the finished surface and 0.014 mm into face 1; the warning about face 20 is further down the list."></a>
+<a href="images/blisk_selection_sets/08-swarf-before.png"><img src="images/blisk_selection_sets/08-swarf-before.png" width="1920" height="1080" alt="Blade wall swarf generated with only Cut on Blade wall: the Inspector shows Warning, and the Results, 2 operations, 2181 moves, 23.0 s to generate, Warnings 4, list the warnings that the swarf on face 19 cuts 0.0158 mm into the finished surface and 0.014 mm into face 1; the warning about face 20 is further down the list."></a>
 <figcaption><b>Figure 7.</b> Before: no avoid set. The swarf cuts a little into the rim and the floor, and says so.</figcaption>
 </figure>
 
@@ -127,17 +127,17 @@ With only **Cut on**, the Results warn that the tool reaches the faces beside th
 Now add the avoid sets:
 
 4. Beside **Avoid**, choose **Hub floor**. Leave it on **Cut short**.
-5. Open the **add...** list under it and choose **Rim**. Under **Rim**, click **Warn only**.
+5. Open **Add a set…** beside **Avoid** again and choose **Rim**. Under **Rim**, click **Warn only**.
 
 <figure>
-<a href="images/blisk_selection_sets/09-swarf-sets.png"><img src="images/blisk_selection_sets/09-swarf-sets.png" width="1920" height="1080" alt="The Geometry section of Blade wall swarf: Cut on Blade wall; Avoid Hub floor and Rim; under Hub floor the choice Cut short is chosen, under Rim the choice Warn only is chosen."></a>
+<a href="images/blisk_selection_sets/09-swarf-sets.png"><img src="images/blisk_selection_sets/09-swarf-sets.png" width="1920" height="1080" alt="The Geometry section of Blade wall swarf: under Cut on, a line for Blade wall; under Avoid, a line for Hub floor with Cut short chosen under it and a line for Rim with Warn only chosen under it, each with its colour dot and ×."></a>
 <figcaption><b>Figure 8.</b> Two avoid sets with different choices: the floor cuts the pass short, the rim only warns.</figcaption>
 </figure>
 
 6. Click **Generate stale**.
 
 <figure>
-<a href="images/blisk_selection_sets/10-swarf-after.png"><img src="images/blisk_selection_sets/10-swarf-after.png" width="1920" height="1080" alt="Both operations generated, the avoid sets Hub floor and Rim hatched on the part. Results: 2 operations, 2183 moves, 30.2 s to generate, Warnings 3, Generated Blade wall swarf, Reused Floor finish, and the swarf warnings listed in the text."></a>
+<a href="images/blisk_selection_sets/10-swarf-after.png"><img src="images/blisk_selection_sets/10-swarf-after.png" width="1920" height="1080" alt="Both operations generated, the avoid sets Hub floor and Rim hatched on the part. Results: 2 operations, 2183 moves, 26.4 s to generate, Warnings 3, Generated Blade wall swarf, Reused Floor finish, and the swarf warnings listed in the text."></a>
 <figcaption><b>Figure 9.</b> After: the warning about the floor is gone, and the rim is reported as a cut into a set that only warns.</figcaption>
 </figure>
 
@@ -167,7 +167,7 @@ A face set leaves a wall or a floor out
 : An operation cuts only the faces in **Cut on**, but its tool still reaches the faces next to them. With nothing in **Avoid**, the swarf above warns "swarf on face 19 cuts 0.023 mm into face 20, which meets it along the ends of its rulings ... put face 20 in an avoid set on Cut short, which lifts the tool clear of it, or set a negative Tip extension". Put the face it names in an avoid or check set, as in step 5. For face-flow finishing, a face beside the floor that is in the way shows as the unreached area; cut that face with another operation, such as swarf for a wall.
 
 A selection reaches a held region
-: In this project nothing is held. If you click **Workholding** under **Setup 1**, tick **Held at the start**, keep the **Grip length** of 10 mm and click **Apply**, the setup says "The chuck grips 9.000 mm of the part here (X 27.990 to 36.990 mm), so that length is never machined. Shorten the grip if it should be cut.", and Messages repeat it: "The grip at the start of the stock covers 9.000 mm of the part (X 27.990 to 36.990), which is never machined; shorten the grip if that length should be cut." The **Rim** set reaches into that length. An operation on it does not cut there, and its Results say "Nothing within one tool radius of the held region at the start of the stock is cut: no part of the tool reaches over the gripped length of the stock." A set does not override a [held region](../glossary.md#held-region). Shorten the grip or move the part if that length must be cut.
+: In this project nothing is held. If you click **Workholding** under **Setup 1**, tick **Held at the start**, keep the **Grip length** of 10 mm and click **Apply**, the setup says "The chuck grips 9.000 mm of the part here (X 27.990 to 36.990 mm), so that length is never machined. Shorten the grip if it should be cut.", and Messages repeat it: "The grip at the start of the stock covers 9.000 mm of the part (X 27.990 to 36.990), which is never machined; shorten the grip if that length should be cut." The **Rim** set reaches into that length. An operation on it does not cut there, and its Results have a note: "No part of the tool comes within 0.500 mm of the held region at the start of the stock, so the surface beside it is not cut there, and corners beside it may keep more. The setup's Workholding section shows where the tools keep clear." A set does not override a [held region](../glossary.md#held-region). Shorten the grip or move the part if that length must be cut.
 
 A set of the wrong kind
 : Lists such as **Cut on** of swarf and **Avoid** offer every set, edge sets too. An edge set where faces are needed is refused before anything is made. In **Cut on** of swarf: "Only edge following follows chosen edges, and face-flow finishing takes them as its guide. Take the edge set 'Floor guide' out of the operation, or use one of those." In **Avoid**: "Avoid takes faces, not edges, on a STEP part. Take the edge set 'Floor guide' out of Avoid, and select faces instead." Click the **×** on the set to take it out.

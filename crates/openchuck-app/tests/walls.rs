@@ -51,6 +51,34 @@ fn write_stl(mesh: &TriangleMesh, path: &Path) {
 }
 
 fn build(name: &str, profile: &[(f64, f64)], radius: f64) -> (PathBuf, Application) {
+    // Face free ends off: the walls part's free ends are not what this
+    // checks, and its golden predates the switch (decision record 0344).
+    let parameters: BTreeMap<String, ParameterValue> = [
+        ("max_angle_step".to_owned(), ParameterValue::Number(5.0)),
+        ("face_free_ends".to_owned(), ParameterValue::Flag(false)),
+        ("adaptive_spacing".to_owned(), ParameterValue::Flag(false)),
+    ]
+    .into();
+    build_with(
+        name,
+        profile,
+        (radius, 1.0),
+        "helical_finishing",
+        parameters,
+    )
+}
+
+/// A project of the part of revolution `profile` in stock of radius
+/// `radius + 1` from 1 mm before the part to `beyond` mm past it, with one
+/// operation of `strategy` with exactly `parameters`, as a project saved
+/// with them would have it.
+pub(super) fn build_with(
+    name: &str,
+    profile: &[(f64, f64)],
+    (radius, beyond): (f64, f64),
+    strategy: &str,
+    parameters: BTreeMap<String, ParameterValue>,
+) -> (PathBuf, Application) {
     let dir = std::env::temp_dir().join(format!(
         "openchuck-walls-{name}-{}-{}",
         std::process::id(),
@@ -76,7 +104,7 @@ fn build(name: &str, profile: &[(f64, f64)], radius: f64) -> (PathBuf, Applicati
     setup.material = Some("oak".into());
     setup.stock = Some(Stock::Cylinder {
         diameter: Millimetres(2.0 * radius + 2.0),
-        length: Millimetres(x1 - x0 + 2.0),
+        length: Millimetres(x1 - x0 + 1.0 + beyond),
         x_start: Millimetres(super::reference_jobs::shifted(x0 - 1.0)),
     });
     // Laid out from the Z1's headstock face as the reference jobs are
@@ -117,14 +145,6 @@ fn build(name: &str, profile: &[(f64, f64)], radius: f64) -> (PathBuf, Applicati
         },
         cutting_data,
     };
-    // Face free ends off: the walls part's free ends are not what this
-    // checks, and its golden predates the switch (decision record 0344).
-    let parameters: BTreeMap<String, ParameterValue> = [
-        ("max_angle_step".to_owned(), ParameterValue::Number(5.0)),
-        ("face_free_ends".to_owned(), ParameterValue::Flag(false)),
-        ("adaptive_spacing".to_owned(), ParameterValue::Flag(false)),
-    ]
-    .into();
     for item in [
         Item::Setup(setup),
         Item::Tool(snapshot),
@@ -134,7 +154,7 @@ fn build(name: &str, profile: &[(f64, f64)], radius: f64) -> (PathBuf, Applicati
             order: OrderKey::default(),
             name: "Finish".into(),
             setup: setup_id,
-            strategy: "helical_finishing".into(),
+            strategy: strategy.into(),
             tool: Some(tool_id),
             selections: Vec::new(),
             boundary: None,

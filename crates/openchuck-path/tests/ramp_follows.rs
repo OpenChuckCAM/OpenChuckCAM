@@ -21,7 +21,7 @@ use openchuck_path::{
 use openchuck_testkit::parts::{Cone, Cylinder, RadialPart};
 use openchuck_types::ir::{MoveKind, ToolPose};
 use openchuck_types::tool::ToolShape;
-use support::{Fixture, ball, generate, run, tool};
+use support::{Fixture, ball, entries_by_pass, generate, named_passes, run, tool};
 
 const ANGLE: f64 = 3.0;
 
@@ -221,28 +221,123 @@ fn req_op_11_ring_ramps_are_the_same_at_one_two_and_many_threads() {
     assert_eq!(one, at(8));
 }
 
-/// Checks every ramp of `path` that turns A (a ring or a spiral entry);
-/// counts them and the plunges.
-fn turning_ramps(f: &Fixture, path: &GeneratedPath) -> (usize, usize) {
+/// Checks one spiral entry: it goes back and forth over the pass's own
+/// path, so A never turns behind the pass's first point (round the part,
+/// as decision 0543 D2 had it before decision 0695, Q3),
+/// and it descends no more steeply than the angle on the tip's real path.
+///
+/// Where `steep` (a note says a pass drops more steeply than the ramp angle
+/// just before its first point), the last move may follow that drop
+/// (decision 0543 D4, the accepted exception).
+fn assert_spiral_ramp(
+    f: &Fixture,
+    before: ToolPose,
+    moves: &[ToolPose],
+    head: ToolPose,
+    sign: f64,
+    steep: bool,
+) {
+    assert!(moves.len() > 1, "a spiral ramp has more than one move");
+    let tan = ANGLE.to_radians().tan();
+    let mut p = before;
+    for m in moves {
+        assert!(
+            (m.a.0 - head.a.0) * sign >= -1e-9,
+            "A {} is behind the pass's first point at {}: round the part",
+            m.a.0,
+            head.a.0
+        );
+        let (from, at) = (f.rotary.to_axis(p.tip, p.a), f.rotary.to_axis(m.tip, m.a));
+        let radius = 0.5 * (from.across.hypot(from.height) + at.across.hypot(at.height));
+        let travel = (at.along - from.along).hypot(at.across - from.across)
+            + radius * (m.a.0 - p.a.0).abs().to_radians();
+        let drop = from.height - at.height;
+        let last = m.tip.distance(head.tip) < 1e-9;
+        assert!(
+            (steep && last) || drop <= tan * travel + 1e-6,
+            "drop {drop} over {travel} at {at:?} A {}, head {:?} A {}",
+            m.a.0,
+            f.rotary.to_axis(head.tip, head.a),
+            head.a.0
+        );
+        p = *m;
+    }
+    assert!(p.tip.distance(head.tip) < 1e-9 && (p.a.0 - head.a.0).abs() < 1e-9);
+}
+
+/// Checks every ramp of `path` (made by `strategy` with `v`, beside the
+/// held regions `keep`) that turns A (a ring entry round its ring, a spiral
+/// entry over its own path); counts them and the plunges. A spiral ramp may
+/// drop more steeply than the angle only on the final move of a pass the
+/// note names as following its own steep drop (decision 0543 D4; issue
+/// #951, item 5), not on any pass of a path that has the note.
+fn turning_ramps(
+    f: &Fixture,
+    strategy: &dyn Strategy,
+    v: &BTreeMap<String, ParameterValue>,
+    keep: &[(f64, f64)],
+    path: &GeneratedPath,
+) -> (usize, usize) {
+    let steep: Vec<usize> = path
+        .notices
+        .iter()
+        .filter(|n| n.text.contains("more steeply than the ramp angle"))
+        .flat_map(|n| {
+            let (listed, count) = named_passes(&n.text);
+            assert_eq!(listed.len(), count, "every steep pass listed: {}", n.text);
+            listed
+        })
+        .collect();
+    let mut input = f.input();
+    input.keep_out = keep;
+    let by_pass = entries_by_pass(&input, strategy, v, path);
+    assert_eq!(
+        by_pass.len(),
+        entries(path).len(),
+        "every entry belongs to a pass"
+    );
     let (mut ramps, mut plunges) = (0, 0);
-    for (before, moves, head) in entries(path) {
+    for (pass, before, moves) in by_pass {
+        let head = *moves.last().unwrap();
         if moves.len() == 1 {
             plunges += 1;
             continue;
         }
         ramps += 1;
-        assert_ring_ramp(f, before, &moves, head, pass_sign(path, head));
+        let (start, goal) = (
+            f.rotary.to_axis(before.tip, before.a),
+            f.rotary.to_axis(head.tip, head.a),
+        );
+        let moves_along = moves
+            .iter()
+            .any(|m| (f.rotary.to_axis(m.tip, m.a).along - goal.along).abs() > 1e-6);
+        if moves_along || (start.along - goal.along).abs() > 1e-6 {
+            assert_spiral_ramp(
+                f,
+                before,
+                &moves,
+                head,
+                pass_sign(path, head),
+                steep.contains(&pass),
+            );
+        } else {
+            assert_ring_ramp(f, before, &moves, head, pass_sign(path, head));
+        }
     }
     (ramps, plunges)
 }
 
 #[test]
-fn req_op_11_req_set_09_a_spiral_is_ramped_round_the_axis_at_its_start_x() {
-    // Decision 0543 D2 (a). Refused on main with the held region.
+fn req_op_11_req_set_09_a_spiral_is_ramped_over_its_own_path_beside_a_held_region() {
+    // Decision 0543 D2 (a) ramped a spiral round the axis at its start X;
+    // decision 0695, Q3 (the owner's answer A) changed it:
+    // back and forth over the pass's own path, never round the part. It
+    // generates beside the held region (refused before 0543).
     let f = cylinder();
     for keep in [&[][..], &[(-25.0, -4.0)][..]] {
         let path = make(&f, &HelicalFinishing, &finishing("helix"), keep).unwrap();
-        let (ramps, plunges) = turning_ramps(&f, &path);
+        let (ramps, plunges) =
+            turning_ramps(&f, &HelicalFinishing, &finishing("helix"), keep, &path);
         assert_eq!((ramps, plunges), (1, 0), "{keep:?}");
     }
 }
@@ -255,14 +350,14 @@ fn req_op_11_req_set_09_continuous_roughing_spiral_layers_ramp_and_a_single_poin
     // Pass 4 is a single point: refused unless allowed (decision 0543 D7).
     let err = make(&f, &RotaryRoughing, &v, &[]).unwrap_err();
     assert!(err.contains("is a single point"), "{err}");
-    assert!(err.contains("Allow single-point plunge"), "{err}");
+    assert!(err.contains("Plunge where no ramp fits"), "{err}");
     v.insert(
         names::ALLOW_SINGLE_POINT_PLUNGE.into(),
         ParameterValue::Flag(true),
     );
     for keep in [&[][..], &[(-25.0, -4.0)][..]] {
         let path = make(&f, &RotaryRoughing, &v, keep).unwrap();
-        let (ramps, plunges) = turning_ramps(&f, &path);
+        let (ramps, plunges) = turning_ramps(&f, &RotaryRoughing, &v, keep, &path);
         assert!(
             ramps >= 3 && plunges >= 1,
             "{ramps} ramps, {plunges} plunges"
@@ -480,6 +575,29 @@ fn req_op_11_req_op_15_a_ring_on_the_axis_descends_there_while_a_turns() {
         err.contains("starts on the rotary axis") && err.contains("more than the 10 allowed"),
         "{err}"
     );
+    // Decision 0695, Q4: where even the Maximum ramp angle
+    // needs more than 10 turns, with Plunge where no ramp fits on, it is
+    // plunged and said with its depth (16 mm of stock down to the axis).
+    let mut most = v.clone();
+    most.insert(
+        names::RAMP_STEEPER_NEAR_AXIS.into(),
+        ParameterValue::Flag(true),
+    );
+    most.insert(names::RAMP_ANGLE_MAX.into(), n(4.0));
+    most.insert(
+        names::ALLOW_SINGLE_POINT_PLUNGE.into(),
+        ParameterValue::Flag(true),
+    );
+    let path = run(|ctx| generate(&RingOnAxis, &stock_long, &most, ctx)).unwrap();
+    assert_eq!(path.straight_plunges, [0]);
+    assert!(
+        path.notices
+            .iter()
+            .any(|n| n.text.contains("pass 1 turns round the part so near")
+                && n.text.contains("depth per traverse of 16.000 mm")),
+        "{:?}",
+        path.notices
+    );
     v.insert(names::RAMP_ANGLE.into(), n(10.0));
     for allow in [false, true] {
         v.insert(
@@ -561,6 +679,44 @@ fn req_op_11_req_nfr_07_steeper_ramp_near_the_axis_fits_ten_turns_up_to_the_maxi
     let err = make(&f, &HelicalFinishing, &v, &[]).unwrap_err();
     assert!(
         err.contains("Maximum ramp angle") && err.contains("more than the 10 allowed"),
+        "{err}"
+    );
+    // Decision 0695, Q4: that refusal names Plunge where
+    // no ramp fits too, never the steeper ramp that is on; with it on, the
+    // pass has no room to ramp and is plunged, said in a note with its
+    // reason and depth.
+    assert!(
+        err.contains("Plunge where no ramp fits") && !err.contains("turn on Steeper"),
+        "{err}"
+    );
+    v.insert(
+        names::ALLOW_SINGLE_POINT_PLUNGE.into(),
+        ParameterValue::Flag(true),
+    );
+    let path = make(&f, &HelicalFinishing, &v, &[]).unwrap();
+    assert!(
+        path.straight_plunges.contains(&0),
+        "{:?}",
+        path.straight_plunges
+    );
+    assert!(
+        path.notices.iter().any(|n| n
+            .text
+            .contains("more than 10 turns even at the Maximum ramp angle")
+            && n.text.contains("depth per traverse")),
+        "{:?}",
+        path.notices
+    );
+    // A maximum no steeper than the Ramp angle is that angle: refused, at
+    // the maximum, as before.
+    v.insert(
+        names::ALLOW_SINGLE_POINT_PLUNGE.into(),
+        ParameterValue::Flag(false),
+    );
+    v.insert(names::RAMP_ANGLE_MAX.into(), n(0.4));
+    let err = make(&f, &HelicalFinishing, &v, &[]).unwrap_err();
+    assert!(
+        err.contains("even at the Maximum ramp angle of 0.50 degrees"),
         "{err}"
     );
     // Off, the Ramp angle is kept and the pass refused as before.
@@ -1118,7 +1274,9 @@ fn req_op_11_req_nfr_07_a_pass_shorter_than_ten_tolerances_is_refused_by_name() 
     assert!(
         err.contains("Ramp entry: pass 1 starts with a stretch of 0.050 mm")
             && err.contains("shorter than the 0.100 mm (ten times the tolerance)")
-            && err.contains("Set Entry to Plunge or Helix"),
+            // Decision 0695, Q4 (i): Plunge where no ramp
+            // fits now covers such a stretch, so the refusal names it.
+            && err.contains("Turn on Plunge where no ramp fits, or set Entry to Plunge or Helix"),
         "{err}"
     );
     // Ten tolerances longer than the tool radius: the radius is the minimum.
@@ -1155,7 +1313,7 @@ fn req_op_11_req_nfr_07_the_path_lists_the_passes_entered_by_a_straight_plunge_i
             .straight_plunges
             .is_empty()
     );
-    // A single point, plunged with Allow single-point plunge on.
+    // A single point, plunged with Plunge where no ramp fits on.
     v.insert(
         names::ALLOW_SINGLE_POINT_PLUNGE.into(),
         ParameterValue::Flag(true),
@@ -1192,9 +1350,9 @@ fn req_op_11_req_nfr_07_the_path_lists_the_passes_entered_by_a_straight_plunge_i
 
 /// Continuous rotary roughing of the public blisk (`testdata/stl/blisk.stl`)
 /// in rings with the 3 mm flat end mill of the blisk example: stock to leave
-/// 0, stepover and stepdown 1 mm, Entry Ramp at 3 degrees, with Allow
-/// single-point plunge (as in the issue's comment) and Steeper ramp near
-/// the axis on, up to 20 degrees (without it the rings 4 mm from the axis
+/// 0, stepover and stepdown 1 mm, Entry Ramp at 3 degrees, with Plunge
+/// where no ramp fits (as in the issue's comment) and Steeper ramp near the
+/// axis on, up to 20 degrees (without it the rings 4 mm from the axis
 /// are refused by name, needing 12.9 turns; at 15 degrees, the ring 1 mm
 /// from it, needing 11.9).
 #[test]
@@ -1266,19 +1424,18 @@ fn req_ui_12_ramp_entry_refusals_carry_their_topic_and_setting() {
         } => {
             assert_eq!(topic, openchuck_path::topic::RAMP_ENTRY);
             assert!(text.starts_with("pass 1 starts with a stretch"), "{text}");
-            assert_eq!(setting.as_deref(), Some(names::ENTRY));
+            // Decision 0695, Q4 (i): its first remedy is
+            // now Plunge where no ramp fits, which covers such a stretch.
+            assert_eq!(setting.as_deref(), Some(names::ALLOW_SINGLE_POINT_PLUNGE));
         }
         other => panic!("expected a refusal, got {other:?}"),
     }
 }
 
 /// One pass that turns A while it moves along X, as swarf along a blade
-/// does: a spiral to the pass-shape reader. `round` is the strategy's
-/// [`Strategy::ramps_round_the_part`].
+/// does: a spiral to the pass-shape reader.
 #[derive(Debug)]
-struct AlongTheFace {
-    round: bool,
-}
+struct AlongTheFace;
 
 impl Strategy for AlongTheFace {
     fn name(&self) -> &str {
@@ -1292,9 +1449,6 @@ impl Strategy for AlongTheFace {
     }
     fn schema(&self) -> openchuck_path::ParameterSchema {
         openchuck_path::ParameterSchema::with_common(Vec::new())
-    }
-    fn ramps_round_the_part(&self) -> bool {
-        self.round
     }
     fn passes(
         &self,
@@ -1320,17 +1474,14 @@ fn req_op_11_req_op_07_a_swarf_like_pass_ramps_along_its_own_path_never_round_th
     // round the part (swarf) has its ramp go back and forth over the pass's
     // own path instead: every entry pose lies between the pass's own X and
     // A, A reverses during the entry only, and the descent is within the
-    // ramp angle.
+    // ramp angle. Decision 0695, Q3 (the owner's answer
+    // A) made this every strategy's ramp and removed the strategy's choice
+    // (`Strategy::ramps_round_the_part`), so no strategy ramps round the
+    // part any more.
     let f = cylinder();
     let mut v = finishing("rings");
     v.remove("pass_shape");
-    let round = make(&f, &AlongTheFace { round: true }, &v, &[]).unwrap();
-    let (_, moves, _) = entries(&round).into_iter().next().unwrap();
-    assert!(
-        moves.iter().any(|m| m.a.0 < -1.0),
-        "a strategy that cuts all round may ramp round the part"
-    );
-    let path = make(&f, &AlongTheFace { round: false }, &v, &[]).unwrap();
+    let path = make(&f, &AlongTheFace, &v, &[]).unwrap();
     let all = entries(&path);
     let (before, moves, head) = &all[0];
     assert!(moves.len() > 2, "a ramp, not a plunge: {}", moves.len());
@@ -1378,42 +1529,14 @@ fn req_op_11_req_op_07_a_swarf_like_pass_ramps_along_its_own_path_never_round_th
     );
 }
 
-/// [`RingOnAxis`] from a strategy that does not ramp round the part.
-#[derive(Debug)]
-struct RingOnAxisNotRound;
-
-impl Strategy for RingOnAxisNotRound {
-    fn name(&self) -> &str {
-        "test_ring_on_axis_not_round"
-    }
-    fn label(&self) -> &str {
-        "Ring on the axis, not round (test)"
-    }
-    fn description(&self) -> &str {
-        "A strategy for tests."
-    }
-    fn schema(&self) -> openchuck_path::ParameterSchema {
-        openchuck_path::ParameterSchema::with_common(Vec::new())
-    }
-    fn ramps_round_the_part(&self) -> bool {
-        false
-    }
-    fn passes(
-        &self,
-        input: &openchuck_path::StrategyInput<'_>,
-        parameters: &openchuck_path::Parameters,
-        context: &openchuck_types::job::JobContext<'_>,
-    ) -> openchuck_path::Result<Vec<openchuck_path::Pass>> {
-        RingOnAxis.passes(input, parameters, context)
-    }
-}
-
 #[test]
-fn req_op_11_req_nfr_07_a_pass_on_the_axis_not_ramped_round_the_part_is_listed_as_a_plunge() {
-    // #781 review (decision 0645; 0543 D7): a strategy that does not ramp
-    // round the part has no descent on the axis planned, so a pass that
-    // starts on the rotary axis inside the stock is plunged, and listed for
-    // the host's check of a tool that cannot cut straight down.
+fn req_op_11_req_nfr_07_a_pass_on_the_axis_in_the_stock_is_listed_as_a_plunge() {
+    // #781 review (decision 0645; 0543 D7): a pass that starts on the
+    // rotary axis inside the stock is listed for the host's check of a tool
+    // that cannot cut straight down. Decision 0695, Q3
+    // removed the strategy's choice not to ramp round the part, so every
+    // strategy's pass on the axis now descends there while A turns (0543
+    // point 2), at 10 degrees in 5.1 turns here.
     let f = cylinder();
     let mut long = f.input();
     let stock = openchuck_path::AnalyticStock::Cylinder {
@@ -1424,7 +1547,8 @@ fn req_op_11_req_nfr_07_a_pass_on_the_axis_not_ramped_round_the_part_is_listed_a
     long.stock = &stock;
     let mut v = finishing("rings");
     v.remove("pass_shape");
-    let path = run(|ctx| generate(&RingOnAxisNotRound, &long, &v, ctx)).unwrap();
+    v.insert(names::RAMP_ANGLE.into(), n(10.0));
+    let path = run(|ctx| generate(&RingOnAxis, &long, &v, ctx)).unwrap();
     assert_eq!(path.straight_plunges, [0]);
     // Beyond the stock there is nothing to plunge into: not listed.
     let mut short = f.input();
@@ -1434,7 +1558,7 @@ fn req_op_11_req_nfr_07_a_pass_on_the_axis_not_ramped_round_the_part_is_listed_a
         x_end: 41.0,
     };
     short.stock = &stock;
-    let path = run(|ctx| generate(&RingOnAxisNotRound, &short, &v, ctx)).unwrap();
+    let path = run(|ctx| generate(&RingOnAxis, &short, &v, ctx)).unwrap();
     assert!(
         path.straight_plunges.is_empty(),
         "{:?}",

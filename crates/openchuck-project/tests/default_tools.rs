@@ -164,6 +164,42 @@ fn req_tl_12_a_deleted_default_is_not_restored() {
     assert_eq!(reopened.tools().count(), 76);
 }
 
+/// The file's header is read by the user who opens the tools folder: it says
+/// what the file is for, in words, and carries no requirement or record number.
+#[test]
+fn req_tl_12_the_ledger_header_names_no_requirement() {
+    let dir = temp_dir("ledger-header").join("tools");
+    let mut lib = ToolLibrary::open(&dir).unwrap();
+    lib.install_defaults().unwrap();
+    let ledger = std::fs::read_to_string(dir.join(LEDGER_FILE)).unwrap();
+    let header: Vec<&str> = ledger.lines().take_while(|l| l.starts_with('#')).collect();
+    assert_eq!(header.len(), 2, "{ledger}");
+    for line in &header {
+        assert!(!line.contains("TL-"), "{line}");
+        assert!(!line.contains("decision"), "{line}");
+    }
+    assert!(header[0].contains("Do not edit"), "{}", header[0]);
+}
+
+/// A file an earlier version wrote has the old header: it still reads, so
+/// nothing it lists is installed again.
+#[test]
+fn req_tl_12_a_ledger_with_the_earlier_header_is_still_read() {
+    let dir = temp_dir("ledger-old-header").join("tools");
+    let mut lib = ToolLibrary::open(&dir).unwrap();
+    lib.install_defaults().unwrap();
+    let ledger = std::fs::read_to_string(dir.join(LEDGER_FILE)).unwrap();
+    let body: Vec<&str> = ledger.lines().filter(|l| !l.starts_with('#')).collect();
+    let old = format!(
+        "# Default tools OpenChuckCAM has installed here (TL-12). Do not edit.\n# A listed tool or tool set is never installed again.\n{}\n",
+        body.join("\n")
+    );
+    std::fs::write(dir.join(LEDGER_FILE), old).unwrap();
+    let mut reopened = ToolLibrary::open(&dir).unwrap();
+    let report = reopened.install_defaults().unwrap();
+    assert!(report.installed.is_empty());
+}
+
 #[test]
 fn req_tl_12_a_default_the_ledger_does_not_know_is_installed_and_a_user_tool_is_kept() {
     let dir = temp_dir("new-default").join("tools");

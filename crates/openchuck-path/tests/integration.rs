@@ -12,6 +12,8 @@
 
 #[path = "adaptive.rs"]
 mod adaptive;
+#[path = "adaptive_held_steps.rs"]
+mod adaptive_held_steps;
 #[path = "axial.rs"]
 mod axial;
 #[path = "axial_links.rs"]
@@ -48,6 +50,8 @@ mod edge_following;
 mod entry;
 #[path = "entry_link_stock.rs"]
 mod entry_link_stock;
+#[path = "entry_proximity.rs"]
+mod entry_proximity;
 #[path = "exact_contact.rs"]
 mod exact_contact;
 #[path = "exact_faces.rs"]
@@ -84,6 +88,8 @@ mod facing_selection;
 mod facing_validation;
 #[path = "field.rs"]
 mod field;
+#[path = "finish_to_a_point.rs"]
+mod finish_to_a_point;
 #[path = "finishing.rs"]
 mod finishing;
 #[path = "finishing_links.rs"]
@@ -112,6 +118,8 @@ mod pathing;
 mod program;
 #[path = "ramp_follows.rs"]
 mod ramp_follows;
+#[path = "ramp_load.rs"]
+mod ramp_load;
 #[path = "region.rs"]
 mod region;
 #[path = "region_offsets.rs"]
