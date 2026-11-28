@@ -60,6 +60,25 @@ struct State {
     /// a clear cannot store a result made under what was cleared.
     generation: u64,
     entries: BTreeMap<OperationId, Versions>,
+    /// The files last posted, with what they were posted from (issue #698).
+    posted: Option<(PostedKey, Arc<crate::posting::PostedFiles>)>,
+    /// How many times a run posted, rather than taking `posted`.
+    posts_made: usize,
+}
+
+/// Everything posting reads (issue #698, OI-2022): every operation of the run
+/// by the key of its result, which fixes its toolpath and the stock it was
+/// made on, the project, which holds every name, number and setting the
+/// program writes, the post as loaded, the grouping, and the cache's
+/// generation. Posted files are reused only when all of these are equal, so
+/// the bytes are those posting again would give (GC-07).
+#[derive(Debug, Clone, PartialEq)]
+pub(crate) struct PostedKey {
+    pub(crate) operations: Vec<(OperationId, Key)>,
+    pub(crate) project: Arc<Project>,
+    pub(crate) post: openchuck_post::PostDefinition,
+    pub(crate) grouping: crate::posting::OutputGrouping,
+    pub(crate) generation: u64,
 }
 
 /// Cached results by operation, shared between the application and its jobs.
@@ -75,6 +94,8 @@ impl Default for PipelineCache {
                 versions: DEFAULT_CACHE_VERSIONS,
                 generation: 0,
                 entries: BTreeMap::new(),
+                posted: None,
+                posts_made: 0,
             })),
         }
     }
@@ -218,6 +239,40 @@ impl PipelineCache {
         let mut state = self.lock();
         state.generation += 1;
         state.entries.clear();
+        state.posted = None;
+    }
+
+    /// The files posted from exactly `key`, if they are the ones kept.
+    pub(crate) fn posted(&self, key: &PostedKey) -> Option<Arc<crate::posting::PostedFiles>> {
+        let state = self.lock();
+        state
+            .posted
+            .as_ref()
+            .filter(|(kept, _)| kept == key)
+            .map(|(_, files)| Arc::clone(files))
+    }
+
+    /// Counts a post made by a run, and keeps its files under `key`, in
+    /// place of the ones kept before, unless caching is off or the cache was
+    /// cleared since the run read its generation.
+    pub(crate) fn put_posted(
+        &self,
+        key: Option<PostedKey>,
+        files: Arc<crate::posting::PostedFiles>,
+    ) {
+        let mut state = self.lock();
+        state.posts_made += 1;
+        if let Some(key) = key
+            && state.versions != 0
+            && state.generation == key.generation
+        {
+            state.posted = Some((key, files));
+        }
+    }
+
+    /// How many times a run has posted, rather than reusing the files kept.
+    pub(crate) fn posts_made(&self) -> usize {
+        self.lock().posts_made
     }
 }
 

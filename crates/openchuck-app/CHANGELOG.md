@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased (SIM-UX; issue #698; decision 0710, accepted)
+
+- **Changed:** a run with a post reuses the files posted by an earlier run when every operation's cache key, the project, the post as loaded (a post folder is read again each run), the grouping and the cache's generation are equal; the files, reports, notes, warnings, posted toolpath and times are the same. The last posted files are kept in memory with the pipeline cache and dropped when it is cleared. `Application::posts_made` (hidden) counts the posts made, for tests.
+
 ## Unreleased (SIM-UX; issue #699; decision 0708, accepted)
 
 - **Changed:** `SetupSimulation::deviation` is an `Option<Arc<Deviation>>`: a run that takes the comparison kept with a cached stock shares it instead of copying it (decision 0217).

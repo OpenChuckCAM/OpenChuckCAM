@@ -177,6 +177,7 @@ The *latest* version of this guide describes the nightly build, the [development
 - **Names in LinuxCNC comments.** A project, setup, operation or tool name that would start a comment LinuxCNC acts on, such as `MSG,` or `LOGOPEN,`, is written with `_` in front, so it stays an ordinary comment, and generating warns you which name was changed and where it came from. A post of your own can list its controller's words with the new option `active_comment_prefixes` ([Writing a post-processor](reference/writing-a-post.md)).
 - **Custom posts.** Post templates run on a newer version of the template engine. The built-in posts give the same G-code as before. In a post you wrote yourself, an error inside `{{ ... }}` now points at the whole expression, and a few filters give different results for unusual input: `max` and `groupby` keep the first of equal items (equal ignoring letter case, too), empty values in `first`, `last` and `join` are handled differently, and `format` prints floats differently. If a post you wrote uses these filters, check its G-code again after updating.
 - **Post and export.** The button beside **Write G-code** reads **Close**: it closes the dialog and keeps your choices for next time (#872).
+- **Posting again.** Opening **Post and export** again, or generating with a post, when nothing that the G-code depends on has changed no longer posts the whole program again: the files already posted are used, byte for byte the same.
 
 ### Command line
 

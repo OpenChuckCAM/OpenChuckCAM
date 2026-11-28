@@ -1629,6 +1629,15 @@ impl Application {
         }
     }
 
+    /// How many times a run has posted G-code, rather than reusing the files
+    /// posted from the same inputs: lets a test show they are reused (issue
+    /// #698).
+    #[doc(hidden)]
+    #[must_use]
+    pub fn posts_made(&self) -> usize {
+        self.cache.posts_made()
+    }
+
     /// How many times [`Application::start_deviation_bands`] has worked out
     /// a part's colours, rather than taking the ones kept for an unchanged
     /// comparison and part: lets a test show they are kept (issue #699).
