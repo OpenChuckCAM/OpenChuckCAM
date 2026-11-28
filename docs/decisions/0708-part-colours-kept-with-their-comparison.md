@@ -31,6 +31,7 @@ Measured on `main` `6b039e5` (release build, 4-vCPU cloud container, uninstrumen
 - `openchuck-app`: `SetupSimulation::deviation` is `Option<Arc<Deviation>>` (not a library-family crate, so no version bump; its changelog says so). `Application::start_deviation_bands` keeps and reuses the colours; `Application::part_colours_made` (hidden) counts the times they are worked out, for tests.
 - `openchuck-ui`: the Results panel reads the comparison through the shared pointer (two lines).
 - Memory: one set of part colours a setup, which was already held by the Simulate panel for the run on screen. Sharing the comparison saves one copy of every sample for each run that reuses it.
+- **Follow-up of 28 Nov 2026 (issue #995, from the review of #907):** colours whose comparison is gone (a removed setup, or every run that measured it let go) are let go when colours are next looked up or kept, so a removed setup's colours no longer stay until the project is closed. `Application::part_colours_kept` (hidden) counts the entries, for tests. This keeps item 2 as decided; it only stops dead entries being kept.
 
 ## Verification
 
@@ -63,3 +64,9 @@ Linux cloud container, 4 vCPU, no GPU; branch `claude/lane-sim-ux-b`, rebased on
 - the `Debug` impl of the kept colours.
 
 **Not verified:** the owner's projects (none used) and the GPU drawing (unchanged).
+
+### Verification of the follow-up (issue #995)
+
+Linux cloud container, 4 vCPU; branch `claude/lane-sim-ux-995` from `5ffbedb6`.
+- `playback::req_nfr_04_part_colours_of_a_removed_setup_are_let_go` (`openchuck-app` integration; 25 s uninstrumented), written first from issue #995 and watched failing (2 entries kept, not 1). It colours both setups of a two-setup project, removes the second and lets go of the run that measured it, and checks that colouring the first setup again leaves one entry.
+- The colour and playback tests of `openchuck-app` and `openchuck-ui` (13) pass unchanged; `cargo fmt --all --check` and `cargo clippy --workspace --all-targets` with no warnings.

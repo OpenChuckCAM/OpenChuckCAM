@@ -25,7 +25,7 @@ use openchuck_app::pathview::{
 };
 use openchuck_app::playback::{Cursor, Playback, Timeline, ViewFrame, tool_meshes};
 use openchuck_app::project::id::{OperationId, SetupId, ToolId};
-use openchuck_app::project::{Item, Operation, OrderKey, Placement, Setup, ToolSnapshot};
+use openchuck_app::project::{Item, ItemId, Operation, OrderKey, Placement, Setup, ToolSnapshot};
 use openchuck_app::setup::{MachineProfile, Millimetres, Stock};
 use openchuck_app::stockplay::DEFAULT_PLAYBACK_MEMORY;
 use openchuck_app::{Application, Command, PostSelection, Regeneration, Threads};
@@ -1029,6 +1029,48 @@ fn req_sim_05_req_nfr_04_part_colours_are_kept_while_the_comparison_and_part_are
         .unwrap();
     assert_eq!(old, (model, colours));
     assert_eq!(app.part_colours_made(), 4);
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+/// Colours kept for a setup that is removed are let go once nothing holds
+/// its comparison (issue #995; decision 0708 keeps one entry a setup, and
+/// NFR-04 asks for memory to be used well).
+#[test]
+fn req_nfr_04_part_colours_of_a_removed_setup_are_let_go() {
+    let (dir, mut app, op) = project("bands-removed");
+    let first = app.project().setups()[0].clone();
+    let mut second = first.clone();
+    second.id = SetupId::new();
+    second.name = "Setup 2".into();
+    let mut cut = app.project().operation(op).unwrap().clone();
+    cut.id = OperationId::new();
+    cut.setup = second.id;
+    let cut_id = cut.id;
+    for item in [Item::Setup(second.clone()), Item::Operation(cut)] {
+        app.execute(Command::Add {
+            item,
+            placement: Placement::End,
+        })
+        .unwrap();
+    }
+    let both = Arc::new(app.simulate().unwrap());
+    start_ok(&app, &both, first.id);
+    start_ok(&app, &both, second.id);
+    assert_eq!(app.part_colours_kept(), 2);
+
+    // Remove the second setup and let go of the run that measured it.
+    app.execute(Command::Remove(ItemId::Operation(cut_id)))
+        .unwrap();
+    app.execute(Command::Remove(ItemId::Setup(second.id)))
+        .unwrap();
+    drop(both);
+    let one = Arc::new(app.simulate().unwrap());
+    start_ok(&app, &one, first.id);
+    assert_eq!(
+        app.part_colours_kept(),
+        1,
+        "the removed setup's colours are no longer kept"
+    );
     let _ = std::fs::remove_dir_all(dir);
 }
 

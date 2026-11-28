@@ -4,6 +4,7 @@
 
 - **Changed:** `SetupSimulation::deviation` is an `Option<Arc<Deviation>>`: a run that takes the comparison kept with a cached stock shares it instead of copying it (decision 0217).
 - **Changed:** `Application::start_deviation_bands` keeps the part's colours with the comparison and the part they were worked out from, and gives them again while both are unchanged; the result is the same. A part file changed on disk is still refused. `Application::part_colours_made` (hidden) counts the times they were worked out, for tests.
+- **Fixed:** the part colours kept for a setup are let go once their comparison is gone (a removed setup, or every run that measured it let go), not kept until the project is closed (issue #995). `Application::part_colours_kept` (hidden) counts them, for tests.
 
 ## Unreleased (MOPUP-1, PR M10; issue #892)
 

@@ -1638,6 +1638,14 @@ impl Application {
         self.part_colours.made()
     }
 
+    /// How many setups' part colours are kept: lets a test show that the
+    /// colours of a removed setup are let go (issue #995).
+    #[doc(hidden)]
+    #[must_use]
+    pub fn part_colours_kept(&self) -> usize {
+        self.part_colours.kept()
+    }
+
     /// The memory playback's checkpoints may hold when they are kept while
     /// simulating, or `None` when they are not.
     pub fn playback_with_generation(&self) -> Option<usize> {

@@ -684,8 +684,12 @@ impl std::fmt::Debug for PartColours {
 }
 
 impl PartColours {
+    /// The kept colours for `key`, if any. Entries whose comparison is gone
+    /// (its setup removed, or every run that measured it let go) can never be
+    /// given again, so they are let go here (issue #995).
     fn find(&self, key: &PartColoursKey) -> Option<(ModelId, DeviationBands)> {
-        let kept = self.kept.lock().unwrap_or_else(PoisonError::into_inner);
+        let mut kept = self.kept.lock().unwrap_or_else(PoisonError::into_inner);
+        kept.retain(|(k, _)| k.comparison.strong_count() > 0);
         kept.iter()
             .find(|(k, _)| k.matches(key))
             .map(|(_, colours)| colours.clone())
@@ -694,8 +698,16 @@ impl PartColours {
     fn keep(&self, key: PartColoursKey, colours: (ModelId, DeviationBands)) {
         self.made.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
         let mut kept = self.kept.lock().unwrap_or_else(PoisonError::into_inner);
-        kept.retain(|(k, _)| k.setup != key.setup);
+        kept.retain(|(k, _)| k.setup != key.setup && k.comparison.strong_count() > 0);
         kept.push((key, colours));
+    }
+
+    /// How many entries are kept.
+    pub(crate) fn kept(&self) -> usize {
+        self.kept
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .len()
     }
 
     /// How many times the colours were worked out, not taken from here.
