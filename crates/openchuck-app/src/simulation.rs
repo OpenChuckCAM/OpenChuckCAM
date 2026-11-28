@@ -48,6 +48,10 @@ pub struct OperationSimulation {
     pub load: Option<openchuck_sim::LoadSummary>,
 }
 
+/// A setup's final stock compared with its part (SIM-05): the comparison,
+/// shared, and which of its material left no tool can reach.
+pub(crate) type Comparison = (Arc<Deviation>, SetupReach);
+
 /// The simulation of one setup's operations, in machining order.
 #[derive(Debug, Clone, PartialEq)]
 pub struct SetupSimulation {
@@ -66,7 +70,11 @@ pub struct SetupSimulation {
     /// The operations simulated, in order.
     pub operations: Vec<OperationSimulation>,
     /// The stock against the setup's part (SIM-05), when a full simulation ran.
-    pub deviation: Option<Deviation>,
+    /// Shared, not copied: a run that takes the comparison kept with a cached
+    /// stock holds the same one (decision record 0217), so what is worked out
+    /// from it, such as the part's deviation colours, can be kept with it
+    /// (issue #699).
+    pub deviation: Option<Arc<Deviation>>,
     /// Which of the material left no tool can reach (SIM-05; issue 478),
     /// with `deviation`.
     pub reach: Option<SetupReach>,
@@ -262,7 +270,7 @@ pub(crate) struct SetupState {
     /// cell as well as the stock, so a later run that ends the setup on the
     /// same state takes the comparison from here (OI-627). Simulating on
     /// clears it.
-    compared: Arc<OnceLock<(Deviation, SetupReach)>>,
+    compared: Arc<OnceLock<Comparison>>,
 }
 
 impl std::fmt::Debug for SetupState {
@@ -404,7 +412,7 @@ impl SetupState {
         settings: SimulationSettings,
         smallest_tool: Option<f64>,
         context: &JobContext<'_>,
-    ) -> Result<(Option<(Deviation, SetupReach)>, bool), AppError> {
+    ) -> Result<(Option<Comparison>, bool), AppError> {
         if let Some(compared) = self.compared.get() {
             return Ok((Some(compared.clone()), false));
         }
@@ -437,14 +445,14 @@ impl SetupState {
             classified: reach.classified,
             enclosed,
         };
-        Ok((Some((deviation, reach)), true))
+        Ok((Some((Arc::new(deviation), reach)), true))
     }
 
     /// Keeps `deviation` as this stock's comparison with the setup's part,
     /// for the runs that take this state from the cache (OI-627). A state
     /// that already holds one keeps it: both are made from the same inputs
     /// (NFR-06).
-    pub(crate) fn keep_comparison(&self, compared: (Deviation, SetupReach)) {
+    pub(crate) fn keep_comparison(&self, compared: Comparison) {
         let _ = self.compared.set(compared);
     }
 
@@ -456,7 +464,7 @@ impl SetupState {
     /// Finishes the setup's report with its comparison with the part, from
     /// [`SetupState::compare`]. The stock moves into the report; nothing is
     /// copied.
-    pub(crate) fn finish(self, compared: Option<(Deviation, SetupReach)>) -> SetupSimulation {
+    pub(crate) fn finish(self, compared: Option<Comparison>) -> SetupSimulation {
         let (deviation, reach) = compared.map_or((None, None), |(d, r)| (Some(d), Some(r)));
         let checkpoints = self.simulator.checkpoints().to_vec();
         let mut stock = self.simulator.into_stock();

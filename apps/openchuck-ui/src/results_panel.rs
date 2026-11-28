@@ -736,7 +736,7 @@ pub fn summarise(run: &Regeneration) -> Vec<SetupResults> {
             SetupResults::new(
                 setup.setup.clone(),
                 tolerance,
-                setup.deviation.as_ref(),
+                setup.deviation.as_deref(),
                 setup
                     .operations
                     .iter()
@@ -749,7 +749,7 @@ pub fn summarise(run: &Regeneration) -> Vec<SetupResults> {
                     })
                     .collect(),
             )
-            .with_reach(setup.deviation.as_ref(), setup.reach.as_ref())
+            .with_reach(setup.deviation.as_deref(), setup.reach.as_ref())
         })
         .collect()
 }

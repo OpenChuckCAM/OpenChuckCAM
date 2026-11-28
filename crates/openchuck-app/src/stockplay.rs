@@ -467,6 +467,7 @@ impl Application {
         setup: SetupId,
     ) -> JobHandle<(ModelId, DeviationBands)> {
         let document = self.document.clone();
+        let kept = Arc::clone(&self.part_colours);
         self.jobs.submit(
             "colour by deviation",
             self.events_tx.clone(),
@@ -493,6 +494,31 @@ impl Application {
                     .part
                     .and_then(|id| run.project.models().iter().find(|m| m.id == id))
                     .ok_or_else(|| AppError::Playback("the setup has no part".to_owned()))?;
+                // The file is read now, not as the run read it: colours made
+                // for another file's triangles would be wrong, so a file
+                // edited behind the application is refused (decision 0492),
+                // kept colours included.
+                // A file that cannot be read is left to the reading below,
+                // which says why.
+                let path = model.path.resolve(&document.location);
+                let read = openchuck_project::ContentHash::of_file(&path).ok();
+                if read.is_some_and(|hash| hash != model.hash) {
+                    return Err(AppError::PartChanged(model.label()));
+                }
+                // The colours of the comparison and the part they were made
+                // from, when the run kept both (issue #699, OI-881).
+                let key = PartColoursKey::new(
+                    setup,
+                    deviation,
+                    model,
+                    setup_ref,
+                    report.settings.cell.0,
+                )?;
+                if read.is_some()
+                    && let Some(colours) = kept.find(&key)
+                {
+                    return Ok(colours);
+                }
                 let part = crate::model::setup_part(&document.location, model, setup_ref, context)?;
                 // The file is read now, not as the run read it: colours made
                 // for another file's triangles would be wrong, so a file
@@ -590,9 +616,91 @@ impl Application {
                     crate::pieces::Limits::for_cell(cell),
                     context,
                 )?;
-                Ok((model.id, crate::pieces::with_pieces(bands, pieces)))
+                let colours = (model.id, crate::pieces::with_pieces(bands, pieces));
+                kept.keep(key, colours.clone());
+                Ok(colours)
             },
         )
+    }
+}
+
+/// What the part's deviation colours of a setup were worked out from: the
+/// comparison, by identity, and the part as the run read it (issue #699,
+/// OI-881). A run that takes the comparison kept with a cached stock
+/// (decision record 0217) holds the same comparison, so its colours are the
+/// same and are not worked out again.
+struct PartColoursKey {
+    setup: SetupId,
+    /// Held weakly, so kept colours never keep an old comparison alive; a
+    /// comparison that is gone can never match, as its allocation is not
+    /// reused while this is held.
+    comparison: std::sync::Weak<openchuck_sim::Deviation>,
+    /// The model and the setup as the run had them, which fix the part's
+    /// triangles and their held regions and tabs.
+    part: Vec<u8>,
+    cell: f64,
+}
+
+impl PartColoursKey {
+    fn new(
+        setup: SetupId,
+        comparison: &Arc<openchuck_sim::Deviation>,
+        model: &openchuck_project::ModelRef,
+        setup_ref: &openchuck_project::Setup,
+        cell: f64,
+    ) -> Result<Self, AppError> {
+        let part = serde_json::to_vec(&(model, setup_ref))
+            .map_err(|e| AppError::Playback(format!("cannot key the part's colours: {e}")))?;
+        Ok(Self {
+            setup,
+            comparison: Arc::downgrade(comparison),
+            part,
+            cell,
+        })
+    }
+
+    fn matches(&self, other: &Self) -> bool {
+        self.setup == other.setup
+            && std::sync::Weak::ptr_eq(&self.comparison, &other.comparison)
+            && self.comparison.strong_count() > 0
+            && self.part == other.part
+            && self.cell.to_bits() == other.cell.to_bits()
+    }
+}
+
+/// The part's deviation colours last worked out for each setup
+/// ([`Application::start_deviation_bands`]): one entry a setup, replaced by
+/// the next colours worked out for it.
+#[derive(Default)]
+pub(crate) struct PartColours {
+    kept: Mutex<Vec<(PartColoursKey, (ModelId, DeviationBands))>>,
+    made: std::sync::atomic::AtomicUsize,
+}
+
+impl std::fmt::Debug for PartColours {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("PartColours").finish_non_exhaustive()
+    }
+}
+
+impl PartColours {
+    fn find(&self, key: &PartColoursKey) -> Option<(ModelId, DeviationBands)> {
+        let kept = self.kept.lock().unwrap_or_else(PoisonError::into_inner);
+        kept.iter()
+            .find(|(k, _)| k.matches(key))
+            .map(|(_, colours)| colours.clone())
+    }
+
+    fn keep(&self, key: PartColoursKey, colours: (ModelId, DeviationBands)) {
+        self.made.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        let mut kept = self.kept.lock().unwrap_or_else(PoisonError::into_inner);
+        kept.retain(|(k, _)| k.setup != key.setup);
+        kept.push((key, colours));
+    }
+
+    /// How many times the colours were worked out, not taken from here.
+    pub(crate) fn made(&self) -> usize {
+        self.made.load(std::sync::atomic::Ordering::Relaxed)
     }
 }
 

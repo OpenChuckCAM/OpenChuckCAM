@@ -10,7 +10,7 @@ Numbering: decision 0707 and OI-2278, assigned by the coordinator at release (dr
 
 ## Context
 
-The Operations step's main button, at the bottom right, is **Generate stale (N)**: it generates every stale operation. Its key was Shift G (or Shift F5), while the plain G (or F5) generated the selected operation and the ones before it, a secondary action. The owner asked on 24 Nov 2026 for the main action to have the plain key. Asked what F5 should do, he confirmed that F5 follows G.
+The Operations step's main button, at the bottom right, is **Generate stale (N)**: it generates every stale operation. Its key was Shift G (or Shift F5), while the plain G (or F5) generated the selected operation and the ones before it, a secondary action. The owner asked on 24 Nov 2026 for the main action to have the plain key. Asked what F5 should do, the owner confirmed that F5 follows G.
 
 ## Decision
 

@@ -954,6 +954,84 @@ fn req_ui_11_deviation_bands_refuse_a_part_file_changed_since_the_run() {
     let _ = std::fs::remove_dir_all(dir);
 }
 
+/// Issue #699 (OI-881): a run that keeps the comparison and the part keeps
+/// the part's deviation colours too. They are worked out again only when the
+/// comparison or the part they belong to changes, and the colours are the
+/// same either way (SIM-05, NFR-04).
+#[test]
+fn req_sim_05_req_nfr_04_part_colours_are_kept_while_the_comparison_and_part_are_unchanged() {
+    let (dir, mut app, _) = project("bands-kept");
+    let setup = app.project().setups()[0].id;
+    let first = Arc::new(app.simulate().unwrap());
+    let (model, colours) = app
+        .start_deviation_bands(Arc::clone(&first), setup)
+        .wait()
+        .unwrap();
+    assert_eq!(app.part_colours_made(), 1);
+
+    // Nothing changed: the run takes the comparison kept with the stock
+    // (decision 0217), shared, not copied, and the colours are not worked out
+    // again.
+    let again = Arc::new(app.simulate().unwrap());
+    let compared = |run: &Regeneration| {
+        Arc::clone(
+            run.simulation.as_ref().unwrap().setups[0]
+                .deviation
+                .as_ref()
+                .unwrap(),
+        )
+    };
+    assert!(Arc::ptr_eq(&compared(&first), &compared(&again)));
+    let kept = app
+        .start_deviation_bands(Arc::clone(&again), setup)
+        .wait()
+        .unwrap();
+    assert_eq!(kept, (model, colours.clone()));
+    assert_eq!(app.part_colours_made(), 1, "the colours were kept");
+
+    // A new comparison (another cell) gives new colours.
+    let mut settings = app.project().simulation();
+    settings.cell = Millimetres(settings.cell.0 * 1.5);
+    app.execute(Command::SetSimulation(settings)).unwrap();
+    let coarser = Arc::new(app.simulate().unwrap());
+    assert!(!Arc::ptr_eq(&compared(&first), &compared(&coarser)));
+    app.start_deviation_bands(Arc::clone(&coarser), setup)
+        .wait()
+        .unwrap();
+    assert_eq!(app.part_colours_made(), 2);
+    app.undo().unwrap();
+
+    // The part placed elsewhere is another part: new colours.
+    app.execute(Command::SetModelTransform {
+        model,
+        transform: vec![
+            TransformStep::CentreOnRotaryAxis,
+            TransformStep::Translate {
+                x: 0.5,
+                y: 0.0,
+                z: 0.0,
+            },
+        ],
+    })
+    .unwrap();
+    let moved = Arc::new(app.simulate().unwrap());
+    let (_, moved_colours) = app
+        .start_deviation_bands(Arc::clone(&moved), setup)
+        .wait()
+        .unwrap();
+    assert_eq!(app.part_colours_made(), 3);
+    assert_ne!(moved_colours.values, colours.values);
+
+    // An older run, asked again, is not given the newer run's colours.
+    let old = app
+        .start_deviation_bands(Arc::clone(&first), setup)
+        .wait()
+        .unwrap();
+    assert_eq!(old, (model, colours));
+    assert_eq!(app.part_colours_made(), 4);
+    let _ = std::fs::remove_dir_all(dir);
+}
+
 fn start_ok(app: &Application, run: &Arc<Regeneration>, setup: SetupId) {
     app.start_deviation_bands(Arc::clone(run), setup)
         .wait()

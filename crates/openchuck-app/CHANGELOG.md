@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased (SIM-UX; issue #699; decision 0708, accepted)
+
+- **Changed:** `SetupSimulation::deviation` is an `Option<Arc<Deviation>>`: a run that takes the comparison kept with a cached stock shares it instead of copying it (decision 0217).
+- **Changed:** `Application::start_deviation_bands` keeps the part's colours with the comparison and the part they were worked out from, and gives them again while both are unchanged; the result is the same. A part file changed on disk is still refused. `Application::part_colours_made` (hidden) counts the times they were worked out, for tests.
+
 ## Unreleased (MOPUP-1, PR M10; issue #892)
 
 - **Changed:** a new pencil clean-up operation is written with Shortest cut `tool_diameter`, which follows the operation's tool. An operation saved without it is shown, and given to the library, as Tool diameter too (it took the tool's diameter before, as a number); a number the user set is kept. The program is unchanged in every case. A rollback consequence (CodeRabbit on #969): an operation saved with `tool_diameter` is refused by an earlier build, whose pencil `min_length` is a number only ("expected a number"); there is no conversion back.

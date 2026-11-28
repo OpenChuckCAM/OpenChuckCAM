@@ -169,6 +169,7 @@ The *latest* version of this guide describes the nightly build, the [development
 ### Simulation
 
 - **Tool load.** The simulation now measures how much material the tool removes per millimetre it travels, how much of its cutting edge is in the material, and the removal rate. An operation whose cuts are much heavier than its tool's cutting data describes gets a **Tool load** warning with the figures and where the heaviest cut is; for example, a finish run on the bar without roughing first. A new **Largest cut section** setting on each operation sets the limit. The Simulate step's results list each operation's average and highest removal rate and its heaviest cut, and the **Results** tab gives the same for the whole job (#844). See [Simulation and deviation colours](concepts/simulation.md#tool-load-and-removal-rate).
+- **Deviation colours on the part.** Simulating again when nothing that the comparison depends on has changed no longer works the part's deviation colours out again: they show at once.
 
 ### G-code generation and posts
 
