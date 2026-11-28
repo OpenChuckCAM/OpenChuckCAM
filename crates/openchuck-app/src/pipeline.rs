@@ -133,6 +133,11 @@ pub struct Regeneration {
     /// (issue 432). Read from the same notes as `notes`, which are unchanged
     /// (GC-07), and keyed by the operation's id, not its name (issue 418).
     pub feed_limits: Vec<(OperationId, crate::note_groups::FeedLimit)>,
+    /// The load on each simulated operation's tool, measured against its
+    /// limit (SIM-16), by operation, in machining order. An operation that was
+    /// not simulated (the project skips the stock simulation, and no later
+    /// operation of its setup needs its stock) has none.
+    pub tool_loads: Vec<(OperationId, openchuck_sim::LoadSummary)>,
     /// What the G-code checks found for each file in `gcode` (GC-08, GC-11).
     pub reports: Vec<crate::posting::GcodeReport>,
     /// Controller short-block diagnostics from the selected post (GC-17).
@@ -422,6 +427,9 @@ pub(crate) fn regenerate(
             regeneration.feed_limits.push((operation.id, limit));
         }
         let mut rapid_cuts = Vec::new();
+        // The limit the tool load is measured against (SIM-16).
+        let load_limit = crate::tool_load::limit(project, operation);
+        let mut load = None;
         if stocked {
             let mut index = setups.iter().position(|s| s.id == operation.setup);
             if let Some(stock) = cached_stock {
@@ -481,6 +489,7 @@ pub(crate) fn regenerate(
                         &operation.name,
                         &linked.group,
                         &path.tool,
+                        load_limit.as_ref().map(|l| l.value),
                         &within,
                     )?;
                     regeneration.simulated.push(operation.id);
@@ -510,6 +519,10 @@ pub(crate) fn regenerate(
                     .push(crate::export::rapid_contact_text(&operation.name, cut));
             }
             rapid_cuts = deeper;
+            load = index
+                .and_then(|at| setups.get(at))
+                .and_then(|s| s.last_load())
+                .cloned();
         }
         regeneration
             .canonical_toolpath
@@ -519,6 +532,28 @@ pub(crate) fn regenerate(
         // the operation's tool (decision record 0673): a travel limit, so a
         // warning with nothing to acknowledge (decision record 0538).
         let mut warnings = path.warnings.clone();
+        // The load on the tool, as the simulation measured it (SIM-16): a
+        // warning past the limit, and the operation's figures as information.
+        if let (Some(summary), Some(limit)) = (&load, &load_limit) {
+            let flute = operation
+                .tool
+                .and_then(|id| project.tools().iter().find(|t| t.id == id))
+                .map_or(0.0, |t| t.tool.flute_length.0);
+            if crate::tool_load::warns(&operation.strategy)
+                && let Some(warning) =
+                    crate::tool_load::warning(summary, limit, &linked.group, flute)
+            {
+                warnings.push(warning);
+            }
+            regeneration.notes.push(crate::operation::operation_note(
+                project,
+                operation,
+                &crate::tool_load::information(summary, limit),
+            ));
+            regeneration
+                .tool_loads
+                .push((operation.id, summary.clone()));
+        }
         if let Some((machine, snapshot)) = project.machine().zip(
             operation
                 .tool
@@ -551,6 +586,19 @@ pub(crate) fn regenerate(
         share(STAGE_GENERATE, i, 0.0, 1.0).finish();
     }
     record.working_on(None);
+    // The load on the tool over the whole job (SIM-16), and what was not
+    // measured because the project skips the stock simulation.
+    if let Some(line) = crate::tool_load::job_line(
+        regeneration
+            .tool_loads
+            .iter()
+            .filter_map(|(id, s)| project.operation(*id).map(|o| (o.name.as_str(), s))),
+    ) {
+        regeneration.notes.push(line);
+    }
+    if project.skip_stock_simulation() {
+        regeneration.notes.push(crate::tool_load::not_measured());
+    }
     // The comparisons made in this run, to keep with their stocks once the
     // run is known to be sound.
     let mut comparisons = Vec::new();

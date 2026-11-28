@@ -432,11 +432,11 @@ fn req_ui_14_closing_the_dialog_returns_the_keyboard_to_post_and_export() {
     for _ in 0..3 {
         rig.frame(Vec::new());
     }
-    let cancel = last_text(&rig, "Cancel");
-    rig.click(cancel.center());
+    let close = last_text(&rig, "Close");
+    rig.click(close.center());
     rig.frame(Vec::new());
     rig.frame(Vec::new());
-    assert!(!rig.shell.export.is_open(), "Cancel closes the dialog");
+    assert!(!rig.shell.export.is_open(), "Close closes the dialog");
     let export = footer_text(&rig, "Post and export…");
     let focused = rig
         .ctx
@@ -602,8 +602,8 @@ fn write_through_dialog(
     let dismiss = last_text(rig, "Dismiss");
     rig.click(dismiss.center());
     if rig.shell.export.is_open() {
-        let cancel = last_text(rig, "Cancel");
-        rig.click(cancel.center());
+        let close = last_text(rig, "Close");
+        rig.click(close.center());
     }
     let mut files: Vec<_> = std::fs::read_dir(out)
         .unwrap()

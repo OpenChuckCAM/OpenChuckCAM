@@ -1,12 +1,12 @@
-# SIM-UX-C: Generating again with nothing changed reuses the posted files (GC-07, NFR-04, NFR-06; issue #698; lane SIM-UX)
+# 0710: Generating again with nothing changed reuses the posted files (GC-07, NFR-04, NFR-06; issue #698; lane SIM-UX)
 
 - **Status:** Accepted by the project owner on 25 Nov 2026, relayed by the coordinator (decision 0049), on the lane's confirmation that nothing dated is kept with the posted files. Proposed by lane SIM-UX on 24 Nov 2026; the coordinator released the pull request on the owner's answers of 24 Nov 2026 as one that closes on its tests (no owner check).
 - **Date:** 24 Nov 2026.
 - **Requirements:** GC-07 (the same project, post and version give byte-identical G-code), NFR-04 (never block, use the cores well), NFR-06.
 - **Amends:** nothing. It builds OI-2022, which [decision 0510](0510-interface-answers-kept-per-project-change.md) left open. Posting speed itself (OI-1993) is the lane's next pull request for issue #698.
-- **Open items:** closes OI-2022; adds OI-9953 (the owner's acceptance of this record), closed by the acceptance of 25 Nov 2026.
+- **Open items:** closes OI-2022; adds OI-2281 (the owner's acceptance of this record), closed by the acceptance of 25 Nov 2026.
 
-Numbering: provisional. The coordinator assigns the record number and the OI numbers at release, in merge order. No project schema number and no library-family change.
+Numbering: decision 0710 and OI-2281, assigned by the coordinator at release (drafted as "SIM-UX-C" and OI-9953). No project schema number and no library-family change.
 
 ## Context
 

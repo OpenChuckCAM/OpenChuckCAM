@@ -22,7 +22,7 @@ Good for
 : Parts whose marks should run along their length, such as flutes, and shapes that change a lot along X.
 
 Watch for
-: The ends of each pass: the cutter turns round there, so there are more links than with a helix. **Direction** `zigzag` cuts in both directions and is quicker; `climb` cuts every pass the same way.
+: The ends of each pass: the cutter turns round there, so there are more links than with a helix. **Direction** **Zig-zag** cuts in both directions and is quicker; **Climb** cuts every pass the same way.
 
 ## Indexed: from a few fixed angles
 

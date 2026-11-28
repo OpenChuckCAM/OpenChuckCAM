@@ -84,6 +84,33 @@ impl Default for PanelLayout {
     }
 }
 
+/// How the window is shown when its size is seen (UI-15).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum WindowState {
+    /// A window the user sized.
+    Normal,
+    /// Maximised on its screen.
+    Maximised,
+    /// Minimised: nothing about it is kept.
+    Minimised,
+    /// Full screen: nothing about it is kept.
+    Fullscreen,
+}
+
+/// How the window opens (UI-15, UI-16; specification section 3, "Opening
+/// the window"). Its position is never kept: a normal window opens centred.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum WindowStart {
+    /// Maximised, as on the first start or when it was closed maximised;
+    /// `restore` is the normal size it goes back to, centred.
+    Maximised {
+        /// The normal size kept, if any.
+        restore: Option<[f32; 2]>,
+    },
+    /// A window of this size, centred on the screen.
+    Centred([f32; 2]),
+}
+
 /// The defaults and ranges of the window's regions (specification section 3),
 /// as (default, smallest, largest).
 pub mod region {
@@ -179,8 +206,13 @@ pub struct UserSettings {
     /// The display units. Only millimetres and degrees exist in P1 (inch
     /// display is UI-18, P2), so this is "mm".
     pub units: String,
-    /// The window's size in logical pixels, when it has been opened before.
+    /// The window's normal (not maximised) size in logical pixels, when it
+    /// has been opened before.
     pub window: Option<[f32; 2]>,
+    /// Whether the window was maximised when last seen; it opens maximised
+    /// again (UI-15, UI-16). A file written before the field existed reads
+    /// it as not maximised.
+    pub maximised: bool,
     /// The project panel.
     pub project_panel: PanelLayout,
     /// The inspector.
@@ -211,6 +243,14 @@ pub struct UserSettings {
     /// before the field existed reads the defaults, which give the names
     /// written before templates existed.
     pub file_names: FileNameTemplates,
+    /// Which kinds of toolpath move the view draws (issue #789; decision
+    /// record 0693, the owner's answer P3 A), remembered across
+    /// projects. A file written before the field existed shows every kind.
+    pub path_moves: crate::pathview::ShownMoves,
+    /// Which kinds of Facing label the view draws (issue #881; decision
+    /// decision 0702), remembered across projects. A file written before
+    /// the field existed shows every kind.
+    pub facing_labels: crate::facing_labels::ShownFacingLabels,
 }
 
 impl Default for UserSettings {
@@ -220,6 +260,7 @@ impl Default for UserSettings {
             theme: ThemeChoice::Dark,
             units: "mm".to_owned(),
             window: None,
+            maximised: false,
             project_panel: PanelLayout::new(region::PROJECT.0),
             inspector: PanelLayout::new(region::INSPECTOR.0),
             dock: PanelLayout::new(region::DOCK.0),
@@ -230,6 +271,8 @@ impl Default for UserSettings {
             simulate: SimulateSettings::default(),
             tool_library: ToolLibraryView::default(),
             file_names: FileNameTemplates::default(),
+            path_moves: crate::pathview::ShownMoves::ALL,
+            facing_labels: crate::facing_labels::ShownFacingLabels::ALL,
         }
     }
 }
@@ -257,11 +300,37 @@ impl UserSettings {
         self.recent.truncate(RECENT_KEPT);
         self.simulate = self.simulate.clamped();
         self.file_names = self.file_names.clamped();
-        self.window = self.window.filter(|[w, h]| {
-            (WINDOW_RANGE.0..=WINDOW_RANGE.1).contains(w)
-                && (WINDOW_RANGE.0..=WINDOW_RANGE.1).contains(h)
-        });
+        self.window = self
+            .window
+            .filter(|[w, h]| window_side(*w) && window_side(*h));
         self
+    }
+
+    /// Notes the window as it is now, in logical pixels, and says whether
+    /// anything kept changed (UI-15). A maximised window keeps its normal
+    /// size; a minimised or full-screen one, or a size out of range, changes
+    /// nothing.
+    pub fn window_seen(&mut self, size: [f32; 2], state: WindowState) -> bool {
+        let before = (self.window, self.maximised);
+        match state {
+            WindowState::Normal if size.iter().all(|s| window_side(*s)) => {
+                self.window = Some(size);
+                self.maximised = false;
+            }
+            WindowState::Maximised => self.maximised = true,
+            WindowState::Normal | WindowState::Minimised | WindowState::Fullscreen => {}
+        }
+        before != (self.window, self.maximised)
+    }
+
+    /// How the window opens: maximised the first time and when it was
+    /// closed maximised, otherwise centred at its normal size (UI-15, UI-16).
+    #[must_use]
+    pub fn window_start(&self) -> WindowStart {
+        match self.window {
+            Some(size) if !self.maximised => WindowStart::Centred(size),
+            restore => WindowStart::Maximised { restore },
+        }
     }
 
     /// Puts `folder` first in the recent projects, once.
@@ -457,6 +526,11 @@ impl SettingsFile {
             .and_then(|()| std::fs::rename(&temp, &self.file))
             .map_err(io(&self.file))
     }
+}
+
+/// Whether `side` is a window side that is kept.
+fn window_side(side: f32) -> bool {
+    (WINDOW_RANGE.0..=WINDOW_RANGE.1).contains(&side)
 }
 
 fn settings_error(file: &Path, reason: &str) -> AppError {

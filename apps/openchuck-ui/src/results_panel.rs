@@ -324,6 +324,152 @@ pub struct OperationRow {
     pub removed: f64,
     /// Rapid moves that removed material (a fault).
     pub rapid_cuts: usize,
+    /// The load on the tool, as the simulation measured it (SIM-16).
+    pub load: Option<LoadRow>,
+}
+
+/// One operation's tool-load figures in the removal-rate block (SIM-16;
+/// decision record 0698, Q2, the owner's addition).
+#[derive(Debug, Clone, PartialEq)]
+pub struct LoadRow {
+    /// Material removed by the fed moves, mm³.
+    pub removed: f64,
+    /// The time of the fed moves that remove material, s.
+    pub cutting_time: f64,
+    /// The whole programmed time, rapids included, s.
+    pub total_time: f64,
+    /// The highest removal rate over a stretch of one tool diameter, mm³/min.
+    pub highest: Option<f64>,
+    /// The move that stretch ends at (counted from 1).
+    pub highest_move: Option<usize>,
+    /// The heaviest cut section, mm².
+    pub heaviest: Option<f64>,
+    /// The move the heaviest stretch ends at (counted from 1).
+    pub heaviest_move: Option<usize>,
+    /// The limit the operation was measured against, mm²; `None` on a
+    /// setup's total, whose stretches are each counted against their own operation's limit.
+    pub limit: Option<f64>,
+    /// Stretches past the limit.
+    pub over: usize,
+}
+
+impl LoadRow {
+    /// From the simulation's summary of one operation.
+    #[must_use]
+    pub fn of(s: &openchuck_app::sim::LoadSummary) -> Self {
+        Self {
+            removed: s.removed,
+            cutting_time: s.cutting_time,
+            total_time: s.total_time,
+            highest: s.fastest.and_then(|f| f.rate),
+            highest_move: s.fastest.map(|f| f.last + 1),
+            heaviest: s.heaviest.map(|h| h.section),
+            heaviest_move: s.heaviest.map(|h| h.last + 1),
+            limit: Some(s.limit),
+            over: s.over,
+        }
+    }
+
+    /// The average removal rate over the cutting time, mm³/min.
+    #[must_use]
+    pub fn average(&self) -> Option<f64> {
+        (self.cutting_time > 0.0).then(|| self.removed / self.cutting_time * 60.0)
+    }
+
+    /// The average removal rate over the whole programmed time, mm³/min.
+    #[must_use]
+    pub fn overall(&self) -> Option<f64> {
+        (self.total_time > 0.0).then(|| self.removed / self.total_time * 60.0)
+    }
+
+    /// The setup's figures from its operations': totals over total times,
+    /// not a mean of the operations' averages; the highest and the heaviest
+    /// of any operation.
+    #[must_use]
+    pub fn total<'a>(rows: impl IntoIterator<Item = &'a Self>) -> Option<Self> {
+        let mut out: Option<Self> = None;
+        for r in rows {
+            let t = out.get_or_insert(Self {
+                removed: 0.0,
+                cutting_time: 0.0,
+                total_time: 0.0,
+                highest: None,
+                highest_move: None,
+                heaviest: None,
+                heaviest_move: None,
+                limit: None,
+                over: 0,
+            });
+            t.removed += r.removed;
+            t.cutting_time += r.cutting_time;
+            t.total_time += r.total_time;
+            t.over += r.over;
+            if r.highest.is_some_and(|h| t.highest.is_none_or(|th| h > th)) {
+                t.highest = r.highest;
+            }
+            if r.heaviest
+                .is_some_and(|h| t.heaviest.is_none_or(|th| h > th))
+            {
+                t.heaviest = r.heaviest;
+            }
+        }
+        out
+    }
+}
+
+/// A removal rate as the block shows it: whole mm³/min, or a dash.
+fn rate_text(rate: Option<f64>) -> String {
+    rate.map_or_else(|| "—".to_owned(), |r| format!("{r:.0}"))
+}
+
+/// What the Average figure is, for its tooltip (decision record 0698,
+/// agreed with lane SIM-UX: "cutting time", not the operation's Programmed
+/// time).
+fn average_tooltip(row: &LoadRow) -> String {
+    format!(
+        "The average over the cutting time, the time of the moves that remove material: \
+         material removed ÷ cutting time. Rapids and moves in air are left out. Over the \
+         whole programmed time, rapids included, it is {} mm³/min.",
+        rate_text(row.overall())
+    )
+}
+
+/// What the Highest figure is, for its tooltip.
+fn highest_tooltip(row: &LoadRow) -> String {
+    let at = row
+        .highest_move
+        .map(|m| format!(" It is at the stretch that ends at move {m}."))
+        .unwrap_or_default();
+    format!(
+        "The highest removal rate over any stretch of one tool diameter of travel: the \
+         material removed over the stretch ÷ its programmed time.{at}"
+    )
+}
+
+/// What the Load figure is, for its tooltip.
+fn load_tooltip(row: &LoadRow) -> String {
+    let at = row
+        .heaviest_move
+        .map(|m| format!(" The heaviest stretch ends at move {m}."))
+        .unwrap_or_default();
+    let over = if row.over > 0 {
+        let stretches = openchuck_app::path::counted(row.over, "stretch", "stretches");
+        match row.limit {
+            Some(limit) => format!(
+                " {stretches} pass the limit of {limit:.2} mm²; see the operation's Tool load warning."
+            ),
+            None => format!(
+                " {stretches} pass their operation's limit; see each operation's Tool load warning."
+            ),
+        }
+    } else {
+        String::new()
+    };
+    format!(
+        "The heaviest cut: the most material removed per millimetre of travel over a \
+         stretch of one tool diameter, mm².{at}{over} A figure from the simulation, not a \
+         statement that the cut is acceptable for your tool and machine."
+    )
 }
 
 /// The numbers of one setup's simulation: the stock after all of the setup's
@@ -590,7 +736,7 @@ pub fn summarise(run: &Regeneration) -> Vec<SetupResults> {
             SetupResults::new(
                 setup.setup.clone(),
                 tolerance,
-                setup.deviation.as_ref(),
+                setup.deviation.as_deref(),
                 setup
                     .operations
                     .iter()
@@ -599,10 +745,11 @@ pub fn summarise(run: &Regeneration) -> Vec<SetupResults> {
                         moves: o.moves,
                         removed: o.removed_volume,
                         rapid_cuts: o.rapid_cuts.iter().filter(|c| c.deeper_than_cell()).count(),
+                        load: o.load.as_ref().map(LoadRow::of),
                     })
                     .collect(),
             )
-            .with_reach(setup.deviation.as_ref(), setup.reach.as_ref())
+            .with_reach(setup.deviation.as_deref(), setup.reach.as_ref())
         })
         .collect()
 }
@@ -1025,6 +1172,81 @@ fn result_block(ui: &mut egui::Ui, r: &SetupResults, titled: bool, filter: &mut 
                 ui.end_row();
             }
         });
+    removal_rate_block(ui, r);
+}
+
+/// The removal-rate block under BY OPERATION (SIM-16; decision record
+/// 0698, the owner's addition to Q2): per operation, the average
+/// removal rate over the cutting time, the highest over a stretch, and the
+/// heaviest cut section; then the setup's own figures. Not drawn when no
+/// operation was measured.
+fn removal_rate_block(ui: &mut egui::Ui, r: &SetupResults) {
+    let rows: Vec<(&str, &LoadRow)> = r
+        .operations
+        .iter()
+        .filter_map(|o| o.load.as_ref().map(|l| (o.name.as_str(), l)))
+        .collect();
+    let Some(total) = LoadRow::total(rows.iter().map(|(_, l)| *l)) else {
+        return;
+    };
+    ui.add_space(6.0);
+    ui.label(
+        RichText::new("REMOVAL RATE, MM³/MIN")
+            .small()
+            .color(DARK.muted),
+    );
+    egui::Grid::new(("removal rate by operation", &r.setup))
+        .num_columns(4)
+        .striped(true)
+        .show(ui, |ui| {
+            for h in ["Operation", "Average", "Highest", "Load"] {
+                ui.label(RichText::new(h).small().color(DARK.muted));
+            }
+            ui.end_row();
+            let row = |ui: &mut egui::Ui, name: &str, l: &LoadRow, strong: bool| {
+                let name = RichText::new(name);
+                ui.label(if strong { name.strong() } else { name });
+                // Each figure is a Tab stop whose tooltip opens on focus as
+                // well as hover (UI-14).
+                let figure = |ui: &mut egui::Ui, text: RichText, tip: String| {
+                    ui.add(egui::Label::new(text).sense(crate::focus::info_sense()))
+                        .tip(tip);
+                };
+                figure(
+                    ui,
+                    RichText::new(rate_text(l.average())).monospace(),
+                    average_tooltip(l),
+                );
+                figure(
+                    ui,
+                    RichText::new(rate_text(l.highest)).monospace(),
+                    highest_tooltip(l),
+                );
+                let load = l
+                    .heaviest
+                    .map_or_else(|| "—".to_owned(), |h| format!("{h:.2} mm²"));
+                let text = RichText::new(load).monospace();
+                figure(
+                    ui,
+                    if l.over > 0 {
+                        text.color(DARK.warning)
+                    } else {
+                        text
+                    },
+                    load_tooltip(l),
+                );
+                ui.end_row();
+            };
+            for (name, l) in &rows {
+                row(ui, name, l, false);
+            }
+            row(ui, "This setup", &total, true);
+        });
+    ui.label(
+        RichText::new("Average over the cutting time; rapids left out.")
+            .small()
+            .color(DARK.muted),
+    );
 }
 
 /// The width of a histogram bar at its longest, pixels. With the "Show" tick
@@ -1162,6 +1384,32 @@ mod tests {
     #![allow(clippy::float_cmp)]
 
     use super::*;
+
+    #[test]
+    fn req_sim_16_the_setup_total_counts_stretches_against_each_operations_limit() {
+        let row = |limit, over| LoadRow {
+            removed: 10.0,
+            cutting_time: 1.0,
+            total_time: 2.0,
+            highest: Some(600.0),
+            highest_move: Some(3),
+            heaviest: Some(8.0),
+            heaviest_move: Some(3),
+            limit: Some(limit),
+            over,
+        };
+        let rows = [row(6.35, 2), row(4.0, 1)];
+        let total = LoadRow::total(&rows).expect("a total");
+        assert_eq!(total.over, 3);
+        assert_eq!(total.limit, None);
+        let tip = load_tooltip(&total);
+        assert!(
+            tip.contains("3 stretches pass their operation's limit"),
+            "{tip}"
+        );
+        assert!(!tip.contains("0.00"), "{tip}");
+        assert!(load_tooltip(&rows[0]).contains("pass the limit of 6.35 mm²"));
+    }
 
     #[test]
     fn req_sim_05_colour_by_remaining_hides_overcut_and_overcut_hides_the_rest() {

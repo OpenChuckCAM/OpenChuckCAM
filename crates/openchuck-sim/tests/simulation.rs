@@ -1000,6 +1000,14 @@ fn req_sim_03_req_sim_07_a_finer_cell_gives_a_finer_threshold() {
 }
 
 #[test]
+fn req_sim_03_req_sim_07_a_rapid_in_the_clear_cuts_nothing() {
+    // Issue #846 item 4: a rapid that misses the stock is no rapid cut. The
+    // deepest tally is made only for rows the rapid cuts, so this one makes
+    // none and reports nothing.
+    assert!(rapid_at(15.5, 0.2).is_empty());
+}
+
+#[test]
 fn req_sim_03_line_spans_follow_the_tool_tilt() {
     // A cross-check of the span solver against the closed form for a ball
     // whose axis is tilted: a line through the ball's centre crosses it over
@@ -1191,4 +1199,114 @@ fn req_sim_05_req_op_21_req_set_09_only_the_samples_that_count_make_the_figures(
             .iter()
             .all(|p| p.on == SampleOn::Part && p.counts())
     );
+}
+
+/// A flat end slotting a box along X at a known depth, in moves of 1 mm
+/// taking 0.1 s each (600 mm/min), from outside the box to past its end.
+fn slot(
+    depth: f64,
+    diameter: f64,
+) -> (
+    DexelStock,
+    ToolpathGroup,
+    openchuck_types::tool::RevolvedProfile,
+) {
+    let profile = tool(ToolShape::FlatEnd, diameter).profile().unwrap();
+    let stock = Stock::Box {
+        bounds: Aabb {
+            min: Point3::new(0.0, -8.0, -10.0),
+            max: Point3::new(30.0, 8.0, 0.0),
+        },
+    };
+    let stock = DexelStock::from_stock(&stock, None, 0.1).unwrap();
+    let at = |x: f64| openchuck_types::ir::ToolPose {
+        tip: Point3::new(x, 0.0, -depth),
+        axis: UnitVec3::Z,
+        a: Degrees(0.0),
+    };
+    let poses: Vec<_> = (-5..=35).map(|x| at(f64::from(x))).collect();
+    let mut g = group("slot", &poses, MoveKind::Cutting);
+    for s in &mut g.segments {
+        s.duration = openchuck_types::units::Seconds(0.1);
+    }
+    (stock, g, profile)
+}
+
+#[test]
+fn req_sim_16_a_slot_gives_its_cut_section_engaged_length_and_rate() {
+    // A 6 mm flat end slotting 2 mm deep: 12 mm² per millimetre of travel,
+    // 2 mm of the edge in the material, 7200 mm³/min at 600 mm/min.
+    let (depth, diameter) = (2.0, 6.0);
+    let (stock, g, profile) = slot(depth, diameter);
+    let (_, results) = run(stock, &[(&g, &profile)]);
+    let load = &results[0].load;
+    assert_eq!(load.moves.len(), g.segments.len());
+    assert!((load.diameter - diameter).abs() < 1e-9);
+    let summary = load.summarise(&g, 13.0);
+    let cell = 0.1;
+    // One cell of error over the slot's outline (both walls and the floor).
+    let bound = (diameter + 2.0 * depth) * cell;
+    let heaviest = summary.heaviest.unwrap();
+    println!(
+        "section {:.4} mm2, engaged {:.4} mm, rate {:?}",
+        heaviest.section, heaviest.engaged, heaviest.rate
+    );
+    assert!(
+        (heaviest.section - depth * diameter).abs() <= bound,
+        "{heaviest:?}"
+    );
+    assert!((heaviest.engaged - depth).abs() <= cell, "{heaviest:?}");
+    let rate = heaviest.rate.unwrap();
+    assert!(
+        (rate - depth * diameter * 600.0).abs() <= bound * 600.0,
+        "{rate}"
+    );
+    assert_eq!(summary.over, 0, "under a limit above the slot's section");
+    let tight = load.summarise(&g, 10.0);
+    assert!(
+        tight.over >= 25,
+        "the slot inside the box passes 10 mm²: {}",
+        tight.over
+    );
+    // The average over the cutting time is the slot's rate: the moves in
+    // air before and after the box are left out.
+    let average = summary.average_rate().unwrap();
+    assert!(
+        (average - depth * diameter * 600.0).abs() <= bound * 600.0 + 400.0,
+        "{average}"
+    );
+    // The material removed by the moves is the material the stock lost.
+    assert!((summary.removed - results[0].removed_volume).abs() < 1e-6 * summary.removed);
+}
+
+#[test]
+fn req_sim_16_req_nfr_06_the_tool_load_does_not_depend_on_the_thread_count() {
+    let measure = |threads: usize| {
+        let (stock, g, profile) = slot(1.5, 4.0);
+        let pool = rayon::ThreadPoolBuilder::new()
+            .num_threads(threads)
+            .build()
+            .unwrap();
+        pool.install(|| run(stock, &[(&g, &profile)]).1.remove(0).load)
+    };
+    let one = measure(1);
+    let four = measure(4);
+    assert_eq!(one, four);
+}
+
+#[test]
+fn req_sim_03_req_sim_07_a_rapid_exactly_one_cell_deep_is_within_the_resolution() {
+    // Issue #855 (decision record 0661, option C): the check is `depth >
+    // cell`, so a rapid exactly one cell deep is within what the simulation
+    // resolves (a note), and the next depth up is deeper (a warning).
+    let cut = |depth: f64| openchuck_sim::RapidCut {
+        segment: 1,
+        volume: 0.0004,
+        end: openchuck_types::geometry::Point3::ORIGIN,
+        depth,
+        cell: 0.2,
+    };
+    assert!(!cut(0.2).deeper_than_cell());
+    assert!(cut(0.2_f64.next_up()).deeper_than_cell());
+    assert!(!cut(0.2_f64.next_down()).deeper_than_cell());
 }

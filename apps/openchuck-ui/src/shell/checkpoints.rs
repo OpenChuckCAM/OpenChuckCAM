@@ -59,6 +59,7 @@ enum Read {
     Attached(u64, Candidate),
     Unopened(Key, Candidate),
     Located(Box<Locate>, Result<Candidate, String>),
+    Forgotten(Box<Locate>, Result<(), String>),
     Restored(Result<jobs::Recovered, String>),
 }
 #[derive(Clone, Copy)]
@@ -564,6 +565,18 @@ impl State {
                     self.locate = Some(*locate);
                 }
             },
+            Read::Forgotten(mut locate, result) => match result {
+                Ok(()) => {
+                    let old = locate.candidate;
+                    self.elsewhere
+                        .retain(|c| c.folder != old.folder || c.project_id != old.project_id);
+                    self.changed = true;
+                }
+                Err(e) => {
+                    locate.problem = Some(e);
+                    self.locate = Some(*locate);
+                }
+            },
             Read::Restored(result) => {
                 self.choice = None;
                 let current = self.review.as_ref().is_some_and(|r| self.current(r.key));
@@ -784,6 +797,7 @@ impl State {
         };
         let mut chosen = None;
         let mut cancel = false;
+        let mut forget = false;
         egui::Modal::new(Id::unique("locate moved recovery project")).show(ctx, |ui| {
             ui.set_max_width(680.0);
             ui.heading("Locate moved project");
@@ -807,9 +821,28 @@ impl State {
                     cancel = true;
                 }
             });
+            // A project deleted on purpose (issue #681): this computer stops
+            // looking for it. The recovery data was in the project's folder.
+            ui.separator();
+            ui.label(
+                "If the project was deleted, forget it: this computer stops looking for it and \
+                 this message goes. Nothing else is deleted.",
+            );
+            if ui.button("Forget this project").clicked() {
+                forget = true;
+            }
         });
         if cancel {
             self.locate = None;
+            return;
+        }
+        if forget && let (Some(config), Some(locate)) = (self.config.clone(), self.locate.take()) {
+            let (tx, rx) = mpsc::channel();
+            std::thread::spawn(move || {
+                let result = jobs::forget(&config, &locate.candidate);
+                let _ = tx.send(Read::Forgotten(Box::new(locate), result));
+            });
+            self.readers.push(rx);
             return;
         }
         if let Some(folder) = chosen
@@ -984,7 +1017,10 @@ mod tests {
         let deadline = Instant::now() + Duration::from_secs(60);
         while rig.shell.recovery.write_failed.is_none() {
             rig.frame(Vec::new());
-            assert!(Instant::now() < deadline);
+            assert!(
+                Instant::now() < deadline,
+                "no write_failed state within 60 s: the recovered project's failing writer was never reported"
+            );
             std::thread::sleep(Duration::from_millis(1));
         }
         let notices = rig.shell.recovery.notices();
@@ -1032,7 +1068,10 @@ mod tests {
             .is_none_or(|s| !s.is_ready())
         {
             rig.frame(Vec::new());
-            assert!(Instant::now() < deadline);
+            assert!(
+                Instant::now() < deadline,
+                "the recovery session was not ready within 60 s"
+            );
             std::thread::sleep(Duration::from_millis(1));
         }
         let mut baseline = Duration::ZERO;
@@ -1061,7 +1100,10 @@ mod tests {
             if !Catalog::read(&folder).unwrap().snapshots.is_empty() {
                 break;
             }
-            assert!(Instant::now() < deadline);
+            assert!(
+                Instant::now() < deadline,
+                "no checkpoint was published within 60 s"
+            );
             std::thread::sleep(Duration::from_millis(1));
         }
         writeln!(std::io::stdout(),"checkpoint_headless_baseline_max_ms={:.3},during_max_ms={:.3},frames={frames},operations=201",baseline.as_secs_f64()*1000.0,during.as_secs_f64()*1000.0).unwrap();
@@ -1123,7 +1165,10 @@ mod tests {
             .is_none_or(|s| !s.is_ready())
         {
             rig.frame(Vec::new());
-            assert!(Instant::now() < deadline);
+            assert!(
+                Instant::now() < deadline,
+                "the recovery session was not ready within 60 s"
+            );
             std::thread::sleep(Duration::from_millis(1));
         }
         rig.shell
@@ -1156,7 +1201,10 @@ mod tests {
             {
                 break;
             }
-            assert!(Instant::now() < deadline);
+            assert!(
+                Instant::now() < deadline,
+                "the first checkpoint (revision 1) was not published within 60 s"
+            );
             std::thread::sleep(Duration::from_millis(1));
         }
         let old_session = Catalog::read(&folder).unwrap().snapshots[0]
@@ -1166,7 +1214,10 @@ mod tests {
         assert!(rig.shell.save());
         while !Catalog::read(&folder).unwrap().snapshots[0].retired {
             rig.frame(Vec::new());
-            assert!(Instant::now() < deadline);
+            assert!(
+                Instant::now() < deadline,
+                "the saved checkpoint was not retired within 60 s"
+            );
             std::thread::sleep(Duration::from_millis(1));
         }
         rig.shell.open(folder.clone());

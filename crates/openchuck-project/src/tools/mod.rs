@@ -427,7 +427,7 @@ mod tests {
     fn req_nfr_07_bad_tool_files_give_clear_errors() {
         let text = render_tool_file(&flat(1)).unwrap();
         let cases = [
-            ("schema = 2\n", "newer"),
+            ("schema = 3\n", "newer"),
             ("not toml [", "t.toml"),
             (
                 &text.replace("diameter = 6.0\nflute", "diameter = -6.0\nflute"),

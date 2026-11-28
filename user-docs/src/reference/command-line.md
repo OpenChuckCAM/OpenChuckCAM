@@ -96,7 +96,7 @@ A model can be named by its ID, its path or its file name.
 | `--clearance-from-stock MM` or `off` | A margin added to the stock's radius for the safe cylinder. |
 | `--held-start LENGTH[,DIAMETER]`, `--held-end ...` or `none` | The [held region](../glossary.md#held-region) at the low-X or high-X end, never cut. |
 | `--tab SPEC` | A tab: `cylinder=X_START,LENGTH,DIAMETER` or `frustum=X_START,LENGTH,START_DIAMETER,END_DIAMETER`, optionally followed by `@COUNT,START_ANGLE,RADIAL_OFFSET`. Repeat it for more tabs. |
-| `--clear-tabs`, `--default-tabs` | Remove the tabs first, or add the default head and tail tabs worked out from the part. |
+| `--clear-tabs`, `--default-tabs` | Remove the tabs first, or add the default head and tail tabs worked out from the part. `--default-tabs` adds the tab for each end that can have one and says where it put it; for an end that cannot (the part comes to a point there, or a held region reaches the part) it prints a warning with the reason, and you add that tab by hand with `--tab`. It is refused, naming both ends, when neither end can have a default tab, and when the setup already has tabs. |
 
 The workholding is checked as **Apply** checks it: a tab outside the head and tail zones is refused, and nothing is saved; a tab shorter than a tool of the setup is wide, an automatic tab with no room and tabs that overlap are saved, each with a `warning:` line. The printout includes where to set the work offset on the machine, for example "set G54 to machine X ... Y ... Z ... at A 0".
 
@@ -193,15 +193,14 @@ Generated G-code must be verified by the user before it is run on a machine. Ope
 Before that, on standard error, it prints what the run found, each at its level, then the checks that did not stop the export:
 
 ```text
-warning: Held region (operation 'Finish'): nothing within one tool radius of the held region at the start of the stock is cut: no part of the tool reaches over the gripped length of the stock.
 note: Feed limit (operation 'Rough'): 9536 moves were limited by the machine's feed limits. In the worst case the target was 1000.0 mm/min, but the move was reduced to 11.0 mm/min to stay within the machine's capabilities.
 note: Feed limit (operation 'Finish'): 18507 moves were limited by the machine's feed limits. In the worst case the target was 500.0 mm/min, but the move was reduced to 0.5 mm/min to stay within the machine's capabilities.
 note: Shoulders (operation 'Rough'): the part has a step across the rotary axis (a shoulder facing along X): the tool makes one extra turn round the axis, without moving along it, at X 67.879, so the shoulder keeps only the stock to leave.
 note: Free ends (operation 'Finish'): the end face at X 78.990 has nothing beyond it: the tool goes down beside it in 5 layers of 1 mm to the rotary axis, turning once round the axis in each.
+note: Held region (operation 'Finish'): no part of the tool comes within 0.500 mm of the held region at the start of the stock, so the surface beside it is not cut there, and corners beside it may keep more. The setup's Workholding section shows where the tools keep clear.
 note: Rotary axis (operation 'Finish'): moves 19077 to 19148 (72 moves): A turns with the contact point at the rotary axis during these moves, so the contact point barely moves and the rotary axis's speed limit sets the time taken (0.167 s); the feed set is 500.0 mm/min.
 short-block settings: Report (machine profile), 7.000 ms (machine profile), 32 blocks (machine profile)
 checks before writing the G-code:
-warning: Held region (operation 'Finish'): nothing within one tool radius of the held region at the start of the stock is cut: no part of the tool reaches over the gripped length of the stock.
 warning: Tool length (tool 'Z1 O-flute 3.175x25', setup 'Setup 1'): tool 104 may be too long to clear the workholding within the Z travel: ... A possible collision: acknowledge it before the files are written
 warning: Operation 'Rough' has not been simulated. Run the simulation to see what it removes.
 warning: Operation 'Finish' has not been simulated. Run the simulation to see what it removes.

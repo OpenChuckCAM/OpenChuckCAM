@@ -659,7 +659,11 @@ fn req_op_28_on_a_cylinder_the_scallop_height_is_met_between_passes() {
     }
     let mut highest: f64 = 0.0;
     for w in angles.windows(2) {
-        highest = highest.max(cusp(radius, 3.0, w[0], w[1]));
+        // A gap too wide for the formula gives NaN, which `max` would drop
+        // (issue #896 item 7).
+        let ridge = cusp(radius, 3.0, w[0], w[1]);
+        assert!(ridge.is_finite(), "no ridge between {} and {}", w[0], w[1]);
+        highest = highest.max(ridge);
     }
     assert!(highest <= h + 1e-4, "a cusp of {highest} mm");
     // Not needlessly close: the first steps leave at least half the height.
@@ -699,10 +703,14 @@ fn req_op_28_following_the_outline_on_a_cylinder_meets_the_scallop_height() {
         .collect();
     angles.sort_by(f64::total_cmp);
     assert!(angles.len() > 4, "{angles:?}");
-    let highest = angles
+    let ridges: Vec<f64> = angles
         .windows(2)
         .map(|w| cusp(radius, 3.0, w[0], w[1]))
-        .fold(0.0, f64::max);
+        .collect();
+    // A gap too wide for the formula gives NaN, which `max` would drop
+    // (issue #896 item 7).
+    assert!(ridges.iter().all(|r| r.is_finite()), "{ridges:?}");
+    let highest = ridges.iter().copied().fold(0.0, f64::max);
     // The loops follow the grid the offsets are traced on, a few hundredths
     // of the spacing either way.
     assert!(highest <= 1.05 * h, "a ridge of {highest} mm");
@@ -1546,6 +1554,129 @@ fn rings(passes: &[Pass]) -> Vec<(f64, f64)> {
             (x, turn.abs())
         })
         .collect()
+}
+
+#[test]
+fn req_op_28_a_cylinder_just_short_of_a_whole_turn_is_open() {
+    // Issue #896 item 3: a face closes round only when it spans its whole
+    // period, within 1e-6 of it. A cylinder 5e-5 rad short of a whole turn
+    // has its two straight sides 0.0005 mm apart, nearer than the join
+    // distance, yet it is open: a straight side is an edge it can be cut
+    // from (on the full cylinder that side is the seam, refused as a guide),
+    // and its passes run along X, each at one angle.
+    let radius = 10.0;
+    let rig = Rig::new(
+        cylinder_patch(radius, 0.0, 2.0 * PI - 5e-5, 20.0),
+        &ball(6.0),
+    );
+    let out = rig
+        .output(&rig.strategy(&[0], &[0]), &values(1.0, &[]))
+        .unwrap_or_else(|e| panic!("the open face was refused: {e}"));
+    assert!(!out.passes.is_empty());
+    for pass in &out.passes {
+        let c = contacts(pass);
+        let a0 = angle(c[0]);
+        assert!(
+            c.iter().all(|q| (angle(*q) - a0).abs() < 1e-4),
+            "a pass turns round the axis"
+        );
+    }
+}
+
+/// The full cylinder of radius 10 about X from X 0 to 20 with a hole in it
+/// from 0.2 to 0.37 of the way round and 0.3 to 2.5 mm along: a face that
+/// closes round on itself and is trimmed, so the first places round it
+/// where the rings' direction is read are off the face.
+fn holed_cylinder() -> BrepModel {
+    let tau = std::f64::consts::TAU;
+    let (u0, u1, v0, v1) = (0.2 * tau, 0.37 * tau, 0.3, 2.5);
+    let mut model = full_cylinder(10.0, 20.0);
+    let square = |a: (f64, f64), b: (f64, f64)| {
+        TrimLoop(
+            [(a.0, a.1), (b.0, a.1), (b.0, b.1), (a.0, b.1)]
+                .into_iter()
+                .map(|(u, v)| UvPoint { u, v })
+                .collect(),
+        )
+    };
+    let face = &mut model.faces[0];
+    face.trims = vec![square((0.0, 0.0), (tau, 20.0)), square((u0, v0), (u1, v1))];
+    // The tessellation leaves the hole out too.
+    let mesh = &mut face.tessellation;
+    let inside = |q: Point3| {
+        let u = q.z.atan2(q.y).rem_euclid(tau);
+        !(u > u0 && u < u1 && q.x > v0 && q.x < v1)
+    };
+    let kept: Vec<[u32; 3]> = mesh
+        .triangles
+        .iter()
+        .copied()
+        .filter(|t| {
+            let c = t
+                .iter()
+                .fold(Vec3::ZERO, |s, &i| s + mesh.vertices[i as usize].to_vec())
+                * (1.0 / 3.0);
+            inside(Point3::ORIGIN + c)
+        })
+        .collect();
+    mesh.triangles = kept;
+    model
+}
+
+/// The angle a pass turns through round X, signed: positive turning from
+/// +Y towards +Z.
+fn signed_turn(pass: &Pass) -> f64 {
+    contacts(pass)
+        .windows(2)
+        .map(|w| {
+            let d = angle(w[1]) - angle(w[0]);
+            if d > PI {
+                d - 2.0 * PI
+            } else if d < -PI {
+                d + 2.0 * PI
+            } else {
+                d
+            }
+        })
+        .sum()
+}
+
+#[test]
+fn req_op_28_req_op_25_on_a_trimmed_face_that_closes_round_climb_and_conventional_turn_opposite_ways()
+ {
+    // Issue #896 item 2: the rings' direction is read at the first place
+    // round the face where two rings are on it; on this face the first two
+    // places are in the hole. Climb and Conventional still turn their rings
+    // opposite ways, every ring of one the same way.
+    let rig = Rig::new(holed_cylinder(), &ball(6.0));
+    let turns = |direction: &str| -> Vec<f64> {
+        let out = rig
+            .output(
+                &rig.strategy(&[0], &[]),
+                &values(1.0, &[(p::DIRECTION, text(direction))]),
+            )
+            .unwrap_or_else(|e| panic!("{direction}: refused: {e}"));
+        out.passes
+            .iter()
+            .map(signed_turn)
+            .filter(|t| t.abs() > PI)
+            .collect()
+    };
+    let climb = turns(p::CLIMB);
+    let conventional = turns(p::CONVENTIONAL);
+    assert!(
+        climb.len() > 4 && conventional.len() > 4,
+        "{climb:?} {conventional:?}"
+    );
+    let one_way = |t: &[f64]| t.iter().all(|x| *x > 0.0) || t.iter().all(|x| *x < 0.0);
+    assert!(
+        one_way(&climb) && one_way(&conventional),
+        "{climb:?} {conventional:?}"
+    );
+    assert!(
+        climb[0] * conventional[0] < 0.0,
+        "{climb:?} {conventional:?}"
+    );
 }
 
 #[test]
@@ -2619,8 +2750,12 @@ fn req_op_28_req_nfr_07_a_negative_shortest_cut_is_refused_by_name() {
 fn req_op_28_a_shortest_cut_of_tool_diameter_is_the_tools_diameter() {
     // The owner's decision of 23 Nov 2026: Tool diameter is a choice of its
     // own, read from the operation's tool when it is generated.
+    // The comb's runs along its guide are 8 to 10 mm long or more, so a 6 mm
+    // ball keeps them all and a 10 mm ball leaves the shorter ones out: the
+    // token visibly follows the tool (issue #896 item 5).
     let word = text(openchuck_path::params::TOOL_DIAMETER);
-    for d in [3.0, 4.0] {
+    let mut kept = Vec::new();
+    for d in [6.0, 10.0] {
         let rig = Rig::new(comb(), &ball(d));
         let run_with = |x: openchuck_path::ParameterValue| {
             let v = values(
@@ -2631,9 +2766,96 @@ fn req_op_28_a_shortest_cut_of_tool_diameter_is_the_tools_diameter() {
                     (p::SHORTEST_CUT, x),
                 ],
             );
-            format!("{:?}", rig.passes(&[0], &[], &v))
+            rig.passes(&[0], &[], &v)
         };
-        assert_eq!(run_with(word.clone()), run_with(num(d)), "a {d} mm ball");
+        let by_word = run_with(word.clone());
+        assert_eq!(
+            format!("{by_word:?}"),
+            format!("{:?}", run_with(num(d))),
+            "a {d} mm ball"
+        );
+        let every = run_with(num(0.0));
+        assert!(
+            every.iter().any(|p| (6.0..10.0).contains(&run_length(p))),
+            "a run between the two diameters"
+        );
+        kept.push(by_word.len());
+    }
+    assert!(
+        kept[1] < kept[0],
+        "runs kept by 6 and 10 mm balls: {kept:?}"
+    );
+}
+
+/// A flat 20 by 20 mm square at Z 10 with a round bite of radius 5 taken
+/// out of the middle of its top side: a boundary that curves into the face.
+/// Returns the model and its outline in (x, y), counter-clockwise.
+fn bitten() -> (BrepModel, Vec<(f64, f64)>) {
+    let z = 10.0;
+    let mut b = Builder::default();
+    let arc = |t: f64| {
+        // From (15, 20) round under the centre (10, 20) to (5, 20).
+        let a = PI * t;
+        p3(10.0 + 5.0 * a.cos(), 20.0 - 5.0 * a.sin(), z)
+    };
+    let line = |a: (f64, f64), c: (f64, f64)| {
+        move |t: f64| p3(a.0 + (c.0 - a.0) * t, a.1 + (c.1 - a.1) * t, z)
+    };
+    let edges = vec![
+        b.edge(&[0], &line((0.0, 0.0), (20.0, 0.0)), true),
+        b.edge(&[0], &line((20.0, 0.0), (20.0, 20.0)), true),
+        b.edge(&[0], &line((20.0, 20.0), (15.0, 20.0)), true),
+        b.edge(&[0], &arc, false),
+        b.edge(&[0], &line((5.0, 20.0), (0.0, 20.0)), true),
+        b.edge(&[0], &line((0.0, 20.0), (0.0, 0.0)), true),
+    ];
+    let mut outline = vec![(0.0, 0.0), (20.0, 0.0), (20.0, 20.0)];
+    outline.extend((0..=256).map(|i| {
+        let q = arc(f64::from(i) / 256.0);
+        (q.x, q.y)
+    }));
+    outline.push((0.0, 20.0));
+    let polygon = outline.clone();
+    b.face(
+        Surface::Plane {
+            frame: frame(
+                p3(0.0, 0.0, z),
+                Vec3::new(1.0, 0.0, 0.0),
+                Vec3::new(0.0, 1.0, 0.0),
+            ),
+        },
+        [0.0, 20.0, 0.0, 20.0],
+        Some(outline.clone()),
+        edges,
+        &|u, v| p3(u, v, z),
+        &move |u, v| inside_polygon(&polygon, u, v),
+        false,
+    );
+    (b.model, outline)
+}
+
+#[test]
+fn req_op_28_following_the_outline_stays_on_a_face_whose_boundary_curves_into_it() {
+    // Issue #896 item 4: the outline itself (level 0) is the face's own
+    // edges, joined between their samples. Where the boundary curves into
+    // the face, a chord between two samples leaves it by the sagitta. Every
+    // contact of every loop is on the face or within 0.005 mm of its edge.
+    let (model, outline) = bitten();
+    let rig = Rig::new(model, &ball(3.0));
+    let passes = rig.passes(&[0], &[], &values(1.0, &[(p::PATTERN, text(p::OUTLINE))]));
+    assert!(passes.len() > 3, "{} loops", passes.len());
+    let ring: Vec<Point3> = outline
+        .iter()
+        .chain(outline.first())
+        .map(|&(x, y)| p3(x, y, 10.0))
+        .collect();
+    for q in passes.iter().flat_map(contacts) {
+        assert!((q.z - 10.0).abs() < 1e-6, "{q:?}");
+        assert!(
+            inside_polygon(&outline, q.x, q.y) || to_polyline(q, &ring) < 0.005,
+            "{q:?} is off the face by {}",
+            to_polyline(q, &ring)
+        );
     }
 }
 
@@ -2935,4 +3157,100 @@ fn req_op_28_following_the_outline_spaces_offsets_along_a_curved_face() {
             "{along} mm apart along the face: {angles:?}"
         );
     }
+}
+
+/// A flat 30 by 10 mm plate at Z 10 with a 2 by 4 mm hole near its left
+/// end (X 3 to 5, Y 3 to 7): its passes along the bottom edge run at one Y
+/// each, and those crossing the hole are cut in two runs, 3 mm and 25 mm
+/// long.
+fn plate_with_hole() -> BrepModel {
+    let mut b = Builder::default();
+    flat(
+        &mut b,
+        10.0,
+        &[(0.0, 0.0), (30.0, 0.0), (30.0, 10.0), (0.0, 10.0)],
+        &[],
+    );
+    let hole = [(3.0, 3.0), (5.0, 3.0), (5.0, 7.0), (3.0, 7.0)];
+    b.model.faces[0].trims.push(TrimLoop(
+        hole.iter().map(|&(u, v)| UvPoint { u, v }).collect(),
+    ));
+    let mesh = &mut b.model.faces[0].tessellation;
+    let kept: Vec<[u32; 3]> = mesh
+        .triangles
+        .iter()
+        .copied()
+        .filter(|t| {
+            let c = t
+                .iter()
+                .fold(Vec3::ZERO, |s, &i| s + mesh.vertices[i as usize].to_vec())
+                * (1.0 / 3.0);
+            !inside_polygon(&hole, c.x, c.y)
+        })
+        .collect();
+    mesh.triangles = kept;
+    b.model
+}
+
+#[test]
+fn req_op_28_req_op_20_a_pass_with_a_run_left_out_and_a_run_kept_still_counts_as_cutting() {
+    // Issue #896 item 8: after Shortest cut, the passes that still cut are
+    // counted by their runs' first contacts. On the plate, the 12 passes
+    // that cross the hole are each cut in a 2.75 mm run and a 25 mm run.
+    let rig = Rig::new(plate_with_hole(), &ball(3.0));
+    let run = |stay: bool, shortest: f64| {
+        let v = values(
+            1.0,
+            &[
+                (p::STAY_DOWN, flag(stay)),
+                (p::PATTERN, text(p::ALONG_GUIDE)),
+                (p::SHORTEST_CUT, num(shortest)),
+            ],
+        );
+        rig.output(&rig.strategy(&[0], &[]), &v).unwrap()
+    };
+    // Each pass's Y (a tenth of a mm is far less than the 0.9 mm between
+    // passes), from the runs cut one by one with nothing left out.
+    let line = |q: Point3| (q.y * 10.0).round() as i64;
+    let every = run(false, 0.0);
+    let planned: std::collections::BTreeSet<i64> =
+        every.passes.iter().map(|p| line(contacts(p)[0])).collect();
+    assert_eq!(planned.len(), 12, "{planned:?}");
+    // The passes with a run of 26 mm or more: those without the hole.
+    let long: std::collections::BTreeSet<i64> = every
+        .passes
+        .iter()
+        .filter(|p| run_length(p) >= 26.0)
+        .map(|p| line(contacts(p)[0]))
+        .collect();
+    assert!(long.len() < planned.len(), "{long:?}");
+    // One by one, a 26 mm Shortest cut leaves out every run of the passes
+    // that cross the hole: only the long passes still cut.
+    let notes = run(false, 26.0).notes().join("\n");
+    assert!(
+        notes.contains(&format!("; {} of them cut", long.len())),
+        "{notes}"
+    );
+    // With Stay down, the two short runs of the passes beside the hole's
+    // middle are joined into one 6.4 mm pass, which is left out, but each
+    // of those passes keeps its 25 mm run, joined into a longer pass: all
+    // 12 still cut.
+    let joined = run(true, 26.0);
+    let kept: std::collections::BTreeSet<i64> = joined
+        .passes
+        .iter()
+        .flat_map(contacts)
+        .map(line)
+        .filter(|y| planned.contains(y))
+        .collect();
+    assert_eq!(kept, planned);
+    assert!(
+        joined
+            .unreached
+            .iter()
+            .any(|u| matches!(u.reason, UnreachedReason::TooShort { .. })),
+        "the short pass is reported"
+    );
+    let notes = joined.notes().join("\n");
+    assert!(!notes.contains("of them cut"), "{notes}");
 }

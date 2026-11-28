@@ -26,7 +26,7 @@ Avoid
 Check
 : "The tool must not touch these surfaces."
 
-A set in **Avoid** or **Check** has a choice beside it: **Cut short** (the path stops where the tool would reach the set), **Warn only** (the path is kept and generation warns where it reaches the set) and **Ignore** (the set is not used for this operation). **Warn only** samples the path and can miss a narrow set.
+A set in **Avoid** or **Check** has a choice just under its name: **Cut short** (the path stops where the tool would reach the set), **Warn only** (the path is kept and generation warns where it reaches the set) and **Ignore** (the set is not used for this operation). **Warn only** samples the path and can miss a narrow set.
 
 A path limited to a selection stops at the edge between a selected surface and an unselected one: a contact on that edge counts as off the selection.
 
@@ -50,11 +50,11 @@ A path limited to a selection stops at the edge between a selected surface and a
 
 1. In the project panel, click **2 Finish**.
 2. Click the eye beside **1 Rough** to hide its path, so the view shows the finishing path only. Hiding a path changes the view only.
-3. Click **Generate** at the bottom right, and wait for generation to finish. **1 Rough** turns green; **2 Finish** shows the warning mark, and the Inspector shows "Warning" for it.
+3. Click **Generate** at the bottom right, and wait for generation to finish. **1 Rough** and **2 Finish** turn green, and the Inspector shows "Up to date".
 4. Under the view, click **Results**, and scroll the list to its end.
 
 <figure>
-<a href="images/region/02-before.png"><img src="images/region/02-before.png" width="1920" height="1080" alt="The Front view with the helical finishing path drawn in orange over the whole baluster from the collar to the finial; the operation 2 Finish has a warning mark and the Inspector shows Warning; the Results tab reads 2 operations, 29098 moves, Errors 0, Warnings 1, Information 11, a line that starts Rotary axis (operation 'Finish'): moves 19077 to 19148 (72 moves), and Setup 'Setup 1': stock 28503 mm³ before, 14293 mm³ after (14210 mm³ removed); Rough: 12100 mm³ removed in 9946 moves; Finish: 2110 mm³ removed in 19152 moves."></a>
+<a href="images/region/02-before.png"><img src="images/region/02-before.png" width="1920" height="1080" alt="The Front view with the helical finishing path drawn in orange over the whole baluster from the collar to the finial; the operations 1 Rough and 2 Finish have green dots and the Inspector shows Up to date; the Results tab reads 2 operations, 29098 moves, Errors 0, Warnings 0, Information 12, a line that starts Rotary axis (operation 'Finish'): moves 19077 to 19148 (72 moves), and Setup 'Setup 1': stock 28503 mm³ before, 14293 mm³ after (14210 mm³ removed); Rough: 12100 mm³ removed in 9946 moves; Finish: 2110 mm³ removed in 19152 moves."></a>
 <figcaption><b>Figure 2.</b> The finish over the whole part: 29,098 moves for both operations, of which the roughing is 9,946.</figcaption>
 </figure>
 
@@ -62,11 +62,11 @@ The first line of the Results list is a note for the finish, counted under Infor
 
 ## 3. Only the ball: Cut on
 
-1. In the Inspector, under **Geometry**, open the list beside **Cut on** and choose **Finial ball**.
+1. In the Inspector, under **Geometry**, open **Add a set…** beside **Cut on** and choose **Finial ball**.
 2. Click **Generate**.
 
 <figure>
-<a href="images/region/03-cut-on.png"><img src="images/region/03-cut-on.png" width="1920" height="1080" alt="The Front view with the finishing path only on the ball of the finial; the Inspector shows Cut on: Finial ball and Up to date; the Results tab reads 2 operations, 12182 moves, Errors 0, Warnings 0, Information 12, a line that starts Rotary axis (operation 'Finish'): moves 2161 to 2232 (72 moves), and stock 28503 mm³ before, 16200 mm³ after (12303 mm³ removed); Finish: 204 mm³ removed in 2236 moves."></a>
+<a href="images/region/03-cut-on.png"><img src="images/region/03-cut-on.png" width="1920" height="1080" alt="The Front view with the finishing path only on the ball of the finial; the Inspector shows Up to date and, under Cut on, a line for Finial ball with its colour dot and ×; the Results tab reads 2 operations, 12182 moves, Errors 0, Warnings 0, Information 12, a line that starts Rotary axis (operation 'Finish'): moves 2161 to 2232 (72 moves), and stock 28503 mm³ before, 16200 mm³ after (12303 mm³ removed); Finish: 204 mm³ removed in 2236 moves."></a>
 <figcaption><b>Figure 3.</b> With <b>Cut on</b> set, the finish covers the ball and stops at its edge.</figcaption>
 </figure>
 
@@ -74,12 +74,12 @@ The finish now has 2,236 moves instead of about 19,150, and removes 204 mm³. Th
 
 ## 4. Everything but the ball: Avoid
 
-1. Click the **×** on **Finial ball** beside **Cut on**, so that it is empty again.
-2. Open the list beside **Avoid** and choose **Finial ball**. **Cut short** is chosen beside it.
+1. Click the **×** at the end of the **Finial ball** line under **Cut on**, so that it is empty again.
+2. Open **Add a set…** beside **Avoid** and choose **Finial ball**. **Cut short** is chosen under it.
 3. Click **Generate**.
 
 <figure>
-<a href="images/region/04-avoid.png"><img src="images/region/04-avoid.png" width="1920" height="1080" alt="The Front view with the finishing path over the whole baluster except the ball, which is drawn with the red hatching of Avoid; the Inspector shows Avoid: Finial ball with Cut short chosen and Warn only and Ignore beside it, and Warning; the Results tab reads 2 operations, 84864 moves, Errors 0, Warnings 1, Information 12, a line that starts Rotary axis (operation 'Finish'): moves 74161 to 74914 (754 moves), and stock 28503 mm³ before, 14436 mm³ after (14067 mm³ removed); Finish: 1968 mm³ removed in 74918 moves."></a>
+<a href="images/region/04-avoid.png"><img src="images/region/04-avoid.png" width="1920" height="1080" alt="The Front view with the finishing path over the whole baluster except the ball, which is drawn with the red hatching of Avoid; the Inspector shows Up to date and, under Avoid, a line for Finial ball with Cut short chosen under it and Warn only and Ignore beside Cut short; the Results tab reads 2 operations, 26694 moves, Errors 0, Warnings 0, Information 13, a line that starts Rotary axis (operation 'Finish'): moves 15991 to 16744 (754 moves), and stock 28503 mm³ before, 14439 mm³ after (14064 mm³ removed); Finish: 1964 mm³ removed in 16748 moves."></a>
 <figcaption><b>Figure 4.</b> With the ball in <b>Avoid</b>, the finish stops short of it. The ball keeps the roughing's stock to leave.</figcaption>
 </figure>
 
@@ -89,11 +89,11 @@ The finish now has 2,236 moves instead of about 19,150, and removes 204 mm³. Th
 | --- | --- | --- |
 | nothing (the whole part) | 29,098 | 14,210 mm³ |
 | **Cut on**: Finial ball | 12,182 | 12,303 mm³ |
-| **Avoid**: Finial ball, **Cut short** | 84,864 | 14,067 mm³ |
+| **Avoid**: Finial ball, **Cut short** | 26,694 | 14,064 mm³ |
 
 The roughing is the same in every row: 9,946 moves and 12,100 mm³.
 
-Avoid can lengthen the program, even though it cuts less: here the finish with the ball avoided has more moves than the finish over the whole part. The strategy's description says that "selections and gaps can split the spiral into separate cuts". After you add a set, look at the path, the move count in the Results tab and the programmed time in **Post and export...** again, not only at the picture.
+Avoid splits the path where it stops short of the set: here the finish with the ball avoided has 16,748 moves, against 19,152 over the whole part, and a set elsewhere can make it longer. The strategy's description says that "selections and gaps can split the spiral into separate cuts". After you add a set, look at the path, the move count in the Results tab and the programmed time in **Post and export...** again, not only at the picture.
 
 ## Common mistakes
 
@@ -104,9 +104,9 @@ The set takes more or less than you meant
 : **By angle** stops where the surface turns more than the angle. Lower the angle to stop sooner, or Shift-click and Ctrl-click to change the set.
 
 "Warn only samples the path and can miss a narrow set."
-: The program says this beside **Warn only**. Use **Cut short** where the set must not be cut.
+: The program says this under **Avoid** or **Check** when one of its sets is on **Warn only**. Use **Cut short** where the set must not be cut.
 
 "... it is set to Ignore: the tool is not kept clear of it"
-: A set in **Avoid** or **Check** with **Ignore** chosen is not used. Choose **Cut short** or **Warn only**.
+: A note in **Results**. A set in **Avoid** or **Check** with **Ignore** chosen is not used, and its name is struck through in the Geometry section. Choose **Cut short** or **Warn only** if it should limit the path.
 
 Related: [Tabs and held regions](tabs-and-held-regions.md), [Operations and strategies](../reference/operations.md).

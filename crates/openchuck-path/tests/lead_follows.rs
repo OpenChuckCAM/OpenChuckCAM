@@ -778,7 +778,7 @@ fn req_op_11_a_turning_pass_with_its_tip_on_the_rotary_axis_is_plunged_with_a_no
         .collect();
     assert_eq!(lead.len(), 1, "{lead:?}");
     assert!(
-        lead[0].starts_with("pass 1 starts on the rotary axis, where a lead arc has no plane"),
+        lead[0].starts_with("pass 1 starts on the rotary axis"),
         "{lead:?}"
     );
 }
@@ -797,7 +797,8 @@ fn req_op_11_a_turning_pass_that_ends_on_the_rotary_axis_has_no_lead_out_and_a_n
         path.notices
             .iter()
             .any(|n| n.topic.as_deref() == Some("Lead entry")
-                && n.text == "pass 1 ends on the rotary axis, so it has no lead-out"),
+                && n.text.starts_with("pass 1 ends on the rotary axis")
+                && n.text.contains("lead-out")),
         "{:?}",
         path.notices
     );

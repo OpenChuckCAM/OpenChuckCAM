@@ -20,8 +20,8 @@ use std::time::{Duration, Instant};
 use openchuck_app::gcode::{Dialect, read, replay};
 use openchuck_app::model::TransformStep;
 use openchuck_app::pathview::{
-    DeviationBand, LEVEL_TOLERANCES, PathClass, ToolpathDisplay, deviation_bands, simplify,
-    zoom_level,
+    DeviationBand, LEVEL_TOLERANCES, PathClass, ShownMoves, ToolpathDisplay, deviation_bands,
+    simplify, zoom_level,
 };
 use openchuck_app::playback::{Cursor, Playback, Timeline, ViewFrame, tool_meshes};
 use openchuck_app::project::id::{OperationId, SetupId, ToolId};
@@ -30,6 +30,7 @@ use openchuck_app::setup::{MachineProfile, Millimetres, Stock};
 use openchuck_app::stockplay::DEFAULT_PLAYBACK_MEMORY;
 use openchuck_app::{Application, Command, PostSelection, Regeneration, Threads};
 use openchuck_types::geometry::Point3;
+use openchuck_types::ir::MoveKind;
 use openchuck_types::kinematics::{RotaryFrame, machine_xyz};
 use openchuck_types::tool::{ControllerMapping, CuttingData, Tool, ToolShape};
 use openchuck_types::units::{Degrees, FeedRate, SpindleSpeed};
@@ -480,8 +481,9 @@ fn req_sim_01_the_display_tells_rapids_links_entries_and_cuts_apart_by_operation
     let kinds: Vec<_> = t.run().toolpath.groups[0]
         .segments
         .iter()
-        .map(|s| PathClass::of(s.kind))
+        .map(|s| s.kind)
         .collect();
+    // A run is moves of one kind (issue #789: each kind can be hidden).
     let mut runs_expected = 1;
     for pair in kinds.windows(2) {
         if pair[0] != pair[1] {
@@ -490,12 +492,12 @@ fn req_sim_01_the_display_tells_rapids_links_entries_and_cuts_apart_by_operation
     }
     assert_eq!(display.runs().len(), runs_expected);
     // Hiding the operation leaves nothing; showing it leaves everything.
-    let all = display.lines(&|_| true, usize::MAX);
+    let all = display.lines(&|_, _| true, usize::MAX);
     assert_eq!(all.level, 0);
     assert_eq!(all.tolerance, 0.0);
     assert!(!all.lines.is_empty());
     assert_eq!(all.points, all.full_points);
-    let none = display.lines(&|_| false, usize::MAX);
+    let none = display.lines(&|_, _| false, usize::MAX);
     assert!(none.lines.is_empty() && none.points == 0);
     // Runs join: the first point of a run is where the move before it ended.
     for pair in display.runs().windows(2) {
@@ -507,7 +509,64 @@ fn req_sim_01_the_display_tells_rapids_links_entries_and_cuts_apart_by_operation
         }
     }
     // Same input, same lines (NFR-06).
-    assert_eq!(ToolpathDisplay::build(&t).lines(&|_| true, usize::MAX), all);
+    assert_eq!(
+        ToolpathDisplay::build(&t).lines(&|_, _| true, usize::MAX),
+        all
+    );
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+/// Issue #789 (decision record 0693, the owner's answers P1 B and P3
+/// A): each of the path's six kinds of move can be hidden in the view. A
+/// hidden kind draws no line; the other kinds draw exactly what they drew
+/// with everything shown; the playback window and the faint trace follow
+/// the same choice; and nothing the program computes changes.
+#[test]
+fn req_sim_01_each_kind_of_move_can_be_hidden_and_only_the_view_changes() {
+    let (dir, app, _) = project("hide-kinds");
+    let run = Arc::new(app.regenerate().unwrap());
+    let gcode = run.gcode.clone();
+    let t = Timeline::new(app.project(), Arc::clone(&run)).unwrap();
+    let display = ToolpathDisplay::build(&t);
+    let all = display.lines(&|_, _| true, usize::MAX);
+    let present: std::collections::BTreeSet<MoveKind> = all.lines.iter().map(|l| l.kind).collect();
+    assert!(
+        present.contains(&MoveKind::Cutting) && present.contains(&MoveKind::Rapid),
+        "{present:?}"
+    );
+    for kind in ShownMoves::ORDER {
+        let mut moves = ShownMoves::ALL;
+        moves.set(kind, false);
+        let shown = |_: usize, k: MoveKind| moves.shows(k);
+        let lines = display.lines(&shown, usize::MAX);
+        assert!(lines.lines.iter().all(|l| l.kind != kind), "{kind:?} drawn");
+        let kept: Vec<_> = all.lines.iter().filter(|l| l.kind != kind).collect();
+        assert_eq!(lines.lines.iter().collect::<Vec<_>>(), kept, "{kind:?}");
+        // The budget counts only what is drawn, so hiding a kind leaves more
+        // detail for the rest.
+        assert_eq!(
+            lines.full_points,
+            kept.iter().map(|l| l.points.len()).sum::<usize>()
+        );
+        let moves_count = t.move_count();
+        let window = display.window_lines(&shown, 0..moves_count, usize::MAX, 0);
+        assert!(window.lines.iter().all(|l| l.kind != kind));
+        let trace = display.trace_lines(&shown, usize::MAX);
+        assert!(trace.lines.iter().all(|l| l.kind != kind));
+    }
+    // Hiding every kind draws nothing.
+    let none = display.lines(&|_, _| false, usize::MAX);
+    assert!(none.lines.is_empty());
+    // The program, the moves and the timeline are those of the run.
+    assert_eq!(run.gcode, gcode);
+    assert_eq!(
+        t.move_count(),
+        run.toolpath
+            .groups
+            .iter()
+            .map(|g| g.segments.len())
+            .sum::<usize>()
+    );
     let _ = std::fs::remove_dir_all(dir);
 }
 
@@ -613,11 +672,11 @@ fn req_nfr_03_the_level_of_detail_follows_the_point_budget() {
     let run = app.regenerate().unwrap();
     let t = timeline(&app, run);
     let display = ToolpathDisplay::build(&t);
-    let full = display.lines(&|_| true, usize::MAX).full_points;
+    let full = display.lines(&|_, _| true, usize::MAX).full_points;
     assert!(full > 200);
     let mut previous = full;
     for budget in [full, full / 2, full / 5, full / 20, 10] {
-        let chosen = display.lines(&|_| true, budget);
+        let chosen = display.lines(&|_, _| true, budget);
         assert!(
             chosen.points <= previous,
             "{budget}: {} > {previous}",
@@ -675,7 +734,7 @@ fn req_nfr_03_req_gc_07_the_zoom_level_never_goes_past_the_budget_or_into_the_ou
     let t = Timeline::new(app.project(), Arc::clone(&run)).unwrap();
     let display = ToolpathDisplay::build(&t);
     let runs = display.runs().to_vec();
-    let all = |_: usize| true;
+    let all = |_: usize, _: MoveKind| true;
     let full = display.full_points(&all);
     // The zoom asks for a level; the budget still wins when it needs a
     // coarser one.
@@ -892,6 +951,84 @@ fn req_ui_11_deviation_bands_refuse_a_part_file_changed_since_the_run() {
         "{error}"
     );
     assert!(error.to_string().contains("changed"), "{error}");
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+/// Issue #699 (OI-881): a run that keeps the comparison and the part keeps
+/// the part's deviation colours too. They are worked out again only when the
+/// comparison or the part they belong to changes, and the colours are the
+/// same either way (SIM-05, NFR-04).
+#[test]
+fn req_sim_05_req_nfr_04_part_colours_are_kept_while_the_comparison_and_part_are_unchanged() {
+    let (dir, mut app, _) = project("bands-kept");
+    let setup = app.project().setups()[0].id;
+    let first = Arc::new(app.simulate().unwrap());
+    let (model, colours) = app
+        .start_deviation_bands(Arc::clone(&first), setup)
+        .wait()
+        .unwrap();
+    assert_eq!(app.part_colours_made(), 1);
+
+    // Nothing changed: the run takes the comparison kept with the stock
+    // (decision 0217), shared, not copied, and the colours are not worked out
+    // again.
+    let again = Arc::new(app.simulate().unwrap());
+    let compared = |run: &Regeneration| {
+        Arc::clone(
+            run.simulation.as_ref().unwrap().setups[0]
+                .deviation
+                .as_ref()
+                .unwrap(),
+        )
+    };
+    assert!(Arc::ptr_eq(&compared(&first), &compared(&again)));
+    let kept = app
+        .start_deviation_bands(Arc::clone(&again), setup)
+        .wait()
+        .unwrap();
+    assert_eq!(kept, (model, colours.clone()));
+    assert_eq!(app.part_colours_made(), 1, "the colours were kept");
+
+    // A new comparison (another cell) gives new colours.
+    let mut settings = app.project().simulation();
+    settings.cell = Millimetres(settings.cell.0 * 1.5);
+    app.execute(Command::SetSimulation(settings)).unwrap();
+    let coarser = Arc::new(app.simulate().unwrap());
+    assert!(!Arc::ptr_eq(&compared(&first), &compared(&coarser)));
+    app.start_deviation_bands(Arc::clone(&coarser), setup)
+        .wait()
+        .unwrap();
+    assert_eq!(app.part_colours_made(), 2);
+    app.undo().unwrap();
+
+    // The part placed elsewhere is another part: new colours.
+    app.execute(Command::SetModelTransform {
+        model,
+        transform: vec![
+            TransformStep::CentreOnRotaryAxis,
+            TransformStep::Translate {
+                x: 0.5,
+                y: 0.0,
+                z: 0.0,
+            },
+        ],
+    })
+    .unwrap();
+    let moved = Arc::new(app.simulate().unwrap());
+    let (_, moved_colours) = app
+        .start_deviation_bands(Arc::clone(&moved), setup)
+        .wait()
+        .unwrap();
+    assert_eq!(app.part_colours_made(), 3);
+    assert_ne!(moved_colours.values, colours.values);
+
+    // An older run, asked again, is not given the newer run's colours.
+    let old = app
+        .start_deviation_bands(Arc::clone(&first), setup)
+        .wait()
+        .unwrap();
+    assert_eq!(old, (model, colours));
+    assert_eq!(app.part_colours_made(), 4);
     let _ = std::fs::remove_dir_all(dir);
 }
 
@@ -1232,8 +1369,9 @@ fn req_ui_06_an_operation_is_added_edited_generated_and_deleted_as_undoable_step
     );
     assert_eq!(app.strategy_label("not_registered"), "not_registered");
     // Adding: at the end, enabled, with the strategy's defaults and the
-    // pass order, the low links and the blended ring steps a new operation
-    // is given (decision records 0520, 0521 and 0545).
+    // pass order, the low links, the blended ring steps, Plunge where no
+    // ramp fits, Steeper ramp near the axis and Finish to a point a new
+    // operation is given (decision records 0520, 0521, 0545 and 0695).
     let before = app.project().operations().len();
     let second = app
         .add_operation("  Second pass ", "helical_finishing", setup, Some(tool))
@@ -1245,6 +1383,19 @@ fn req_ui_06_an_operation_is_added_edited_generated_and_deleted_as_undoable_step
     assert_eq!(
         added.parameters.iter().collect::<Vec<_>>(),
         [
+            // Decision 0695, Q4 (iii): a new operation
+            // plunges where no ramp fits and has a steeper ramp near the
+            // axis.
+            (
+                &openchuck_path::params::names::ALLOW_SINGLE_POINT_PLUNGE.to_owned(),
+                &openchuck_app::project::ParameterValue::Flag(true)
+            ),
+            // Decision 0695, Q2 (a) A: a new finishing operation finishes
+            // to a point.
+            (
+                &openchuck_path::finishing::parameter::FINISH_TO_A_POINT.to_owned(),
+                &openchuck_app::project::ParameterValue::Flag(true)
+            ),
             (
                 &openchuck_path::axial::parameter::LINK_HEIGHT.to_owned(),
                 &openchuck_app::project::ParameterValue::Text(
@@ -1256,6 +1407,10 @@ fn req_ui_06_an_operation_is_added_edited_generated_and_deleted_as_undoable_step
                 &openchuck_app::project::ParameterValue::Text(
                     openchuck_path::order::BY_REGION.into()
                 )
+            ),
+            (
+                &openchuck_path::params::names::RAMP_STEEPER_NEAR_AXIS.to_owned(),
+                &openchuck_app::project::ParameterValue::Flag(true)
             ),
             (
                 &openchuck_path::helical::parameter::RING_STEP.to_owned(),
@@ -1372,10 +1527,10 @@ fn req_nfr_04_a_path_of_two_million_moves_is_displayed_within_its_budget() {
     let build_time = started.elapsed();
     assert_eq!(t.move_count(), MOVES);
     let started = Instant::now();
-    let lines = display.lines(&|_| true, 1_000_000);
+    let lines = display.lines(&|_, _| true, 1_000_000);
     let lines_time = started.elapsed();
     let again = Instant::now();
-    let cached = display.lines(&|_| true, 1_000_000);
+    let cached = display.lines(&|_, _| true, 1_000_000);
     let cached_time = again.elapsed();
     eprintln!(
         "{MOVES} moves: timeline {timeline_time:?}, runs {build_time:?}, lines {lines_time:?} (level {}, {} of {} points), cached {cached_time:?}",
@@ -1636,7 +1791,7 @@ fn req_sim_01_the_window_draws_only_its_moves_and_the_trace_is_coarse() {
     let run = Arc::new(app.regenerate().unwrap());
     let t = Timeline::new(app.project(), Arc::clone(&run)).unwrap();
     let display = ToolpathDisplay::build(&t);
-    let all = |_: usize| true;
+    let all = |_: usize, _: MoveKind| true;
     let moves = t.move_count();
     let window = moves / 3..2 * moves / 3;
     let lines = display.window_lines(&all, window.clone(), usize::MAX, 0);
@@ -1664,7 +1819,7 @@ fn req_sim_01_the_window_draws_only_its_moves_and_the_trace_is_coarse() {
     // A hidden group draws nothing; an empty window draws nothing.
     assert!(
         display
-            .window_lines(&|_| false, window.clone(), usize::MAX, 0)
+            .window_lines(&|_, _| false, window.clone(), usize::MAX, 0)
             .lines
             .is_empty()
     );
@@ -1687,7 +1842,12 @@ fn req_sim_01_the_window_draws_only_its_moves_and_the_trace_is_coarse() {
         whole.points
     );
     assert_eq!(trace.full_points, whole.full_points);
-    assert!(display.trace_lines(&|_| false, usize::MAX).lines.is_empty());
+    assert!(
+        display
+            .trace_lines(&|_, _| false, usize::MAX)
+            .lines
+            .is_empty()
+    );
     let _ = std::fs::remove_dir_all(dir);
 }
 

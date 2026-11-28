@@ -554,3 +554,89 @@ fn req_nfr_07_a_face_too_large_to_bound_is_refused_before_its_points_are_built()
     assert!(e.contains("face 0") && e.contains("work limit"), "{e}");
     assert!(start.elapsed().as_secs() < 20, "{:?}", start.elapsed());
 }
+
+#[test]
+fn req_op_23_req_nfr_07_a_negative_zero_knot_is_the_same_knot_as_zero() {
+    // Issue #859 item 1: a clamped patch whose knots write the start as
+    // -0.0 as well as 0.0 is the same patch; it is split and bounded as
+    // the one written with 0.0 only, not refused.
+    let plain = bulge();
+    let mut signed = plain.clone();
+    signed.knots_u = vec![-0.0, -0.0, 0.0, 0.0, 1.0, 1.0, 1.0, 1.0];
+    signed.knots_v = vec![-0.0, 0.0, -0.0, 1.0, 1.0, 1.0];
+    let uv = [0.0, 1.0, 0.0, 1.0];
+    let a = enclose(&spline_face(plain, uv)).unwrap();
+    let b = enclose(&spline_face(signed, uv))
+        .unwrap_or_else(|e| panic!("a -0.0 knot refused the face: {e}"));
+    assert_eq!(a.points, b.points);
+    assert_eq!(a.spline_excess, b.spline_excess);
+}
+
+#[test]
+fn req_op_23_req_nfr_07_a_weight_too_small_to_scale_its_pole_is_refused() {
+    // Issue #859 item 2: a positive weight so small that a coordinate times
+    // it is subnormal or zero loses the pole, so the control points no
+    // longer bound the face. The face is refused, named, and nothing is
+    // guessed; the weights are never adjusted.
+    let mut patch = bulge();
+    patch.weights[4] = 1e-310;
+    let e = enclose(&spline_face(patch, [0.0, 1.0, 0.0, 1.0]))
+        .unwrap_err()
+        .to_string();
+    assert!(e.contains("face 0") && e.contains("weight"), "{e}");
+    // The same on a B-spline edge of a flat face.
+    let mut model = rod(5.0, 0.0, 10.0);
+    model.edges[0].curve = Some(EdgeCurve::BSpline(openchuck_types::brep::BSplineCurve {
+        degree: 2,
+        knots: vec![0.0, 0.0, 0.0, 1.0, 1.0, 1.0],
+        poles: vec![
+            Point3::new(0.0, 5.0, 0.0),
+            Point3::new(0.0, 5.0, 5.0),
+            Point3::new(0.0, 0.0, 5.0),
+        ],
+        weights: vec![1.0, 1e-310, 1.0],
+        first: 0.0,
+        last: 1.0,
+    }));
+    let e = enclose(&model).unwrap_err().to_string();
+    assert!(e.contains("face 0") && e.contains("weight"), "{e}");
+}
+
+/// A patch of `degree` in both directions and `spans x spans` unit-weight spans over
+/// [0, 1]^2, every interior knot single, gently waved so no span is flat.
+fn many_spans(degree: usize, spans: usize) -> BSplinePatch {
+    let n = degree + spans;
+    let mut knots = vec![0.0; degree + 1];
+    knots.extend((1..spans).map(|i| i as f64 / spans as f64));
+    knots.extend(vec![1.0; degree + 1]);
+    let mut poles = Vec::with_capacity(n * n);
+    for i in 0..n {
+        for j in 0..n {
+            let (x, y) = (i as f64, j as f64);
+            poles.push(Point3::new(x, y, ((x + 2.0 * y) * 0.7).sin()));
+        }
+    }
+    BSplinePatch {
+        degree_u: degree as u32,
+        degree_v: degree as u32,
+        knots_u: knots.clone(),
+        knots_v: knots,
+        poles_u: n as u32,
+        poles_v: n as u32,
+        poles,
+        weights: vec![1.0; n * n],
+    }
+}
+
+#[test]
+fn req_nfr_07_a_patch_with_too_many_pieces_is_refused_before_its_pieces_are_built() {
+    // Issue #860 item 3: degree 24 with 81 x 81 spans has 6,561 Bezier
+    // pieces of 625 points, about 4.1 million points, past the work limit.
+    // It is refused, naming the face, from the count of its spans, before
+    // any piece is built.
+    let model = spline_face(many_spans(24, 81), [0.0, 1.0, 0.0, 1.0]);
+    let start = std::time::Instant::now();
+    let e = enclose(&model).unwrap_err().to_string();
+    assert!(e.contains("face 0") && e.contains("work limit"), "{e}");
+    assert!(start.elapsed().as_secs() < 20, "{:?}", start.elapsed());
+}
