@@ -324,3 +324,50 @@ fn req_nfr_20_no_log_found_is_said_in_the_file() {
         "{contents}"
     );
 }
+
+#[test]
+fn req_nfr_20_req_nfr_07_the_project_ticked_with_none_open_is_said_in_the_file() {
+    let mut sources = sources("no-project");
+    sources.project = None;
+    let entries = bug_report::entries(
+        &sources,
+        Choice {
+            project: true,
+            ..Choice::default()
+        },
+    );
+    assert!(!entries.iter().any(|e| e.name.starts_with("project/")));
+    let contents = String::from_utf8(entries.last().unwrap().bytes.clone()).unwrap();
+    assert!(
+        contents.contains("not included: the project: no project is open"),
+        "{contents}"
+    );
+}
+
+#[test]
+fn req_nfr_20_a_file_that_is_not_text_is_kept_byte_for_byte() {
+    // Only text has the home folder replaced: bytes that are not UTF-8, in
+    // a log or in the project's own files, go in unchanged.
+    let sources = sources("binary");
+    let bytes = [0xFF_u8, 0xFE, 0x00, b'~', 0x80];
+    std::fs::write(&sources.logs[1], bytes).unwrap();
+    let project = sources.project.clone().unwrap();
+    std::fs::write(project.join("thumbnail.bin"), bytes).unwrap();
+    let entries = bug_report::entries(
+        &sources,
+        Choice {
+            project: true,
+            ..Choice::default()
+        },
+    );
+    let held = |name: &str| {
+        entries
+            .iter()
+            .find(|e| e.name == name)
+            .unwrap_or_else(|| panic!("no {name}"))
+            .bytes
+            .clone()
+    };
+    assert_eq!(held("logs/openchuckcam.1.log"), bytes);
+    assert_eq!(held("project/thumbnail.bin"), bytes);
+}

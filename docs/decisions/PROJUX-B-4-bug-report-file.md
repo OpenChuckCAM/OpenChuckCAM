@@ -53,7 +53,9 @@ Tests written first from NFR-20's verification row, named by requirement. They u
   - `bug_report::req_nfr_20_the_zip_reads_back_and_is_the_same_bytes_for_the_same_inputs`: the test's own reader checks every CRC and size, `unzip -t` passes where installed, and two writes give the same bytes;
   - `bug_report::req_nfr_20_req_nfr_07_a_missing_log_is_said_not_a_crash`: a missing log and project, and a folder that cannot be written;
   - `bug_report::req_nfr_20_no_log_found_is_said_in_the_file`;
-  - `bug_report::req_nfr_20_crc32_matches_the_standard_check_value`.
+  - `bug_report::req_nfr_20_crc32_matches_the_standard_check_value`;
+  - `bug_report::req_nfr_20_req_nfr_07_the_project_ticked_with_none_open_is_said_in_the_file`;
+  - `bug_report::req_nfr_20_a_file_that_is_not_text_is_kept_byte_for_byte`: only text has the home folder replaced.
 - `openchuck-ui`, `shell/bug_report_tests.rs`, through real frames: `req_nfr_20_help_lists_what_the_file_holds_and_saves_it_with_the_defaults`, `req_nfr_20_ticking_model_files_adds_them_to_the_list_and_the_file`, `req_nfr_20_req_nfr_07_a_file_that_cannot_be_written_says_why`. The shell's dialog checks (`req_nfr_18_every_dialog_has_a_name`, the dialog walk) cover the new dialog.
 - `openchuck-cli`, `tests/cli.rs`: `req_nfr_20_cli_writes_the_bug_report_file_with_what_was_asked`.
 - `cargo xtask deps`: no network crate.
@@ -63,7 +65,20 @@ Tests written first from NFR-20's verification row, named by requirement. They u
 Environment: managed Linux x86_64 container, Rust 1.97.0, debug builds. Tests were timed uninstrumented with `cargo nextest run`.
 - `cargo nextest run -p openchuck-ui -p openchuck-app -p openchuck-cli`: 1892 of 1893 passed, 2 skipped, in 2025 s. The one failure was `openchuck-cli tests::req_ui_12_the_help_text_uses_plain_words`: the new command's help said "(NFR-20)", and help text carries no requirement numbers (decision 0536 step 4). That was fixed, and `cargo nextest run -p openchuck-cli` then passed 93 of 93.
 - `cargo fmt --all`, `cargo clippy` on the changed crates (no warnings), `cargo xtask deps`, `licences`, `records` and `trace`, and `cargo xtask changelog check-pr` pass.
-- Coverage of the changed files is added before the pull request opens.
+- Coverage, on the bug-report tests alone (`cargo llvm-cov nextest --profile coverage -p openchuck-app -p openchuck-ui -p openchuck-cli -E 'test(~bug_report) | test(~req_nfr_20)'`, 12 tests), a lower bound:
+  - `crates/openchuck-app/src/bug_report.rs`: 90.4% of lines.
+  - `apps/openchuck-ui/src/shell/bug_report.rs`: 88.9%.
+- The run found two of the record's behaviours untested: the project ticked with none open, and a file that is not text, which must not be changed. The two tests above were written for them and pass (10 of 10 `openchuck-app` bug-report tests). Coverage was not measured again after them.
+- What stays uncovered, and why:
+  - **Defensive branches of NFR-07:**
+    - a project file that cannot be read (the tests run as root, which reads any file);
+    - no home folder known;
+    - a zip over 4 GiB;
+    - a rename that fails after the temporary file was written.
+  - **The window's native parts**, which are the owner's check (OI-9946):
+    - the platform's save dialog;
+    - the real log folder, which the frame tests replace with a test folder.
+  - **`dos_date`**, a `const fn` evaluated when the program is built.
 
 Not verified here: the native save dialog, Explorer opening the zip, and attaching it to an issue, which are the owner's check (OI-9946).
 
