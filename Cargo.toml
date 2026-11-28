@@ -102,6 +102,8 @@ criterion = "=0.8.2"
 [workspace.lints.rust]
 unsafe_code = "deny"
 missing_debug_implementations = "warn"
+# cargo-llvm-cov sets `cfg(coverage)`; test waits in openchuck-ui scale with it (issue #982).
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(coverage)'] }
 
 [workspace.lints.clippy]
 # NFR-07 and architecture section 8: no unwrap, panic or unchecked indexing in

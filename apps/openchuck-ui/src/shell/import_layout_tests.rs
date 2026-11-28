@@ -53,7 +53,7 @@ fn dialog_rect(rig: &Rig) -> egui::Rect {
 fn step_two(rig: &mut Rig, file: std::path::PathBuf) -> bool {
     let app = rig.shell.app.as_ref().unwrap();
     rig.shell.import = Some(ImportSession::new(app, file));
-    let deadline = Instant::now() + Duration::from_secs(120);
+    let deadline = Instant::now() + crate::testing::wait_limit(120);
     while rig.shell.import.as_ref().unwrap().preview.is_none() {
         rig.frame(Vec::new());
         let session = rig.shell.import.as_ref().unwrap();

@@ -30,7 +30,7 @@ fn simulated(name: &str) -> Rig {
 /// playback ready.
 fn simulate(mut rig: Rig) -> Rig {
     rig.shell.generate(true);
-    let deadline = Instant::now() + Duration::from_secs(120);
+    let deadline = Instant::now() + crate::testing::wait_limit(120);
     while rig.shell.run.last().is_none_or(|r| r.simulation.is_none()) {
         rig.settle();
         assert!(Instant::now() < deadline, "timed out");
@@ -38,7 +38,7 @@ fn simulate(mut rig: Rig) -> Rig {
     rig.shell.open_step(Step::Simulate);
     // The playback data and the lines are prepared in jobs, which take longer
     // on a slow runner: wait for them, with a deadline.
-    let deadline = Instant::now() + Duration::from_secs(120);
+    let deadline = Instant::now() + crate::testing::wait_limit(120);
     loop {
         rig.frame(Vec::new());
         if rig.shell.play.has_run() && rig.shell.play.pose().is_some() {
@@ -374,7 +374,7 @@ fn req_gc_07_req_nfr_06_display_and_navigation_preserve_project_paths_and_posted
     }
     rig.shell.viewport.set_cut_part_solid(true);
     rig.click(at(&rig, "Deviation colours"));
-    let deadline = Instant::now() + Duration::from_secs(120);
+    let deadline = Instant::now() + crate::testing::wait_limit(120);
     while rig.shell.viewport.bands().is_none() {
         rig.frame(Vec::new());
         assert!(Instant::now() < deadline);
@@ -412,7 +412,7 @@ fn req_sim_05_req_ui_15_cut_part_opacity_defaults_to_translucent_and_changes_cur
  {
     let mut rig = simulated("simui-opacity");
     rig.size = egui::vec2(1920.0, 1080.0);
-    let deadline = Instant::now() + Duration::from_secs(120);
+    let deadline = Instant::now() + crate::testing::wait_limit(120);
     while !rig
         .shell
         .viewport
@@ -465,7 +465,7 @@ fn req_sim_05_req_ui_15_cut_part_opacity_defaults_to_translucent_and_changes_cur
         .unwrap();
     rig.settle();
     rig.click(at(&rig, "Deviation colours"));
-    let deadline = Instant::now() + Duration::from_secs(120);
+    let deadline = Instant::now() + crate::testing::wait_limit(120);
     while rig.shell.viewport.bands().is_none() {
         rig.frame(Vec::new());
         assert!(Instant::now() < deadline);
@@ -551,7 +551,7 @@ fn req_nfr_12_req_nfr_04_skipped_stock_progress_does_not_claim_to_simulate() {
         .unwrap();
     rig.settle();
     rig.shell.generate(false);
-    let deadline = Instant::now() + Duration::from_secs(120);
+    let deadline = Instant::now() + crate::testing::wait_limit(120);
     let mut seen = false;
     while rig.shell.run.is_running() {
         rig.frame(Vec::new());
@@ -711,7 +711,7 @@ fn req_imp_01_req_imp_04_the_import_window_has_the_path_the_checks_and_the_prima
         std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../testdata/stl/cube_ascii.stl");
     let app = rig.shell.app.as_ref().unwrap();
     rig.shell.import = Some(ImportSession::new(app, cube));
-    let deadline = Instant::now() + Duration::from_secs(60);
+    let deadline = Instant::now() + crate::testing::wait_limit(60);
     while rig.shell.import.as_ref().unwrap().preview.is_none() {
         rig.frame(Vec::new());
         assert!(Instant::now() < deadline, "timed out");
@@ -1064,7 +1064,7 @@ fn req_sim_05_req_nfr_12_deviation_colours_can_be_hidden_on_current_and_stale_re
     let mut rig = simulated("simui-colours");
     // Playback data and the cut-part checkpoints are separate jobs. Wait
     // for the stock mesh this test reads, not merely the timeline.
-    let deadline = Instant::now() + Duration::from_secs(120);
+    let deadline = Instant::now() + crate::testing::wait_limit(120);
     while !rig
         .shell
         .viewport
@@ -1092,7 +1092,7 @@ fn req_sim_05_req_nfr_12_deviation_colours_can_be_hidden_on_current_and_stale_re
             "display choice stays accessible"
         );
         rig.click(at(&rig, "Deviation colours"));
-        let deadline = Instant::now() + Duration::from_secs(120);
+        let deadline = Instant::now() + crate::testing::wait_limit(120);
         while rig.shell.viewport.bands().is_none() {
             rig.frame(Vec::new());
             assert!(
@@ -1122,7 +1122,7 @@ fn req_sim_05_req_nfr_12_deviation_colours_can_be_hidden_on_current_and_stale_re
 
 /// Waits for the cut part to be drawn.
 fn until_cut_part_drawn(rig: &mut Rig) {
-    let deadline = Instant::now() + Duration::from_secs(120);
+    let deadline = Instant::now() + crate::testing::wait_limit(120);
     while !rig
         .shell
         .viewport
@@ -1158,7 +1158,7 @@ fn req_ui_11_a_stale_toolpath_keeps_the_part_colours_with_the_banner() {
     .unwrap();
     rig.settle();
     rig.click(at(&rig, "Deviation colours"));
-    let deadline = Instant::now() + Duration::from_secs(120);
+    let deadline = Instant::now() + crate::testing::wait_limit(120);
     while rig.shell.viewport.part_bands().is_none() || rig.shell.viewport.bands().is_none() {
         rig.frame(Vec::new());
         assert!(Instant::now() < deadline, "the colours did not appear");
@@ -1185,7 +1185,7 @@ fn req_ui_11_a_changed_part_is_drawn_plain_in_the_shell_with_the_note() {
             toolpath: false,
         });
     rig.click(at(&rig, "Deviation colours"));
-    let deadline = Instant::now() + Duration::from_secs(120);
+    let deadline = Instant::now() + crate::testing::wait_limit(120);
     while rig.shell.viewport.part_bands().is_none() || rig.shell.viewport.bands().is_none() {
         rig.frame(Vec::new());
         assert!(Instant::now() < deadline, "the colours did not appear");
@@ -1224,7 +1224,7 @@ fn req_ui_11_a_changed_part_is_drawn_plain_in_the_shell_with_the_note() {
 
 /// Draws until the run started is done and its playback is ready.
 fn until_simulated_again(rig: &mut Rig) {
-    let deadline = Instant::now() + Duration::from_secs(120);
+    let deadline = Instant::now() + crate::testing::wait_limit(120);
     while rig.shell.run.is_running() || !rig.shell.play.has_run() || rig.shell.play.pose().is_none()
     {
         rig.frame(Vec::new());
@@ -1306,7 +1306,7 @@ fn req_nfr_12_req_ui_11_turning_off_an_operation_in_simulate_offers_to_simulate_
         .name
         .clone();
     rig.shell.generate(true);
-    let deadline = Instant::now() + Duration::from_secs(120);
+    let deadline = Instant::now() + crate::testing::wait_limit(120);
     while rig.shell.run.last().is_none_or(|r| r.simulation.is_none()) {
         rig.settle();
         assert!(Instant::now() < deadline, "timed out");
@@ -1439,7 +1439,7 @@ fn req_ui_16_req_sim_04_the_playback_tab_keeps_its_place_while_the_simulation_ru
     };
     let before = top(&rig).unwrap();
     rig.shell.generate(true);
-    let deadline = Instant::now() + Duration::from_secs(120);
+    let deadline = Instant::now() + crate::testing::wait_limit(120);
     let mut frames = 0;
     while rig.shell.run.is_running() || rig.shell.play.pose().is_none() || frames < 5 {
         rig.frame(Vec::new());
@@ -1567,7 +1567,7 @@ fn req_nfr_04_req_ui_16_req_sim_04_real_preparation_progress_initial_and_regener
             rig.settle();
         }
         rig.shell.generate(true);
-        let deadline = Instant::now() + Duration::from_secs(120);
+        let deadline = Instant::now() + crate::testing::wait_limit(120);
         let mut saw_progress = false;
         let mut saw_numeric = false;
         while rig.shell.run.is_running() {
@@ -1767,7 +1767,7 @@ fn req_ui_16_req_sim_04_the_playback_dock_lays_out_whole_in_every_state() {
         check_dock(&rig, &all, &format!("{zoom}: current"));
 
         let ready = |rig: &mut Rig| {
-            let deadline = Instant::now() + Duration::from_secs(120);
+            let deadline = Instant::now() + crate::testing::wait_limit(120);
             while rig
                 .shell
                 .play
@@ -1799,7 +1799,7 @@ fn req_ui_16_req_sim_04_the_playback_dock_lays_out_whole_in_every_state() {
             .unwrap();
         rig.settle();
         rig.shell.generate(true);
-        let deadline = Instant::now() + Duration::from_secs(120);
+        let deadline = Instant::now() + crate::testing::wait_limit(120);
         let mut preparing = false;
         while rig.shell.run.is_running() {
             rig.frame(Vec::new());
@@ -1885,7 +1885,7 @@ fn req_sim_15_a_band_unticked_or_a_range_set_hides_its_deviation_and_says_so() {
     let mut rig = simulated("sim-bands");
     let colour = at(&rig, "Deviation colours");
     rig.click(colour);
-    let deadline = Instant::now() + Duration::from_secs(120);
+    let deadline = Instant::now() + crate::testing::wait_limit(120);
     while rig.shell.viewport.bands().is_none() {
         rig.frame(Vec::new());
         assert!(Instant::now() < deadline, "the bands were never ready");
@@ -2043,7 +2043,7 @@ fn req_sim_05_req_sim_15_a_bore_no_tool_reaches_shows_on_the_cut_part_and_can_be
     }));
     let colour = at(&rig, "Deviation colours");
     rig.click(colour);
-    let deadline = Instant::now() + Duration::from_secs(120);
+    let deadline = Instant::now() + crate::testing::wait_limit(120);
     while rig.shell.viewport.bands().is_none() {
         rig.frame(Vec::new());
         assert!(Instant::now() < deadline, "the bands were never ready");
@@ -2093,7 +2093,7 @@ fn req_sim_05_the_faced_end_over_a_bore_is_violet_only_over_the_bore() {
     let mut rig = simulate(Rig::tube("sim-bite"));
     let colour = at(&rig, "Deviation colours");
     rig.click(colour);
-    let deadline = Instant::now() + Duration::from_secs(120);
+    let deadline = Instant::now() + crate::testing::wait_limit(120);
     while rig.shell.viewport.bands().is_none() {
         rig.frame(Vec::new());
         assert!(Instant::now() < deadline, "the bands were never ready");

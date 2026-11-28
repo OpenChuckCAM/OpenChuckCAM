@@ -1613,7 +1613,7 @@ mod tests {
         app: &mut Application,
         run: Option<&Arc<Regeneration>>,
     ) {
-        let deadline = Instant::now() + Duration::from_secs(120);
+        let deadline = Instant::now() + crate::testing::wait_limit(120);
         loop {
             frame(panel, ctx, app, run);
             if panel.job.is_none() && (panel.files.is_some() || panel.files_error.is_some()) {

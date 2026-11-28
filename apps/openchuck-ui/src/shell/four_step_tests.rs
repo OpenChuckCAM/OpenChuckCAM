@@ -514,7 +514,7 @@ fn write_through_dialog(
 ) -> Vec<(String, Vec<u8>)> {
     open(rig);
     assert!(rig.shell.export.is_open());
-    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(120);
+    let deadline = std::time::Instant::now() + crate::testing::wait_limit(120);
     while !rig.shows("Go to line") {
         // The body keeps its scroll between openings: back to the top,
         // where the folder and the preview are.

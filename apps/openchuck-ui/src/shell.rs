@@ -3216,7 +3216,7 @@ mod tests {
         // Every generation simulates the stock now (issue 214), and Simulate
         // prepares the cut part: about 8 s uninstrumented, several times that
         // in the instrumented coverage run, so the bound leaves room for it.
-        let deadline = Instant::now() + Duration::from_secs(300);
+        let deadline = Instant::now() + crate::testing::wait_limit(300);
         let wait = |shell: &mut Shell, done: &dyn Fn(&Shell) -> bool| {
             while !done(shell) {
                 assert!(Instant::now() < deadline, "timed out");

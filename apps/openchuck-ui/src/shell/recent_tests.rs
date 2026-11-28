@@ -63,7 +63,7 @@ fn req_ui_15_open_recent_forgets_a_folder_that_is_gone() {
     // where a dead network share could stall the window): the last known list
     // shows meanwhile, and the answer is applied when it arrives.
     assert!(rig.shows("job-1"));
-    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
+    let deadline = std::time::Instant::now() + crate::testing::wait_limit(10);
     while rig.shell.settings.recent.len() != 1 {
         assert!(
             std::time::Instant::now() < deadline,
@@ -236,7 +236,7 @@ fn req_ui_15_a_late_folder_check_does_not_forget_a_project_added_meanwhile() {
     assert_eq!(rig.shell.settings.recent, [newer.clone(), made[0].clone()]);
     // The held answer (only job-0 was looked at) now arrives.
     drop(held);
-    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
+    let deadline = std::time::Instant::now() + crate::testing::wait_limit(10);
     while rig.shell.recent_check.is_some() {
         assert!(
             std::time::Instant::now() < deadline,

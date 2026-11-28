@@ -65,7 +65,7 @@ impl Rig {
             probe_focus: false,
             shapes: Vec::new(),
         };
-        let deadline = Instant::now() + Duration::from_secs(120);
+        let deadline = Instant::now() + crate::testing::wait_limit(120);
         while rig.shell.scene_job.is_some() {
             assert!(Instant::now() < deadline, "timed out");
             rig.frame(Vec::new());
@@ -687,7 +687,7 @@ fn req_ui_05_checked_add_updates_stored_and_rendered_membership_in_the_same_fram
     rig.shell
         .selection
         .add_to_chosen_for_test(rig.shell.app.as_ref().unwrap(), model, &[2]);
-    let deadline = Instant::now() + Duration::from_secs(30);
+    let deadline = Instant::now() + crate::testing::wait_limit(30);
     loop {
         // The part of a real frame after layout. A completion may arrive here
         // after the inspector's earlier poll; do not poll the panel separately.
@@ -762,7 +762,7 @@ fn req_ui_05_req_prj_06_req_nfr_15_checked_edits_keep_geometry_colour_and_histor
             );
         }
         assert_eq!(rig.shell.selection.edits_waiting(), (2, true));
-        let deadline = Instant::now() + Duration::from_secs(30);
+        let deadline = Instant::now() + crate::testing::wait_limit(30);
         loop {
             rig.shell.pick_frame(&rig.ctx);
             let app = rig.shell.app.as_ref().unwrap();
@@ -900,7 +900,7 @@ fn req_ui_05_changing_step_leaves_no_highlight_in_any_view() {
     // step ends selection mode, from a pending selection or a selected set.
     let mut rig = Rig::picking("highlight-step");
     rig.shell.generate(false);
-    let deadline = Instant::now() + Duration::from_secs(120);
+    let deadline = Instant::now() + crate::testing::wait_limit(120);
     while rig.shell.run.last().is_none() {
         rig.frame(Vec::new());
         std::thread::sleep(Duration::from_millis(10));

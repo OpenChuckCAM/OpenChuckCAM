@@ -36,7 +36,7 @@ fn generated(name: &str) -> (Rig, OperationId) {
 
 /// Draws until the viewport holds dots.
 fn wait_for_areas(rig: &mut Rig) {
-    let deadline = Instant::now() + Duration::from_secs(120);
+    let deadline = Instant::now() + crate::testing::wait_limit(120);
     while rig
         .shell
         .viewport
@@ -151,7 +151,7 @@ fn req_ui_12_show_in_view_frames_the_area_and_keeps_the_playback_in_the_shell() 
         operation: op,
         area: 1,
     });
-    let deadline = Instant::now() + Duration::from_secs(60);
+    let deadline = Instant::now() + crate::testing::wait_limit(60);
     while rig.shell.areas.is_waiting() {
         assert!(Instant::now() < deadline, "the view never turned");
         rig.frame(Vec::new());
@@ -279,7 +279,7 @@ fn req_ui_11_another_setup_of_the_same_run_draws_its_own_areas() {
         "{first_op:?}"
     );
     rig.shell.choose_setup(second_setup, None);
-    let deadline = Instant::now() + Duration::from_secs(60);
+    let deadline = Instant::now() + crate::testing::wait_limit(60);
     while rig.shell.viewport.unreached_legend() != ["Unreachable (Finish 2)"] {
         assert!(
             Instant::now() < deadline,

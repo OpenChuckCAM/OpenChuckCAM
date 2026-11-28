@@ -61,7 +61,7 @@ fn click(rig: &mut Rig, label: &str) {
 
 /// Draws until the copy job has ended and its result is stored.
 fn copied(rig: &mut Rig) {
-    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(60);
+    let deadline = std::time::Instant::now() + crate::testing::wait_limit(60);
     while rig.shell.copy_job.is_some() {
         rig.frame(Vec::new());
         assert!(std::time::Instant::now() < deadline, "the copy timed out");
@@ -146,7 +146,7 @@ fn req_prj_02_not_now_keeps_the_link_marked_with_a_way_to_copy_it() {
 fn import(rig: &mut Rig, file: PathBuf) {
     let app = rig.shell.app.as_ref().unwrap();
     rig.shell.import = Some(crate::import_panel::ImportSession::new(app, file));
-    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(60);
+    let deadline = std::time::Instant::now() + crate::testing::wait_limit(60);
     while rig.shell.import.as_ref().unwrap().preview.is_none() {
         rig.frame(Vec::new());
         assert!(std::time::Instant::now() < deadline, "the check timed out");

@@ -19,6 +19,22 @@ use openchuck_app::tools::{
 };
 use openchuck_app::{Application, Command, PostSelection, Threads};
 
+/// The wall-clock limit of a test's wait (issue #982): `seconds` as written,
+/// and ten times that in a build instrumented for coverage (`cfg(coverage)`,
+/// which cargo-llvm-cov sets), whose hot loops run 6 to 11 times slower. A
+/// limit only stops a hung test; a test's cost is timed uninstrumented
+/// (AGENTS.md).
+pub fn wait_limit(seconds: u64) -> std::time::Duration {
+    const SLOWDOWN: u64 = if cfg!(coverage) { 10 } else { 1 };
+    std::time::Duration::from_secs(seconds * SLOWDOWN)
+}
+
+#[test]
+fn wait_limit_is_longer_only_in_a_coverage_build() {
+    let expected = if cfg!(coverage) { 1200 } else { 120 };
+    assert_eq!(wait_limit(120), std::time::Duration::from_secs(expected));
+}
+
 /// A project with the corpus cube centred on the rotary axis, the example
 /// machine, an oak cylinder of stock, a 4 mm ball tool and one helical
 /// finishing operation (Face free ends off), with the LinuxCNC post chosen.

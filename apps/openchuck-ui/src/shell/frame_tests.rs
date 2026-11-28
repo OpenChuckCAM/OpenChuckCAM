@@ -81,7 +81,7 @@ impl Rig {
     /// job is done the dock draws only the transport row, so a test that
     /// read the rows under it straight after a run raced the job (OI-840).
     pub(super) fn settle(&mut self) {
-        let deadline = Instant::now() + Duration::from_secs(120);
+        let deadline = Instant::now() + crate::testing::wait_limit(120);
         loop {
             self.frame(Vec::new());
             let s = &self.shell;
@@ -416,7 +416,7 @@ fn req_ui_10_req_ui_11_the_steps_marks_and_primary_follow_the_project() {
     // The primary action generates; then the steps open.
     rig.shell.primary();
     rig.settle();
-    let deadline = Instant::now() + Duration::from_secs(60);
+    let deadline = Instant::now() + crate::testing::wait_limit(60);
     while !rig.shell.overview.stale.is_empty() {
         assert!(Instant::now() < deadline, "timed out");
         rig.settle();
@@ -706,7 +706,7 @@ fn two_stale(name: &str) -> (Rig, openchuck_app::project::id::OperationId) {
 
 /// Settles `rig` until `stale` operations are left stale.
 fn until_stale(rig: &mut Rig, stale: usize) {
-    let deadline = Instant::now() + Duration::from_secs(60);
+    let deadline = Instant::now() + crate::testing::wait_limit(60);
     while rig.shell.overview.stale.len() != stale {
         assert!(Instant::now() < deadline, "timed out");
         rig.settle();
@@ -1110,7 +1110,7 @@ fn req_imp_03_req_imp_04_req_imp_05_the_model_inspector_shows_its_sections() {
     rig.size = egui::vec2(1440.0, 2400.0);
     let model = rig.shell.app.as_ref().unwrap().project().models()[0].id;
     rig.shell.select(Selection::Model(model));
-    let deadline = Instant::now() + Duration::from_secs(60);
+    let deadline = Instant::now() + crate::testing::wait_limit(60);
     loop {
         rig.frame(Vec::new());
         if rig.shows("Triangles") {
@@ -1154,7 +1154,7 @@ fn req_ui_14_shift_g_on_a_turned_off_operation_is_refused_not_a_full_run() {
     rig.shell.select(Selection::Operation(first));
     rig.frame(Vec::new());
     rig.press(Key::G, Modifiers::SHIFT);
-    let deadline = Instant::now() + Duration::from_secs(60);
+    let deadline = Instant::now() + crate::testing::wait_limit(60);
     while rig.shell.run.is_running() {
         assert!(Instant::now() < deadline, "timed out");
         rig.settle();
@@ -1178,7 +1178,7 @@ fn req_ui_25_the_draft_and_the_selected_solid_reach_the_view() {
     let setup = rig.shell.app.as_ref().unwrap().project().setups()[0].id;
     rig.shell.choose_setup(setup, Some(SetupPart::Workholding));
     // The part-extent job places the solids.
-    let deadline = Instant::now() + Duration::from_secs(60);
+    let deadline = Instant::now() + crate::testing::wait_limit(60);
     while rig
         .shell
         .workholding_panel
@@ -1269,7 +1269,7 @@ fn req_ui_11_req_nfr_12_an_apply_that_finishes_after_the_section_is_left_is_stor
     };
     assert!(!not_applied(&rig));
     rig.shell.choose_setup(setup, Some(SetupPart::Workholding));
-    let deadline = Instant::now() + Duration::from_secs(60);
+    let deadline = Instant::now() + crate::testing::wait_limit(60);
     while rig
         .shell
         .workholding_panel
@@ -1324,7 +1324,7 @@ fn req_ui_11_req_nfr_12_an_apply_that_finishes_after_the_section_is_left_is_stor
             .tabs
             .clone()
     };
-    let deadline = Instant::now() + Duration::from_secs(60);
+    let deadline = Instant::now() + crate::testing::wait_limit(60);
     while stored_tabs(&rig) != tabs {
         assert!(
             Instant::now() < deadline,
@@ -1351,7 +1351,7 @@ fn generated_with_workholding_open(name: &str) -> (Rig, SetupId, OperationId) {
     rig.shell.app.as_ref().unwrap().regenerate().unwrap();
     rig.shell.overview_dirty = true;
     rig.shell.choose_setup(setup, Some(SetupPart::Workholding));
-    let deadline = Instant::now() + Duration::from_secs(60);
+    let deadline = Instant::now() + crate::testing::wait_limit(60);
     while rig
         .shell
         .workholding_panel
@@ -1488,7 +1488,7 @@ fn req_ui_08_req_ui_11_req_nfr_12_ctrl_enter_applies_the_draft_and_makes_the_ope
         key(false),
     ]);
     rig.frame(vec![Event::ModifiersChanged(Modifiers::NONE)]);
-    let deadline = Instant::now() + Duration::from_secs(60);
+    let deadline = Instant::now() + crate::testing::wait_limit(60);
     while stored_tabs(&rig, setup) != tabs {
         assert!(
             Instant::now() < deadline,
@@ -1529,7 +1529,7 @@ fn req_op_21_req_ui_11_req_nfr_12_a_refused_apply_stores_nothing_and_says_the_dr
             .press_apply(app, &stored);
     }
     rig.shell.select(Selection::Operation(op));
-    let deadline = Instant::now() + Duration::from_secs(60);
+    let deadline = Instant::now() + crate::testing::wait_limit(60);
     while rig.shell.workholding_panel.as_ref().unwrap().is_checking() {
         assert!(Instant::now() < deadline, "the check did not finish");
         rig.frame(Vec::new());
@@ -1974,7 +1974,7 @@ fn req_nfr_12_req_ui_06_undoing_a_turn_off_brings_the_path_back() {
     let op = rig.shell.app.as_ref().unwrap().project().operations()[0].id;
     rig.shell.primary();
     rig.settle();
-    let deadline = Instant::now() + Duration::from_secs(120);
+    let deadline = Instant::now() + crate::testing::wait_limit(120);
     let drawn = |rig: &Rig| {
         rig.shell
             .viewport

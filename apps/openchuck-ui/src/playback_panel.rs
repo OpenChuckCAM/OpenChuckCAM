@@ -2161,14 +2161,14 @@ mod tests {
             if let Some((r, _)) = run.poll(&openchuck_app::JobLog::default(), &ctx) {
                 break r;
             }
-            assert!(started.elapsed() < Duration::from_secs(120));
+            assert!(started.elapsed() < crate::testing::wait_limit(120));
             std::thread::sleep(Duration::from_millis(5));
         };
         let mut panel = PlaybackPanel::default();
         let mut viewport = Viewport::new(true);
         panel.set_run(&app, finished);
         while panel.frame(&app, &mut viewport, 0.0) {
-            assert!(started.elapsed() < Duration::from_secs(120));
+            assert!(started.elapsed() < crate::testing::wait_limit(120));
             std::thread::sleep(Duration::from_millis(5));
         }
         (app, panel, viewport, dir)
@@ -2199,7 +2199,7 @@ mod tests {
         let started = Instant::now();
         while panel.lines_job.is_some() || panel.lines_dirty {
             panel.frame(app, viewport, 0.0);
-            assert!(started.elapsed() < Duration::from_secs(120));
+            assert!(started.elapsed() < crate::testing::wait_limit(120));
             std::thread::sleep(Duration::from_millis(5));
         }
     }
@@ -2402,7 +2402,7 @@ mod tests {
         viewport.set_step(Some(crate::viewport::ViewStep::Simulate));
         let data = panel.data.clone().unwrap();
         // Allow coverage instrumentation overhead without changing the work performed.
-        let deadline = Instant::now() + Duration::from_secs(600);
+        let deadline = Instant::now() + crate::testing::wait_limit(600);
         for case in 0..4 {
             panel.bands_on = case >= 2;
             assert!(openchuck_app::run_is_current(
@@ -2522,7 +2522,7 @@ mod tests {
         panel.playback.seek(&data.timeline, 0.6);
         let started = Instant::now();
         while panel.frame(&app, &mut viewport, 0.0) {
-            assert!(started.elapsed() < Duration::from_secs(120));
+            assert!(started.elapsed() < crate::testing::wait_limit(120));
             std::thread::sleep(Duration::from_millis(5));
         }
         let stock = viewport
@@ -2546,7 +2546,7 @@ mod tests {
         assert!(panel.bands.is_none());
         viewport.set_simulate_show(SimulateShow::default());
         while panel.frame(&app, &mut viewport, 0.0) {
-            assert!(started.elapsed() < Duration::from_secs(120));
+            assert!(started.elapsed() < crate::testing::wait_limit(120));
             std::thread::sleep(Duration::from_millis(5));
         }
         assert!(panel.bands.is_some());
@@ -2571,7 +2571,7 @@ mod tests {
         // Play until a frame made while playing is shown (the next one is
         // asked for at once, so a job is always running).
         while panel.stock.surface.is_none() {
-            assert!(started.elapsed() < Duration::from_secs(120));
+            assert!(started.elapsed() < crate::testing::wait_limit(120));
             panel.frame(&app, &mut viewport, 0.001);
             std::thread::sleep(Duration::from_millis(5));
         }
@@ -2587,7 +2587,7 @@ mod tests {
         // Pause: the frame at the cursor is made again with its picker.
         panel.playback.pause();
         while panel.frame(&app, &mut viewport, 0.0) {
-            assert!(started.elapsed() < Duration::from_secs(120));
+            assert!(started.elapsed() < crate::testing::wait_limit(120));
             std::thread::sleep(Duration::from_millis(5));
         }
         let cursor = panel.playback.cursor();
@@ -2621,7 +2621,7 @@ mod tests {
         panel.playback.seek(&data.timeline, 0.2);
         let started = Instant::now();
         while panel.stock.shown.is_none() {
-            assert!(started.elapsed() < Duration::from_secs(120));
+            assert!(started.elapsed() < crate::testing::wait_limit(120));
             panel.frame(&app, &mut viewport, 0.0);
             std::thread::sleep(Duration::from_millis(5));
         }
@@ -2670,7 +2670,7 @@ mod tests {
         let paused = panel.playback.cursor();
         release.send(()).unwrap();
         while panel.frame(&app, &mut viewport, 0.0) {
-            assert!(started.elapsed() < Duration::from_secs(120));
+            assert!(started.elapsed() < crate::testing::wait_limit(120));
             assert_eq!(
                 viewport.tool_readout.as_ref().unwrap().move_number,
                 paused.done + 1
@@ -2729,7 +2729,7 @@ mod tests {
         let data = panel.data.clone().unwrap();
         let started = Instant::now();
         while panel.frame(&app, &mut viewport, 0.0) {
-            assert!(started.elapsed() < Duration::from_secs(120));
+            assert!(started.elapsed() < crate::testing::wait_limit(120));
             std::thread::sleep(Duration::from_millis(5));
         }
         let shown = panel.stock.shown.unwrap();
@@ -2756,7 +2756,7 @@ mod tests {
         assert_eq!(viewport.tool_readout.as_ref().unwrap().work, old_pose.work);
         release.send(()).unwrap();
         while panel.frame(&app, &mut viewport, 0.0) {
-            assert!(started.elapsed() < Duration::from_secs(120));
+            assert!(started.elapsed() < crate::testing::wait_limit(120));
             std::thread::sleep(Duration::from_millis(5));
         }
         assert_eq!(panel.stock.shown, Some(target));
@@ -2826,7 +2826,7 @@ mod tests {
         assert!(bar.preparing.is_some() || bar.loading.is_some());
         assert!(bar.text().unwrap().contains("cut part"));
         release.send(()).unwrap();
-        let deadline = Instant::now() + Duration::from_secs(120);
+        let deadline = Instant::now() + crate::testing::wait_limit(120);
         while panel.stock.error.is_none() {
             panel.frame(&app, &mut viewport, 0.0);
             assert!(Instant::now() < deadline);
@@ -2911,7 +2911,7 @@ mod tests {
         panel.bands_on = true;
         let started = Instant::now();
         while panel.frame(&app, &mut viewport, 0.0) {
-            assert!(started.elapsed() < Duration::from_secs(120));
+            assert!(started.elapsed() < crate::testing::wait_limit(120));
             std::thread::sleep(Duration::from_millis(5));
         }
         let all = viewport.bands().unwrap().bands.len();
@@ -2947,7 +2947,7 @@ mod tests {
         let started = Instant::now();
         panel.bands_on = true;
         while panel.frame(&app, &mut viewport, 0.0) {
-            assert!(started.elapsed() < Duration::from_secs(120));
+            assert!(started.elapsed() < crate::testing::wait_limit(120));
             std::thread::sleep(Duration::from_millis(5));
         }
         assert!(panel.bands.is_some() && panel.bands_setup.is_some());
@@ -3329,7 +3329,7 @@ mod tests {
     fn settle_panel(app: &Application, panel: &mut PlaybackPanel, viewport: &mut Viewport) {
         let started = Instant::now();
         while panel.frame(app, viewport, 0.0) {
-            assert!(started.elapsed() < Duration::from_secs(120));
+            assert!(started.elapsed() < crate::testing::wait_limit(120));
             std::thread::sleep(Duration::from_millis(5));
         }
     }

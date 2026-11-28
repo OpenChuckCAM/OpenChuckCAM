@@ -1014,7 +1014,7 @@ mod tests {
         // The install adopts the writer, and its failure is the error.
         rig.shell.recovery.attach(&folder, 0, 3);
         rig.shell.recovery.finish_install();
-        let deadline = Instant::now() + Duration::from_secs(60);
+        let deadline = Instant::now() + crate::testing::wait_limit(60);
         while rig.shell.recovery.write_failed.is_none() {
             rig.frame(Vec::new());
             assert!(
@@ -1059,7 +1059,7 @@ mod tests {
                 .unwrap();
         }
         rig.settle();
-        let deadline = Instant::now() + Duration::from_secs(60);
+        let deadline = Instant::now() + crate::testing::wait_limit(60);
         while rig
             .shell
             .recovery
@@ -1156,7 +1156,7 @@ mod tests {
     fn req_prj_08_reopening_the_same_project_starts_a_new_revision_namespace() {
         let mut rig = ready_project("checkpoint-reopen");
         click(&mut rig, "Keep saved project");
-        let deadline = Instant::now() + Duration::from_secs(60);
+        let deadline = Instant::now() + crate::testing::wait_limit(60);
         while rig
             .shell
             .recovery
@@ -1224,7 +1224,7 @@ mod tests {
         // Reopening drops the old session and starts the new one only after a
         // background read of the folder lands on a later frame, so wait for
         // that state (its own deadline: a loaded runner is slow here).
-        let reopen_deadline = Instant::now() + Duration::from_secs(60);
+        let reopen_deadline = Instant::now() + crate::testing::wait_limit(60);
         while rig
             .shell
             .recovery
@@ -1258,7 +1258,7 @@ mod tests {
                 true,
             );
         }
-        let publish_deadline = Instant::now() + Duration::from_secs(60);
+        let publish_deadline = Instant::now() + crate::testing::wait_limit(60);
         loop {
             rig.frame(Vec::new());
             let catalog = Catalog::read(&folder).unwrap();

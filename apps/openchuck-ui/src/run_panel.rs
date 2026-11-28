@@ -2132,7 +2132,7 @@ mod tests {
                     "{delay:?}"
                 );
             }
-            assert!(started.elapsed() < Duration::from_secs(120));
+            assert!(started.elapsed() < crate::testing::wait_limit(120));
             std::thread::sleep(Duration::from_millis(1));
         }
         assert!(running_passes > 0);
@@ -2158,7 +2158,7 @@ mod tests {
             let started = Instant::now();
             while panel.is_running() {
                 panel.poll(&JobLog::default(), &ctx);
-                assert!(started.elapsed() < Duration::from_secs(120));
+                assert!(started.elapsed() < crate::testing::wait_limit(120));
                 std::thread::sleep(Duration::from_millis(5));
             }
         };

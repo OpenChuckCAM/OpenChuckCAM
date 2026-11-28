@@ -25,7 +25,7 @@ const DEPTH: wgpu::TextureFormat = wgpu::TextureFormat::Depth32Float;
 
 fn surface_fixture(name: &str) -> (Rig, Arc<openchuck_app::stockplay::StockSurface>) {
     let mut rig = simulated(name);
-    let deadline = Instant::now() + Duration::from_secs(120);
+    let deadline = Instant::now() + crate::testing::wait_limit(120);
     while rig.shell.viewport.stock_surface().is_none() {
         rig.frame(Vec::new());
         assert!(Instant::now() < deadline);

@@ -222,7 +222,7 @@ fn req_ui_23_a_gone_recent_folder_is_forgotten_from_the_card() {
     // The check runs off the UI thread; it may have run before the folder
     // went, so let it be due again.
     rig.shell.recent_checked_at = None;
-    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
+    let deadline = std::time::Instant::now() + crate::testing::wait_limit(10);
     while rig.shell.settings.recent.len() != 1 {
         assert!(
             std::time::Instant::now() < deadline,

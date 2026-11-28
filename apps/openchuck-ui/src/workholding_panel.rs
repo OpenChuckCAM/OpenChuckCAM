@@ -1894,7 +1894,7 @@ mod tests {
         app: &Application,
         setup: &Setup,
     ) -> String {
-        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(60);
+        let deadline = std::time::Instant::now() + crate::testing::wait_limit(60);
         loop {
             let text = painted(panel, ctx, app, setup);
             if !matches!(panel.facts, Facts::Running { .. } | Facts::None) {
