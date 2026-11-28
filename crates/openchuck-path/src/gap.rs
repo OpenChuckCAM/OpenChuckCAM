@@ -122,6 +122,35 @@ thread_local! {
         std::cell::Cell::new(std::env::var_os("OPENCHUCK_SE2_OLD").is_some());
 }
 
+/// SE2-SWITCH: with `OPENCHUCK_SE2_STATS` set, counts and times kind `k`
+/// (0: recheck, 1: ascent) and prints the totals to stderr every 1,000 of
+/// a kind. Temporary, for lane SE-PERF; removed before the pull request.
+#[allow(clippy::print_stderr)]
+pub(crate) fn se2_stat(k: usize, since: std::time::Instant) {
+    use std::sync::atomic::{AtomicU64, Ordering::Relaxed};
+    static ON: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+    static COUNT: [AtomicU64; 2] = [const { AtomicU64::new(0) }; 2];
+    static NANOS: [AtomicU64; 2] = [const { AtomicU64::new(0) }; 2];
+    if !*ON.get_or_init(|| std::env::var_os("OPENCHUCK_SE2_STATS").is_some()) {
+        return;
+    }
+    let (Some(c), Some(t)) = (COUNT.get(k), NANOS.get(k)) else {
+        return;
+    };
+    let n = c.fetch_add(1, Relaxed) + 1;
+    t.fetch_add(
+        u64::try_from(since.elapsed().as_nanos()).unwrap_or(u64::MAX),
+        Relaxed,
+    );
+    if n % 1000 == 0 {
+        let name = ["recheck", "ascent"].get(k).copied().unwrap_or("?");
+        eprintln!(
+            "SE2STAT {name} {n} total {:.3} s",
+            t.load(Relaxed) as f64 * 1e-9
+        );
+    }
+}
+
 /// SE2-SWITCH: whether this thread answers by the old rule.
 pub(crate) fn old_rule() -> bool {
     OLD_RULE.with(std::cell::Cell::get)
@@ -2627,12 +2656,14 @@ impl Search<'_, '_> {
                 && band.most() > 0.0
                 && bound.max(-self.limit) - e < -self.inside
             {
+                let since = std::time::Instant::now();
                 let raised = if self.body.beside(&clipped, 0.0, 0.0) {
                     f64::INFINITY
                 } else {
                     let start = self.body.multipliers(&clipped, 0.0, false);
                     self.body.ascend(&clipped, start)
                 };
+                se2_stat(1, since);
                 bound = clipped_lower.max(raised).min(0.0).max(open_lower);
             }
         }

@@ -3327,17 +3327,30 @@ impl SurfaceSource for BrepSurface {
         // band is within [`RECHECK_BAND`] (the project owner's answer of 27
         // Nov 2026, Q-B): the answer is as sound as the first, its bands
         // measured the same way, and tighter.
-        let fails = query.accept.is_some_and(|a| a.is_finite() && g.lower < a);
+        // Only a failure the triangles' error could explain: the band takes
+        // at most the error off the bound and at most the error off each
+        // clip's threshold, so a pose further short than twice the error is
+        // short for another reason and refining cannot pass it (lane
+        // SE-PERF measured the cost of rechecking every failure). A query
+        // given a piece budget is a first look that a fuller one follows,
+        // and is not rechecked either.
+        let fails = query.accept.is_some_and(|a| {
+            a.is_finite() && g.lower < a && g.lower >= a - 2.0 * largest - crate::gap::GAP_ACCURACY
+        });
         let single = query.sweep.length() <= 0.0 && query.rotation.is_none();
         if fails
             && !crate::gap::old_rule()
+            && query.pieces.is_none()
             && single
             && query.skip_walls_thinner_than.is_none()
             && largest > 0.5 * RECHECK_BAND
-            && let Some(better) =
-                self.recheck(profile, line, query, surface, bands, &faces, largest)
         {
-            return Some(better);
+            let since = std::time::Instant::now();
+            let better = self.recheck(profile, line, query, surface, bands, &faces, largest);
+            crate::gap::se2_stat(0, since);
+            if let Some(better) = better {
+                return Some(better);
+            }
         }
         Some(g)
     }
