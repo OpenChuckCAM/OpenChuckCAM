@@ -123,8 +123,8 @@ thread_local! {
 }
 
 /// SE2-SWITCH: with `OPENCHUCK_SE2_STATS` set, counts and times kind `k`
-/// (0: recheck, 1: ascent) and prints the totals to stderr every 1,000 of
-/// a kind. Temporary, for lane SE-PERF; removed before the pull request.
+/// (0: recheck, 1: ascent) and prints the totals to stderr every 10
+/// rechecks and every 1,000 ascents. Temporary, for lane SE-PERF; removed before the pull request.
 #[allow(clippy::print_stderr)]
 pub(crate) fn se2_stat(k: usize, since: std::time::Instant) {
     use std::sync::atomic::{AtomicU64, Ordering::Relaxed};
@@ -142,13 +142,42 @@ pub(crate) fn se2_stat(k: usize, since: std::time::Instant) {
         u64::try_from(since.elapsed().as_nanos()).unwrap_or(u64::MAX),
         Relaxed,
     );
-    if n % 1000 == 0 {
+    if n % [10, 1000].get(k).copied().unwrap_or(1000) == 0 {
         let name = ["recheck", "ascent"].get(k).copied().unwrap_or("?");
         eprintln!(
             "SE2STAT {name} {n} total {:.3} s",
             t.load(Relaxed) as f64 * 1e-9
         );
     }
+}
+
+thread_local! {
+    /// The triangles a search on this thread left short of its acceptance,
+    /// collected while [`collect_short`] runs.
+    static SHORT: std::cell::RefCell<Option<Vec<u32>>> = const { std::cell::RefCell::new(None) };
+}
+
+/// Runs `f`, returning its answer and the triangles each search in it left
+/// with a piece short of the search's acceptance (in index order, each
+/// once): the triangles whose bounds decide a failed answer, which the
+/// STEP surface's recheck refines (lane SE-PERF measured refining every
+/// triangle near the tool as too slow).
+pub(crate) fn collect_short<T>(f: impl FnOnce() -> T) -> (T, Vec<u32>) {
+    let before = SHORT.with(|s| s.replace(Some(Vec::new())));
+    let out = f();
+    let mut short = SHORT.with(|s| s.replace(before)).unwrap_or_default();
+    short.sort_unstable();
+    short.dedup();
+    (out, short)
+}
+
+/// Records triangle `t` as short, when a [`collect_short`] is running.
+fn note_short(t: u32) {
+    SHORT.with(|s| {
+        if let Some(list) = s.borrow_mut().as_mut() {
+            list.push(t);
+        }
+    });
 }
 
 /// SE2-SWITCH: whether this thread answers by the old rule.
@@ -2263,6 +2292,9 @@ pub(crate) fn search(
             break found;
         };
         if piece.lower >= found - GAP_ACCURACY || piece.lower >= accept || piece.lower > limit {
+            if piece.lower < accept {
+                note_short(piece.triangle);
+            }
             if state.best.is_none() && piece.lower <= limit {
                 state.measure(piece);
             }
@@ -2295,6 +2327,9 @@ pub(crate) fn search(
                 travel >= len
             };
         if (len < MIN_PIECE && !split_move) || pieces >= cap {
+            if piece.lower < accept {
+                note_short(piece.triangle);
+            }
             break piece.lower.min(found);
         }
         pieces += 2;
@@ -2332,6 +2367,11 @@ pub(crate) fn search(
             );
         }
     };
+    // The pieces left short of the acceptance, for the STEP surface's
+    // recheck (see [`collect_short`]).
+    for piece in state.queue.iter().filter(|p| p.lower < accept) {
+        note_short(piece.triangle);
+    }
     // The best was kept less how far its triangle's surface may lie outside
     // it, as the bounds are; the exact surface's value there is at most the
     // triangle's plus how far it may lie inside.

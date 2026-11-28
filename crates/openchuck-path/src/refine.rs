@@ -76,15 +76,30 @@ pub(crate) fn refine(
     target: f64,
     fallback: f64,
 ) -> Refined {
+    refine_only(faces, mesh, face_of, bands, target, fallback, &|_| true)
+}
+
+/// As [`refine`], refining only the triangles `wanted` picks (by index in
+/// `mesh`) and the triangles split from them; others are split only where
+/// a wanted one's split reaches them, to keep the mesh conforming.
+pub(crate) fn refine_only(
+    faces: &[ExactFace],
+    mesh: &TriangleMesh,
+    face_of: &[FaceId],
+    bands: &[Band],
+    target: f64,
+    fallback: f64,
+    wanted: &dyn Fn(usize) -> bool,
+) -> Refined {
     let index: BTreeMap<u32, usize> = faces
         .iter()
         .enumerate()
         .map(|(i, f)| (f.number(), i))
         .collect();
-    let mut work = Work::new(mesh, face_of, bands, &index);
+    let mut work = Work::new(mesh, face_of, bands, &index, wanted);
     for _ in 0..MAX_ROUNDS {
         let todo: Vec<usize> = (0..work.tri.len())
-            .filter(|&t| work.error(t) > target)
+            .filter(|&t| work.wanted(t) && work.error(t) > target)
             .collect();
         if todo.is_empty() {
             break;
@@ -115,6 +130,8 @@ struct Work<'a> {
     err: Vec<f64>,
     /// How far each triangle's face lies outside and inside it.
     band: Vec<Band>,
+    /// Whether each triangle is to be refined.
+    want: Vec<bool>,
     /// The triangles on each side, by its two vertices in order.
     sides: BTreeMap<(u32, u32), Vec<usize>>,
     index: &'a BTreeMap<u32, usize>,
@@ -132,6 +149,7 @@ impl<'a> Work<'a> {
         face_of: &[FaceId],
         bands: &[Band],
         index: &'a BTreeMap<u32, usize>,
+        wanted: &dyn Fn(usize) -> bool,
     ) -> Self {
         // Merge the vertices the faces repeat at their boundaries.
         let mut seen: BTreeMap<[u64; 3], u32> = BTreeMap::new();
@@ -155,6 +173,7 @@ impl<'a> Work<'a> {
             face: Vec::new(),
             err: Vec::new(),
             band: Vec::new(),
+            want: Vec::new(),
             sides: BTreeMap::new(),
             index,
         };
@@ -168,7 +187,10 @@ impl<'a> Work<'a> {
             }
             let face = face_of.get(i).and_then(|f| index.get(&f.0)).copied();
             let band = bands.get(i).copied();
-            work.add([a, b, c], face, band);
+            let id = work.add([a, b, c], face, band);
+            if let Some(slot) = work.want.get_mut(id) {
+                *slot = wanted(i);
+            }
         }
         work
     }
@@ -179,6 +201,10 @@ impl<'a> Work<'a> {
 
     fn point(&self, v: u32) -> Option<Point3> {
         self.pos.get(v as usize).copied()
+    }
+
+    fn wanted(&self, t: usize) -> bool {
+        self.want.get(t).copied().unwrap_or(false)
     }
 
     fn error(&self, t: usize) -> f64 {
@@ -192,6 +218,7 @@ impl<'a> Work<'a> {
         self.face.push(face);
         self.err.push(band.map_or(f64::NAN, Band::most));
         self.band.push(band.unwrap_or_default());
+        self.want.push(true);
         for (a, b) in sides_of(t) {
             self.sides.entry(Self::key(a, b)).or_default().push(id);
         }
@@ -331,8 +358,12 @@ impl<'a> Work<'a> {
                 continue;
             };
             let face = self.face.get(t).copied().flatten();
+            let want = self.wanted(t);
             self.replace(t, [p, m, r]);
-            self.add([m, q, r], face, None);
+            let id = self.add([m, q, r], face, None);
+            if let Some(slot) = self.want.get_mut(id) {
+                *slot = want;
+            }
         }
     }
 
@@ -484,6 +515,53 @@ mod tests {
                 "triangle {i} turned over"
             );
         }
+    }
+
+    #[test]
+    fn req_op_12_refining_chosen_triangles_leaves_the_rest_as_they_were() {
+        // The recheck of a failed pose refines only the triangles that
+        // decide it: the chosen one comes within the target, and only
+        // triangles its splits reach to keep the mesh conforming are split.
+        let model = openchuck_testkit::brep::shouldered_shaft(4);
+        let (faces, mesh, face_of, bands) = setup(&model);
+        let target = 0.0005;
+        let chosen = (0..mesh.triangles.len())
+            .find(|&i| bands[i].most() > 4.0 * target)
+            .expect("a triangle to refine");
+        let all = refine(&faces, &mesh, &face_of, &bands, target, 0.0);
+        let some = refine_only(&faces, &mesh, &face_of, &bands, target, 0.0, &|i| {
+            i == chosen
+        });
+        assert!(some.mesh.triangles.len() > mesh.triangles.len());
+        assert!(
+            some.mesh.triangles.len() * 4 < all.mesh.triangles.len(),
+            "{} of {}",
+            some.mesh.triangles.len(),
+            all.mesh.triangles.len()
+        );
+        // Every triangle lying inside the chosen one is within the target.
+        let t = mesh.triangle(chosen).unwrap();
+        let n = (t[1] - t[0]).cross(t[2] - t[0]);
+        let inside = |p: Point3| {
+            [(t[0], t[1]), (t[1], t[2]), (t[2], t[0])]
+                .iter()
+                .all(|&(a, b)| (b - a).cross(p - a).dot(n) >= -1e-9)
+        };
+        let mut seen = 0;
+        for (i, tri) in some.mesh.triangles.iter().enumerate() {
+            let c = tri.map(|v| some.mesh.vertices[v as usize]);
+            let centre = Point3::new(
+                (c[0].x + c[1].x + c[2].x) / 3.0,
+                (c[0].y + c[1].y + c[2].y) / 3.0,
+                (c[0].z + c[1].z + c[2].z) / 3.0,
+            );
+            let off = (centre - t[0]).dot(n) / n.length();
+            if off.abs() < 4.0 * bands[chosen].most() && inside(centre + n * (-off / n.length())) {
+                seen += 1;
+                assert!(some.bands[i].most() <= target, "{:?}", some.bands[i]);
+            }
+        }
+        assert!(seen > 1, "the chosen triangle was split");
     }
 
     #[test]

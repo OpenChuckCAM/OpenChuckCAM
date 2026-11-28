@@ -823,6 +823,14 @@ pub(crate) const RECHECK_BAND: f64 = 1e-4;
 /// time and memory); a pose with more keeps its first answer.
 pub(crate) const RECHECK_TRIANGLES: usize = 2_000;
 
+/// The most rounds of a failed pose's recheck, each refining the triangles
+/// the last left short.
+pub(crate) const RECHECK_ROUNDS: usize = 4;
+
+/// The most triangles a recheck's patch may grow to; past it the pose keeps
+/// the last round's answer (NFR-07: a guard on time and memory).
+pub(crate) const RECHECK_PATCH: usize = 20_000;
+
 /// Steps along each side of a triangle between the points its error is
 /// sampled at.
 const SAMPLE_STEPS: u32 = 6;
@@ -2686,26 +2694,65 @@ impl BrepSurface {
                     .unwrap_or(crate::gap::Band::even(self.deflection)),
             );
         }
-        // The wider side at most half the band, so both sides together are
-        // within it.
-        let r = crate::refine::refine(
-            &self.faces,
-            &patch,
-            &face_of,
-            &patch_bands,
-            0.5 * RECHECK_BAND,
-            self.deflection,
-        );
-        let fine = MeshSurface::new(&r.mesh).ok()?;
+        // Rounds: ask the patch, then refine only the triangles it left short
+        // whose band is wider than RECHECK_BAND (the wider side to at most
+        // half of it, so both sides together are within it), until the pose
+        // passes, no such triangle is left, or the patch grows past
+        // RECHECK_PATCH triangles. Refining only the triangles that decide
+        // the answer keeps the patch small (lane SE-PERF measured refining
+        // all of them as far too slow).
         let even = crate::gap::Band::even(self.deflection);
-        fine.tool_gap_with(
-            profile,
-            line,
-            query,
-            &|i| r.bands.get(i as usize).copied().unwrap_or(even),
-            r.largest,
-            &|i| r.faces.get(i as usize).map(|f| f.0),
-        )
+        let accept = query.accept.unwrap_or(f64::NEG_INFINITY);
+        let (mut mesh, mut face_of, mut bands) = (patch, face_of, patch_bands);
+        let mut answer = None;
+        for _ in 0..RECHECK_ROUNDS {
+            let fine = MeshSurface::new(&mesh).ok()?;
+            let largest = bands.iter().map(|b| b.most()).fold(0.0, f64::max);
+            let (g, short) = crate::gap::collect_short(|| {
+                fine.tool_gap_with(
+                    profile,
+                    line,
+                    query,
+                    &|i| bands.get(i as usize).copied().unwrap_or(even),
+                    largest,
+                    &|i| face_of.get(i as usize).map(|f| f.0),
+                )
+            });
+            let Some(g) = g else {
+                break;
+            };
+            answer = Some(g);
+            if g.lower >= accept {
+                break;
+            }
+            let wide = |i: usize| {
+                bands
+                    .get(i)
+                    .is_some_and(|b| b.above + b.below > RECHECK_BAND)
+            };
+            let wanted: std::collections::BTreeSet<usize> = short
+                .iter()
+                .map(|&t| t as usize)
+                .filter(|&t| wide(t))
+                .collect();
+            if wanted.is_empty() {
+                break;
+            }
+            let r = crate::refine::refine_only(
+                &self.faces,
+                &mesh,
+                &face_of,
+                &bands,
+                0.5 * RECHECK_BAND,
+                self.deflection,
+                &|i| wanted.contains(&i),
+            );
+            if r.mesh.triangles.len() > RECHECK_PATCH {
+                break;
+            }
+            (mesh, face_of, bands) = (r.mesh, r.faces, r.bands);
+        }
+        answer
     }
 
     /// The tessellation refined until each triangle is within `target` of
