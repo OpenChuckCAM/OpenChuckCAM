@@ -777,6 +777,17 @@ const TOL: f64 = 1e-12;
 /// as close as [`SAMPLE_STEPS`] puts them.
 pub(crate) const SAMPLED_SAFETY: f64 = 2.0;
 
+/// How wide, mm, a failed pose's triangles are refined to be off their
+/// faces (both ways together) before it is checked again: the band within
+/// which a cut is left out because of the tessellation, not of the cut (the
+/// project owner's answer of 27 Nov 2026, Q-B; the figure proposed to him,
+/// 0.0001 mm, the search's own accuracy).
+pub(crate) const RECHECK_BAND: f64 = 1e-4;
+
+/// The most triangles a failed pose's recheck refines (NFR-07: a guard on
+/// time and memory); a pose with more keeps its first answer.
+pub(crate) const RECHECK_TRIANGLES: usize = 2_000;
+
 /// Steps along each side of a triangle between the points its error is
 /// sampled at.
 const SAMPLE_STEPS: u32 = 6;
@@ -2585,6 +2596,82 @@ impl BrepSurface {
         })
     }
 
+    /// The gap of `profile` at `line` on the triangles of `surface` the tool
+    /// may count (each with its band and face), refined against their exact
+    /// faces until each band is within [`RECHECK_BAND`]; `None` when there
+    /// are more than [`RECHECK_TRIANGLES`] of them or the refined patch
+    /// cannot be indexed. Leaving out the triangles beyond the patch leaves
+    /// out only their clips on its edge, which counts more, never less.
+    #[allow(clippy::too_many_arguments)]
+    fn recheck(
+        &self,
+        profile: &RevolvedProfile,
+        line: &ToolLine,
+        query: &crate::gap::GapQuery,
+        surface: &MeshSurface,
+        bands: &[crate::gap::Band],
+        faces: &[FaceId],
+        largest: f64,
+    ) -> Option<crate::gap::ToolGap> {
+        let near = surface.tool_gap_triangles(profile, line, query, largest);
+        if near.is_empty() || near.len() > RECHECK_TRIANGLES {
+            return None;
+        }
+        let mesh = surface.tessellation();
+        let mut index: std::collections::BTreeMap<u32, u32> = std::collections::BTreeMap::new();
+        let mut patch = TriangleMesh {
+            vertices: Vec::new(),
+            triangles: Vec::new(),
+        };
+        let (mut face_of, mut patch_bands) = (Vec::new(), Vec::new());
+        for &i in &near {
+            let Some(t) = mesh.triangles.get(i as usize) else {
+                continue;
+            };
+            let mut corners = [0_u32; 3];
+            for (slot, v) in corners.iter_mut().zip(t) {
+                let next = u32::try_from(patch.vertices.len()).ok()?;
+                *slot = *index.entry(*v).or_insert_with(|| {
+                    patch.vertices.push(
+                        mesh.vertices
+                            .get(*v as usize)
+                            .copied()
+                            .unwrap_or(Point3::ORIGIN),
+                    );
+                    next
+                });
+            }
+            patch.triangles.push(corners);
+            face_of.push(faces.get(i as usize).copied().unwrap_or(FaceId(u32::MAX)));
+            patch_bands.push(
+                bands
+                    .get(i as usize)
+                    .copied()
+                    .unwrap_or(crate::gap::Band::even(self.deflection)),
+            );
+        }
+        // The wider side at most half the band, so both sides together are
+        // within it.
+        let r = crate::refine::refine(
+            &self.faces,
+            &patch,
+            &face_of,
+            &patch_bands,
+            0.5 * RECHECK_BAND,
+            self.deflection,
+        );
+        let fine = MeshSurface::new(&r.mesh).ok()?;
+        let even = crate::gap::Band::even(self.deflection);
+        fine.tool_gap_with(
+            profile,
+            line,
+            query,
+            &|i| r.bands.get(i as usize).copied().unwrap_or(even),
+            r.largest,
+            &|i| r.faces.get(i as usize).map(|f| f.0),
+        )
+    }
+
     /// The tessellation refined until each triangle is within `target` of
     /// its face ([`crate::refine`]), built once per target and kept; `None`
     /// when the refined mesh cannot be indexed.
@@ -3173,38 +3260,49 @@ impl SurfaceSource for BrepSurface {
         // triangle may be from its face (OI-9974, the owner's answer of 26
         // Nov 2026): a tessellation further than that is refined first.
         let target = 0.25 * query.limit;
-        if target.is_finite()
-            && target > 0.0
-            && self.largest_error > target
-            && let Some(refined) = self.refined_for(target)
-        {
-            let (r, surface) = &*refined;
-            return surface.tool_gap_with(
-                profile,
-                line,
-                query,
-                &|i| {
-                    r.bands
-                        .get(i as usize)
-                        .copied()
-                        .unwrap_or(crate::gap::Band::even(self.deflection))
-                },
-                r.largest,
-            );
-        }
-        let bands = &self.triangle_bands;
-        self.fallback.as_ref()?.tool_gap_with(
+        let even = crate::gap::Band::even(self.deflection);
+        let refined = (target.is_finite() && target > 0.0 && self.largest_error > target)
+            .then(|| self.refined_for(target))
+            .flatten();
+        let (surface, bands, faces, largest): (
+            &MeshSurface,
+            &[crate::gap::Band],
+            Vec<FaceId>,
+            f64,
+        ) = match &refined {
+            Some(r) => (&r.1, &r.0.bands, r.0.faces.clone(), r.0.largest),
+            None => (
+                self.fallback.as_ref()?,
+                &self.triangle_bands,
+                self.face_of_triangle.clone(),
+                self.largest_error,
+            ),
+        };
+        let g = surface.tool_gap_with(
             profile,
             line,
             query,
-            &|i| {
-                bands
-                    .get(i as usize)
-                    .copied()
-                    .unwrap_or(crate::gap::Band::even(self.deflection))
-            },
-            self.largest_error,
-        )
+            &|i| bands.get(i as usize).copied().unwrap_or(even),
+            largest,
+            &|i| faces.get(i as usize).map(|f| f.0),
+        )?;
+        // A pose that fails only within the triangles' error is checked
+        // again on triangles refined, near the tool only, until each one's
+        // band is within [`RECHECK_BAND`] (the project owner's answer of 27
+        // Nov 2026, Q-B): the answer is as sound as the first, its bands
+        // measured the same way, and tighter.
+        let fails = query.accept.is_some_and(|a| a.is_finite() && g.lower < a);
+        let single = query.sweep.length() <= 0.0 && query.rotation.is_none();
+        if fails
+            && single
+            && query.skip_walls_thinner_than.is_none()
+            && largest > 0.5 * RECHECK_BAND
+            && let Some(better) =
+                self.recheck(profile, line, query, surface, bands, &faces, largest)
+        {
+            return Some(better);
+        }
+        Some(g)
     }
 
     fn tool_gap_accuracy(&self) -> f64 {

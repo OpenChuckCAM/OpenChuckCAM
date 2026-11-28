@@ -298,7 +298,7 @@ pub struct MeshSurface {
     walls: std::sync::OnceLock<Vec<f64>>,
     /// The planes of the faces meeting each triangle at a corner, found
     /// when first asked ([`crate::gap::convex_neighbours`]).
-    neighbours: std::sync::OnceLock<Vec<Vec<(Vec3, f64, bool)>>>,
+    neighbours: std::sync::OnceLock<Vec<Vec<crate::gap::Neighbour>>>,
 }
 
 /// The fraction of the mesh's size within which two distances from a point
@@ -524,7 +524,14 @@ impl SurfaceSource for MeshSurface {
         line: &ToolLine,
         query: &GapQuery,
     ) -> Option<ToolGap> {
-        self.tool_gap_with(profile, line, query, &|_| crate::gap::Band::default(), 0.0)
+        self.tool_gap_with(
+            profile,
+            line,
+            query,
+            &|_| crate::gap::Band::default(),
+            0.0,
+            &|_| None,
+        )
     }
 }
 
@@ -593,12 +600,53 @@ impl MeshSurface {
         query: &GapQuery,
         error: &dyn Fn(u32) -> crate::gap::Band,
         largest: f64,
+        faces: &dyn Fn(u32) -> Option<u32>,
     ) -> Option<ToolGap> {
         if !line.origin.is_finite() || !query.limit.is_finite() {
             return None;
         }
         let outline = crate::gap::Outline::new(profile);
         let body = crate::gap::Body::new(&outline, line, query);
+        let found = self.near_triangles(&body, query, largest);
+        let triangles = found
+            .into_iter()
+            .filter_map(|i| self.triangle(i).map(|t| (i, t)));
+        let neighbours = self
+            .neighbours
+            .get_or_init(|| crate::gap::convex_neighbours(&self.mesh));
+        crate::gap::search(
+            &body,
+            triangles,
+            query.limit,
+            query.accept,
+            error,
+            &|i| neighbours.get(i as usize).cloned().unwrap_or_default(),
+            faces,
+        )
+    }
+
+    /// The triangles the gap of `profile` at `line` may count, in index
+    /// order: those within the query's limit of the tool, and `largest`
+    /// more (how far a triangle's surface may lie from it), less any wall
+    /// the query leaves out.
+    pub(crate) fn tool_gap_triangles(
+        &self,
+        profile: &RevolvedProfile,
+        line: &ToolLine,
+        query: &GapQuery,
+        largest: f64,
+    ) -> Vec<u32> {
+        let outline = crate::gap::Outline::new(profile);
+        let body = crate::gap::Body::new(&outline, line, query);
+        self.near_triangles(&body, query, largest)
+    }
+
+    fn near_triangles(
+        &self,
+        body: &crate::gap::Body<'_>,
+        query: &GapQuery,
+        largest: f64,
+    ) -> Vec<u32> {
         let reach = query.limit + largest;
         let near = body.bounds(reach);
         let mut found: Vec<u32> = self
@@ -622,15 +670,7 @@ impl MeshSurface {
             let walls = self.walls();
             found.retain(|&i| walls.get(i as usize).is_none_or(|w| *w >= wall));
         }
-        let triangles = found
-            .into_iter()
-            .filter_map(|i| self.triangle(i).map(|t| (i, t)));
-        let neighbours = self
-            .neighbours
-            .get_or_init(|| crate::gap::convex_neighbours(&self.mesh));
-        crate::gap::search(&body, triangles, query.limit, query.accept, error, &|i| {
-            neighbours.get(i as usize).cloned().unwrap_or_default()
-        })
+        found
     }
 }
 

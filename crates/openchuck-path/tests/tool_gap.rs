@@ -738,6 +738,46 @@ fn req_op_12_tool_gap_of_an_exact_part_takes_its_error_one_way() {
 }
 
 #[test]
+fn req_op_12_a_failed_pose_on_an_exact_part_is_rechecked_on_finer_triangles() {
+    // The project owner's answer of 27 Nov 2026 (Q-B): a pose that fails
+    // only because of the triangles' error is checked again on triangles
+    // refined against the exact faces until their band is within 0.0001
+    // mm. A ball cut 0.009 mm into a cylinder, within the tolerance of 0.01
+    // mm but inside the band of the triangles refined at load (up to a
+    // quarter of the layer), passes; one cut 0.0105 mm deep still fails.
+    let model = openchuck_testkit::brep::banded_cylinder(10.0, 20.0, &[]);
+    let surface = BrepSurface::new(&model).unwrap();
+    let tolerance = 0.01;
+    let query = GapQuery::pose(1.25 * tolerance).accept_above(-tolerance);
+    let ask = |depth: f64, angle: f64| {
+        // The ball's centre on a radius at `angle` from the top, the ball's
+        // deepest point `depth` inside the cylinder; its axis along that
+        // radius.
+        let (s, c) = angle.sin_cos();
+        let u = Vec3::new(0.0, s, c);
+        let centre = Point3::new(10.0, 0.0, 0.0) + u * (10.0 + 1.0 - depth);
+        surface
+            .tool_gap(&ball(1.0), &line(centre + u * (-1.0), u), &query)
+            .unwrap()
+    };
+    // Between two facets' corners, where a facet lies farthest inside the
+    // cylinder (96 facets round).
+    let middle = std::f64::consts::PI / 96.0;
+    for angle in [0.0, 0.5 * middle, middle] {
+        let g = ask(0.009, angle);
+        assert!(
+            g.lower >= -tolerance,
+            "at {angle}: {g:?} fails a cut 0.009 deep"
+        );
+        let g = ask(0.0105, angle);
+        assert!(
+            g.lower < -tolerance,
+            "at {angle}: {g:?} passes a cut 0.0105 deep"
+        );
+    }
+}
+
+#[test]
 fn req_gc_07_req_nfr_06_tool_gap_is_the_same_on_every_thread() {
     let surface = Arc::new(mesh(&ridge(5.0)));
     let ask = |s: &MeshSurface| {

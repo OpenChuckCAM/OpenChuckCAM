@@ -173,6 +173,13 @@ const MULTIPLIER_STEPS: u32 = 60;
 /// all but beyond it.
 const MAX_MULTIPLIER: f64 = 1e9;
 
+/// The most rounds of the coordinate ascent of [`Body::ascend`].
+const ASCENT_ROUNDS: u32 = 40;
+
+/// A round of [`Body::ascend`] gaining no more than this ends it, mm: far
+/// below the search's accuracy ([`GAP_ACCURACY`]).
+const ASCENT_GAIN: f64 = 1e-9;
+
 /// Golden-section and bisection steps of the search along a face's normal
 /// for the lowest tool point there ([`Body::column`]): it only finds a real
 /// value.
@@ -873,6 +880,80 @@ impl<'a> Body<'a> {
         Face::new(corners, self.direction(face.m, f)).with_clips(clips)
     }
 
+    /// The dual bound of the tool's lowest point over the face's region at
+    /// a single pose (its sides and its clips), raised from the multipliers
+    /// `start` by coordinate ascent: each multiplier in turn is moved to
+    /// where the dual's slope along it (how far the dual's lowest point lies
+    /// beyond that side) is zero, for at most [`ASCENT_ROUNDS`] rounds or
+    /// until a round gains no more than [`ASCENT_GAIN`]. The dual is concave
+    /// and uses the tool's exact support, so every multiplier choice gives a
+    /// proven bound (weak duality); the ascent only makes it tighter, and its
+    /// limit is the exact least where the region holds the tool's lowest
+    /// point (strong duality). An empty region shows as a bound that grows
+    /// without end, held at [`MAX_MULTIPLIER`].
+    fn ascend(&self, face: &Face, start: Vec<f64>) -> f64 {
+        let count = face.count();
+        let mut lam = start;
+        lam.resize(count, 0.0);
+        let value = |lam: &[f64]| {
+            let (w, c) = face.dual(lam);
+            self.dual_over(w, c, 0.0, 0.0)
+        };
+        let slope = |lam: &[f64], i: usize| {
+            let (w, _) = face.dual(lam);
+            let (n, b) = face.constraint(i);
+            n.dot(self.support_point(-w) - Point3::ORIGIN) - b
+        };
+        let mut best = value(&lam);
+        for _ in 0..ASCENT_ROUNDS {
+            let before = best;
+            for i in 0..count {
+                if face.constraint(i).0.length() <= 0.0 {
+                    continue;
+                }
+                let base = lam.clone();
+                let at = |l: f64| {
+                    let mut trial = base.clone();
+                    if let Some(slot) = trial.get_mut(i) {
+                        *slot = l;
+                    }
+                    trial
+                };
+                let (mut lo, mut hi) = (0.0_f64, 1e-3_f64);
+                if slope(&at(lo), i) <= 0.0 {
+                    hi = 0.0;
+                } else {
+                    while slope(&at(hi), i) > 0.0 && hi < MAX_MULTIPLIER {
+                        lo = hi;
+                        hi *= 4.0;
+                    }
+                    for _ in 0..MULTIPLIER_STEPS {
+                        let mid = 0.5 * (lo + hi);
+                        if slope(&at(mid), i) > 0.0 {
+                            lo = mid;
+                        } else {
+                            hi = mid;
+                        }
+                    }
+                }
+                // The dual is flat across a kink where the lowest point
+                // jumps: either end of the last bracket may be the better.
+                for l in [lo, hi] {
+                    let trial = at(l);
+                    let v = value(&trial);
+                    if v > best {
+                        best = v;
+                        lam = trial;
+                    }
+                }
+            }
+            if best - before <= ASCENT_GAIN {
+                break;
+            }
+        }
+        best
+    }
+
     /// The best multipliers for the dual bound of the lowest point of the
     /// tool at the fraction `f` over the face's prism (see [`Face`]); with
     /// `highest`, of the highest point (the same problem on the face turned
@@ -1443,6 +1524,9 @@ struct Face {
     /// from the prism (a tool against a wall that meets the face only at a
     /// corner is parted from it by the wall's plane, not by a side).
     around: Vec<Vec3>,
+    /// The least depth below a clip's plane its clips ask of a point it
+    /// counts below itself (see [`clip_depth`]).
+    inside: f64,
 }
 
 impl Face {
@@ -1459,6 +1543,7 @@ impl Face {
             sides: [side(c0, c1), side(c1, c2), side(c2, c0)],
             clips: Vec::new(),
             around: Vec::new(),
+            inside: GAP_ACCURACY,
         }
     }
 
@@ -1468,6 +1553,14 @@ impl Face {
     }
 
     /// This face with directions to part the tool from it (see `around`).
+    /// This face counting nothing less than `depth` below a clip's plane.
+    fn with_inside(self, depth: f64) -> Self {
+        Self {
+            inside: depth,
+            ..self
+        }
+    }
+
     fn with_around(self, normals: &[Vec3]) -> Self {
         let m = self.m;
         let around = normals
@@ -1749,7 +1842,8 @@ pub(crate) fn search(
     limit: f64,
     accept: Option<f64>,
     error: &dyn Fn(u32) -> Band,
-    neighbours: &dyn Fn(u32) -> Vec<(Vec3, f64, bool)>,
+    neighbours: &dyn Fn(u32) -> Vec<Neighbour>,
+    faces: &dyn Fn(u32) -> Option<u32>,
 ) -> Option<ToolGap> {
     let accept = accept.filter(|a| a.is_finite()).unwrap_or(f64::INFINITY);
     let inside = if accept.is_finite() {
@@ -1765,6 +1859,7 @@ pub(crate) fn search(
         limit,
         error,
         neighbours,
+        faces,
         inside,
         clips: std::collections::BTreeMap::new(),
     };
@@ -1889,18 +1984,59 @@ struct Search<'a, 'b> {
     error: &'a dyn Fn(u32) -> Band,
     /// The planes of the faces meeting each triangle at a corner, and
     /// whether each meets it at a convex edge or corner (see [`Face`]).
-    neighbours: &'a dyn Fn(u32) -> Vec<(Vec3, f64, bool)>,
+    neighbours: &'a dyn Fn(u32) -> Vec<Neighbour>,
+    /// The exact face each triangle stands for, if any: a neighbour on the
+    /// same face meets it at an edge of the tessellation, not of the part.
+    faces: &'a dyn Fn(u32) -> Option<u32>,
     /// How far below a convex neighbour's plane a point must be for a face
-    /// to count it: the query's acceptance, at least [`GAP_ACCURACY`].
+    /// to count it, before the triangles' errors: the query's acceptance,
+    /// at least [`GAP_ACCURACY`] (see [`clip_depth`]).
     inside: f64,
     /// Each triangle's clips, its convex neighbours' planes moved in by
-    /// `inside`, and every neighbour's normal.
+    /// how far below them a point must be (see [`clip_depth`]), each with
+    /// that depth, and every neighbour's normal.
     clips: std::collections::BTreeMap<u32, FaceClips>,
 }
 
-/// A triangle's clips (the planes of its convex neighbours, each less the
-/// acceptance) and every neighbour's normal.
-type FaceClips = (Vec<(Vec3, f64)>, Vec<Vec3>);
+/// A triangle's clips (the planes of its convex neighbours, each moved in
+/// by how far below it a point must be, with that depth) and every
+/// neighbour's normal.
+type FaceClips = (Vec<(Vec3, f64, f64)>, Vec<Vec3>);
+
+/// A triangle's neighbour as [`convex_neighbours`] gives it: its plane's
+/// unit normal and offset, whether it meets the triangle at a convex edge
+/// or corner, and its index.
+pub(crate) type Neighbour = (Vec3, f64, bool, u32);
+
+/// How far below the plane of the convex neighbour `n` (normal `n_normal`)
+/// a point below triangle `m` (normal `m_normal`) must be for `m` to count
+/// it, `inside` before the errors (the project owner's answer of 27 Nov
+/// 2026, Q-A, relayed: the error goes into the threshold, before the rule):
+///
+/// - on the same exact face (an edge of the tessellation only),
+///   `(inside - above_m) cos θ`, at least zero, with `θ` the angle between
+///   the normals: a point not counted is then less than `inside - above_m`
+///   below `m`'s plane (it is at least `h cos θ` below `n`'s, `n` lying
+///   above `m` over `m`'s footprint at a convex edge), so its depth below
+///   the exact face, at most that plus `above_m`, is less than `inside`;
+/// - at an edge of the part, or on a mesh, `inside - above_n`, at least
+///   [`GAP_ACCURACY`]: the neighbour's face may lie `above_n` outside its
+///   triangle. On a mesh both errors are zero and this is `inside`, as
+///   before.
+fn clip_depth(
+    inside: f64,
+    same_face: bool,
+    m_normal: Vec3,
+    n_normal: Vec3,
+    above_m: f64,
+    above_n: f64,
+) -> f64 {
+    if same_face {
+        ((inside - above_m) * m_normal.dot(n_normal)).max(0.0)
+    } else {
+        (inside - above_n).max(GAP_ACCURACY)
+    }
+}
 
 /// A triangle as [`convex_neighbours`] keeps it: its vertex numbers, its
 /// corners, its unit normal and its plane's offset.
@@ -1914,21 +2050,28 @@ impl Search<'_, '_> {
     /// [`Search::measure`]), so it is left out.
     fn face(&mut self, corners: [Point3; 3], m: Vec3, triangle: u32) -> Face {
         let (neighbours, inside, limit) = (self.neighbours, self.inside, self.limit);
+        let (faces, error) = (self.faces, self.error);
         let (clips, around) = self.clips.entry(triangle).or_insert_with(|| {
             let all = neighbours(triangle);
+            let face = faces(triangle);
+            let above = error(triangle).above;
             (
                 all.iter()
-                    .filter(|(_, _, convex)| *convex)
-                    .map(|(n, d, _)| (*n, d - inside))
+                    .filter(|(_, _, convex, _)| *convex)
+                    .map(|(n, d, _, j)| {
+                        let same = face.is_some() && faces(*j) == face;
+                        let depth = clip_depth(inside, same, m, *n, above, error(*j).above);
+                        (*n, d - depth, depth)
+                    })
                     .collect(),
-                all.iter().map(|(n, _, _)| *n).collect(),
+                all.iter().map(|(n, _, _, _)| *n).collect(),
             )
         });
         let floor = corners.map(|p| p + m * (-limit));
         let slack = 1e-9 * (1.0 + (corners[0] - Point3::ORIGIN).length());
-        let relevant = clips
+        let relevant: Vec<(Vec3, f64, f64)> = clips
             .iter()
-            .filter(|(n, b)| {
+            .filter(|(n, b, _)| {
                 corners
                     .iter()
                     .chain(floor.iter())
@@ -1936,9 +2079,15 @@ impl Search<'_, '_> {
             })
             .copied()
             .collect();
+        // The face counts nothing less deep than its shallowest clip asks.
+        let least = relevant
+            .iter()
+            .map(|(_, _, depth)| *depth)
+            .fold(inside, f64::min);
         Face::new(corners, m)
-            .with_clips(relevant)
+            .with_clips(relevant.iter().map(|(n, b, _)| (*n, *b)).collect())
             .with_around(around)
+            .with_inside(least)
     }
 
     /// Bounds a piece and queues it, unless it cannot count. A tool point
@@ -2038,7 +2187,7 @@ impl Search<'_, '_> {
         let foot =
             |face: &Face, y: Point3| y + face.m * (-(face.m.dot(y - Point3::ORIGIN) - face.d));
         let mut probes: Vec<(bool, Point3)> = Vec::new();
-        if open_lower < -self.inside {
+        if open_lower < -clipped.inside {
             let region: Vec<(Vec3, f64)> = open.sides.to_vec();
             let (v, at) =
                 self.body
@@ -2085,8 +2234,8 @@ impl Search<'_, '_> {
         if has_clips && open_lower < 0.0 {
             // Below the face only the clipped region counts; its value is
             // at most zero where the open region's is below the face.
-            let clipped_lower = if open_lower >= -self.inside {
-                0.0_f64.min(open_lower.max(-self.inside))
+            let clipped_lower = if open_lower >= -clipped.inside {
+                0.0_f64.min(open_lower.max(-clipped.inside))
             } else if self.body.beside(&clipped, 0.0, 0.0) {
                 f64::INFINITY
             } else {
@@ -2099,6 +2248,21 @@ impl Search<'_, '_> {
                 v.max(open_lower)
             };
             bound = clipped_lower.min(0.0).max(open_lower);
+            // Short of what the caller accepts on an exact part (a triangle
+            // with an error): the clipped region's own dual, raised by
+            // ascent, may show it holds no point that deep (the shortcut
+            // above takes the open region's depth for it). A mesh keeps its
+            // answers as they were.
+            if band.most() > 0.0 && bound.max(-self.limit) - e < -self.inside {
+                let raised = if self.body.beside(&clipped, 0.0, 0.0) {
+                    f64::INFINITY
+                } else {
+                    let start = self.body.multipliers(&clipped, 0.0, false);
+                    self.body.ascend(&clipped, start)
+                };
+                let tighter = clipped_lower.max(raised);
+                bound = tighter.min(0.0).max(open_lower);
+            }
             value = match near {
                 Some((h, at)) if h >= 0.0 => Some((h, at)),
                 Some((_, at)) => Some(
@@ -2199,7 +2363,7 @@ impl Search<'_, '_> {
         // At a single pose, where the dual leaves the piece short, the
         // tool's lower surface may bound it better.
         let single = !self.body.turns() && self.body.sweep.length() <= 0.0;
-        if single && open_lower < -self.inside {
+        if single && open_lower < -clipped.inside {
             let top = self.body.top_over(&open, s0, s1);
             let region: Vec<(Vec3, f64)> = open.sides.to_vec();
             let v = self
@@ -2217,7 +2381,7 @@ impl Search<'_, '_> {
         // bound is short only because it is loose (the piece is large, or
         // its part of the move long), halving settles it, and the clipped
         // bound is no better.
-        let short = open_lower < -self.inside;
+        let short = open_lower < -clipped.inside;
         let wanted = short && near.is_some_and(|(h, _, _)| h < 0.0);
         // Whether the clipped region is empty is cheap to ask: ask it
         // wherever the open bound is short.
@@ -2360,9 +2524,15 @@ pub(crate) fn on_mesh(
             .then_some((index, t))
     });
     let neighbours = convex_neighbours(mesh);
-    search(&body, triangles, query.limit, query.accept, error, &|i| {
-        neighbours.get(i as usize).cloned().unwrap_or_default()
-    })
+    search(
+        &body,
+        triangles,
+        query.limit,
+        query.accept,
+        error,
+        &|i| neighbours.get(i as usize).cloned().unwrap_or_default(),
+        &|_| None,
+    )
 }
 
 /// The planes `(n, d)` (`n . y = d`, `n` the outward unit normal) of the
@@ -2372,7 +2542,7 @@ pub(crate) fn on_mesh(
 /// coordinates are the same. In each triangle's list the neighbours are in
 /// index order (NFR-06). A mesh with cracks there finds fewer convex ones,
 /// and so counts more: never less.
-pub(crate) fn convex_neighbours(mesh: &TriangleMesh) -> Vec<Vec<(Vec3, f64, bool)>> {
+pub(crate) fn convex_neighbours(mesh: &TriangleMesh) -> Vec<Vec<Neighbour>> {
     let key = |p: Point3| {
         [
             (p.x + 0.0).to_bits(),
@@ -2431,7 +2601,12 @@ pub(crate) fn convex_neighbours(mesh: &TriangleMesh) -> Vec<Vec<(Vec3, f64, bool
                     let below = |pts: &[Point3; 3], n: Vec3, d: f64| {
                         pts.iter().all(|p| n.dot(*p - Point3::ORIGIN) - d <= eps)
                     };
-                    Some((*m, *e, below(q, *n, *d) && below(pts, *m, *e)))
+                    Some((
+                        *m,
+                        *e,
+                        below(q, *n, *d) && below(pts, *m, *e),
+                        u32::try_from(j).ok()?,
+                    ))
                 })
                 .collect()
         })
@@ -2463,3 +2638,6 @@ fn pr(p: ProfilePoint) -> f64 {
 fn pz(p: ProfilePoint) -> f64 {
     p.height.0
 }
+
+#[cfg(test)]
+mod tests;
