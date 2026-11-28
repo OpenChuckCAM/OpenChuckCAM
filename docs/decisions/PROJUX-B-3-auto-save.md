@@ -65,6 +65,7 @@ Tests written first from PRJ-08 and the owner's answers, named by requirement. G
   - `req_prj_08_req_ui_14_turning_the_switch_on_saves_at_once_and_says_so`: the saved files hold the change, and the File menu's tick turns it off;
   - `req_prj_08_req_ui_07_a_due_save_waits_for_a_typed_value`;
   - `req_prj_08_after_a_recovery_auto_save_waits_for_one_save_by_hand`;
+  - `req_prj_08_a_due_save_waits_for_an_open_dialog`;
   - `req_prj_08_req_nfr_07_a_failed_save_warns_once_and_the_switch_stays_on`: a folder where `project.toml` goes makes every save fail, for any user. One warning stays one, and a save by hand that works removes it.
 
 ### Results (lane PROJECT-UX-B, 28 Nov 2026, on PR #904's local head `a115377c`)
@@ -72,7 +73,12 @@ Tests written first from PRJ-08 and the owner's answers, named by requirement. G
 Environment: managed Linux x86_64 container, Rust 1.97.0, debug builds. Tests were timed uninstrumented with `cargo nextest run`.
 - `cargo nextest run -p openchuck-ui -p openchuck-app`: 1694 of 1695 passed, 2 skipped, in 1634 s. The one failure was `theme::tests::req_nfr_09_req_ui_16_every_character_the_interface_draws_has_a_glyph`: the failed state began with "▲", which the bundled fonts do not draw. The title bar now draws the tree's warning mark (a shape, so the state does not rest on colour alone) before the text, and the autosave tests and the glyph test then passed, 6 of 6 (0.14 to 1.6 s each).
 - `cargo fmt --all`, `cargo clippy` on the changed crates, `cargo xtask deps`, `licences`, `records` and `trace` pass.
-- Coverage of the changed files is added before the pull request opens.
+- Coverage, on the auto-save tests alone (`cargo llvm-cov nextest --profile coverage -p openchuck-app -p openchuck-ui -E 'test(~autosave) | test(~req_prj_08)'`), a lower bound:
+  - `crates/openchuck-app/src/autosave.rs`: 100% of lines.
+  - `apps/openchuck-ui/src/shell/autosave.rs`: 93.7%. The first run found the dialog wait's text not reached, and `req_prj_08_a_due_save_waits_for_an_open_dialog` was written for it.
+  - Two parts stay uncovered, and why:
+    - The switch's focus ring, which the keyboard-focus tests of the whole suite draw.
+    - Clearing the failure warning after an automatic retry that works. A retry comes an interval after the failure, at least a minute of real time, which the frame tests do not wait. The schedule's side of it (`saved` ends a failure) is covered by `req_prj_08_a_save_by_hand_restarts_the_clock_and_ends_a_failure`, and the window's side is the owner's check (OI-9948).
 
 This branch sits on top of PR #904 (B1), because both change the title bar, and is rebased once #904 has merged.
 

@@ -173,3 +173,24 @@ fn req_prj_08_req_nfr_07_a_failed_save_warns_once_and_the_switch_stays_on() {
     );
     assert!(!rig.shows("Auto-save failed"));
 }
+
+#[test]
+fn req_prj_08_a_due_save_waits_for_an_open_dialog() {
+    let mut rig = Rig::cube("autosave-dialog", None);
+    edit(&mut rig, "Changed");
+    rig.shell.dialog = Some(super::Dialog::Settings);
+    rig.shell.set_auto_save(true);
+    rig.frame(Vec::new());
+    rig.frame(Vec::new());
+    assert!(modified(&rig), "not saved while a dialog is open");
+    assert!(
+        rig.shows("Edited \u{b7} next auto-save waits for the open dialog"),
+        "{:?}",
+        rig.texts()
+    );
+    // Closing it frees the save.
+    rig.shell.dialog = None;
+    rig.frame(Vec::new());
+    rig.frame(Vec::new());
+    assert!(!modified(&rig));
+}
