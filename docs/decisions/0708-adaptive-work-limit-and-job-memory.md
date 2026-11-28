@@ -1,6 +1,6 @@
 # 0708: Adaptive spacing's limits are set per operation by an Adaptive work limit, and a toolpath job stops with an error before it passes the memory it may use (OP-04, OP-12, NFR-04, NFR-06, NFR-07, NFR-12, GC-07, UI-15; issue #847; lane PATH-QUALITY)
 
-- **Status:** Proposed by lane PATH-QUALITY on 28 Nov 2026. It records the owner's answers on issue #847 and the texts the owner approved on 27 and 28 Nov 2026, relayed by the coordinator (decision 0049). Only the project owner accepts this record (decision 0049).
+- **Status:** Proposed by lane PATH-QUALITY on 28 Nov 2026. It records the owner's answers on issue #847 and the texts the owner approved on 27 and 28 Nov 2026, relayed by the coordinator (decision 0049). The last four, approved as written on 28 Nov 2026, were the form note (item 7), the Settings line above 75 %, the line where the computer's memory cannot be read, and the size line (item 5). Only the project owner accepts this record (decision 0049).
 - **Date:** 28 Nov 2026.
 - **Issue:** #847 (adaptive spacing stops with a partial path at its limit of 1,000,000 geometry queries, with no way to let it go on). Also carries #993 (a face without a box of its own, in the measure of decision 0701).
 - **Requirements:** OP-04 (finishing), OP-12 (gouge checks), NFR-04 (performance), NFR-06 and GC-07 (determinism), NFR-07 (no crash; a clear error), NFR-12 (the user verifies the program), UI-15 (settings).
