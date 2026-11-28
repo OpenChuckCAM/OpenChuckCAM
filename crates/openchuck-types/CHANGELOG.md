@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.78.0
+
+- **Added (breaking):** `MemoryLimit { bytes }` and the field `JobContext::memory`, the most memory a job may account for, as its host sets it; `JobContext::new` gives none. A struct literal of `JobContext` must now give it. `JobContext::with_memory` sets it, and `JobContext::with_progress` gives the same context reporting elsewhere, keeping its cancel token and memory limit (PATH-QUALITY; issue #847).
+
 ## 0.75.0
 
 - **Family release (0.75.0; PATH-QUALITY; issue #957):** `openchuck-path` measures a lead or helix entry of an operation limited to a selection against the part's faces outside the selection that it comes near, and refuses one that would cut them; no change to this crate.

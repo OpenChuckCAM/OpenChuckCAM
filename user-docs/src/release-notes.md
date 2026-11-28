@@ -125,6 +125,7 @@ The *latest* version of this guide describes the nightly build, the [development
 - **Recovery of a deleted project.** The warning about recovery data kept for a project that is no longer there can be removed: click **Locate folder**, then **Forget this project** (#681).
 - **Smaller fixes.** In an operation's **Geometry** section, a wrapped **Cut short / Warn only / Ignore** row stays beside its label (#609).
 - **Tab past a scrolled inspector.** When the inspector is taller than the window and scrolls, <kbd>Tab</kbd> from its last control goes on to the footer instead of stopping on the inspector's splitter and going back into the dock.
+- **Memory a toolpath job may use.** A new setting in **File > Settings...** gives the share of the computer's memory one toolpath job may use, 50 % by default, with its size beside it. A job that would need more, most often one whose **Adaptive work limit** is raised, is stopped with an error that says what to change, and nothing is made for that operation (#847).
 
 ### Models, setups and workholding
 
@@ -163,6 +164,7 @@ The *latest* version of this guide describes the nightly build, the [development
 - **Geometry with several selection sets.** An operation's **Geometry** section now shows each set once, on its own line under its role, with its colour, its name and **×** to take it out; **Add a set…** on the role's line adds one, and **Cut short**, **Warn only** and **Ignore** sit just under the set's name. The note about **Warn only** is shown once for the role (#759).
 - **Sets on Ignore.** A set on **Ignore** is greyed and struck through in the Geometry section, with a tooltip saying it limits nothing. When the operation is generated, Results says so in a note: it is no longer a warning, so it no longer marks the operation amber or counts as a warning, and the command line prints it as `note:`. A swarf boundary with both of its limits off is still a warning (#759).
 - **Arc and helix entries beside a selection are checked.** On a STEP part, when an operation cuts only selected faces, a **Tangent arc** or **Descending helix** entry is now checked against the part's other faces that it comes near. Where it would cut into one, the operation is not made, and the message names the face and says what to do (use **Plunge** or **Straight ramp**, a smaller size, or a selection that keeps the passes clear). A project saved before this change can now stop at such an operation where it was made before (#957).
+- **Adaptive work limit.** Operations with adaptive spacing have a new setting under **Advanced**, **Adaptive work limit**: the most geometry queries it may make, 1,000,000 by default (as before) and up to 1,000,000,000. A higher limit lets adaptive spacing finish on parts where it stopped with a partial path, but takes longer. The partial-path warning now says what a geometry query is and how to finish the path, and a line under the setting says when the limit could need more memory than a job may use (#847).
 
 ### Simulation
 
@@ -178,6 +180,7 @@ The *latest* version of this guide describes the nightly build, the [development
 ### Command line
 
 - **Default tabs from the command line.** `openchuck-cli setup --default-tabs` now adds the default tab for each end that can have one, says where it put each, and prints a warning naming an end that cannot have one and why, so you add that one by hand. Before, it refused the whole command when one end had none. It still refuses, naming both ends, when neither end can have one (#676). See [Command line](reference/command-line.md).
+- **Memory for a job.** `--job-memory PERCENT` gives the share of the computer's memory one toolpath job may use, 50 by default; a job that would need more is stopped with an error and nothing is made for that operation (#847).
 
 ### User guide and examples
 

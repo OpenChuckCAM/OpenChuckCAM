@@ -22,6 +22,9 @@ These options work with every command:
 `--threads N`
 : The number of worker threads. The default is one per core. The output is the same whatever the number.
 
+`--job-memory PERCENT`
+: The share of the computer's memory one toolpath job may use, from 10 to 90 in steps of 5; the default is 50. The command line does not read the program's settings. A job that would need more is stopped with an error and nothing is made for that operation.
+
 `--create`
 : If the folder has no `project.toml`, create a project there. Without it, the command asks on a terminal and otherwise stops with an error.
 

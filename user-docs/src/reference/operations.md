@@ -143,6 +143,9 @@ Distance past the stock
 Adaptive spacing
 : On by default. Spaces the passes by the material they leave: the stepover is the widest spacing, and passes are added where more than the **Allowed excess** (default 0.01 mm) would stand between them. They are never closer than **Smallest spacing** (default 0.01 mm). Rotary roughing when its passes run along the axis, flat facing, helical, axial and indexed finishing, and simultaneous finishing with the axial pattern. See [adaptive spacing](../glossary.md#adaptive-spacing) and [Partial paths](#a-partial-path-must-be-acknowledged).
 
+Adaptive work limit
+: With **Adaptive spacing** on, in the **Advanced** section. The most geometry queries adaptive spacing may make for the operation, from 1,000,000 (the default) to 1,000,000,000. A geometry query is one drop of the tool onto the part, or one ray. Where the limit is met, the path made so far is kept as a [partial path](#a-partial-path-must-be-acknowledged). A higher limit lets adaptive spacing check and add passes in more places, but takes longer, roughly in proportion. The points and passes it may make rise in step, up to 100,000,000 points. Where the most the operation could need at the limit is more than [a toolpath job may use](settings.md#the-settings-dialog), a line under the field says so; a job that would need more is stopped with an error and nothing is made for that operation. The same limit always gives the same program.
+
 Scallop height
 : On helical and axial finishing with **Adaptive spacing** off: the largest cusp between passes for a ball-end or bull-nose tool. The passes are as close as the smaller of this and the stepover needs. 0 turns it off. With **Adaptive spacing** on, the same field is **Allowed excess**.
 
@@ -427,7 +430,7 @@ An operation is checked against the tabs it can reach. A tab shorter than the to
 
 ### A partial path must be acknowledged
 
-Where **Adaptive spacing** cannot confirm the material left between passes before it reaches its limits, it keeps the path made so far and warns that it is not complete. Before it writes any G-code, the export asks you to tick "I accept the partial path made for this result: it is not complete, and I will check the surface before running the program". Without the tick it does not write the files.
+Where **Adaptive spacing** cannot confirm the material left between passes before it reaches its limits, it keeps the path made so far and warns that it is not complete. The warning names the limit it met. To finish the path, raise **Adaptive work limit**, which takes longer, or make it need fewer queries: a larger **Allowed excess** or **Smallest spacing**, or a smaller **Stepover**. Before it writes any G-code, the export asks you to tick "I accept the partial path made for this result: it is not complete, and I will check the surface before running the program". Without the tick it does not write the files.
 
 ### Possible collisions must be acknowledged
 

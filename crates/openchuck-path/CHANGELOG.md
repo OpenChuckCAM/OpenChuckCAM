@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.78.0 (PATH-QUALITY; issue #847; decision 0708, proposed; breaking, output change in rare cases)
+
+- **New parameter (every strategy with adaptive spacing):** `adaptive_work_limit`, "Adaptive work limit", an integer from 1,000,000 (the default, decision 0239's limit) to 1,000,000,000 geometry queries, shown only with adaptive spacing on. The points and added passes an operation may make rise by the same factor, up to 100,000,000 points and 1,000,000 passes. An operation that does not set it makes the same program as before.
+- **Changed warning (Partial path):** says what a geometry query is, which limit was met (and when it is the most Adaptive work limit allows), and how to finish the path.
+- **New error (breaking):** `PathError::OutOfMemory { reached, limit, work_limit }`. With a memory limit in the job's context, adaptive spacing charges 1.7 kB (`BYTES_PER_POINT`) for each point of the operation's passes, in one fixed order, and stops the job before it would pass the limit; nothing is made. The stop is the same at any thread count, and a job that finishes makes the same program whatever the limit.
+- **Added:** `adaptive::most_memory(work)`, the most an operation could be charged at a limit; `adaptive::DEFAULT_WORK_LIMIT`, `MOST_WORK_LIMIT`, `MOST_POINTS`, `MOST_PASSES` and `BYTES_PER_POINT`.
+- **Changed (entries beside a selection, issue #993):** a face without a box of its own (`ParametricFace::bounds` is `None`) is measured against every entry, instead of being bounded from a 65 by 65 grid over its untrimmed surface, which could miss a part of it.
+
 ## 0.75.0 (PATH-QUALITY; issue #957; decision 0701, proposed; not breaking, output change: new refusals)
 
 - **New refusal (Entry Lead and Helix, every strategy but swarf, an operation limited to a selection):** a lead or helix is measured against the part's faces outside the selection (`RegionConstraint::outside`) that it comes near: the faces whose box meets the box the tool's cutting part sweeps over the entry, sampled lazily as swarf samples its faces next to the face set. One that would cut such a face deeper than the tolerance and the sampling slack is refused, naming the face. Where the pass itself cuts the face where the move meets it, the refusal says so. Plunge and Ramp, swarf (decision 0682, unchanged) and faces with no exact form (a mesh) are not measured.

@@ -451,7 +451,7 @@ checksum = "9f7c3e4beb33f85d45ae3e3a1792185706c8e16d043238c593331cc7cd313b50"
 
 [[package]]
 name = "openchuck-app"
-version = "0.75.0"
+version = "0.78.0"
 dependencies = [
  "openchuck-gcode",
  "openchuck-geom",
@@ -489,7 +489,7 @@ dependencies = [
 
 [[package]]
 name = "openchuck-gcode"
-version = "0.75.0"
+version = "0.78.0"
 dependencies = [
  "openchuck-types",
  "serde",
@@ -499,7 +499,7 @@ dependencies = [
 
 [[package]]
 name = "openchuck-geom"
-version = "0.75.0"
+version = "0.78.0"
 dependencies = [
  "openchuck-types",
  "parry3d-f64",
@@ -507,7 +507,7 @@ dependencies = [
 
 [[package]]
 name = "openchuck-import"
-version = "0.75.0"
+version = "0.78.0"
 dependencies = [
  "openchuck-geom",
  "openchuck-types",
@@ -519,7 +519,7 @@ dependencies = [
 
 [[package]]
 name = "openchuck-path"
-version = "0.75.0"
+version = "0.78.0"
 dependencies = [
  "cavalier_contours",
  "openchuck-types",
@@ -532,7 +532,7 @@ dependencies = [
 
 [[package]]
 name = "openchuck-post"
-version = "0.75.0"
+version = "0.78.0"
 dependencies = [
  "minijinja",
  "openchuck-types",
@@ -543,7 +543,7 @@ dependencies = [
 
 [[package]]
 name = "openchuck-project"
-version = "0.75.0"
+version = "0.78.0"
 dependencies = [
  "blake3",
  "openchuck-types",
@@ -555,7 +555,7 @@ dependencies = [
 
 [[package]]
 name = "openchuck-sim"
-version = "0.75.0"
+version = "0.78.0"
 dependencies = [
  "openchuck-path",
  "openchuck-types",
@@ -564,7 +564,7 @@ dependencies = [
 
 [[package]]
 name = "openchuck-types"
-version = "0.75.0"
+version = "0.78.0"
 dependencies = [
  "serde",
  "thiserror",

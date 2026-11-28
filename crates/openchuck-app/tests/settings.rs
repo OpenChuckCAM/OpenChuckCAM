@@ -538,8 +538,10 @@ fn req_ui_15_req_nfr_07_the_memory_a_toolpath_job_may_use_is_personal_and_bounde
     std::fs::create_dir_all(&config).unwrap();
     std::fs::write(file.file(), "[interface]\nscale = 1.0\n").unwrap();
     assert_eq!(file.load().settings.job_memory_percent, 50);
-    let mut settings = UserSettings::default();
-    settings.job_memory_percent = 70;
+    let settings = UserSettings {
+        job_memory_percent: 70,
+        ..UserSettings::default()
+    };
     file.save(&settings).unwrap();
     assert_eq!(file.load().settings.job_memory_percent, 70);
     for (written, read) in [(0, 10), (7, 10), (52, 50), (53, 55), (95, 90), (255, 90)] {
