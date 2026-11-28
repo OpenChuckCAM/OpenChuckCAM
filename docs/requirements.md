@@ -201,6 +201,7 @@ Every strategy must produce toolpaths in XYZA. Geometry selected on the model (f
 | SIM-13 | Summarise each generated operation: moves, cut length, A travel, A unwinds and programmed time. | P2 |
 | SIM-14 | Show, for each operation, the largest overcut and the most material left after it, and the worst values after the current operation during playback. | P2 |
 | SIM-15 | Choose which deviation bands the result views show, as the histogram's bins and as a range the user sets, so the part shows only the overcut or the material left of interest; the colour scale, the legend and the histogram follow the choice, and the worst values and counts stay those of the whole part. | P2 |
+| SIM-16 | Measure the load each operation puts on the tool from the stock as the simulation leaves it at each move (SIM-06): for each stretch of path, the length of the cutting edge in the material along the tool axis, the width of cut, the material removed per millimetre of travel (the cut section) and the removal rate at the programmed feed. Show the heaviest cut of each operation, with where it is, and the average and highest removal rate of each operation and of the whole job, and warn, with the figures and the place, where the cut section passes a limit set from the tool and its cutting data. A warning, or none, does not say that a cut is safe for the tool or the machine (NFR-12). | P1 |
 
 ### 3.7 G-code generation and post-processing
 

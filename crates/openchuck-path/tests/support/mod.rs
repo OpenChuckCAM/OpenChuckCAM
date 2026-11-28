@@ -11,7 +11,7 @@ use openchuck_path::{
     ParameterValue, Parameters, Pass, Result, RotaryMapping, Strategy, StrategyInput,
     SurfaceSource, Unit, parallel,
 };
-use openchuck_types::ir::PathTags;
+use openchuck_types::ir::{PathTags, ToolPose};
 use openchuck_types::job::{CancelToken, JobContext, NoProgress};
 use openchuck_types::machine::{Clearance, MachineProfile};
 use openchuck_types::tool::{RevolvedProfile, Tool, ToolShape};
@@ -370,4 +370,98 @@ impl openchuck_path::StockModel for Bare {
     fn left_by_earlier_operations(&self) -> bool {
         true
     }
+}
+
+/// The passes a note names, by number, as `passes_named` writes them:
+/// "pass 3" or "passes 1, 2 and 3" in full; "12 passes, from pass 1 to pass
+/// 40 (1, 2, 3 ... 38, 39, 40)" gives the six it lists and the count.
+pub fn named_passes(text: &str) -> (Vec<usize>, usize) {
+    let number = |w: &str| {
+        w.trim_matches(|c: char| !c.is_ascii_digit())
+            .parse::<usize>()
+    };
+    let mut words = text.split(' ');
+    match words.next() {
+        Some("pass") => {
+            let one: Vec<usize> = words
+                .next()
+                .and_then(|w| number(w).ok())
+                .into_iter()
+                .collect();
+            let n = one.len();
+            (one, n)
+        }
+        Some("passes") => {
+            let listed: Vec<usize> = words
+                .take_while(|w| *w == "and" || number(w).is_ok())
+                .filter_map(|w| number(w).ok())
+                .collect();
+            let n = listed.len();
+            (listed, n)
+        }
+        Some(first) => {
+            let count = first.parse().unwrap_or(0);
+            let inside = text
+                .split_once('(')
+                .and_then(|(_, rest)| rest.split_once(')'))
+                .map_or("", |(inside, _)| inside);
+            let listed = inside.split(' ').filter_map(|w| number(w).ok()).collect();
+            (listed, count)
+        }
+        None => (Vec::new(), 0),
+    }
+}
+
+/// The entries of `path` (made from `input`) by pass: each run of `LeadIn` and `Plunge` moves
+/// that ends at the first point of one of the passes `strategy` makes, with
+/// that pass's number (from 1, as notes name them), the pose before the
+/// run and the run's moves. The passes are matched in order, so the k-th
+/// entry belongs to the pass whose first point it reaches, not merely the
+/// k-th pass (issue #951, items 4 and 5).
+pub fn entries_by_pass(
+    input: &StrategyInput<'_>,
+    strategy: &dyn Strategy,
+    v: &BTreeMap<String, ParameterValue>,
+    path: &openchuck_path::GeneratedPath,
+) -> Vec<(usize, ToolPose, Vec<ToolPose>)> {
+    use openchuck_types::ir::MoveKind;
+    let parameters = strategy
+        .resolve_parameters(&spacing_off(strategy, v))
+        .unwrap();
+    let passes = run(|ctx| strategy.passes(input, &parameters, ctx)).unwrap();
+    let heads: Vec<Option<CutPoint>> = passes.iter().map(|p| p.points.first().copied()).collect();
+    let segs = &path.group.segments;
+    let mut out = Vec::new();
+    let mut next = 0;
+    let mut i = 0;
+    while i < segs.len() {
+        if !matches!(segs[i].kind, MoveKind::LeadIn | MoveKind::Plunge) {
+            i += 1;
+            continue;
+        }
+        let before = if i == 0 {
+            path.group.start
+        } else {
+            segs[i - 1].end
+        };
+        let mut k = i;
+        while k < segs.len() && matches!(segs[k].kind, MoveKind::LeadIn | MoveKind::Plunge) {
+            k += 1;
+        }
+        let last = segs[k - 1].end;
+        // The same place, at the same A to within whole turns: the program
+        // keeps A as it turns on, the strategy within its own turns.
+        let found = (next..heads.len()).find(|&p| {
+            heads[p].is_some_and(|h| {
+                let turns = (h.a.0 - last.a.0) / 360.0;
+                h.tip.distance(last.tip) < 1e-6 && (turns - turns.round()).abs() < 1e-9
+            })
+        });
+        if let Some(p) = found {
+            out.push((p + 1, before, segs[i..k].iter().map(|s| s.end).collect()));
+            next = p + 1;
+        }
+        i = k;
+    }
+    out
 }

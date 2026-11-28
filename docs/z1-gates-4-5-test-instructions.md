@@ -269,7 +269,7 @@ The reasons are in the rc3 test record (issue #586, archived under `docs/archive
 | F3 | Tool change with a real tool | Done: tested attended with a real tool at the rc3 first cut (OI-41, closed; rc3 record E-03). This program has one tool, changed once at the start (`T1 M6`). |
 | F4 | First-cut limit | As at the top of this section, on every measurement of 5.7 (decisions 0221 and 0680). |
 | F5 | The first-cut project | The project of 5.2 exists and passes gates 1 to 3 like any other program. |
-| F6 | The tool and its speeds confirmed with the owner (OI-2197) | **Stop here until the owner has said which 3.175 mm flat end is fitted and confirmed its finishing preset** (5.3, T0). The project must hold the tool that is fitted. |
+| F6 | The tool and its speeds confirmed with the owner (OI-2197, closed 26 Nov 2026) | The owner has tool 104 to hand and confirmed its "Plastic" preset for finishing as well as roughing (5.3, T0). The project must still hold the tool that is fitted: if another is fitted, change the project and take it through gates 1 to 4 again. |
 
 ### 5.2 The first-cut project
 
@@ -324,13 +324,13 @@ The Z1 tool library (built-in defaults, `crates/openchuck-project/defaults/z1/`)
 
 **The project's tool is 104 (Z1 O-flute 3.175x25, single flute, flat end) for both operations** (decision 0680, Q5, F2). This replaces OI-921's finishing tool, 204. Both operations take its "Plastic" preset. The finishing helix's pitch is the preset's stepover, 2.2225 mm.
 
-**Unconfirmed: the finishing preset (OI-2197).** The owner confirmed 104's "Plastic" preset for roughing (OI-921). For finishing it is the library's value, not yet confirmed by the owner. Do not cut until the owner has confirmed it or given another (F6).
+**Confirmed: the finishing preset (OI-2197, closed 26 Nov 2026).** The owner confirmed 104's "Plastic" preset (10000 rpm, 0.1 mm per tooth, plunge 300 mm/min, stepover 2.2225 mm, stepdown 1.0 mm) for roughing (OI-921) and, on 26 Nov 2026 (relayed by the coordinator), for finishing as well, and said they have tool 104 to hand. If the project is changed to another tool or preset, the owner confirms that one (F6).
 
 **The tool must reach the depth.** The deepest cut, from the box's corners (24.7 mm from the axis) to the tab and step 3 (5 mm), is 19.7 mm. 104 has 25 mm of flute. 101 has 12 mm, which is not enough.
 
 | Step | Check | Pass when |
 | --- | --- | --- |
-| T0 | **Confirm the tool with the owner** (OI-2197). When the project is generated, show the owner the setup sheet's Tools and Operations tables (number, name, type, diameter, flute length, spindle rpm, Speed from) | The tool fitted is the project's tool (104, or the project has been changed to the tool fitted and has passed gates 1 to 4 again), and the owner has confirmed its finishing preset. Record who confirmed and when. |
+| T0 | **Check the tool with the owner** (OI-2197 is closed: the owner confirmed 104 and its "Plastic" preset on 26 Nov 2026). When the project is generated, show the owner the setup sheet's Tools and Operations tables (number, name, type, diameter, flute length, spindle rpm, Speed from) | The tool fitted is the project's tool (104, or the project has been changed to the tool fitted and has passed gates 1 to 4 again), and the owner's confirmation of its finishing preset (26 Nov 2026, OI-2197) still applies. Record the tool fitted and who checked it, and when. |
 | T1 | The tool | One tool, T1, and the tool number matches the program's `T1` (GC-14). |
 | T2 | Material | The setup's material is **Plastic**, so both operations take the Plastic preset: the setup sheet's **Speed from** reads "tool data: Plastic" (decision 0196). If an operation sets its own speed, Speed from reads "operation": check the value with the owner. |
 | T3 | A tool with no Plastic data | None of the five lacks it. If one is ever used: copy its Softwood data to a new Plastic entry in the tool library; if it has no Softwood data either, **ask the owner before** using settings from a similar tool (OI-915). |
@@ -463,7 +463,7 @@ The face at X 73 faces the chuck, in a groove about 4.5 mm wide, and is not touc
 - [ ] Gate 4 passed for the first-cut program, same commit, profile and post.
 - [ ] Safe-practice checklist section 3 complete.
 - [ ] The first-cut project is the stepped part of decision 0680 (24, 17 and 10 mm at X 73 to 98); the limits: ±0.1 mm on a diameter, ±0.05 mm on a radius, ±0.1 mm on positions and lengths, against the simulated part.
-- [ ] The tool confirmed with the owner (T0, OI-2197): one tool, the flat end 104 as T1, for roughing and finishing; its finishing preset confirmed; material Plastic, Speed from "tool data: Plastic".
+- [ ] The tool checked with the owner (T0; OI-2197 closed, the finishing preset confirmed on 26 Nov 2026): one tool, the flat end 104 as T1, for roughing and finishing; material Plastic, Speed from "tool data: Plastic".
 - [ ] Workholding: grip length matches the chuck and is recorded; no grip warning; the 5 mm tab and the 2 mm, 10 mm tailstock piece as agreed.
 - [ ] Stick-out at least 19.7 mm plus a margin; spindle speed and feeds checked against the preset.
 - [ ] Simulated: up to date; no overcut beyond the cell; no rapid removes material; held regions and tabs whole; the simulated deviation at each station written down; screenshots kept.
@@ -650,7 +650,7 @@ The owner answered the questions of OI-910 to OI-919 on 22 Oct 2026 (relayed by 
 | OI-925 | How the block-rate air cut program is checked before it runs, since it is written by a script and has not passed gates 1 to 3 (verification plan policy 6 excepts only the SP-12 program) | A: as SP-12 was, read by hand and replayed by gate 3 as a LinuxCNC copy ([decision 0232](decisions/0232-block-rate-program-checked-as-sp-12-was.md), accepted) | 4.8 K1 to K4, G4-8 | No (accepted); execution gap recorded with OI-930 in section 10 |
 | OI-918 | The setup sheet does not show held regions or tabs | Show them, in plain wording (owner, 22 Oct 2026); built in lane GATES: the Setup section's held-region and tab lines and a tab table per setup, HTML and PDF | S8, 5.2 | No |
 | OI-919 | Single block on the Z1 | B: no single block; 10 % override with a hand on feed hold | 4.3 | No |
-| OI-2197 | Which 3.175 mm flat end is fitted for the stepped first cut, and its finishing preset ([decision 0680](decisions/0680-the-gate-5-reference-part-is-a-stepped-cylinder.md)) | Not yet answered: the preset is marked unconfirmed for finishing | F6, T0 | Yes |
+| OI-2197 | Which 3.175 mm flat end is fitted for the stepped first cut, and its finishing preset ([decision 0680](decisions/0680-the-gate-5-reference-part-is-a-stepped-cylinder.md)) | Closed 26 Nov 2026: the owner has tool 104 to hand and confirmed its "Plastic" preset for finishing (relayed) | F6, T0 | No |
 
 ### 9.1 Register audit after the submitted results
 

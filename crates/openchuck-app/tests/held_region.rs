@@ -681,10 +681,35 @@ fn free_ends_off(strategy: &str) -> BTreeMap<String, ParameterValue> {
     out
 }
 
+/// A copied project's folder, removed when the test is done with it, also
+/// when an assertion fails (issues #682 and #770): declared before the
+/// project it holds is opened, it is dropped after it.
+struct ProjectCopy(PathBuf);
+
+impl std::ops::Deref for ProjectCopy {
+    type Target = Path;
+
+    fn deref(&self) -> &Path {
+        &self.0
+    }
+}
+
+impl AsRef<Path> for ProjectCopy {
+    fn as_ref(&self) -> &Path {
+        &self.0
+    }
+}
+
+impl Drop for ProjectCopy {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_dir_all(&self.0);
+    }
+}
+
 /// A copy of the public baluster example (its stock held 8 mm at the
 /// start) in a fresh folder named for `tag`, with only its Finish operation
 /// (helical finishing); returns the folder and the Finish operation's file.
-fn baluster_finish(tag: &str) -> (PathBuf, PathBuf) {
+fn baluster_finish(tag: &str) -> (ProjectCopy, PathBuf) {
     fn copy(from: &Path, to: &Path) {
         std::fs::create_dir_all(to).unwrap();
         for entry in std::fs::read_dir(from).unwrap() {
@@ -704,6 +729,7 @@ fn baluster_finish(tag: &str) -> (PathBuf, PathBuf) {
         std::process::id()
     ));
     let _ = std::fs::remove_dir_all(&dir);
+    let dir = ProjectCopy(dir);
     copy(&from, &dir);
     // Only the Finish operation is generated: the example's Rough is not
     // what this checks, and it is most of the time.
@@ -716,7 +742,7 @@ fn baluster_finish(tag: &str) -> (PathBuf, PathBuf) {
 
 /// [`baluster_finish`] with the Finish operation in Rings with `step` steps
 /// between them.
-fn baluster_in_rings(step: &str) -> PathBuf {
+fn baluster_in_rings(step: &str) -> ProjectCopy {
     let (dir, finish) = baluster_finish(&format!("rings-{step}"));
     let text = std::fs::read_to_string(&finish).unwrap();
     std::fs::write(
@@ -747,13 +773,18 @@ fn req_set_09_req_op_04_the_baluster_finish_names_no_shoulder_at_the_held_end() 
         !warnings.iter().any(|w| w.contains("does not turn at")),
         "{warnings:#?}"
     );
+    // Beside the grip is information, not a warning (the owner's answer to
+    // #774).
+    let said = "no part of the tool comes within 0.500 mm of the held region";
     assert!(
-        warnings
-            .iter()
-            .any(|w| w.contains("Nothing within one tool radius of the held region")),
+        !warnings.iter().any(|w| w.to_lowercase().contains(said)),
         "{warnings:#?}"
     );
-    std::fs::remove_dir_all(&dir).unwrap();
+    assert!(
+        run.notes.iter().any(|n| n.contains(said)),
+        "{:#?}",
+        run.notes
+    );
 }
 
 #[test]
@@ -806,6 +837,5 @@ fn finish_in_rings_starts_on_a_whole_ring_beside_the_chuck(step: &str) {
         // mm further along X (decision record 0649).
         let x = x - 17.990_234_375;
         assert!(x > 7.0 && x < 12.0, "{step}: the first ring at X {x:.3}");
-        std::fs::remove_dir_all(&dir).unwrap();
     }
 }

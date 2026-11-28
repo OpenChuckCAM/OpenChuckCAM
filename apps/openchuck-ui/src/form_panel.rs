@@ -92,6 +92,7 @@ fn source_text(source: Source) -> &'static str {
         Source::CuttingData => "from the tool's cutting data",
         Source::Default => "default",
         Source::Missing => "required",
+        Source::Derived(words) => words,
         _ => "",
     }
 }
@@ -452,25 +453,11 @@ fn row(
     }
 }
 
+/// The words shown for a choice's stored word: the application's label, or
+/// the stored word itself for a choice it has none for (the application's
+/// test fails when a strategy's choice has none).
 fn choice_label<'a>(name: &str, value: &'a str) -> &'a str {
-    match (name, value) {
-        ("shape", "flat") => "Flat along stock",
-        ("shape", "round") => "Round",
-        ("shape", "end") => "Unheld end",
-        ("shape", "box") => "Box sides",
-        ("extent", "whole_stock") => "Whole stock",
-        ("extent", "part") => "Part only",
-        ("extent", "part_plus_tabs") => "Part plus tabs",
-        ("layer_distribution", "full") => "Full stepdown, shorter final pass",
-        ("layer_distribution", "equal") => "Equal stepdowns",
-        ("pass_shape", "helix") => "Spiral",
-        ("pass_shape", "rings") => "Rings",
-        ("link_height", "retract") => "Retract to the clearance",
-        ("link_height", "low") => "Stay low where clear",
-        ("ring_step", "sharp") => "Sharp",
-        ("ring_step", "blended") => "Blended",
-        _ => value,
-    }
+    openchuck_app::form::choice_label(name, value).unwrap_or(value)
 }
 
 /// The reason under a refused field: the application's message as a
@@ -1155,10 +1142,10 @@ mod tests {
         // What the application knows before Generate about an entry setting
         // is a warning line under the field, in the Entry, links and retract
         // section; none when there is no problem (#291).
-        let problem = "Allow single-point plunge needs a tool that can plunge.";
+        let problem = "Plunge where no ramp fits needs a tool that can plunge.";
         let field = |problem: Option<&str>| Field {
             name: "allow_single_point_plunge".into(),
-            label: "Allow single-point plunge".into(),
+            label: "Plunge where no ramp fits".into(),
             description: String::new(),
             kind: FieldKind::Flag,
             set: Some(ParameterValue::Flag(true)),
@@ -1208,7 +1195,7 @@ mod tests {
         let shown = run(field(None));
         assert!(!shown.iter().any(|t| t == problem), "{shown:?}");
         assert!(
-            shown.iter().any(|t| t == "Allow single-point plunge"),
+            shown.iter().any(|t| t == "Plunge where no ramp fits"),
             "{shown:?}"
         );
     }

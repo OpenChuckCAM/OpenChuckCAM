@@ -1131,6 +1131,97 @@ fn req_set_09_cli_names_the_stock_outline_as_the_held_region_on_box_stock() {
     );
 }
 
+/// Issue #676: `--default-tabs` adds the tab for each end that has one, says
+/// what it added, and says which end it skipped and why; it refuses, naming
+/// both ends, only when neither end can have one.
+#[test]
+fn req_op_21_cli_default_tabs_add_the_ends_that_have_one() {
+    let project = empty_project("default-tabs-point");
+    let p = project.to_str().unwrap();
+    std::fs::create_dir_all(project.join("models")).unwrap();
+    // A square pyramid along X: a 10 mm square base at X -10, its point at X 10.
+    let mut stl = String::from("solid pyramid\n");
+    let tri = |a: [f64; 3], b: [f64; 3], c: [f64; 3]| {
+        format!(
+            "facet normal 0 0 0\n outer loop\n  vertex {} {} {}\n  vertex {} {} {}\n  vertex {} {} {}\n endloop\nendfacet\n",
+            a[0], a[1], a[2], b[0], b[1], b[2], c[0], c[1], c[2]
+        )
+    };
+    let base = [
+        [-10.0, -5.0, -5.0],
+        [-10.0, 5.0, -5.0],
+        [-10.0, 5.0, 5.0],
+        [-10.0, -5.0, 5.0],
+    ];
+    let apex = [10.0, 0.0, 0.0];
+    stl.push_str(&tri(base[0], base[2], base[1]));
+    stl.push_str(&tri(base[0], base[3], base[2]));
+    for i in 0..4 {
+        stl.push_str(&tri(base[i], base[(i + 1) % 4], apex));
+    }
+    stl.push_str("endsolid pyramid\n");
+    std::fs::write(project.join("models/pyramid.stl"), stl).unwrap();
+    let out = run(&args(&[
+        "import",
+        p,
+        project.join("models/pyramid.stl").to_str().unwrap(),
+    ]));
+    assert_eq!(out.code, Some(0), "{}", out.stderr);
+    let out = run(&args(&[
+        "setup",
+        p,
+        "--new",
+        "Setup 1",
+        "--part",
+        "models/pyramid.stl",
+        "--stock",
+        "cylinder=30,60,-25",
+        "--held-start",
+        "5",
+        "--held-end",
+        "4,20",
+    ]));
+    assert_eq!(out.code, Some(0), "{}{}", out.stdout, out.stderr);
+    let out = run(&args(&["setup", p, "Setup 1", "--default-tabs"]));
+    assert_eq!(out.code, Some(0), "{}{}", out.stdout, out.stderr);
+    // The head's tab is added and said, with where it is.
+    assert!(
+        out.stdout.contains(
+            "Workholding (setup 'Setup 1'): added a default tab at the head, X -20.000 to -10.000 mm"
+        ),
+        "{}",
+        out.stdout
+    );
+    assert!(out.stdout.contains("tab 1:"), "{}", out.stdout);
+    // The tail's is skipped, and said with the reason, as a warning.
+    assert!(
+        out.stderr.lines().any(|l| l
+            .starts_with("warning: Workholding (setup 'Setup 1'): no default tab at the tail")
+            && l.contains("The part comes to a point at X 10.000 mm")
+            && l.contains("--tab")),
+        "{}",
+        out.stderr
+    );
+    assert!(!out.stdout.contains("tab 2:"), "{}", out.stdout);
+    // With neither end possible, the command refuses, naming both, and stores nothing.
+    let out = run(&args(&[
+        "setup",
+        p,
+        "Setup 1",
+        "--clear-tabs",
+        "--held-start",
+        "20",
+        "--default-tabs",
+    ]));
+    assert_ne!(out.code, Some(0), "{}{}", out.stdout, out.stderr);
+    assert!(
+        out.stderr.contains("head") && out.stderr.contains("tail"),
+        "{}",
+        out.stderr
+    );
+    assert!(!out.stderr.contains("panicked"), "{}", out.stderr);
+}
+
 #[test]
 fn req_set_09_req_op_21_cli_sets_held_regions_and_tabs() {
     let project = empty_project("holding-set");
@@ -1705,4 +1796,53 @@ fn walk(dir: &std::path::Path) -> Vec<std::path::PathBuf> {
         }
     }
     out
+}
+
+/// An avoid set on Ignore limits nothing, and `regenerate` says so once as
+/// a `note:` line, not a `warning:` (decision 0696 item 8, the owner's
+/// D3 answer A; OP-21).
+#[test]
+fn req_op_21_cli_says_a_set_on_ignore_as_a_note() {
+    use openchuck_app::project::{OnBreak, SelectionTarget};
+    use openchuck_app::selection::SelectionRole;
+    use openchuck_app::{Application, Threads};
+    let from = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../testdata/examples/baluster/baluster-project");
+    let dir = std::env::temp_dir().join(format!("openchuck-ignore-note-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    for entry in walk(&from) {
+        let target = dir.join(entry.strip_prefix(&from).unwrap());
+        std::fs::create_dir_all(target.parent().unwrap()).unwrap();
+        std::fs::copy(&entry, target).unwrap();
+    }
+    {
+        let mut app = Application::open(&dir, Threads::Exactly(1)).unwrap();
+        let model = app.project().models()[0].id;
+        let finish = app
+            .project()
+            .operations()
+            .iter()
+            .find(|o| o.name == "Finish")
+            .unwrap()
+            .id;
+        // A few triangles of the part: on Ignore, which they are does not
+        // matter.
+        let ends = [0, 1, 2].into();
+        let set = app
+            .save_selection("End", model, SelectionTarget::Triangles(ends))
+            .unwrap();
+        app.set_operation_selection(finish, SelectionRole::Avoid, set, true)
+            .unwrap();
+        app.set_on_break(finish, SelectionRole::Avoid, set, OnBreak::Ignore)
+            .unwrap();
+        app.save().unwrap();
+    }
+    let out = run(&args(&["regenerate", dir.to_str().unwrap()]));
+    assert_eq!(out.code, Some(0), "{}", out.stderr);
+    let all = format!("{}{}", out.stdout, out.stderr);
+    let said = "the avoid set 'End' limits nothing, because it is set to Ignore";
+    let lines: Vec<&str> = all.lines().filter(|l| l.contains(said)).collect();
+    assert_eq!(lines.len(), 1, "{all}");
+    assert!(lines[0].starts_with("note: "), "{all}");
+    std::fs::remove_dir_all(&dir).unwrap();
 }

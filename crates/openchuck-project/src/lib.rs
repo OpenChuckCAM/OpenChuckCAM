@@ -68,6 +68,6 @@ pub use model::{
     BoundaryOptions, Descriptor, Item, ItemId, ListKind, MODELS_FOLDER, MeshEdge, ModelCheck,
     ModelRef, OldKeys, OldPlace, OnBreak, Operation, ParameterValue, Placement, Project,
     RelativePath, RestrictionOptions, SelectionSet, SelectionTarget, SetOptions, Setup,
-    ToolSnapshot, is_set_colour,
+    ToolSnapshot, check_setup_values, is_set_colour,
 };
 pub use order::OrderKey;

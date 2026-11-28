@@ -1129,7 +1129,21 @@ pub(crate) fn differing_fields(a: &MachineProfile, b: &MachineProfile) -> Vec<&'
         ("name", *name == b.name),
         ("rotary axis", *rotary_axis == b.rotary_axis),
         ("A+ direction", *a_sense == b.a_sense),
-        ("axis height", *rotary_origin == b.rotary_origin),
+        // The rotary reference point, by coordinate: its Z is the axis
+        // height the machine panel shows; X and Y keep the machine editor's
+        // names (issue #824).
+        (
+            "rotary reference X",
+            rotary_origin.x.to_bits() == b.rotary_origin.x.to_bits(),
+        ),
+        (
+            "rotary reference Y",
+            rotary_origin.y.to_bits() == b.rotary_origin.y.to_bits(),
+        ),
+        (
+            "axis height",
+            rotary_origin.z.to_bits() == b.rotary_origin.z.to_bits(),
+        ),
         ("A range", *a_range == b.a_range),
         ("travel", *travel == b.travel),
         ("maximum feeds", *max_feeds == b.max_feeds),
@@ -1187,5 +1201,25 @@ mod short_block_tests {
             ["minimum block time", "block window", "short-block mode"]
         );
         assert_eq!(source.min_block_ms.to_bits(), 0.0f64.to_bits());
+    }
+
+    /// The comparison names the coordinate of the rotary reference point
+    /// that differs: a Y-only difference (the Z1's old copy, decision
+    /// record 0651) is not called the axis height, which is its Z (issue
+    /// #824; the machine editor's "Rotary reference X/Y/Z").
+    #[test]
+    fn req_set_01_req_set_10_profile_comparison_names_the_rotary_reference_coordinate() {
+        let source = MachineProfile::example_x_rotary();
+        let mut copy = source.clone();
+        copy.rotary_origin.y += 1.0;
+        assert_eq!(differing_fields(&source, &copy), ["rotary reference Y"]);
+        copy.rotary_origin.x += 1.0;
+        assert_eq!(
+            differing_fields(&source, &copy),
+            ["rotary reference X", "rotary reference Y"]
+        );
+        let mut copy = source.clone();
+        copy.rotary_origin.z -= 1.0;
+        assert_eq!(differing_fields(&source, &copy), ["axis height"]);
     }
 }

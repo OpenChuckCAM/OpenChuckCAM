@@ -320,6 +320,20 @@ impl Application {
                 openchuck_project::ParameterValue::Flag(true),
             );
         }
+        // A finishing strategy that offers Finish to a point starts with it
+        // on, written into the operation, so a part that ends in a point is
+        // cut to the point; one saved without it keeps its program (decision
+        // 0695, Q2 (a) A, the owner's answer, in decision 0545 D3's pattern).
+        if self.strategies.get(strategy).is_ok_and(|s| {
+            s.schema()
+                .get(openchuck_path::finishing::parameter::FINISH_TO_A_POINT)
+                .is_some()
+        }) {
+            parameters.insert(
+                openchuck_path::finishing::parameter::FINISH_TO_A_POINT.to_owned(),
+                openchuck_project::ParameterValue::Flag(true),
+            );
+        }
         // Face flow starts with Pattern Automatic; one saved without it
         // keeps its passes along the guide (the owner's decision of 23 Nov
         // 2026, decision 0545 D3's pattern).
@@ -338,6 +352,51 @@ impl Application {
         if strategy == openchuck_path::face_flow::NAME {
             parameters.insert(
                 openchuck_path::face_flow::parameter::SHORTEST_CUT.to_owned(),
+                openchuck_project::ParameterValue::Text(
+                    openchuck_path::params::TOOL_DIAMETER.to_owned(),
+                ),
+            );
+        }
+        // A strategy that offers Plunge where no ramp fits and Steeper ramp
+        // near the axis starts with both on, written into the operation, so a
+        // Ramp entry plunges only the passes with no room to ramp, each said
+        // in a note, instead of refusing them; one saved without them keeps
+        // them off and keeps its program (decision 0695,
+        // Q4 (iii), the owner's answer, in decision 0545 D3's pattern).
+        // Only where Entry offers Ramp (not drilling).
+        let offers_ramp = |schema: &openchuck_path::ParameterSchema| {
+            schema
+                .get(openchuck_path::params::names::ENTRY)
+                .is_some_and(|spec| match &spec.kind {
+                    openchuck_path::ParameterKind::Choice { options, .. } => options
+                        .iter()
+                        .any(|o| o == openchuck_path::params::EntryStyle::Ramp.name()),
+                    _ => false,
+                })
+        };
+        if let Ok(s) = self.strategies.get(strategy)
+            && offers_ramp(&s.schema())
+        {
+            let schema = s.schema();
+            for name in [
+                openchuck_path::params::names::ALLOW_SINGLE_POINT_PLUNGE,
+                openchuck_path::params::names::RAMP_STEEPER_NEAR_AXIS,
+            ] {
+                if schema.get(name).is_some() {
+                    parameters.insert(
+                        name.to_owned(),
+                        openchuck_project::ParameterValue::Flag(true),
+                    );
+                }
+            }
+        }
+        // Pencil clean-up starts with a Shortest cut of Tool diameter, which
+        // follows the operation's tool, as face flow's does (issue #892, the
+        // owner's answer A). One saved without it still takes the tool's
+        // diameter when the path is made (decision 0684 item 3).
+        if strategy == openchuck_path::pencil::NAME {
+            parameters.insert(
+                openchuck_path::pencil::pencil_parameter::MIN_LENGTH.to_owned(),
                 openchuck_project::ParameterValue::Text(
                     openchuck_path::params::TOOL_DIAMETER.to_owned(),
                 ),

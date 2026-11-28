@@ -50,6 +50,28 @@ pub enum ProjectError {
         /// The newest this build reads.
         supported: i64,
     },
+    /// A tool library file was written by a newer version of OpenChuckCAM:
+    /// it declares a tool library schema this build does not read (issue
+    /// #864; decision 0703).
+    #[error("'{}' uses tool library schema {found}, but this version reads up to {supported}; open the tool library with a newer OpenChuckCAM", path.display())]
+    LibrarySchemaTooNew {
+        /// The file.
+        path: PathBuf,
+        /// Its schema version.
+        found: i64,
+        /// The newest this build reads.
+        supported: i64,
+    },
+    /// A tool library file holds a field this build does not read: it was
+    /// written by a newer version of OpenChuckCAM, or the field is misspelt
+    /// (issue #864; decision 0703).
+    #[error("'{}' holds `{field}`, which this version does not read: the tool library file was written by a newer version of OpenChuckCAM, or the field is misspelt; open the tool library with a newer OpenChuckCAM", path.display())]
+    WrittenByNewer {
+        /// The file.
+        path: PathBuf,
+        /// The field this build does not know.
+        field: String,
+    },
     /// A project file could not be read as a project file.
     #[error("cannot read '{}': {reason}", path.display())]
     BadFile {

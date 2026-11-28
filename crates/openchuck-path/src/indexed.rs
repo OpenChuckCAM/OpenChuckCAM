@@ -130,6 +130,7 @@ impl Strategy for IndexedFinishing {
                 crate::finishing::parameter::FINISH_ALLOWANCE,
                 crate::finishing::parameter::FINISHING_LAYERS,
                 crate::finishing::parameter::STEPDOWN,
+                crate::finishing::parameter::FINISH_TO_A_POINT,
                 axial_parameter::SCALLOP,
                 adaptive::parameter::ADAPTIVE_SPACING,
                 adaptive::parameter::MIN_SPACING,
@@ -213,7 +214,7 @@ impl Strategy for IndexedFinishing {
 /// The passes made, with their notes.
 fn output(made: Made) -> Result<StrategyOutput> {
     let (x0, x1) = made.range;
-    let mut warnings = Vec::new();
+    let mut warnings = made.pointed;
     let mut spaced = None;
     if let Some((settings, outcome)) = &made.spaced {
         spaced = Some(outcome.note(settings));
@@ -244,6 +245,8 @@ struct Made {
     range: (f64, f64),
     layered: Option<Notice>,
     spaced: Option<(adaptive::Settings, adaptive::Outcome)>,
+    /// What finishing to a point cuts free (decision record 0695, Q2).
+    pointed: Vec<Notice>,
 }
 
 /// The note an indexed operation carries when its passes cut past the ends
@@ -307,17 +310,54 @@ fn passes(
     along.beyond = along.grown_radius() - 0.1 * tolerance;
     along.check_passes(angles.len())?;
     let adaptive = adaptive::Settings::read(parameters, axial_parameter::SCALLOP)?;
+    // Finish to a point (decision record 0695, Q2): the ends that come to a
+    // point, past which the passes carry on.
+    let ends = if parameters
+        .flag(crate::finishing::parameter::FINISH_TO_A_POINT)
+        .unwrap_or(false)
+    {
+        let found = crate::faces::turns_to_the_ends(
+            input,
+            &along.grown,
+            along.range(),
+            tolerance,
+            context,
+        )?;
+        crate::finishing::point_ends(
+            input,
+            &along.grown,
+            &found.free,
+            (region, zones),
+            parameters,
+        )
+    } else {
+        Vec::new()
+    };
+    along.check_point_stretches(&ends, angles.len())?;
     let (passes, spaced) = match adaptive {
-        None => (
-            along.passes_at(&angles, "indexed finishing", context)?,
-            None,
-        ),
+        None => {
+            let mut passes = along.passes_at(&angles, "indexed finishing", context)?;
+            for end in &ends {
+                for &a in &angles {
+                    context.check_cancelled()?;
+                    passes.extend(along.point_stretch(a, end, context)?);
+                }
+            }
+            (passes, None)
+        }
         Some(settings) => {
-            let groups = along.passes_by_angle(&angles, "indexed finishing", context)?;
+            let mut groups = along.passes_by_angle(&angles, "indexed finishing", context)?;
+            // Each pass carried on past the points, so adaptive spacing
+            // measures there too (Q2 (c) B).
+            for (group, &a) in groups.iter_mut().zip(&angles) {
+                for end in &ends {
+                    group.extend(along.point_stretch(a, end, context)?);
+                }
+            }
             let (passes, outcome) = adaptive_passes(
                 input,
                 (region, zones, parameters),
-                &along,
+                (&along, &ends),
                 (&angles, groups),
                 settings,
                 context,
@@ -328,12 +368,24 @@ fn passes(
     // Finishing layers above them, when on; each layer keeps the pass's A
     // (decision record 0345).
     let (mut passes, layered) = crate::finishing::layers(input, passes, parameters)?;
+    // Then whole turns take the tool to the rotary axis past each point.
+    let first = angles.first().copied().unwrap_or(0.0);
+    for end in &ends {
+        passes.extend(along.point_turns(
+            end,
+            parameters,
+            (first, crate::axial::TURN_STEP),
+            context,
+        )?);
+    }
+    let pointed = crate::finishing::point_warnings(input, &ends, &[]);
     along.mark_low_links(&mut passes);
     Ok(Made {
         passes,
         range: along.range(),
         layered,
         spaced,
+        pointed,
     })
 }
 
@@ -481,7 +533,7 @@ fn side(rotary: &RotaryMapping, from: f64, toward: f64, r: f64) -> f64 {
 fn adaptive_passes(
     input: &StrategyInput<'_>,
     (region, zones, parameters): (Option<&RegionConstraint<'_>>, &[LeaveZone<'_>], &Parameters),
-    along: &AlongX<'_>,
+    (along, pointed): (&AlongX<'_>, &[crate::finishing::PointEnd]),
     (angles, groups): (&[f64], Vec<Vec<Pass>>),
     settings: adaptive::Settings,
     context: &JobContext<'_>,
@@ -564,7 +616,7 @@ fn adaptive_passes(
         .flatten()
         .map(|p| p.points.len() as u64 + adaptive::LINK_POINTS)
         .sum();
-    let (x0, x1) = along.range();
+    let (x0, x1) = along.span_to(pointed);
     let intervals: Vec<Interval> = (0..n)
         .filter(|&k| matches!((sorted.get(k), sorted.get(k + 1)), (Some(p), Some(q)) if q > p))
         .map(|k| Interval {
