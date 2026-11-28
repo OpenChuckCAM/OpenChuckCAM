@@ -471,8 +471,10 @@ Built by lane TOOL-LOAD on branch `claude/lane-tool-load-tl3` (pull request to c
   - it is the first enabled operation in its setup;
   - the project has a flat end with cutting data for the operation's material (the operation's own tool first, then the first in the project's order).
 
+  Not offering it to rotary roughing was the lane's reading. The owner accepted it as built on 28 Nov 2026 (A), relayed by the coordinator (decision 0049).
+
   Taking it adds, as one undoable step (UI-08), a rotary roughing operation named "Roughing for <name>" in the same setup, just before the operation, with that tool and the operation's material. The operation is selected. Its Stepdown and Stepover come from the tool's cutting data, as for any new roughing. Asked for anywhere else, the action is refused with the reason (NFR-07).
-- **Stock to leave.** It is the default of decision 0205 (a tenth of the diameter), raised to the operation's own Stock to leave where that is larger, so the roughing never cuts below the operation's target. This is the lane's reading of "leaving the finish's own allowance".
+- **Stock to leave.** It is the default of decision 0205 (a tenth of the diameter), raised to the operation's own Stock to leave where that is larger, so the roughing never cuts below the operation's target. This was the lane's reading of "leaving the finish's own allowance". The owner accepted it as built on 28 Nov 2026 (A), relayed by the coordinator (decision 0049).
 - **Go to** (Q2, #935). An operation's Highest and Load figures in the removal-rate block can be chosen, by mouse or Enter, and move playback to the start of their stretch, paused. Their tooltip says so. They stay figures rather than separate links, so the block keeps its width at 280 pixels. This setup's figures and an operation with no stretch offer none.
 - **Two Minor review findings of #934** (issue #960, items 2 and 3).
   - The warning and information line now give the cut section as an area ("a cut section (the material removed per millimetre of travel) above 12.70 mm²").
