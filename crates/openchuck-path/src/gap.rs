@@ -114,6 +114,10 @@ fn polytope_lowest(planes: &[(Vec3, f64)], m: Vec3) -> Option<(f64, Point3)> {
     least
 }
 
+/// The most clips of a face counted in a bound over a polytope's corners
+/// ([`Face::bounding`]).
+const MOST_CLIPS: usize = 24;
+
 /// The golden-section steps of the search for a leaning plane's angle in
 /// [`Body::lower_surface`].
 const LEAN_STEPS: u32 = 40;
@@ -1737,6 +1741,37 @@ impl Face {
         Self { around, ..self }
     }
 
+    /// The clipped region's sides for a bound over its corners
+    /// ([`polytope_lowest`], whose work grows with the fourth power of the
+    /// number of planes): the prism's sides and at most [`MOST_CLIPS`]
+    /// clips, those nearest the piece's centre (lane SE-PERF). Where
+    /// hundreds of faces meet at a corner (the pole of a sphere of
+    /// revolution) a face has that many clips. A region with clips left out
+    /// holds the clipped region, so the least over it is a bound of the
+    /// least over the clipped region, and where it is empty so is that.
+    fn bounding(&self) -> Vec<(Vec3, f64)> {
+        let mut region: Vec<(Vec3, f64)> = self.sides.to_vec();
+        if self.clips.len() <= MOST_CLIPS {
+            region.extend(self.clips.iter().copied());
+            return region;
+        }
+        let centre = centroid(&self.corners) - Point3::ORIGIN;
+        let mut clips: Vec<(f64, usize)> = self
+            .clips
+            .iter()
+            .enumerate()
+            .map(|(i, (n, b))| (b - n.dot(centre), i))
+            .collect();
+        clips.sort_by(|a, b| a.0.total_cmp(&b.0).then(a.1.cmp(&b.1)));
+        region.extend(
+            clips
+                .iter()
+                .take(MOST_CLIPS)
+                .filter_map(|(_, i)| self.clips.get(*i).copied()),
+        );
+        region
+    }
+
     /// Every side of the face's region: the triangle's three, then its
     /// clips.
     fn constraints(&self) -> impl Iterator<Item = &(Vec3, f64)> {
@@ -2355,7 +2390,7 @@ impl Search<'_, '_> {
             } else if self.body.beside(&clipped, s0, s1) {
                 f64::INFINITY
             } else {
-                let region: Vec<(Vec3, f64)> = clipped.constraints().copied().collect();
+                let region: Vec<(Vec3, f64)> = clipped.bounding();
                 // The clipped region between the layer's floor and the
                 // face, closed.
                 let mut closed = region.clone();
@@ -2688,7 +2723,7 @@ impl Search<'_, '_> {
             clipped_lower = f64::INFINITY;
         }
         if has_clips && wanted && !clipped_beside && single {
-            let region: Vec<(Vec3, f64)> = clipped.constraints().copied().collect();
+            let region: Vec<(Vec3, f64)> = clipped.bounding();
             clipped_lower =
                 clipped_lower.max(self.body.lower_surface(&clipped, &region, self.limit, 0.0));
         }

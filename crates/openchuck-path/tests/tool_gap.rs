@@ -1011,3 +1011,60 @@ proptest! {
         }
     }
 }
+
+/// A shallow cone of `n` faces meeting at its apex at the origin, as the
+/// faces of a sphere of revolution meet at its pole: every face has every
+/// other as a convex neighbour at that corner.
+fn fan(n: u32, radius: f64, drop: f64) -> TriangleMesh {
+    let mut vertices = vec![Point3::new(0.0, 0.0, 0.0)];
+    for i in 0..n {
+        let a = std::f64::consts::TAU * f64::from(i) / f64::from(n);
+        vertices.push(Point3::new(radius * a.cos(), radius * a.sin(), -drop));
+    }
+    let triangles = (0..n).map(|i| [0, 1 + i, 1 + (i + 1) % n]).collect();
+    TriangleMesh {
+        vertices,
+        triangles,
+    }
+}
+
+#[test]
+fn req_op_12_tool_gap_at_a_corner_where_hundreds_of_faces_meet_is_answered_and_agrees() {
+    // The pole of a sphere of revolution: 160 faces meet at one corner, so
+    // each has hundreds of convex neighbours. The query answers (the work
+    // for a face must not grow with the fourth power of its neighbours) and
+    // its interval overlaps the independent checker's, for a ball over the
+    // corner, resting on it, cutting it and beside it.
+    let m = fan(160, 2.0, 0.6);
+    let surface = mesh(&m);
+    let geometry = Geometry::of_mesh(&m).unwrap();
+    let profile = ball(3.0);
+    let tool = ConvexTool::new(&profile).unwrap();
+    let settings = Settings {
+        margin: 5.0,
+        tolerance: 5e-4,
+        budget: 2_000,
+    };
+    let mut ours = std::time::Duration::ZERO;
+    for (x, z) in [(0.0, -0.006), (0.05, -0.004)] {
+        let tip = Point3::new(x, 0.3 * x, z);
+        let started = std::time::Instant::now();
+        let answers = [checked(), GapQuery::pose(0.0125)]
+            .map(|query| (surface.tool_gap(&profile, &line(tip, UP), &query), query));
+        ours += started.elapsed();
+        let theirs = interval(geometry.face_gap(&tool, tip, UP, 0.0125, GAP_ACCURACY, &settings));
+        for (answer, query) in answers {
+            match answer {
+                Some(g) => {
+                    assert!(g.lower <= theirs.upper + 1e-6, "{g:?} against {theirs:?}");
+                    assert!(
+                        theirs.lower <= g.upper + 1e-6 || query.accept.is_some(),
+                        "{g:?} against {theirs:?}"
+                    );
+                }
+                None => assert!(theirs.lower > 0.0125 - 1e-3, "none against {theirs:?}"),
+            }
+        }
+    }
+    assert!(ours.as_secs() < 30, "the queries took {ours:?}");
+}
