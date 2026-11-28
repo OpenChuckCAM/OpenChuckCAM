@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //! The Facing overlay's labels in the view, which of their kinds the user
 //! shows, and the one chip that says what the view hides (issue #881;
-//! decision record MOPUP-1-A, the owner's answers of 25 and 26 Nov 2026).
+//! decision 0702, the owner's answers of 25 and 26 Nov 2026).
 //! Display only: the G-code, the checks, the simulation and the notes never
 //! read any of it.
 
@@ -161,7 +161,7 @@ impl ShownFacingLabels {
 
 /// The chip beside Show while anything is hidden in the view: the hidden
 /// kinds of toolpath move, then the hidden kinds of Facing label, in menu
-/// order (decision record MOPUP-1-A's length rule).
+/// order (decision 0702's length rule).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct HiddenChip {
     /// Every hidden name, in order.

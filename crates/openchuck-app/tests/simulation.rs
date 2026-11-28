@@ -304,3 +304,240 @@ fn req_sim_07_the_cell_is_an_undoable_project_setting() {
     }
     std::fs::remove_dir_all(&dir).unwrap();
 }
+
+/// How far below the Ø20 stock's surface [`RapidThrough`]'s rapid goes, mm:
+/// within a 0.2 mm cell and deeper than a 0.1 mm one.
+const RAPID_DEPTH: f64 = 0.15;
+
+/// A cut at model X 0.5, then a rapid along X to X 9.5 with the tip
+/// [`RAPID_DEPTH`] below the Ø20 stock's surface at A 0, clear of the 10 mm
+/// cube (a test strategy).
+#[derive(Debug)]
+struct RapidThrough;
+
+impl Strategy for RapidThrough {
+    fn name(&self) -> &str {
+        "rapid_through"
+    }
+    fn label(&self) -> &str {
+        "Rapid through"
+    }
+    fn description(&self) -> &str {
+        "A strategy for tests."
+    }
+    fn schema(&self) -> ParameterSchema {
+        ParameterSchema::with_common(Vec::new())
+    }
+    fn passes(
+        &self,
+        input: &StrategyInput<'_>,
+        _: &Parameters,
+        _: &JobContext<'_>,
+    ) -> openchuck_path::Result<Vec<Pass>> {
+        let at = |x: f64| {
+            let tip = input.rotary.to_model(
+                openchuck_path::rotary::AxisPosition {
+                    along: x,
+                    across: 0.0,
+                    height: 10.0 - RAPID_DEPTH,
+                },
+                Degrees(0.0),
+            );
+            CutPoint {
+                tip,
+                a: Degrees(0.0),
+                contact: tip,
+            }
+        };
+        Ok(vec![Pass {
+            helical_pass_start: false,
+            low_link: false,
+            points: vec![at(0.5), at(9.5)],
+            stock: None,
+            rapids: vec![1],
+            plunge_fed: Vec::new(),
+        }])
+    }
+}
+
+/// [`project`] with one operation of [`RapidThrough`], simulated at `cell`.
+fn rapid_project(name: &str, cell: f64) -> (PathBuf, Application) {
+    let (dir, mut app) = project(name, 0, 2);
+    app.register_strategy(Arc::new(RapidThrough)).unwrap();
+    let setup = app.project().setups()[0].id;
+    let tool = app.project().tools()[0].id;
+    app.execute(Command::Add {
+        item: Item::Operation(Operation {
+            enabled: true,
+            id: OperationId::new(),
+            order: OrderKey::default(),
+            name: "Rapid".into(),
+            setup,
+            strategy: "rapid_through".into(),
+            tool: Some(tool),
+            selections: Vec::new(),
+            boundary: None,
+            avoid: Vec::new(),
+            check: Vec::new(),
+            restriction_options: Default::default(),
+            spindle_speed: None,
+            material: None,
+            parameters: BTreeMap::new(),
+        }),
+        placement: Placement::End,
+    })
+    .unwrap();
+    app.execute(Command::SetSimulation(SimulationSettings {
+        cell: Millimetres(cell),
+    }))
+    .unwrap();
+    (dir, app)
+}
+
+/// The run's rapid-cut lines: its warnings and its notes that read "Rapid
+/// cut (operation 'Rapid')".
+fn rapid_lines(run: &openchuck_app::Regeneration) -> (Vec<String>, Vec<String>) {
+    let is = |t: &str| t.starts_with("Rapid cut (operation 'Rapid')");
+    let warnings = run
+        .groups
+        .iter()
+        .flat_map(|g| &g.warnings)
+        .map(|w| w.text.clone())
+        .chain(run.warnings.iter().cloned())
+        .filter(|t| is(t))
+        .collect();
+    let notes = run.notes.iter().filter(|t| is(t)).cloned().collect();
+    (warnings, notes)
+}
+
+/// The depth a rapid-cut line gives, mm: the number before "mm into the
+/// stock" or "mm deep". It is measured on the stock's columns, so it is
+/// within a hundredth of [`RAPID_DEPTH`], not exactly it.
+fn said_depth(line: &str) -> f64 {
+    let at = line
+        .find(" mm into the stock")
+        .or_else(|| line.find(" mm deep"))
+        .unwrap();
+    let start = line[..at].rfind(' ').unwrap() + 1;
+    line[start..at].parse().unwrap()
+}
+
+#[test]
+fn req_sim_03_req_sim_07_req_gc_16_a_rapid_within_one_cell_is_information_and_needs_no_acknowledgement()
+ {
+    // Issue #855 (decision 0661, option C): a rapid that touches the stock no
+    // deeper than the simulation's cell is a note of the run, which Messages
+    // shows as Information: it is not a warning, is not listed in the export
+    // checks and asks for no acknowledgement. It says its depth and the cell.
+    let (dir, mut app) = rapid_project("rapid-within", 0.2);
+    app.set_post(Some(openchuck_app::PostSelection::Builtin(
+        "makera-z1".into(),
+    )));
+    let run = app.simulate().unwrap();
+    let (warnings, notes) = rapid_lines(&run);
+    assert!(warnings.is_empty(), "{warnings:#?}");
+    assert_eq!(notes.len(), 1, "{:#?}", run.notes);
+    assert!(
+        notes[0].contains("is a rapid that touches the stock")
+            && notes[0].contains("mm deep, within the simulation's cell of 0.200 mm"),
+        "{notes:?}"
+    );
+    assert!(
+        (said_depth(&notes[0]) - RAPID_DEPTH).abs() < 0.01,
+        "{notes:?}"
+    );
+    assert!(run.groups.iter().all(|g| g.rapid_cuts.is_empty()));
+    assert!(openchuck_app::collision_warnings(app.project(), &run).is_empty());
+    let checks = app.export_checks(Some(&run), None, None);
+    assert!(
+        checks
+            .checks
+            .iter()
+            .all(|i| !i.text.contains("is a rapid that")),
+        "{:?}",
+        checks.checks
+    );
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+#[test]
+fn req_sim_03_req_sim_07_req_gc_16_a_finer_cell_makes_the_same_rapid_a_warning_and_drops_the_acknowledgement()
+ {
+    // Issue #855 (decision 0661, option C): the same rapid, 0.15 mm deep, is
+    // deeper than a 0.1 mm cell, so it is a warning, in Messages and in the
+    // export checks, to acknowledge before writing. Changing the cell and
+    // simulating again classifies it afresh, both ways, and an acknowledgement
+    // given to an earlier result is never carried to the new one.
+    let (dir, mut app) = rapid_project("rapid-deeper", 0.1);
+    app.set_post(Some(openchuck_app::PostSelection::Builtin(
+        "makera-z1".into(),
+    )));
+    let run = std::sync::Arc::new(app.simulate().unwrap());
+    let (warnings, notes) = rapid_lines(&run);
+    assert!(notes.is_empty(), "{notes:#?}");
+    assert_eq!(warnings.len(), 1, "{warnings:#?}");
+    assert!(
+        warnings[0].contains("mm into the stock, deeper than the simulation's cell of 0.100 mm"),
+        "{warnings:?}"
+    );
+    assert!(
+        (said_depth(&warnings[0]) - RAPID_DEPTH).abs() < 0.01,
+        "{warnings:?}"
+    );
+    let found = openchuck_app::collision_warnings(app.project(), &run);
+    assert_eq!(found.len(), 1, "{found:?}");
+    let checks = app.export_checks(Some(&run), None, None);
+    assert!(
+        checks
+            .checks
+            .iter()
+            .any(|i| i.text.contains("is a rapid that goes")
+                && i.text.ends_with(
+                    "A possible collision: acknowledge it before the files are written"
+                )),
+        "{:?}",
+        checks.checks
+    );
+    let out = std::env::temp_dir().join(format!("openchuck-sim-rapid-out-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&out);
+    let mut plan = app.prepare_output(&out, &run).unwrap();
+    assert!(!plan.collisions_acknowledged());
+    let refused = app.write_output(&plan, false);
+    let reason = &refused.failed.as_ref().unwrap().reason;
+    assert!(reason.contains("possible collision"), "{reason}");
+    plan.acknowledge_collisions();
+    // A coarser cell: the rapid is within it, a note again, with nothing to
+    // acknowledge; the plan acknowledged for the earlier result is refused.
+    app.execute(Command::SetSimulation(SimulationSettings {
+        cell: Millimetres(0.2),
+    }))
+    .unwrap();
+    let coarse = std::sync::Arc::new(app.simulate().unwrap());
+    let (warnings, notes) = rapid_lines(&coarse);
+    assert!(warnings.is_empty(), "{warnings:#?}");
+    assert_eq!(notes.len(), 1, "{:#?}", coarse.notes);
+    assert!(openchuck_app::collision_warnings(app.project(), &coarse).is_empty());
+    let stale = app.write_output(&plan, false);
+    let reason = &stale.failed.as_ref().unwrap().reason;
+    assert!(
+        reason.contains("the project changed after the files were made"),
+        "{reason}"
+    );
+    assert!(!out.exists(), "nothing is written from the earlier result");
+    // Back to the finer cell: a warning again, and a new result's plan starts
+    // unacknowledged.
+    app.execute(Command::SetSimulation(SimulationSettings {
+        cell: Millimetres(0.1),
+    }))
+    .unwrap();
+    let fine = std::sync::Arc::new(app.simulate().unwrap());
+    assert_eq!(rapid_lines(&fine).0.len(), 1);
+    let plan = app.prepare_output(&out, &fine).unwrap();
+    assert_eq!(plan.collisions().len(), 1);
+    assert!(!plan.collisions_acknowledged());
+    let refused = app.write_output(&plan, false);
+    let reason = &refused.failed.as_ref().unwrap().reason;
+    assert!(reason.contains("possible collision"), "{reason}");
+    let _ = std::fs::remove_dir_all(&out);
+    std::fs::remove_dir_all(&dir).unwrap();
+}

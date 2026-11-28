@@ -762,7 +762,7 @@ pub struct Viewport {
     /// to the playback panel, which draws the lines.
     shown_moves: openchuck_app::pathview::ShownMoves,
     /// Which kinds of Facing label are drawn (issue #881; decision record
-    /// MOPUP-1-A): the Show menu and View > Facing labels set it, and the
+    /// 0702): the Show menu and View > Facing labels set it, and the
     /// shell keeps it in the user's settings. Display only.
     shown_facing_labels: ShownFacingLabels,
     /// The operation selected in the browser. While it is a Facing operation
@@ -3335,7 +3335,7 @@ pub(crate) mod tests {
         assert!(widest <= crate::orient::LABEL_REACH + 0.01, "{widest}");
     }
 
-    /// Issue #881 (decision record MOPUP-1-A, the owner's answers A1 and
+    /// Issue #881 (decision 0702, the owner's answers A1 and
     /// Q3 A): the view draws a Facing label only while its kind is ticked,
     /// and, while a Facing operation is selected, only that operation's;
     /// the guides' labels are not affected.

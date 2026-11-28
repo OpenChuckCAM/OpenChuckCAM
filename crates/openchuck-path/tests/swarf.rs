@@ -3335,3 +3335,37 @@ fn req_op_11_req_op_12_req_nfr_07_a_floor_the_pass_cuts_does_not_excuse_a_lead_o
         assert!(cut <= TOL + CHECKER_SLACK, "{style}: {cut}");
     }
 }
+
+#[test]
+fn req_op_11_req_op_12_swarf_keeps_its_own_allowance_beside_the_faces_outside_its_selection() {
+    // Decision record 0701 (the owner's answer to issue #957: swarf keeps
+    // its mechanism): the host gives swarf the faces outside its face set
+    // too, as it gives every strategy, but swarf's entries and exits are
+    // still measured against the faces next to the face set, with the
+    // pass's own cut allowed (decision 0682). The ball's pass cuts the
+    // floor about a ball radius deep; its ramp and helix are made, as with
+    // the faces next to the face set alone, and the program is the same.
+    let wall = end_wall(1);
+    let model = joined_models(&[wall, numbered(floor_model(), 2)]);
+    let neighbours = BrepSurface::new(&model).unwrap();
+    let f = Fixture::brep(&limit_wall(), ball());
+    for style in ["ramp", "helix"] {
+        let alone = made_beside(&f, &neighbours, &[(names::ENTRY, text(style))]).unwrap();
+        let region = RegionConstraint {
+            neighbours: Some(&neighbours),
+            outside: Some(&neighbours),
+            ..RegionConstraint::default()
+        };
+        let both = run(|ctx| {
+            generate_in_region(
+                &Swarf,
+                &f.input(),
+                &region,
+                &values(&[(names::ENTRY, text(style))]),
+                ctx,
+            )
+        })
+        .unwrap();
+        assert_eq!(alone.group, both.group, "{style}");
+    }
+}
