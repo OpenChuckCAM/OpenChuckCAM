@@ -2620,14 +2620,14 @@ impl Shell {
                 let mut percent = self.settings.job_memory_percent;
                 ui.horizontal(|ui| {
                     ui.label("Memory a toolpath job may use (%)")
-                        .on_hover_text(JOB_MEMORY_TOOLTIP);
+                        .tip(JOB_MEMORY_TOOLTIP);
                     if ui
                         .add(
                             egui::DragValue::new(&mut percent)
                                 .range(least..=most)
                                 .speed(f64::from(step) / 8.0),
                         )
-                        .on_hover_text(JOB_MEMORY_TOOLTIP)
+                        .tip(JOB_MEMORY_TOOLTIP)
                         .changed()
                     {
                         action = Some(Box::new(move |s: &mut Self| {
