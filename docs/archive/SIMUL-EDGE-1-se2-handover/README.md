@@ -177,33 +177,77 @@ RUNS=$W/runs $A/timed.sh $W/bins/openchuck-cli lobed crank_stl blisk_flat blisk_
   - the record's Verification section;
   - the version bump (provisional 0.74.0).
 
-## Lane SE-PERF (27 Nov 2026): the move check made faster
+## Lane SE-PERF (27 and 28 Nov 2026): the move check made faster
 
-Branch `claude/lane-se-perf`, from `906f49c` above. A performance lane only: the measure, the tolerance, the layer (1.25 × the tolerance), the convex-neighbour rule, the growths (`CHECK_GROWTH`, `CHECK_LEVELS`) and the sample positions are unchanged. This section is a working note, as the rest of this file is.
+Branch `claude/lane-se-perf`, from `906f49c` above. A performance lane only: the measure, the tolerance, the layer (1.25 × the tolerance), the convex-neighbour rule, the growths (`CHECK_GROWTH`, `CHECK_LEVELS`) and the sample positions are unchanged. This section is a working note, as the rest of this file is. Its evidence is in `se-perf/` beside this file. It is not a verification of generated G-code (NFR-12).
+
+### Measured (release build, 4 threads, this container, each case run alone)
+
+| Case | `906f49c` here | Now | G-code lines | Result |
+| --- | --- | --- | --- | --- |
+| `lobed` | 27.5 s | 3.2 s | 1,818 | byte-identical to `906f49c`'s output |
+| `crank_stl` | 342.3 s | 11.9 s | 20,506 | byte-identical to `906f49c`'s output |
+| `blisk_ball` | not run (hours) | 135.2 s | 129,975 | no gouge or thin wall reported |
+| `blisk_flat` | not run (hours) | 3,579 s | 110,916 | 4 gouge areas reported; completes, just inside the 1 h limit of `timed.sh` |
+| `step_ball` | not run | 522.9 s | 95,222 | 163 gouge areas reported (see *The STEP gouge areas*) |
+| `step_flat` | not run | did not finish within the 1 h limit | | |
+
+- With the move check off, `lobed` and `crank_stl` took 2.0 s.
+- `lobed` and `crank_stl` are byte-identical to `906f49c`'s output at 1, 2 and 8 threads (GC-07). `blisk_ball` gives the same program at 1, 4 and 8 threads.
+- `blisk_ball`'s program was the same at every build of this lane that completed it. There is no `906f49c` output of a blisk case to compare with: they did not finish there.
+- Not installed here: `cargo-nextest` (times are `cargo test`'s) and `cargo-llvm-cov` (no coverage figure).
 
 ### What was built
 
 - **A stretch is bounded before it is sampled** (the owner's method 2). `check_motion` is given the move's motion. A stretch of samples is asked as one query: the tool grown as its samples' is, over the stretch's own motion (the shift and A's turn), answered from each face's own bounds alone (`GapQuery::within_pieces(0)`).
   - Proven, the stretch needs no sample: the grown tool is no deeper than the tolerance at every pose of it, which is more than its samples show.
-  - Undecided, it is halved, down to two samples. What is left is sampled exactly as before.
-  - A stretch whose middle pose alone is not proven (the tool cuts deeper there than the growth leaves room for) is also asked with each finer level's growth, which proves the tool itself at every pose, as that level's samples would.
+  - Undecided, it is asked once more with the finest level's growth, which proves the tool itself at every pose as that level's samples would. Still undecided, it is halved, down to one sample. What is left is sampled exactly as before.
 - **The bounds hold over a part of a move** (`gap.rs`, `Search::bound`, `Body::cheap_planes`). Each plane is fixed to the surface, with the least the tool reaches along it at any pose of the part (`Body::dual_over`). What the planes bound at one pose they bound over the part.
 - **The bound over a turning part is tighter** (`Body::dual_over`). The turn and the shift are bounded as one motion, from a point of the tool on its axis (a ball end's centre), not as two worst cases. Before this a stretch proved about 4 samples; after it, a whole move on the lobed part.
 - **A query with an acceptance is answered from the bounds first** (`Search::prove`): no piece is split and no real value looked for. The target is the accuracy above the acceptance, and the bounds are the search's own first bounds, so what it proves the search proves too.
-- **A sample with a finer recheck splits at most 4,096 pieces** (`SAMPLE_PIECES`; accepted by the coordinator as inside the owner's rules, 27 Nov 2026, for the owner's summary).
-  - *Why:* on the crankshaft, nine samples (the ball over the edge of the end face at X 0, where the tool grown by half the tolerance reads the tolerance itself) ran to the search's cap of 200,000 pieces, 16 to 18 s each, about 147 s of the 342 s job on one thread. Each answered "unproven" and was then proven at the next finer level. On the ball-end STL blisk about 1,400 samples did the same in the first 7 minutes (that case was the missing plane, below).
-  - *The number:* no sample that was proven needed more than 128 pieces on the crankshaft or the lobed part, nor more than 1,024 on the ball-end STL blisk (histograms of the pieces each sample split, 27 Nov 2026). 4,096 is four times the largest.
+- **A sample with a finer recheck splits at most 4,096 pieces** (`SAMPLE_PIECES`; accepted by the coordinator as inside the owner's rules, 27 Nov 2026).
+  - *Why:* on the crankshaft, nine samples (the ball over the edge of the end face at X 0) ran to the search's cap of 200,000 pieces, 16 to 18 s each, about 147 s of the 342 s job on one thread. Each answered "unproven" and was then proven at the next finer level.
+  - *The number:* no sample that was proven needed more than 128 pieces on the crankshaft or the lobed part, nor more than 4,096 on the blisks in the traces taken (the largest, twice, was between 2,049 and 4,096 on the ball-end blisk before the separating planes below were added; after them the largest seen was under 1,024). A sample cut short is rechecked finer.
   - *What it cannot change:* a sample cut short at the cap is unproven, never a pass, and is checked again finer. The last level (the finest growth) keeps the search's full cap, so what is reported as a gouge or a thin wall is decided as before.
-- **A plane for a tool passing under a piece below the layer** (`Body::under`). The single-pose bound had no plane leaning that way, so such a place was halved until the pieces ran out (17 s a sample at the search's cap).
-- **A failed move ends at its first failure** (`MoveCheck::span`): a failed sample is checked finer before the next is taken.
-- **The test that the tool lies beside a piece** is made once, when the piece is measured, and a real tool point over the face answers it at once (`Body::over`).
+- **Separating planes the single-pose bound lacked** (`Body::parted`; accepted by the coordinator, 27 Nov 2026).
+  - *What was wrong:* where a tool passes a small piece of a face a few micrometres clear (a ball under it below the layer; a flat end's corner at the layer's floor, also inside the thin region a nearly level neighbour leaves a face to count), nothing counts, but only a plane leaning as the tool's own surface does parts them. The bound had none, so the piece was halved until the pieces ran out: unproven, 17 to 30 s a sample at the finest growth. On the blisks that was thousands of samples (the "hours").
+  - *What is added:* the direction from points of the piece's column to the tool's nearest point, that direction laid square to the face, and the direction at the column's own nearest point to the tool, each asked of the face's prism above the layer's floor and of the clipped region.
+  - *What it can change:* at the last level such a sample used to end as a reported gouge. It is now proven. So on a part with such places it removes gouge reports that came from the search running out of pieces, not from the measure. Each case has a test against the independent checker (`contact.rs`), seen failing first.
+- **A failed move ends at its first failure** (`MoveCheck::span`): a failed sample is checked finer before the next is taken. The failure returned is the same one.
+- **The test that the tool lies beside a piece** is made once, when the piece is measured, and a real tool point over the face answers it at once (`Body::over`). The answers do not change.
+- **The counting surface of adaptive spacing passes the tool gap query on** (`adaptive.rs`, commit `4c4d499`). It did not, so every query took the trait's default (every triangle searched, their neighbours found afresh). `adaptive::req_op_05_req_op_04_simultaneous_axial_passes_are_added_until_the_allowed_excess_is_met` did not finish in an hour on `906f49c`; it takes 31 s.
 
-### What can change in the results
+### The gouge areas the blisks report (replayed through the independent checker)
 
-- The reference cases are byte-identical (below).
-- Three of the changes can prove a sample or a stretch that the search before could not settle: the plane of `Body::under`, a stretch proven where a sample's search ran out of pieces, and (the other way) the cap of 4,096 pieces on a sample that would have been proven with more. A move is then kept, or left out, where before it was the other. Each is sound: a capped or undecided answer is never a pass. On the crankshaft and the lobed part no move changed.
+- **`blisk_flat` (4 areas).** Of 10,532 failed samples logged before the retries, 28 were replayed (`se-perf/stl-flat-gouge-replay.txt`). The 10 deepest are real overcuts: the checker reads them at or beyond the layer. The other 18 are undecided by both: the product's bound is 0.0101 to 0.0125 mm and the checker runs out of 200,000 cells.
+- **`step_ball` (163 areas).** Of 791 failed samples, none has a real tool point found deeper than 0.0099 mm. 20 were replayed (`se-perf/step-ball-gouge-replay.txt`): on the mesh alone, with no triangle error, the product proves all 20, and the checker reads all 20 within the tolerance. The reports come from the measure on an exact part, not from this lane's changes:
+  - the bound of a face beside an almost level convex neighbour is the tool's depth below the face's own plane (0.0082 to 0.0087 mm in four traced samples, where the checker reads 0 to 0.0073 mm), and the triangle's error (OI-9974) is then taken off it;
+  - three remedies were measured with switches, none built in (`se-perf/step-ball-remedies.txt`, `se-perf/step-ball-refinement-targets.txt`): refining to an eighth and a sixteenth of the layer (164 and 165 areas, 543 and 688 s, 280 and 481 MB); the fitter keeping a move only when its error is at most the tolerance less the stated accuracy (163 areas, 391 s); the bound not taking its shortcut in that band (166 areas);
+  - at a sixteenth, two real overcuts (0.0124 and 0.0125 mm, the checker agreeing) are found that a quarter does not show.
+  - The owner decided on 27 Nov 2026 that the measure on exact parts is redesigned in SE-2 (lane SIMUL-EDGE). The refinement target stays a quarter of the layer.
+- The warning prints the tolerance as the depth when no deeper point was found ("cutting about 0.010 mm into it"). A draft wording that says so is with the coordinator.
+
+### Found and not this lane's to fix (all on `906f49c`)
+
+- `simultaneous::req_op_12_every_tool_profile_finishes_the_lobed_part_without_gouging` fails: the move check's grown tools cannot be built for a concave custom profile (`grow_profile`, `simultaneous.rs` line 857 at `906f49c`).
+- `simultaneous::req_op_05_exact_faces_drive_the_path_with_their_own_normals` fails: on the exact cylinder of radius 12 the tool gap reads a 6 mm ball resting on the surface as cutting at the layer (lower −0.012614, upper −0.012386), so every move is left out. `906f49c` gives the same answer to the last digit for the same pose; the test did not finish there in 90 minutes.
+- `cargo xtask` (the `messages` check): two "`{} areas`" strings in `simultaneous.rs` (25 and 26 Nov).
+- `cargo clippy -p openchuck-path --all-targets`: 53 errors and 18 warnings, none on a line this lane changed.
+- Refining a STEP tessellation runs on one thread (78 s at a quarter on the blisk, 373 s at a sixteenth): issue #990.
+
+### Checks run on the final code (28 Nov 2026)
+
+- `cargo fmt --all -- --check`: clean. `cargo xtask deps`, `licences`, `records`, `trace`: pass (105 of 105 P1 requirements have tests).
+- `cargo test -p openchuck-path`: the library's 152 tests pass. Of the 896 integration tests, every module passes except `simultaneous`, which has the two inherited failures above; seven long tests of that module were still to be run one at a time when this was written (see the coordinator's log for their result).
+- New tests: 6 move-check unit tests and 2 tool-gap tests (one a property test against the independent checker), each written from the case it covers and seen failing first, except the first two stretch tests, which were confirmed to fail with the stretch pass disabled after they were written.
+- The thin tube of `simultaneous_walls` takes 2 to 3 s (was 98.2 s) and is off the long list in `.config/nextest.toml`. Several tests of `simultaneous_hidden`, `simultaneous_off_axis` and `simultaneous_rings` take over a minute under `cargo test`; they were not timed alone here and the long list was not otherwise changed.
 
 ### Not done
 
-- Method 1 (clearance jumps) was not built: at every pose of a finishing move the tool is in contact, so its clearance is about zero. The stretch bound is the directional form of the same idea.
-- Coverage, the `xtask` checks, the changelog, the record's Verification section and the clippy errors listed below are as they were.
+- Method 1 (clearance jumps) was not built, by the coordinator's decision: at every pose of a finishing move the tool is in contact, so its clearance is about zero. The stretch bound is the directional form of the same idea.
+- The flat-end blisks are still at or over an hour. No search runs to its cap there any more; what is left is the number of queries (about 720,000 stretch queries in 5 minutes on `blisk_flat`), much of it moves that fail and are split and retried by the refinement, which this lane did not change.
+- Coverage, the changelog and the record's Verification section.
+
+### The measurement switches
+
+`se-perf/*.diff` are throwaway patches against the code head `5f66a7d`, not applied in the tree: the dump of every failed final sample and of the refined mesh (`dump-tracing.diff`), the refinement target (`refinement-target-tracing.diff`), the two remedies (`option-b-tracing.diff`, `shortcut-band-tracing.diff`), the timing trace (`timing-tracing.diff`) and the replay through `contact.rs` on the triangles round each pose (`replay-test.diff`, `replay-test-flat.diff`).
