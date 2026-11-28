@@ -225,9 +225,21 @@ struct RawGroup {
 /// Every section of the Development version, empty ones included, in page order. The bullets above
 /// the first heading are a group with no heading, given only when there are any.
 fn raw_groups(lines: &[&str], dev: &Section) -> Vec<RawGroup> {
-    let headings: Vec<(usize, String)> = (dev.start + 1..dev.end)
-        .filter_map(|i| group_heading(lines.get(i).copied().unwrap_or("")).map(|h| (i, h)))
-        .collect();
+    // A heading inside an HTML comment is no section: the comment is skipped whole, as
+    // `entry_spans` skips it, so a commented-out section stays hidden and in place.
+    let mut headings: Vec<(usize, String)> = Vec::new();
+    let mut i = dev.start + 1;
+    while i < dev.end {
+        let line = lines.get(i).copied().unwrap_or("");
+        if opens_comment(line) {
+            i = comment_end(lines, i, dev.end) + 1;
+            continue;
+        }
+        if let Some(h) = group_heading(line) {
+            headings.push((i, h));
+        }
+        i += 1;
+    }
     let first = headings.first().map_or(dev.end, |(i, _)| *i);
     let mut groups = Vec::new();
     let top = entry_spans(lines, dev.start + 1, first);

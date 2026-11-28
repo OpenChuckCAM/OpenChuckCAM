@@ -1565,3 +1565,54 @@ fn changelog_sections_the_user_guide_build_folds_the_same_sections() {
     let names: Vec<&str> = body.split('"').skip(1).step_by(2).collect();
     assert_eq!(names, SECTIONS.to_vec());
 }
+
+// A heading inside an HTML comment is no section (CodeRabbit on #985): a commented-out section and
+// its bullet stay hidden, and stay in the Development version with both comment markers.
+fn with_commented_section() -> String {
+    page(
+        &[
+            "### UI and workflow",
+            "",
+            "- **Keys.** One.",
+            "",
+            "<!--",
+            "### Simulation",
+            "",
+            "- **Hidden.** Not yet.",
+            "-->",
+        ],
+        &["0.55.0"],
+    )
+}
+
+#[test]
+fn changelog_sections_a_commented_section_is_not_published_in_the_notes() {
+    let text = with_commented_section();
+    let out = make(&text);
+    assert!(!out.contains("Hidden"), "{out}");
+    assert!(!out.contains(SIM), "{out}");
+    assert!(out.contains(&format!("<summary><strong>{UI} (1)</strong></summary>")));
+    assert_eq!(development_groups(&text).len(), 1);
+    assert!(
+        section_problems(&text).is_empty(),
+        "{:?}",
+        section_problems(&text)
+    );
+}
+
+#[test]
+fn changelog_sections_start_release_leaves_a_commented_section_whole() {
+    let after = start_release(&with_commented_section(), "0.60.0").expect("drafted");
+    let dev = after
+        .get(after.find("## Development version").expect("dev")..)
+        .expect("dev");
+    assert!(
+        dev.contains("<!--\n### Simulation\n\n- **Hidden.** Not yet.\n-->"),
+        "{dev}"
+    );
+    let new = after
+        .get(..after.find("## 0.55.0").expect("old"))
+        .expect("new");
+    assert!(!new.contains("Hidden"), "{new}");
+    assert!(!new.contains("-->\n\nGenerated"), "{new}");
+}
