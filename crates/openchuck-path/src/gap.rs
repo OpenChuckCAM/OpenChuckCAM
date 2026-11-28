@@ -2025,25 +2025,23 @@ pub(crate) fn search(
         inside,
         clips: std::collections::HashMap::new(),
     };
-    for (i, t) in triangles {
-        if !t.iter().all(|p| p.is_finite()) {
-            continue;
-        }
-        if let Ok(m) = UnitVec3::new((t[1] - t[0]).cross(t[2] - t[0])) {
-            state.push(t, m.get(), i, (0.0, 1.0), f64::NAN);
-        }
-    }
+    let triangles: Vec<(u32, [Point3; 3], Vec3)> = triangles
+        .into_iter()
+        .filter(|(_, t)| t.iter().all(|p| p.is_finite()))
+        .filter_map(|(i, t)| {
+            let m = UnitVec3::new((t[1] - t[0]).cross(t[2] - t[0])).ok()?;
+            Some((i, t, m.get()))
+        })
+        .collect();
     let cap = budget.map_or(MAX_PIECES, |b| b.min(MAX_PIECES));
     // A caller that only asks whether the gap is above its acceptance is
-    // answered from each face's own bounds where they prove it, with no
-    // piece split and no real value looked for (lane SE-PERF). The target
-    // is the accuracy above the acceptance: the search below, whose first
-    // bound of each face is the same or better, then proves every face
-    // above the acceptance too, before any real value could end it short,
-    // so what is proven here is proven there and the two never disagree.
-    // Given no pieces to split, the bounds are the whole answer.
+    // answered from the faces' bounds where they prove it, with no piece
+    // split and no real value looked for (lane SE-PERF). The target is the
+    // accuracy above the acceptance, so a face proven here is clear of the
+    // acceptance by more than any real value the search below could end
+    // short on. Given no pieces to split, the bounds are the whole answer.
     if accept.is_finite() {
-        let (proven, least) = state.prove(accept + GAP_ACCURACY);
+        let (proven, least) = state.prove(&triangles, accept + GAP_ACCURACY);
         if proven || cap == 0 {
             return (least <= limit).then_some(ToolGap {
                 lower: least,
@@ -2051,6 +2049,9 @@ pub(crate) fn search(
                 at: body.tip,
             });
         }
+    }
+    for (i, t, m) in triangles {
+        state.push(t, m, i, (0.0, 1.0), f64::NAN);
     }
     let moving = body.moves();
     let mut pieces = 0_usize;
@@ -2385,32 +2386,111 @@ impl Search<'_, '_> {
         }))
     }
 
-    /// Whether every piece queued is proven at least `target` above its
-    /// face by its own bounds ([`Self::bound`]), with no piece split and no
-    /// real value looked for, and a proven least over them all (lane
-    /// SE-PERF). The pieces are taken least bound first and the first one
-    /// short of the target ends it: the least is then of the bounds found
-    /// so far and the bounds the rest were queued with.
-    fn prove(&mut self, target: f64) -> (bool, f64) {
-        // Sorted by the queue's order: the least bound comes out last.
-        let pieces = self.queue.clone().into_sorted_vec();
+    /// Whether every triangle is proven at least `target` above by bounds
+    /// alone, with no piece split and no real value looked for, and a
+    /// proven least over them all (lane SE-PERF).
+    ///
+    /// A plane the tool stays above belongs to the tool and its motion, not
+    /// to the face it was found for: where it clears one face's corners by
+    /// the target it proves that face, whichever face it came from. So the
+    /// planes that proved earlier triangles are kept (the latest few, the
+    /// one that last proved something first) and tried on each triangle
+    /// before anything is worked out for it: neighbouring faces under one
+    /// tool are mostly proven by the same few planes. A triangle they do
+    /// not prove is bounded by its own plane, as when it is queued, and
+    /// then, least bound first, by [`Self::bound`]; the first one short of
+    /// the target ends it, and the least is then of the bounds found and
+    /// the least any other triangle can read.
+    fn prove(&mut self, triangles: &[(u32, [Point3; 3], Vec3)], target: f64) -> (bool, f64) {
+        const KEPT: usize = 8;
+        let (s0, s1) = if self.body.moves() {
+            (0.0, 1.0)
+        } else {
+            (0.0, 0.0)
+        };
+        let at_corners = |(n, k): &(Vec3, f64), t: &[Point3; 3], m: Vec3| {
+            let along = n.dot(m);
+            if along <= 1e-9 {
+                return f64::NEG_INFINITY;
+            }
+            t.iter()
+                .map(|x| (k - n.dot(*x - Point3::ORIGIN)) / along)
+                .fold(f64::INFINITY, f64::min)
+        };
+        let mut kept: Vec<(Vec3, f64)> = Vec::new();
         let mut least = f64::INFINITY;
-        for (taken, piece) in pieces.iter().rev().enumerate() {
-            let lower = if piece.lower >= target {
-                piece.lower
-            } else {
-                let e = (self.error)(piece.triangle);
-                match self.bound(piece, target) {
+        let mut open: Vec<Piece> = Vec::new();
+        for &(i, t, m) in triangles {
+            let e = (self.error)(i);
+            let reaches = |lower: f64| lower - e >= target && lower >= -self.inside;
+            let by = kept
+                .iter()
+                .enumerate()
+                .map(|(k, plane)| (k, at_corners(plane, &t, m)))
+                .find(|(_, lower)| reaches(*lower));
+            if let Some((k, lower)) = by {
+                if let Some(first) = kept.get_mut(..=k) {
+                    first.rotate_right(1);
+                }
+                least = least.min(lower - e);
+                continue;
+            }
+            // As when it is queued ([`Self::push`]).
+            let centre = centroid(&t);
+            let far = self
+                .body
+                .far_over(&t, s0, s1)
+                .max(self.body.facing(&t, centre, s0, s1));
+            if far - e > self.limit {
+                continue;
+            }
+            let d = m.dot(t[0] - Point3::ORIGIN);
+            let flat = self.body.dual_over(m, d, s0, s1);
+            let lower = flat.max(-self.limit) - e;
+            if lower >= target {
+                if reaches(flat) {
+                    kept.insert(0, (m, flat + d));
+                    kept.truncate(KEPT);
+                }
+                least = least.min(lower);
+                continue;
+            }
+            open.push(Piece {
+                lower,
+                span: (0.0, 1.0),
+                hint: f64::NAN,
+                measured: false,
+                triangle: i,
+                order: 0,
+                corners: t,
+                normal: m,
+            });
+        }
+        open.sort_by(|a, b| {
+            a.lower
+                .total_cmp(&b.lower)
+                .then(a.triangle.cmp(&b.triangle))
+        });
+        for (taken, piece) in open.iter().enumerate() {
+            let e = (self.error)(piece.triangle);
+            // The planes kept by now, some found after this triangle was
+            // first looked at.
+            let by = kept
+                .iter()
+                .map(|plane| at_corners(plane, &piece.corners, piece.normal))
+                .find(|lower| lower - e >= target && *lower >= -self.inside);
+            let lower = match by {
+                Some(lower) => lower - e,
+                None => match self.bound(piece, target) {
                     Bound::Empty => f64::INFINITY,
                     Bound::Reached(b) => piece.lower.max(b.max(-self.limit) - e),
                     Bound::Full(all) => piece.lower.max(all.bound.max(-self.limit) - e),
-                }
+                },
             };
             least = least.min(lower);
             if lower < target {
-                let rest = pieces
+                let rest = open
                     .iter()
-                    .rev()
                     .skip(taken + 1)
                     .map(|p| p.lower)
                     .fold(f64::INFINITY, f64::min);
