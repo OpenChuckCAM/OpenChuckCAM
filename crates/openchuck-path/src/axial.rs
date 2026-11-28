@@ -956,7 +956,7 @@ fn passes(
     let mut spaced_note = None;
     if let Some((settings, outcome)) = &spaced {
         spaced_note = Some(outcome.note(settings));
-        warnings.extend(outcome.warning(settings, &adaptive::Limits::OWNER, parameter::SCALLOP));
+        warnings.extend(outcome.warning(settings, &settings.limits(), parameter::SCALLOP));
     }
     warnings.extend(faces::held_warning(&held));
     warnings.extend(crate::finishing::across_axis_warning(
@@ -1114,7 +1114,7 @@ fn adaptive_passes(
         intervals,
         input.tool,
         &settings,
-        &adaptive::Limits::OWNER,
+        &settings.limits(),
         points,
         context,
     )?;

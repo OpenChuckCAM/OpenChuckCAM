@@ -77,6 +77,18 @@ impl ProgressSink for NoProgress {
     fn report(&self, _progress: Progress) {}
 }
 
+/// The most memory a job may account for, as its host sets it (issue
+/// #847): a limit the host keeps itself, from the computer's memory and the
+/// user's setting, not a measure of what the system will give. Work that
+/// counts its memory (adaptive spacing's points) stops the job with an
+/// error before it would pass it, and nothing is made. It never changes
+/// what a job that finishes makes (GC-07): only whether it finishes.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct MemoryLimit {
+    /// The limit, bytes.
+    pub bytes: u64,
+}
+
 /// Everything a long-running library call needs from its host.
 #[derive(Clone, Copy)]
 pub struct JobContext<'a> {
@@ -84,20 +96,35 @@ pub struct JobContext<'a> {
     pub cancel: &'a CancelToken,
     /// Where progress goes.
     pub progress: &'a dyn ProgressSink,
+    /// The most memory the job may account for; `None`, no limit (the
+    /// host could not read the computer's memory, or a test).
+    pub memory: Option<MemoryLimit>,
 }
 
 impl std::fmt::Debug for JobContext<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("JobContext")
             .field("cancel", self.cancel)
+            .field("memory", &self.memory)
             .finish_non_exhaustive()
     }
 }
 
 impl<'a> JobContext<'a> {
-    /// A context from a token and a sink.
+    /// A context from a token and a sink, with no memory limit.
     pub fn new(cancel: &'a CancelToken, progress: &'a dyn ProgressSink) -> Self {
-        Self { cancel, progress }
+        Self {
+            cancel,
+            progress,
+            memory: None,
+        }
+    }
+
+    /// This context with the memory limit `memory`.
+    #[must_use]
+    pub fn with_memory(mut self, memory: Option<MemoryLimit>) -> Self {
+        self.memory = memory;
+        self
     }
 
     /// Returns [`Error::Cancelled`] once the job is cancelled.

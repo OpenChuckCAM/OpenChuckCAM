@@ -519,7 +519,7 @@ fn report(settings: Option<adaptive::Settings>, tally: Option<Tally>) -> Report 
             tally
                 .warning(
                     &settings,
-                    &adaptive::Limits::OWNER,
+                    &settings.limits(),
                     adaptive::parameter::ALLOWED_EXCESS,
                 )
                 .into_iter()
@@ -2014,9 +2014,10 @@ impl Job<'_> {
                     });
                 }
             }
+            let own = settings.limits();
             let limits = adaptive::Limits {
-                passes: adaptive::Limits::OWNER.passes.saturating_sub(tally.added),
-                ..adaptive::Limits::OWNER
+                passes: own.passes.saturating_sub(tally.added),
+                ..own
             };
             let outcome = adaptive::refine(
                 &family,

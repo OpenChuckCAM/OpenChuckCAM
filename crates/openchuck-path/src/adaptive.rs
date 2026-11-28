@@ -77,7 +77,42 @@ pub mod parameter {
     /// same name, so one value serves both where both exist (decision record
     /// 0239 item 4).
     pub const ALLOWED_EXCESS: &str = "scallop";
+    /// The most geometry queries adaptive spacing may make for the
+    /// operation, "Adaptive work limit" (issue #847).
+    pub const WORK_LIMIT: &str = "adaptive_work_limit";
 }
+
+/// The Adaptive work limit when the operation sets none, geometry queries:
+/// the owner's limit of decision record 0239 item 8, so an operation saved
+/// before the setting keeps its program.
+pub const DEFAULT_WORK_LIMIT: u64 = 1_000_000;
+
+/// The largest Adaptive work limit, geometry queries (issue #847, the
+/// owner's answer to Q3).
+pub const MOST_WORK_LIMIT: u64 = 1_000_000_000;
+
+/// The most points and added passes an operation may make, however high its
+/// Adaptive work limit (issue #847, the owner's answer to Q4).
+pub const MOST_POINTS: u64 = 100_000_000;
+/// See [`MOST_POINTS`].
+pub const MOST_PASSES: u64 = 1_000_000;
+
+/// The memory one point of an operation's passes is charged, bytes, from
+/// the passes through the toolpath, the G-code and its checks: measured on
+/// the public Baluster example with its finish at ten times the limits,
+/// about 1.7 kB a point once the G-code is written (issue #847).
+pub const BYTES_PER_POINT: u64 = 1_700;
+
+const WORK_LIMIT_DESCRIPTION: &str = "The most geometry queries adaptive spacing may make for \
+     this operation. A geometry query is one drop of the tool's shape onto the part along a \
+     line, or one ray: a search of the whole part. Where the limit is met, the path made so \
+     far is kept and a Partial path warning asks you to acknowledge it. Raising the limit lets \
+     adaptive spacing check and add passes in more places, but it takes longer, roughly in \
+     proportion: the largest values can take hours. The points and passes it may make rise in \
+     step, up to 100,000,000 points, which can require over 64GB of memory at high settings; \
+     if a job would need more than this computer can give it, it is stopped with an error and \
+     nothing is made. A larger Allowed excess, a larger Smallest spacing, a smaller Stepover or \
+     a smaller selection need fewer queries. The same limit always gives the same program.";
 
 /// The strategies with adaptive spacing (decision record 0239): their
 /// operations saved before it are migrated to it off (project schema 24).
@@ -129,6 +164,16 @@ pub(crate) fn specs() -> Vec<ParameterSpec> {
                 default: Some(DEFAULT_MIN_SPACING),
             },
         },
+        ParameterSpec {
+            name: parameter::WORK_LIMIT.to_owned(),
+            label: "Adaptive work limit".to_owned(),
+            description: WORK_LIMIT_DESCRIPTION.to_owned(),
+            kind: ParameterKind::Integer {
+                min: DEFAULT_WORK_LIMIT as i64,
+                max: MOST_WORK_LIMIT as i64,
+                default: Some(DEFAULT_WORK_LIMIT as i64),
+            },
+        },
     ]
 }
 
@@ -168,11 +213,16 @@ pub(crate) fn schema_for_lines(
             parameter::ADAPTIVE_SPACING,
             parameter::MIN_SPACING,
             parameter::ALLOWED_EXCESS,
+            parameter::WORK_LIMIT,
         ]
     } else if is_on(values) {
         &[]
     } else {
-        &[parameter::MIN_SPACING, parameter::ALLOWED_EXCESS]
+        &[
+            parameter::MIN_SPACING,
+            parameter::ALLOWED_EXCESS,
+            parameter::WORK_LIMIT,
+        ]
     };
     schema
         .parameters
@@ -209,7 +259,7 @@ pub(crate) fn schema_for(
     } else {
         schema
             .parameters
-            .retain(|p| p.name != parameter::MIN_SPACING);
+            .retain(|p| p.name != parameter::MIN_SPACING && p.name != parameter::WORK_LIMIT);
     }
     schema
 }
@@ -221,6 +271,8 @@ pub(crate) struct Settings {
     pub(crate) height: f64,
     /// The Smallest spacing, mm.
     pub(crate) min_spacing: f64,
+    /// The Adaptive work limit, geometry queries (issue #847).
+    pub(crate) work: u64,
 }
 
 impl Settings {
@@ -249,10 +301,34 @@ impl Settings {
                 "the smallest spacing must be a finite number of millimetres above 0",
             ));
         }
+        // Saved before the setting existed: the owner's limit, as before.
+        let work = match parameters.get(parameter::WORK_LIMIT) {
+            None => DEFAULT_WORK_LIMIT,
+            Some(_) => {
+                let n = parameters.integer(parameter::WORK_LIMIT)?;
+                u64::try_from(n)
+                    .ok()
+                    .filter(|n| (DEFAULT_WORK_LIMIT..=MOST_WORK_LIMIT).contains(n))
+                    .ok_or_else(|| {
+                        PathError::parameter(
+                            parameter::WORK_LIMIT,
+                            "the adaptive work limit must be a whole number of geometry \
+                             queries from 1,000,000 to 1,000,000,000",
+                        )
+                    })?
+            }
+        };
         Ok(Some(Self {
             height: h,
             min_spacing,
+            work,
         }))
+    }
+
+    /// The limits on this operation's adaptive work (decision record 0239
+    /// item 8, as issue #847 raises them).
+    pub(crate) fn limits(&self) -> Limits {
+        Limits::for_work(self.work)
     }
 }
 
@@ -275,14 +351,58 @@ pub(crate) struct Limits {
 }
 
 impl Limits {
-    /// The owner's limits (decision record 0239 item 8).
+    /// The owner's limits (decision record 0239 item 8): those of the
+    /// default Adaptive work limit.
     pub(crate) const OWNER: Self = Self {
-        queries: 1_000_000,
+        queries: DEFAULT_WORK_LIMIT,
         points: 1_000_000,
         passes: 10_000,
         levels: 20,
         intervals: 65_536,
     };
+
+    /// The limits for an Adaptive work limit of `work` geometry queries
+    /// (issue #847, the owner's answers): the points and added passes rise
+    /// by the same factor over the default, up to [`MOST_POINTS`] and
+    /// [`MOST_PASSES`]; the levels of halving and the places waiting do not.
+    /// Below the default, the default holds.
+    pub(crate) fn for_work(work: u64) -> Self {
+        let work = work.max(DEFAULT_WORK_LIMIT);
+        let scale = |n: u64| {
+            u64::try_from(u128::from(n) * u128::from(work) / u128::from(DEFAULT_WORK_LIMIT))
+                .unwrap_or(u64::MAX)
+        };
+        Self {
+            queries: work,
+            points: scale(Self::OWNER.points).min(MOST_POINTS),
+            passes: scale(Self::OWNER.passes).min(MOST_PASSES),
+            ..Self::OWNER
+        }
+    }
+
+    /// Whether `reason` is a limit Adaptive work limit raises and it is not
+    /// yet at its most.
+    fn raisable(&self, reason: Reason) -> bool {
+        match reason {
+            Reason::Queries => self.queries < MOST_WORK_LIMIT,
+            Reason::Points => self.points < MOST_POINTS,
+            Reason::Passes => self.passes < MOST_PASSES,
+            _ => false,
+        }
+    }
+}
+
+/// `n` with a comma between each three digits.
+fn thousands(n: u64) -> String {
+    let digits = n.to_string();
+    let mut out = String::with_capacity(digits.len() + digits.len() / 3);
+    for (i, c) in digits.chars().enumerate() {
+        if i > 0 && (digits.len() - i) % 3 == 0 {
+            out.push(',');
+        }
+        out.push(c);
+    }
+    out
 }
 
 /// Points charged for each pass's entry and link, which the shared services
@@ -315,9 +435,22 @@ pub(crate) enum Reason {
 impl Reason {
     fn words(self, limits: &Limits, settings: &Settings) -> String {
         match self {
-            Self::Queries => format!("the limit of {} geometry queries was met", limits.queries),
-            Self::Points => format!("the limit of {} points was met", limits.points),
-            Self::Passes => format!("the limit of {} added passes was met", limits.passes),
+            Self::Queries => format!(
+                "it met its limit of {} geometry queries (one geometry query is one drop of the \
+                 tool onto the part){}",
+                thousands(limits.queries),
+                most(limits.queries >= MOST_WORK_LIMIT)
+            ),
+            Self::Points => format!(
+                "it met its limit of {} points{}",
+                thousands(limits.points),
+                most(limits.points >= MOST_POINTS)
+            ),
+            Self::Passes => format!(
+                "it met its limit of {} added passes{}",
+                thousands(limits.passes),
+                most(limits.passes >= MOST_PASSES)
+            ),
             Self::Levels => format!(
                 "the space between two passes was halved {} times, the most allowed",
                 limits.levels
@@ -337,6 +470,15 @@ impl Reason {
                             reach there"
                 .to_owned(),
         }
+    }
+}
+
+/// ", the most Adaptive work limit allows" where `at_most`.
+fn most(at_most: bool) -> &'static str {
+    if at_most {
+        ", the most Adaptive work limit allows"
+    } else {
+        ""
     }
 }
 
@@ -708,6 +850,14 @@ fn warning(places: &[Place], settings: &Settings, limits: &Limits, height: &str)
     let reasons: BTreeSet<Reason> = places.iter().map(|p| p.reason).collect();
     let why: Vec<String> = reasons.iter().map(|r| r.words(limits, settings)).collect();
     let count = places.len();
+    // Where a limit Adaptive work limit raises was met, how to finish the
+    // path (issue #847, the owner's approved wording).
+    let finish = if reasons.iter().any(|r| limits.raisable(*r)) {
+        ". To finish it, raise Adaptive work limit (Advanced), which takes longer, or need \
+         fewer queries: a larger Allowed excess or Smallest spacing, or a smaller Stepover"
+    } else {
+        ""
+    };
     Some(Notice {
         level: Level::Warning,
         topic: Some(topic::PARTIAL_PATH.to_owned()),
@@ -716,7 +866,7 @@ fn warning(places: &[Place], settings: &Settings, limits: &Limits, height: &str)
             "adaptive spacing could not confirm that the material left between the passes \
              is within the allowed excess of {:.3} mm at {count} place{}, the first near \
              X {:.3} A {:.1}: {}. The path made so far is kept; it is not complete. \
-             Check the surface there before using the program",
+             Check the surface there before using the program{finish}",
             settings.height,
             if count == 1 { "" } else { "s" },
             first.x,
@@ -786,6 +936,7 @@ pub(crate) fn refine(
     context: &JobContext<'_>,
 ) -> Result<Outcome> {
     let own = tracks.len();
+    charge_memory(points, settings, context)?;
     let mut work = Work {
         family,
         tool,
@@ -824,6 +975,25 @@ pub(crate) fn refine(
         smallest: work.smallest,
         places: work.places,
     })
+}
+
+/// Stops the job with an error where `points` would need more memory than
+/// it may use (issue #847, the owner's answer to Q4), before they are made.
+/// Charged in the same one order as the limits, so where it stops does not
+/// depend on the thread count (NFR-06).
+fn charge_memory(points: u64, settings: &Settings, context: &JobContext<'_>) -> Result<()> {
+    let Some(memory) = context.memory else {
+        return Ok(());
+    };
+    let need = points.saturating_mul(BYTES_PER_POINT);
+    if need > memory.bytes {
+        return Err(PathError::OutOfMemory {
+            reached: need,
+            limit: memory.bytes,
+            work_limit: settings.work,
+        });
+    }
+    Ok(())
 }
 
 struct Work<'a> {
@@ -965,6 +1135,7 @@ impl Work<'_> {
             self.say(c_mid, &high_spans, reason, &unsure_spans);
             return Ok(Vec::new());
         }
+        charge_memory(self.points.saturating_add(points), self.settings, context)?;
         self.added += count;
         self.points += points;
         if count > 0 {
@@ -1262,7 +1433,143 @@ mod tests {
     const SETTINGS: Settings = Settings {
         height: 0.01,
         min_spacing: 0.01,
+        work: DEFAULT_WORK_LIMIT,
     };
+
+    /// Issue #847 (the owner's answers): the points and added passes an
+    /// operation may make rise in step with its Adaptive work limit, by the
+    /// same factor over the default, up to 100,000,000 points and 1,000,000
+    /// passes; the levels of halving and the places waiting do not.
+    #[test]
+    fn req_op_04_req_nfr_07_the_limits_rise_with_the_adaptive_work_limit_to_their_ceilings() {
+        assert_eq!(Limits::for_work(DEFAULT_WORK_LIMIT), Limits::OWNER);
+        let ten = Limits::for_work(10_000_000);
+        assert_eq!(
+            (ten.queries, ten.points, ten.passes),
+            (10_000_000, 10_000_000, 100_000)
+        );
+        assert_eq!((ten.levels, ten.intervals), (20, 65_536));
+        let most = Limits::for_work(MOST_WORK_LIMIT);
+        assert_eq!(
+            (most.queries, most.points, most.passes),
+            (1_000_000_000, 100_000_000, 1_000_000)
+        );
+        assert_eq!(Limits::for_work(150_000_000).points, 100_000_000);
+        assert_eq!(Limits::for_work(150_000_000).passes, 1_000_000);
+        // Below the default the default holds (the setting refuses it).
+        assert_eq!(Limits::for_work(5), Limits::OWNER);
+    }
+
+    /// Issue #847 (the owner's approved wording): the Partial path warning
+    /// says what a geometry query is and how to finish the path.
+    #[test]
+    fn req_op_04_req_nfr_12_the_partial_path_warning_says_what_a_query_is_and_how_to_finish() {
+        let places = [Place {
+            x: 65.6,
+            a: 253.3,
+            reason: Reason::Queries,
+        }];
+        let text = warning(&places, &SETTINGS, &Limits::OWNER, "scallop")
+            .unwrap()
+            .text;
+        assert_eq!(
+            text,
+            "adaptive spacing could not confirm that the material left between the passes \
+             is within the allowed excess of 0.010 mm at 1 place, the first near X 65.600 A \
+             253.3: it met its limit of 1,000,000 geometry queries (one geometry query is one \
+             drop of the tool onto the part). The path made so far is kept; it is not \
+             complete. Check the surface there before using the program. To finish it, raise \
+             Adaptive work limit (Advanced), which takes longer, or need fewer queries: a \
+             larger Allowed excess or Smallest spacing, or a smaller Stepover"
+        );
+        // The points limit names the setting the same way.
+        let points = [Place {
+            reason: Reason::Points,
+            ..places[0]
+        }];
+        let text = warning(&points, &SETTINGS, &Limits::OWNER, "scallop")
+            .unwrap()
+            .text;
+        assert!(
+            text.contains("it met its limit of 1,000,000 points")
+                && text.contains("raise Adaptive work limit (Advanced)"),
+            "{text}"
+        );
+        // At the ceiling, it says so and does not ask to raise it.
+        let most = Settings {
+            work: MOST_WORK_LIMIT,
+            ..SETTINGS
+        };
+        let text = warning(&points, &most, &most.limits(), "scallop")
+            .unwrap()
+            .text;
+        assert!(
+            text.contains(
+                "it met its limit of 100,000,000 points, the most Adaptive work limit allows"
+            ) && !text.contains("raise Adaptive work limit"),
+            "{text}"
+        );
+        // A limit that does not rise with the setting is not offered.
+        let levels = [Place {
+            reason: Reason::Levels,
+            ..places[0]
+        }];
+        let text = warning(&levels, &SETTINGS, &Limits::OWNER, "scallop")
+            .unwrap()
+            .text;
+        assert!(!text.contains("Adaptive work limit"), "{text}");
+    }
+
+    /// Issue #847 (the owner's Q4 answer): a job whose points would need
+    /// more memory than it may use, at [`BYTES_PER_POINT`] each, is stopped
+    /// with an error, and nothing is made; with no limit, or a limit the
+    /// work fits within, it runs as before.
+    #[test]
+    fn req_nfr_07_a_job_that_would_pass_its_memory_limit_is_stopped_with_an_error() {
+        let plane = Plane::new();
+        let (free, _) = run(&plane, 2.0, SETTINGS, Limits::OWNER);
+        let tool = ball(4.0);
+        let attempt = |bytes: Option<u64>| {
+            let tracks: Vec<Track> = [0.0, 2.0]
+                .iter()
+                .map(|&c| Track::new(&plane, c, vec![plane.pass(c, (0.0, plane.length))]))
+                .collect();
+            let intervals = vec![Interval {
+                lo: 0,
+                hi: 1,
+                spans: vec![(0.0, plane.length)],
+                level: 0,
+            }];
+            let cancel = CancelToken::new();
+            let context = JobContext::new(&cancel, &NoProgress)
+                .with_memory(bytes.map(|bytes| openchuck_types::job::MemoryLimit { bytes }));
+            refine(
+                &plane,
+                tracks,
+                intervals,
+                &tool,
+                &SETTINGS,
+                &Limits::OWNER,
+                0,
+                &context,
+            )
+        };
+        assert!(attempt(None).is_ok());
+        assert!(attempt(Some(u64::MAX)).is_ok());
+        match attempt(Some(BYTES_PER_POINT * 10)) {
+            Err(PathError::OutOfMemory {
+                reached,
+                limit,
+                work_limit,
+            }) => {
+                assert_eq!(limit, BYTES_PER_POINT * 10);
+                assert!(reached > limit, "{reached}");
+                assert_eq!(work_limit, DEFAULT_WORK_LIMIT);
+            }
+            other => panic!("{other:?}"),
+        }
+        assert!(free.added() > 0);
+    }
 
     #[test]
     fn req_op_04_passes_are_added_until_the_cusp_is_within_the_allowed_excess() {
@@ -1303,6 +1610,7 @@ mod tests {
         let settings = Settings {
             height: 0.001,
             min_spacing: 0.3,
+            work: DEFAULT_WORK_LIMIT,
         };
         let (outcome, cs) = run(&plane, 2.0, settings, Limits::OWNER);
         let closest = cs.windows(2).map(|w| w[1] - w[0]).fold(f64::MAX, f64::min);
@@ -1543,7 +1851,8 @@ mod tests {
             read(0.0, 0.01).unwrap(),
             Some(Settings {
                 height: 0.0,
-                min_spacing: 0.01
+                min_spacing: 0.01,
+                work: DEFAULT_WORK_LIMIT,
             })
         );
     }

@@ -48,6 +48,21 @@ pub enum PathError {
         /// The key of the operation's setting to change, if one does.
         setting: Option<String>,
     },
+    /// The job was stopped before it would pass its memory limit (issue
+    /// #847): nothing is made. The application words it, naming where the
+    /// limit is set and the operation's Adaptive work limit.
+    #[error(
+        "the job would need more memory than it may use (it had reached about {reached} bytes; \
+         the limit is {limit} bytes)"
+    )]
+    OutOfMemory {
+        /// What the job had accounted for when it stopped, bytes.
+        reached: u64,
+        /// The job's memory limit, bytes.
+        limit: u64,
+        /// The operation's Adaptive work limit, geometry queries.
+        work_limit: u64,
+    },
     /// The job was cancelled.
     #[error("the job was cancelled")]
     Cancelled,

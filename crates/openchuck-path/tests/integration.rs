@@ -14,6 +14,8 @@
 mod adaptive;
 #[path = "adaptive_held_steps.rs"]
 mod adaptive_held_steps;
+#[path = "adaptive_work_limit.rs"]
+mod adaptive_work_limit;
 #[path = "axial.rs"]
 mod axial;
 #[path = "axial_links.rs"]

@@ -134,6 +134,7 @@ impl Strategy for IndexedFinishing {
                 axial_parameter::SCALLOP,
                 adaptive::parameter::ADAPTIVE_SPACING,
                 adaptive::parameter::MIN_SPACING,
+                adaptive::parameter::WORK_LIMIT,
             ] {
                 if let Some(spec) = own.get(name) {
                     schema.parameters.push(spec.clone());
@@ -218,11 +219,7 @@ fn output(made: Made) -> Result<StrategyOutput> {
     let mut spaced = None;
     if let Some((settings, outcome)) = &made.spaced {
         spaced = Some(outcome.note(settings));
-        warnings.extend(outcome.warning(
-            settings,
-            &adaptive::Limits::OWNER,
-            axial_parameter::SCALLOP,
-        ));
+        warnings.extend(outcome.warning(settings, &settings.limits(), axial_parameter::SCALLOP));
     }
     Ok(StrategyOutput {
         notices: crate::strategy::notices(
@@ -632,7 +629,7 @@ fn adaptive_passes(
         intervals,
         input.tool,
         &settings,
-        &adaptive::Limits::OWNER,
+        &settings.limits(),
         points,
         context,
     )?;

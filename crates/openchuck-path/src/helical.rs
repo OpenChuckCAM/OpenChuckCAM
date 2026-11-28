@@ -646,8 +646,7 @@ fn passes(
             past = beyond;
             passes.extend(within);
             spaced_note = Some(outcome.note(&settings));
-            spaced_warning =
-                outcome.warning(&settings, &adaptive::Limits::OWNER, parameter::SCALLOP);
+            spaced_warning = outcome.warning(&settings, &settings.limits(), parameter::SCALLOP);
         }
         // One whole turn at each face across the axis, as its own pass, so
         // the helix is as before (decision record 0297), cut after the helix
@@ -1422,7 +1421,7 @@ fn adaptive_passes(
         intervals,
         input.tool,
         &settings,
-        &adaptive::Limits::OWNER,
+        &settings.limits(),
         points,
         context,
     )?;

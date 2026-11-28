@@ -17,10 +17,11 @@
 //!   else; where the pass itself cuts one, the refusal says so.
 //!
 //! Only the faces an entry comes near are sampled (the owner's per-entry
-//! proximity): each face's box, read from its whole untrimmed surface so it
-//! holds every part of the trim, is compared with the box the tool's cutting
-//! part sweeps over the entry's positions (on up its axis past the flutes),
-//! grown by the stock to leave and the tolerance. A face
+//! proximity): each face's own box, which holds all of it however it curves
+//! (an exact face's control hull or speed bound), is compared with the box
+//! the tool's cutting part sweeps over the entry's positions (on up its axis
+//! past the flutes), grown by the stock to leave and the tolerance; a face
+//! that gives no box is near every entry (issue #993). A face
 //! outside that box cannot meet the cutting part during the entry. A face
 //! inside it is sampled once, at swarf's spacing (decision 0532 item 1), the
 //! first time it is needed; the samples do not depend on which thread asks
@@ -49,8 +50,8 @@ pub(crate) enum Allowance {
 /// The faces beside the operation's surface, sampled as they are needed.
 pub(crate) struct Beside<'a> {
     faces: Vec<Face<'a>>,
-    /// A box that holds every face.
-    all: Aabb,
+    /// A box that holds every face that gives one; `None` for none.
+    all: Option<Aabb>,
     spacing: f64,
     pub(crate) allowance: Allowance,
 }
@@ -58,18 +59,15 @@ pub(crate) struct Beside<'a> {
 struct Face<'a> {
     number: u32,
     face: &'a dyn ParametricFace,
-    /// A box that holds the whole face: its untrimmed surface over its
-    /// parameter box, on a coarse grid grown by the grid's spacing, so every
-    /// part of any trim is in it.
-    bounds: Aabb,
+    /// A box that holds the whole face, however it curves: its own
+    /// ([`ParametricFace::bounds`]; every exact face gives one). `None` for
+    /// a face that gives none, which is then near every entry (issue #993).
+    bounds: Option<Aabb>,
     /// The face's samples at `spacing`, and how much deeper a cut can be
     /// between them than at the nearest one (`s / sqrt 2` for samples `s`
     /// apart; OI-2078).
     samples: OnceLock<(Vec<Point3>, f64)>,
 }
-
-/// The lines each way of the grid a face's box is read from.
-const BOX_GRID: usize = 65;
 
 impl<'a> Beside<'a> {
     /// The exact faces of `source`, in face-number order, for a tool of
@@ -94,19 +92,20 @@ impl<'a> Beside<'a> {
         let spacing = crate::swarf::guard_spacing(radius);
         let faces: Vec<Face<'a>> = list
             .into_iter()
-            .filter_map(|f| {
-                Some(Face {
-                    number: f.number,
-                    face: f.face,
-                    bounds: surface_box(f.face)?,
-                    samples: OnceLock::new(),
-                })
+            .map(|f| Face {
+                number: f.number,
+                face: f.face,
+                bounds: f.face.bounds(),
+                samples: OnceLock::new(),
             })
             .collect();
+        if faces.is_empty() {
+            return None;
+        }
         let all = faces
             .iter()
-            .map(|f| f.bounds)
-            .reduce(|a, b| grow_to(grow_to(a, b.min), b.max))?;
+            .filter_map(|f| f.bounds)
+            .reduce(|a, b| grow_to(grow_to(a, b.min), b.max));
         Some(Self {
             faces,
             all,
@@ -117,26 +116,31 @@ impl<'a> Beside<'a> {
 
     /// The box the tool's cutting part can sweep at `positions` (tip and
     /// axis), its flutes `top` long, grown by `grow`: from the tip on up
-    /// the axis past the top of the flutes, as far as any face goes, since
-    /// the cutting part goes on up at the cutting radius
-    /// (`cutter::clearance_at`; CodeRabbit on #972). `None` for no
-    /// positions.
+    /// the axis past the top of the flutes, as far as any face with a box
+    /// goes, since the cutting part goes on up at the cutting radius
+    /// (`cutter::clearance_at`; CodeRabbit on #972). A face with no box is
+    /// near whatever the reach. `None` for no positions.
     pub(crate) fn reach(
         &self,
         positions: &[(Point3, UnitVec3)],
         top: f64,
         grow: f64,
     ) -> Option<Aabb> {
-        let corners = [
-            self.all.min,
-            self.all.max,
-            Point3::new(self.all.min.x, self.all.min.y, self.all.max.z),
-            Point3::new(self.all.min.x, self.all.max.y, self.all.min.z),
-            Point3::new(self.all.max.x, self.all.min.y, self.all.min.z),
-            Point3::new(self.all.min.x, self.all.max.y, self.all.max.z),
-            Point3::new(self.all.max.x, self.all.min.y, self.all.max.z),
-            Point3::new(self.all.max.x, self.all.max.y, self.all.min.z),
-        ];
+        let corners: Vec<Point3> = self
+            .all
+            .map(|all| {
+                vec![
+                    all.min,
+                    all.max,
+                    Point3::new(all.min.x, all.min.y, all.max.z),
+                    Point3::new(all.min.x, all.max.y, all.min.z),
+                    Point3::new(all.max.x, all.min.y, all.min.z),
+                    Point3::new(all.min.x, all.max.y, all.max.z),
+                    Point3::new(all.max.x, all.min.y, all.max.z),
+                    Point3::new(all.max.x, all.max.y, all.min.z),
+                ]
+            })
+            .unwrap_or_default();
         bounding(positions.iter().flat_map(|&(tip, axis)| {
             let up = corners
                 .iter()
@@ -147,12 +151,13 @@ impl<'a> Beside<'a> {
         .map(|b| widen(b, grow))
     }
 
-    /// The faces whose box meets `reach`, by index, in face-number order.
+    /// The faces whose box meets `reach`, and every face with no box, by
+    /// index, in face-number order.
     pub(crate) fn near(&self, reach: &Aabb) -> Vec<usize> {
         self.faces
             .iter()
             .enumerate()
-            .filter(|(_, f)| overlaps(&f.bounds, reach))
+            .filter(|(_, f)| f.bounds.is_none_or(|b| overlaps(&b, reach)))
             .map(|(i, _)| i)
             .collect()
     }
@@ -209,45 +214,6 @@ impl<'a> Beside<'a> {
         }
         out
     }
-}
-
-/// A box that holds all of `face`: the face's own box where it gives one
-/// ([`ParametricFace::bounds`], every exact face), else its untrimmed surface over the whole
-/// parameter box on a [`BOX_GRID`] grid, grown by the longest step between
-/// neighbouring grid points. The trim is not read, so no part of it a grid
-/// misses (a narrow band, a part of a trim) is left out of the box
-/// (CodeRabbit on #972). `None` where the surface has no point at all.
-fn surface_box(face: &dyn ParametricFace) -> Option<Aabb> {
-    // The face's own box, where it has one, holds it however it curves
-    // between grid points (CodeRabbit on #972); the grid is the fallback.
-    if let Some(b) = face.bounds() {
-        return Some(b);
-    }
-    let (lo, hi) = face.uv_bounds();
-    let n = BOX_GRID - 1;
-    let at = |i: usize, j: usize| {
-        face.point_normal(crate::surface::Uv {
-            u: lo.u + (hi.u - lo.u) * i as f64 / n as f64,
-            v: lo.v + (hi.v - lo.v) * j as f64 / n as f64,
-        })
-        .map(|p| p.point)
-    };
-    let grid: Vec<Vec<Option<Point3>>> = (0..=n)
-        .map(|i| (0..=n).map(|j| at(i, j)).collect())
-        .collect();
-    let point = |i: usize, j: usize| grid.get(i).and_then(|r| r.get(j)).copied().flatten();
-    let mut step = 0.0_f64;
-    for i in 0..=n {
-        for j in 0..=n {
-            if let Some(p) = point(i, j) {
-                for q in [point(i + 1, j), point(i, j + 1)].into_iter().flatten() {
-                    step = step.max(p.distance(q));
-                }
-            }
-        }
-    }
-    let b = bounding(grid.iter().flatten().flatten().copied())?;
-    Some(widen(b, step))
 }
 
 /// A face's samples at `spacing` as the measure keeps them: the points, and
@@ -339,6 +305,12 @@ mod tests {
         fn contains(&self, uv: Uv) -> bool {
             let d = uv.u - uv.v;
             (d > self.lo && d < self.hi) || (self.square && uv.u <= 10.0 && uv.v <= 10.0)
+        }
+        fn bounds(&self) -> Option<Aabb> {
+            Some(Aabb {
+                min: Point3::new(0.0, 0.0, self.z),
+                max: Point3::new(200.0, 200.0, self.z),
+            })
         }
     }
 
@@ -556,5 +528,50 @@ mod tests {
             max: Point3::new(101.5, 101.5, 16.0),
         };
         assert_eq!(beside.near(&near_peak), vec![0]);
+    }
+
+    /// The peak again, giving no box of its own (the default of
+    /// [`ParametricFace::bounds`]).
+    #[derive(Debug)]
+    struct PeakNoBox;
+
+    impl ParametricFace for PeakNoBox {
+        fn uv_bounds(&self) -> (Uv, Uv) {
+            Peak.uv_bounds()
+        }
+        fn point_normal(&self, uv: Uv) -> Option<SurfacePoint> {
+            Peak.point_normal(uv)
+        }
+        fn closest(&self, p: Point3) -> Option<FaceClosest> {
+            Peak.closest(p)
+        }
+        fn ray_hits(&self, o: Point3, d: UnitVec3, m: f64) -> Vec<RayHit> {
+            Peak.ray_hits(o, d, m)
+        }
+        fn contains(&self, uv: Uv) -> bool {
+            Peak.contains(uv)
+        }
+    }
+
+    /// Issue #993 (CodeRabbit on #972): a face that gives no box of its own
+    /// is near every entry, so it is always measured, however it curves
+    /// between any grid's points.
+    #[test]
+    fn req_op_12_a_face_without_a_box_of_its_own_is_near_every_entry() {
+        let faces = vec![FaceRef {
+            number: 3,
+            face: &PeakNoBox,
+        }];
+        let beside = Beside::from_faces(faces, 3.0, Allowance::Tolerance).unwrap();
+        let near_peak = Aabb {
+            min: Point3::new(100.0, 100.0, 14.0),
+            max: Point3::new(101.5, 101.5, 16.0),
+        };
+        assert_eq!(beside.near(&near_peak), vec![0]);
+        let far = Aabb {
+            min: Point3::new(-500.0, -500.0, 300.0),
+            max: Point3::new(-499.0, -499.0, 301.0),
+        };
+        assert_eq!(beside.near(&far), vec![0]);
     }
 }
