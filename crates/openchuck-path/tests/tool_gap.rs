@@ -514,10 +514,14 @@ fn req_op_12_tool_gap_accepted_above_a_depth_ends_once_proven() {
 }
 
 #[test]
-fn req_op_12_tool_gap_of_a_profile_that_is_not_convex_is_its_cylinder() {
+fn req_op_12_tool_gap_of_a_profile_that_is_not_convex_is_its_hull() {
     // A corner-rounding profile (a concave arc) is not convex; the query
-    // answers for the cylinder of its cutting radius, which holds it, so
-    // its answer is never less safe than the tool's own.
+    // answers for its convex hull, the arc replaced by its chord, which
+    // holds it, so its answer is never less safe than the tool's own (the
+    // project owner's answer of 27 Nov 2026, "Concave Q1 B", relayed). Here
+    // the hull's lowest point is the rounded corner's start, as the tool's
+    // own is: 1 - 0.5 sin 30 degrees above the plane (the cylinder of the
+    // cutting radius read 1 - 1.5 sin 30).
     let profile = ToolProfile {
         segments: vec![
             ProfileSegment::Line {
@@ -544,7 +548,7 @@ fn req_op_12_tool_gap_of_a_profile_that_is_not_convex_is_its_cylinder() {
         &line(Point3::new(0.0, 0.0, 1.0), axis),
         Vec3::ZERO,
     );
-    holds(&g, 1.0 - 1.5 * t.sin());
+    holds(&g, 1.0 - 0.5 * t.sin());
 }
 
 /// A source that answers only what the trait requires, so its tool gap is

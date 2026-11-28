@@ -858,6 +858,11 @@ struct Gouge {
     /// When the move failed only beside a wall thinner than the layer: the
     /// wall's thickness there and its exact face, if it has one.
     thin: Option<(f64, Option<u32>)>,
+    /// Whether a surface point that deep was found (see
+    /// [`UnreachedReason::WouldGouge`]).
+    found: bool,
+    /// Whether the tool was checked as its convex hull.
+    hull: bool,
 }
 
 /// The points a move is refined into, and the most material it leaves.
@@ -1058,10 +1063,18 @@ fn run(
     let body = hidden::body(&grown, input.shank, leave);
     // The move check's grown tools: a tenth of the allowance, then each a
     // quarter of the last (decision record SIMUL-EDGE-1, Q3).
+    // A tool whose profile is not convex is checked as its convex hull,
+    // which holds it (the project owner's answer of 27 Nov 2026, "Concave
+    // Q1 B", relayed): the grown tools are grown from that.
+    let cover = cutter::convex_cover(&grown).ok_or_else(|| {
+        PathError::Surface(
+            "the tool's profile has no convex cover to check its moves with".to_owned(),
+        )
+    })?;
     let checks = (0..CHECK_LEVELS)
         .map(|l| {
             let d = CHECK_GROWTH * tolerance / 4_f64.powi(l as i32);
-            cutter::grow_profile(&grown, d).map(|p| (d, p))
+            cutter::grow_profile(&cover, d).map(|p| (d, p))
         })
         .collect::<Result<Vec<_>>>()?;
     let mut plan = Plan {
@@ -1510,6 +1523,8 @@ fn gouge_areas(mut gouges: Vec<Gouge>, tolerance: f64) -> Vec<crate::assemble::U
             None => UnreachedReason::WouldGouge {
                 depth: g.depth,
                 tolerance,
+                found: g.found,
+                hull: g.hull,
             },
         };
         let joined = areas.iter_mut().rev().find(|u| {
@@ -1529,7 +1544,10 @@ fn gouge_areas(mut gouges: Vec<Gouge>, tolerance: f64) -> Vec<crate::assemble::U
                 u.a = (u.a.0.min(lo + shift), u.a.1.max(hi + shift));
                 u.area += area;
                 match (&mut u.reason, reason) {
-                    (UnreachedReason::WouldGouge { depth, .. }, _) => *depth = depth.max(g.depth),
+                    (UnreachedReason::WouldGouge { depth, found, .. }, _) => {
+                        *depth = depth.max(g.depth);
+                        *found = *found || g.found;
+                    }
                     (
                         UnreachedReason::ThinWall {
                             thickness, face, ..
@@ -1586,17 +1604,41 @@ fn gouge_warning(
         return None;
     }
     let count = crate::words::counted(areas.len(), "area", "areas");
+    let flags = |u: &crate::assemble::Unreached| match u.reason {
+        crate::assemble::UnreachedReason::WouldGouge { found, hull, .. } => (found, hull),
+        _ => (true, false),
+    };
+    let list = unreached_list(areas, diameter, max_lean);
+    // The project owner's wording (27 Nov 2026, relayed): text 1 for a tool
+    // checked as its convex hull; else the first sentence says a move could
+    // also be left out unproven (Q-D B).
+    let text = if areas.iter().any(|u| flags(u).1) {
+        format!(
+            "simultaneous finishing leaves {count} of the part uncut, because the tool could \
+             not be proven to stay within the tolerance there: {list}. This tool's profile is \
+             concave, and the check counts the hollow of the profile as solid, so the real tool \
+             may clear some of these areas, but that could not be proven; finish them with \
+             another strategy or a convex tool, then check them in the simulation before \
+             running the program"
+        )
+    } else {
+        let or_not = if areas.iter().all(|u| flags(u).0) {
+            ""
+        } else {
+            ", or could not be shown to stay within it"
+        };
+        format!(
+            "simultaneous finishing leaves {count} of the part uncut, because following \
+             the surface there would gouge (overcut) the finished surface by more than the \
+             tolerance{or_not}: {list}; finish them with another strategy or a smaller tool, \
+             then check them in the simulation before running the program"
+        )
+    };
     Some(Notice {
         level: Level::Warning,
         topic: Some(topic::UNREACHED_AREAS.to_owned()),
         segment: None,
-        text: format!(
-            "simultaneous finishing leaves {count} of the part uncut, because following \
-             the surface there would gouge (overcut) the finished surface by more than the \
-             tolerance: {}; finish them with another strategy or a smaller tool, then check them \
-             in the simulation before running the program",
-            unreached_list(areas, diameter, max_lean)
-        ),
+        text,
         setting: None,
         acknowledgement: None,
     })
@@ -1771,7 +1813,29 @@ pub(crate) fn unreached_list(
                      {layer} mm, so the tool cannot be proven clear of its far side; a wall this \
                      thin is unlikely to survive milling"
                 ),
-                UnreachedReason::WouldGouge { depth, tolerance } => format!(
+                UnreachedReason::WouldGouge {
+                    depth,
+                    tolerance,
+                    hull: true,
+                    ..
+                } => format!(
+                    "left uncut: with the hollow of the tool's concave profile counted as \
+                     solid, the tool would reach about {depth:.3} mm into the finished surface \
+                     here, more than the tolerance of {tolerance} mm; the real tool may clear \
+                     it, but this could not be proven"
+                ),
+                UnreachedReason::WouldGouge {
+                    tolerance,
+                    found: false,
+                    ..
+                } => format!(
+                    "left uncut: following the surface here could not be shown to stay within \
+                     the tolerance of {tolerance} mm of the finished surface; no cut deeper than \
+                     that was found, but the check could not rule one out"
+                ),
+                UnreachedReason::WouldGouge {
+                    depth, tolerance, ..
+                } => format!(
                     "left uncut: following the surface here would gouge the finished surface, \
                      cutting about {depth:.3} mm into it, more than the tolerance of \
                      {tolerance} mm"
@@ -3111,7 +3175,7 @@ impl Plan<'_> {
                         // SIMUL-EDGE-1, Q4): the move is left out and the
                         // place marked, never refused.
                         out.gouges
-                            .push(self.gouge(a, b, error, mid.contact.contact, None));
+                            .push(self.gouge(a, b, error, mid.contact.contact, None, true));
                         out.points.push(None);
                         out.points.push(Some(*b));
                         return Ok(());
@@ -3148,7 +3212,7 @@ impl Plan<'_> {
         // only when the whole tool over the whole move cuts no deeper than
         // allowed. One that fails is halved, then raised at its middle;
         // after that it is left out and the place marked.
-        if let Some((cut, deepest, thin)) = self.gouges(a, b) {
+        if let Some((cut, deepest, thin, found)) = self.gouges(a, b) {
             // A thin wall stays thin however the move is split.
             if thin.is_none() && depth < MAX_DEPTH + RAISES && out.gouge_splits > 0 {
                 out.gouge_splits -= 1;
@@ -3162,7 +3226,7 @@ impl Plan<'_> {
                     return self.refine_from(track, axis, &m, b, depth + 1, None, out);
                 }
             }
-            out.gouges.push(self.gouge(a, b, cut, deepest, thin));
+            out.gouges.push(self.gouge(a, b, cut, deepest, thin, found));
             out.points.push(None);
         }
         out.points.push(Some(*b));
@@ -3181,7 +3245,11 @@ impl Plan<'_> {
     /// the shift as it is seen at the first pose, so the proof is for the
     /// move itself and the whole allowance is the check's.
     #[allow(clippy::type_complexity)]
-    fn gouges(&self, a: &Node, b: &Node) -> Option<(f64, Point3, Option<(f64, Option<u32>)>)> {
+    fn gouges(
+        &self,
+        a: &Node,
+        b: &Node,
+    ) -> Option<(f64, Point3, Option<(f64, Option<u32>)>, bool)> {
         let rotary = &self.input.rotary;
         let (a0, a1) = (a.a, Degrees(crate::rotary::nearest_turn(b.a, a.a).0));
         let pb = rotary.to_axis(b.contact.tip, b.a);
@@ -3258,7 +3326,10 @@ impl Plan<'_> {
         )?;
         let query = move_query(Vec3::ZERO, self.allowed);
         let thin = self.thin_wall(&grown, &query, &g, profile);
-        Some((-g.upper.min(g.lower.max(-self.allowed)), g.at, thin))
+        // A real point deeper than allowed was found, or only the bound
+        // fell short of proving the move.
+        let found = g.upper < -self.allowed;
+        Some((-g.upper.min(g.lower.max(-self.allowed)), g.at, thin, found))
     }
 
     /// Whether a move part the check failed (`g`, from `query` on `line`)
@@ -3304,6 +3375,7 @@ impl Plan<'_> {
         depth: f64,
         deepest: Point3,
         thin: Option<(f64, Option<u32>)>,
+        found: bool,
     ) -> Gouge {
         Gouge {
             points: [a.contact.contact, b.contact.contact, deepest],
@@ -3311,6 +3383,8 @@ impl Plan<'_> {
             depth,
             width: 2.0 * self.input.tool.cutting_radius(),
             thin,
+            found,
+            hull: !self.convex,
         }
     }
 
@@ -3676,6 +3750,93 @@ fn taut_vertices(x: &[f64], lo: &[f64], hi: &[f64], start: f64, end: f64) -> Vec
 mod tests {
     #![allow(clippy::unwrap_used, clippy::indexing_slicing)]
     use super::*;
+
+    /// An area left out for a gouge, at X 1 to 2 all round.
+    fn gouged_area(depth: f64, found: bool, hull: bool) -> crate::assemble::Unreached {
+        crate::assemble::Unreached {
+            x: (1.0, 2.0),
+            a: (0.0, 360.0),
+            area: 3.0,
+            reason: crate::assemble::UnreachedReason::WouldGouge {
+                depth,
+                tolerance: 0.01,
+                found,
+                hull,
+            },
+            points: Vec::new(),
+        }
+    }
+
+    #[test]
+    fn req_op_12_req_nfr_12_a_cut_not_ruled_out_is_said_so_not_called_a_gouge() {
+        // The project owner's wording of 27 Nov 2026 (Q-D B, relayed): where
+        // no deeper point was found, the area says the check could not rule
+        // a cut out, not that the tool would cut; the warning's first
+        // sentence says either.
+        let areas = [gouged_area(0.01, false, false)];
+        let text = gouge_warning(&areas, 6.0, 30.0).unwrap().text;
+        assert!(
+            text.contains(
+                "would gouge (overcut) the finished surface by more than the tolerance, or \
+                 could not be shown to stay within it:"
+            ),
+            "{text}"
+        );
+        assert!(
+            text.contains(
+                "left uncut: following the surface here could not be shown to stay within \
+                 the tolerance of 0.01 mm of the finished surface; no cut deeper than that was \
+                 found, but the check could not rule one out"
+            ),
+            "{text}"
+        );
+        assert!(!text.contains("cutting about"), "{text}");
+        // A cut found deeper keeps the wording the owner gave first.
+        let found = [gouged_area(0.03, true, false)];
+        let text = gouge_warning(&found, 6.0, 30.0).unwrap().text;
+        assert!(
+            text.contains(
+                "would gouge (overcut) the finished surface by more than the tolerance: "
+            ),
+            "{text}"
+        );
+        assert!(text.contains("cutting about 0.030 mm into it"), "{text}");
+    }
+
+    #[test]
+    fn req_op_12_req_nfr_12_a_concave_tool_s_areas_say_its_hollow_was_counted_as_solid() {
+        // The project owner's texts 1 and 2 of 27 Nov 2026 (relayed), for a
+        // tool checked as its convex hull; kept for both cases (Q-D B).
+        for found in [true, false] {
+            let areas = [gouged_area(0.02, found, true)];
+            let text = gouge_warning(&areas, 6.0, 30.0).unwrap().text;
+            assert!(
+                text.starts_with(
+                    "simultaneous finishing leaves 1 area of the part uncut, because the tool \
+                     could not be proven to stay within the tolerance there: "
+                ),
+                "{text}"
+            );
+            assert!(
+                text.ends_with(
+                    ". This tool's profile is concave, and the check counts the hollow of the \
+                     profile as solid, so the real tool may clear some of these areas, but that \
+                     could not be proven; finish them with another strategy or a convex tool, \
+                     then check them in the simulation before running the program"
+                ),
+                "{text}"
+            );
+            assert!(
+                text.contains(
+                    "left uncut: with the hollow of the tool's concave profile counted as \
+                     solid, the tool would reach about 0.020 mm into the finished surface here, \
+                     more than the tolerance of 0.01 mm; the real tool may clear it, but this \
+                     could not be proven"
+                ),
+                "{text}"
+            );
+        }
+    }
     use crate::surface::SurfaceSource;
     use openchuck_types::mesh::TriangleMesh;
 

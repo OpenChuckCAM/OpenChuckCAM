@@ -776,6 +776,57 @@ fn piece_normal(piece: &ProfilePiece, p: ProfilePoint) -> (f64, f64) {
     }
 }
 
+/// The convex hull of `profile`: the profile itself when it is convex;
+/// otherwise each arc that bulges into the tool (a corner-rounding arc)
+/// replaced by its chord (the project owner's answer of 27 Nov 2026,
+/// "Concave Q1 B", relayed). The hull holds the tool, so a gap proven for
+/// it holds for the tool, and a cut it reads is at most the tool's own plus
+/// the hollow it fills. `None` when the chords do not make the profile
+/// convex (a hollow between convex parts); the caller then takes the
+/// cylinder of the cutting radius, which holds any profile.
+pub(crate) fn convex_hull_profile(profile: &RevolvedProfile) -> Option<RevolvedProfile> {
+    if profile.is_convex() {
+        return Some(profile.clone());
+    }
+    let segments = profile
+        .pieces()
+        .iter()
+        .map(|p| match *p {
+            ProfilePiece::Arc {
+                end,
+                centre,
+                convex: true,
+                ..
+            } => ProfileSegment::Arc { to: end, centre },
+            _ => ProfileSegment::Line { to: p.end() },
+        })
+        .collect();
+    let hull = ToolProfile { segments }.validate().ok()?;
+    hull.is_convex().then_some(hull)
+}
+
+/// A convex profile holding `profile`: its convex hull
+/// ([`convex_hull_profile`]), or the cylinder of its cutting radius when the
+/// hull is not found. `None` only for a profile whose cylinder cannot be
+/// made (no radius or no height).
+pub(crate) fn convex_cover(profile: &RevolvedProfile) -> Option<RevolvedProfile> {
+    convex_hull_profile(profile).or_else(|| {
+        let (r, top) = (profile.cutting_radius(), profile.top());
+        ToolProfile {
+            segments: vec![
+                ProfileSegment::Line {
+                    to: ProfilePoint::new(r, 0.0),
+                },
+                ProfileSegment::Line {
+                    to: ProfilePoint::new(r, top),
+                },
+            ],
+        }
+        .validate()
+        .ok()
+    })
+}
+
 /// The tool grown by `offset` in every direction (the Minkowski sum of the
 /// revolved tool and a ball of that radius), for stock to leave: a drop with
 /// the grown tool leaves `offset` of material on the surface (OP-11).

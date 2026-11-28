@@ -122,6 +122,16 @@ pub enum UnreachedReason {
         depth: f64,
         /// The operation's tolerance, in millimetres.
         tolerance: f64,
+        /// Whether a point of the surface was found that deep. When not,
+        /// the check could not show the move stays within the tolerance,
+        /// but found no cut deeper than it either, and `depth` is the
+        /// tolerance (the project owner's wording of 27 Nov 2026).
+        found: bool,
+        /// Whether the tool's profile is not convex and was checked as its
+        /// convex hull, its hollow counted as solid (the project owner's
+        /// answer of 27 Nov 2026, "Concave Q1 B"): the real tool may clear
+        /// the area.
+        hull: bool,
     },
     /// The tool reaches it, but the part there is a wall thinner than the
     /// move check's layer: the tool beside it lies within the layer of its

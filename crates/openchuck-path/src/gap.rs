@@ -384,14 +384,19 @@ pub(crate) struct Outline {
     pieces: Vec<ProfilePiece>,
     radius: f64,
     top: f64,
-    /// Whether the outline is the profile's own (convex) or its bounding
-    /// cylinder.
+    /// Whether the outline is the profile's own (convex, or the convex hull
+    /// of a profile that is not) or its bounding cylinder.
     own: bool,
     lower: Vec<ProfilePiece>,
 }
 
 impl Outline {
     pub(crate) fn new(profile: &RevolvedProfile) -> Self {
+        // A profile that is not convex is taken as its convex hull, which
+        // holds it ([`crate::cutter::convex_hull_profile`]), or else as the
+        // cylinder of its cutting radius.
+        let hull = crate::cutter::convex_hull_profile(profile);
+        let profile = hull.as_ref().unwrap_or(profile);
         let radius = profile.cutting_radius();
         let top = profile.top();
         let tip = ProfilePoint::TIP;
