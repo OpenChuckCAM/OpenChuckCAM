@@ -236,7 +236,8 @@ fn req_imp_02_exact_surface_beats_the_tessellation_it_was_built_from() {
 /// ray through it hit nothing. The importer now samples each edge once
 /// along its 3D curve to 1 µm and takes both faces' trims at those
 /// parameters, so a ray aimed along the normal at a point 2 µm or 10 µm in
-/// from any vertex of a shared edge hits that face.
+/// from any point of a shared edge between its ends hits that face. The face's own trimmed
+/// hits are asked, so a neighbour standing over it does not hide it.
 #[test]
 fn req_imp_02_a_ray_just_inside_a_shared_edge_hits_its_face() {
     const PARTS: &[&str] = &[
@@ -265,11 +266,11 @@ fn req_imp_02_a_ray_just_inside_a_shared_edge_hits_its_face() {
             if e.faces.len() != 2 || e.polyline.len() < 2 {
                 continue;
             }
-            for (k, p) in e.polyline.iter().enumerate() {
-                let (q0, q1) = match e.polyline.get(k + 1) {
-                    Some(next) => (*p, *next),
-                    None => (e.polyline[k - 1], *p),
-                };
+            // The edge's points between its ends: at an end, where the face
+            // has a corner, a step across the edge can land on the next edge.
+            let last = e.polyline.len() - 1;
+            for (k, p) in e.polyline.iter().enumerate().take(last).skip(1) {
+                let (q0, q1) = (e.polyline[k - 1], e.polyline[k + 1]);
                 let along = q1 - q0;
                 if along.length() < 1e-9 {
                     continue;
@@ -285,13 +286,14 @@ fn req_imp_02_a_ray_just_inside_a_shared_edge_hits_its_face() {
                         continue;
                     }
                     let across = across * (1.0 / across.length());
+                    // The face's own trimmed hits, so that a neighbour standing
+                    // over it (a blade wall over the floor at its root) does
+                    // not hide it: this is the trim alone.
+                    let face = &faces[f.0 as usize];
                     let hits = |target: Point3| {
-                        surface
-                            .cast_ray(target + n * ABOVE, UnitVec3::new(-n).unwrap(), 2.0 * ABOVE)
-                            .is_some_and(|hit| {
-                                (hit.distance - ABOVE).abs() < 0.05
-                                    && hit.position.is_some_and(|at| at.face == f.0)
-                            })
+                        face.ray_hits(target + n * ABOVE, UnitVec3::new(-n).unwrap(), 2.0 * ABOVE)
+                            .iter()
+                            .any(|hit| (hit.distance - ABOVE).abs() < 0.05)
                     };
                     // The side of the edge the face is on: where it is hit
                     // well inside it.

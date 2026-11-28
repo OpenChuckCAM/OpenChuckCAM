@@ -241,8 +241,50 @@ struct Trims {
   std::vector<std::vector<gp_Pnt2d>> loops;
 };
 
-// Sample the face's trim loops in (u, v). Straight p-curves need only their start point; others get 48.
-Trims sample_trims(const TopoDS_Face& f) {
+// The chordal deflection, mm, to which every edge is sampled for the faces' trims (issue #917, the owner's
+// answer F1): a trim then stays within it of the true edge.
+constexpr double TRIM_DEFLECTION = 1e-3;
+// The tangent may turn this much, radians, between two samples; the deflection is the bound that binds.
+constexpr double TRIM_ANGLE = 0.5;
+
+// The parameters, in increasing order, at which `c` is sampled to TRIM_DEFLECTION between `a` and `b`.
+template <class Curve>
+std::vector<double> deflection_params(const Curve& c, double a, double b) {
+  GCPnts_TangentialDeflection td(c, a, b, TRIM_ANGLE, TRIM_DEFLECTION, 2);
+  std::vector<double> out;
+  for (int k = 1; k <= td.NbPoints(); ++k) out.push_back(td.Parameter(k));
+  std::sort(out.begin(), out.end());
+  return out;
+}
+
+// Where every face's trim samples each edge: the edge's 3D curve to TRIM_DEFLECTION, the same parameters for
+// both faces on it, so their trims meet on the true edge instead of leaving a sliver between two chords that
+// neither face covers (issue #917). Worked out once per edge, by its index in `edges`.
+struct EdgeSamples {
+  const TopTools_IndexedMapOfShape& edges;
+  std::vector<std::vector<double>> params;
+  std::vector<char> done;
+  explicit EdgeSamples(const TopTools_IndexedMapOfShape& e)
+      : edges(e), params(static_cast<size_t>(e.Extent())), done(static_cast<size_t>(e.Extent()), 0) {}
+  // The parameters of edge `e` along its 3D curve (shared with its p-curves, the edge being same-parameter).
+  const std::vector<double>& of(const TopoDS_Edge& e) {
+    const int i = edges.FindIndex(e);
+    if (i <= 0) throw std::runtime_error("a trim edge is not in the model's edges");
+    const size_t k = static_cast<size_t>(i - 1);
+    if (!done[k]) {
+      BRepAdaptor_Curve c(e);
+      params[k] = deflection_params(c, c.FirstParameter(), c.LastParameter());
+      done[k] = 1;
+    }
+    return params[k];
+  }
+};
+
+// Sample the face's trim loops in (u, v). A straight p-curve needs only its start point, which is exact. Any
+// other is taken at its edge's shared samples (EdgeSamples); an edge that is not same-parameter, whose p-curve
+// does not share its 3D curve's parameter, is sampled to the same deflection along its curve on this face; a
+// degenerate edge (a cone's apex, a sphere's pole), which has no length, keeps 48 even steps.
+Trims sample_trims(const TopoDS_Face& f, EdgeSamples& samples) {
   Trims out;
   for (TopExp_Explorer we(f, TopAbs_WIRE); we.More(); we.Next()) {
     std::vector<gp_Pnt2d> loop;
@@ -251,11 +293,20 @@ Trims sample_trims(const TopoDS_Face& f) {
       BRepAdaptor_Curve2d c(e, f);
       double a = c.FirstParameter(), b = c.LastParameter();
       bool rev = e.Orientation() == TopAbs_REVERSED;
-      int n = c.GetType() == GeomAbs_Line ? 1 : 48;
-      for (int k = 0; k < n; ++k) {
-        double t = static_cast<double>(k) / n;
-        loop.push_back(c.Value(rev ? b - t * (b - a) : a + t * (b - a)));
+      std::vector<double> ts;
+      if (c.GetType() == GeomAbs_Line) {
+        ts = {a, b};
+      } else if (BRep_Tool::Degenerated(e)) {
+        for (int k = 0; k <= 48; ++k) ts.push_back(a + (b - a) * static_cast<double>(k) / 48);
+      } else if (BRep_Tool::SameParameter(e)) {
+        ts = samples.of(e);
+      } else {
+        BRepAdaptor_Curve on_face(e, f);
+        ts = deflection_params(on_face, on_face.FirstParameter(), on_face.LastParameter());
       }
+      // Each edge gives its points from its start up to, not including, its end, which the next edge gives.
+      const size_t n = ts.size();
+      for (size_t k = 0; k + 1 < n; ++k) loop.push_back(c.Value(rev ? ts[n - 1 - k] : ts[k]));
     }
     if (!loop.empty()) out.loops.push_back(std::move(loop));
   }
@@ -391,6 +442,7 @@ void write_model(Json& j, const TopoDS_Shape& shape, double lin, double ang) {
   BRepTools::Clean(shape);
   BRepMesh_IncrementalMesh mesher(shape, lin, Standard_False, ang, Standard_False);
   if (!mesher.IsDone()) throw std::runtime_error("the tessellation failed");
+  EdgeSamples edge_samples(edges);
 
   j.raw("{\"faces\":[");
   for (int fi = 1; fi <= faces.Extent(); ++fi) {
@@ -399,7 +451,7 @@ void write_model(Json& j, const TopoDS_Shape& shape, double lin, double ang) {
       BRepAdaptor_Surface s(f);
       double uv[4];
       BRepTools::UVBounds(f, uv[0], uv[1], uv[2], uv[3]);
-      Trims trims = sample_trims(f);
+      Trims trims = sample_trims(f, edge_samples);
       double orig_uv[4] = {uv[0], uv[1], uv[2], uv[3]};
       if (fi > 1) j.raw(",");
       j.raw("{\"id\":"); j.integer(fi - 1);
