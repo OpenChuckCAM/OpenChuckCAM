@@ -1573,6 +1573,118 @@ fn req_nfr_04_a_path_of_two_million_moves_is_displayed_within_its_budget() {
     let _ = std::fs::remove_dir_all(dir);
 }
 
+/// Only the cut part at the end of a setup's program carries deviation
+/// colours, and only when they are asked for: an interim cut part and a
+/// playing frame are plain (the owner's decision A of 26 Nov 2026, issue
+/// #454; decision SIM-UX-A).
+#[test]
+fn req_sim_05_req_nfr_04_only_the_cut_part_at_a_setups_end_is_coloured() {
+    let (dir, app, _) = project("colours-at-end");
+    let run = Arc::new(app.simulate().unwrap());
+    let t = Arc::new(Timeline::new(app.project(), Arc::clone(&run)).unwrap());
+    let playback = Arc::new(
+        app.start_stock_playback(Arc::clone(&t), DEFAULT_PLAYBACK_MEMORY)
+            .wait()
+            .unwrap(),
+    );
+    let end = Cursor {
+        done: t.move_count(),
+        fraction: 0.0,
+    };
+    let middle = Cursor {
+        done: t.move_count() / 2,
+        fraction: 0.0,
+    };
+    let at_end = app
+        .start_stock_surface(&playback, end, true)
+        .wait()
+        .unwrap();
+    let bands = at_end
+        .bands
+        .as_ref()
+        .expect("the final cut part is coloured");
+    assert!(
+        bands.pieces.is_some(),
+        "a still final cut part is in pieces"
+    );
+    assert!(at_end.can_pick());
+    assert!(
+        at_end
+            .pick([0.0, -50.0, 0.0], [0.0, 1.0, 0.0])
+            .unwrap()
+            .is_some()
+    );
+
+    let interim = app
+        .start_stock_surface(&playback, middle, true)
+        .wait()
+        .unwrap();
+    assert!(interim.bands.is_none(), "an interim cut part is plain");
+    assert_eq!(
+        interim.mesh,
+        app.start_stock_at(&playback, middle).wait().unwrap()
+    );
+
+    let plain = app
+        .start_stock_surface(&playback, end, false)
+        .wait()
+        .unwrap();
+    assert!(plain.bands.is_none(), "no colours unless asked for");
+    assert!(plain.can_pick(), "a plain still frame is complete");
+    assert_eq!(plain.mesh, at_end.mesh);
+
+    let playing = app
+        .start_playing_stock_surface(&playback, end)
+        .wait()
+        .unwrap();
+    assert!(playing.bands.is_none(), "a playing frame is plain");
+    assert!(!playing.can_pick());
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+/// The sample index is built when colours are first made, not by preparing
+/// playback, and the final coloured cut part is made once and kept
+/// (issues #538 and #454; decision SIM-UX-A).
+#[test]
+fn req_sim_05_req_nfr_04_the_sample_index_and_the_final_colours_are_made_once_when_needed() {
+    let (dir, app, _) = project("colours-lazy");
+    let run = Arc::new(app.simulate().unwrap());
+    let t = Arc::new(Timeline::new(app.project(), Arc::clone(&run)).unwrap());
+    let playback = Arc::new(
+        app.start_stock_playback(Arc::clone(&t), DEFAULT_PLAYBACK_MEMORY)
+            .wait()
+            .unwrap(),
+    );
+    assert_eq!(
+        playback.samples_built(),
+        0,
+        "preparing playback builds none"
+    );
+    let end = Cursor {
+        done: t.move_count(),
+        fraction: 0.0,
+    };
+    app.start_stock_surface(&playback, end, false)
+        .wait()
+        .unwrap();
+    app.start_playing_stock_surface(&playback, end)
+        .wait()
+        .unwrap();
+    assert_eq!(playback.samples_built(), 0, "plain cut parts need none");
+    let first = app
+        .start_stock_surface(&playback, end, true)
+        .wait()
+        .unwrap();
+    assert_eq!(playback.samples_built(), 1);
+    let again = app
+        .start_stock_surface(&playback, end, true)
+        .wait()
+        .unwrap();
+    assert_eq!(playback.samples_built(), 1, "the index is kept");
+    assert!(Arc::ptr_eq(&first, &again), "the final colours are kept");
+    let _ = std::fs::remove_dir_all(dir);
+}
+
 /// Stock playback and the colours read the run's own project, so an edit made
 /// after the run cannot put the old toolpath on a different stock (SIM-04,
 /// SIM-05; verification policy 8).
@@ -1591,7 +1703,7 @@ fn req_sim_04_stock_playback_uses_the_stock_the_run_was_made_with() {
         .wait()
         .unwrap();
     let first_surface = app
-        .start_stock_surface(&before, Cursor::default())
+        .start_stock_surface(&before, Cursor::default(), true)
         .wait()
         .unwrap();
     assert_eq!(first_surface.mesh, first);
@@ -1620,7 +1732,7 @@ fn req_sim_04_stock_playback_uses_the_stock_the_run_was_made_with() {
         .unwrap();
     assert_eq!(first, second, "the stock shown changed with the project");
     let second_surface = app
-        .start_stock_surface(&after, Cursor::default())
+        .start_stock_surface(&after, Cursor::default(), true)
         .wait()
         .unwrap();
     assert_eq!(
@@ -1631,7 +1743,7 @@ fn req_sim_04_stock_playback_uses_the_stock_the_run_was_made_with() {
         done: t.move_count(),
         fraction: 0.0,
     };
-    let final_surface = app.start_stock_surface(&after, end).wait().unwrap();
+    let final_surface = app.start_stock_surface(&after, end, true).wait().unwrap();
     let final_mesh = app.start_stock_at(&after, end).wait().unwrap();
     assert_eq!(
         final_surface.mesh, final_mesh,

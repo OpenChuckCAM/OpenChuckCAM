@@ -129,7 +129,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             fraction: 0.5,
         };
         let started = Instant::now();
-        let surface = app.start_stock_surface(&playback, cursor).wait()?;
+        let surface = app.start_stock_surface(&playback, cursor, true).wait()?;
         let whole = started.elapsed().as_secs_f64();
         drop(surface);
         let stock = playback.stock_at(cursor, &context)?;

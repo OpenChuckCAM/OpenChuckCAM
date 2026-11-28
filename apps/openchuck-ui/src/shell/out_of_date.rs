@@ -108,26 +108,76 @@ impl Shell {
     }
 
     /// The banner over the top of the 3D view on Simulate, on the result it
-    /// is about (the owner's answer on issue 260).
+    /// is about (the owner's answer on issue 260), and under it the lozenge
+    /// of a wait the user is watching (the owner's Q1 B on issue #454).
     pub(super) fn view_banner(&mut self, ctx: &egui::Context) {
-        if self.step != Step::Simulate || self.out_of_date.reason().is_none() {
+        if self.step != Step::Simulate {
             return;
         }
         let rect = self.viewport.last_rect;
         if !rect.is_positive() {
             return;
         }
-        let again = egui::Area::new(egui::Id::unique("out of date banner"))
+        // Without the banner, the lozenge takes its place; with it, the
+        // lozenge sits 6 px under it.
+        let mut top = rect.top() + 12.0;
+        if self.out_of_date.reason().is_some() {
+            let shown = egui::Area::new(egui::Id::unique("out of date banner"))
+                .order(egui::Order::Middle)
+                .pivot(egui::Align2::CENTER_TOP)
+                .fixed_pos(rect.center_top() + egui::vec2(0.0, 12.0))
+                .show(ctx, |ui| {
+                    ui.set_max_width(rect.width().min(420.0) - 16.0);
+                    self.out_of_date_banner(ui)
+                });
+            top = shown.response.rect.bottom() + 6.0;
+            if shown.inner {
+                self.primary();
+            }
+        }
+        self.view_lozenge(ctx, rect, top);
+    }
+
+    /// The lozenge at the top of the view while the user waits for the cut
+    /// part's colours, the part's or playback (the owner's Q1 B on issue
+    /// #454). It covers only its own strip and takes no focus. Its Stop, or
+    /// Esc while no generation runs, ends the colouring and turns Deviation
+    /// colours off.
+    fn view_lozenge(&mut self, ctx: &egui::Context, rect: egui::Rect, top: f32) {
+        let Some(lozenge) = self.play.lozenge(&self.jobs) else {
+            return;
+        };
+        let stop = egui::Area::new(egui::Id::unique("waiting lozenge"))
             .order(egui::Order::Middle)
             .pivot(egui::Align2::CENTER_TOP)
-            .fixed_pos(rect.center_top() + egui::vec2(0.0, 12.0))
+            .fixed_pos(egui::pos2(rect.center().x, top))
             .show(ctx, |ui| {
-                ui.set_max_width(rect.width().min(420.0) - 16.0);
-                self.out_of_date_banner(ui)
+                let visuals = ui.visuals().clone();
+                egui::Frame::new()
+                    .fill(visuals.window_fill)
+                    .stroke(visuals.widgets.noninteractive.bg_stroke)
+                    .corner_radius(14)
+                    .inner_margin(egui::Margin::symmetric(12, 4))
+                    .show(ui, |ui| {
+                        ui.horizontal(|ui| {
+                            ui.label(&lozenge.text);
+                            lozenge.stop
+                                && ui
+                                    .button("Stop")
+                                    .on_hover_text("Stop colouring and turn Deviation colours off")
+                                    .clicked()
+                        })
+                        .inner
+                    })
+                    .inner
             })
             .inner;
-        if again {
-            self.primary();
+        let esc = lozenge.stop
+            && !self.run.is_running()
+            && !self.text_had_focus
+            && ctx.input_mut(|i| i.consume_key(egui::Modifiers::NONE, egui::Key::Escape));
+        if stop || esc {
+            self.play.stop_colouring(&mut self.viewport);
         }
     }
 }

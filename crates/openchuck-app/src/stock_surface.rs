@@ -28,6 +28,9 @@ pub struct StockSurface {
     /// Projected final values indexed by the stock's triangle IDs.
     pub bands: Option<DeviationBands>,
     picker: Option<MeshPicker>,
+    /// A still frame made without colours: complete without a picker, since
+    /// it has no values to read (issue #454).
+    plain_still: bool,
 }
 
 impl StockSurface {
@@ -58,14 +61,34 @@ impl StockSurface {
             model,
             bands,
             picker,
+            plain_still: false,
         })
+    }
+
+    /// The cut part with no colours and no picker: a frame shown while
+    /// playback plays, or, when `still`, a still frame shown with deviation
+    /// colours off (issue #454).
+    pub(crate) fn plain(
+        mesh: TriangleMesh,
+        setup: SetupId,
+        model: Option<ModelId>,
+        still: bool,
+    ) -> Self {
+        Self {
+            mesh,
+            setup,
+            model,
+            bands: None,
+            picker: None,
+            plain_still: still,
+        }
     }
 
     /// Whether the surface was made with its picker, or has nothing to pick:
     /// a frame made while playback plays has none, so pointing at it finds
     /// nothing (the owner's decision D5 on issue #382; decision record 0322).
     pub fn can_pick(&self) -> bool {
-        self.picker.is_some() || self.mesh.triangles.is_empty()
+        self.picker.is_some() || self.plain_still || self.mesh.triangles.is_empty()
     }
 
     /// First hit on the actual stock, in its workpiece frame. The triangle

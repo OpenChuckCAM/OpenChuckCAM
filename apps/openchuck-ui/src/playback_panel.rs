@@ -13,6 +13,7 @@
 
 use crate::focus::Tip as _;
 use std::sync::Arc;
+use std::time::{Duration, Instant};
 
 use eframe::egui::{self, Color32, RichText};
 use openchuck_app::pathview::{
@@ -201,8 +202,16 @@ struct StockState {
     show: bool,
     prepare: Option<JobHandle<StockPlayback>>,
     playback: Option<Arc<StockPlayback>>,
-    mesh: Option<(JobHandle<StockSurface>, Cursor)>,
+    mesh: Option<(JobHandle<Arc<StockSurface>>, Cursor)>,
     surface: Option<Arc<StockSurface>>,
+    /// Whether the job running made, and the cut part on screen was made,
+    /// as a still frame with deviation colours asked for (`Some(true)`),
+    /// without (`Some(false)`), or as a plain frame to show at once
+    /// (`None`; issue #454, the owner's Q1 B).
+    pending_colours: Option<bool>,
+    shown_colours: Option<bool>,
+    /// The wait the user is watching, and since when (issue #454).
+    wait: Option<(WaitKind, Instant)>,
     /// The cursor of the cut part on screen. While playing the tool follows
     /// the clock and this may be behind it; when still they match.
     shown: Option<Cursor>,
@@ -255,6 +264,32 @@ enum PartShown {
     Changed,
     /// The part coloured by the values found for this setup.
     Bands(SetupId),
+}
+
+/// A wait the user may be watching in the 3D view on Simulate, shown as a
+/// lozenge at the top of the view once it has lasted [`LOZENGE_DELAY`] (the
+/// owner's Q1 B on issue #454).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum WaitKind {
+    /// Simulating again to prepare playback: no Stop, since without it
+    /// there is nothing to play.
+    PreparingPlayback,
+    /// Colouring the final cut part on screen.
+    ColouringCutPart,
+    /// Colouring the part model (Part ticked).
+    ColouringPart,
+}
+
+/// How long a wait lasts before its lozenge shows, so a quick step never
+/// flickers.
+pub(crate) const LOZENGE_DELAY: Duration = Duration::from_millis(300);
+
+/// The lozenge's contents.
+#[derive(Debug, Clone, PartialEq)]
+pub(crate) struct Lozenge {
+    pub(crate) text: String,
+    /// Whether it has a Stop button.
+    pub(crate) stop: bool,
 }
 
 /// What the cut-part bar under the position bar shows (decision record
@@ -500,6 +535,89 @@ impl PlaybackPanel {
             fraction: None,
             percent: None,
         })
+    }
+
+    /// The wait the user is watching now, if any.
+    fn current_wait(&self) -> Option<WaitKind> {
+        if self.stock.show && self.stock.prepare.is_some() {
+            return Some(WaitKind::PreparingPlayback);
+        }
+        if self.bands_on
+            && self.stock.pending_colours == Some(true)
+            && let (Some((_, cursor)), Some(playback)) = (&self.stock.mesh, &self.stock.playback)
+            && playback.is_final(*cursor)
+        {
+            return Some(WaitKind::ColouringCutPart);
+        }
+        if self.bands_on && self.part.job.is_some() {
+            return Some(WaitKind::ColouringPart);
+        }
+        None
+    }
+
+    /// Notes the wait the user is watching, keeping when it began while it
+    /// lasts.
+    fn follow_wait(&mut self) {
+        let now = self.current_wait();
+        self.stock.wait = match (now, self.stock.wait) {
+            (Some(kind), Some((was, since))) if kind == was => Some((kind, since)),
+            (Some(kind), _) => Some((kind, Instant::now())),
+            (None, _) => None,
+        };
+    }
+
+    /// The lozenge at the top of the view: the wait once it has lasted
+    /// [`LOZENGE_DELAY`], with the progress its job reported.
+    pub(crate) fn lozenge(&self, jobs: &openchuck_app::JobLog) -> Option<Lozenge> {
+        let (kind, since) = self.stock.wait?;
+        if since.elapsed() < LOZENGE_DELAY {
+            return None;
+        }
+        let fraction = |id| jobs.get(id).and_then(openchuck_app::JobEntry::fraction);
+        let percent = |f: Option<f32>| {
+            f.map_or_else(String::new, |f| format!(" {}%", (f * 100.0).floor() as u32))
+        };
+        let (words, job, stop) = match kind {
+            WaitKind::PreparingPlayback => (
+                "Preparing playback…",
+                self.stock.prepare.as_ref().map(JobHandle::id),
+                false,
+            ),
+            WaitKind::ColouringCutPart => (
+                "Colouring the cut part…",
+                self.stock.mesh.as_ref().map(|(job, _)| job.id()),
+                true,
+            ),
+            WaitKind::ColouringPart => (
+                "Colouring the part…",
+                self.part.job.as_ref().map(|(.., job)| job.id()),
+                true,
+            ),
+        };
+        Some(Lozenge {
+            text: format!("{words}{}", percent(job.and_then(fraction))),
+            stop,
+        })
+    }
+
+    /// The lozenge's Stop: ends the colouring and turns Deviation colours
+    /// off, so the tick box shows what happened and the colouring does not
+    /// start again on the next frame (the owner's Q1 B on issue #454). The
+    /// cut part stays on screen, plain.
+    pub(crate) fn stop_colouring(&mut self, viewport: &mut Viewport) {
+        if self.stock.pending_colours == Some(true)
+            && let Some((job, _)) = self.stock.mesh.take()
+        {
+            job.cancel();
+            self.stock.pending_colours = None;
+        }
+        if let Some((.., job)) = self.part.job.take() {
+            job.cancel();
+        }
+        self.bands_on = false;
+        self.stock.wait = None;
+        self.show_bands(viewport);
+        self.show_part_bands(viewport);
     }
 
     /// What the cut-part bar shows, with the progress the jobs reported;
@@ -885,6 +1003,9 @@ impl PlaybackPanel {
             }));
         }
         busy |= self.update_bands(app, viewport);
+        self.follow_wait();
+        // A wait not yet shown is drawn again when its lozenge is due.
+        busy |= self.stock.wait.is_some();
         busy
     }
 
@@ -1088,6 +1209,7 @@ impl PlaybackPanel {
         pose: &PoseSample,
     ) -> bool {
         let playing = self.playback.is_playing();
+        let colours = self.bands_on;
         let stock = &mut self.stock;
         let mut busy = false;
         if let Some(job) = &stock.prepare {
@@ -1119,10 +1241,10 @@ impl PlaybackPanel {
                     stock.mesh = None;
                     match result {
                         Ok(surface) => {
-                            let surface = Arc::new(surface);
                             viewport.set_stock_surface(Some(Arc::clone(&surface)));
                             stock.surface = Some(surface);
                             stock.shown = Some(done);
+                            stock.shown_colours = stock.pending_colours;
                         }
                         Err(e) if e.is_cancelled() => {}
                         Err(e) => {
@@ -1143,22 +1265,31 @@ impl PlaybackPanel {
             return busy;
         }
         let done = pose.cursor;
-        // While playing, frames are made without their picker, so they are
-        // ready sooner; once playback is still, the frame shown is made
-        // again with one, so pointing at it works (the owner's decision D5
-        // on issue #382; decision record 0322).
-        let cannot_pick = stock.surface.as_ref().is_some_and(|s| !s.can_pick());
+        // While playing, frames are plain, so they are ready soonest. Once
+        // playback is still at a new point, the plain cut part is shown at
+        // once and then made again as a still frame: with its colours and
+        // picker when Deviation colours are on, so pointing at it works (the
+        // owner's decision D5 on issue #382, decision record 0322; the
+        // owner's Q1 B on issue #454). Colours are only on the cut part at
+        // the end of a setup's program.
+        let moved = stock.shown != Some(done);
+        let finished = stock.shown_colours == Some(colours)
+            && stock.surface.as_ref().is_some_and(|s| s.can_pick());
         if let Some(playback) = &stock.playback
             && stock.mesh.is_none()
             && stock.error.is_none()
-            && (stock.shown != Some(done) || (!playing && cannot_pick))
+            && (moved || (!playing && !finished))
         {
-            let job = if playing {
-                app.start_playing_stock_surface(playback, done)
+            let (job, made) = if playing || (moved && colours) {
+                (app.start_playing_stock_surface(playback, done), None)
             } else {
-                app.start_stock_surface(playback, done)
+                (
+                    app.start_stock_surface(playback, done, colours),
+                    Some(colours),
+                )
             };
             stock.mesh = Some((job, done));
+            stock.pending_colours = made;
             busy = true;
         }
         busy
@@ -2494,14 +2625,18 @@ mod tests {
                 .start_stock_surface(
                     panel.stock.playback.as_ref().unwrap(),
                     panel.playback.cursor(),
+                    panel.bands_on,
                 )
                 .wait()
                 .unwrap();
-            assert_eq!(viewport.stock_surface().unwrap().as_ref(), &expected);
+            assert_eq!(
+                viewport.stock_surface().unwrap().as_ref(),
+                expected.as_ref()
+            );
             assert!(
                 drawn_surface
                     .as_ref()
-                    .is_some_and(|s| s.as_ref() == &expected),
+                    .is_some_and(|s| s.as_ref() == expected.as_ref()),
                 "the final cut surface must be handed to the renderer without another user action"
             );
             assert!(!viewport.layer(Layer::Stock).unwrap().meshes.is_empty());
@@ -2595,11 +2730,18 @@ mod tests {
         let still = panel.stock.surface.clone().unwrap();
         assert!(still.can_pick());
         let expected = app
-            .start_stock_surface(panel.stock.playback.as_ref().unwrap(), cursor)
+            .start_stock_surface(
+                panel.stock.playback.as_ref().unwrap(),
+                cursor,
+                panel.bands_on,
+            )
             .wait()
             .unwrap();
-        assert_eq!(still.as_ref(), &expected);
-        assert_eq!(viewport.stock_surface().unwrap().as_ref(), &expected);
+        assert_eq!(still.as_ref(), expected.as_ref());
+        assert_eq!(
+            viewport.stock_surface().unwrap().as_ref(),
+            expected.as_ref()
+        );
         let _ = std::fs::remove_dir_all(dir);
     }
 
@@ -2738,7 +2880,11 @@ mod tests {
         let target = panel.playback.cursor();
         assert_ne!(shown, target);
         let surface = app
-            .start_stock_surface(panel.stock.playback.as_ref().unwrap(), target)
+            .start_stock_surface(
+                panel.stock.playback.as_ref().unwrap(),
+                target,
+                panel.bands_on,
+            )
             .wait()
             .unwrap();
         let pool = openchuck_app::JobManager::new(openchuck_app::Threads::Exactly(1)).unwrap();

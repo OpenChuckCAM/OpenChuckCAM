@@ -48,7 +48,13 @@ struct SetupPlay {
     /// groups of the timeline.
     groups: Vec<usize>,
     model: Option<ModelId>,
-    samples: Option<SurfaceSamples>,
+    /// The sample index of this setup's final comparison, built the first
+    /// time colours are made (issue #538), `None` inside when the run has no
+    /// comparison for it.
+    samples: std::sync::OnceLock<Option<SurfaceSamples>>,
+    /// The coloured cut part at the end of this setup's program, made once
+    /// and kept while the playback is (issue #454).
+    finished: std::sync::OnceLock<Arc<StockSurface>>,
 }
 
 /// The simulation of every setup with its checkpoints, to give the stock at a
@@ -60,6 +66,8 @@ pub struct StockPlayback {
     /// the index of its setup: a checkpoint for the next request, so that
     /// playing forward replays only the moves since the last frame.
     kept: Mutex<Option<Arc<(usize, Checkpoint)>>>,
+    /// How many sample indexes were built, for tests (issue #538).
+    samples_built: std::sync::atomic::AtomicUsize,
 }
 
 impl std::fmt::Debug for StockPlayback {
@@ -206,6 +214,84 @@ impl StockPlayback {
     /// decision record 0333), so nothing was simulated again.
     pub fn from_the_run(&self) -> bool {
         !self.setups.is_empty() && self.setups.iter().all(|s| s.from_run)
+    }
+
+    /// How many sample indexes have been built: none by preparing playback,
+    /// one for each setup the first time its colours are made (issue #538).
+    #[doc(hidden)]
+    pub fn samples_built(&self) -> usize {
+        self.samples_built
+            .load(std::sync::atomic::Ordering::Relaxed)
+    }
+
+    /// The sample index of the setup at `index`, built from the run's final
+    /// comparison the first time it is asked for. `None` when the run has no
+    /// comparison for that setup.
+    fn samples(&self, index: usize) -> Option<&SurfaceSamples> {
+        let setup = self.setups.get(index)?;
+        setup
+            .samples
+            .get_or_init(|| {
+                let run = self.timeline.run();
+                let cell = run.project.simulation().cell.0;
+                let built = run
+                    .simulation
+                    .as_ref()
+                    .and_then(|r| r.setups.iter().find(|s| s.id == setup.id))
+                    .and_then(|s| {
+                        s.deviation.as_ref().map(|d| {
+                            SurfaceSamples::with_reach(
+                                &d.points,
+                                s.reach.as_ref().map(|r| r.classes.as_slice()),
+                                cell,
+                            )
+                        })
+                    });
+                if built.is_some() {
+                    self.samples_built
+                        .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                }
+                built
+            })
+            .as_ref()
+    }
+
+    /// The setup whose stock `cursor` shows, by its place in `setups`, and
+    /// whether that stock is the setup's final one: every move of its last
+    /// group done.
+    fn setup_at(&self, cursor: Cursor) -> Result<(usize, bool), AppError> {
+        let path = &self.timeline.run().toolpath;
+        let (group, done_in_group) = match self.timeline.locate(cursor.done) {
+            Some((group, moves)) => {
+                let len = path.groups.get(group).map_or(0, |g| g.segments.len());
+                let whole = moves + usize::from(cursor.fraction >= 1.0);
+                (group, whole >= len)
+            }
+            None => (
+                path.groups
+                    .iter()
+                    .rposition(|g| !g.segments.is_empty())
+                    .unwrap_or(0),
+                true,
+            ),
+        };
+        let index = self
+            .setups
+            .iter()
+            .position(|s| s.groups.contains(&group))
+            .ok_or_else(|| AppError::Playback("no simulation covers this move".to_owned()))?;
+        let last = self
+            .setups
+            .get(index)
+            .and_then(|s| s.groups.last())
+            .is_some_and(|g| *g == group);
+        Ok((index, last && done_in_group))
+    }
+
+    /// Whether the stock at `cursor` is the final cut part of its setup,
+    /// the only one that carries deviation colours (issue #454).
+    pub fn is_final(&self, cursor: Cursor) -> bool {
+        self.setup_at(cursor).is_ok_and(|(_, finished)| finished)
     }
 
     /// How many checkpoints are kept in all.
@@ -358,25 +444,15 @@ impl Application {
                         simulator,
                         groups,
                         model: project.setup(id).and_then(|s| s.part),
-                        samples: run
-                            .simulation
-                            .as_ref()
-                            .and_then(|r| r.setups.iter().find(|s| s.id == id))
-                            .and_then(|s| {
-                                s.deviation.as_ref().map(|d| {
-                                    SurfaceSamples::with_reach(
-                                        &d.points,
-                                        s.reach.as_ref().map(|r| r.classes.as_slice()),
-                                        settings.cell.0,
-                                    )
-                                })
-                            }),
+                        samples: std::sync::OnceLock::new(),
+                        finished: std::sync::OnceLock::new(),
                     });
                 }
                 Ok(StockPlayback {
                     timeline,
                     setups,
                     kept: Mutex::new(None),
+                    samples_built: std::sync::atomic::AtomicUsize::new(0),
                 })
             })
     }
@@ -395,66 +471,72 @@ impl Application {
             })
     }
 
-    /// Actual playback stock with display-only final-result colours and a
-    /// matching CPU picker, prepared together off the interface thread.
+    /// The stock at `cursor` as a still frame, off the interface thread.
+    /// With `colours`, the cut part at the end of a setup's program carries
+    /// its final-result colours, drawn in pieces, and the surface has its
+    /// picker; that cut part is made once and kept. Any other cut part is
+    /// plain: its colours would be those of the end, not of this point (the
+    /// owner's decision of 26 Nov 2026, issue #454). Without `colours` the
+    /// surface is the mesh alone.
     pub fn start_stock_surface(
         &self,
         playback: &Arc<StockPlayback>,
         cursor: Cursor,
-    ) -> JobHandle<StockSurface> {
-        self.stock_surface_job(playback, cursor, true)
+        colours: bool,
+    ) -> JobHandle<Arc<StockSurface>> {
+        self.stock_surface_job(playback, cursor, Some(colours))
     }
 
-    /// The same surface without its picker, for a frame shown while playback
-    /// plays: it is ready sooner, and pointing at it finds nothing (the
-    /// owner's decision D5 on issue #382; decision record 0322).
+    /// The plain stock at `cursor`, for a frame shown while playback plays:
+    /// no colours and no picker, so it is ready soonest and pointing at it
+    /// finds nothing (decision record 0322; issue #454).
     pub fn start_playing_stock_surface(
         &self,
         playback: &Arc<StockPlayback>,
         cursor: Cursor,
-    ) -> JobHandle<StockSurface> {
-        self.stock_surface_job(playback, cursor, false)
+    ) -> JobHandle<Arc<StockSurface>> {
+        self.stock_surface_job(playback, cursor, None)
     }
 
+    /// `still` is `None` for a playing frame, else whether colours are asked
+    /// for.
     fn stock_surface_job(
         &self,
         playback: &Arc<StockPlayback>,
         cursor: Cursor,
-        picker: bool,
-    ) -> JobHandle<StockSurface> {
+        still: Option<bool>,
+    ) -> JobHandle<Arc<StockSurface>> {
         let playback = Arc::clone(playback);
         self.jobs
             .submit("stock at move", self.events_tx.clone(), move |context| {
+                let (index, finished) = playback.setup_at(cursor)?;
+                let setup = playback.setups.get(index).ok_or_else(|| {
+                    AppError::Playback("no simulation covers this move".to_owned())
+                })?;
+                if still == Some(true)
+                    && finished
+                    && let Some(kept) = setup.finished.get()
+                {
+                    return Ok(Arc::clone(kept));
+                }
                 let mesh = playback.mesh_at(cursor, context)?;
-                let group = playback
-                    .timeline
-                    .locate(cursor.done)
-                    .map(|(g, _)| g)
-                    .or_else(|| {
-                        playback
-                            .timeline
-                            .run()
-                            .toolpath
-                            .groups
-                            .iter()
-                            .rposition(|g| !g.segments.is_empty())
-                    })
-                    .unwrap_or(0);
-                let setup = playback
-                    .setups
-                    .iter()
-                    .find(|s| s.groups.contains(&group))
-                    .ok_or_else(|| {
-                        AppError::Playback("no simulation covers this move".to_owned())
-                    })?;
-                StockSurface::new(
-                    mesh,
-                    setup.id,
-                    setup.model,
-                    setup.samples.as_ref(),
-                    picker,
-                    context,
-                )
+                let surface = match still {
+                    None => StockSurface::plain(mesh, setup.id, setup.model, false),
+                    Some(false) => StockSurface::plain(mesh, setup.id, setup.model, true),
+                    Some(true) => {
+                        let samples = if finished {
+                            playback.samples(index)
+                        } else {
+                            None
+                        };
+                        StockSurface::new(mesh, setup.id, setup.model, samples, true, context)?
+                    }
+                };
+                let surface = Arc::new(surface);
+                if still == Some(true) && finished && surface.bands.is_some() {
+                    return Ok(Arc::clone(setup.finished.get_or_init(|| surface)));
+                }
+                Ok(surface)
             })
     }
 
