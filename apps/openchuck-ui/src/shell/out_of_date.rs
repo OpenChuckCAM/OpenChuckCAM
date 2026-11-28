@@ -14,6 +14,7 @@ use openchuck_app::Regeneration;
 use openchuck_app::overview::{ItemState, PrimaryKind, Step};
 
 use super::{Shell, frame, marks};
+use crate::focus::Tip as _;
 use crate::theme::DARK;
 
 /// The banner's title.
@@ -164,7 +165,7 @@ impl Shell {
                             lozenge.stop
                                 && ui
                                     .button("Stop")
-                                    .on_hover_text("Stop colouring and turn Deviation colours off")
+                                    .tip("Stop colouring and turn Deviation colours off")
                                     .clicked()
                         })
                         .inner

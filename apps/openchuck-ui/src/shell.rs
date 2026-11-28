@@ -2677,7 +2677,7 @@ impl Shell {
                     if self.settings.simulate.deviation_in_background.is_some()
                         && ui
                             .button("Use this computer's default")
-                            .on_hover_text("For preparing deviation data in the background")
+                            .tip("For preparing deviation data in the background")
                             .clicked()
                     {
                         action = Some(Box::new(|s: &mut Self| {
