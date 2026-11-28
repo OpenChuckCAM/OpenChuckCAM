@@ -385,21 +385,6 @@ impl SurfaceSource for Counting<'_> {
         self.inner.cast_ray(origin, direction, max_distance)
     }
 
-    // Not counted: the move check's gap queries are neither drops nor
-    // rays, and the default would answer them over every triangle.
-    fn tool_gap(
-        &self,
-        profile: &RevolvedProfile,
-        line: &ToolLine,
-        query: &crate::gap::GapQuery,
-    ) -> Option<crate::gap::ToolGap> {
-        self.inner.tool_gap(profile, line, query)
-    }
-
-    fn tool_gap_accuracy(&self) -> f64 {
-        self.inner.tool_gap_accuracy()
-    }
-
     fn tessellation(&self) -> &TriangleMesh {
         self.inner.tessellation()
     }
@@ -416,6 +401,23 @@ impl SurfaceSource for Counting<'_> {
     fn drop_on_part(&self, profile: &RevolvedProfile, line: &ToolLine) -> Option<Contact> {
         self.count.fetch_add(1, Ordering::Relaxed);
         self.inner.drop_on_part(profile, line)
+    }
+
+    // The surface's own answer, not the default's: that one searches every
+    // triangle of the tessellation and finds their neighbours afresh at
+    // each query, and takes no account of an exact surface's errors. Gap
+    // queries are not counted: the count is of drops and rays.
+    fn tool_gap(
+        &self,
+        profile: &RevolvedProfile,
+        line: &ToolLine,
+        query: &crate::gap::GapQuery,
+    ) -> Option<crate::gap::ToolGap> {
+        self.inner.tool_gap(profile, line, query)
+    }
+
+    fn tool_gap_accuracy(&self) -> f64 {
+        self.inner.tool_gap_accuracy()
     }
 
     fn holes(&self) -> &[Hole] {

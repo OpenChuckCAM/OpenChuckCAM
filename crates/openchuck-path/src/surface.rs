@@ -619,6 +619,7 @@ impl MeshSurface {
             triangles,
             query.limit,
             query.accept,
+            query.pieces,
             error,
             &|i| neighbours.get(i as usize).cloned().unwrap_or_default(),
             faces,

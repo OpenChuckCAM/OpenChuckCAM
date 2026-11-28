@@ -1,0 +1,88 @@
+diff --git a/crates/openchuck-path/src/simultaneous.rs b/crates/openchuck-path/src/simultaneous.rs
+index 4e95ac2..2a6a552 100644
+--- a/crates/openchuck-path/src/simultaneous.rs
++++ b/crates/openchuck-path/src/simultaneous.rs
+@@ -4047,6 +4047,83 @@ mod tests {
+         );
+     }
+ 
++    #[test]
++    fn zz_replay_step_gouges() {
++        use openchuck_testkit::contact::{ConvexTool, Geometry, Settings};
++        use openchuck_types::tool::{ProfilePoint, ProfileSegment, ToolProfile};
++        let dir = std::env::var("REPLAY").unwrap();
++        let text = std::fs::read_to_string(format!("{dir}/step_refined.stl.txt")).unwrap();
++        let mut mesh = TriangleMesh::default();
++        let mut errors = Vec::new();
++        for l in text.lines() {
++            let v: Vec<f64> = l.split_whitespace().map(|x| x.parse().unwrap()).collect();
++            let base = u32::try_from(mesh.vertices.len()).unwrap();
++            for k in 0..3 {
++                mesh.vertices.push(Point3::new(v[3 * k], v[3 * k + 1], v[3 * k + 2]));
++            }
++            mesh.triangles.push([base, base + 1, base + 2]);
++            errors.push(v[9]);
++        }
++        let surface = crate::MeshSurface::new(&mesh).unwrap();
++        let (r, top) = (1.500078125, 16.000078125);
++        let profile = ToolProfile {
++            segments: vec![
++                ProfileSegment::Arc { to: ProfilePoint::new(r, r), centre: ProfilePoint::new(0.0, r) },
++                ProfileSegment::Line { to: ProfilePoint::new(r, top) },
++            ],
++        }
++        .validate()
++        .unwrap();
++        let tool = ConvexTool::new(&profile).unwrap();
++        let largest = errors.iter().copied().fold(0.0, f64::max);
++        for l in std::fs::read_to_string(format!("{dir}/gouges.txt")).unwrap().lines() {
++            let v: Vec<f64> = l.split_whitespace().map(|x| x.parse().unwrap()).collect();
++            let line = ToolLine {
++                origin: Point3::new(v[0], v[1], v[2]),
++                axis: UnitVec3::new(Vec3::new(v[3], v[4], v[5])).unwrap(),
++            };
++            // As the product asks it, with the triangles' errors.
++            let with = surface.tool_gap_with(&profile, &line, &move_query(Vec3::ZERO, 0.01), &|i| errors[i as usize], largest);
++            // The mesh alone, no errors, narrowed.
++            let alone = surface.tool_gap(&profile, &line, &move_query(Vec3::ZERO, 0.01));
++            // The checker on the triangles near the tool only.
++            let end = line.origin + line.axis.get() * top;
++            let reach = r + 0.6;
++            let near = |p: Point3| {
++                let lo = |a: f64, b: f64| a.min(b) - reach;
++                let hi = |a: f64, b: f64| a.max(b) + reach;
++                p.x >= lo(line.origin.x, end.x) && p.x <= hi(line.origin.x, end.x)
++                    && p.y >= lo(line.origin.y, end.y) && p.y <= hi(line.origin.y, end.y)
++                    && p.z >= lo(line.origin.z, end.z) && p.z <= hi(line.origin.z, end.z)
++            };
++            let mut part = TriangleMesh::default();
++            for t in 0..mesh.triangles.len() {
++                let tri = mesh.triangle(t).unwrap();
++                if tri.iter().any(|p| near(*p)) {
++                    let base = u32::try_from(part.vertices.len()).unwrap();
++                    part.vertices.extend(tri);
++                    part.triangles.push([base, base + 1, base + 2]);
++                }
++            }
++            let geometry = Geometry::of_mesh(&part).unwrap();
++            let started = std::time::Instant::now();
++            let settings = Settings { margin: 2.0, tolerance: 1e-4, budget: 50_000 };
++            let theirs = geometry.face_gap(&tool, line.origin, line.axis.get(), 0.0125, 0.01, &settings);
++            let theirs = match theirs {
++                Ok(b) => format!("[{:.5}, {:.5}]", b.lower, b.upper),
++                Err(openchuck_testkit::contact::ContactError::Budget { lower, upper, .. }) => format!("budget [{lower:.5}, {upper:.5}]"),
++                Err(e) => format!("{e}"),
++            };
++            eprintln!("  checker took {:?} on {} triangles", started.elapsed(), part.triangles.len());
++            eprintln!(
++                "REPLAY logged [{:.5}, {:.5}] with-errors {:?} mesh-alone {:?} checker {theirs}",
++                v[6], v[7],
++                with.map(|g| (format!("{:.5}", g.lower), format!("{:.5}", g.upper))),
++                alone.map(|g| (format!("{:.5}", g.lower), format!("{:.5}", g.upper))),
++            );
++        }
++    }
++
+     #[test]
+     fn req_op_12_a_grown_tool_grazing_the_crankshaft_web_is_settled_at_once() {
+         // One sample of the move check on the public crankshaft (27 Nov

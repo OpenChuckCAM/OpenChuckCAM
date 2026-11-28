@@ -1,0 +1,52 @@
+diff --git a/crates/openchuck-path/src/gap.rs b/crates/openchuck-path/src/gap.rs
+index 353f5c6..04bae29 100644
+--- a/crates/openchuck-path/src/gap.rs
++++ b/crates/openchuck-path/src/gap.rs
+@@ -2060,6 +2060,9 @@ pub(crate) fn search(
+             );
+         }
+     };
++    if !moving && accept.is_finite() && std::env::var("OCC_PIECES").is_ok() {
++        eprintln!("PIECES {} {} cap {} lower {} found {:?} tip {:?} axis {:?}", pieces, if lower >= accept { "ok" } else { "no" }, cap, lower, state.best.map(|b| b.0), (body.tip.x, body.tip.y, body.tip.z), (body.axis.x, body.axis.y, body.axis.z));
++    }
+     // The best was kept less its triangle's error, as the bounds are; the
+     // exact face's value is at most the triangle's plus that error.
+     // A search that ran out of pieces with nothing found has not shown the
+diff --git a/crates/openchuck-path/src/simultaneous.rs b/crates/openchuck-path/src/simultaneous.rs
+index 9c8fddb..edc943f 100644
+--- a/crates/openchuck-path/src/simultaneous.rs
++++ b/crates/openchuck-path/src/simultaneous.rs
+@@ -314,9 +314,12 @@ impl<'p> MoveCheck<'_, 'p> {
+         let line = grown(&(self.pose)(f), *grow);
+         let query = move_query(Vec3::ZERO, self.allowed);
+         let query = pieces.map_or(query, |p| query.within_pieces(p));
+-        self.surface
+-            .tool_gap(profile, &line, &query)
+-            .map(|g| (g, line))
++        let t0 = std::time::Instant::now();
++        let got = self.surface.tool_gap(profile, &line, &query);
++        if std::env::var("OCC_HARD").is_ok() {
++            eprintln!("SAMPLE us {} level {level} pieces {pieces:?} ok {}", t0.elapsed().as_micros(), got.is_none_or(|g| proven(&g, self.allowed)));
++        }
++        got.map(|g| (g, line))
+     }
+ 
+     /// Whether the stretch of the move from the fraction `a` to `b` is
+@@ -327,9 +330,15 @@ impl<'p> MoveCheck<'_, 'p> {
+             return false;
+         };
+         let (line, query) = motion(a, b);
+-        self.surface
++        let t0 = std::time::Instant::now();
++        let ok = self
++            .surface
+             .tool_gap(profile, &grown(&line, *grow), &query.within_pieces(0))
+-            .is_none_or(|g| proven(&g, self.allowed))
++            .is_none_or(|g| proven(&g, self.allowed));
++        if std::env::var("OCC_HARD").is_ok() {
++            eprintln!("STRETCH us {} level {level} ok {ok}", t0.elapsed().as_micros());
++        }
++        ok
+     }
+ }
+ 

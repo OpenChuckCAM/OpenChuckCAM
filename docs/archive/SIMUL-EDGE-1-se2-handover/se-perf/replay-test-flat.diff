@@ -1,0 +1,62 @@
+diff --git a/crates/openchuck-path/src/simultaneous.rs b/crates/openchuck-path/src/simultaneous.rs
+index 4e95ac2..59a2bad 100644
+--- a/crates/openchuck-path/src/simultaneous.rs
++++ b/crates/openchuck-path/src/simultaneous.rs
+@@ -4047,6 +4047,57 @@ mod tests {
+         );
+     }
+ 
++    #[test]
++    fn zz_replay_flat_gouges() {
++        use openchuck_testkit::contact::{ConvexTool, Geometry, Settings};
++        let dir = std::env::var("REPLAY").unwrap();
++        let mesh = blisk();
++        let surface = crate::MeshSurface::new(&mesh).unwrap();
++        let profile = cutter::grow_profile(&flat_3mm(), 0.005 / 64.0).unwrap();
++        let tool = ConvexTool::new(&profile).unwrap();
++        let (r, top) = (profile.cutting_radius(), profile.top());
++        for l in std::fs::read_to_string(format!("{dir}/gouges.txt")).unwrap().lines() {
++            let v: Vec<f64> = l.split_whitespace().map(|x| x.parse().unwrap()).collect();
++            let line = ToolLine {
++                origin: Point3::new(v[0], v[1], v[2]),
++                axis: UnitVec3::new(Vec3::new(v[3], v[4], v[5])).unwrap(),
++            };
++            let started = std::time::Instant::now();
++            let ours = surface.tool_gap(&profile, &line, &move_query(Vec3::ZERO, 0.01));
++            let took = started.elapsed();
++            let end = line.origin + line.axis.get() * top;
++            let reach = r + 0.6;
++            let near = |p: Point3| {
++                let lo = |a: f64, b: f64| a.min(b) - reach;
++                let hi = |a: f64, b: f64| a.max(b) + reach;
++                p.x >= lo(line.origin.x, end.x) && p.x <= hi(line.origin.x, end.x)
++                    && p.y >= lo(line.origin.y, end.y) && p.y <= hi(line.origin.y, end.y)
++                    && p.z >= lo(line.origin.z, end.z) && p.z <= hi(line.origin.z, end.z)
++            };
++            let mut part = TriangleMesh::default();
++            for t in 0..mesh.triangles.len() {
++                let tri = mesh.triangle(t).unwrap();
++                if tri.iter().any(|p| near(*p)) {
++                    let base = u32::try_from(part.vertices.len()).unwrap();
++                    part.vertices.extend(tri);
++                    part.triangles.push([base, base + 1, base + 2]);
++                }
++            }
++            let geometry = Geometry::of_mesh(&part).unwrap();
++            let settings = Settings { margin: 2.0, tolerance: 1e-4, budget: 200_000 };
++            let theirs = match geometry.face_gap(&tool, line.origin, line.axis.get(), 0.0125, 0.01, &settings) {
++                Ok(b) => format!("[{:.5}, {:.5}]", b.lower, b.upper),
++                Err(openchuck_testkit::contact::ContactError::Budget { lower, upper, .. }) => format!("budget [{lower:.5}, {upper:.5}]"),
++                Err(e) => format!("{e}"),
++            };
++            eprintln!(
++                "REPLAY logged [{:.5}, {:.5}] now {:?} in {took:?} checker {theirs}",
++                v[6], v[7],
++                ours.map(|g| (format!("{:.5}", g.lower), format!("{:.5}", g.upper))),
++            );
++        }
++    }
++
+     #[test]
+     fn req_op_12_a_grown_tool_grazing_the_crankshaft_web_is_settled_at_once() {
+         // One sample of the move check on the public crankshaft (27 Nov

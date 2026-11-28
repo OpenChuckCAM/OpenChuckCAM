@@ -1,0 +1,4 @@
+STEP ball-end blisk, release, 4 threads, 27 Nov 2026 (measurement switches, not in the product)
+as built (quarter target):          step_ball rc=0 522.9 s peakMB=225 workerMB=13 lines=95222 failed samples 791, 163 areas
+option B (fitter inside by accuracy): step_ball rc=0 390.7 s peakMB=193 workerMB=12 lines=95926 failed samples 436, 163 areas (run alone)
+shortcut band (gap.rs bound):        step_ball rc=0 489.4 s peakMB=171 workerMB=0 lines=94825 failed samples 394, 166 areas (run beside a test batch: time not clean)
