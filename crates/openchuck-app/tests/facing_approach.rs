@@ -831,3 +831,75 @@ fn req_ui_03_req_op_24_the_generated_flat_stop_marker_is_where_its_cut_stops() {
     assert_eq!(draft_note(&draft), 1, "{:?}", draft.notes);
     assert_eq!(draft_note(&generated), 0, "{:?}", generated.notes);
 }
+
+/// The Baluster's round bar (diameter 24, length 63) with Round facing to
+/// Finished size `size` over the Part extent, with Stock to leave `leave`,
+/// the start held for 8 mm or not (issues #880 and #996).
+fn round_on_round_bar(name: &str, size: f64, leave: f64, held: bool) -> PathBuf {
+    let dir = round_bar(name, 63.0, 2.0, 2.2225);
+    let operation = dir.join(format!("operations/{FACING}.toml"));
+    let text = std::fs::read_to_string(&operation).unwrap();
+    assert!(text.contains("stock_to_leave = 1.0\n"));
+    std::fs::write(
+        &operation,
+        text.replace(
+            "shape = \"end\"",
+            &format!("shape = \"round\"\nsize = {size:?}\nextent = \"part\""),
+        )
+        .replace(
+            "stock_to_leave = 1.0\n",
+            &format!("stock_to_leave = {leave:?}\n"),
+        ),
+    )
+    .unwrap();
+    if !held {
+        let setup = dir.join(format!("setups/{SETUP}.toml"));
+        let text = std::fs::read_to_string(&setup).unwrap();
+        assert!(text.contains("\n[workholding.start]\nlength = 8.0\n"));
+        std::fs::write(
+            &setup,
+            text.replace("\n[workholding.start]\nlength = 8.0\n", "\n"),
+        )
+        .unwrap();
+    }
+    dir
+}
+
+/// Issue #996, the owner's answer H1: Round facing beside a grip with a
+/// Stock to leave dropped the tool grown by the stock to leave onto the
+/// held region too, so the ring it turns beside the grip (the whole tool
+/// 0.5 mm clear of it, decision 0161) touched the grip and was dropped, and
+/// the completion check refused the strip it left. The stock to leave is
+/// kept from the part only: the ring is cut, and no fed move comes within
+/// 0.5 mm of the grip.
+#[test]
+fn req_op_24_req_set_09_round_facing_beside_a_grip_keeps_its_ring_with_a_stock_to_leave() {
+    let dir = round_on_round_bar("round-996-h1", 23.5, 0.5, true);
+    // The Makera Z1 only for now: the LinuxCNC post refuses every Round
+    // facing of this bar, H1 or not, in its written-motion timing (the first
+    // move of the spiral after the ring), a separate fault.
+    for name in ["makera-z1"] {
+        let run = post(&dir, name);
+        assert_clear_of_the_grip(&run);
+        // The ring at the grip's end: fed moves at the tool's centre limit,
+        // X 27.078, turning A a whole turn without moving along X.
+        let limit = HELD_END + RADIUS + HELD_CLEAR;
+        let group = facing(&run);
+        let mut from = group.start;
+        let mut turned = 0.0;
+        for s in &group.segments {
+            if s.kind.is_fed()
+                && (from.tip.x - limit).abs() < 1e-3
+                && (s.end.tip.x - limit).abs() < 1e-3
+            {
+                turned += (s.end.a.0 - from.a.0).abs();
+            }
+            from = s.end;
+        }
+        assert!(
+            turned >= 360.0 - 1e-6,
+            "{name}: the ring at the grip turns {turned}°"
+        );
+    }
+    std::fs::remove_dir_all(dir).unwrap();
+}

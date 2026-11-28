@@ -810,7 +810,24 @@ impl<'a> Job<'a> {
             Degrees(site.a),
             openchuck_types::units::Millimetres(site.across),
         );
-        let Some(contact) = self.input.surface.drop_tool(&self.grown, &line) else {
+        // Round facing beside a grip (issue #996, the owner's answer H1): the
+        // stock to leave is kept from the part and its tabs, and the plain
+        // tool from the held regions, which Facing keeps the whole tool 0.5
+        // mm clear of (decision 0161). Elsewhere the grown tool meets all of
+        // them, as rotary roughing does.
+        let grip = self.round_grip(&line);
+        let dropped = match grip {
+            Some(_) => self.round_part_drop(&line),
+            None => self.input.surface.drop_tool(&self.grown, &line),
+        };
+        let held_floor = grip
+            .flatten()
+            .map(|tip| self.rotary.to_axis(tip, Degrees(site.a)).height);
+        let Some(contact) = dropped else {
+            if let Some(floor) = held_floor {
+                // Over the grip alone.
+                return (Some(floor), true, None);
+            }
             // Over no part: there is nothing to attribute the site to, so a
             // selected region excludes it, and a boundary decides by where it is.
             let allowed = self.region.is_none_or(|r| {
@@ -827,7 +844,7 @@ impl<'a> Job<'a> {
         };
         let height = |tip| self.rotary.to_axis(tip, Degrees(site.a)).height + self.leave;
         let part = height(contact.tip);
-        let mut floor = part;
+        let mut floor = held_floor.map_or(part, |h| part.max(h));
         let mut allowed = true;
         if let Some(region) = self.region {
             // A check surface keeps the tool above it rather than excluding
@@ -846,6 +863,48 @@ impl<'a> Job<'a> {
         }
         let on_part = (floor <= part).then_some(contact.contact);
         (Some(floor), allowed, on_part)
+    }
+
+    /// In Round facing with held regions (issue #996, H1): `Some` with the
+    /// plain tool's tip where it meets a held region along `line` (`None`
+    /// where it meets none). `None` outside Round facing or with no held
+    /// region, where the grown tool meets everything as before.
+    fn round_grip(&self, line: &crate::cutter::ToolLine) -> Option<Option<Point3>> {
+        if !matches!(self.face_scope, Some(FacingScope::Round(_))) {
+            return None;
+        }
+        let setup = self.input.facing?;
+        let held: Vec<&crate::Solid> = setup
+            .protected
+            .iter()
+            .filter(|s| !setup.tabs.contains(s))
+            .collect();
+        if held.is_empty() {
+            return None;
+        }
+        let axis = line.axis.get();
+        Some(
+            held.iter()
+                .filter_map(|s| s.drop_tool(self.input.tool, line))
+                .map(|c| c.tip)
+                .max_by(|a, b| a.to_vec().dot(axis).total_cmp(&b.to_vec().dot(axis))),
+        )
+    }
+
+    /// The grown tool dropped on the part and its tabs along `line`, not on
+    /// the held regions (issue #996, H1): the highest contact along it.
+    fn round_part_drop(&self, line: &crate::cutter::ToolLine) -> Option<crate::cutter::Contact> {
+        let axis = line.axis.get();
+        let tabs = self.input.facing.map_or(&[][..], |s| s.tabs);
+        std::iter::once(self.input.surface.drop_on_part(&self.grown, line))
+            .chain(tabs.iter().map(|t| t.drop_tool(&self.grown, line)))
+            .flatten()
+            .max_by(|a, b| {
+                a.tip
+                    .to_vec()
+                    .dot(axis)
+                    .total_cmp(&b.tip.to_vec().dot(axis))
+            })
     }
 
     /// Where `allowed` changes between neighbouring fine nodes `f` and
