@@ -229,6 +229,16 @@ pub fn without_home(text: &str, home: Option<&Path>) -> String {
     result
 }
 
+/// The user's home folder, from `HOME` (or `USERPROFILE` on Windows), when
+/// it is an absolute path.
+pub fn home_folder() -> Option<PathBuf> {
+    ["HOME", "USERPROFILE"]
+        .iter()
+        .filter_map(std::env::var_os)
+        .map(PathBuf::from)
+        .find(|p| p.is_absolute())
+}
+
 /// What the file will hold, as shown before it is written: each entry's
 /// name and size.
 pub fn preview(entries: &[Entry]) -> Vec<(String, u64)> {

@@ -354,6 +354,7 @@ fn walked(dialog: &Dialog) -> Result<&'static str, &'static str> {
         | Dialog::Unsaved(_)
         | Dialog::Keys
         | Dialog::About
+        | Dialog::BugReport(_)
         | Dialog::Settings
         | Dialog::Error(_)
         | Dialog::CopyLinked(_) => Err("no field"),

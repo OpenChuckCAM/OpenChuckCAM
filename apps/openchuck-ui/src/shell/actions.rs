@@ -48,6 +48,7 @@ impl Dialog {
             Self::Rename { .. } => "Rename",
             Self::Keys => "Keyboard shortcuts",
             Self::About => "About",
+            Self::BugReport(_) => "Save files for a bug report",
             Self::Settings => "Settings",
             Self::Error(_) => "Error message",
             Self::CopyLinked(_) => "Copy linked models",

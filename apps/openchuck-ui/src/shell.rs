@@ -54,6 +54,7 @@ use crate::viewport::Viewport;
 use crate::workholding_panel::WorkholdingPanel;
 
 mod actions;
+mod bug_report;
 mod checkpoints;
 mod dock;
 mod frame;
@@ -67,6 +68,8 @@ mod tree;
 
 #[cfg(test)]
 mod adaptive_tests;
+#[cfg(test)]
+mod bug_report_tests;
 #[cfg(test)]
 mod checkpoint_tests;
 #[cfg(test)]
@@ -157,6 +160,8 @@ enum Dialog {
     Keys,
     /// About the program (Help).
     About,
+    /// Help > Save files for a bug report… (NFR-20).
+    BugReport(bug_report::Draft),
     /// The settings the program keeps for the user on this computer: what is
     /// recorded in the log (NFR-18).
     Settings,
@@ -211,6 +216,10 @@ pub struct Shell {
     /// The recent project chosen in this frame, so the action log can leave
     /// its folder name out (NFR-18).
     recent_clicked: Option<std::path::PathBuf>,
+    /// Where a test has the bug-report file saved, instead of the platform's
+    /// save dialog.
+    #[cfg(test)]
+    bug_report_path: Option<PathBuf>,
     /// A model dropped with no project open: the New project dialog it
     /// opened is named after it, and OK opens the import window on it
     /// (UI-23; decision record 0697 item 2). It lives only while that
@@ -389,6 +398,8 @@ impl Shell {
             edit_context: None,
             open_hint: None,
             recent_clicked: None,
+            #[cfg(test)]
+            bug_report_path: None,
             start_import: None,
             new_name: None,
             drop_note: None,
@@ -2530,6 +2541,13 @@ impl Shell {
                 });
                 if ui.button("Close").clicked() {
                     close = true;
+                }
+            }
+            Dialog::BugReport(mut draft) => {
+                if self.bug_report_dialog(ui, &mut draft) {
+                    close = true;
+                } else {
+                    self.dialog = Some(Dialog::BugReport(draft));
                 }
             }
             Dialog::About => {

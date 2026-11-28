@@ -1041,6 +1041,10 @@ impl Shell {
                     self.open_dialog(Dialog::Settings);
                     ui.close();
                 }
+                if ui.button("Save files for a bug report…").clicked() {
+                    self.open_dialog(Dialog::BugReport(super::bug_report::Draft::default()));
+                    ui.close();
+                }
                 if ui.button("About OpenChuckCAM…").clicked() {
                     self.open_dialog(Dialog::About);
                     ui.close();

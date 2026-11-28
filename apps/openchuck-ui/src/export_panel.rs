@@ -219,6 +219,15 @@ impl Default for ExportPanel {
 }
 
 impl ExportPanel {
+    /// The program files and setup sheets the last write made, for the file
+    /// of a bug report (NFR-20); none before a write.
+    pub fn written_files(&self) -> Vec<std::path::PathBuf> {
+        self.result
+            .as_ref()
+            .map(|r| r.written.clone())
+            .unwrap_or_default()
+    }
+
     /// A closed dialog that keeps acknowledgements in `ack` (the user's
     /// settings file; `None` when the configuration folder cannot be found,
     /// in which case the box is asked every time).
