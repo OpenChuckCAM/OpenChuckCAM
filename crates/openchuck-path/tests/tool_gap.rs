@@ -778,6 +778,36 @@ fn req_op_12_a_failed_pose_on_an_exact_part_is_rechecked_on_finer_triangles() {
 }
 
 #[test]
+fn req_op_12_tool_gap_of_an_exact_part_does_not_depend_on_its_triangles_winding() {
+    // An exact face's outward side is its own normal; a tessellation wound
+    // the other way (as an importer or a hand-built model may give it) must
+    // not turn the part inside out: a ball resting on the cylinder reads no
+    // cut either way (found by lane SE-PERF on a hand-built cylinder).
+    let model = openchuck_testkit::brep::banded_cylinder(10.0, 20.0, &[]);
+    let mut turned = model.clone();
+    for face in &mut turned.faces {
+        for t in &mut face.tessellation.triangles {
+            t.swap(1, 2);
+        }
+    }
+    let query = GapQuery::pose(0.0125).accept_above(-0.01);
+    let tip = line(Point3::new(10.0, 0.0, 10.0 + 1e-4), UP);
+    let answers: Vec<_> = [&model, &turned]
+        .into_iter()
+        .map(|m| {
+            BrepSurface::new(m)
+                .unwrap()
+                .tool_gap(&ball(1.0), &tip, &query)
+                .unwrap()
+        })
+        .collect();
+    for g in &answers {
+        assert!(g.lower >= -0.01, "{g:?} reads a cut");
+    }
+    assert_eq!(answers[0].lower.to_bits(), answers[1].lower.to_bits());
+}
+
+#[test]
 fn req_gc_07_req_nfr_06_tool_gap_is_the_same_on_every_thread() {
     let surface = Arc::new(mesh(&ridge(5.0)));
     let ask = |s: &MeshSurface| {

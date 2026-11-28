@@ -777,6 +777,41 @@ const TOL: f64 = 1e-12;
 /// as close as [`SAMPLE_STEPS`] puts them.
 pub(crate) const SAMPLED_SAFETY: f64 = 2.0;
 
+/// The tessellation with each triangle wound counter-clockwise seen from
+/// outside its exact face (its outward normal at the face point nearest the
+/// triangle's centre): the gap counts the tool below each triangle's own
+/// outward side, so a tessellation wound the other way, as an importer or a
+/// hand-built model may give it, would turn the part inside out (found by
+/// lane SE-PERF). A triangle whose face or nearest point is not found keeps
+/// its winding. Each triangle alone, in order (NFR-06).
+fn oriented(faces: &[ExactFace], mut mesh: TriangleMesh, face_of: &[FaceId]) -> TriangleMesh {
+    let by_number: std::collections::BTreeMap<u32, &ExactFace> =
+        faces.iter().map(|f| (f.number(), f)).collect();
+    let indices: Vec<usize> = (0..mesh.triangles.len()).collect();
+    let turn = crate::parallel::map_in_order(&indices, |&i| {
+        let (Some(t), Some(face)) = (
+            mesh.triangle(i),
+            face_of.get(i).and_then(|f| by_number.get(&f.0)),
+        ) else {
+            return false;
+        };
+        let n = (t[1] - t[0]).cross(t[2] - t[0]);
+        let centre = Point3::new(
+            (t[0].x + t[1].x + t[2].x) / 3.0,
+            (t[0].y + t[1].y + t[2].y) / 3.0,
+            (t[0].z + t[1].z + t[2].z) / 3.0,
+        );
+        face.closest_within(centre, f64::MAX)
+            .is_some_and(|c| n.dot(c.point.normal.get()) < 0.0)
+    });
+    for (t, turn) in mesh.triangles.iter_mut().zip(turn) {
+        if turn {
+            t.swap(1, 2);
+        }
+    }
+    mesh
+}
+
 /// How wide, mm, a failed pose's triangles are refined to be off their
 /// faces (both ways together) before it is checked again: the band within
 /// which a cut is left out because of the tessellation, not of the cut (the
@@ -2576,6 +2611,7 @@ impl BrepSurface {
                 a.max.z.max(b.max.z),
             ),
         });
+        let mesh = oriented(&faces, mesh, &face_of_triangle);
         let fallback = if mesh.triangles.is_empty() {
             None
         } else {
