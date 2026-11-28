@@ -51,6 +51,8 @@ A disabled button is not in the <kbd>Tab</kbd> order. Hold the mouse over it to 
 
 The single-letter and digit keys and <kbd>F2</kbd>, <kbd>F5</kbd> and <kbd>Del</kbd> work whenever no text field has the keyboard, even while a button or menu has focus. <kbd>Space</kbd> and the arrow keys go to the control that has focus first: press <kbd>Esc</kbd> to leave it, then use them for the simulation.
 
+<kbd>Esc</kbd> does not clear the selection. To have no item selected, click an empty part of the project panel, below its last row; the inspector then shows what it shows when a project opens.
+
 ## Not yet available
 
 - There is no screen reader support (see [Known limitations](../start/limitations.md#accessibility)).

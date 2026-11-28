@@ -79,6 +79,8 @@ mod recent_tests;
 mod reminder_tests;
 #[cfg(test)]
 mod start_page_tests;
+#[cfg(test)]
+mod tree_selection_tests;
 
 use dock::DockTab;
 pub(crate) use frame::{chip, primary_button};
@@ -1738,6 +1740,18 @@ impl Shell {
                 }
                 return;
             }
+            TreeAction::ClearSelection => {
+                if matches!(
+                    self.selected,
+                    Some(Selection::Operation(_) | Selection::Model(_) | Selection::Setup(_))
+                ) {
+                    self.model_section = None;
+                    self.setup_section = None;
+                    self.selected = None;
+                    self.form.clear();
+                }
+                return;
+            }
             TreeAction::SelectSet(id) => {
                 self.selection.show_set(Some(id));
                 self.select(Selection::Set(id));
@@ -2974,6 +2988,10 @@ enum TreeAction {
     Generate(OperationId),
     /// The "+" of a group header.
     Add(tree::Group),
+    /// A click on empty space in the project panel: no item is selected,
+    /// and the inspector shows what it shows when a project opens (issue
+    /// #925). Picking and a shown selection set keep their own ways out.
+    ClearSelection,
 }
 
 /// What the inspector shows.

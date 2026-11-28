@@ -127,6 +127,7 @@ The *latest* version of this guide describes the nightly build, the [development
 - **Tab past a scrolled inspector.** When the inspector is taller than the window and scrolls, <kbd>Tab</kbd> from its last control goes on to the footer instead of stopping on the inspector's splitter and going back into the dock.
 - **Fixed: the window on start.** The window now opens centred on the screen at the size it had, or maximised if you closed it maximised (on macOS, a window you maximise while the program is open is reopened centred at that size). Before, after a session in a maximised window it opened as a screen-sized window off to one side, running past the edge of the screen.
 - **Generate keys swapped.** <kbd>G</kbd> and <kbd>F5</kbd> now generate every stale operation, as the **Generate stale** button does, and <kbd>Shift</kbd>+<kbd>G</kbd> and <kbd>Shift</kbd>+<kbd>F5</kbd> generate the selected operation and the ones before it. See [Keyboard and shortcuts](reference/keyboard.md).
+- **Clearing the selection.** A click on an empty part of the project panel, below its last row, now clears the selection, so no model, setup or operation is selected and the inspector shows what it shows when a project opens. <kbd>Shift</kbd>+<kbd>G</kbd> then generates every stale operation. <kbd>Esc</kbd> keeps its own jobs and does not clear the selection (#925).
 
 ### Models, setups and workholding
 

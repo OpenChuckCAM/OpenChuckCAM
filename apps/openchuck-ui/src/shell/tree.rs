@@ -417,6 +417,10 @@ impl Shell {
                 .map(|s| (s.state, s.cause.as_str(), s.progress))
         };
         let mut actions: Vec<TreeAction> = Vec::new();
+        // A click below the last row clears the selection (issue #925), but
+        // not the click that closes a context menu or ends a text edit: that
+        // click only ends that (specification section 6).
+        let busy = egui::Popup::is_any_open(ui.ctx()) || self.text_had_focus;
         egui::ScrollArea::vertical()
             .id_salt("project tree")
             .show_keeping_focus(ui, |ui| {
@@ -738,6 +742,19 @@ impl Shell {
                     ui.label(RichText::new(HIDING_NOTE).small().color(DARK.muted));
                 }
             });
+        let space = ui.available_rect_before_wrap();
+        if space.height() > 0.0 {
+            #[cfg(test)]
+            ui.data_mut(|data| data.insert_temp(egui::Id::unique("tree empty space"), space));
+            let response = ui.interact(
+                space,
+                ui.id().with("tree empty space"),
+                egui::Sense::click(),
+            );
+            if response.clicked() && !busy {
+                actions.push(TreeAction::ClearSelection);
+            }
+        }
         for action in actions {
             self.tree_action(action);
         }

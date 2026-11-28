@@ -152,6 +152,8 @@ Each group header shows a count and a "+" button (22 pixels):
 
 The selected row is tinted, with a 2-pixel accent bar on its left edge.
 
+**Clearing the selection** ([decision 0709](../decisions/0709-a-click-on-empty-tree-space-clears-the-selection.md); issue #925). A click on the empty space of the panel, below its last row, clears the selection: no model, setup or operation is selected, and the inspector shows what it shows when a project opens. It does not apply to a click on a row, a group header or its "+", a row's own controls (drag handle, enable box, eye) or the scroll bar, which do what they do there; nor while picking or while a selection set is shown, which keep their own ways out (Esc, another step). While a row's context menu is open, or a text field has the keyboard, the click only closes the menu or ends the edit. Esc does not clear the selection (section 16).
+
 **Operation rows** (decision 0029 item 10):
 
 - the enable box;
@@ -1022,6 +1024,7 @@ Dark is the default. The light theme *(UI-20)* changes the panels, bars and dial
 On macOS, Ctrl is Command.
 
 - **Keyboard.** Every control can be reached and used with the keyboard, in reading order. Tooltips and help bubbles open on focus as well as hover (the Setup board shows one open on focus). Reading order in the main window is: menus, step tabs, the G-code status and health badge, the workflow actions, the project panel, the view's toolbar and the view, the dock, the inspector, the footer with the primary button last; in a dialog, its body, then its footer buttons left to right, and Tab goes round inside the dialog. A tool window that opens takes the keyboard as a whole, with no control focused; the first Tab goes to its first control. A step that is unavailable stays a Tab stop and shows why on focus (decision 0677, Q1 to Q3).
+- **Selection.** Esc does not clear the selection; a click on empty space in the project panel does (section 6, [decision 0709](../decisions/0709-a-click-on-empty-tree-space-clears-the-selection.md)).
 - **Screen readers.** Icon-only buttons have accessible names. egui's AccessKit support is used, so controls are exposed to screen readers.
 - **Contrast.** Text has at least 4.5:1 contrast with its background, and graphics that carry meaning at least 3:1.
 - **Colour.** State is never shown by colour alone (section 6 marks, 7.4 line styles). Colour maps differ in lightness.
