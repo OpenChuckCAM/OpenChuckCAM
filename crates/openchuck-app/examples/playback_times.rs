@@ -115,7 +115,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // job first (from the nearest checkpoint, or the last frame's stock when
     // that is nearer), then, on the stock it shows, the mesh and the picker
     // again alone, for the split.
-    println!("move | surface job s | stock mesh s | triangles | picker alone s | stock MB");
+    println!(
+        "move | surface job s (colours on) | plain still s (colours off) | stock mesh s | triangles | picker alone s | stock MB"
+    );
     let shares: &[f64] = if std::env::var_os("SKIP_SEEKS").is_some() {
         &[]
     } else {
@@ -132,6 +134,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let surface = app.start_stock_surface(&playback, cursor, true).wait()?;
         let whole = started.elapsed().as_secs_f64();
         drop(surface);
+        let started = Instant::now();
+        drop(app.start_stock_surface(&playback, cursor, false).wait()?);
+        let plain = started.elapsed().as_secs_f64();
         let stock = playback.stock_at(cursor, &context)?;
         let started = Instant::now();
         let mesh = openchuck_sim::stock_mesh(&stock);
@@ -143,11 +148,37 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let picking = started.elapsed().as_secs_f64();
         drop(picker);
         println!(
-            "{done} | {whole:.2} | {meshing:.2} | {} | {picking:.2} | {:.1}",
+            "{done} | {whole:.2} | {plain:.2} | {meshing:.2} | {} | {picking:.2} | {:.1}",
             mesh.triangles.len(),
             stock.memory_bytes() as f64 / 1e6,
         );
     }
+    // The final cut part's colours (issue #454): made once, then kept; and
+    // the same prepared in the background on one thread.
+    let end = Cursor {
+        done: n,
+        fraction: 0.0,
+    };
+    let fresh = Arc::new(
+        app.start_stock_playback(Arc::clone(&timeline), memory)
+            .wait()?,
+    );
+    let started = Instant::now();
+    drop(app.start_stock_surface(&fresh, end, true).wait()?);
+    let first = started.elapsed().as_secs_f64();
+    let started = Instant::now();
+    drop(app.start_stock_surface(&fresh, end, true).wait()?);
+    let again = started.elapsed().as_secs_f64();
+    let other = Arc::new(
+        app.start_stock_playback(Arc::clone(&timeline), memory)
+            .wait()?,
+    );
+    let started = Instant::now();
+    app.start_preparing_deviation(&other).wait()?;
+    let background = started.elapsed().as_secs_f64();
+    println!(
+        "final colours: first {first:.2} s (index and colours), again {again:.2} s; in the background on one thread {background:.1} s"
+    );
     // Playing forward as the viewport does: a new surface is asked for at
     // the clock's cursor when the last one is finished, so the tool moves
     // once per surface. Frames made while playing have no picker (the

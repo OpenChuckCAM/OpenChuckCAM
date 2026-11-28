@@ -58,6 +58,18 @@ Linux cloud container, 4 vCPU, no GPU; branch `claude/lane-sim-ux-a`, from `5ffb
 - `openchuck-ui`: `playback_panel::tests::req_sim_04_req_sim_05_the_new_cut_part_shows_at_once_and_its_colours_follow`, `req_sim_05_req_ui_09_the_lozenge_shows_a_wait_and_stop_turns_colours_off`, `req_sim_05_req_nfr_04_the_final_colours_are_prepared_while_idle` (17 to 30 s each).
 - Changed to the new decision: `reach::req_sim_04_req_sim_05_only_a_still_frame_draws_the_cut_part_in_pieces` (a playing frame is now plain) and `playback_panel::tests::req_sim_05_the_stock_and_the_deviation_colours_come_from_jobs` (an interim cut part is plain; the end is coloured).
 
-**Suites, timings and coverage:** to be completed before the pull request opens.
+**Timings, release build, uninstrumented**, 4 threads, on the baluster tutorial project (29,098 moves, 1.0 to 1.2 M cut-part triangles, playback information kept with generation), with `examples/playback_times.rs` (extended in this pull request to time the plain still frame, the final colours first and again, and the background preparation):
+
+| What | Before (24 Nov 2026, `main`) | This branch |
+| --- | --- | --- |
+| A still frame at an operation's end, Deviation colours off | 4.8 to 7.6 s (colours and picker made anyway) | 0.05 to 0.09 s |
+| A still frame before the end, Deviation colours on | 4.8 to 7.6 s, with the end's colours | 1.3 to 1.6 s for the picker, after the plain cut part shown at once (0.05 to 0.09 s) |
+| The final cut part, Deviation colours on | 4.8 to 7.6 s each time | 6.4 s the first time (sample index and colours), then 0.00 s |
+| Preparing the final colours in the background | (none) | 11.3 s on one thread |
+| A frame while playing at 10×, 100× and 1000× | colours by whole triangles | 0.05 to 0.15 s (plain) |
+
+The carving test piece was not measured again.
+
+**Suites and coverage:** to be completed before the pull request opens.
 
 **Not verified:** the owner's projects (none used); the GPU drawing and the lozenge on a real display (the owner check).
