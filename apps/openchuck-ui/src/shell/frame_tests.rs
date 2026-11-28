@@ -690,9 +690,9 @@ impl Shell {
     }
 }
 
-#[test]
-fn req_ui_14_g_generates_the_selected_operation_and_shift_g_every_stale_one() {
-    let mut rig = Rig::cube("frame-generate", None);
+/// Two operations, both stale: the first selected.
+fn two_stale(name: &str) -> (Rig, openchuck_app::project::id::OperationId) {
+    let mut rig = Rig::cube(name, None);
     let first = rig.shell.app.as_ref().unwrap().project().operations()[0].id;
     rig.shell.select(Selection::Operation(first));
     rig.frame(Vec::new());
@@ -701,18 +701,32 @@ fn req_ui_14_g_generates_the_selected_operation_and_shift_g_every_stale_one() {
     rig.frame(Vec::new());
     rig.settle();
     assert_eq!(rig.shell.overview.stale.len(), 2);
-    // G: the first operation only; the copy after it stays stale.
-    assert!(rig.shell.run.last().is_none());
-    rig.press(Key::G, Modifiers::NONE);
-    // G started a run: still going, or on a fast machine already finished
-    // within the frame that pressed G.
-    assert!(rig.shell.run.is_running() || rig.shell.run.last().is_some());
-    rig.settle();
+    (rig, first)
+}
+
+/// Settles `rig` until `stale` operations are left stale.
+fn until_stale(rig: &mut Rig, stale: usize) {
     let deadline = Instant::now() + Duration::from_secs(60);
-    while rig.shell.overview.stale.len() != 1 {
+    while rig.shell.overview.stale.len() != stale {
         assert!(Instant::now() < deadline, "timed out");
         rig.settle();
     }
+}
+
+/// The main action has the plain key (the owner's choice of 24 Nov 2026,
+/// decision 0707): G generates every stale operation, and Shift G the
+/// selected operation and the ones before it.
+#[test]
+fn req_ui_14_shift_g_generates_the_selected_operation_and_g_every_stale_one() {
+    let (mut rig, first) = two_stale("frame-generate");
+    // Shift G: the first operation only; the copy after it stays stale.
+    assert!(rig.shell.run.last().is_none());
+    rig.press(Key::G, Modifiers::SHIFT);
+    // Shift G started a run: still going, or on a fast machine already
+    // finished within the frame that pressed it.
+    assert!(rig.shell.run.is_running() || rig.shell.run.last().is_some());
+    rig.settle();
+    until_stale(&mut rig, 1);
     assert_eq!(
         rig.shell
             .overview
@@ -725,16 +739,47 @@ fn req_ui_14_g_generates_the_selected_operation_and_shift_g_every_stale_one() {
         &e.outcome,
         Some(openchuck_app::JobOutcome::Done(Some(s))) if s.contains("later operations stay stale")
     )));
-    // Shift G: every stale operation, after the last run (the results show
-    // in the inspector; the floating window opens only on a failure).
+    // G: every stale operation, after the last run (the results show in the
+    // inspector; the floating window opens only on a failure).
     assert!(rig.shell.run.last().is_some() && !rig.shell.run.has_window());
+    rig.press(Key::G, Modifiers::NONE);
+    rig.settle();
+    until_stale(&mut rig, 0);
+}
+
+/// F5 follows G and Shift F5 follows Shift G (the owner's answer of 24 Nov
+/// 2026, decision 0707). With no operation selected, Shift G generates
+/// every stale operation, so it is never a dead key.
+#[test]
+fn req_ui_14_f5_follows_g_and_shift_g_with_nothing_selected_generates_every_stale_one() {
+    let (mut rig, _) = two_stale("frame-generate-f5");
+    rig.press(Key::F5, Modifiers::SHIFT);
+    rig.settle();
+    until_stale(&mut rig, 1);
+    rig.press(Key::F5, Modifiers::NONE);
+    rig.settle();
+    until_stale(&mut rig, 0);
+    // Another copy: two stale again, and nothing selected.
+    let last = rig
+        .shell
+        .app
+        .as_ref()
+        .unwrap()
+        .project()
+        .operations()
+        .last()
+        .unwrap()
+        .id;
+    rig.shell.select(Selection::Operation(last));
+    rig.frame(Vec::new());
+    rig.press(Key::D, Modifiers::COMMAND);
+    rig.settle();
+    rig.shell.selected = None;
+    rig.frame(Vec::new());
+    assert_eq!(rig.shell.overview.stale.len(), 1);
     rig.press(Key::G, Modifiers::SHIFT);
     rig.settle();
-    let deadline = Instant::now() + Duration::from_secs(60);
-    while !rig.shell.overview.stale.is_empty() {
-        assert!(Instant::now() < deadline, "timed out");
-        rig.settle();
-    }
+    until_stale(&mut rig, 0);
 }
 
 /// Choosing a setup shows its five sections (11.3) in field rows: the
@@ -1094,7 +1139,7 @@ fn req_imp_03_req_imp_04_req_imp_05_the_model_inspector_shows_its_sections() {
 /// G with a turned-off operation selected is refused, not a full run
 /// (lane X3, OI-352).
 #[test]
-fn req_ui_14_g_on_a_turned_off_operation_is_refused_not_a_full_run() {
+fn req_ui_14_shift_g_on_a_turned_off_operation_is_refused_not_a_full_run() {
     let mut rig = Rig::cube("frame-generate-off", None);
     let first = rig.shell.app.as_ref().unwrap().project().operations()[0].id;
     rig.shell
@@ -1108,7 +1153,7 @@ fn req_ui_14_g_on_a_turned_off_operation_is_refused_not_a_full_run() {
         .unwrap();
     rig.shell.select(Selection::Operation(first));
     rig.frame(Vec::new());
-    rig.press(Key::G, Modifiers::NONE);
+    rig.press(Key::G, Modifiers::SHIFT);
     let deadline = Instant::now() + Duration::from_secs(60);
     while rig.shell.run.is_running() {
         assert!(Instant::now() < deadline, "timed out");

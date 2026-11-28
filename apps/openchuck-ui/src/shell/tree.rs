@@ -814,7 +814,7 @@ fn item_menu(
         if let ItemRef::Operation(id) = item
             && ui
                 .button("Generate")
-                .tip("Generate up to and including this operation (G)")
+                .tip("Generate up to and including this operation (Shift G)")
                 .clicked()
         {
             actions.push(TreeAction::Generate(id));

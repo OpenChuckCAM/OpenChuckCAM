@@ -93,10 +93,12 @@ const NEW: KeyboardShortcut = KeyboardShortcut::new(Modifiers::COMMAND, Key::N);
 const OPEN: KeyboardShortcut = KeyboardShortcut::new(Modifiers::COMMAND, Key::O);
 const IMPORT: KeyboardShortcut = KeyboardShortcut::new(Modifiers::COMMAND, Key::I);
 const EXPORT: KeyboardShortcut = KeyboardShortcut::new(Modifiers::COMMAND, Key::E);
-const GENERATE: KeyboardShortcut = KeyboardShortcut::new(Modifiers::NONE, Key::G);
-const GENERATE_F5: KeyboardShortcut = KeyboardShortcut::new(Modifiers::NONE, Key::F5);
-const GENERATE_STALE: KeyboardShortcut = KeyboardShortcut::new(Modifiers::SHIFT, Key::G);
-const GENERATE_STALE_F5: KeyboardShortcut = KeyboardShortcut::new(Modifiers::SHIFT, Key::F5);
+// The main action, Generate stale, has the plain keys; Generate selected
+// has them with Shift (the owner's choice of 24 Nov 2026, decision 0707).
+const GENERATE_STALE: KeyboardShortcut = KeyboardShortcut::new(Modifiers::NONE, Key::G);
+const GENERATE_STALE_F5: KeyboardShortcut = KeyboardShortcut::new(Modifiers::NONE, Key::F5);
+const GENERATE_SELECTED: KeyboardShortcut = KeyboardShortcut::new(Modifiers::SHIFT, Key::G);
+const GENERATE_SELECTED_F5: KeyboardShortcut = KeyboardShortcut::new(Modifiers::SHIFT, Key::F5);
 const NEW_OPERATION: KeyboardShortcut = KeyboardShortcut::new(Modifiers::NONE, Key::N);
 const DUPLICATE: KeyboardShortcut = KeyboardShortcut::new(Modifiers::COMMAND, Key::D);
 const DELETE: KeyboardShortcut = KeyboardShortcut::new(Modifiers::NONE, Key::Delete);
@@ -886,7 +888,8 @@ impl Shell {
     }
 
     /// Generates the selected operation, up to and including it, when an
-    /// operation is selected (G, F5); otherwise every stale operation
+    /// operation is selected (Shift G, Shift F5; decision 0707); otherwise
+    /// every stale operation
     /// (specification section 16; decision record 0117, OI-351). A turned-off
     /// operation goes to the run too, which refuses it and says why (OI-352).
     fn generate_selected(&mut self) {
@@ -1336,9 +1339,10 @@ impl Shell {
         }
         let (stale, generate, new_operation) = ctx.input_mut(|i| {
             // Shift first: Shift G would otherwise be taken for G.
+            let generate =
+                i.consume_shortcut(&GENERATE_SELECTED) || i.consume_shortcut(&GENERATE_SELECTED_F5);
             let stale =
                 i.consume_shortcut(&GENERATE_STALE) || i.consume_shortcut(&GENERATE_STALE_F5);
-            let generate = i.consume_shortcut(&GENERATE) || i.consume_shortcut(&GENERATE_F5);
             (stale, generate, i.consume_shortcut(&NEW_OPERATION))
         });
         if stale {
