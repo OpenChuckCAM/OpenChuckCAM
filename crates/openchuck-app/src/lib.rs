@@ -27,8 +27,8 @@
 
 mod acknowledgement;
 mod action_log;
-mod cache;
 pub mod autosave;
+mod cache;
 pub mod checkpoint_schedule;
 pub mod checkpoints;
 mod command;

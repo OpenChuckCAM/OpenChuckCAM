@@ -69,6 +69,8 @@ mod tree;
 #[cfg(test)]
 mod adaptive_tests;
 #[cfg(test)]
+mod autosave_tests;
+#[cfg(test)]
 mod checkpoint_tests;
 #[cfg(test)]
 mod history_tests;
@@ -78,8 +80,6 @@ mod open_recovery_tests;
 mod pending_edit_tests;
 #[cfg(test)]
 mod recent_tests;
-#[cfg(test)]
-mod autosave_tests;
 #[cfg(test)]
 mod reminder_tests;
 

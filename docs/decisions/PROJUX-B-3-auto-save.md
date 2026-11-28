@@ -65,7 +65,7 @@ Tests written first from PRJ-08 and the owner's answers, named by requirement. G
   - `req_prj_08_req_ui_14_turning_the_switch_on_saves_at_once_and_says_so`: the saved files hold the change, and the File menu's tick turns it off;
   - `req_prj_08_req_ui_07_a_due_save_waits_for_a_typed_value`;
   - `req_prj_08_after_a_recovery_auto_save_waits_for_one_save_by_hand`;
-  - `req_prj_08_req_nfr_07_a_failed_save_warns_once_and_the_switch_stays_on` (Unix; skipped where the folder still accepts the write, as for root).
+  - `req_prj_08_req_nfr_07_a_failed_save_warns_once_and_the_switch_stays_on`: a folder where `project.toml` goes makes every save fail, for any user. One warning stays one, and a save by hand that works removes it.
 
 Results, coverage and environment are added before the pull request opens. This branch sits on top of PR #904 (B1), because both change the title bar, and is rebased once #904 has merged.
 

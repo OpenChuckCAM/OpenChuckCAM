@@ -63,7 +63,11 @@ fn req_prj_08_req_ui_14_turning_the_switch_on_saves_at_once_and_says_so() {
     rig.frame(Vec::new());
     assert!(rig.shell.settings.auto_save);
     assert!(!modified(&rig), "saved at once");
-    assert!(rig.shows("\u{2713} Saved automatically just now"), "{:?}", rig.texts());
+    assert!(
+        rig.shows("\u{2713} Saved automatically just now"),
+        "{:?}",
+        rig.texts()
+    );
     // The saved files hold the change.
     let dir = rig.shell.app.as_ref().unwrap().location().to_path_buf();
     let reopened = Application::open(&dir, Threads::Exactly(1)).unwrap();
@@ -123,35 +127,53 @@ fn req_prj_08_after_a_recovery_auto_save_waits_for_one_save_by_hand() {
     );
 }
 
-#[cfg(unix)]
 #[test]
 fn req_prj_08_req_nfr_07_a_failed_save_warns_once_and_the_switch_stays_on() {
-    use std::os::unix::fs::PermissionsExt as _;
     let mut rig = Rig::cube("autosave-failed", None);
     let dir = rig.shell.app.as_ref().unwrap().location().to_path_buf();
     edit(&mut rig, "Changed");
-    let read_only = std::fs::Permissions::from_mode(0o555);
-    std::fs::set_permissions(&dir, read_only).unwrap();
-    // A file in a read-only folder can still be written by root; the test
-    // checks only where the folder refuses the write.
-    let refused = std::fs::write(dir.join("probe"), "x").is_err();
+    // A folder where the project file goes: no save can write it, on any
+    // system and for any user.
+    let file = dir.join("project.toml");
+    let kept = std::fs::read(&file).unwrap();
+    std::fs::remove_file(&file).unwrap();
+    std::fs::create_dir(&file).unwrap();
     rig.shell.set_auto_save(true);
-    rig.frame(Vec::new());
-    rig.frame(Vec::new());
-    rig.settle();
-    std::fs::set_permissions(&dir, std::fs::Permissions::from_mode(0o755)).unwrap();
-    if !refused {
-        return;
+    for _ in 0..4 {
+        rig.frame(Vec::new());
     }
+    rig.settle();
     assert!(rig.shell.settings.auto_save, "the switch stays on");
-    assert!(rig.shows("\u{25b2} Auto-save failed \u{b7} see Messages"), "{:?}", rig.texts());
-    let warnings: Vec<_> = rig
-        .shell
-        .overview
-        .messages
-        .iter()
-        .filter(|m| m.text.starts_with("Auto-save"))
-        .collect();
-    assert_eq!(warnings.len(), 1);
-    assert_eq!(warnings[0].severity, Severity::Warning);
+    assert!(
+        rig.shows("\u{25b2} Auto-save failed \u{b7} see Messages"),
+        "{:?}",
+        rig.texts()
+    );
+    let warnings = |rig: &Rig| {
+        rig.shell
+            .overview
+            .messages
+            .iter()
+            .filter(|m| m.text.starts_with("Auto-save"))
+            .map(|m| m.severity)
+            .collect::<Vec<_>>()
+    };
+    assert_eq!(warnings(&rig), [Severity::Warning]);
+    // More frames, and a save by hand that fails too: still one warning.
+    for _ in 0..4 {
+        rig.frame(Vec::new());
+    }
+    assert_eq!(warnings(&rig).len(), 1);
+    // Once the folder is a file again, a save by hand works and the warning
+    // goes.
+    std::fs::remove_dir(&file).unwrap();
+    std::fs::write(&file, kept).unwrap();
+    assert!(rig.shell.save());
+    rig.settle();
+    assert!(
+        warnings(&rig).is_empty(),
+        "{:?}",
+        rig.shell.overview.messages
+    );
+    assert!(!rig.shows("Auto-save failed"));
 }

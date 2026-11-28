@@ -8,7 +8,8 @@ use std::time::Instant;
 
 use eframe::egui::{self, Color32, RichText, Sense};
 use openchuck_app::autosave::{Frame, Schedule, Step, Wait};
-use openchuck_app::overview::{Context, Message, MessageAction, Severity};
+use openchuck_app::lead_in::Context;
+use openchuck_app::overview::{Message, MessageAction, Severity};
 
 use super::Shell;
 use crate::focus::Tip as _;
@@ -117,9 +118,7 @@ impl Shell {
         ui.label(RichText::new(LABEL).color(DARK.text));
         let size = egui::vec2(34.0, 18.0);
         let (rect, response) = ui.allocate_exact_size(size, Sense::click());
-        response.widget_info(|| {
-            egui::WidgetInfo::selected(egui::WidgetType::Checkbox, true, on, LABEL)
-        });
+        response.widget_info(|| egui::WidgetInfo::selected(egui::Role::CheckBox, true, on, LABEL));
         if ui.is_rect_visible(rect) {
             let painter = ui.painter();
             let (fill, knob_x) = if on {
@@ -148,7 +147,11 @@ impl Shell {
                 );
             }
         }
-        ui.label(RichText::new(if on { "On" } else { "Off" }).small().color(DARK.muted));
+        ui.label(
+            RichText::new(if on { "On" } else { "Off" })
+                .small()
+                .color(DARK.muted),
+        );
         let minutes = self.settings.auto_save_minutes;
         let response = response.tip(format!(
             "Save the project every {minutes} minutes while it has changes (File > Settings)"
@@ -189,11 +192,7 @@ impl Shell {
                     }
                     _ => "Edited, saved automatically soon",
                 };
-                return (
-                    text.to_owned(),
-                    DARK.muted,
-                    Some(self.autosave_tip()),
-                );
+                return (text.to_owned(), DARK.muted, Some(self.autosave_tip()));
             }
             if let Some(last) = self.autosave.schedule.last() {
                 return (
