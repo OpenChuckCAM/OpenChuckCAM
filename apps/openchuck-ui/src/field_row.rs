@@ -959,20 +959,11 @@ pub fn flag_row(
 }
 
 /// Draws a segmented control of `options`, the selected one filled with the
-/// `selected` token (two to four exclusive choices, section 8). Returns the
-/// index chosen this frame.
-pub fn segmented(
-    ui: &mut egui::Ui,
-    options: &[&str],
-    current: Option<usize>,
-    enabled: bool,
-) -> Option<usize> {
-    segments(ui, options, current, enabled, "")
-}
-
-/// [`segmented`], showing a row's `description` while a segment has the
-/// keyboard, as the row's drop-down list does (UI-14; issue #868 item 5).
-fn segments(
+/// `selected` token (two to four exclusive choices, section 8), showing a
+/// row's `description` while a segment has the keyboard, as the row's
+/// drop-down list does (UI-14; issue #868 item 5). Returns the index chosen
+/// this frame.
+fn segmented(
     ui: &mut egui::Ui,
     options: &[&str],
     current: Option<usize>,
@@ -1040,7 +1031,7 @@ pub fn choice_row(
         if (2..=4).contains(&options.len())
             && segmented_width(ui, options) + 2.0 <= ui.available_width()
         {
-            segments(ui, options, current, enabled, description)
+            segmented(ui, options, current, enabled, description)
         } else {
             let mut chosen = None;
             let shown = current
