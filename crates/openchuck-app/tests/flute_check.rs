@@ -575,3 +575,43 @@ fn req_sim_16_req_nfr_07_no_roughing_is_offered_without_a_flat_end_for_the_mater
     let refused = app.add_roughing_before(id).unwrap_err().to_string();
     assert!(refused.contains("flat end"), "{refused}");
 }
+
+#[test]
+fn req_sim_16_the_added_roughing_leaves_at_least_the_operations_own_stock() {
+    // The roughing's stock to leave is the default of decision 0205 (a
+    // tenth of the 3.175 mm tool, 0.3 mm), raised to what the operation
+    // itself leaves where that is more, so it never cuts below the
+    // operation's target (decision record 0698, TL-3). No simulation is
+    // needed to add it.
+    let (strategy, mut parameters) = finish();
+    parameters.push(("stock_to_leave", 0.5));
+    let mut app = crankshaft("load-rough-leave", 25.0, &[(strategy, parameters)]);
+    let finish_id = app.project().operations()[0].id;
+    let rough = app.add_roughing_before(finish_id).unwrap();
+    let leave = |app: &Application, id| {
+        app.project()
+            .operation(id)
+            .and_then(|o| o.parameters.get("stock_to_leave").cloned())
+    };
+    assert_eq!(leave(&app, rough), Some(ParameterValue::Number(0.5)));
+    // With the operation leaving less, the default stands.
+    assert!(app.undo().unwrap());
+    app.set_parameter(
+        finish_id,
+        "stock_to_leave",
+        Some(ParameterValue::Number(0.0)),
+    )
+    .unwrap();
+    let rough = app.add_roughing_before(finish_id).unwrap();
+    assert_eq!(leave(&app, rough), Some(ParameterValue::Number(0.3)));
+}
+
+#[test]
+fn req_sim_16_req_nfr_07_drilling_is_not_offered_roughing_first() {
+    // Radial drilling is measured but not warned, so it is never offered
+    // roughing first, and asking is refused with the reason.
+    let mut app = crankshaft("load-rough-drill", 25.0, &[("radial_drilling", Vec::new())]);
+    let id = app.project().operations()[0].id;
+    let refused = app.add_roughing_before(id).unwrap_err().to_string();
+    assert!(refused.contains("not warned"), "{refused}");
+}
