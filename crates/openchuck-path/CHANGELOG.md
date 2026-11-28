@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.81.0 (PATH-QUALITY; issue #917, option A; decision 0713, proposed; not breaking, output change)
+
+- **Changed output (simultaneous finishing, off-axis sections):** the zone finder tries a ray towards the axis that misses again 0.01° either side, and takes a station off the axis only where more than 2% of its rays still miss. A ray grazing the edge between two faces (the STEP blisk's blade roots) no longer makes a false 0.05 mm off-axis strip, with its split spiral, its path round a false centre and its note. A section that does not surround the axis is found as before.
+- No public API change.
+
 ## 0.75.0 (PATH-QUALITY; issue #957; decision 0701, proposed; not breaking, output change: new refusals)
 
 - **New refusal (Entry Lead and Helix, every strategy but swarf, an operation limited to a selection):** a lead or helix is measured against the part's faces outside the selection (`RegionConstraint::outside`) that it comes near: the faces whose box meets the box the tool's cutting part sweeps over the entry, sampled lazily as swarf samples its faces next to the face set. One that would cut such a face deeper than the tolerance and the sampling slack is refused, naming the face. Where the pass itself cuts the face where the move meets it, the refusal says so. Plunge and Ramp, swarf (decision 0682, unchanged) and faces with no exact form (a mesh) are not measured.

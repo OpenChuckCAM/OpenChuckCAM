@@ -74,9 +74,21 @@ pub(crate) fn hit_towards(
     surface.cast_ray(origin, direction, outside)
 }
 
+/// How far either side, degrees, a ray that misses is tried again (issue
+/// #917, the owner's answer A): a ray that grazes the edge between two faces
+/// can miss both, where one a hair to the side meets the part.
+const RETRY_ANGLE: f64 = 0.01;
+
+/// The share of a station's rays towards the axis that may miss, after the
+/// retry, with the station still on the axis (issue #917, the owner's answer
+/// A: the axis is kept where 98% of the rays or more meet the part). A
+/// feature off the axis misses far more: a pin beside it most of a turn.
+const MOST_MISSED: f64 = 0.02;
+
 /// The centre a station's rays should aim at: `None` when every ray towards
-/// the axis meets the part (or none does), or when the section's centre is
-/// within `snap` of the axis.
+/// the axis meets the part, or nearly every one (98%, each that misses tried
+/// again a hair to either side), or none does, or when the section's centre
+/// is within `snap` of the axis.
 fn station_centre(
     surface: &dyn SurfaceSource,
     x: f64,
@@ -88,12 +100,16 @@ fn station_centre(
         (0..STATION_RAYS)
             .filter_map(|k| {
                 let th = 360.0 * k as f64 / STATION_RAYS as f64;
-                hit_towards(surface, x, centre, th, outside).map(|h| h.point)
+                [0.0, RETRY_ANGLE, -RETRY_ANGLE]
+                    .iter()
+                    .find_map(|d| hit_towards(surface, x, centre, th + d, outside))
+                    .map(|h| h.point)
             })
             .collect()
     };
     let hits = around((0.0, 0.0));
-    if hits.is_empty() || hits.len() == STATION_RAYS {
+    let missed = STATION_RAYS - hits.len();
+    if hits.is_empty() || missed as f64 <= MOST_MISSED * STATION_RAYS as f64 {
         return None;
     }
     let mut centre = middle(&hits)?;
@@ -204,5 +220,135 @@ mod tests {
         ];
         assert_eq!(middle(&pts), Some((1.0, 1.0)));
         assert_eq!(middle(&[]), None);
+    }
+
+    /// A prism along X whose section is a regular pentagon, of circumradius
+    /// `radius` about `centre`, its first corner at polar angle 90°: an
+    /// on-axis five-blade section's box middle is off the axis by about a
+    /// tenth of its radius, as the blisk's is. A ray whose origin's polar
+    /// angle (about the axis) lies in one of `gaps` (degrees) misses, as a
+    /// ray grazing a trim edge did (issue #917).
+    #[derive(Debug)]
+    struct Pentagon {
+        centre: (f64, f64),
+        radius: f64,
+        gaps: Vec<(f64, f64)>,
+        mesh: openchuck_types::mesh::TriangleMesh,
+    }
+
+    impl Pentagon {
+        fn new(centre: (f64, f64), radius: f64, gaps: Vec<(f64, f64)>) -> Self {
+            Self {
+                centre,
+                radius,
+                gaps,
+                mesh: openchuck_types::mesh::TriangleMesh::default(),
+            }
+        }
+
+        fn corners(&self) -> Vec<(f64, f64)> {
+            (0..5)
+                .map(|k| {
+                    let a = (90.0 + 72.0 * f64::from(k)).to_radians();
+                    (
+                        self.centre.0 + self.radius * a.cos(),
+                        self.centre.1 + self.radius * a.sin(),
+                    )
+                })
+                .collect()
+        }
+    }
+
+    impl SurfaceSource for Pentagon {
+        fn bounds(&self) -> openchuck_types::geometry::Aabb {
+            let r = self.radius + self.centre.0.hypot(self.centre.1);
+            openchuck_types::geometry::Aabb {
+                min: Point3::new(-100.0, -r, -r),
+                max: Point3::new(100.0, r, r),
+            }
+        }
+        fn project(&self, _: Point3) -> Option<crate::surface::SurfacePoint> {
+            None
+        }
+        fn cast_ray(
+            &self,
+            origin: Point3,
+            direction: UnitVec3,
+            max_distance: f64,
+        ) -> Option<crate::surface::RayHit> {
+            let th = origin.z.atan2(origin.y).to_degrees().rem_euclid(360.0);
+            if self.gaps.iter().any(|&(lo, hi)| th >= lo && th <= hi) {
+                return None;
+            }
+            let d = direction.get();
+            let corners = self.corners();
+            let mut best: Option<f64> = None;
+            for k in 0..5 {
+                let (a, b) = (corners[k], corners[(k + 1) % 5]);
+                // origin + t d = a + u (b - a), in (y, z).
+                let (ey, ez) = (b.0 - a.0, b.1 - a.1);
+                let det = d.y * (-ez) - d.z * (-ey);
+                if det.abs() < 1e-12 {
+                    continue;
+                }
+                let (ry, rz) = (a.0 - origin.y, a.1 - origin.z);
+                let t = (ry * (-ez) - rz * (-ey)) / det;
+                let u = (d.y * rz - d.z * ry) / det;
+                if (0.0..=1.0).contains(&u) && t >= 0.0 && t <= max_distance {
+                    best = Some(best.map_or(t, |x: f64| x.min(t)));
+                }
+            }
+            let t = best?;
+            Some(crate::surface::RayHit {
+                distance: t,
+                point: origin + d * t,
+                normal: UnitVec3::new(-d).ok()?,
+                position: None,
+            })
+        }
+        fn tessellation(&self) -> &openchuck_types::mesh::TriangleMesh {
+            &self.mesh
+        }
+        fn drop_tool(
+            &self,
+            _: &openchuck_types::tool::profile::RevolvedProfile,
+            _: &crate::cutter::ToolLine,
+        ) -> Option<crate::cutter::Contact> {
+            None
+        }
+    }
+
+    #[test]
+    fn req_op_26_req_nfr_06_an_isolated_ray_that_grazes_an_edge_keeps_the_axis() {
+        // Issue #917, the owner's answer A: on the STEP blisk five rays, one
+        // a blade, grazed a trim edge and missed, and the station was taken
+        // off the axis, round its box middle 1.3 mm away. A missed ray is
+        // tried again 0.01° either side, so the station keeps the axis.
+        let gaps = [8.0, 80.0, 152.0, 224.0, 296.0]
+            .iter()
+            .map(|&a| (a - 0.001, a + 0.001))
+            .collect();
+        let blisk = Pentagon::new((0.0, 0.0), 14.0, gaps);
+        assert_eq!(station_centre(&blisk, 0.0, 14.0, 0.01), None);
+    }
+
+    #[test]
+    fn req_op_26_a_section_nearly_all_met_keeps_the_axis() {
+        // The owner's 98% rule: a few rays that miss whatever the retry (a
+        // 3° gap: 3 or 4 of 360) do not take the station off the axis.
+        let blisk = Pentagon::new((0.0, 0.0), 14.0, vec![(100.0, 103.0)]);
+        assert_eq!(station_centre(&blisk, 0.0, 14.0, 0.01), None);
+        // Over 2% missed (a 9° gap) is still taken round the section's centre.
+        let gapped = Pentagon::new((0.0, 0.0), 14.0, vec![(100.0, 109.0)]);
+        assert!(station_centre(&gapped, 0.0, 14.0, 0.01).is_some());
+    }
+
+    #[test]
+    fn req_op_26_an_off_axis_section_is_still_found() {
+        // A pin off the axis, which most rays towards the axis miss, keeps
+        // its own centre (decision 0363 item 3).
+        let pin = Pentagon::new((0.0, 8.0), 3.0, Vec::new());
+        let (cy, cz) = station_centre(&pin, 0.0, 12.0, 0.01).unwrap();
+        assert!(cy.abs() < 0.5 && (cz - 8.0).abs() < 0.5, "{cy} {cz}");
     }
 }

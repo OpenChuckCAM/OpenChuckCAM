@@ -1125,6 +1125,97 @@ fn req_op_28_face_flow_on_the_blisk_floor_runs_between_the_blade_roots_without_g
     assert_eq!(runs.len(), 4);
 }
 
+/// Issue #917, the owner's answer A: on the STEP blisk, five rays at a
+/// station, one a blade, grazed the edge between two faces and missed, and
+/// the zone finder took that 0.1 mm station off the axis, round its box
+/// middle 1.3 mm away: simultaneous finishing's spiral was split there, its
+/// path went round the false centre, and a note said the section does not
+/// surround the axis. A missed ray is now tried again 0.01° either side, and
+/// the axis is kept where 98% of the rays meet the part, so the blisk, whose
+/// every section surrounds the axis, is driven round the axis throughout.
+#[test]
+fn req_op_26_req_op_05_simultaneous_finishing_on_the_step_blisk_keeps_the_axis() {
+    use openchuck_path::params::names;
+    use openchuck_path::simultaneous::SimultaneousFinishing;
+    use openchuck_path::{AcceptAll, AnalyticStock, RotaryMapping, Strategy, StrategyInput};
+    use openchuck_types::ir::PathTags;
+    use openchuck_types::machine::Clearance;
+
+    let model = blisk_on_axis();
+    let tool = ball().tool.profile().unwrap();
+    let machine = builtin("makera-z1").unwrap().unwrap();
+    let surface = BrepSurface::new(&model).unwrap();
+    let stock = AnalyticStock::Cylinder {
+        radius: 21.0,
+        x_start: 9.0,
+        x_end: 61.0,
+    };
+    // Held either side of ten stations round X 47.998, where a false strip
+    // was found (X 47.973 to 48.023): the path and its zones are made there
+    // only, which keeps the test short (docs/ci-performance.md). The held
+    // edges lie on the whole part's grid of 0.1 mm stations, so the stations
+    // are where they are for the whole part.
+    let bounds = surface.bounds();
+    let (lo, hi) = (bounds.min.x, bounds.max.x);
+    let step = (hi - lo) / ((hi - lo) / 0.1).ceil();
+    let first = ((47.998 - lo) / step).floor() - 5.0;
+    let keep_out = [
+        (lo - 10.0, lo + first * step),
+        (lo + (first + 10.0) * step, hi + 10.0),
+    ];
+    let tags = PathTags {
+        operation: "op".into(),
+        setup: "setup".into(),
+        tool: "tool".into(),
+    };
+    let input = StrategyInput {
+        surface: &surface,
+        stock: &stock,
+        collision: &AcceptAll,
+        tool: &tool,
+        rotary: RotaryMapping::of_profile(&machine),
+        clearance: Clearance {
+            radius: Millimetres(26.0),
+            safe_z: Millimetres(36.0),
+        },
+        max_feeds: machine.max_feeds,
+        tags: &tags,
+        facing: None,
+        keep_out: &keep_out,
+        shank: None,
+    };
+    let mut values: BTreeMap<String, openchuck_path::ParameterValue> = [
+        (names::STEPOVER, 1.0),
+        (names::TOLERANCE, 0.01),
+        (names::FEED, 300.0),
+        (names::PLUNGE_FEED, 100.0),
+        ("max_angle_step", 10.0),
+    ]
+    .into_iter()
+    .map(|(k, v)| (k.to_owned(), openchuck_path::ParameterValue::Number(v)))
+    .collect();
+    values.insert(
+        "adaptive_spacing".to_owned(),
+        openchuck_path::ParameterValue::Flag(false),
+    );
+    let strategy = SimultaneousFinishing;
+    let parameters = strategy.resolve_parameters(&values).unwrap();
+    let cancel = CancelToken::new();
+    let out = strategy
+        .passes_with_notes(
+            &input,
+            None,
+            &parameters,
+            &JobContext::new(&cancel, &NoProgress),
+        )
+        .unwrap();
+    let notes = out.notes().join("\n");
+    assert!(
+        !notes.contains("does not surround the rotary axis"),
+        "{notes}"
+    );
+}
+
 /// A ramp entry on a STEP part (decision 0543, the owner's answers; D10):
 /// the back-and-forth ramp was refused on every STEP part, its clearance
 /// certificate needing triangles with a proved error. Following the pass,
