@@ -2644,6 +2644,113 @@ mod tests {
         let _ = std::fs::remove_dir_all(dir);
     }
 
+    /// Prepares the cut part on Simulate and waits for the first one.
+    fn simulating(name: &str) -> (Application, PlaybackPanel, Viewport, std::path::PathBuf) {
+        let (app, mut panel, mut viewport, dir) = prepared(name);
+        viewport.set_step(Some(crate::viewport::ViewStep::Simulate));
+        let started = Instant::now();
+        loop {
+            let busy = panel.frame(&app, &mut viewport, 0.0);
+            if !busy && panel.stock.shown.is_some() {
+                break;
+            }
+            assert!(started.elapsed() < Duration::from_secs(120));
+            std::thread::sleep(Duration::from_millis(5));
+        }
+        (app, panel, viewport, dir)
+    }
+
+    /// The owner's Q1 B on issue #454: a step to a new point shows the new
+    /// cut part at once, plain, and its colours follow; only the cut part
+    /// at the end of the program is coloured.
+    #[test]
+    fn req_sim_04_req_sim_05_the_new_cut_part_shows_at_once_and_its_colours_follow() {
+        let (app, mut panel, mut viewport, dir) = simulating("plain-first");
+        let data = panel.data.clone().unwrap();
+        panel.bands_on = true;
+        panel.playback.seek(&data.timeline, 1.0);
+        let end = panel.playback.cursor();
+        let started = Instant::now();
+        let mut seen = Vec::new();
+        while panel.frame(&app, &mut viewport, 0.0) {
+            assert!(started.elapsed() < Duration::from_secs(120));
+            if panel.stock.shown == Some(end)
+                && let Some(surface) = &panel.stock.surface
+                && seen.last().is_none_or(|s| !Arc::ptr_eq(s, surface))
+            {
+                seen.push(Arc::clone(surface));
+            }
+            std::thread::sleep(Duration::from_millis(5));
+        }
+        let first = seen.first().expect("the cut part at the end was shown");
+        assert!(first.bands.is_none(), "first shown plain");
+        let last = panel.stock.surface.clone().unwrap();
+        assert!(last.bands.is_some(), "then coloured");
+        assert!(last.can_pick());
+        assert!(panel.bands.is_some(), "the colours reach the viewport");
+
+        // An interim point stays plain even with colours on.
+        panel.playback.seek(&data.timeline, 0.5);
+        while panel.frame(&app, &mut viewport, 0.0) {
+            assert!(started.elapsed() < Duration::from_secs(120));
+            std::thread::sleep(Duration::from_millis(5));
+        }
+        let interim = panel.stock.surface.clone().unwrap();
+        assert!(interim.bands.is_none() && interim.can_pick());
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// The lozenge (the owner's Q1 B on issue #454): it shows a wait only
+    /// once it has lasted 0.3 s, with the job's words, and its Stop ends the
+    /// colouring and turns Deviation colours off.
+    #[test]
+    fn req_sim_05_req_ui_09_the_lozenge_shows_a_wait_and_stop_turns_colours_off() {
+        let (app, mut panel, mut viewport, dir) = simulating("lozenge");
+        let data = panel.data.clone().unwrap();
+        let jobs = openchuck_app::JobLog::default();
+        assert_eq!(panel.lozenge(&jobs), None, "nothing to wait for");
+        panel.bands_on = true;
+        panel.playback.seek(&data.timeline, 1.0);
+        let end = panel.playback.cursor();
+        // Hold the coloured cut part's job so the wait lasts.
+        let pool = openchuck_app::JobManager::new(openchuck_app::Threads::Exactly(1)).unwrap();
+        let (events, _) = std::sync::mpsc::channel();
+        let (release, blocked) = std::sync::mpsc::channel::<()>();
+        let surface = app
+            .start_stock_surface(panel.stock.playback.as_ref().unwrap(), end, true)
+            .wait()
+            .unwrap();
+        panel.stock.mesh = Some((
+            pool.submit("delayed surface", events, move |_| {
+                let _ = blocked.recv();
+                Ok(surface)
+            }),
+            end,
+        ));
+        panel.stock.pending_colours = Some(true);
+        panel.follow_wait();
+        assert_eq!(panel.lozenge(&jobs), None, "not before 0.3 s");
+        let (kind, _) = panel.stock.wait.unwrap();
+        assert_eq!(kind, WaitKind::ColouringCutPart);
+        panel.stock.wait = Some((kind, Instant::now() - LOZENGE_DELAY));
+        let lozenge = panel.lozenge(&jobs).unwrap();
+        assert!(lozenge.text.starts_with("Colouring the cut part…"));
+        assert!(lozenge.stop);
+
+        panel.stop_colouring(&mut viewport);
+        drop(release);
+        assert!(!panel.bands_on, "Stop turns Deviation colours off");
+        assert!(panel.stock.mesh.is_none() && panel.lozenge(&jobs).is_none());
+        let started = Instant::now();
+        while panel.frame(&app, &mut viewport, 0.0) {
+            assert!(started.elapsed() < Duration::from_secs(120));
+            std::thread::sleep(Duration::from_millis(5));
+        }
+        assert!(panel.stock.surface.as_ref().unwrap().bands.is_none());
+        assert!(panel.bands.is_none(), "the cut part stays on screen, plain");
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
     #[test]
     fn req_sim_05_the_stock_and_the_deviation_colours_come_from_jobs() {
         let (app, mut panel, mut viewport, dir) = prepared("panel-stock");
@@ -2675,11 +2782,19 @@ mod tests {
         panel.frame(&app, &mut viewport, 0.0);
         assert!(viewport.layer(Layer::Stock).unwrap().meshes.is_empty());
         // With Cut part hidden its colours are hidden too. Showing it again
-        // maps the final samples onto the actual stock surface.
+        // maps the final samples onto the actual stock surface, at the end of
+        // the program only: an interim cut part stays plain (the owner's
+        // decision of 26 Nov 2026, issue #454).
         panel.bands_on = true;
         panel.frame(&app, &mut viewport, 0.0);
         assert!(panel.bands.is_none());
         viewport.set_simulate_show(SimulateShow::default());
+        while panel.frame(&app, &mut viewport, 0.0) {
+            assert!(started.elapsed() < Duration::from_secs(120));
+            std::thread::sleep(Duration::from_millis(5));
+        }
+        assert!(panel.bands.is_none(), "an interim cut part is plain");
+        panel.playback.seek(&data.timeline, 1.0);
         while panel.frame(&app, &mut viewport, 0.0) {
             assert!(started.elapsed() < Duration::from_secs(120));
             std::thread::sleep(Duration::from_millis(5));
