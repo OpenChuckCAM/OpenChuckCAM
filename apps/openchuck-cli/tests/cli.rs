@@ -1846,3 +1846,59 @@ fn req_op_21_cli_says_a_set_on_ignore_as_a_note() {
     assert!(lines[0].starts_with("note: "), "{all}");
     std::fs::remove_dir_all(&dir).unwrap();
 }
+
+#[test]
+fn req_nfr_20_cli_writes_the_bug_report_file_with_what_was_asked() {
+    let project = empty_project("bug-report");
+    let logs = project.with_extension("logs");
+    std::fs::create_dir_all(&logs).unwrap();
+    std::fs::write(logs.join("openchuckcam.log"), "0.001 INFO start\n").unwrap();
+    let out_file = project.with_extension("zip");
+    let out = run(&[
+        "bug-report".as_ref(),
+        "--out".as_ref(),
+        out_file.as_os_str(),
+        "--log-folder".as_ref(),
+        logs.as_os_str(),
+        "--project".as_ref(),
+        project.as_os_str(),
+    ]);
+    assert_eq!(out.code, Some(0), "{}", out.stderr);
+    // It lists what it wrote, as the dialog does, and sends nothing.
+    assert!(
+        out.stdout.contains("build-information.txt"),
+        "{}",
+        out.stdout
+    );
+    assert!(
+        out.stdout.contains("logs/openchuckcam.log"),
+        "{}",
+        out.stdout
+    );
+    assert!(
+        out.stdout.contains("project/project.toml"),
+        "{}",
+        out.stdout
+    );
+    let bytes = std::fs::read(&out_file).unwrap();
+    assert_eq!(&bytes[..4], b"PK\x03\x04");
+    // Without --project, no project file; the build and logs are still in.
+    let bare = project.with_extension("bare.zip");
+    let out = run(&[
+        "bug-report".as_ref(),
+        "--out".as_ref(),
+        bare.as_os_str(),
+        "--log-folder".as_ref(),
+        logs.as_os_str(),
+    ]);
+    assert_eq!(out.code, Some(0), "{}", out.stderr);
+    assert!(!out.stdout.contains("project/"), "{}", out.stdout);
+    // A file that cannot be written is an error that says so.
+    let out = run(&[
+        "bug-report".as_ref(),
+        "--out".as_ref(),
+        "/nowhere/at/all/report.zip".as_ref(),
+    ]);
+    assert_ne!(out.code, Some(0));
+    assert!(out.stderr.contains("report.zip"), "{}", out.stderr);
+}

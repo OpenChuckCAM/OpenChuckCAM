@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased (PROJECT-UX-B, B4; issue #754; record PROJUX-B-4, proposed)
+
+- **Added:** `bug_report`: `Sources`, `Choice`, `entries` (build information, logs, and the project's own files, model files and program files when chosen, with `contents.txt`), `without_home` (the home folder as "~"), `preview`, `crc32`, `zip_bytes` and `write_zip` (a stored zip written through a temporary file), `home_folder`.
+
 ## Unreleased (MOPUP-1, PR M10; issue #892)
 
 - **Changed:** a new pencil clean-up operation is written with Shortest cut `tool_diameter`, which follows the operation's tool. An operation saved without it is shown, and given to the library, as Tool diameter too (it took the tool's diameter before, as a number); a number the user set is kept. The program is unchanged in every case. A rollback consequence (CodeRabbit on #969): an operation saved with `tool_diameter` is refused by an earlier build, whose pencil `min_length` is a number only ("expected a number"); there is no conversion back.

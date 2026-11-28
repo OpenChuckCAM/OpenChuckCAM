@@ -312,3 +312,15 @@ fn req_nfr_20_crc32_matches_the_standard_check_value() {
     assert_eq!(bug_report::crc32(b"123456789"), 0xCBF4_3926);
     assert_eq!(bug_report::crc32(b""), 0);
 }
+
+#[test]
+fn req_nfr_20_no_log_found_is_said_in_the_file() {
+    let mut sources = sources("no-logs");
+    sources.logs.clear();
+    let entries = bug_report::entries(&sources, Choice::default());
+    let contents = String::from_utf8(entries.last().unwrap().bytes.clone()).unwrap();
+    assert!(
+        contents.contains("not included: log files: none were found"),
+        "{contents}"
+    );
+}

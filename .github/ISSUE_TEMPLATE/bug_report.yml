@@ -86,6 +86,10 @@ body:
         - "4 Trivial (sev3): cosmetic or wording"
     validations:
       required: false
+  - type: markdown
+    attributes:
+      value: |
+        **From version 0.xx.0, attach a bug-report file.** In the program, choose **Help > Save files for a bug report…** and attach the .zip file it writes here. The file always holds the build information and the log file: start-up information, warnings and errors, and the names of the actions you took. Your home folder is shown as `~`. The file holds your project, model files or G-code only if you tick them, and the program lists everything in it before saving. **Do not include a project you do not want to share publicly.** See [The bug-report file](https://openchuck.cam/latest/reporting.html#the-bug-report-file) in the user guide.
   - type: textarea
     id: files
     attributes:
@@ -99,7 +103,7 @@ body:
     attributes:
       label: Log file
       description: |
-        The program keeps a log file, `openchuckcam.log`, on your computer; Help > About has a button that opens its folder. It holds start-up information, the graphics adapter, warnings and errors, the text of a crash, and a list of the names of the actions you took (never the values you typed or the contents of files; Settings can turn the action list off). It includes the paths of project files, which may contain your user name. **Read it before you paste it** and remove anything you do not want to share. Paste the last part, around the problem.
+        If you attached the bug-report file, you do not need to paste the log. The program keeps a log file, `openchuckcam.log`, on your computer; Help > About has a button that opens its folder. It holds start-up information, the graphics adapter, warnings and errors, the text of a crash, and a list of the names of the actions you took (never the values you typed or the contents of files; Settings can turn the action list off). It includes the paths of project files, which may contain your user name. **Read it before you paste it** and remove anything you do not want to share. Paste the last part, around the problem.
       render: text
     validations:
       required: false

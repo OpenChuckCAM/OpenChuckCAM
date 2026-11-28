@@ -168,6 +168,11 @@ error: 1 check(s) above stop the G-code from being written; nothing was written
 `gcode-sim PROGRAM REPORT [--tolerance T] [--source-lines FIRST:LAST]`
 : A check the project uses: compares the report of a run in the LinuxCNC simulator with the program it ran.
 
+## A bug-report file
+
+`bug-report --out FILE [--log-folder FOLDER] [--project PROJECT [--models]] [--program FILE]...`
+: Writes one `.zip` file for a bug report, as **Help > Save files for a bug report…** does: the build information always; the log files from `--log-folder` (the folder **Help > About** shows); the project's own files with `--project`, its model files too with `--models`, and each `--program` file. It prints what the file holds. Folder names show your home folder as `~`. Nothing is sent anywhere. See [Reporting a problem](../reporting.md#the-bug-report-file).
+
 ## An example
 
 This takes the finished tutorial project from the repository, [`testdata/examples/baluster/baluster-project`](https://github.com/OpenChuckCAM/OpenChuckCAM/tree/main/testdata/examples/baluster/baluster-project), and writes its G-code and setup sheet. Copy it first, so the example stays as it is:

@@ -215,6 +215,29 @@ enum Action {
         /// The project folder.
         project: PathBuf,
     },
+    /// Write one file for a bug report (NFR-20): the build information and
+    /// the log files always; the project's own files, its model files and
+    /// program files only when asked. Folder names show the home folder as
+    /// "~". Nothing is sent anywhere; attach the file to your report
+    /// yourself.
+    BugReport {
+        /// The zip file to write.
+        #[arg(long)]
+        out: PathBuf,
+        /// The folder of the log files, as Help > About shows it. Without it,
+        /// no log is included.
+        #[arg(long)]
+        log_folder: Option<PathBuf>,
+        /// A project folder whose own files to include (not its models).
+        #[arg(long)]
+        project: Option<PathBuf>,
+        /// Also include the project's model files.
+        #[arg(long, requires = "project")]
+        models: bool,
+        /// A program file to include; may be given more than once.
+        #[arg(long)]
+        program: Vec<PathBuf>,
+    },
     /// Print the summary and check report of a model file, or of every
     /// model in a project folder.
     Inspect {
@@ -908,6 +931,64 @@ fn run(cli: Cli) -> Result<()> {
                     None => println!("tool numbers unchanged"),
                 }
             }
+        }
+        Action::BugReport {
+            out,
+            log_folder,
+            project,
+            models,
+            program,
+        } => {
+            use openchuck_app::bug_report::{self, Choice, Sources};
+            let logs = log_folder
+                .map(|folder| {
+                    // The current file and the three the program keeps.
+                    (0..=3)
+                        .map(|i| {
+                            if i == 0 {
+                                folder.join("openchuckcam.log")
+                            } else {
+                                folder.join(format!("openchuckcam.{i}.log"))
+                            }
+                        })
+                        .filter(|p| p.is_file())
+                        .collect()
+                })
+                .unwrap_or_default();
+            let model_files = match (&project, models) {
+                (Some(folder), true) => {
+                    let app = open_project(folder, threads, false)?;
+                    app.project()
+                        .models()
+                        .iter()
+                        .map(|m| m.path.resolve(folder))
+                        .collect()
+                }
+                _ => Vec::new(),
+            };
+            let sources = Sources {
+                build: openchuck_buildinfo::current_text().to_owned(),
+                logs,
+                project: project.clone(),
+                models: model_files,
+                programs: program.clone(),
+                home: bug_report::home_folder(),
+            };
+            let entries = bug_report::entries(
+                &sources,
+                Choice {
+                    project: project.is_some(),
+                    models,
+                    programs: !program.is_empty(),
+                },
+            );
+            bug_report::write_zip(&out, &entries, bug_report::FIXED_TIME)
+                .map_err(|e| anyhow::anyhow!(e))?;
+            println!("{}: written; it holds:", out.display());
+            for (name, size) in bug_report::preview(&entries) {
+                println!("  {name} ({size} bytes)");
+            }
+            println!("Nothing was sent anywhere; attach the file to your report yourself.");
         }
         Action::Report { project } => {
             let app = open_project(&project, threads, create)?;

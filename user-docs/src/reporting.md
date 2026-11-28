@@ -34,6 +34,12 @@ Every form adds two labels. `user-reported` means the issue was filed through th
 
 Everything you post on GitHub, in an issue or a discussion, including attachments, is visible to everyone. A project is a folder that holds your model and your settings. Attach files only if you are happy to share them. If you can, repeat the problem with one of the example models in the repository and attach that; otherwise describe the model.
 
+## The bug-report file
+
+**Help > Save files for a bug report…** writes one `.zip` file on your computer to attach to a report. It always holds the build information (as **Help > About** shows it) and the log files (below). It holds the project's own files (its settings, setups, tools and operations, not its model files) unless you untick them, and its model files and the program files you last wrote only if you tick them. The dialog lists everything the file will hold, with sizes, before you save, and the file has the same list in `contents.txt`. Folder names show your home folder as `~`. Nothing is sent anywhere: you attach the file to your report yourself. Do not include a project you do not want to share publicly; the example projects in the repository are a good way to show a problem.
+
+From the command line, `openchuck-cli bug-report --out FILE` writes the same file ([Command line](reference/command-line.md#a-bug-report-file)).
+
 ## The log file
 
 The program keeps a log file, `openchuckcam.log`, on your computer. **Help > About** has a button that opens its folder; [Where the program keeps its log](start/install.md#where-the-program-keeps-its-log) lists the folders. It holds:

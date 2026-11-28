@@ -112,6 +112,7 @@ The *latest* version of this guide describes the nightly build, the [development
 
 ### UI and workflow
 
+- **A file for bug reports.** **Help > Save files for a bug report…** writes one zip file with the build information and the log, and, if you tick them, the project, its model files and the program files you last wrote. It lists what the file holds before you save it, shows your home folder as `~`, and sends nothing anywhere (#754). See [Reporting a problem](reporting.md#the-bug-report-file).
 - **Start page and dropped files.** The card in the middle of an empty window lists your recent projects, newest first; choose one to open it. Dragging an STL or STEP file onto the window starts a new project named after it (or imports it into the open project), and dragging a project folder onto the window opens it. While you drag, the window says what the drop will do. On a Linux desktop running Wayland, dropping needs an X11 session for now (#706).
 - **Toolpath moves.** Each kind of toolpath move can be shown or hidden in the view: tick or untick Cut, Link, Rapid, or Plunge, Lead-in and ramp and Lead-out under Entry and exit, in the path legend (on Operations, and on Simulate while the toolpaths are shown), in the view's **Show** menu, or in **View > Toolpath moves**. A label beside **Show** says what is hidden, and **Show all moves** shows everything again. The choice is kept for every project; the G-code and the simulation do not change.
 - **Operations list.** Resting the pointer on an operation's tool number in the project panel, or moving to the operation with Tab, shows the tool's name and what it is. An operation with no tool shows **No tool** in red instead of nothing.
@@ -179,6 +180,7 @@ The *latest* version of this guide describes the nightly build, the [development
 
 ### Command line
 
+- **Bug-report file.** `openchuck-cli bug-report --out FILE` writes the same file as the Help menu, with `--log-folder`, `--project`, `--models` and `--program` to choose what goes in (#754). See [Command line](reference/command-line.md#a-bug-report-file).
 - **Default tabs from the command line.** `openchuck-cli setup --default-tabs` now adds the default tab for each end that can have one, says where it put each, and prints a warning naming an end that cannot have one and why, so you add that one by hand. Before, it refused the whole command when one end had none. It still refuses, naming both ends, when neither end can have one (#676). See [Command line](reference/command-line.md).
 
 ### User guide and examples

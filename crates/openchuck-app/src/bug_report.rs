@@ -82,6 +82,9 @@ pub fn entries(sources: &Sources, choice: Choice) -> Vec<Entry> {
         add_file(&mut out, &mut unread, log, "logs", home, true);
     }
     let mut left_out = Vec::new();
+    if sources.logs.is_empty() {
+        left_out.push("log files: none were found");
+    }
     if choice.project {
         match &sources.project {
             Some(folder) => add_project(&mut out, &mut unread, folder, home),

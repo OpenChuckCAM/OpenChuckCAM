@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased (PROJECT-UX-B, B4; issue #754; record PROJUX-B-4, proposed)
+
+- **Added:** Help > Save files for a bug report… (`shell::bug_report`): the always-included and chosen parts, the list of what the file holds, and Save through the platform's save dialog. `ExportPanel::written_files`.
+
 
 ## Unreleased (FACEFLOW; issues #614 and #615)
 
