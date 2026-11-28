@@ -151,3 +151,21 @@ fn req_ui_14_esc_does_not_clear_the_selection() {
     assert_eq!(rig.shell.selected, Some(selected));
     std::fs::remove_dir_all(&rig.dirs[0]).ok();
 }
+
+#[test]
+fn req_ui_06_req_ui_05_picking_keeps_its_own_way_out() {
+    let mut rig = Rig::cube("tree-clear-picking", None);
+    rig.settle();
+    rig.shell
+        .tree_action(TreeAction::Add(super::tree::Group::SelectionSets));
+    rig.settle();
+    assert_eq!(rig.shell.selected, Some(Selection::Picking));
+    rig.click(empty_space(&rig).center());
+    rig.settle();
+    assert_eq!(
+        rig.shell.selected,
+        Some(Selection::Picking),
+        "picking is left with Esc or another step, not a click in the panel"
+    );
+    std::fs::remove_dir_all(&rig.dirs[0]).ok();
+}

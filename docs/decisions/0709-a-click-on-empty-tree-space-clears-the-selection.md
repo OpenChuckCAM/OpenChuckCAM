@@ -60,8 +60,15 @@ Linux cloud container, 4 vCPU, no GPU; branch `claude/lane-ui-followups-925-clea
 - `req_ui_06_a_click_on_empty_tree_space_clears_a_selected_model_or_setup`.
 - `req_ui_06_while_a_context_menu_is_open_the_click_only_closes_it`.
 - `req_ui_06_req_ui_14_while_a_text_field_has_the_keyboard_the_click_only_ends_the_edit`.
+- `req_ui_06_req_ui_05_picking_keeps_its_own_way_out`.
 - `req_ui_14_esc_does_not_clear_the_selection`: a guard of the unchanged Esc, so it passed before the change as well.
 
-The first four failed against `main`. The two guard tests also failed with the menu and text guards taken out, then passed with them back. Each takes under a second uninstrumented.
+The first four failed against `main`. The menu, text-field and picking tests each failed with their guard taken out, then passed with it back. Each test takes under a second uninstrumented.
+
+**Suites and checks:**
+- `cargo nextest run -p openchuck-ui`: 832 tests, all passed (before the picking test was added; that test then passed with the other five).
+- `cargo clippy --workspace --all-targets`, with no warnings after the last commit.
+- `cargo xtask deps`, `licences`, `records`, `trace` and `changelog check-pr`, all ok.
+- Local coverage of these tests: every new line runs except the closing brace for a panel the tree fills, which has no empty space.
 
 **Not verified:** a real mouse and window manager (the tests send egui pointer events); that is the owner check above.
