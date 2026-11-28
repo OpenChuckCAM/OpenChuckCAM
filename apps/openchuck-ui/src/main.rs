@@ -65,6 +65,7 @@ mod unreached_view;
 mod viewport;
 mod viewport_overlays;
 mod viewport_toolbar;
+mod window_start;
 mod window_title;
 mod workholding_panel;
 
@@ -119,15 +120,14 @@ fn run_app(folder: Option<std::path::PathBuf>) -> ExitCode {
             .show();
     }
     let mut options = native_options(true);
-    // The window opens at the size it had (UI-15). The first time it fills
-    // the screen: at the default 120% scale a smaller window would start
-    // below the 1366 × 768 logical pixels of UI-16.
-    let size = openchuck_app::settings::SettingsFile::default_location()
-        .and_then(|f| f.load().settings.window);
-    options.viewport = match size {
-        Some(size) => options.viewport.with_inner_size(size),
-        None => options.viewport.with_maximized(true),
-    };
+    // The window opens maximised the first time and when it was closed
+    // maximised, otherwise centred at the size it had (UI-15, UI-16).
+    let start = openchuck_app::settings::SettingsFile::default_location()
+        .map(|f| f.load().settings)
+        .unwrap_or_default()
+        .window_start();
+    options.viewport = window_start::opening(options.viewport, start);
+    options.centered = true;
     graphics::watch_for_stall();
     let result = eframe::run_native(
         "OpenChuckCAM",

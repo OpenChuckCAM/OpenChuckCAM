@@ -125,6 +125,7 @@ The *latest* version of this guide describes the nightly build, the [development
 - **Recovery of a deleted project.** The warning about recovery data kept for a project that is no longer there can be removed: click **Locate folder**, then **Forget this project** (#681).
 - **Smaller fixes.** In an operation's **Geometry** section, a wrapped **Cut short / Warn only / Ignore** row stays beside its label (#609).
 - **Tab past a scrolled inspector.** When the inspector is taller than the window and scrolls, <kbd>Tab</kbd> from its last control goes on to the footer instead of stopping on the inspector's splitter and going back into the dock.
+- **Fixed: the window on start.** The window now opens centred on the screen at the size it had, or maximised if you closed it maximised (on macOS, a window you maximise while the program is open is reopened centred at that size). Before, after a session in a maximised window it opened as a screen-sized window off to one side, running past the edge of the screen.
 
 ### Models, setups and workholding
 
