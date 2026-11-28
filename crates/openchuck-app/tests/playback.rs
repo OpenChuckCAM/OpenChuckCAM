@@ -1685,6 +1685,45 @@ fn req_sim_05_req_nfr_04_the_sample_index_and_the_final_colours_are_made_once_wh
     let _ = std::fs::remove_dir_all(dir);
 }
 
+/// "Prepare deviation data in the background" (the owner's decision of 26
+/// Nov 2026, issues #454 and #538): one job, on one thread, builds the
+/// sample index and the final coloured cut part, so they are ready when
+/// colours are turned on, and can be cancelled.
+#[test]
+fn req_sim_05_req_nfr_04_the_final_colours_are_prepared_in_the_background() {
+    let (dir, app, _) = project("colours-background");
+    let run = Arc::new(app.simulate().unwrap());
+    let t = Arc::new(Timeline::new(app.project(), Arc::clone(&run)).unwrap());
+    let playback = Arc::new(
+        app.start_stock_playback(Arc::clone(&t), DEFAULT_PLAYBACK_MEMORY)
+            .wait()
+            .unwrap(),
+    );
+    assert!(!playback.colours_ready());
+    let cancelled = app.start_preparing_deviation(&playback);
+    cancelled.cancel();
+    let _ = cancelled.wait();
+    app.start_preparing_deviation(&playback).wait().unwrap();
+    assert!(playback.colours_ready());
+    assert_eq!(playback.samples_built(), 1);
+    let end = Cursor {
+        done: t.move_count(),
+        fraction: 0.0,
+    };
+    let shown = app
+        .start_stock_surface(&playback, end, true)
+        .wait()
+        .unwrap();
+    let again = app
+        .start_stock_surface(&playback, end, true)
+        .wait()
+        .unwrap();
+    assert!(Arc::ptr_eq(&shown, &again), "the prepared colours are used");
+    assert!(shown.bands.as_ref().unwrap().pieces.is_some());
+    assert_eq!(playback.samples_built(), 1);
+    let _ = std::fs::remove_dir_all(dir);
+}
+
 /// Stock playback and the colours read the run's own project, so an edit made
 /// after the run cannot put the old toolpath on a different stock (SIM-04,
 /// SIM-05; verification policy 8).

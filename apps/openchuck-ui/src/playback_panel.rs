@@ -212,6 +212,10 @@ struct StockState {
     shown_colours: Option<bool>,
     /// The wait the user is watching, and since when (issue #454).
     wait: Option<(WaitKind, Instant)>,
+    /// The deviation data being prepared in the background, and whether it
+    /// was prepared for this playback (issue #454).
+    background: Option<JobHandle<()>>,
+    background_done: bool,
     /// The cursor of the cut part on screen. While playing the tool follows
     /// the clock and this may be behind it; when still they match.
     shown: Option<Cursor>,
@@ -397,6 +401,8 @@ pub struct PlaybackPanel {
     /// The user's "Memory for playback checkpoints", bytes (decision record
     /// 0322).
     playback_memory: usize,
+    /// "Prepare deviation data in the background" (issue #454).
+    deviation_in_background: bool,
     /// The window as drawn last, to tell when the path must be made again.
     drawn_window: Option<MoveWindow>,
     /// The faint trace of the whole path, made once per path, visible
@@ -465,6 +471,7 @@ impl Default for PlaybackPanel {
             show_tool: true,
             hide_outside: false,
             playback_memory: openchuck_app::stockplay::DEFAULT_PLAYBACK_MEMORY,
+            deviation_in_background: false,
             drawn_window: None,
             trace_job: None,
             trace: None,
@@ -763,6 +770,9 @@ impl PlaybackPanel {
         if let Some((job, _)) = &self.stock.mesh {
             job.cancel();
         }
+        if let Some(job) = &self.stock.background {
+            job.cancel();
+        }
     }
 
     /// Forgets everything: a project was closed or opened.
@@ -773,6 +783,7 @@ impl PlaybackPanel {
             view: self.view,
             hide_outside: self.hide_outside,
             playback_memory: self.playback_memory,
+            deviation_in_background: self.deviation_in_background,
             colour_by: self.colour_by,
             band_filter: self.band_filter.clone(),
             reset_layers: true,
@@ -789,6 +800,7 @@ impl PlaybackPanel {
             show_tool: self.show_tool,
             hide_outside: self.hide_outside,
             playback_memory: self.playback_memory,
+            deviation_in_background: self.deviation_in_background,
             budget: self.budget,
             colour_by: self.colour_by,
             band_filter: self.band_filter.clone(),
@@ -887,6 +899,62 @@ impl PlaybackPanel {
     /// is prepared.
     pub fn set_playback_memory(&mut self, bytes: usize) {
         self.playback_memory = bytes;
+    }
+
+    /// Sets "Prepare deviation data in the background" (issue #454).
+    pub fn set_deviation_in_background(&mut self, on: bool) {
+        self.deviation_in_background = on;
+    }
+
+    /// Prepares the final cut part's colours in the background, with
+    /// "Prepare deviation data in the background" on, once playback is
+    /// ready and while `idle` (no generation, simulation, posting or
+    /// preparing playback runs), so they show at once when colours are
+    /// turned on, even with colours off now (the owner's decision of 26 Nov
+    /// 2026, issues #454 and #538). The work stops when that ends, when the
+    /// user waits for those colours in the foreground, or when the run
+    /// changes; then the part's own colours are made, kept by the
+    /// application (decision 0708).
+    pub fn prepare_in_background(&mut self, app: &Application, idle: bool) {
+        let Some(playback) = self.stock.playback.clone() else {
+            return;
+        };
+        let foreground = matches!(self.stock.wait, Some((WaitKind::ColouringCutPart, _)));
+        if !self.deviation_in_background || !idle || foreground {
+            if let Some(job) = self.stock.background.take() {
+                job.cancel();
+            }
+            return;
+        }
+        if let Some(job) = &self.stock.background {
+            match job.try_result() {
+                None => {}
+                Some(Ok(())) => {
+                    self.stock.background = None;
+                    self.stock.background_done = true;
+                    if let Some(run) = &self.run {
+                        for setup in playback.setups() {
+                            // Kept by the application; the handle is not
+                            // needed.
+                            drop(app.start_deviation_bands(Arc::clone(run), setup));
+                        }
+                    }
+                }
+                Some(Err(_)) => {
+                    self.stock.background = None;
+                    self.stock.background_done = true;
+                }
+            }
+            return;
+        }
+        if !self.stock.background_done && !playback.colours_ready() {
+            self.stock.background = Some(app.start_preparing_deviation(&playback));
+        }
+    }
+
+    /// Whether deviation data is being prepared in the background.
+    pub fn preparing_in_background(&self) -> bool {
+        self.stock.background.is_some()
     }
 
     /// The playback window, if one is set (issue 205).
@@ -2748,6 +2816,49 @@ mod tests {
         }
         assert!(panel.stock.surface.as_ref().unwrap().bands.is_none());
         assert!(panel.bands.is_none(), "the cut part stays on screen, plain");
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// "Prepare deviation data in the background" (the owner's decision of
+    /// 26 Nov 2026, issue #454): with it on and nothing else running, the
+    /// final cut part's colours are made even with colours off; anything
+    /// else running stops the work, and it starts again when idle.
+    #[test]
+    fn req_sim_05_req_nfr_04_the_final_colours_are_prepared_while_idle() {
+        let (app, mut panel, mut viewport, dir) = simulating("background");
+        let playback = panel.stock.playback.clone().unwrap();
+        panel.prepare_in_background(&app, true);
+        assert!(!panel.preparing_in_background(), "the setting is off");
+        panel.set_deviation_in_background(true);
+        panel.prepare_in_background(&app, true);
+        assert!(panel.preparing_in_background());
+        panel.prepare_in_background(&app, false);
+        assert!(!panel.preparing_in_background(), "busy: the work stops");
+        assert!(!panel.bands_on);
+        let started = Instant::now();
+        loop {
+            panel.prepare_in_background(&app, true);
+            if !panel.preparing_in_background() && playback.colours_ready() {
+                break;
+            }
+            assert!(started.elapsed() < Duration::from_secs(120));
+            std::thread::sleep(Duration::from_millis(5));
+        }
+        // Colours ticked at the end: the prepared colours are shown.
+        let data = panel.data.clone().unwrap();
+        panel.bands_on = true;
+        panel.playback.seek(&data.timeline, 1.0);
+        while panel.frame(&app, &mut viewport, 0.0) {
+            assert!(started.elapsed() < Duration::from_secs(120));
+            std::thread::sleep(Duration::from_millis(5));
+        }
+        let end = panel.playback.cursor();
+        let kept = app
+            .start_stock_surface(&playback, end, true)
+            .wait()
+            .unwrap();
+        assert!(Arc::ptr_eq(panel.stock.surface.as_ref().unwrap(), &kept));
+        assert_eq!(playback.samples_built(), 1);
         let _ = std::fs::remove_dir_all(dir);
     }
 

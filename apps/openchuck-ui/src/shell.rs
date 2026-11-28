@@ -985,6 +985,25 @@ impl Shell {
         }
     }
 
+    /// Whether "Prepare deviation data in the background" is on: the user's
+    /// choice, or this computer's default, the rule of decision 0333 (issue
+    /// #454).
+    fn deviation_in_background_on(&self) -> bool {
+        self.settings
+            .simulate
+            .deviation_in_background
+            .unwrap_or_else(|| {
+                crate::memory::playback_with_generation_default(self.physical_memory)
+            })
+    }
+
+    /// Sets "Prepare deviation data in the background": the user's choice,
+    /// or `None` for this computer's default.
+    fn set_deviation_in_background(&mut self, choice: Option<bool>) {
+        self.settings.simulate.deviation_in_background = choice;
+        self.settings_touched();
+    }
+
     /// Sets "Generate playback information with toolpath generation": the
     /// user's choice, or `None` for this computer's default.
     fn set_playback_with_generation(&mut self, choice: Option<bool>) {
@@ -1824,6 +1843,7 @@ impl Shell {
         let mut added = None;
         let mut results_tab = false;
         let windowed = self.window_open();
+        let background = self.deviation_in_background_on();
         if let Some(app) = &mut self.app {
             let polled = self.run.poll(&self.jobs, ctx);
             results_tab = self.run.take_results_request();
@@ -1870,6 +1890,20 @@ impl Shell {
             let dt = f64::from(ctx.input(|i| i.stable_dt)).min(0.25);
             if self.play.frame(app, &mut self.viewport, dt) {
                 ctx.request_repaint();
+            }
+            // Deviation data is prepared in the background only while no
+            // generation, simulation, posting or playback preparation runs
+            // (issue #454).
+            let idle = self.jobs.running().iter().all(|e| {
+                !matches!(
+                    e.name.as_str(),
+                    "regenerate" | "regenerate all" | "simulate" | "post" | "prepare playback"
+                )
+            }) && !self.run.is_running();
+            self.play.set_deviation_in_background(background);
+            self.play.prepare_in_background(app, idle);
+            if self.play.preparing_in_background() {
+                ctx.request_repaint_after(std::time::Duration::from_millis(200));
             }
             // The unreachable areas, and a "Show in view" waiting for them.
             if self.areas.frame(app, &mut self.viewport, self.run.last()) {
@@ -2620,6 +2654,43 @@ impl Shell {
                      played, which takes about as long as the simulation. The toolpaths, the \
                      G-code and the cut part are the same either way. A change applies from \
                      the next generation.",
+                );
+                let mut background = self.deviation_in_background_on();
+                if ui
+                    .checkbox(&mut background, "Prepare deviation data in the background")
+                    .changed()
+                {
+                    action = Some(Box::new(move |s: &mut Self| {
+                        s.set_deviation_in_background(Some(background));
+                    }));
+                }
+                ui.horizontal(|ui| {
+                    let default =
+                        crate::memory::playback_with_generation_default(self.physical_memory);
+                    let state = if default { "On" } else { "Off" };
+                    ui.label(match crate::memory::gigabytes(self.physical_memory) {
+                        Some(gb) => format!("{state} by default on this computer ({gb} GB)"),
+                        None => format!(
+                            "{state} by default: this computer's memory could not be read"
+                        ),
+                    });
+                    if self.settings.simulate.deviation_in_background.is_some()
+                        && ui
+                            .button("Use this computer's default")
+                            .on_hover_text("For preparing deviation data in the background")
+                            .clicked()
+                    {
+                        action = Some(Box::new(|s: &mut Self| {
+                            s.set_deviation_in_background(None);
+                        }));
+                    }
+                });
+                ui.label(
+                    "On: after each simulation, while nothing else runs, the colours of the \
+                     final cut part are made on one processor thread, so they show at once \
+                     when Deviation colours is ticked. They hold memory while the result is \
+                     shown. Off: nothing is made until Deviation colours is ticked, then they \
+                     are made while you wait. What is shown is the same either way.",
                 );
                 let mut skip = self.settings.simulate.skip_stock_simulation;
                 if ui

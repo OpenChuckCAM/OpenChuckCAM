@@ -288,6 +288,69 @@ impl StockPlayback {
         Ok((index, last && done_in_group))
     }
 
+    /// Whether every setup with a comparison has its final coloured cut
+    /// part ready, so turning colours on at the end shows them at once.
+    pub fn colours_ready(&self) -> bool {
+        let run = self.timeline.run();
+        self.setups.iter().all(|setup| {
+            setup.finished.get().is_some()
+                || run
+                    .simulation
+                    .as_ref()
+                    .and_then(|r| r.setups.iter().find(|s| s.id == setup.id))
+                    .is_none_or(|s| s.deviation.is_none())
+        })
+    }
+
+    /// The cursor at which the setup at `index` shows its final stock: the
+    /// end of the program for the last setup, else the whole of its last
+    /// move.
+    fn final_cursor(&self, index: usize) -> Option<Cursor> {
+        let path = &self.timeline.run().toolpath;
+        let last = *self.setups.get(index)?.groups.last()?;
+        let before: usize = path
+            .groups
+            .get(..last)?
+            .iter()
+            .map(|g| g.segments.len())
+            .sum();
+        let len = path.groups.get(last)?.segments.len();
+        let end = before + len;
+        Some(if end >= self.timeline.move_count() {
+            Cursor {
+                done: end,
+                fraction: 0.0,
+            }
+        } else {
+            Cursor {
+                done: end.checked_sub(1)?,
+                fraction: 1.0,
+            }
+        })
+    }
+
+    /// Makes and keeps the final coloured cut part of the setup at `index`,
+    /// unless it is kept already or the run has no comparison for it.
+    fn prepare_final(&self, index: usize, context: &JobContext<'_>) -> Result<(), AppError> {
+        let Some(setup) = self.setups.get(index) else {
+            return Ok(());
+        };
+        if setup.finished.get().is_some() {
+            return Ok(());
+        }
+        let Some(cursor) = self.final_cursor(index) else {
+            return Ok(());
+        };
+        let Some(samples) = self.samples(index) else {
+            return Ok(());
+        };
+        context.check_cancelled()?;
+        let mesh = self.mesh_at(cursor, context)?;
+        let surface = StockSurface::new(mesh, setup.id, setup.model, Some(samples), true, context)?;
+        let _ = setup.finished.set(Arc::new(surface));
+        Ok(())
+    }
+
     /// Whether the stock at `cursor` is the final cut part of its setup,
     /// the only one that carries deviation colours (issue #454).
     pub fn is_final(&self, cursor: Cursor) -> bool {
@@ -538,6 +601,32 @@ impl Application {
                 }
                 Ok(surface)
             })
+    }
+
+    /// Prepares the deviation data in the background: the sample index and
+    /// the final coloured cut part of each setup, kept in `playback`, so
+    /// they show at once when colours are turned on ("Prepare deviation data
+    /// in the background", the owner's decision of 26 Nov 2026; issues #454
+    /// and #538). It works on one thread, so it leaves the others free, and
+    /// stops at its next check when cancelled.
+    pub fn start_preparing_deviation(&self, playback: &Arc<StockPlayback>) -> JobHandle<()> {
+        let playback = Arc::clone(playback);
+        self.jobs.submit(
+            "prepare deviation colours",
+            self.events_tx.clone(),
+            move |context| {
+                let one = rayon::ThreadPoolBuilder::new()
+                    .num_threads(1)
+                    .build()
+                    .map_err(|e| AppError::Playback(format!("no thread for the colours: {e}")))?;
+                one.install(|| {
+                    for index in 0..playback.setups.len() {
+                        playback.prepare_final(index, context)?;
+                    }
+                    Ok(())
+                })
+            },
+        )
     }
 
     /// Sorts the triangles of the part of `setup` into bands by the deviation

@@ -157,6 +157,13 @@ pub struct SimulateSettings {
     /// while simulating, so the cut part plays at once. Unset, the
     /// computer's default applies: on with 16 GB of memory or more.
     pub playback_with_generation: Option<bool>,
+    /// "Prepare deviation data in the background" (the owner's decision of
+    /// 26 Nov 2026, issues #454 and #538): after a simulating run, while
+    /// nothing else runs, the final cut part's colours are made on one
+    /// thread, so they show at once when colours are turned on. Unset, the
+    /// computer's default applies: on with 16 GB of memory or more, as for
+    /// `playback_with_generation`.
+    pub deviation_in_background: Option<bool>,
 }
 
 /// The memory for playback checkpoints, MB of 2^20 bytes: the least, the
@@ -175,6 +182,7 @@ impl Default for SimulateSettings {
             skip_stock_simulation: false,
             playback_memory_mb: PLAYBACK_MEMORY_MB.1,
             playback_with_generation: None,
+            deviation_in_background: None,
         }
     }
 }

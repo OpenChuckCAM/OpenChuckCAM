@@ -427,6 +427,7 @@ pub fn job_label(name: &str) -> Option<(&'static str, bool)> {
         "colour by deviation" => ("Colouring by deviation", false),
         "unreachable areas" => ("Finding the unreachable areas on the part", false),
         "prepare playback" => ("Simulating the cut part for playback", false),
+        "prepare deviation colours" => ("Preparing deviation colours", false),
         "save selection" => ("Saving the selection set", true),
         "edit selection" => ("Changing the selection set", true),
         _ => return None,
